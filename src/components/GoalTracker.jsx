@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Plus, Pencil, Check, X, Trophy, History, Trash2, TrendingUp } from 'lucide-react';
+import { Target, Plus, Pencil, Check, X, Trophy, History, Trash2, TrendingUp, Calendar } from 'lucide-react';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc, orderBy } from 'firebase/firestore';
@@ -12,11 +12,13 @@ export default function GoalTracker() {
     // New Goal State
     const [newTitle, setNewTitle] = useState('');
     const [newTarget, setNewTarget] = useState('');
+    const [newDeadline, setNewDeadline] = useState('');
 
     // Edit State
     const [editingId, setEditingId] = useState(null);
     const [editTitle, setEditTitle] = useState('');
     const [editTarget, setEditTarget] = useState('');
+    const [editDeadline, setEditDeadline] = useState('');
 
     // Contribution State (keyed by goal ID)
     const [contributions, setContributions] = useState({});
@@ -51,10 +53,12 @@ export default function GoalTracker() {
                 target: parseFloat(newTarget),
                 current: 0,
                 status: 'active',
+                deadline: newDeadline || null,
                 createdAt: new Date().toISOString()
             });
             setNewTitle('');
             setNewTarget('');
+            setNewDeadline('');
             setIsAdding(false);
         } catch (error) {
             console.error("Error adding goal:", error);
@@ -86,6 +90,7 @@ export default function GoalTracker() {
         setEditingId(goal.id);
         setEditTitle(goal.title);
         setEditTarget(goal.target);
+        setEditDeadline(goal.deadline || '');
     };
 
     const handleEditSave = async () => {
@@ -93,7 +98,8 @@ export default function GoalTracker() {
         try {
             await updateDoc(doc(db, 'goals', editingId), {
                 title: editTitle,
-                target: parseFloat(editTarget)
+                target: parseFloat(editTarget),
+                deadline: editDeadline || null
             });
             setEditingId(null);
         } catch (error) {
@@ -177,6 +183,15 @@ export default function GoalTracker() {
                             onChange={(e) => setNewTarget(e.target.value)}
                             className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
                         />
+                        <div className="md:col-span-2">
+                            <input
+                                type="date"
+                                placeholder="Prazo (Opcional)"
+                                value={newDeadline}
+                                onChange={(e) => setNewDeadline(e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 [color-scheme:dark]"
+                            />
+                        </div>
                     </div>
                     <div className="flex justify-end gap-2">
                         <button onClick={() => setIsAdding(false)} className="px-3 py-1.5 text-sm text-slate-400 hover:text-white">Cancelar</button>
@@ -214,12 +229,24 @@ export default function GoalTracker() {
                                                 onChange={(e) => setEditTarget(e.target.value)}
                                                 className="bg-slate-800 rounded px-2 py-1 text-sm border border-slate-600 text-white"
                                             />
+                                            <input
+                                                type="date"
+                                                value={editDeadline}
+                                                onChange={(e) => setEditDeadline(e.target.value)}
+                                                className="bg-slate-800 rounded px-2 py-1 text-sm border border-slate-600 text-white md:col-span-2 [color-scheme:dark]"
+                                            />
                                         </div>
                                     ) : (
                                         <div>
                                             <h3 className="font-bold text-lg text-slate-200">{goal.title}</h3>
                                             <p className="text-xs text-slate-400">
                                                 Meta: <span className="text-slate-300">R$ {goal.target.toLocaleString()}</span>
+                                                {goal.deadline && (
+                                                    <span className="ml-2 flex items-center gap-1 inline-flex text-blue-400">
+                                                        <Calendar className="w-3 h-3" />
+                                                        {new Date(goal.deadline).toLocaleDateString()}
+                                                    </span>
+                                                )}
                                             </p>
                                         </div>
                                     )}
@@ -270,6 +297,26 @@ export default function GoalTracker() {
                                         />
                                     </div>
                                 </div>
+
+                                {/* Savings Suggestion */}
+                                {goal.status === 'active' && goal.deadline && !isGoalCompleted && (
+                                    (() => {
+                                        const today = new Date();
+                                        const d = new Date(goal.deadline);
+                                        const months = (d.getFullYear() - today.getFullYear()) * 12 + (d.getMonth() - today.getMonth());
+                                        const remaining = goal.target - goal.current;
+                                        if (months > 0 && remaining > 0) {
+                                            const monthly = remaining / months;
+                                            return (
+                                                <div className="mb-4 text-xs text-blue-400/80 bg-blue-500/10 p-2 rounded-lg flex items-center gap-2">
+                                                    <TrendingUp className="w-3 h-3" />
+                                                    <span>Economize <strong>R$ {monthly.toLocaleString(undefined, { maximumFractionDigits: 0 })}/mês</strong> para atingir o prazo.</span>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })()
+                                )}
 
                                 {/* Contribution Input (Only for active goals) */}
                                 {goal.status === 'active' && (

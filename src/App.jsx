@@ -4,12 +4,14 @@ import GoalTracker from './components/GoalTracker';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LayoutDashboard, LogOut } from 'lucide-react';
+import InstallPrompt from './components/InstallPrompt';
 
 function Dashboard() {
   const { logout, currentUser } = useAuth();
 
   return (
     <div className="min-h-screen text-slate-50 p-6 md:p-12 relative">
+      <InstallPrompt />
       {/* Background overlay for better text readability if needed, but keeping it minimal for now */}
       <div className="max-w-6xl mx-auto space-y-8">
 
