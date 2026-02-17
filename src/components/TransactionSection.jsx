@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { LayoutDashboard, ArrowUpCircle, ArrowDownCircle, Trash2, Pencil, Calendar, Search, Wallet, TrendingUp, TrendingDown, FileText, X, Download, Home, Utensils, Car, Heart, Gamepad2, ShoppingBag, Briefcase, Laptop, Circle } from 'lucide-react';
 import { db } from '../services/firebase';
-import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, orderBy } from 'firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, orderBy, getDocs } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import ExpensesChart from './ExpensesChart';
+import FinancialAdvisor from './FinancialAdvisor';
+import AIChat from './AIChat';
+import { CATEGORIES } from '../constants/categories';
 
 // New Card Component
 function Card({ title, value, icon: Icon, color, highlight }) {
@@ -21,24 +25,7 @@ function Card({ title, value, icon: Icon, color, highlight }) {
     );
 }
 
-const CATEGORIES = {
-    income: [
-        { id: 'salary', label: 'Salário', icon: Briefcase, color: 'text-emerald-400' },
-        { id: 'freelance', label: 'Freelance', icon: Laptop, color: 'text-blue-400' },
-        { id: 'investment', label: 'Investim.', icon: TrendingUp, color: 'text-purple-400' },
-        { id: 'gift', label: 'Presente', icon: Wallet, color: 'text-yellow-400' },
-        { id: 'other', label: 'Outro', icon: Circle, color: 'text-slate-400' }
-    ],
-    expense: [
-        { id: 'housing', label: 'Casa', icon: Home, color: 'text-rose-400' },
-        { id: 'food', label: 'Alimentação', icon: Utensils, color: 'text-orange-400' },
-        { id: 'transport', label: 'Transporte', icon: Car, color: 'text-yellow-400' },
-        { id: 'health', label: 'Saúde', icon: Heart, color: 'text-red-400' },
-        { id: 'leisure', label: 'Lazer', icon: Gamepad2, color: 'text-indigo-400' },
-        { id: 'shopping', label: 'Compras', icon: ShoppingBag, color: 'text-pink-400' },
-        { id: 'other', label: 'Outro', icon: Circle, color: 'text-slate-400' }
-    ]
-};
+
 
 export default function TransactionSection() {
     const [transactions, setTransactions] = useState([]);
@@ -50,10 +37,26 @@ export default function TransactionSection() {
     });
     const [type, setType] = useState('expense');
     const [category, setCategory] = useState({ id: 'other', label: 'Outro', icon: Circle, color: 'text-slate-400' });
+    const [isRecurring, setIsRecurring] = useState(false);
+    const [installments, setInstallments] = useState(2);
     const [editingId, setEditingId] = useState(null);
     const { currentUser } = useAuth();
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
     const [showReport, setShowReport] = useState(false);
+    const [filterCategory, setFilterCategory] = useState('all');
+
+
+
+    // Manual Config State (Lifted for AI Context)
+    const [manualConfig, setManualConfig] = useState(() => {
+        const saved = localStorage.getItem('financialAdvisorSettings');
+        return saved ? JSON.parse(saved) : { income: '', fixedExpenses: '', variableEstimate: '' };
+    });
+
+    const updateManualConfig = (newConfig) => {
+        setManualConfig(newConfig);
+        localStorage.setItem('financialAdvisorSettings', JSON.stringify(newConfig));
+    };
 
     useEffect(() => {
         if (!currentUser) return;
@@ -72,6 +75,22 @@ export default function TransactionSection() {
         return () => unsubscribe();
     }, [currentUser]);
 
+    const addTransactionToDb = async (data) => {
+        try {
+            await addDoc(collection(db, 'transactions'), {
+                ...data,
+                userId: currentUser.uid,
+                month: data.date.slice(0, 7),
+                isFixed: false
+            });
+            console.log("Transação adicionada via IA:", data);
+            return true;
+        } catch (error) {
+            console.error("Erro ao adicionar via IA:", error);
+            return false;
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!amount || !description || !currentUser) return;
@@ -84,13 +103,12 @@ export default function TransactionSection() {
         const transactionData = {
             description,
             amount: val,
-            description,
-            amount: val,
             type,
             category: category.id, // Store category ID for simplicity
             date: transactionDate.toISOString(),
             userId: currentUser.uid,
-            month: transactionDate.toISOString().slice(0, 7) // Store month for easier filtering
+            month: transactionDate.toISOString().slice(0, 7), // Store month for easier filtering
+            isFixed: category.isFixed || false // Store if it is a fixed expense
         };
 
         try {
@@ -98,14 +116,49 @@ export default function TransactionSection() {
                 await updateDoc(doc(db, 'transactions', editingId), transactionData);
                 setEditingId(null);
             } else {
-                await addDoc(collection(db, 'transactions'), transactionData);
+                if (isRecurring && installments > 1) {
+                    const batchPromises = [];
+                    for (let i = 0; i < installments; i++) {
+                        const nextDate = new Date(transactionDate);
+                        nextDate.setMonth(nextDate.getMonth() + i);
+
+                        const recurringData = {
+                            ...transactionData,
+                            description: `${description} (${i + 1}/${installments})`,
+                            date: nextDate.toISOString(),
+                            month: nextDate.toISOString().slice(0, 7)
+                        };
+                        batchPromises.push(addDoc(collection(db, 'transactions'), recurringData));
+                    }
+                    await Promise.all(batchPromises);
+                } else if (transactionData.isFixed) {
+                    // Generate for 12 months for fixed expenses
+                    const batchPromises = [];
+                    for (let i = 0; i < 12; i++) {
+                        const nextDate = new Date(transactionDate);
+                        nextDate.setMonth(nextDate.getMonth() + i);
+
+                        const fixedData = {
+                            ...transactionData,
+                            date: nextDate.toISOString(),
+                            month: nextDate.toISOString().slice(0, 7)
+                        };
+                        batchPromises.push(addDoc(collection(db, 'transactions'), fixedData));
+                    }
+                    await Promise.all(batchPromises);
+                } else {
+                    await addDoc(collection(db, 'transactions'), transactionData);
+                }
             }
             setAmount('');
+            setDescription('');
             // Reset to defaults
             const now = new Date();
             setDate(now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0'));
             setType('expense');
             setCategory({ id: 'other', label: 'Outro', icon: Circle, color: 'text-slate-400' });
+            setIsRecurring(false);
+            setInstallments(2);
         } catch (error) {
             console.error("Error saving transaction:", error);
         }
@@ -127,21 +180,87 @@ export default function TransactionSection() {
         setEditingId(t.id);
     };
 
-    const handleDelete = async (id) => {
-        if (confirm('Tem certeza que deseja excluir?')) {
-            await deleteDoc(doc(db, 'transactions', id));
+    const [deleteId, setDeleteId] = useState(null);
+    const [deleteData, setDeleteData] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleDelete = (transaction) => {
+        setDeleteId(transaction.id);
+        setDeleteData(transaction);
+    };
+
+    const confirmDelete = async (deleteFuture = false) => {
+        if (!deleteId) return;
+        setIsDeleting(true);
+
+        try {
+            // Always delete the current one
+            await deleteDoc(doc(db, 'transactions', deleteId));
+
+            if (deleteFuture && deleteData) {
+                // Use existing transactions state to avoid "Query requires index" error
+                // We already have all user transactions in memory from the main listener
+                let toDelete = [];
+
+                if (deleteData.isFixed) {
+                    toDelete = transactions.filter(t =>
+                        t.isFixed === true &&
+                        t.description === deleteData.description &&
+                        t.date > deleteData.date
+                    );
+                } else if (deleteData.description.match(/\(\d+\/\d+\)/)) {
+                    const baseDesc = deleteData.description.replace(/\s\(\d+\/\d+\)/, '');
+                    toDelete = transactions.filter(t =>
+                        t.description.startsWith(baseDesc) &&
+                        t.description.match(/\(\d+\/\d+\)/) &&
+                        t.date > deleteData.date
+                    );
+                }
+
+                const deletePromises = toDelete.map(t => deleteDoc(doc(db, 'transactions', t.id)));
+                await Promise.all(deletePromises);
+            }
+
+            setDeleteId(null);
+            setDeleteData(null);
+        } catch (error) {
+            console.error("Erro ao excluir:", error);
+        } finally {
+            setIsDeleting(false);
+            // Ensure modal closes even if error occurs
+            setDeleteId(null);
+            setDeleteData(null);
         }
     };
 
-    const filteredTransactions = transactions.filter(t => t.date.startsWith(selectedMonth));
+    const chartTransactions = useMemo(() => {
+        return transactions.filter(t => {
+            const transactionDate = t.month ? t.month : t.date.slice(0, 7);
+            return transactionDate === selectedMonth;
+        });
+    }, [transactions, selectedMonth]);
 
-    const income = filteredTransactions
-        .filter(t => t.type === 'income')
-        .reduce((acc, t) => acc + t.amount, 0);
+    const filteredTransactions = useMemo(() => {
+        return transactions.filter(t => {
+            const transactionDate = t.month ? t.month : t.date.slice(0, 7);
+            const matchesMonth = transactionDate === selectedMonth;
+            // Check if matches category
+            const matchesCategory = filterCategory === 'all' || t.category === filterCategory;
+            return matchesMonth && matchesCategory;
+        }).sort((a, b) => new Date(b.date) - new Date(a.date));
+    }, [transactions, selectedMonth, filterCategory]);
 
-    const expense = filteredTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((acc, t) => acc + t.amount, 0);
+    const income = useMemo(() => {
+        return filteredTransactions
+            .filter(t => t.type === 'income')
+            .reduce((acc, t) => acc + parseFloat(t.amount), 0);
+    }, [filteredTransactions]);
+
+    const expense = useMemo(() => {
+        return filteredTransactions
+            .filter(t => t.type === 'expense')
+            .reduce((acc, t) => acc + parseFloat(t.amount), 0);
+    }, [filteredTransactions]);
 
     const balance = income - expense;
 
@@ -364,32 +483,24 @@ export default function TransactionSection() {
             </div>
 
             {/* Input Form */}
-            <form onSubmit={handleSubmit} className="bg-slate-800/50 backdrop-blur-md p-6 rounded-2xl border border-slate-700 shadow-xl">
-                <h3 className="text-lg font-bold text-slate-100 mb-4 flex items-center gap-2">
+            <form onSubmit={handleSubmit} className="bg-slate-800/50 backdrop-blur-md p-6 rounded-2xl border border-slate-700 shadow-xl grid grid-cols-1 md:grid-cols-12 gap-4">
+                <h3 className="md:col-span-12 text-lg font-bold text-slate-100 mb-2 flex items-center gap-2">
                     {editingId ? <Pencil className="w-5 h-5 text-blue-400" /> : <LayoutDashboard className="w-5 h-5 text-emerald-400" />}
                     {editingId ? 'Editar Transação' : 'Nova Transação'}
                 </h3>
 
-                <div className="md:col-span-3">
+                {/* Row 1: Description, Value, Date */}
+                <div className="md:col-span-6">
                     <label className="block text-xs font-medium text-slate-400 mb-1 ml-1">Descrição</label>
                     <input
                         type="text"
-                        placeholder="Descrição"
+                        placeholder="Ex: Mercado, Aluguel..."
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     />
                 </div>
-                <div className="md:col-span-2">
-                    <label className="block text-xs font-medium text-slate-400 mb-1 ml-1">Data</label>
-                    <input
-                        type="date"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                        className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 [color-scheme:dark]"
-                    />
-                </div>
-                <div className="md:col-span-2">
+                <div className="md:col-span-3">
                     <label className="block text-xs font-medium text-slate-400 mb-1 ml-1">Valor</label>
                     <input
                         type="number"
@@ -399,15 +510,26 @@ export default function TransactionSection() {
                         className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     />
                 </div>
-                <div className="md:col-span-5">
+                <div className="md:col-span-3">
+                    <label className="block text-xs font-medium text-slate-400 mb-1 ml-1">Data</label>
+                    <input
+                        type="date"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 [color-scheme:dark]"
+                    />
+                </div>
+
+                {/* Row 2: Category Selector (Full Width) */}
+                <div className="md:col-span-12">
                     <label className="block text-xs font-medium text-slate-400 mb-1 ml-1">Categoria</label>
-                    <div className="flex gap-2 p-1 bg-slate-900/50 rounded-xl border border-slate-700 overflow-x-auto">
+                    <div className="flex flex-wrap gap-2 p-2 bg-slate-900/50 rounded-xl border border-slate-700">
                         {(type === 'income' ? CATEGORIES.income : CATEGORIES.expense).map(cat => (
                             <button
                                 key={cat.id}
                                 type="button"
                                 onClick={() => setCategory(cat)}
-                                className={`p-2 rounded-lg flex flex-col items-center gap-1 min-w-[60px] transition-all ${category.id === cat.id ? 'bg-slate-700 ring-1 ring-slate-500' : 'hover:bg-slate-800'}`}
+                                className={`flex-1 min-w-[80px] p-2 rounded-lg flex flex-col items-center gap-1 transition-all ${category.id === cat.id ? 'bg-slate-700 ring-1 ring-slate-500' : 'hover:bg-slate-800'}`}
                                 title={cat.label}
                             >
                                 <cat.icon className={`w-5 h-5 ${cat.color}`} />
@@ -417,37 +539,81 @@ export default function TransactionSection() {
                     </div>
                 </div>
 
-                <div className="md:col-span-12 flex flex-col md:flex-row gap-4">
-                    <div className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-700 w-full md:w-auto">
-                        <button
-                            type="button"
-                            onClick={() => { setType('income'); setCategory(CATEGORIES.income[CATEGORIES.income.length - 1]); }}
-                            className={`flex-1 px-6 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${type === 'income'
-                                ? 'bg-emerald-500/20 text-emerald-400 shadow-sm'
-                                : 'text-slate-400 hover:text-slate-200'
-                                }`}
-                        >
-                            <ArrowUpCircle className="w-4 h-4" /> Entrada
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => { setType('expense'); setCategory(CATEGORIES.expense[CATEGORIES.expense.length - 1]); }}
-                            className={`flex-1 px-6 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${type === 'expense'
-                                ? 'bg-rose-500/20 text-rose-400 shadow-sm'
-                                : 'text-slate-400 hover:text-slate-200'
-                                }`}
-                        >
-                            <ArrowDownCircle className="w-4 h-4" /> Saída
+                {/* Row 3: Toggles and Actions */}
+                <div className="md:col-span-12 flex flex-col md:flex-row items-center justify-between gap-4 mt-2">
+                    <div className="flex gap-4">
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={isRecurring}
+                                onChange={(e) => setIsRecurring(e.target.checked)}
+                                id="recurring"
+                                className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500/50"
+                            />
+                            <label htmlFor="recurring" className="text-xs font-medium text-slate-400 cursor-pointer select-none">
+                                Parcelado
+                            </label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={category.isFixed || false}
+                                onChange={(e) => setCategory({ ...category, isFixed: e.target.checked })}
+                                id="isFixed"
+                                className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-rose-600 focus:ring-rose-500/50"
+                            />
+                            <label htmlFor="isFixed" className="text-xs font-medium text-slate-400 cursor-pointer select-none">
+                                Fixa
+                            </label>
+                        </div>
+                        {isRecurring && (
+                            <div className="flex items-center gap-2 animate-in fade-in">
+                                <label className="text-xs font-medium text-slate-400">Qtd:</label>
+                                <input
+                                    type="number"
+                                    min="2"
+                                    max="60"
+                                    value={installments}
+                                    onChange={(e) => setInstallments(parseInt(e.target.value))}
+                                    className="w-16 bg-slate-900/50 border border-slate-700 rounded-lg px-2 py-1 text-sm text-slate-200"
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex gap-2 w-full md:w-auto">
+                        <div className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-700">
+                            <button
+                                type="button"
+                                onClick={() => { setType('income'); setCategory(CATEGORIES.income[CATEGORIES.income.length - 1]); }}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${type === 'income'
+                                    ? 'bg-emerald-500/20 text-emerald-400 shadow-sm'
+                                    : 'text-slate-400 hover:text-slate-200'
+                                    }`}
+                            >
+                                <ArrowUpCircle className="w-4 h-4" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setType('expense'); setCategory(CATEGORIES.expense[CATEGORIES.expense.length - 1]); }}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${type === 'expense'
+                                    ? 'bg-rose-500/20 text-rose-400 shadow-sm'
+                                    : 'text-slate-400 hover:text-slate-200'
+                                    }`}
+                            >
+                                <ArrowDownCircle className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <button type="submit" className="flex-1 px-6 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl shadow-lg shadow-blue-500/20 transition-all">
+                            {editingId ? 'Salvar' : 'Adicionar'}
                         </button>
                     </div>
-                    <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 md:py-2 rounded-xl shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 w-full md:w-auto">
-                        {editingId ? 'Salvar Alterações' : 'Adicionar Transação'}
-                    </button>
                 </div>
-            </form>
+            </form >
 
             {/* List Header & Filter */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            < div className="flex flex-col md:flex-row md:items-center justify-between gap-4" >
                 <h3 className="text-xl font-bold text-slate-100">Transações</h3>
                 <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full md:w-auto">
                     <div className="flex gap-2 w-full md:w-auto">
@@ -476,6 +642,60 @@ export default function TransactionSection() {
                             className="bg-transparent text-slate-300 text-sm focus:outline-none w-full"
                         />
                     </div>
+                </div>
+            </div >
+
+            {/* Analytics Chart & Advisor */}
+            < div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8 animate-in slide-in-from-bottom-5 fade-in duration-500" >
+                <ExpensesChart transactions={chartTransactions} />
+                <FinancialAdvisor
+                    transactions={transactions}
+                    manualConfig={manualConfig}
+                    onConfigChange={updateManualConfig}
+                />
+            </div >
+
+            <AIChat transactions={transactions} manualConfig={manualConfig} onAddTransaction={addTransactionToDb} onDeleteTransaction={handleDelete} />
+
+            {/* Category Filter */}
+            < div className="mb-6" >
+                <h4 className="text-sm font-semibold text-slate-400 mb-3 px-1">Filtrar por Categoria</h4>
+                <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                    <button
+                        onClick={() => setFilterCategory('all')}
+                        className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap border ${filterCategory === 'all'
+                            ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/25'
+                            : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-slate-200'
+                            }`}
+                    >
+                        Todos
+                    </button>
+                    {CATEGORIES.expense.map(cat => (
+                        <button
+                            key={cat.id}
+                            onClick={() => setFilterCategory(cat.id)}
+                            className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap border flex items-center gap-2 ${filterCategory === cat.id
+                                ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/25'
+                                : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-slate-200'
+                                }`}
+                        >
+                            <cat.icon className="w-3 h-3" />
+                            {cat.label}
+                        </button>
+                    ))}
+                    {CATEGORIES.income.map(cat => (
+                        <button
+                            key={cat.id}
+                            onClick={() => setFilterCategory(cat.id)}
+                            className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap border flex items-center gap-2 ${filterCategory === cat.id
+                                ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/25'
+                                : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-slate-200'
+                                }`}
+                        >
+                            <cat.icon className="w-3 h-3" />
+                            {cat.label}
+                        </button>
+                    ))}
                 </div>
             </div >
 
@@ -509,6 +729,16 @@ export default function TransactionSection() {
                                                 const foundCat = catList.find(c => c.id === t.category);
                                                 return foundCat ? foundCat.label : 'Geral';
                                             })()}
+                                            {t.isFixed && (
+                                                <span className="ml-2 text-[10px] font-bold bg-rose-500/20 text-rose-300 px-1.5 py-0.5 rounded border border-rose-500/20">
+                                                    Fixa
+                                                </span>
+                                            )}
+                                            {t.description.match(/\(\d+\/\d+\)/) && (
+                                                <span className="ml-2 text-[10px] font-bold bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded border border-blue-500/20">
+                                                    Recorrente
+                                                </span>
+                                            )}
                                         </p>
                                     </div>
                                 </div>
@@ -521,7 +751,7 @@ export default function TransactionSection() {
                                         <button onClick={() => handleEdit(t)} className="p-2 bg-slate-700/50 hover:bg-blue-500/10 text-slate-400 hover:text-blue-400 rounded-lg transition-colors">
                                             <Pencil className="w-4 h-4" />
                                         </button>
-                                        <button onClick={() => handleDelete(t.id)} className="p-2 bg-slate-700/50 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 rounded-lg transition-colors">
+                                        <button onClick={() => handleDelete(t)} className="p-2 bg-slate-700/50 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 rounded-lg transition-colors">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
@@ -531,6 +761,67 @@ export default function TransactionSection() {
                     )
                 }
             </div >
+            {/* Confirmation Modal */}
+            {
+                deleteId && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                            <div className="flex flex-col items-center text-center gap-4">
+                                <div className="p-3 bg-rose-500/10 rounded-full">
+                                    <Trash2 className="w-8 h-8 text-rose-500" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-100 mb-1">Excluir Transação?</h3>
+                                    <p className="text-sm text-slate-400">
+                                        Essa ação não pode ser desfeita. Tem certeza que deseja remover este item?
+                                    </p>
+                                </div>
+                                {deleteData && (deleteData.isFixed || deleteData.description.match(/\(\d+\/\d+\)/)) ? (
+                                    <div className="flex flex-col gap-2 w-full mt-2">
+                                        <button
+                                            onClick={() => confirmDelete(false)}
+                                            className="w-full px-4 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors font-medium text-sm"
+                                        >
+                                            Excluir apenas esta
+                                        </button>
+                                        <button
+                                            onClick={() => confirmDelete(true)}
+                                            disabled={isDeleting}
+                                            className="w-full px-4 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition-colors font-bold text-sm shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2"
+                                        >
+                                            {isDeleting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
+                                            Excluir esta e futuras
+                                        </button>
+                                        <button
+                                            onClick={() => setDeleteId(null)}
+                                            className="w-full px-4 py-2 text-slate-400 hover:text-slate-300 transition-colors text-xs font-medium"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex gap-3 w-full mt-2">
+                                        <button
+                                            onClick={() => setDeleteId(null)}
+                                            className="flex-1 px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors font-medium"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={() => confirmDelete(false)}
+                                            disabled={isDeleting}
+                                            className="flex-1 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition-colors font-medium shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2"
+                                        >
+                                            {isDeleting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
+                                            Sim, Excluir
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
         </div >
     );
 }

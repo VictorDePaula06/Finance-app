@@ -32,9 +32,6 @@ export default function InstallPrompt() {
             return () => clearTimeout(timer);
         } else {
             setPlatform('desktop');
-            // Desktop usually waits for the event, but we can also prompt after a delay if desired
-            const timer = setTimeout(() => setShow(true), 5000);
-            return () => clearTimeout(timer);
         }
 
         const handler = (e) => {
