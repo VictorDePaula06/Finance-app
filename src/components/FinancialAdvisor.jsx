@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { calculateFinancialHealth } from '../utils/financialLogic';
-import { calculateStatsContext, sendMessageToGemini } from '../services/gemini';
+import { calculateStatsContext, sendMessageToGemini, validateApiKey } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
-import { Bot, Calculator, AlertTriangle, CheckCircle, XCircle, Settings, Save, X } from 'lucide-react';
+import { Bot, Settings, X, Save, TrendingUp, TrendingDown, DollarSign, AlertTriangle, CheckCircle, Calculator, Video, ChevronDown } from 'lucide-react';
+import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
 
 export default function FinancialAdvisor({ transactions, manualConfig, onConfigChange }) {
     const [simAmount, setSimAmount] = useState('');
@@ -14,13 +15,27 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
     const [isConfiguring, setIsConfiguring] = useState(false);
     // Inherit config from parent
     const [tempManualConfig, setTempManualConfig] = useState(manualConfig);
+    const [apiKey, setApiKey] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState('');
 
     // Sync temp config with prop when config mode is entered
     useEffect(() => {
         if (isConfiguring) {
             setTempManualConfig(manualConfig);
+            // Load saved API Key
+            const savedKey = localStorage.getItem('user_gemini_api_key') || '';
+            setApiKey(savedKey);
+            setError(''); // Clear error when opening
         }
     }, [isConfiguring, manualConfig]);
+
+
+
+
+
+
+
 
     const health = useMemo(() => calculateFinancialHealth(transactions, manualConfig), [transactions, manualConfig]);
 
@@ -64,10 +79,32 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
         }
     };
 
-    const handleSaveConfig = (e) => {
+    const handleSaveConfig = async (e) => {
         e.preventDefault();
+        setIsSaving(true);
+        setIsConfiguring(true); // Keep modal open during validation
+        setError('');
+
+        // Validate Key if one is provided
+        if (apiKey.trim()) {
+            const isValid = await validateApiKey(apiKey.trim());
+            if (!isValid) {
+                setError("Chave de API inválida ou expirada. Verifique no Google AI Studio.");
+                setIsSaving(false);
+                return;
+            }
+            localStorage.setItem('user_gemini_api_key', apiKey.trim());
+        } else {
+            localStorage.removeItem('user_gemini_api_key');
+        }
+
         onConfigChange(tempManualConfig); // Parent handles saving
-        setIsConfiguring(false);
+
+        // Show feedback before closing
+        setTimeout(() => {
+            setIsSaving(false);
+            setIsConfiguring(false);
+        }, 1000);
     };
 
     if (isConfiguring) {
@@ -118,40 +155,145 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                         </p>
                     </div>
 
+
+
+                    <div className="pt-4 border-t border-slate-700/50">
+                        {error && (
+                            <div className="mb-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-red-200 text-xs animate-in slide-in-from-top-1">
+                                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                                {error}
+                            </div>
+                        )}
+                        <label className="block text-xs font-medium text-slate-400 mb-1 flex items-center gap-2">
+                            Chave de API do Gemini (Opcional)
+                            <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/20">Avançado</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={apiKey}
+                            onChange={e => setApiKey(e.target.value)}
+                            placeholder="Cole sua API Key aqui para usar seu próprio limite"
+                            className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-blue-500/50 font-mono text-xs"
+                        />
+                        <p className="text-[10px] text-slate-500 mt-1 flex justify-between items-center">
+                            <span>Se preenchida, usa seu limite pessoal.</span>
+                            <a
+                                href="https://aistudio.google.com/app/apikey"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-400 hover:text-blue-300 underline cursor-pointer"
+                            >
+                                Obter chave gratuita
+                            </a>
+                        </p>
+                    </div>
+
+                    <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
+                        <details className="group">
+                            <summary className="flex items-center justify-between cursor-pointer text-xs font-medium text-slate-400 hover:text-white transition-colors">
+                                <span className="flex items-center gap-2">
+                                    <Video className="w-4 h-4" />
+                                    Como obter uma chave? (Tutorial em Vídeo)
+                                </span>
+                                <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
+                            </summary>
+                            <div className="mt-3 text-xs text-slate-400 space-y-2">
+                                <p>1. Acesse o <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">Google AI Studio</a>.</p>
+                                <p>2. Crie uma nova chave de API (é gratuito).</p>
+                                <p>3. Cole a chave no campo acima.</p>
+
+                                <div className="mt-3 rounded-lg overflow-hidden border border-slate-700 bg-black">
+                                    <video
+                                        src={tutorialVideo}
+                                        controls
+                                        className="w-full max-h-48 object-contain"
+                                    >
+                                        Seu navegador não suporta a tag de vídeo.
+                                    </video>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+
                     <button
                         type="submit"
-                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+                        disabled={isSaving}
+                        className={`w-full font-medium py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 ${isSaving
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                            }`}
                     >
-                        <Save className="w-4 h-4" />
-                        Salvar Configuração
+                        {isSaving ? (
+                            <>
+                                <CheckCircle className="w-4 h-4" />
+                                Configuração Salva!
+                            </>
+                        ) : (
+                            <>
+                                <Save className="w-4 h-4" />
+                                Salvar Configuração
+                            </>
+                        )}
                     </button>
-                </form>
-            </div>
+                </form >
+            </div >
         );
     }
 
     if (!health.hasData && !manualConfig.income) {
         return (
-            <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 text-center relative">
-                <button
-                    onClick={() => setIsConfiguring(true)}
-                    className="absolute top-4 right-4 text-slate-500 hover:text-slate-300 transition-colors"
-                >
-                    <Settings className="w-5 h-5" />
-                </button>
-                <Bot className="w-10 h-10 text-slate-500 mx-auto mb-3" />
-                <h3 className="text-slate-300 font-bold mb-1">Assistente Financeiro</h3>
-                <p className="text-slate-500 text-sm mb-4">Configure sua renda manual ou adicione transações.</p>
-                <button
-                    onClick={() => setIsConfiguring(true)}
-                    className="bg-blue-600/20 text-blue-400 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-600/30 transition-colors"
-                >
-                    Configurar Agora
-                </button>
+            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 rounded-2xl border border-slate-700/50 text-center relative overflow-hidden group">
+
+                {/* Background Decoration */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none"></div>
+
+                <div className="relative z-10 flex flex-col items-center">
+                    <div className="bg-slate-800/80 p-4 rounded-full border border-slate-700 shadow-xl mb-6 animate-in zoom-in duration-500">
+                        <Bot className="w-12 h-12 text-blue-400" />
+                    </div>
+
+                    <h3 className="text-2xl font-bold text-white mb-2">
+                        Ative seu Assistente Financeiro
+                    </h3>
+
+                    <p className="text-slate-400 text-sm max-w-md mx-auto mb-8 leading-relaxed">
+                        Desbloqueie o poder da Inteligência Artificial para analisar seus gastos, prever seu saldo futuro e receber dicas personalizadas de economia.
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl mb-8 text-left">
+                        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:border-blue-500/30 transition-colors">
+                            <Calculator className="w-5 h-5 text-emerald-400 mb-2" />
+                            <h4 className="font-semibold text-slate-200 text-sm">Simulação de Compras</h4>
+                            <p className="text-xs text-slate-500 mt-1">Saiba se uma compra cabe no seu orçamento futuro.</p>
+                        </div>
+                        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:border-blue-500/30 transition-colors">
+                            <AlertTriangle className="w-5 h-5 text-amber-400 mb-2" />
+                            <h4 className="font-semibold text-slate-200 text-sm">Alertas de Risco</h4>
+                            <p className="text-xs text-slate-500 mt-1">Receba avisos antes de entrar no vermelho.</p>
+                        </div>
+                        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:border-blue-500/30 transition-colors">
+                            <CheckCircle className="w-5 h-5 text-blue-400 mb-2" />
+                            <h4 className="font-semibold text-slate-200 text-sm">Dicas Inteligentes</h4>
+                            <p className="text-xs text-slate-500 mt-1">Sugestões reais baseadas nos seus hábitos.</p>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={() => setIsConfiguring(true)}
+                        className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-blue-900/20 hover:shadow-blue-600/30 hover:scale-105 transition-all flex items-center gap-2"
+                    >
+                        <Settings className="w-5 h-5" />
+                        Configurar Agora
+                    </button>
+
+                    <p className="text-[10px] text-slate-600 mt-4">
+                        Configuração rápida • Chave de API própria ou compartilhada
+                    </p>
+                </div>
             </div>
         );
     }
-
     return (
         <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 shadow-xl relative overflow-hidden">
             <div className="flex items-center justify-between mb-6">

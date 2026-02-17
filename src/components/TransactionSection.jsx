@@ -646,7 +646,7 @@ export default function TransactionSection() {
             </div >
 
             {/* Analytics Chart & Advisor */}
-            < div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8 animate-in slide-in-from-bottom-5 fade-in duration-500" >
+            < div className={`grid grid-cols-1 ${transactions.length === 0 && !manualConfig.income ? '' : 'lg:grid-cols-2'} gap-8 mb-8 animate-in slide-in-from-bottom-5 fade-in duration-500`} >
                 <ExpensesChart transactions={chartTransactions} />
                 <FinancialAdvisor
                     transactions={transactions}

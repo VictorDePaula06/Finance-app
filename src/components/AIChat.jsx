@@ -1,16 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, X, MessageSquare, Loader2, Key, Trash2 } from 'lucide-react';
-import { sendMessageToGemini, calculateStatsContext, isGeminiConfigured } from '../services/gemini';
+import { Send, Bot, X, MessageSquare, Loader2, Key, Trash2, CheckCircle, ChevronDown, Video, AlertTriangle } from 'lucide-react';
+import { sendMessageToGemini, calculateStatsContext, isGeminiConfigured, validateApiKey } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
+import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
 
 export default function AIChat({ transactions, manualConfig, onAddTransaction, onDeleteTransaction }) {
     const [isOpen, setIsOpen] = useState(false);
+    const [hasKey, setHasKey] = useState(isGeminiConfigured());
+    const [apiKey, setApiKey] = useState('');
     const [messages, setMessages] = useState(() => {
         const saved = localStorage.getItem('geminiChatHistory');
         return saved ? JSON.parse(saved) : [];
     });
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isSavingKey, setIsSavingKey] = useState(false);
+    const [keyError, setKeyError] = useState('');
     const messagesEndRef = useRef(null);
 
     const scrollToBottom = () => {
@@ -19,7 +24,34 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
 
     useEffect(() => {
         scrollToBottom();
+        if (isOpen) {
+            setHasKey(isGeminiConfigured());
+        }
     }, [messages, isOpen]);
+
+    const handleSaveKey = async () => {
+        setKeyError('');
+        if (apiKey.trim()) {
+            setIsSavingKey(true);
+
+            const isValid = await validateApiKey(apiKey.trim());
+            if (!isValid) {
+                setKeyError("Chave de API inválida! Verifique e tente novamente.");
+                setIsSavingKey(false);
+                return;
+            }
+
+            localStorage.setItem('user_gemini_api_key', apiKey.trim());
+
+            // Artificial delay for feedback
+            setTimeout(() => {
+                setIsSavingKey(false);
+                setHasKey(true);
+                // Add a welcome message
+                setMessages(prev => [...prev, { role: 'model', text: '✅ **API Key Configurada!**\n\nAgora sou seu assistente pessoal. Em que posso ajudar?' }]);
+            }, 1000);
+        }
+    };
 
     // Save to localStorage whenever messages change
     useEffect(() => {
@@ -38,7 +70,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
         if (!input.trim() || isLoading) return;
 
         if (!isGeminiConfigured()) {
-            setMessages(prev => [...prev, { role: 'user', text: input }, { role: 'model', text: 'ERRO: API Key não configurada. Adicione VITE_GEMINI_API_KEY no arquivo .env.' }]);
+            setMessages(prev => [...prev, { role: 'user', text: input }, { role: 'model', text: 'ERRO: API Key não configurada. Por favor, configure sua chave no menu do assistente.' }]);
             setInput('');
             return;
         }
@@ -161,75 +193,150 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                 </div>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-                {messages.length === 0 && (
-                    <div className="text-center mt-10 opacity-50">
-                        <Bot className="w-12 h-12 mx-auto mb-2 text-slate-600" />
-                        <p className="text-slate-500 text-sm px-6">
-                            Olá! Sou seu assistente financeiro. Pergunte sobre seus gastos, peça dicas ou simule compras.
-                        </p>
-                        {!isGeminiConfigured() && (
-                            <div className="mt-4 p-3 bg-rose-900/20 border border-rose-500/30 rounded-xl mx-4">
-                                <p className="text-xs text-rose-300 font-bold flex items-center gap-2 justify-center mb-1">
-                                    <Key className="w-3 h-3" /> API Key Ausente
-                                </p>
-                                <p className="text-[10px] text-rose-400">
-                                    Configure VITE_GEMINI_API_KEY no .env para eu funcionar!
+            {!hasKey ? (
+                <div className="flex-1 p-6 flex flex-col items-center text-center overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
+                    <div className="bg-slate-800/50 p-4 rounded-full mb-4">
+                        <Key className="w-8 h-8 text-blue-400" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-2">Configuração Necessária</h3>
+                    <p className="text-sm text-slate-400 mb-6">
+                        Para conversar com a IA, você precisa configurar sua chave de API gratuita.
+                    </p>
+
+                    <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50 w-full mb-4">
+                        <details className="group">
+                            <summary className="flex items-center justify-between cursor-pointer text-xs font-medium text-slate-400 hover:text-white transition-colors">
+                                <span className="flex items-center gap-2">
+                                    <Video className="w-4 h-4" />
+                                    Como obter uma chave? (Vídeo)
+                                </span>
+                                <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
+                            </summary>
+                            <div className="mt-3 text-xs text-slate-400 space-y-2">
+                                <p>1. Acesse o <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">Google AI Studio</a>.</p>
+                                <p>2. Crie uma nova chave de API.</p>
+                                <p>3. Cole a chave abaixo.</p>
+
+                                <div className="mt-3 rounded-lg overflow-hidden border border-slate-700 bg-black">
+                                    <video
+                                        src={tutorialVideo}
+                                        controls
+                                        className="w-full max-h-48 object-contain"
+                                    >
+                                        Seu navegador não suporta a tag de vídeo.
+                                    </video>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+
+                    <div className="w-full space-y-3">
+                        {keyError && (
+                            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-red-200 text-xs animate-in slide-in-from-top-1">
+                                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                                {keyError}
+                            </div>
+                        )}
+                        <input
+                            type="text"
+                            value={apiKey}
+                            onChange={(e) => setApiKey(e.target.value)}
+                            placeholder="Cole sua API Key aqui..."
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none placeholder:text-slate-600"
+                        />
+                        <button
+                            onClick={handleSaveKey}
+                            disabled={!apiKey.trim() || isSavingKey}
+                            className={`w-full font-medium py-3 rounded-lg transition-all flex items-center justify-center gap-2 ${isSavingKey
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white'
+                                }`}
+                        >
+                            {isSavingKey ? (
+                                <>
+                                    <CheckCircle className="w-4 h-4" />
+                                    Chave Salva!
+                                </>
+                            ) : (
+                                <>
+                                    <Bot className="w-4 h-4" />
+                                    Ativar Assistente
+                                </>
+                            )}
+                        </button>
+                        <a
+                            href="https://aistudio.google.com/app/apikey"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block text-xs text-blue-400 hover:text-blue-300 underline mt-4"
+                        >
+                            Obter chave no Google AI Studio
+                        </a>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    {/* Messages */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                        {messages.length === 0 && (
+                            <div className="text-center mt-10 opacity-50">
+                                <Bot className="w-12 h-12 mx-auto mb-2 text-slate-600" />
+                                <p className="text-slate-500 text-sm px-6">
+                                    Olá! Sou seu assistente financeiro. Pergunte sobre seus gastos, peça dicas ou simule compras.
                                 </p>
                             </div>
                         )}
-                    </div>
-                )}
 
-                {messages.map((msg, idx) => (
-                    <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.role === 'user'
-                            ? 'bg-blue-600 text-white rounded-br-none'
-                            : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-none'
-                            }`}>
-                            <ReactMarkdown
-                                components={{
-                                    p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
-                                    ul: ({ node, ...props }) => <ul className="list-disc ml-4 mb-2" {...props} />,
-                                    li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-                                    strong: ({ node, ...props }) => <strong className="font-bold text-blue-300" {...props} />
-                                }}
-                            >
-                                {msg.text}
-                            </ReactMarkdown>
-                        </div>
-                    </div>
-                ))}
+                        {messages.map((msg, idx) => (
+                            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.role === 'user'
+                                    ? 'bg-blue-600 text-white rounded-br-none'
+                                    : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-none'
+                                    }`}>
+                                    <ReactMarkdown
+                                        components={{
+                                            p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                                            ul: ({ node, ...props }) => <ul className="list-disc ml-4 mb-2" {...props} />,
+                                            li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                                            strong: ({ node, ...props }) => <strong className="font-bold text-blue-300" {...props} />
+                                        }}
+                                    >
+                                        {msg.text}
+                                    </ReactMarkdown>
+                                </div>
+                            </div>
+                        ))}
 
-                {isLoading && (
-                    <div className="flex justify-start">
-                        <div className="bg-slate-800 border border-slate-700 rounded-2xl rounded-bl-none px-4 py-3 flex items-center gap-2">
-                            <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
-                            <span className="text-xs text-slate-400">Digitando...</span>
-                        </div>
+                        {isLoading && (
+                            <div className="flex justify-start">
+                                <div className="bg-slate-800 border border-slate-700 rounded-2xl rounded-bl-none px-4 py-3 flex items-center gap-2">
+                                    <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                                    <span className="text-xs text-slate-400">Digitando...</span>
+                                </div>
+                            </div>
+                        )}
+                        <div ref={messagesEndRef} />
                     </div>
-                )}
-                <div ref={messagesEndRef} />
-            </div>
 
-            {/* Input */}
-            <form onSubmit={handleSend} className="p-3 bg-slate-800/50 border-t border-slate-700 flex gap-2">
-                <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Digite sua mensagem..."
-                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500/50"
-                />
-                <button
-                    type="submit"
-                    disabled={isLoading || !input.trim()}
-                    className="p-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-colors"
-                >
-                    <Send className="w-5 h-5" />
-                </button>
-            </form>
+                    {/* Input */}
+                    <form onSubmit={handleSend} className="p-3 bg-slate-800/50 border-t border-slate-700 flex gap-2">
+                        <input
+                            type="text"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            placeholder="Digite sua mensagem..."
+                            className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500/50"
+                        />
+                        <button
+                            type="submit"
+                            disabled={isLoading || !input.trim()}
+                            className="p-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-colors"
+                        >
+                            <Send className="w-5 h-5" />
+                        </button>
+                    </form>
+                </>
+            )}
         </div>
     );
 }

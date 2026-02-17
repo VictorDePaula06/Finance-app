@@ -2,10 +2,22 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { CATEGORIES } from '../constants/categories';
 import { calculateFutureProjections } from '../utils/financialLogic';
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-
 export const isGeminiConfigured = () => {
-    return !!API_KEY;
+    return !!localStorage.getItem('user_gemini_api_key');
+};
+
+export const validateApiKey = async (apiKey) => {
+    if (!apiKey) return false;
+    try {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        // Minimal token count request to validate key without generating content
+        await model.countTokens("Test");
+        return true;
+    } catch (error) {
+        console.error("API Key validation failed:", error);
+        return false;
+    }
 };
 
 export const calculateStatsContext = (transactions, manualConfig) => {
@@ -137,14 +149,17 @@ Não coloque nada após o bloco JSON.`;
 };
 
 export const sendMessageToGemini = async (history, message, context) => {
-    if (!API_KEY) {
+    // Check for user-provided key only
+    const effectiveKey = localStorage.getItem('user_gemini_api_key');
+
+    if (!effectiveKey) {
         throw new Error("API Key não configurada");
     }
 
     try {
         // Debug Info
-        console.log("Iniciando Gemini. Key carregada:", !!API_KEY, API_KEY ? `...${API_KEY.slice(-4)}` : 'N/A');
-        const genAI = new GoogleGenerativeAI(API_KEY);
+        console.log("Iniciando Gemini. Key carregada:", !!effectiveKey, effectiveKey ? `...${effectiveKey.slice(-4)}` : 'N/A');
+        const genAI = new GoogleGenerativeAI(effectiveKey);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const chat = model.startChat({
