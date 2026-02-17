@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { calculateFinancialHealth } from '../utils/financialLogic';
 import { calculateStatsContext, sendMessageToGemini, validateApiKey } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
@@ -23,10 +24,20 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
     useEffect(() => {
         if (isConfiguring) {
             setTempManualConfig(manualConfig);
-            // Load saved API Key
+            // Load saved API Key (LocalStorage as fallback)
             const savedKey = localStorage.getItem('user_gemini_api_key') || '';
             setApiKey(savedKey);
             setError(''); // Clear error when opening
+
+            // Load from Firestore
+            if (getUserPreferences) {
+                getUserPreferences().then(prefs => {
+                    if (prefs && prefs.apiKey) {
+                        setApiKey(prefs.apiKey);
+                        localStorage.setItem('user_gemini_api_key', prefs.apiKey);
+                    }
+                });
+            }
         }
     }, [isConfiguring, manualConfig]);
 
@@ -79,6 +90,8 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
         }
     };
 
+    const { saveUserPreferences, getUserPreferences } = useAuth();
+
     const handleSaveConfig = async (e) => {
         e.preventDefault();
         setIsSaving(true);
@@ -94,8 +107,12 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                 return;
             }
             localStorage.setItem('user_gemini_api_key', apiKey.trim());
+            // Sync with Firestore
+            saveUserPreferences({ apiKey: apiKey.trim() });
         } else {
             localStorage.removeItem('user_gemini_api_key');
+            // Sync with Firestore (remove key)
+            saveUserPreferences({ apiKey: '' });
         }
 
         onConfigChange(tempManualConfig); // Parent handles saving

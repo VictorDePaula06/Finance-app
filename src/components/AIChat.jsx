@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { Send, Bot, X, MessageSquare, Loader2, Key, Trash2, CheckCircle, ChevronDown, Video, AlertTriangle } from 'lucide-react';
 import { sendMessageToGemini, calculateStatsContext, isGeminiConfigured, validateApiKey } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
 import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
+import logo from '../assets/logo.png';
 
 export default function AIChat({ transactions, manualConfig, onAddTransaction, onDeleteTransaction }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -18,16 +20,48 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
     const [keyError, setKeyError] = useState('');
     const messagesEndRef = useRef(null);
 
+    const { saveUserPreferences, getUserPreferences, saveChatHistory, getChatHistory } = useAuth();
+
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
     useEffect(() => {
         scrollToBottom();
+    }, [messages, isOpen]);
+
+    useEffect(() => {
         if (isOpen) {
             setHasKey(isGeminiConfigured());
+
+            if (getUserPreferences) {
+                getUserPreferences().then(prefs => {
+                    if (prefs && prefs.apiKey) {
+                        if (!isGeminiConfigured()) {
+                            localStorage.setItem('user_gemini_api_key', prefs.apiKey);
+                            setHasKey(true);
+                        }
+                    }
+                });
+            }
+
+            if (getChatHistory) {
+                getChatHistory().then(remoteHistory => {
+                    if (remoteHistory && remoteHistory.length > 0) {
+                        setMessages(prev => {
+                            // Simple merge strategy: if remote has more messages, use remote.
+                            // Or just prefer remote if it exists.
+                            // To avoid losing simple local context, let's strict check:
+                            if (prev.length === 0) return remoteHistory;
+                            // If local has content, we might want to keep it or specific logic?
+                            // For this MVP, let's trust Remote if available to enable device sync.
+                            return remoteHistory;
+                        });
+                    }
+                });
+            }
         }
-    }, [messages, isOpen]);
+    }, [isOpen]);
 
     const handleSaveKey = async () => {
         setKeyError('');
@@ -42,20 +76,29 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
             }
 
             localStorage.setItem('user_gemini_api_key', apiKey.trim());
+            saveUserPreferences({ apiKey: apiKey.trim() });
 
             // Artificial delay for feedback
             setTimeout(() => {
                 setIsSavingKey(false);
                 setHasKey(true);
-                // Add a welcome message
-                setMessages(prev => [...prev, { role: 'model', text: '✅ **API Key Configurada!**\n\nAgora sou seu assistente pessoal. Em que posso ajudar?' }]);
+                // Add a welcome message if empty
+                setMessages(prev => {
+                    if (prev.length === 0) {
+                        return [...prev, { role: 'model', text: '✅ **API Key Configurada!**\n\nAgora sou seu assistente pessoal. Em que posso ajudar?' }];
+                    }
+                    return prev;
+                });
             }, 1000);
         }
     };
 
-    // Save to localStorage whenever messages change
+    // Save to localStorage and Firestore whenever messages change
     useEffect(() => {
         localStorage.setItem('geminiChatHistory', JSON.stringify(messages));
+        if (messages.length > 0) {
+            saveChatHistory(messages);
+        }
     }, [messages]);
 
     const clearHistory = () => {
@@ -157,9 +200,9 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-4 rounded-full shadow-2xl transition-all hover:scale-110 z-50 flex items-center justify-center group"
+                className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-full shadow-2xl transition-all hover:scale-110 z-50 flex items-center justify-center group"
             >
-                <Bot className="w-6 h-6" />
+                <img src={logo} alt="Gemini" className="w-10 h-10 object-contain filter drop-shadow-md" />
                 <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 ease-in-out whitespace-nowrap">
                     Chat com Gemini
                 </span>
@@ -172,9 +215,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
             {/* Header */}
             <div className="bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-500/10 rounded-lg">
-                        <Bot className="w-6 h-6 text-blue-400" />
-                    </div>
+                    <img src={logo} alt="Gemini" className="w-12 h-12 object-contain filter drop-shadow-md" />
                     <div>
                         <h3 className="font-bold text-slate-100">Assistente Gemini</h3>
                         <p className="text-xs text-emerald-400 flex items-center gap-1">

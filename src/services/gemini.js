@@ -178,7 +178,7 @@ export const sendMessageToGemini = async (history, message, context) => {
                 }))
             ],
             generationConfig: {
-                maxOutputTokens: 500,
+                maxOutputTokens: 5000,
             },
         });
 

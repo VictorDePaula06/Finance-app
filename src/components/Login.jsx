@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { LayoutDashboard, Sparkles } from 'lucide-react';
+import logo from '../assets/logo.png';
 
 export default function Login() {
     const [error, setError] = useState('');
@@ -27,9 +28,7 @@ export default function Login() {
 
             <div className="glass-card p-10 rounded-3xl w-full max-w-md backdrop-blur-xl relative z-10 animate-in fade-in zoom-in duration-500">
                 <div className="flex flex-col items-center mb-10">
-                    <div className="p-4 bg-gradient-to-br from-blue-500 to-emerald-500 rounded-2xl shadow-lg shadow-emerald-500/20 mb-6 animate-bounce-slow">
-                        <LayoutDashboard className="h-12 w-12 text-white" />
-                    </div>
+                    <img src={logo} alt="Finance Control Logo" className="w-48 h-auto object-contain mb-6 animate-bounce-slow drop-shadow-2xl" />
                     <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-emerald-400 to-teal-400 bg-clip-text text-transparent mb-2">
                         Finance Control
                     </h2>

@@ -5,6 +5,7 @@ import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LayoutDashboard, LogOut } from 'lucide-react';
 import InstallPrompt from './components/InstallPrompt';
+import logo from './assets/logo.png';
 
 function Dashboard() {
   const { logout, currentUser } = useAuth();
@@ -18,9 +19,7 @@ function Dashboard() {
         {/* Header */}
         <header className="flex items-center justify-between mb-12">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-900/20">
-              <LayoutDashboard className="w-8 h-8 text-white" />
-            </div>
+            <img src={logo} alt="Finance Control Logo" className="w-28 h-auto object-contain drop-shadow-lg" />
             <div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
                 Finance Control

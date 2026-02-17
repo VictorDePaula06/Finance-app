@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, googleProvider } from '../services/firebase';
+import { auth, googleProvider, db } from '../services/firebase';
 import {
     signInWithPopup,
     signInWithEmailAndPassword,
@@ -7,6 +7,7 @@ import {
     signOut,
     onAuthStateChanged
 } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -43,12 +44,45 @@ export function AuthProvider({ children }) {
         return unsubscribe;
     }, []);
 
+    // Cloud Sync Functions
+    async function saveUserPreferences(data) {
+        if (!currentUser) return;
+        const userRef = doc(db, 'users', currentUser.uid, 'settings', 'general');
+        await setDoc(userRef, data, { merge: true });
+    }
+
+    async function getUserPreferences() {
+        if (!currentUser) return null;
+        const userRef = doc(db, 'users', currentUser.uid, 'settings', 'general');
+        const docSnap = await getDoc(userRef);
+        return docSnap.exists() ? docSnap.data() : null;
+    }
+
+    async function saveChatHistory(messages) {
+        if (!currentUser) return;
+        const chatRef = doc(db, 'users', currentUser.uid, 'chat', 'history');
+        // Firestore has a size limit for documents (1MB). For a simple chat history, this is usually fine.
+        // If it grows too large, we might need a subcollection, but for now a single doc is simpler.
+        await setDoc(chatRef, { messages, updatedAt: new Date() }, { merge: true });
+    }
+
+    async function getChatHistory() {
+        if (!currentUser) return [];
+        const chatRef = doc(db, 'users', currentUser.uid, 'chat', 'history');
+        const docSnap = await getDoc(chatRef);
+        return docSnap.exists() ? docSnap.data().messages : [];
+    }
+
     const value = {
         currentUser,
         login,
         signup,
         loginWithGoogle,
-        logout
+        logout,
+        saveUserPreferences,
+        getUserPreferences,
+        saveChatHistory,
+        getChatHistory
     };
 
     return (
