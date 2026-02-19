@@ -52,6 +52,8 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
 
     const [isLoading, setIsLoading] = useState(false);
 
+    const { saveUserPreferences, getUserPreferences, isPremium } = useAuth(); // Added isPremium
+
     const handleSimulate = async (e) => {
         e.preventDefault();
         if (!simAmount || !health.hasData) return;
@@ -74,14 +76,19 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
             
             Seja direto: "Compra Viável" ou "Alto Risco". Explique o porquê citando os meses afetados.`;
 
-            const response = await sendMessageToGemini([], prompt, context);
+            const history = JSON.parse(localStorage.getItem('geminiChatHistory') || '[]');
+            const response = await sendMessageToGemini(history, prompt, context);
             setSimulationResult({ aiResponse: response });
         } catch (error) {
             console.error("Erro na simulação IA:", error);
 
             let errorMsg = "Erro ao consultar o assistente.";
             if (error.message.includes('429') || error.message.includes('quota')) {
-                errorMsg = "⚠️ Limite atingido. Tente novamente em instantes.";
+                if (isPremium) {
+                    errorMsg = "⏳ Alta demanda no servidor. Aguarde um momento e tente novamente.";
+                } else {
+                    errorMsg = "🔒 Limite do Plano Gratuito atingido. O plano gratuito tem um limite de requisições por minuto. Aguarde alguns segundos ou faça Upgrade para liberar acesso ilimitado.";
+                }
             }
 
             setSimulationResult({ error: errorMsg });
@@ -90,7 +97,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
         }
     };
 
-    const { saveUserPreferences, getUserPreferences } = useAuth();
+
 
     const handleSaveConfig = async (e) => {
         e.preventDefault();

@@ -43,8 +43,8 @@ export const calculateStatsContext = (transactions, manualConfig) => {
     // Configured Income
     let monthlyIncome = manualConfig && manualConfig.income ? parseFloat(manualConfig.income) : 'Não informado (use a média histórica)';
 
-    // Recent Transactions (last 5)
-    const recentTx = transactions.slice(0, 5).map(t =>
+    // Recent Transactions (last 50)
+    const recentTx = transactions.slice(0, 50).map(t =>
         `- ${t.date}: ${t.description} (${t.type === 'income' ? '+' : '-'} R$ ${t.amount}) [${t.category}]`
     ).join('\n');
 
@@ -94,11 +94,12 @@ ${categoryStats || "Nenhum gasto registrado ainda."}
   (Considerando Renda Fixa - Gastos Fixos - Parcelas já assumidas)
 ${projectionsText}
 
-- Últimas 5 Transações:
+- Últimas 50 Transações (Histórico Recente para Análise e Exclusão):
 ${recentTx}
 
 INSTRUÇÕES:
 Você é um Analista Financeiro Sênior, experiente, crítico e direto.
+ESTES SÃO OS DADOS ATUAIS E EM TEMPO REAL DO USUÁRIO. NÃO PEÇA PARA O USUÁRIO ATUALIZAR A LISTA, POIS A LISTA ACIMA JÁ É A REALIDADE. Se o usuário disser que mudou algo, confie que os dados acima já refletem essa mudança (ou a mudança ainda não foi salva corretamente).
 Sua missão é ajudar o usuário a ter controle total sobre suas finanças, identificando padrões de gasto e alertando sobre riscos.
 
 DIRETRIZES DE ANÁLISE:
@@ -127,7 +128,7 @@ Formatos do JSON:
         "description": "Descrição do item",
         "amount": 0.00,
         "type": "expense" (ou "income"),
-        "category": "category_id" (use IDs: housing, food, transport, health, leisure, shopping, salary, freelance, investment, gift, other),
+        "category": "category_id" (use IDs: housing, food, transport, health, education, pets, personal_care, subscriptions, credit_card, church, taxes, leisure, shopping, salary, freelance, investment, gift, other),
         "date": "YYYY-MM-DD" (use a data atual se não especificada)
     }
 }
@@ -162,6 +163,9 @@ export const sendMessageToGemini = async (history, message, context) => {
         const genAI = new GoogleGenerativeAI(effectiveKey);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
+        // Filter out previous system prompts from history to avoid confusion/token usage
+        const cleanHistory = history.filter(msg => !msg.text.startsWith("System Prompt:"));
+
         const chat = model.startChat({
             history: [
                 {
@@ -170,9 +174,9 @@ export const sendMessageToGemini = async (history, message, context) => {
                 },
                 {
                     role: "model",
-                    parts: [{ text: "Entendido. Estou pronto para atuar como seu assistente financeiro pessoal com base nesses dados." }],
+                    parts: [{ text: "Entendido. Estou pronto para atuar como seu assistente financeiro pessoal com base nesses dados atualizados." }],
                 },
-                ...history.map(msg => ({
+                ...cleanHistory.map(msg => ({
                     role: msg.role === 'user' ? 'user' : 'model',
                     parts: [{ text: msg.text }]
                 }))

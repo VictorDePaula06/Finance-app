@@ -6,6 +6,13 @@ const COLORS = {
     food: '#FB923C', // orange-400
     transport: '#FACC15', // yellow-400
     health: '#F87171', // red-400
+    education: '#60A5FA', // blue-400
+    pets: '#B45309', // amber-700
+    personal_care: '#F9A8D4', // pink-300
+    subscriptions: '#C084FC', // purple-400
+    credit_card: '#8B5CF6', // violet-500
+    church: '#93C5FD', // blue-300
+    taxes: '#64748B', // slate-500
     leisure: '#818CF8', // indigo-400
     shopping: '#F472B6', // pink-400
     other: '#94A3B8' // slate-400
@@ -16,6 +23,13 @@ const CATEGORY_LABELS = {
     food: 'Alimentação',
     transport: 'Transporte',
     health: 'Saúde',
+    education: 'Educação',
+    pets: 'Pets',
+    personal_care: 'Cuidados',
+    subscriptions: 'Assinaturas',
+    credit_card: 'Cartão',
+    church: 'Igreja',
+    taxes: 'Taxas',
     leisure: 'Lazer',
     shopping: 'Compras',
     other: 'Outro'

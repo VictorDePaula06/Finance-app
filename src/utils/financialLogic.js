@@ -113,21 +113,52 @@ export const calculateFutureProjections = (transactions, manualConfig, months = 
     const projections = [];
 
     // Base Values
-    const monthlyIncome = manualConfig?.income ? parseFloat(manualConfig.income) : 0;
+    // 1. Income: Manual Config > Average
+    let monthlyIncome = 0;
+    if (manualConfig?.income) {
+        monthlyIncome = parseFloat(manualConfig.income);
+    } else {
+        const health = calculateFinancialHealth(transactions, null);
+        monthlyIncome = health.averageIncome || 0;
+    }
+
+    // 2. Fixed Expenses: Manual Config > 0
     const fixedExpenses = manualConfig?.fixedExpenses ? parseFloat(manualConfig.fixedExpenses) : 0;
 
+    // 3. Variable Expenses Estimate
+    // Logic: Manual Config > (Average Total - Fixed) > 0
+    let variableExpenses = 0;
+    if (manualConfig?.variableEstimate) {
+        variableExpenses = parseFloat(manualConfig.variableEstimate);
+    } else {
+        // If no manual estimate, we try to infer.
+        // Option A: Use historical average minus fixed. 
+        // Problem: If historical average is huge due to a bad month, this tanks the projection.
+        // Adjustment: Use a safer heuristic or strictly what's configured.
+
+        // Let's rely on the user's "Disposable Income" heuristic from health check if available,
+        // otherwise default to 0 to avoid scaring the user with "High Risk" due to old data.
+        // better to assume 0 variable if undefined than to assume infinite debt.
+
+        // However, completely ignoring variable expenses makes the simulation too optimistic.
+        // Compromise: Use 0 by default if manual config is missing, forcing user to configure it for accuracy.
+        variableExpenses = 0;
+    }
+
     for (let i = 0; i < months; i++) {
+        // ... (rest of date logic)
         const targetDate = new Date(today.getFullYear(), today.getMonth() + i, 1);
         const monthKey = targetDate.toISOString().slice(0, 7); // YYYY-MM
 
+        // For current month (index 0), we should probably look at ACTUAL spending so far?
+        // Or keep it simple: Projection always shows "Planned" state.
+        // Let's stick to "Planned" structure: Income - (Fixed + Installments + Estimated Variable)
+
         // Calculate Installments for this specific month
-        // We look for transactions that have this monthKey as their 'month' property
-        // The system already creates individual transaction records for future installments with correct 'month'
         const monthTransactions = transactions.filter(t => t.month === monthKey && t.type === 'expense');
         const monthInstallmentsTotal = monthTransactions.reduce((acc, t) => acc + parseFloat(t.amount), 0);
 
-        // Total Committed
-        const totalCommitted = fixedExpenses + monthInstallmentsTotal;
+        const totalCommitted = fixedExpenses + monthInstallmentsTotal + variableExpenses;
         const projectedBalance = monthlyIncome - totalCommitted;
 
         projections.push({
@@ -135,7 +166,9 @@ export const calculateFutureProjections = (transactions, manualConfig, months = 
             balance: projectedBalance,
             committed: totalCommitted,
             income: monthlyIncome,
-            installments: monthInstallmentsTotal
+            installments: monthInstallmentsTotal,
+            variableEstimated: variableExpenses,
+            fixed: fixedExpenses
         });
     }
 

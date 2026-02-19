@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Plus, Pencil, Check, X, Trophy, History, Trash2, TrendingUp, Calendar } from 'lucide-react';
+import { Target, Plus, Pencil, Check, X, Trophy, History, Trash2, TrendingUp, Calendar, Minus } from 'lucide-react';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc, orderBy } from 'firebase/firestore';
@@ -65,20 +65,15 @@ export default function GoalTracker() {
         }
     };
 
-    const handleContribute = async (goalId, currentAmount) => {
+    const handleContribute = async (goalId, currentAmount, multiplier = 1) => {
         const val = parseFloat(contributions[goalId]);
         if (!val) return;
 
         try {
-            const newCurrent = currentAmount + val;
+            let newCurrent = currentAmount + (val * multiplier);
+            if (newCurrent < 0) newCurrent = 0; // Prevent negative goals
+
             const goalRef = doc(db, 'goals', goalId);
-
-            // Auto-complete check
-            // We fetch the latest goal data or trust the passed logic. 
-            // Better to update status if 100% reached, or let user do it? 
-            // Let's keep it 'active' unless manually moved or strictly > target.
-            // For now, simple update.
-
             await updateDoc(goalRef, { current: newCurrent });
             setContributions(prev => ({ ...prev, [goalId]: '' }));
         } catch (error) {
@@ -323,17 +318,26 @@ export default function GoalTracker() {
                                     <div className="flex gap-2">
                                         <input
                                             type="number"
-                                            placeholder="Aportar..."
+                                            placeholder="Valor..."
                                             value={contributions[goal.id] || ''}
                                             onChange={(e) => setContributions(prev => ({ ...prev, [goal.id]: e.target.value }))}
                                             className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500/50"
                                         />
                                         <button
-                                            onClick={() => handleContribute(goal.id, goal.current)}
-                                            className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg transition-colors"
+                                            onClick={() => handleContribute(goal.id, goal.current, 1)}
+                                            className="bg-emerald-600 hover:bg-emerald-500 text-white p-2 rounded-lg transition-colors border border-emerald-500/50"
                                             disabled={!contributions[goal.id]}
+                                            title="Adicionar valor"
                                         >
                                             <Plus className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleContribute(goal.id, goal.current, -1)}
+                                            className="bg-slate-700 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 p-2 rounded-lg transition-colors border border-slate-600 hover:border-rose-500/50"
+                                            disabled={!contributions[goal.id]}
+                                            title="Remover valor (Correção)"
+                                        >
+                                            <Minus className="w-5 h-5" />
                                         </button>
                                     </div>
                                 )}
