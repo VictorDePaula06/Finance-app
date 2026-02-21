@@ -19,6 +19,8 @@ export const CATEGORIES = {
         { id: 'subscriptions', label: 'Assinaturas', icon: CreditCard, color: 'text-purple-400' },
         { id: 'credit_card', label: 'Cartão', icon: CreditCard, color: 'text-violet-500' },
         { id: 'church', label: 'Igreja', icon: Heart, color: 'text-blue-300' },
+        { id: 'investment', label: 'Investimento', icon: TrendingUp, color: 'text-emerald-400' },
+        { id: 'loan', label: 'Empréstimo', icon: Landmark, color: 'text-rose-400' },
         { id: 'taxes', label: 'Taxas', icon: Landmark, color: 'text-slate-500' },
         { id: 'leisure', label: 'Lazer', icon: Gamepad2, color: 'text-indigo-400' },
         { id: 'shopping', label: 'Compras', icon: ShoppingBag, color: 'text-pink-400' },

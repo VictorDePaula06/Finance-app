@@ -285,6 +285,14 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
 
     const balance = income - expense;
 
+    const totalInvestedFromTransactions = useMemo(() => {
+        return transactions
+            .filter(t => t.type === 'expense' && t.category === 'investment')
+            .reduce((acc, t) => acc + parseFloat(t.amount), 0);
+    }, [transactions]);
+
+    const totalPatrimonio = (parseFloat(manualConfig.invested) || 0) + totalInvestedFromTransactions;
+
     const monthlyReport = useMemo(() => {
         const report = {};
         transactions.forEach(t => {
@@ -381,7 +389,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
                 />
                 <Card
                     title="Patrimônio Investido"
-                    value={parseFloat(manualConfig.invested) || 0}
+                    value={totalPatrimonio}
                     icon={TrendingUp}
                     color="text-purple-400"
                     isHidable={true}
@@ -433,17 +441,17 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
                 {/* Row 2: Category Selector (Full Width) */}
                 <div className="md:col-span-12">
                     <label className="block text-xs font-medium text-slate-400 mb-1 ml-1">Categoria</label>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-2 p-2 bg-slate-900/50 rounded-xl border border-slate-700">
+                    <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-1 p-1.5 bg-slate-900/50 rounded-xl border border-slate-700 max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
                         {(type === 'income' ? CATEGORIES.income : CATEGORIES.expense).map(cat => (
                             <button
                                 key={cat.id}
                                 type="button"
                                 onClick={() => setCategory(cat)}
-                                className={`p-2 rounded-lg flex flex-col items-center justify-center gap-1 transition-all ${category.id === cat.id ? 'bg-slate-700 ring-1 ring-slate-500' : 'hover:bg-slate-800'}`}
+                                className={`p-1.5 rounded-lg flex flex-col items-center justify-center gap-1 transition-all ${category.id === cat.id ? 'bg-slate-700 ring-1 ring-slate-500' : 'hover:bg-slate-800'}`}
                                 title={cat.label}
                             >
-                                <cat.icon className={`w-5 h-5 ${cat.color}`} />
-                                <span className="text-[10px] text-slate-400 truncate w-full text-center">{cat.label}</span>
+                                <cat.icon className={`w-4 h-4 ${cat.color}`} />
+                                <span className="text-[9px] text-slate-400 truncate w-full text-center">{cat.label}</span>
                             </button>
                         ))}
                     </div>
