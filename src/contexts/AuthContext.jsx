@@ -47,7 +47,13 @@ export function AuthProvider({ children }) {
                 try {
                     const userRef = doc(db, 'users', user.uid, 'settings', 'general');
                     const userSnap = await getDoc(userRef);
-                    const userData = userSnap.exists() ? userSnap.data() : {};
+                    let userData = userSnap.exists() ? userSnap.data() : {};
+
+                    // Ensure email is always saved for Admin Panel to find
+                    if (!userData.email && user.email) {
+                        await setDoc(userRef, { email: user.email }, { merge: true });
+                        userData.email = user.email;
+                    }
 
                     const subscriptionStatus = userData.subscription?.status; // 'active', 'canceled', etc.
                     const createdAt = user.metadata.creationTime ? new Date(user.metadata.creationTime) : new Date();

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Send, Bot, X, MessageSquare, Loader2, Key, Trash2, CheckCircle, ChevronDown, Video, AlertTriangle } from 'lucide-react';
 import { sendMessageToGemini, calculateStatsContext, isGeminiConfigured, validateApiKey } from '../services/gemini';
@@ -49,12 +50,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                 getChatHistory().then(remoteHistory => {
                     if (remoteHistory && remoteHistory.length > 0) {
                         setMessages(prev => {
-                            // Simple merge strategy: if remote has more messages, use remote.
-                            // Or just prefer remote if it exists.
-                            // To avoid losing simple local context, let's strict check:
                             if (prev.length === 0) return remoteHistory;
-                            // If local has content, we might want to keep it or specific logic?
-                            // For this MVP, let's trust Remote if available to enable device sync.
                             return remoteHistory;
                         });
                     }
@@ -78,11 +74,9 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
             localStorage.setItem('user_gemini_api_key', apiKey.trim());
             saveUserPreferences({ apiKey: apiKey.trim() });
 
-            // Artificial delay for feedback
             setTimeout(() => {
                 setIsSavingKey(false);
                 setHasKey(true);
-                // Add a welcome message if empty
                 setMessages(prev => {
                     if (prev.length === 0) {
                         return [...prev, { role: 'model', text: '✅ **API Key Configurada!**\n\nAgora sou seu assistente pessoal. Em que posso ajudar?' }];
@@ -93,7 +87,6 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
         }
     };
 
-    // Save to localStorage and Firestore whenever messages change
     useEffect(() => {
         localStorage.setItem('geminiChatHistory', JSON.stringify(messages));
         if (messages.length > 0) {
@@ -124,42 +117,30 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
         setIsLoading(true);
 
         try {
-            // Prepare context
             const context = calculateStatsContext(transactions, manualConfig);
-
             const responseText = await sendMessageToGemini(messages, input, context);
-
-            // Check for JSON command
             const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
             let displayMessage = responseText;
 
             if (jsonMatch) {
                 try {
                     const command = JSON.parse(jsonMatch[1]);
-
                     if (command.action === 'add_transaction') {
-                        // Execute Add Action
                         if (onAddTransaction) {
                             await onAddTransaction(command.data);
-                            // Clean up the JSON from the display message
                             displayMessage = responseText.replace(/```json[\s\S]*```/, '').trim();
                             displayMessage += `\n\n✅ **Transação Salva:** ${command.data.description} (R$ ${command.data.amount})`;
                         }
                     } else if (command.action === 'delete_transaction') {
-                        // Execute Delete Action
                         const { amount, description: descSearch, type } = command.data;
-
-                        // Find transaction: match amount AND (optional) type AND partial description
-                        // We iterate backwards to find the most recent one
                         let foundTx = null;
                         const targetAmount = parseFloat(amount);
 
                         for (let i = transactions.length - 1; i >= 0; i--) {
                             const tx = transactions[i];
-                            const isAmountMatch = Math.abs(tx.amount - targetAmount) < 0.05; // float tolerance
+                            const isAmountMatch = Math.abs(tx.amount - targetAmount) < 0.05;
                             const isTypeMatch = type ? tx.type === type : true;
                             const isDescMatch = tx.description.toLowerCase().includes(descSearch.toLowerCase());
-
                             if (isAmountMatch && isDescMatch && isTypeMatch) {
                                 foundTx = tx;
                                 break;
@@ -175,49 +156,31 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                             displayMessage += `\n\n⚠️ **Não foi possível encontrar a transação:** "${descSearch}" de R$ ${amount}. Verifique o valor ou nome.`;
                         }
                     }
-
                 } catch (e) {
                     console.error("Failed to parse Gemini command:", e);
                 }
             }
-
             setMessages(prev => [...prev, { role: 'model', text: displayMessage }]);
         } catch (error) {
             console.error("Erro detalhado do Gemini:", error);
             let userMsg = "Desculpe, ocorreu um erro ao processar sua solicitação.";
-
             if (error.message.includes('429') || error.message.includes('quota')) {
                 userMsg = "⚠️ **Limite atingido.**\n\nPor favor, aguarde alguns instantes e tente novamente. Se o erro persistir, o limite diário pode ter sido alcançado.";
             }
-
             setMessages(prev => [...prev, { role: 'model', text: userMsg }]);
         } finally {
             setIsLoading(false);
         }
     };
 
-    if (!isOpen) {
-        return (
-            <button
-                onClick={() => setIsOpen(true)}
-                className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-full shadow-2xl transition-all hover:scale-110 z-50 flex items-center justify-center group"
-            >
-                <img src={logo} alt="Gemini" className="w-10 h-10 object-contain filter drop-shadow-md" />
-                <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 ease-in-out whitespace-nowrap">
-                    Chat com Gemini
-                </span>
-            </button>
-        );
-    }
-
-    return (
-        <div className="fixed bottom-6 right-6 w-full max-w-sm h-[500px] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in">
+    const chatContent = isOpen ? (
+        <div className="fixed bottom-6 right-6 w-full max-w-sm h-[500px] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-[9999] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in">
             {/* Header */}
             <div className="bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                    <img src={logo} alt="Gemini" className="w-12 h-12 object-contain filter drop-shadow-md" />
+                    <img src={logo} alt="Mêntore" className="w-12 h-12 object-contain filter drop-shadow-md" />
                     <div>
-                        <h3 className="font-bold text-slate-100">Assistente Gemini</h3>
+                        <h3 className="font-bold text-slate-100">Seu Mêntore</h3>
                         <p className="text-xs text-emerald-400 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                             Online
@@ -259,11 +222,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                                 <p>3. Cole a chave abaixo.</p>
 
                                 <div className="mt-3 rounded-lg overflow-hidden border border-slate-700 bg-black">
-                                    <video
-                                        src={tutorialVideo}
-                                        controls
-                                        className="w-full max-h-48 object-contain"
-                                    >
+                                    <video src={tutorialVideo} controls className="w-full max-h-48 object-contain">
                                         Seu navegador não suporta a tag de vídeo.
                                     </video>
                                 </div>
@@ -301,33 +260,23 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                             ) : (
                                 <>
                                     <Bot className="w-4 h-4" />
-                                    Ativar Assistente
+                                    Ativar Mêntore
                                 </>
                             )}
                         </button>
-                        <a
-                            href="https://aistudio.google.com/app/apikey"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block text-xs text-blue-400 hover:text-blue-300 underline mt-4"
-                        >
-                            Obter chave no Google AI Studio
-                        </a>
                     </div>
                 </div>
             ) : (
                 <>
-                    {/* Messages */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                         {messages.length === 0 && (
                             <div className="text-center mt-10 opacity-50">
                                 <Bot className="w-12 h-12 mx-auto mb-2 text-slate-600" />
                                 <p className="text-slate-500 text-sm px-6">
-                                    Olá! Sou seu assistente financeiro. Pergunte sobre seus gastos, peça dicas ou simule compras.
+                                    Olá! Sou o Mêntore, seu consultor financeiro. Pergunte sobre seus gastos, peça dicas ou simule compras.
                                 </p>
                             </div>
                         )}
-
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.role === 'user'
@@ -336,10 +285,10 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                                     }`}>
                                     <ReactMarkdown
                                         components={{
-                                            p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
-                                            ul: ({ node, ...props }) => <ul className="list-disc ml-4 mb-2" {...props} />,
-                                            li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-                                            strong: ({ node, ...props }) => <strong className="font-bold text-blue-300" {...props} />
+                                            p: ({ ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                                            ul: ({ ...props }) => <ul className="list-disc ml-4 mb-2" {...props} />,
+                                            li: ({ ...props }) => <li className="mb-1" {...props} />,
+                                            strong: ({ ...props }) => <strong className="font-bold text-blue-300" {...props} />
                                         }}
                                     >
                                         {msg.text}
@@ -347,7 +296,6 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                                 </div>
                             </div>
                         ))}
-
                         {isLoading && (
                             <div className="flex justify-start">
                                 <div className="bg-slate-800 border border-slate-700 rounded-2xl rounded-bl-none px-4 py-3 flex items-center gap-2">
@@ -358,8 +306,6 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                         )}
                         <div ref={messagesEndRef} />
                     </div>
-
-                    {/* Input */}
                     <form onSubmit={handleSend} className="p-3 bg-slate-800/50 border-t border-slate-700 flex gap-2">
                         <input
                             type="text"
@@ -379,5 +325,17 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                 </>
             )}
         </div>
+    ) : (
+        <button
+            onClick={() => setIsOpen(true)}
+            className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-full shadow-2xl transition-all hover:scale-110 z-[9999] flex items-center justify-center group"
+        >
+            <img src={logo} alt="Mêntore" className="w-10 h-10 object-contain filter drop-shadow-md" />
+            <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 ease-in-out whitespace-nowrap text-sm font-bold">
+                Chat com Mêntore
+            </span>
+        </button>
     );
+
+    return createPortal(chatContent, document.body);
 }

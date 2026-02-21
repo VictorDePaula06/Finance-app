@@ -3,8 +3,10 @@ import { Lock, Zap, CheckCircle2, MessageSquare, LogOut, ArrowRight } from 'luci
 import { useAuth } from '../contexts/AuthContext';
 import logo from '../assets/logo.png';
 
-export default function SubscriptionBlock() {
+export default function SubscriptionBlock({ onAdminAccess }) {
     const { logout, currentUser } = useAuth();
+    // E-mail Master (deve bater com o do App.jsx)
+    const MASTER_EMAIL = 'j.17jvictor@gmail.com';
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-50 relative overflow-hidden flex flex-col items-center justify-center p-6">
@@ -15,7 +17,14 @@ export default function SubscriptionBlock() {
             <div className="max-w-xl w-full relative z-10">
                 {/* Logo & Header */}
                 <div className="text-center mb-10">
-                    <img src={logo} alt="Logo" className="w-32 h-auto mx-auto mb-6 drop-shadow-2xl" />
+                    <div
+                        className="mb-6 cursor-help select-none"
+                        onDoubleClick={() => {
+                            if (currentUser?.email === MASTER_EMAIL) onAdminAccess();
+                        }}
+                    >
+                        <img src={logo} alt="Logo" className="w-32 h-auto mx-auto drop-shadow-2xl" />
+                    </div>
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold mb-4">
                         <Lock className="w-3 h-3" />
                         ACESSO BLOQUEADO
@@ -40,7 +49,7 @@ export default function SubscriptionBlock() {
                             'Análise de Metas e Reserva de Emergência',
                             'Relatórios PDF Profissionais Ilimitados',
                             'Sincronização em Nuvem (Multi-dispositivos)',
-                            'Mentor Financeiro Exclusivo (IA)'
+                            'Metodologia de Inteligência Financeira Injetada'
                         ].map((item, i) => (
                             <li key={i} className="flex items-center gap-3 text-slate-300">
                                 <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />

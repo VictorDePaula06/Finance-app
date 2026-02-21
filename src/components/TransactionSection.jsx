@@ -1,25 +1,36 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { LayoutDashboard, ArrowUpCircle, ArrowDownCircle, Trash2, Pencil, Calendar, Search, Wallet, TrendingUp, TrendingDown, FileText, X, Download, Home, Utensils, Car, Heart, Gamepad2, ShoppingBag, Briefcase, Laptop, Circle } from 'lucide-react';
+import { LayoutDashboard, ArrowUpCircle, ArrowDownCircle, Trash2, Pencil, Calendar, Search, Wallet, TrendingUp, TrendingDown, FileText, X, Download, Home, Utensils, Car, Heart, Gamepad2, ShoppingBag, Briefcase, Laptop, Circle, Eye, EyeOff } from 'lucide-react';
 import { db } from '../services/firebase';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, orderBy, getDocs } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import ExpensesChart from './ExpensesChart';
-import FinancialAdvisor from './FinancialAdvisor';
 import AIChat from './AIChat';
+import FinancialAdvisor from './FinancialAdvisor';
 import { CATEGORIES } from '../constants/categories';
 import { generatePDF } from '../utils/generatePDF';
 import logo from '../assets/logo.png';
 
 // New Card Component
-function Card({ title, value, icon: Icon, color, highlight }) {
+function Card({ title, value, icon: Icon, color, highlight, isHidable, isHidden, onToggle }) {
     return (
-        <div className={`p-5 rounded-2xl border ${highlight ? 'bg-blue-500/10 border-blue-500/30' : 'bg-slate-800/50 border-slate-700'}`}>
+        <div className={`p-6 rounded-3xl border transition-all duration-300 hover:scale-[1.02] ${highlight ? 'bg-blue-600/10 border-blue-500/30 shadow-lg shadow-blue-500/5' : 'bg-white/5 border-white/10 backdrop-blur-md'}`}>
             <div className="flex justify-between items-start mb-2">
                 <span className="text-slate-400 text-sm font-medium">{title}</span>
-                <Icon className={`w-5 h-5 ${color}`} />
+                <div className="flex items-center gap-2">
+                    {isHidable && (
+                        <button onClick={onToggle} className="p-1 hover:bg-white/10 rounded-lg transition-colors text-slate-500 hover:text-slate-300">
+                            {isHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                    )}
+                    <Icon className={`w-5 h-5 ${color}`} />
+                </div>
             </div>
             <div className="text-2xl font-bold text-slate-100">
-                R$ {value.toLocaleString()}
+                {isHidable && isHidden ? (
+                    <span className="tracking-widest capitalize">••••••</span>
+                ) : (
+                    <>R$ {value.toLocaleString()}</>
+                )}
             </div>
         </div>
     );
@@ -27,7 +38,7 @@ function Card({ title, value, icon: Icon, color, highlight }) {
 
 
 
-export default function TransactionSection() {
+export default function TransactionSection({ manualConfig, updateManualConfig }) {
     const [transactions, setTransactions] = useState([]);
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
@@ -44,19 +55,29 @@ export default function TransactionSection() {
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
     const [showReport, setShowReport] = useState(false);
     const [filterCategory, setFilterCategory] = useState('all');
-
-
-
-    // Manual Config State (Lifted for AI Context)
-    const [manualConfig, setManualConfig] = useState(() => {
-        const saved = localStorage.getItem('financialAdvisorSettings');
-        return saved ? JSON.parse(saved) : { income: '', fixedExpenses: '', variableEstimate: '' };
+    const [hidePatrimonio, setHidePatrimonio] = useState(() => {
+        return localStorage.getItem('hidePatrimonio') === 'true';
+    });
+    const [hideBalance, setHideBalance] = useState(() => {
+        return localStorage.getItem('hideBalance') === 'true';
     });
 
-    const updateManualConfig = (newConfig) => {
-        setManualConfig(newConfig);
-        localStorage.setItem('financialAdvisorSettings', JSON.stringify(newConfig));
+    const togglePatrimonio = (e) => {
+        e.stopPropagation();
+        const newValue = !hidePatrimonio;
+        setHidePatrimonio(newValue);
+        localStorage.setItem('hidePatrimonio', String(newValue));
     };
+
+    const toggleBalance = (e) => {
+        e.stopPropagation();
+        const newValue = !hideBalance;
+        setHideBalance(newValue);
+        localStorage.setItem('hideBalance', String(newValue));
+    };
+
+
+
 
     useEffect(() => {
         if (!currentUser) return;
@@ -347,30 +368,32 @@ export default function TransactionSection() {
             )}
 
             {/* Cards Section */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card
-                    title="Saldo Total"
+                    title="Saldo em Carteira"
                     value={balance}
                     icon={Wallet}
                     color="text-blue-400"
                     highlight={true}
+                    isHidable={true}
+                    isHidden={hideBalance}
+                    onToggle={toggleBalance}
                 />
                 <Card
-                    title="Entradas"
-                    value={income}
+                    title="Patrimônio Investido"
+                    value={parseFloat(manualConfig.invested) || 0}
                     icon={TrendingUp}
-                    color="text-emerald-400"
+                    color="text-purple-400"
+                    isHidable={true}
+                    isHidden={hidePatrimonio}
+                    onToggle={togglePatrimonio}
                 />
-                <Card
-                    title="Saídas"
-                    value={expense}
-                    icon={TrendingDown}
-                    color="text-rose-400"
-                />
+                <Card title="Ganhos (Mês)" value={income} icon={ArrowUpCircle} color="text-emerald-400" />
+                <Card title="Gastos (Mês)" value={expense} icon={ArrowDownCircle} color="text-rose-400" />
             </div>
 
             {/* Input Form */}
-            <form onSubmit={handleSubmit} className="bg-slate-800/50 backdrop-blur-md p-6 rounded-2xl border border-slate-700 shadow-xl grid grid-cols-1 md:grid-cols-12 gap-4">
+            <form onSubmit={handleSubmit} className="bg-white/5 backdrop-blur-xl p-6 md:p-8 rounded-3xl border border-white/10 shadow-2xl grid grid-cols-1 md:grid-cols-12 gap-4">
                 <h3 className="md:col-span-12 text-lg font-bold text-slate-100 mb-2 flex items-center gap-2">
                     {editingId ? <Pencil className="w-5 h-5 text-blue-400" /> : <LayoutDashboard className="w-5 h-5 text-emerald-400" />}
                     {editingId ? 'Editar Transação' : 'Nova Transação'}
@@ -530,19 +553,17 @@ export default function TransactionSection() {
             </div >
 
             {/* Analytics Chart & Advisor */}
-            < div className={`grid grid-cols-1 ${transactions.length === 0 && !manualConfig.income ? '' : 'lg:grid-cols-2'} gap-8 mb-8 animate-in slide-in-from-bottom-5 fade-in duration-500`} >
+            <div className={`grid grid-cols-1 ${transactions.length === 0 && !manualConfig.income ? '' : 'lg:grid-cols-2'} gap-8 mb-8 animate-in slide-in-from-bottom-5 fade-in duration-500`}>
                 <ExpensesChart transactions={chartTransactions} />
                 <FinancialAdvisor
                     transactions={transactions}
                     manualConfig={manualConfig}
                     onConfigChange={updateManualConfig}
                 />
-            </div >
-
-            <AIChat transactions={transactions} manualConfig={manualConfig} onAddTransaction={addTransactionToDb} onDeleteTransaction={handleDelete} />
+            </div>
 
             {/* Category Filter */}
-            < div className="mb-6" >
+            <div className="mb-6">
                 <h4 className="text-sm font-semibold text-slate-400 mb-3 px-1">Filtrar por Categoria</h4>
                 <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                     <button
@@ -581,10 +602,11 @@ export default function TransactionSection() {
                         </button>
                     ))}
                 </div>
-            </div >
+            </div>
 
             {/* Transactions List */}
-            < div className="space-y-3" >
+            {/* Transactions List */}
+            <div className="max-h-[500px] overflow-y-auto pr-2 -mr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent space-y-3">
                 {
                     filteredTransactions.length === 0 ? (
                         <div className="text-center py-10 text-slate-500 bg-slate-800/30 rounded-2xl border border-slate-800 border-dashed">
@@ -644,7 +666,14 @@ export default function TransactionSection() {
                         ))
                     )
                 }
-            </div >
+            </div>
+
+            <AIChat
+                transactions={transactions}
+                manualConfig={manualConfig}
+                onAddTransaction={addTransactionToDb}
+                onDeleteTransaction={handleDelete}
+            />
             {/* Confirmation Modal */}
             {
                 deleteId && (

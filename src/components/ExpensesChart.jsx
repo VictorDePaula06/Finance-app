@@ -47,11 +47,38 @@ export default function ExpensesChart({ transactions }) {
             return acc;
         }, {});
 
-        return Object.keys(grouped).map(key => ({
+        const totalExpense = Object.values(grouped).reduce((a, b) => a + b, 0);
+        let processedData = Object.keys(grouped).map(key => ({
+            id: key,
             name: CATEGORY_LABELS[key] || 'Outro',
             value: grouped[key],
             color: COLORS[key] || COLORS.other
         })).sort((a, b) => b.value - a.value);
+
+        // Group small expenses (< 3%) into "Outro"
+        if (processedData.length > 6) {
+            const threshold = totalExpense * 0.03;
+            const main = processedData.filter(d => d.value >= threshold);
+            const others = processedData.filter(d => d.value < threshold);
+
+            if (others.length > 0) {
+                const othersSum = others.reduce((acc, curr) => acc + curr.value, 0);
+                const existingOther = main.find(m => m.id === 'other');
+                if (existingOther) {
+                    existingOther.value += othersSum;
+                } else {
+                    main.push({
+                        id: 'other',
+                        name: 'Outro',
+                        value: othersSum,
+                        color: COLORS.other
+                    });
+                }
+                processedData = main.sort((a, b) => b.value - a.value);
+            }
+        }
+
+        return processedData;
     }, [transactions]);
 
     if (data.length === 0) {
@@ -61,17 +88,17 @@ export default function ExpensesChart({ transactions }) {
     const totalExpense = data.reduce((acc, curr) => acc + curr.value, 0);
 
     return (
-        <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 shadow-xl">
+        <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 shadow-xl flex flex-col">
             <h3 className="text-lg font-bold text-slate-100 mb-4">Despesas por Categoria</h3>
-            <div className="h-64 w-full relative" style={{ minWidth: "100%", minHeight: "250px" }}>
+            <div className="h-72 w-full relative">
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                         <Pie
                             data={data}
                             cx="50%"
-                            cy="50%"
+                            cy="45%"
                             innerRadius={60}
-                            outerRadius={80}
+                            outerRadius={85}
                             paddingAngle={5}
                             dataKey="value"
                             stroke="none"
@@ -81,24 +108,28 @@ export default function ExpensesChart({ transactions }) {
                             ))}
                         </Pie>
                         <Tooltip
-                            contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' }}
+                            contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '12px', color: '#f8fafc' }}
                             itemStyle={{ color: '#f8fafc' }}
-                            formatter={(value) => `R$ ${value.toLocaleString()}`}
+                            formatter={(value) => `R$ ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
                         />
                         <Legend
-                            layout="vertical"
-                            verticalAlign="middle"
-                            align="right"
+                            layout="horizontal"
+                            verticalAlign="bottom"
+                            align="center"
                             iconType="circle"
-                            formatter={(value, entry) => <span className="text-slate-300 ml-1">{value}</span>}
+                            wrapperStyle={{
+                                paddingTop: '20px',
+                                fontSize: '10px'
+                            }}
+                            formatter={(value) => <span className="text-slate-400 font-medium">{value}</span>}
                         />
                     </PieChart>
                 </ResponsiveContainer>
             </div>
 
-            <div className="mt-4 flex flex-col items-center justify-center p-4 bg-slate-800/80 rounded-xl border border-slate-700/50">
-                <span className="text-sm text-slate-400 font-medium uppercase tracking-wide">Total Despesas</span>
-                <span className="text-3xl font-bold text-slate-100 mt-1">
+            <div className="mt-6 flex flex-col items-center justify-center p-4 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-sm">
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Gasto Total</span>
+                <span className="text-3xl font-black text-white mt-1">
                     R$ {totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
             </div>

@@ -82,7 +82,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
         } catch (error) {
             console.error("Erro na simulação IA:", error);
 
-            let errorMsg = "Erro ao consultar o assistente.";
+            let errorMsg = "Erro ao consultar o Mêntore.";
             if (error.message.includes('429') || error.message.includes('quota')) {
                 if (isPremium) {
                     errorMsg = "⏳ Alta demanda no servidor. Aguarde um momento e tente novamente.";
@@ -176,6 +176,19 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                         />
                         <p className="text-[10px] text-slate-500 mt-1">
                             Se não preencher, usaremos a média do seu histórico de transações.
+                        </p>
+                    </div>
+                    <div className="pt-2">
+                        <label className="block text-xs font-medium text-purple-400 mb-1">Patrimônio / Investido Total (R$)</label>
+                        <input
+                            type="number"
+                            value={tempManualConfig.invested}
+                            onChange={e => setTempManualConfig({ ...tempManualConfig, invested: e.target.value })}
+                            placeholder="Ex: 10000.00"
+                            className="w-full bg-slate-900/50 border border-purple-500/30 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-purple-500/50"
+                        />
+                        <p className="text-[10px] text-slate-500 mt-1">
+                            Este valor não soma no saldo diário, apenas para controle de patrimônio.
                         </p>
                     </div>
 

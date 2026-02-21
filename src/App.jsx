@@ -1,20 +1,59 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import TransactionSection from './components/TransactionSection';
 import GoalTracker from './components/GoalTracker';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { LayoutDashboard, LogOut } from 'lucide-react';
+import { LayoutDashboard, LogOut, Shield, TrendingUp } from 'lucide-react';
 import InstallPrompt from './components/InstallPrompt';
 import logo from './assets/logo.png';
+import AdminPanel from './components/AdminPanel';
+
+// CONFIGURAÇÃO MASTER
+const MASTER_EMAIL = 'j.17jvictor@gmail.com'; // E-mail master do proprietário
+
+import HealthScoreCard from './components/HealthScoreCard';
+import { calculateHealthScore } from './utils/healthScore';
+import { db } from './services/firebase';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { useEffect as useTransitionEffect } from 'react';
 
 function Dashboard() {
   const { logout, currentUser } = useAuth();
+  const [transactions, setTransactions] = useState([]);
+  const [manualConfig, setManualConfig] = useState(() => {
+    const saved = localStorage.getItem('financialAdvisorSettings');
+    return saved ? JSON.parse(saved) : { income: '', fixedExpenses: '', variableEstimate: '', invested: '' };
+  });
+
+  const updateManualConfig = (newConfig) => {
+    setManualConfig(newConfig);
+    localStorage.setItem('financialAdvisorSettings', JSON.stringify(newConfig));
+  };
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = query(
+      collection(db, 'transactions'),
+      where('userId', '==', currentUser.uid),
+      orderBy('date', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  const healthScore = calculateHealthScore(transactions, manualConfig);
 
   return (
-    <div className="min-h-screen text-slate-50 p-6 md:p-12 relative">
+    <div className="min-h-screen bg-slate-950 text-slate-50 relative font-sans">
+      {/* Background Decorative Orbs */}
+      <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
+      <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-emerald-600/5 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
+
       <InstallPrompt />
-      {/* Background overlay for better text readability if needed, but keeping it minimal for now */}
-      <div className="max-w-6xl mx-auto space-y-8">
+
+      <div className="max-w-6xl mx-auto p-6 md:p-12 space-y-8 relative z-10">
 
         {/* Header */}
         <header className="flex items-center justify-between mb-12">
@@ -31,6 +70,15 @@ function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {currentUser?.email === MASTER_EMAIL && (
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('change-view', { detail: 'admin' }))}
+                className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-lg text-xs font-bold hover:bg-blue-500/20 transition-all"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                ADMIN
+              </button>
+            )}
             <span className="text-xs text-slate-500 hidden md:block">{currentUser?.email}</span>
             <button
               onClick={logout}
@@ -42,14 +90,22 @@ function Dashboard() {
           </div>
         </header>
 
+        {/* Health Score Section */}
+        <section className="animate-in fade-in slide-in-from-top-4 duration-700">
+          <HealthScoreCard scoreData={healthScore} />
+        </section>
+
         {/* Goal Section */}
-        <section>
+        <section className="bg-slate-900/40 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <GoalTracker />
         </section>
 
         {/* Transactions Section */}
-        <section>
-          <TransactionSection />
+        <section className="bg-slate-900/40 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 md:p-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <TransactionSection
+            manualConfig={manualConfig}
+            updateManualConfig={updateManualConfig}
+          />
         </section>
 
       </div>
@@ -66,12 +122,40 @@ function AppContent() {
   const { currentUser, isPremium } = useAuth();
   const [view, setView] = useState('landing'); // 'landing' | 'login' | 'privacy' | 'terms'
 
+  // Handle cross-component view changes and Hash navigation
+  useEffect(() => {
+    const handleViewChange = (e) => setView(e.detail);
+    const handleHashChange = () => {
+      if (window.location.hash === '#admin') setView('admin');
+    };
+
+    window.addEventListener('change-view', handleViewChange);
+    window.addEventListener('hashchange', handleHashChange);
+
+    // Check hash on mount
+    handleHashChange();
+
+    return () => {
+      window.removeEventListener('change-view', handleViewChange);
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, []);
+
   // If user is logged in
   if (currentUser) {
-    if (isPremium) {
+    // 1. Admin Priority (Hidden Access or State)
+    if (currentUser.email === MASTER_EMAIL && (view === 'admin' || window.location.hash === '#admin')) {
+      return <AdminPanel onBack={() => {
+        window.location.hash = '';
+        setView('dashboard');
+      }} />;
+    }
+
+    // 2. Premium or Master Email Bypass
+    if (isPremium || currentUser.email === MASTER_EMAIL) {
       return <Dashboard />;
     } else {
-      return <SubscriptionBlock />;
+      return <SubscriptionBlock onAdminAccess={() => setView('admin')} />;
     }
   }
 
