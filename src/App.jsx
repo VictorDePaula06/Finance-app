@@ -58,10 +58,12 @@ function Dashboard() {
 }
 
 import LandingPage from './components/LandingPage';
+import PrivacyPolicy from './components/PrivacyPolicy';
+import TermsOfUse from './components/TermsOfUse';
 
 function AppContent() {
   const { currentUser } = useAuth();
-  const [view, setView] = useState('landing'); // 'landing' | 'login'
+  const [view, setView] = useState('landing'); // 'landing' | 'login' | 'privacy' | 'terms'
 
   // If user is logged in, always show Dashboard
   if (currentUser) {
@@ -73,7 +75,21 @@ function AppContent() {
     return <Login onBack={() => setView('landing')} />;
   }
 
-  return <LandingPage onLogin={() => setView('login')} />;
+  if (view === 'privacy') {
+    return <PrivacyPolicy onBack={() => setView('landing')} />;
+  }
+
+  if (view === 'terms') {
+    return <TermsOfUse onBack={() => setView('landing')} />;
+  }
+
+  return (
+    <LandingPage
+      onLogin={() => setView('login')}
+      onViewPrivacy={() => setView('privacy')}
+      onViewTerms={() => setView('terms')}
+    />
+  );
 }
 
 export default function App() {

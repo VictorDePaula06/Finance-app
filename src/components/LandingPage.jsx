@@ -18,7 +18,7 @@ import mobile2 from '../assets/mobile2.png';
 import mobile3 from '../assets/mobile3.png';
 import mobile4 from '../assets/mobile4.png';
 
-export default function LandingPage({ onLogin }) {
+export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms }) {
     const [billing, setBilling] = React.useState('monthly');
     const [currentSlide, setCurrentSlide] = React.useState(0);
     const [currentMobileSlide, setCurrentMobileSlide] = React.useState(0);
@@ -300,16 +300,33 @@ export default function LandingPage({ onLogin }) {
             </section >
 
             {/* Footer */}
-            < footer className="py-12 border-t border-slate-900 bg-slate-950" >
+            <footer className="py-12 border-t border-slate-900 bg-slate-950">
                 <div className="max-w-7xl mx-auto px-6 text-center text-slate-500">
                     <p className="mb-4">&copy; {new Date().getFullYear()} Finance Control. Todos os direitos reservados.</p>
-                    <div className="flex justify-center gap-6 text-sm">
-                        <a href="#" className="hover:text-slate-300 transition-colors">Termos de Uso</a>
-                        <a href="#" className="hover:text-slate-300 transition-colors">Privacidade</a>
-                        <a href="#" className="hover:text-slate-300 transition-colors">Suporte</a>
+                    <div className="flex justify-center gap-6 text-sm mb-8">
+                        <button onClick={onViewTerms} className="hover:text-slate-300 transition-colors">Termos de Uso</button>
+                        <button onClick={onViewPrivacy} className="hover:text-slate-300 transition-colors">Privacidade</button>
+                        <a
+                            href="https://wa.me/5500000000000"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-slate-300 transition-colors"
+                        >
+                            Suporte
+                        </a>
+                    </div>
+                    <div className="flex justify-center">
+                        <a
+                            href="https://wa.me/5500000000000"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold rounded-lg hover:bg-emerald-600/20 transition-all"
+                        >
+                            Dúvidas? Chame no WhatsApp
+                        </a>
                     </div>
                 </div>
-            </footer >
+            </footer>
         </div >
     );
 }
