@@ -3,12 +3,12 @@ import { LayoutDashboard, ArrowUpCircle, ArrowDownCircle, Trash2, Pencil, Calend
 import { db } from '../services/firebase';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, orderBy, getDocs } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import ExpensesChart from './ExpensesChart';
 import FinancialAdvisor from './FinancialAdvisor';
 import AIChat from './AIChat';
 import { CATEGORIES } from '../constants/categories';
+import { generatePDF } from '../utils/generatePDF';
+import logo from '../assets/logo.png';
 
 // New Card Component
 function Card({ title, value, icon: Icon, color, highlight }) {
@@ -283,120 +283,7 @@ export default function TransactionSection() {
     }, [transactions]);
 
     const exportToPDF = () => {
-        const doc = new jsPDF();
-
-        // Title
-        doc.setFontSize(20);
-        doc.setTextColor(30, 41, 59); // Slate 800
-        doc.text("Relatório Financeiro", 14, 22);
-
-        // Subtitle (Month/Year)
-        doc.setFontSize(11);
-        doc.setTextColor(100, 116, 139); // Slate 500
-        const monthName = new Date(selectedMonth + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-        doc.text(`Período: ${monthName.charAt(0).toUpperCase() + monthName.slice(1)}`, 14, 30);
-
-        // Summary Box Background
-        doc.setDrawColor(226, 232, 240); // Slate 200
-        doc.setFillColor(248, 250, 252); // Slate 50
-        doc.roundedRect(14, 38, 182, 28, 3, 3, 'FD');
-
-        // Income Summary
-        doc.setFontSize(10);
-        doc.setTextColor(71, 85, 105); // Slate 600
-        doc.text("Entradas", 24, 48);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(22, 163, 74); // Emerald 600
-        doc.text(`+ R$ ${income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 24, 58);
-
-        // Expense Summary
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(71, 85, 105);
-        doc.text("Saídas", 85, 48);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(225, 29, 72); // Rose 600
-        doc.text(`- R$ ${expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 85, 58);
-
-        // Balance Summary
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(71, 85, 105);
-        doc.text("Saldo", 146, 48);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        if (balance >= 0) {
-            doc.setTextColor(37, 99, 235); // Blue 600
-        } else {
-            doc.setTextColor(225, 29, 72); // Rose 600
-        }
-        doc.text(`R$ ${balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 146, 58);
-
-        // Table Data Preparation
-        // Table Data Preparation
-        const tableColumn = ["Data", "Descrição", "Categoria", "Tipo", "Valor (R$)"];
-        const tableRows = filteredTransactions.map(t => {
-            const catList = t.type === 'income' ? CATEGORIES.income : CATEGORIES.expense;
-            const foundCat = catList.find(c => c.id === t.category) || catList.find(c => c.id === 'other');
-            return [
-                new Date(t.date).toLocaleDateString('pt-BR'),
-                t.description,
-                foundCat ? foundCat.label : 'Geral',
-                t.type === 'income' ? 'Entrada' : 'Saída',
-                t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
-            ];
-        });
-
-        // Generate Table
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 75,
-            theme: 'grid',
-            headStyles: {
-                fillColor: [30, 41, 59], // Slate 800
-                textColor: [255, 255, 255],
-                halign: 'center',
-                fontStyle: 'bold'
-            },
-            styles: {
-                fontSize: 10,
-                cellPadding: 4,
-                textColor: [51, 65, 85], // Slate 700
-                valign: 'middle'
-            },
-            columnStyles: {
-                0: { halign: 'center', cellWidth: 25 }, // Date
-                1: { title: 'Descrição' }, // Description (auto width)
-                2: { halign: 'center', cellWidth: 25 }, // Category
-                3: { halign: 'center', cellWidth: 25 }, // Type
-                4: { halign: 'right', cellWidth: 35, fontStyle: 'bold' } // Value
-            },
-            didParseCell: function (data) {
-                if (data.section === 'body' && data.column.index === 4) {
-                    const rowIndex = data.row.index;
-                    const isIncome = filteredTransactions[rowIndex].type === 'income';
-                    if (isIncome) {
-                        data.cell.styles.textColor = [22, 163, 74]; // Emerald 600
-                    } else {
-                        data.cell.styles.textColor = [225, 29, 72]; // Rose 600
-                    }
-                }
-            }
-        });
-
-        // Footer with Page Numbers
-        const pageCount = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
-            doc.setFontSize(8);
-            doc.setTextColor(148, 163, 184); // Slate 400
-            doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 10, { align: 'center' });
-        }
-
-        doc.save(`relatorio_${selectedMonth}.pdf`);
+        generatePDF(transactions, selectedMonth, logo);
     };
 
     return (
@@ -523,13 +410,13 @@ export default function TransactionSection() {
                 {/* Row 2: Category Selector (Full Width) */}
                 <div className="md:col-span-12">
                     <label className="block text-xs font-medium text-slate-400 mb-1 ml-1">Categoria</label>
-                    <div className="flex flex-wrap gap-2 p-2 bg-slate-900/50 rounded-xl border border-slate-700">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-2 p-2 bg-slate-900/50 rounded-xl border border-slate-700">
                         {(type === 'income' ? CATEGORIES.income : CATEGORIES.expense).map(cat => (
                             <button
                                 key={cat.id}
                                 type="button"
                                 onClick={() => setCategory(cat)}
-                                className={`flex-1 min-w-[80px] p-2 rounded-lg flex flex-col items-center gap-1 transition-all ${category.id === cat.id ? 'bg-slate-700 ring-1 ring-slate-500' : 'hover:bg-slate-800'}`}
+                                className={`p-2 rounded-lg flex flex-col items-center justify-center gap-1 transition-all ${category.id === cat.id ? 'bg-slate-700 ring-1 ring-slate-500' : 'hover:bg-slate-800'}`}
                                 title={cat.label}
                             >
                                 <cat.icon className={`w-5 h-5 ${cat.color}`} />
@@ -541,31 +428,28 @@ export default function TransactionSection() {
 
                 {/* Row 3: Toggles and Actions */}
                 <div className="md:col-span-12 flex flex-col md:flex-row items-center justify-between gap-4 mt-2">
-                    <div className="flex gap-4">
-                        <div className="flex items-center gap-2">
+                    <div className="flex gap-6">
+                        <label className="inline-flex items-center cursor-pointer select-none group">
                             <input
                                 type="checkbox"
+                                className="sr-only peer"
                                 checked={isRecurring}
                                 onChange={(e) => setIsRecurring(e.target.checked)}
-                                id="recurring"
-                                className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500/50"
                             />
-                            <label htmlFor="recurring" className="text-xs font-medium text-slate-400 cursor-pointer select-none">
-                                Parcelado
-                            </label>
-                        </div>
-                        <div className="flex items-center gap-2">
+                            <div className="relative w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-slate-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:after:bg-white group-hover:after:bg-white transition-colors"></div>
+                            <span className="ms-2 text-xs font-medium text-slate-400 group-hover:text-slate-200 transition-colors">Parcelado</span>
+                        </label>
+
+                        <label className="inline-flex items-center cursor-pointer select-none group">
                             <input
                                 type="checkbox"
+                                className="sr-only peer"
                                 checked={category.isFixed || false}
                                 onChange={(e) => setCategory({ ...category, isFixed: e.target.checked })}
-                                id="isFixed"
-                                className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-rose-600 focus:ring-rose-500/50"
                             />
-                            <label htmlFor="isFixed" className="text-xs font-medium text-slate-400 cursor-pointer select-none">
-                                Fixa
-                            </label>
-                        </div>
+                            <div className="relative w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-slate-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-rose-600 peer-checked:after:bg-white group-hover:after:bg-white transition-colors"></div>
+                            <span className="ms-2 text-xs font-medium text-slate-400 group-hover:text-slate-200 transition-colors">Fixa</span>
+                        </label>
                         {isRecurring && (
                             <div className="flex items-center gap-2 animate-in fade-in">
                                 <label className="text-xs font-medium text-slate-400">Qtd:</label>

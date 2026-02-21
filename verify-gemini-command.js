@@ -1,7 +1,12 @@
-
-import { sendMessageToGemini } from './src/services/gemini.js';
 import dotenv from 'dotenv';
 dotenv.config();
+
+// Mock localStorage for Node environment
+global.localStorage = {
+    getItem: (key) => process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY,
+};
+
+import { sendMessageToGemini } from './src/services/gemini.js';
 
 // Mock context similar to what calculateStatsContext returns
 const mockContext = `

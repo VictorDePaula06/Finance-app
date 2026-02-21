@@ -57,9 +57,23 @@ function Dashboard() {
   );
 }
 
+import LandingPage from './components/LandingPage';
+
 function AppContent() {
   const { currentUser } = useAuth();
-  return currentUser ? <Dashboard /> : <Login />;
+  const [view, setView] = useState('landing'); // 'landing' | 'login'
+
+  // If user is logged in, always show Dashboard
+  if (currentUser) {
+    return <Dashboard />;
+  }
+
+  // If user is not logged in, check view state
+  if (view === 'login') {
+    return <Login onBack={() => setView('landing')} />;
+  }
+
+  return <LandingPage onLogin={() => setView('login')} />;
 }
 
 export default function App() {
