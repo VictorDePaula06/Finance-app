@@ -31,7 +31,7 @@ export default function PrivacyPolicy({ onBack }) {
                             1. Coleta e Uso de Dados
                         </h2>
                         <p className="mb-4">
-                            O **Finance Control** leva sua privacidade a sério. Para fornecer nossos serviços, utilizamos o **Firebase (Google)** para autenticação e armazenamento seguro dos seus dados financeiros.
+                            O **Mêntore** leva sua privacidade a sério. Para fornecer nossos serviços, utilizamos o **Firebase (Google)** para autenticação e armazenamento seguro dos seus dados financeiros.
                         </p>
                         <p>
                             Os dados coletados incluem seu nome, e-mail e as transações financeiras que você insere manualmente. Estes dados são usados única e exclusivamente para que o aplicativo funcione e forneça o histórico e análises financeiras que você visualiza.
@@ -44,7 +44,7 @@ export default function PrivacyPolicy({ onBack }) {
                             2. Processamento por Inteligência Artificial
                         </h2>
                         <p className="mb-4">
-                            Utilizamos a API do **Google Gemini (IA)** para fornecer conselhos financeiros personalizados baseados na metodologia de Gustavo Cerbasi.
+                            Utilizamos a API do **Google Gemini (IA)** para fornecer conselhos financeiros personalizados de forma inteligente e automatizada.
                         </p>
                         <p>
                             Ao solicitar uma análise da IA, um resumo anonimizado das suas estatísticas financeiras (sem dados de identificação pessoal direta) é enviado para processamento. Estes dados não são utilizados para treinar modelos globais de IA de forma que revelem sua identidade.
@@ -81,7 +81,7 @@ export default function PrivacyPolicy({ onBack }) {
                 </div>
 
                 <footer className="mt-20 pt-12 border-t border-slate-900 text-sm text-slate-600 text-center">
-                    &copy; 2026 Finance Control. Todos os direitos reservados.
+                    &copy; 2026 Mêntore. Todos os direitos reservados.
                 </footer>
             </div>
         </div>

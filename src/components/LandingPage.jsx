@@ -47,8 +47,8 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms }) {
             <nav className="fixed w-full z-50 bg-slate-950/80 backdrop-blur-md border-b border-white/10">
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <img src={logo} alt="Logo" className="w-10 h-auto" />
-                        <span className="font-bold text-xl tracking-tight">Finance Control</span>
+                        <img src={logo} alt="Mêntore Logo" className="w-10 h-auto" />
+                        <span className="font-black text-2xl tracking-tighter text-white">Mêntore</span>
                     </div>
                     <button
                         onClick={onLogin}
@@ -302,7 +302,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms }) {
             {/* Footer */}
             <footer className="py-12 border-t border-slate-900 bg-slate-950">
                 <div className="max-w-7xl mx-auto px-6 text-center text-slate-500">
-                    <p className="mb-4">&copy; {new Date().getFullYear()} Finance Control. Todos os direitos reservados.</p>
+                    <p className="mb-4">&copy; {new Date().getFullYear()} Mêntore. Todos os direitos reservados.</p>
                     <div className="flex justify-center gap-6 text-sm mb-8">
                         <button onClick={onViewTerms} className="hover:text-slate-300 transition-colors">Termos de Uso</button>
                         <button onClick={onViewPrivacy} className="hover:text-slate-300 transition-colors">Privacidade</button>

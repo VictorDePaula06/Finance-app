@@ -24,7 +24,7 @@ export default function SubscriptionBlock() {
                         Seu período de teste terminou
                     </h1>
                     <p className="text-slate-400 text-lg">
-                        Para continuar utilizando o **Finance Control** e ter acesso ao seu mentor financeiro IA, você precisa renovar sua assinatura.
+                        Para continuar utilizando o **Mêntore** e ter acesso ao seu mentor financeiro IA, você precisa renovar sua assinatura.
                     </p>
                 </div>
 
@@ -40,7 +40,7 @@ export default function SubscriptionBlock() {
                             'Análise de Metas e Reserva de Emergência',
                             'Relatórios PDF Profissionais Ilimitados',
                             'Sincronização em Nuvem (Multi-dispositivos)',
-                            'Metodologia Gustavo Cerbasi integrada'
+                            'Mentor Financeiro Exclusivo (IA)'
                         ].map((item, i) => (
                             <li key={i} className="flex items-center gap-3 text-slate-300">
                                 <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
@@ -51,7 +51,7 @@ export default function SubscriptionBlock() {
 
                     {/* CTA Button */}
                     <a
-                        href="https://wa.me/5500000000000?text=Olá! Meu período de teste do Finance Control terminou e quero renovar minha assinatura."
+                        href="https://wa.me/5500000000000?text=Olá! Meu período de teste do Mêntore terminou e quero renovar minha assinatura."
                         target="_blank"
                         rel="noopener noreferrer"
                         className="w-full flex items-center justify-center gap-2 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all shadow-xl shadow-blue-900/20 group text-lg"

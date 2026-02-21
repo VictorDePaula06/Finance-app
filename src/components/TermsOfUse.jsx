@@ -31,7 +31,7 @@ export default function TermsOfUse({ onBack }) {
                             1. Aceitação dos Termos
                         </h2>
                         <p>
-                            Ao acessar e utilizar o **Finance Control**, você concorda em cumprir e estar vinculado a estes Termos de Uso. Este aplicativo é uma ferramenta de auxílio à gestão financeira pessoal e não substitui o aconselhamento de profissionais certificados.
+                            Ao acessar e utilizar o **Mêntore**, você concorda em cumprir e estar vinculado a estes Termos de Uso. Este aplicativo é uma ferramenta de auxílio à gestão financeira pessoal e não substitui o aconselhamento de profissionais certificados.
                         </p>
                     </section>
 
@@ -41,7 +41,7 @@ export default function TermsOfUse({ onBack }) {
                             2. Isenção de Responsabilidade (IA)
                         </h2>
                         <p className="mb-4">
-                            O Finance Control utiliza Inteligência Artificial (Gemini) para fornecer sugestões e análises. **Você reconhece que:**
+                            O Mêntore utiliza Inteligência Artificial (Gemini) para fornecer sugestões e análises. **Você reconhece que:**
                         </p>
                         <ul className="list-disc pl-6 space-y-2">
                             <li>As respostas da IA podem conter imprecisões ou erros.</li>
@@ -82,7 +82,7 @@ export default function TermsOfUse({ onBack }) {
                 </div>
 
                 <footer className="mt-20 pt-12 border-t border-slate-900 text-sm text-slate-600 text-center">
-                    &copy; 2026 Finance Control. Todos os direitos reservados.
+                    &copy; 2026 Mêntore. Todos os direitos reservados.
                 </footer>
             </div>
         </div>

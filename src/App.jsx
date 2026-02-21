@@ -21,8 +21,8 @@ function Dashboard() {
           <div className="flex items-center gap-4">
             <img src={logo} alt="Finance Control Logo" className="w-28 h-auto object-contain drop-shadow-lg" />
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
-                Finance Control
+              <h1 className="text-3xl font-black bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent tracking-tighter">
+                Mêntore
               </h1>
               <p className="text-slate-400 text-sm">Gerencie seus ativos e metas</p>
               <p className="text-emerald-400 font-medium tracking-wide mt-1 animate-in fade-in slide-in-from-left-3">
