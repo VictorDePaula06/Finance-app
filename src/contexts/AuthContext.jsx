@@ -18,9 +18,9 @@ export function useAuth() {
 export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [isPremium, setIsPremium] = useState(true); // DEBUG: Default True
-    const [isTrial, setIsTrial] = useState(true);     // DEBUG: Default True
-    const [daysRemaining, setDaysRemaining] = useState(30);
+    const [isPremium, setIsPremium] = useState(false);
+    const [isTrial, setIsTrial] = useState(false);
+    const [daysRemaining, setDaysRemaining] = useState(0);
 
     function signup(email, password) {
         return createUserWithEmailAndPassword(auth, email, password);
@@ -58,38 +58,20 @@ export function AuthProvider({ children }) {
                     console.log("Creation Time:", user.metadata.creationTime);
                     console.log("Diff Days:", diffDays);
 
-                    const trialDays = 3650; // 10 Years Trial for Dev
+                    const trialDays = 7;
                     const remaining = Math.max(0, trialDays - diffDays);
-
                     setDaysRemaining(remaining);
 
-
-                    // FORCING PREMIUM FOR TESTING
-                    // diffDays can be NaN if creationTime is weird, failing the < trialDays check.
-                    // Bypass logic completely.
-
                     if (subscriptionStatus === 'active') {
-                        console.log("Status: Active Subscription");
                         setIsPremium(true);
                         setIsTrial(false);
-                    } else {
-                        // FORCE TRIAL/PREMIUM
-                        console.log("Status: FORCED PREMIUM (DEBUG MODE)");
-                        setIsPremium(true);
-                        setIsTrial(true);
-                        setDaysRemaining(999);
-                    }
-                    /* 
-                    else if (diffDays <= trialDays) {
-                        console.log("Status: Trial Active");
+                    } else if (diffDays <= trialDays) {
                         setIsPremium(true); // Trial gives premium access
                         setIsTrial(true);
                     } else {
-                        console.log("Status: Expired/Free");
                         setIsPremium(false);
                         setIsTrial(false);
                     }
-                    */
                 } catch (error) {
                     console.error("Error checking subscription:", error);
                     // Fallback to free just in case

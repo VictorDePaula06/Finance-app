@@ -60,14 +60,19 @@ function Dashboard() {
 import LandingPage from './components/LandingPage';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfUse from './components/TermsOfUse';
+import SubscriptionBlock from './components/SubscriptionBlock';
 
 function AppContent() {
-  const { currentUser } = useAuth();
+  const { currentUser, isPremium } = useAuth();
   const [view, setView] = useState('landing'); // 'landing' | 'login' | 'privacy' | 'terms'
 
-  // If user is logged in, always show Dashboard
+  // If user is logged in
   if (currentUser) {
-    return <Dashboard />;
+    if (isPremium) {
+      return <Dashboard />;
+    } else {
+      return <SubscriptionBlock />;
+    }
   }
 
   // If user is not logged in, check view state
