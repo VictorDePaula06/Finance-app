@@ -11,33 +11,54 @@ export default function AdminPanel({ onBack }) {
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            // Path is users/{uid}/settings/general
-            // We query all "settings" subcollections across all users
             const querySnapshot = await getDocs(collectionGroup(db, 'settings'));
             const userList = [];
 
-            querySnapshot.forEach((document) => {
-                // Only process the 'general' settings document
+            for (const document of querySnapshot.docs) {
                 if (document.id === 'general') {
                     const settingsData = document.data();
                     const pathParts = document.ref.path.split('/');
                     const uid = pathParts[1];
 
+                    // Check top-level user doc (synced by extension)
+                    const userRef = doc(db, 'users', uid);
+                    const userSnap = await getDoc(userRef);
+                    const userData = userSnap.exists() ? userSnap.data() : {};
+
+                    // Check Stripe Customer Doc
+                    const customerRef = doc(db, 'customers', uid);
+                    const customerSnap = await getDoc(customerRef);
+                    const customerData = customerSnap.exists() ? customerSnap.data() : {};
+
+                    // Check Subscriptions Subcollection
+                    const subsRef = collection(db, 'customers', uid, 'subscriptions');
+                    const subsSnap = await getDocs(subsRef);
+                    const hasActiveSubscription = subsSnap.docs.some(d =>
+                        ['active', 'trialing'].includes(d.data().status)
+                    );
+
+                    const isPremium =
+                        settingsData.subscription?.status === 'active' ||
+                        userData.subscription?.status === 'active' ||
+                        customerData.subscription?.status === 'active' ||
+                        hasActiveSubscription;
+
                     userList.push({
                         uid,
-                        email: settingsData.email || 'N/A',
-                        isPremium: settingsData.subscription?.status === 'active',
-                        lastSync: settingsData.updatedAt?.toDate().toLocaleDateString() || 'N/A'
+                        email: settingsData.email || userData.email || customerData.email || 'N/A',
+                        isPremium: isPremium,
+                        lastSync: (settingsData.subscription?.updatedAt || userData.subscription?.updatedAt)?.toDate().toLocaleDateString() || 'N/A'
                     });
                 }
-            });
-            setUsers(userList);
+            }
+            setUsers(userList.filter((v, i, a) => a.findIndex(t => (t.uid === v.uid)) === i)); // Remove duplicates if any
         } catch (error) {
             console.error("Error fetching users:", error);
         } finally {
             setLoading(false);
         }
     };
+
 
     useEffect(() => {
         fetchUsers();
@@ -46,17 +67,21 @@ export default function AdminPanel({ onBack }) {
     const togglePremium = async (uid, currentStatus) => {
         try {
             const userRef = doc(db, 'users', uid, 'settings', 'general');
-            await updateDoc(userRef, {
-                'subscription.status': currentStatus ? 'expired' : 'active',
-                'subscription.updatedAt': new Date()
-            });
+            await setDoc(userRef, {
+                subscription: {
+                    status: currentStatus ? 'expired' : 'active',
+                    updatedAt: new Date()
+                }
+            }, { merge: true });
+
             // Update local state
             setUsers(users.map(u => u.uid === uid ? { ...u, isPremium: !currentStatus } : u));
         } catch (error) {
             console.error("Error updating user:", error);
-            alert("Erro ao atualizar status do usuário.");
+            alert("Erro ao atualizar status do usuário: " + error.message);
         }
     };
+
 
     const filteredUsers = users.filter(u =>
         u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||

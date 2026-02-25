@@ -7,7 +7,7 @@ import {
     signOut,
     onAuthStateChanged
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, onSnapshot, collection, query, where } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -39,60 +39,75 @@ export function AuthProvider({ children }) {
     }
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        let unsubscribePrefs = null;
+        let unsubscribeSubs = null;
+
+        const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
 
             if (user) {
-                // Check Subscription & Trial Status
-                try {
-                    const userRef = doc(db, 'users', user.uid, 'settings', 'general');
-                    const userSnap = await getDoc(userRef);
-                    let userData = userSnap.exists() ? userSnap.data() : {};
+                // 1. Listen to Extension Sync (Top Level User Doc)
+                const userRef = doc(db, 'users', user.uid);
+                // 2. Listen to App Settings
+                const prefsRef = doc(db, 'users', user.uid, 'settings', 'general');
+                // 3. Listen to Subscriptions Collection (The Source of Truth)
+                const subsRef = collection(db, 'customers', user.uid, 'subscriptions');
+                const subsQuery = query(subsRef, where('status', 'in', ['active', 'trialing']));
 
-                    // Ensure email is always saved for Admin Panel to find
-                    if (!userData.email && user.email) {
-                        await setDoc(userRef, { email: user.email }, { merge: true });
-                        userData.email = user.email;
-                    }
-
-                    const subscriptionStatus = userData.subscription?.status; // 'active', 'canceled', etc.
+                const checkStatus = (userData, activeSubs = []) => {
+                    const hasActiveSub = activeSubs.length > 0 || userData.subscription?.status === 'active';
                     const createdAt = user.metadata.creationTime ? new Date(user.metadata.creationTime) : new Date();
                     const now = new Date();
-                    const diffTime = Math.abs(now - createdAt);
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // Fixed: Defined diffDays
+                    const diffDays = Math.ceil(Math.abs(now - createdAt) / (1000 * 60 * 60 * 24));
 
-                    console.log("Creation Time:", user.metadata.creationTime);
-                    console.log("Diff Days:", diffDays);
+                    setDaysRemaining(Math.max(0, 7 - diffDays));
 
-                    const trialDays = 7;
-                    const remaining = Math.max(0, trialDays - diffDays);
-                    setDaysRemaining(remaining);
-
-                    if (subscriptionStatus === 'active') {
+                    if (hasActiveSub) {
                         setIsPremium(true);
                         setIsTrial(false);
-                    } else if (diffDays <= trialDays) {
-                        setIsPremium(true); // Trial gives premium access
+                    } else if (diffDays <= 7) {
+                        setIsPremium(true);
                         setIsTrial(true);
                     } else {
                         setIsPremium(false);
                         setIsTrial(false);
                     }
-                } catch (error) {
-                    console.error("Error checking subscription:", error);
-                    // Fallback to free just in case
-                    setIsPremium(false);
-                }
+                };
+
+                // Shared data state
+                let currentData = {};
+                let currentSubs = [];
+
+                unsubscribePrefs = onSnapshot(prefsRef, (snap) => {
+                    currentData = { ...currentData, ...(snap.exists() ? snap.data() : {}) };
+                    checkStatus(currentData, currentSubs);
+                    setLoading(false);
+                });
+
+                onSnapshot(userRef, (snap) => {
+                    currentData = { ...currentData, ...(snap.exists() ? snap.data() : {}) };
+                    checkStatus(currentData, currentSubs);
+                });
+
+                unsubscribeSubs = onSnapshot(subsQuery, (snap) => {
+                    currentSubs = snap.docs.map(d => d.data());
+                    checkStatus(currentData, currentSubs);
+                });
+
             } else {
                 setIsPremium(false);
                 setIsTrial(false);
+                setLoading(false);
             }
-
-            setLoading(false);
         });
 
-        return unsubscribe;
+        return () => {
+            unsubscribeAuth();
+            if (unsubscribePrefs) unsubscribePrefs();
+            if (unsubscribeSubs) unsubscribeSubs();
+        };
     }, []);
+
 
     // Cloud Sync Functions
     async function saveUserPreferences(data) {
