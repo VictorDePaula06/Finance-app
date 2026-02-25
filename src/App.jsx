@@ -20,9 +20,11 @@ import { useEffect as useTransitionEffect } from 'react';
 function Dashboard() {
   const { logout, currentUser } = useAuth();
   const [transactions, setTransactions] = useState([]);
+  const [goals, setGoals] = useState([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [manualConfig, setManualConfig] = useState(() => {
     const saved = localStorage.getItem('financialAdvisorSettings');
-    return saved ? JSON.parse(saved) : { income: '', fixedExpenses: '', variableEstimate: '', invested: '' };
+    return saved ? JSON.parse(saved) : { income: '', fixedExpenses: '', variableEstimate: '', invested: '', categoryBudgets: {} };
   });
 
   const updateManualConfig = (newConfig) => {
@@ -32,15 +34,32 @@ function Dashboard() {
 
   useEffect(() => {
     if (!currentUser) return;
-    const q = query(
+
+    // Transactions Listener
+    const qT = query(
       collection(db, 'transactions'),
       where('userId', '==', currentUser.uid),
       orderBy('date', 'desc')
     );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubT = onSnapshot(qT, (snapshot) => {
       setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setIsLoadingData(false);
     });
-    return () => unsubscribe();
+
+    // Goals Listener
+    const qG = query(
+      collection(db, 'goals'),
+      where('userId', '==', currentUser.uid),
+      where('status', '==', 'active')
+    );
+    const unsubG = onSnapshot(qG, (snapshot) => {
+      setGoals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => {
+      unsubT();
+      unsubG();
+    };
   }, [currentUser]);
 
   const healthScore = calculateHealthScore(transactions, manualConfig);
@@ -103,6 +122,9 @@ function Dashboard() {
         {/* Transactions Section */}
         <section className="bg-slate-900/40 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 md:p-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
           <TransactionSection
+            transactions={transactions}
+            goals={goals}
+            isLoadingData={isLoadingData}
             manualConfig={manualConfig}
             updateManualConfig={updateManualConfig}
           />

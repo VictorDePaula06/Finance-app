@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { LayoutDashboard, ArrowUpCircle, ArrowDownCircle, Trash2, Pencil, Calendar, Search, Wallet, TrendingUp, TrendingDown, FileText, X, Download, Home, Utensils, Car, Heart, Gamepad2, ShoppingBag, Briefcase, Laptop, Circle, Eye, EyeOff } from 'lucide-react';
 import { db } from '../services/firebase';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, orderBy, getDocs } from 'firebase/firestore';
@@ -8,38 +9,45 @@ import AIChat from './AIChat';
 import FinancialAdvisor from './FinancialAdvisor';
 import { CATEGORIES } from '../constants/categories';
 import { generatePDF } from '../utils/generatePDF';
+import { calculateFinancialHealth } from '../utils/financialLogic';
 import logo from '../assets/logo.png';
 
 // New Card Component
-function Card({ title, value, icon: Icon, color, highlight, isHidable, isHidden, onToggle }) {
+// New Card Component - Centered Content
+function Card({ title, value, icon: Icon, color, highlight, isHidable, isHidden, onToggle, detail }) {
     return (
-        <div className={`p-6 rounded-3xl border transition-all duration-300 hover:scale-[1.02] ${highlight ? 'bg-blue-600/10 border-blue-500/30 shadow-lg shadow-blue-500/5' : 'bg-white/5 border-white/10 backdrop-blur-md'}`}>
-            <div className="flex justify-between items-start mb-2">
-                <span className="text-slate-400 text-sm font-medium">{title}</span>
-                <div className="flex items-center gap-2">
-                    {isHidable && (
-                        <button onClick={onToggle} className="p-1 hover:bg-white/10 rounded-lg transition-colors text-slate-500 hover:text-slate-300">
-                            {isHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                    )}
-                    <Icon className={`w-5 h-5 ${color}`} />
-                </div>
-            </div>
-            <div className="text-2xl font-bold text-slate-100">
-                {isHidable && isHidden ? (
-                    <span className="tracking-widest capitalize">••••••</span>
-                ) : (
-                    <>R$ {value.toLocaleString()}</>
+        <div key={`card-${title}`} className={`p-6 rounded-3xl border transition-all duration-300 hover:scale-[1.02] flex flex-col items-center text-center relative overflow-hidden ${highlight ? 'bg-blue-600/10 border-blue-500/30 shadow-lg shadow-blue-500/5' : 'bg-white/5 border-white/10 backdrop-blur-md'}`}>
+            <div className="absolute top-2 right-2 flex items-center gap-1">
+                {isHidable && (
+                    <button key="btn-toggle" onClick={onToggle} className="p-1 hover:bg-white/10 rounded-lg transition-colors text-slate-500 hover:text-slate-300">
+                        {isHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                 )}
             </div>
+
+            <div className="mb-3 p-3 bg-white/5 rounded-2xl">
+                <Icon className={`w-8 h-8 ${color}`} />
+            </div>
+
+            <span className="text-slate-400 text-sm font-medium mb-1">{title}</span>
+
+            <div className="text-3xl font-bold text-slate-100">
+                <span key={isHidden ? 'hidden' : 'visible'}>
+                    {isHidable && isHidden ? (
+                        <span className="tracking-widest capitalize">••••••</span>
+                    ) : (
+                        `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                    )}
+                </span>
+            </div>
+            {detail && <div className="text-[10px] text-slate-500 mt-2 font-medium">{detail}</div>}
         </div>
     );
 }
 
 
 
-export default function TransactionSection({ manualConfig, updateManualConfig }) {
-    const [transactions, setTransactions] = useState([]);
+export default function TransactionSection({ manualConfig, updateManualConfig, transactions, goals = [], isLoadingData }) {
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
     const [date, setDate] = useState(() => {
@@ -50,9 +58,11 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
     const [category, setCategory] = useState({ id: 'other', label: 'Outro', icon: Circle, color: 'text-slate-400' });
     const [isRecurring, setIsRecurring] = useState(false);
     const [installments, setInstallments] = useState(2);
+    const [installmentValueMode, setInstallmentValueMode] = useState('monthly'); // 'total' | 'monthly'
     const [editingId, setEditingId] = useState(null);
     const { currentUser } = useAuth();
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+    const [searchTerm, setSearchTerm] = useState('');
     const [showReport, setShowReport] = useState(false);
     const [filterCategory, setFilterCategory] = useState('all');
     const [hidePatrimonio, setHidePatrimonio] = useState(() => {
@@ -79,22 +89,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
 
 
 
-    useEffect(() => {
-        if (!currentUser) return;
-
-        const q = query(
-            collection(db, 'transactions'),
-            where('userId', '==', currentUser.uid),
-            orderBy('date', 'desc')
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setTransactions(docs);
-        });
-
-        return () => unsubscribe();
-    }, [currentUser]);
+    // Local listener removed - consuming global prop from App.jsx
 
     const addTransactionToDb = async (data) => {
         try {
@@ -102,6 +97,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
                 ...data,
                 userId: currentUser.uid,
                 month: data.date.slice(0, 7),
+                createdAt: Date.now(),
                 isFixed: false
             });
             console.log("Transação adicionada via IA:", data);
@@ -129,6 +125,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
             date: transactionDate.toISOString(),
             userId: currentUser.uid,
             month: transactionDate.toISOString().slice(0, 7), // Store month for easier filtering
+            createdAt: Date.now(),
             isFixed: category.isFixed || false // Store if it is a fixed expense
         };
 
@@ -139,12 +136,18 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
             } else {
                 if (isRecurring && installments > 1) {
                     const batchPromises = [];
+                    // Calculate individual installment amount
+                    const installmentAmount = installmentValueMode === 'total'
+                        ? val / installments
+                        : val;
+
                     for (let i = 0; i < installments; i++) {
                         const nextDate = new Date(transactionDate);
                         nextDate.setMonth(nextDate.getMonth() + i);
 
                         const recurringData = {
                             ...transactionData,
+                            amount: installmentAmount,
                             description: `${description} (${i + 1}/${installments})`,
                             date: nextDate.toISOString(),
                             month: nextDate.toISOString().slice(0, 7)
@@ -254,36 +257,67 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
         }
     };
 
+    const getRobustMonth = (t) => {
+        if (t.month) return t.month;
+        if (!t.date) return "";
+        let dStr = "";
+        try {
+            if (typeof t.date === 'string') dStr = t.date;
+            else if (t.date.toDate) dStr = t.date.toDate().toISOString();
+            else if (t.date.seconds) dStr = new Date(t.date.seconds * 1000).toISOString();
+        } catch (e) { return ""; }
+        return dStr.slice(0, 7);
+    };
+
     const chartTransactions = useMemo(() => {
-        return transactions.filter(t => {
-            const transactionDate = t.month ? t.month : t.date.slice(0, 7);
-            return transactionDate === selectedMonth;
-        });
+        return transactions.filter(t => getRobustMonth(t) === selectedMonth);
     }, [transactions, selectedMonth]);
 
     const filteredTransactions = useMemo(() => {
         return transactions.filter(t => {
-            const transactionDate = t.month ? t.month : t.date.slice(0, 7);
-            const matchesMonth = transactionDate === selectedMonth;
-            // Check if matches category
+            const matchesMonth = getRobustMonth(t) === selectedMonth;
             const matchesCategory = filterCategory === 'all' || t.category === filterCategory;
-            return matchesMonth && matchesCategory;
-        }).sort((a, b) => new Date(b.date) - new Date(a.date));
-    }, [transactions, selectedMonth, filterCategory]);
+            const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase());
+            return matchesMonth && matchesCategory && matchesSearch;
+        }).sort((a, b) => {
+            const dateDiff = new Date(b.date) - new Date(a.date);
+            if (dateDiff !== 0) return dateDiff;
+            // Secondary sort by creation time (newest first)
+            return (b.createdAt || 0) - (a.createdAt || 0);
+        });
+    }, [transactions, selectedMonth, filterCategory, searchTerm]);
+
+    // Body scroll lock effect with width compensation
+    useEffect(() => {
+        if (deleteId) {
+            const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+            document.body.style.overflow = 'hidden';
+            document.documentElement.style.overflow = 'hidden';
+            if (scrollBarWidth > 0) {
+                document.body.style.paddingRight = `${scrollBarWidth}px`;
+            }
+            return () => {
+                document.body.style.overflow = '';
+                document.documentElement.style.overflow = '';
+                document.body.style.paddingRight = '';
+            };
+        }
+    }, [deleteId]);
 
     const income = useMemo(() => {
         return filteredTransactions
             .filter(t => t.type === 'income')
-            .reduce((acc, t) => acc + parseFloat(t.amount), 0);
+            .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     }, [filteredTransactions]);
 
     const expense = useMemo(() => {
         return filteredTransactions
             .filter(t => t.type === 'expense')
-            .reduce((acc, t) => acc + parseFloat(t.amount), 0);
+            .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     }, [filteredTransactions]);
 
-    const balance = income - expense;
+
+    const monthlyBalance = income - expense;
 
     const totalInvestedFromTransactions = useMemo(() => {
         return transactions
@@ -292,6 +326,12 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
     }, [transactions]);
 
     const totalPatrimonio = (parseFloat(manualConfig.invested) || 0) + totalInvestedFromTransactions;
+
+    const reservedForGoals = useMemo(() => {
+        return goals.reduce((acc, g) => acc + (parseFloat(g.current) || 0), 0);
+    }, [goals]);
+
+    const availablePatrimonio = Math.max(0, totalPatrimonio - reservedForGoals);
 
     const monthlyReport = useMemo(() => {
         const report = {};
@@ -375,37 +415,71 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
                 </div>
             )}
 
-            {/* Cards Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card
-                    title="Saldo em Carteira"
-                    value={balance}
-                    icon={Wallet}
-                    color="text-blue-400"
-                    highlight={true}
-                    isHidable={true}
-                    isHidden={hideBalance}
-                    onToggle={toggleBalance}
-                />
-                <Card
-                    title="Patrimônio Investido"
-                    value={totalPatrimonio}
-                    icon={TrendingUp}
-                    color="text-purple-400"
-                    isHidable={true}
-                    isHidden={hidePatrimonio}
-                    onToggle={togglePatrimonio}
-                />
-                <Card title="Ganhos (Mês)" value={income} icon={ArrowUpCircle} color="text-emerald-400" />
-                <Card title="Gastos (Mês)" value={expense} icon={ArrowDownCircle} color="text-rose-400" />
+            {/* Dashboard Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                {isLoadingData ? (
+                    Array(4).fill(0).map((_, i) => (
+                        <div key={`skeleton-${i}`} className="p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md animate-pulse">
+                            <div className="h-4 w-24 bg-white/10 rounded mb-4 shadow"></div>
+                            <div className="h-8 w-32 bg-white/10 rounded shadow"></div>
+                        </div>
+                    ))
+                ) : (
+                    <>
+                        <Card
+                            title="Saldo em Carteira"
+                            value={monthlyBalance}
+                            icon={Wallet}
+                            color="text-blue-400"
+                            highlight={true}
+                            isHidable={true}
+                            isHidden={hideBalance}
+                            onToggle={toggleBalance}
+                        />
+                        <Card
+                            title="Patrimônio Investido"
+                            value={totalPatrimonio}
+                            icon={TrendingUp}
+                            color="text-purple-400"
+                            isHidable={true}
+                            isHidden={hidePatrimonio}
+                            onToggle={togglePatrimonio}
+                            detail={
+                                <div className="space-y-1.5 mt-2 transition-all duration-300">
+                                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-medium">
+                                        <span>Reservado (Metas):</span>
+                                        <span className="text-emerald-400">R$ {reservedForGoals.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-medium pb-1.5 border-b border-white/5">
+                                        <span>Livre/Disponível:</span>
+                                        <span className="text-blue-400">R$ {availablePatrimonio.toLocaleString()}</span>
+                                    </div>
+                                    {(() => {
+                                        const health = calculateFinancialHealth(transactions, manualConfig);
+                                        const monthlyExpenses = health.totalEstimatedExpenses || 0;
+                                        if (totalPatrimonio > 0 && monthlyExpenses > 0) {
+                                            const months = (totalPatrimonio / monthlyExpenses).toFixed(1);
+                                            return <p className="text-[9px] text-slate-500 pt-1 font-semibold italic uppercase tracking-wider">Sustenta seu padrão por {months} {parseFloat(months) === 1 ? 'mês' : 'meses'}</p>;
+                                        }
+                                        return null;
+                                    })()}
+                                </div>
+                            }
+                        />
+                        <Card title="Ganhos (Mês)" value={income} icon={ArrowUpCircle} color="text-emerald-400" />
+                        <Card title="Gastos (Mês)" value={expense} icon={ArrowDownCircle} color="text-rose-400" />
+                    </>
+                )}
             </div>
 
             {/* Input Form */}
-            <form onSubmit={handleSubmit} className="bg-white/5 backdrop-blur-xl p-6 md:p-8 rounded-3xl border border-white/10 shadow-2xl grid grid-cols-1 md:grid-cols-12 gap-4">
-                <h3 className="md:col-span-12 text-lg font-bold text-slate-100 mb-2 flex items-center gap-2">
-                    {editingId ? <Pencil className="w-5 h-5 text-blue-400" /> : <LayoutDashboard className="w-5 h-5 text-emerald-400" />}
-                    {editingId ? 'Editar Transação' : 'Nova Transação'}
-                </h3>
+            <form key={editingId || 'new-form'} onSubmit={handleSubmit} className="bg-white/5 backdrop-blur-xl p-6 md:p-8 rounded-3xl border border-white/10 shadow-2xl grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div className="md:col-span-12">
+                    <h3 className="text-lg font-bold text-slate-100 mb-2 flex items-center gap-2">
+                        {editingId ? <Pencil className="w-5 h-5 text-blue-400" /> : <LayoutDashboard className="w-5 h-5 text-emerald-400" />}
+                        {editingId ? 'Editar Transação' : 'Nova Transação'}
+                    </h3>
+                </div>
 
                 {/* Row 1: Description, Value, Date */}
                 <div className="md:col-span-6">
@@ -482,16 +556,40 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
                             <span className="ms-2 text-xs font-medium text-slate-400 group-hover:text-slate-200 transition-colors">Fixa</span>
                         </label>
                         {isRecurring && (
-                            <div className="flex items-center gap-2 animate-in fade-in">
-                                <label className="text-xs font-medium text-slate-400">Qtd:</label>
-                                <input
-                                    type="number"
-                                    min="2"
-                                    max="60"
-                                    value={installments}
-                                    onChange={(e) => setInstallments(parseInt(e.target.value))}
-                                    className="w-16 bg-slate-900/50 border border-slate-700 rounded-lg px-2 py-1 text-sm text-slate-200"
-                                />
+                            <div className="flex items-center gap-4 animate-in fade-in slide-in-from-left-2 transition-all">
+                                <div className="flex items-center gap-2">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase">Parcelas:</label>
+                                    <input
+                                        type="number"
+                                        min="2"
+                                        max="60"
+                                        value={installments}
+                                        onChange={(e) => setInstallments(parseInt(e.target.value))}
+                                        className="w-14 bg-slate-900/50 border border-slate-700 rounded-lg px-2 py-1 text-sm text-slate-200 focus:outline-none focus:border-blue-500/50"
+                                    />
+                                </div>
+                                <div className="flex bg-slate-900/50 p-1 rounded-lg border border-slate-700">
+                                    <button
+                                        type="button"
+                                        onClick={() => setInstallmentValueMode('total')}
+                                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${installmentValueMode === 'total'
+                                            ? 'bg-blue-600 text-white shadow-sm'
+                                            : 'text-slate-500 hover:text-slate-300'
+                                            }`}
+                                    >
+                                        Valor Total
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setInstallmentValueMode('monthly')}
+                                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${installmentValueMode === 'monthly'
+                                            ? 'bg-blue-600 text-white shadow-sm'
+                                            : 'text-slate-500 hover:text-slate-300'
+                                            }`}
+                                    >
+                                        Mensal
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -554,11 +652,11 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
                             type="month"
                             value={selectedMonth}
                             onChange={(e) => setSelectedMonth(e.target.value)}
-                            className="bg-transparent text-slate-300 text-sm focus:outline-none w-full"
+                            className="bg-transparent text-slate-300 text-sm focus:outline-none w-full [color-scheme:dark]"
                         />
                     </div>
                 </div>
-            </div >
+            </div>
 
             {/* Analytics Chart & Advisor */}
             <div className={`grid grid-cols-1 ${transactions.length === 0 && !manualConfig.income ? '' : 'lg:grid-cols-2'} gap-8 mb-8 animate-in slide-in-from-bottom-5 fade-in duration-500`}>
@@ -570,9 +668,21 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
                 />
             </div>
 
-            {/* Category Filter */}
-            <div className="mb-6">
-                <h4 className="text-sm font-semibold text-slate-400 mb-3 px-1">Filtrar por Categoria</h4>
+            {/* Category Filter & Search */}
+            <div className="mb-6 space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-1">
+                    <h4 className="text-sm font-semibold text-slate-400">Filtrar por Categoria</h4>
+                    <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-2 rounded-xl border border-slate-700 w-full md:w-72">
+                        <Search className="w-4 h-4 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Buscar transação..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="bg-transparent text-slate-300 text-sm focus:outline-none w-full"
+                        />
+                    </div>
+                </div>
                 <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                     <button
                         onClick={() => setFilterCategory('all')}
@@ -661,11 +771,11 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
                                     <span className={`font-bold text-lg ${t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
                                         {t.type === 'income' ? '+' : '-'} R$ {t.amount.toLocaleString()}
                                     </span>
-                                    <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => handleEdit(t)} className="p-2 bg-slate-700/50 hover:bg-blue-500/10 text-slate-400 hover:text-blue-400 rounded-lg transition-colors">
+                                    <div key="item-actions" className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                        <button key="btn-item-edit" onClick={() => handleEdit(t)} className="p-2 bg-slate-700/50 hover:bg-blue-500/10 text-slate-400 hover:text-blue-400 rounded-lg transition-colors">
                                             <Pencil className="w-4 h-4" />
                                         </button>
-                                        <button onClick={() => handleDelete(t)} className="p-2 bg-slate-700/50 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 rounded-lg transition-colors">
+                                        <button key="btn-item-delete" onClick={() => handleDelete(t)} className="p-2 bg-slate-700/50 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 rounded-lg transition-colors">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
@@ -681,66 +791,82 @@ export default function TransactionSection({ manualConfig, updateManualConfig })
                 manualConfig={manualConfig}
                 onAddTransaction={addTransactionToDb}
                 onDeleteTransaction={handleDelete}
+                onConfigChange={updateManualConfig}
             />
-            {/* Confirmation Modal */}
+            {/* Confirmation Modal - Rendered via Portal to ensure true centering and visibility */}
             {
-                deleteId && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
-                        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
-                            <div className="flex flex-col items-center text-center gap-4">
-                                <div className="p-3 bg-rose-500/10 rounded-full">
-                                    <Trash2 className="w-8 h-8 text-rose-500" />
+                deleteId && typeof document !== 'undefined' && createPortal(
+                    <div key="modal-backdrop" className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+                        <div
+                            key="modal-card"
+                            className="bg-slate-900 border border-slate-700/50 rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Inner Glow/Aesthetics */}
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+
+                            <div key="modal-content" className="flex flex-col items-center text-center gap-6">
+                                <div key="modal-icon-bg" className="p-4 bg-rose-500/10 rounded-2xl border border-rose-500/20">
+                                    <Trash2 className="w-10 h-10 text-rose-500" />
                                 </div>
-                                <div>
-                                    <h3 className="text-lg font-bold text-slate-100 mb-1">Excluir Transação?</h3>
-                                    <p className="text-sm text-slate-400">
-                                        Essa ação não pode ser desfeita. Tem certeza que deseja remover este item?
+
+                                <div key="modal-text" className="space-y-2">
+                                    <h3 key="modal-title" className="text-xl font-bold text-slate-100 tracking-tight">Excluir Transação?</h3>
+                                    <p key="modal-desc" className="text-sm text-slate-400 leading-relaxed px-4">
+                                        Esta ação removerá permanentemente este item do seu histórico e não poderá ser desfeita.
                                     </p>
                                 </div>
+
                                 {deleteData && (deleteData.isFixed || deleteData.description.match(/\(\d+\/\d+\)/)) ? (
-                                    <div className="flex flex-col gap-2 w-full mt-2">
+                                    <div key="actions-recurring" className="flex flex-col items-center gap-3 w-full mt-2">
                                         <button
+                                            key="btn-delete-only"
                                             onClick={() => confirmDelete(false)}
-                                            className="w-full px-4 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors font-medium text-sm"
+                                            className="w-64 px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-all font-semibold text-sm border border-slate-700 shadow-lg"
                                         >
                                             Excluir apenas esta
                                         </button>
                                         <button
+                                            key="btn-delete-recurring"
                                             onClick={() => confirmDelete(true)}
                                             disabled={isDeleting}
-                                            className="w-full px-4 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition-colors font-bold text-sm shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2"
+                                            className="w-64 px-4 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition-all font-bold text-sm shadow-xl shadow-rose-600/30 flex items-center justify-center gap-3 active:scale-95"
                                         >
-                                            {isDeleting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
-                                            Excluir esta e futuras
+                                            {isDeleting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                            <span>Excluir esta e futuras</span>
                                         </button>
                                         <button
+                                            key="btn-cancel-rec"
                                             onClick={() => setDeleteId(null)}
-                                            className="w-full px-4 py-2 text-slate-400 hover:text-slate-300 transition-colors text-xs font-medium"
+                                            className="w-64 px-4 py-3 text-slate-400 hover:text-slate-100 transition-colors text-xs font-medium"
                                         >
                                             Cancelar
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="flex gap-3 w-full mt-2">
+                                    <div key="actions-single-perfect" className="flex flex-col items-center gap-3 w-full mt-2">
                                         <button
-                                            onClick={() => setDeleteId(null)}
-                                            className="flex-1 px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors font-medium"
-                                        >
-                                            Cancelar
-                                        </button>
-                                        <button
+                                            key="btn-confirm-single-final"
                                             onClick={() => confirmDelete(false)}
                                             disabled={isDeleting}
-                                            className="flex-1 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition-colors font-medium shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2"
+                                            className="w-64 px-4 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition-all font-bold text-sm shadow-xl shadow-rose-600/30 flex items-center justify-center gap-3 active:scale-95"
                                         >
-                                            {isDeleting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
-                                            Sim, Excluir
+                                            {isDeleting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                            <span>Sim, Excluir</span>
+                                        </button>
+                                        <button
+                                            key="btn-cancel-single-final"
+                                            onClick={() => setDeleteId(null)}
+                                            className="w-64 px-4 py-3 text-slate-400 hover:text-slate-100 transition-colors text-xs font-medium"
+                                        >
+                                            Cancelar
                                         </button>
                                     </div>
                                 )}
                             </div>
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )
             }
         </div >

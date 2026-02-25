@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
 import logo from '../assets/logo.png';
 
-export default function AIChat({ transactions, manualConfig, onAddTransaction, onDeleteTransaction }) {
+export default function AIChat({ transactions, manualConfig, onAddTransaction, onDeleteTransaction, onConfigChange }) {
     const [isOpen, setIsOpen] = useState(false);
     const [hasKey, setHasKey] = useState(isGeminiConfigured());
     const [apiKey, setApiKey] = useState('');
@@ -119,41 +119,111 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
         try {
             const context = calculateStatsContext(transactions, manualConfig);
             const responseText = await sendMessageToGemini(messages, input, context);
-            const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
+
+            const sanitizeAIValue = (val) => {
+                if (!val) return '0';
+                let s = String(val).trim();
+                // Remove any currency symbol or spaces
+                s = s.replace(/[R$\s]/g, '');
+                // Handle BR format: 1.000,00 -> 1000.00
+                if (s.includes(',') && s.includes('.')) {
+                    s = s.replace(/\./g, '').replace(',', '.');
+                } else if (s.includes(',')) {
+                    // Just a comma: 1000,00 -> 1000.00
+                    s = s.replace(',', '.');
+                } else if (s.includes('.')) {
+                    // Just a dot: Could be US decimal or BR thousand
+                    // If it's like "1.000", it's likely thousand. If "1.50", it's decimal.
+                    const parts = s.split('.');
+                    if (parts.length > 2 || parts[parts.length - 1].length !== 2) {
+                        s = s.replace(/\./g, '');
+                    }
+                }
+                return s;
+            };
+
+            // Enhanced JSON Extraction
+            let jsonString = null;
+            const blocks = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/g);
+            if (blocks) {
+                const lastBlock = blocks[blocks.length - 1];
+                jsonString = lastBlock.replace(/```(?:json)?/g, '').replace(/```/g, '').trim();
+            } else {
+                const firstBrace = responseText.indexOf('{');
+                const lastBrace = responseText.lastIndexOf('}');
+                if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                    const candidate = responseText.substring(firstBrace, lastBrace + 1);
+                    if (candidate.includes('"action"')) jsonString = candidate;
+                }
+            }
+
             let displayMessage = responseText;
 
-            if (jsonMatch) {
+            if (jsonString) {
                 try {
-                    const command = JSON.parse(jsonMatch[1]);
+                    const command = JSON.parse(jsonString);
+                    // CLEANUP: Aggressively remove technical blocks and hallucinations
+                    // We remove anything that looks like a JSON action and then any technical trailing text
+                    displayMessage = responseText
+                        .replace(/```(?:json)?[\s\S]*?```/g, '')
+                        .replace(/\{"action"[\s\S]*?\}/g, '') // Remove any raw JSON-like structures
+                        .split(/⚙️|Configuração\s+Atualizada|Patrimônio\s+Declarado|Ação\s+Registrada|Comando\s+Executado|```/i)[0]
+                        .trim();
+
+                    if (!displayMessage && command.action) {
+                        displayMessage = "Entendido! Processando sua solicitação...";
+                    }
+
                     if (command.action === 'add_transaction') {
                         if (onAddTransaction) {
-                            await onAddTransaction(command.data);
-                            displayMessage = responseText.replace(/```json[\s\S]*```/, '').trim();
-                            displayMessage += `\n\n✅ **Transação Salva:** ${command.data.description} (R$ ${command.data.amount})`;
+                            const sanitizedData = {
+                                ...command.data,
+                                amount: parseFloat(sanitizeAIValue(command.data.amount)) || 0
+                            };
+                            await onAddTransaction(sanitizedData);
+                            displayMessage += `\n\n✅ **Transação Salva:** ${sanitizedData.description} (R$ ${sanitizedData.amount.toLocaleString('pt-BR')})`;
                         }
                     } else if (command.action === 'delete_transaction') {
                         const { amount, description: descSearch, type } = command.data;
                         let foundTx = null;
-                        const targetAmount = parseFloat(amount);
-
+                        const targetAmount = parseFloat(sanitizeAIValue(amount));
                         for (let i = transactions.length - 1; i >= 0; i--) {
                             const tx = transactions[i];
                             const isAmountMatch = Math.abs(tx.amount - targetAmount) < 0.05;
-                            const isTypeMatch = type ? tx.type === type : true;
                             const isDescMatch = tx.description.toLowerCase().includes(descSearch.toLowerCase());
-                            if (isAmountMatch && isDescMatch && isTypeMatch) {
-                                foundTx = tx;
-                                break;
-                            }
+                            if (isAmountMatch && isDescMatch) { foundTx = tx; break; }
                         }
-
                         if (foundTx && onDeleteTransaction) {
                             await onDeleteTransaction(foundTx.id);
-                            displayMessage = responseText.replace(/```json[\s\S]*```/, '').trim();
-                            displayMessage += `\n\n🗑️ **Transação Removida:** ${foundTx.description} (R$ ${foundTx.amount.toFixed(2)})`;
+                            displayMessage += `\n\n🗑️ **Transação Removida:** ${foundTx.description}`;
                         } else {
-                            displayMessage = responseText.replace(/```json[\s\S]*```/, '').trim();
-                            displayMessage += `\n\n⚠️ **Não foi possível encontrar a transação:** "${descSearch}" de R$ ${amount}. Verifique o valor ou nome.`;
+                            displayMessage += `\n\n⚠️ **Não foi possível encontrar a transação de R$ ${targetAmount}.**`;
+                        }
+                    } else if (command.action === 'update_manual_config') {
+                        if (onConfigChange) {
+                            const newConfig = { ...manualConfig };
+                            let updates = [];
+                            if (command.data.invested) {
+                                const val = sanitizeAIValue(command.data.invested);
+                                newConfig.invested = val;
+                                updates.push(`Patrimônio: **R$ ${parseFloat(val).toLocaleString('pt-BR')}**`);
+                            }
+                            if (command.data.income) {
+                                const val = sanitizeAIValue(command.data.income);
+                                newConfig.income = val;
+                                updates.push(`Renda: **R$ ${parseFloat(val).toLocaleString('pt-BR')}**`);
+                            }
+                            if (command.data.fixedExpenses) {
+                                const val = sanitizeAIValue(command.data.fixedExpenses);
+                                newConfig.fixedExpenses = val;
+                                updates.push(`Gastos Fixos: **R$ ${parseFloat(val).toLocaleString('pt-BR')}**`);
+                            }
+                            if (updates.length > 0) {
+                                onConfigChange(newConfig);
+                                displayMessage += `\n\n⚙️ **Configuração Atualizada:**\n${updates.map(u => `- ${u}`).join('\n')}`;
+                            } else {
+                                displayMessage = "O patrimônio já está atualizado com esse valor.";
+                            }
                         }
                     }
                 } catch (e) {

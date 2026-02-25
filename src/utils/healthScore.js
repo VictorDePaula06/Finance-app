@@ -5,7 +5,20 @@ export const SAVINGS_CATEGORIES = ['investment'];
 export const calculateHealthScore = (transactions, manualConfig) => {
     const today = new Date();
     const currentMonth = today.toISOString().slice(0, 7);
-    const monthTx = transactions.filter(t => t.date.startsWith(currentMonth));
+
+    const getRobustMonth = (t) => {
+        if (t.month) return t.month;
+        if (!t.date) return "";
+        let dStr = "";
+        try {
+            if (typeof t.date === 'string') dStr = t.date;
+            else if (t.date.toDate) dStr = t.date.toDate().toISOString();
+            else if (t.date.seconds) dStr = new Date(t.date.seconds * 1000).toISOString();
+        } catch (e) { return ""; }
+        return dStr.slice(0, 7);
+    };
+
+    const monthTx = transactions.filter(t => getRobustMonth(t) === currentMonth);
 
     // 1. Month Performance (20 points)
     const income = monthTx.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);

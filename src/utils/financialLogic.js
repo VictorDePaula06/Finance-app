@@ -174,3 +174,56 @@ export const calculateFutureProjections = (transactions, manualConfig, months = 
 
     return projections;
 };
+export const calculateSpendingPace = (transactions, manualConfig) => {
+    if (!manualConfig || !manualConfig.categoryBudgets) return [];
+
+    const budgets = manualConfig.categoryBudgets;
+    const categoryIds = Object.keys(budgets).filter(id => budgets[id] > 0);
+    if (categoryIds.length === 0) return [];
+
+    const today = new Date();
+    const currentMonth = today.toISOString().slice(0, 7);
+    const dayOfMonth = today.getDate();
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const monthProgress = dayOfMonth / daysInMonth;
+
+    const alerts = [];
+
+    categoryIds.forEach(catId => {
+        const limit = parseFloat(budgets[catId]);
+        const spent = transactions
+            .filter(t => {
+                const txMonth = t.month || (t.date ? t.date.slice(0, 7) : '');
+                return txMonth === currentMonth && t.category === catId && t.type === 'expense';
+            })
+            .reduce((acc, t) => acc + parseFloat(t.amount), 0);
+
+        if (spent === 0) return;
+
+        const budgetUsage = spent / limit;
+
+        // Alerta se o gasto estiver à frente do tempo (zero de tolerância para ser proativo)
+        // Ou se já estourou o limite (usage >= 1)
+        if (budgetUsage >= 1) {
+            alerts.push({
+                categoryId: catId,
+                spent,
+                limit,
+                usage: budgetUsage,
+                type: 'danger',
+                message: `Limite atingido! Você já gastou R$ ${spent.toFixed(2)} de R$ ${limit.toFixed(2)}.`
+            });
+        } else if (budgetUsage > monthProgress) {
+            alerts.push({
+                categoryId: catId,
+                spent,
+                limit,
+                usage: budgetUsage,
+                type: 'warning',
+                message: `Ritmo acelerado! Você já usou ${(budgetUsage * 100).toFixed(0)}% do limite em ${(monthProgress * 100).toFixed(0)}% do mês.`
+            });
+        }
+    });
+
+    return alerts;
+};

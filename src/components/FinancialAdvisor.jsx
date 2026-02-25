@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { calculateFinancialHealth } from '../utils/financialLogic';
+import { calculateFinancialHealth, calculateSpendingPace } from '../utils/financialLogic';
+import { CATEGORIES } from '../constants/categories';
 import { calculateStatsContext, sendMessageToGemini, validateApiKey } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
 import { Bot, Settings, X, Save, TrendingUp, TrendingDown, DollarSign, AlertTriangle, CheckCircle, Calculator, Video, ChevronDown } from 'lucide-react';
@@ -49,6 +50,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
 
 
     const health = useMemo(() => calculateFinancialHealth(transactions, manualConfig), [transactions, manualConfig]);
+    const paceAlerts = useMemo(() => calculateSpendingPace(transactions, manualConfig), [transactions, manualConfig]);
 
     const [isLoading, setIsLoading] = useState(false);
 
@@ -144,7 +146,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                     </button>
                 </div>
 
-                <form onSubmit={handleSaveConfig} className="space-y-4">
+                <form key="advisor-config-form" onSubmit={handleSaveConfig} className="space-y-4">
                     <div>
                         <label className="block text-xs font-medium text-slate-400 mb-1">Renda Mensal Média (R$)</label>
                         <input
@@ -193,6 +195,35 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                     </div>
 
 
+                    <div className="pt-4 border-t border-slate-700/50">
+                        <label className="block text-xs font-medium text-slate-400 mb-3 flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-emerald-400" />
+                            Limites Mensais por Categoria
+                        </label>
+                        <div className="space-y-3 bg-slate-900/30 p-3 rounded-xl border border-slate-700/30 max-h-48 overflow-y-auto custom-scrollbar">
+                            {CATEGORIES.expense.map(cat => (
+                                <div key={cat.id} className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <cat.icon className={`w-3.5 h-3.5 ${cat.color}`} />
+                                        <span className="text-[10px] text-slate-300">{cat.label}</span>
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            value={tempManualConfig.categoryBudgets?.[cat.id] || ''}
+                                            onChange={e => {
+                                                const newBudgets = { ...tempManualConfig.categoryBudgets, [cat.id]: e.target.value };
+                                                setTempManualConfig({ ...tempManualConfig, categoryBudgets: newBudgets });
+                                            }}
+                                            placeholder="0,00"
+                                            className="w-24 bg-slate-900/50 border border-slate-700 rounded-md px-2 py-1 text-[10px] text-slate-200 focus:outline-none focus:border-blue-500/50 pr-6"
+                                        />
+                                        <span className="absolute right-2 top-1.5 text-[8px] text-slate-500">R$</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
 
                     <div className="pt-4 border-t border-slate-700/50">
                         {error && (
@@ -261,15 +292,15 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                             }`}
                     >
                         {isSaving ? (
-                            <>
-                                <CheckCircle className="w-4 h-4" />
-                                Configuração Salva!
-                            </>
+                            <React.Fragment key="saving-content">
+                                <CheckCircle key="icon-check" className="w-4 h-4" />
+                                <span key="text-saved">Configuração Salva!</span>
+                            </React.Fragment>
                         ) : (
-                            <>
-                                <Save className="w-4 h-4" />
-                                Salvar Configuração
-                            </>
+                            <React.Fragment key="ready-content">
+                                <Save key="icon-save" className="w-4 h-4" />
+                                <span key="text-save">Salvar Configuração</span>
+                            </React.Fragment>
                         )}
                     </button>
                 </form >
@@ -374,6 +405,45 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                 </div>
             </div>
 
+            {paceAlerts.length > 0 && (
+                <div className="mb-6 space-y-3 animate-in fade-in slide-in-from-top-1">
+                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 px-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        Alertas de Orçamento
+                    </h4>
+                    {paceAlerts.map((alert, idx) => (
+                        <div
+                            key={idx}
+                            className={`p-3 rounded-xl border flex items-start gap-3 ${alert.type === 'danger'
+                                ? 'bg-rose-500/10 border-rose-500/20'
+                                : 'bg-amber-500/10 border-amber-500/20'
+                                }`}
+                        >
+                            <div className={`p-1.5 rounded-lg shrink-0 ${alert.type === 'danger' ? 'bg-rose-500/20' : 'bg-amber-500/20'
+                                }`}>
+                                <AlertTriangle className={`w-4 h-4 ${alert.type === 'danger' ? 'text-rose-400' : 'text-amber-400'
+                                    }`} />
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-bold text-slate-200">
+                                    {CATEGORIES.expense.find(c => c.id === alert.categoryId)?.label}
+                                </p>
+                                <p className="text-[11px] text-slate-400 leading-relaxed">
+                                    {alert.message}
+                                </p>
+                                <div className="w-full h-1.5 bg-slate-800 rounded-full mt-2 overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all duration-1000 ${alert.type === 'danger' ? 'bg-rose-500' : 'bg-amber-500'
+                                            }`}
+                                        style={{ width: `${Math.min(alert.usage * 100, 100)}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             <div className="border-t border-slate-700/50 pt-6">
                 <h4 className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2">
                     <Calculator className="w-4 h-4 text-slate-400" />
@@ -423,12 +493,12 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                 {simulationResult && (
                     <div className={`mt-4 p-4 rounded-xl border animate-in fade-in slide-in-from-top-2 bg-slate-900/50 border-blue-500/20`}>
                         {simulationResult.error ? (
-                            <div className="flex items-center gap-2 text-rose-400">
+                            <div key="sim-error" className="flex items-center gap-2 text-rose-400">
                                 <AlertTriangle className="w-5 h-5" />
                                 <span className="text-sm font-medium">{simulationResult.error}</span>
                             </div>
                         ) : (
-                            <div className="text-sm text-slate-300 leading-relaxed space-y-2">
+                            <div key="sim-success" className="text-sm text-slate-300 leading-relaxed space-y-2">
                                 <div className="flex items-center gap-2 mb-2 text-blue-400 font-bold border-b border-blue-500/20 pb-2">
                                     <Bot className="w-4 h-4" />
                                     Análise do Consultor
