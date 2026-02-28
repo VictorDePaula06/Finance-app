@@ -30,10 +30,23 @@ async function testGeminiCommand() {
         console.log(response);
         console.log("-------------------\n");
 
-        if (response.includes("```json") && response.includes("add_transaction")) {
+        if (response.includes("```json") && (response.includes("add_transaction") || response.includes("update_manual_config"))) {
             console.log("SUCCESS: JSON command found.");
         } else {
             console.log("FAILURE: No JSON command found.");
+        }
+
+        const message2 = "minha renda agora é 6000 e meu patrimônio base é 15000";
+        console.log(`\nUser Message 2: "${message2}"`);
+        const response2 = await sendMessageToGemini(history, message2, mockContext);
+        console.log("\n--- AI Response 2 ---");
+        console.log(response2);
+        console.log("-------------------\n");
+
+        if (response2.includes("update_manual_config") && response2.includes("6000") && response2.includes("15000")) {
+            console.log("SUCCESS: update_manual_config command with correct values found.");
+        } else {
+            console.log("FAILURE: update_manual_config command mismatch.");
         }
 
     } catch (e) {

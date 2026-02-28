@@ -18,22 +18,38 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 import { useEffect as useTransitionEffect } from 'react';
 
 function Dashboard() {
-  const { logout, currentUser } = useAuth();
+  const { logout, currentUser, saveUserPreferences, getUserPreferences } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [goals, setGoals] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
-  const [manualConfig, setManualConfig] = useState(() => {
-    const saved = localStorage.getItem('financialAdvisorSettings');
-    return saved ? JSON.parse(saved) : { income: '', fixedExpenses: '', variableEstimate: '', invested: '', categoryBudgets: {} };
+
+  const [manualConfig, setManualConfig] = useState({
+    income: '',
+    fixedExpenses: '',
+    variableEstimate: '',
+    invested: '',
+    categoryBudgets: {}
   });
 
   const updateManualConfig = (newConfig) => {
     setManualConfig(newConfig);
     localStorage.setItem('financialAdvisorSettings', JSON.stringify(newConfig));
+    saveUserPreferences({ manualConfig: newConfig });
   };
 
   useEffect(() => {
     if (!currentUser) return;
+
+    // Load initial config from Cloud or Local
+    getUserPreferences().then(prefs => {
+      if (prefs && prefs.manualConfig) {
+        setManualConfig(prefs.manualConfig);
+        localStorage.setItem('financialAdvisorSettings', JSON.stringify(prefs.manualConfig));
+      } else {
+        const saved = localStorage.getItem('financialAdvisorSettings');
+        if (saved) setManualConfig(JSON.parse(saved));
+      }
+    });
 
     // Transactions Listener
     const qT = query(
@@ -141,7 +157,7 @@ import TermsOfUse from './components/TermsOfUse';
 import SubscriptionBlock from './components/SubscriptionBlock';
 
 function AppContent() {
-  const { currentUser, isPremium } = useAuth();
+  const { currentUser, isPremium, isTrial, daysRemaining } = useAuth();
   const [view, setView] = useState('landing'); // 'landing' | 'login' | 'privacy' | 'terms'
 
   // Handle cross-component view changes and Hash navigation
@@ -165,6 +181,7 @@ function AppContent() {
 
   // If user is logged in
   if (currentUser) {
+    console.log("[App Debug]", { email: currentUser.email, isPremium, isTrial, daysRemaining });
     // 1. Admin Priority (Hidden Access or State)
     if (currentUser.email === MASTER_EMAIL && (view === 'admin' || window.location.hash === '#admin')) {
       return <AdminPanel onBack={() => {

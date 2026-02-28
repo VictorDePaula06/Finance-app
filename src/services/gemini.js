@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { CATEGORIES } from '../constants/categories';
-import { calculateFutureProjections } from '../utils/financialLogic';
+import { CATEGORIES } from '../constants/categories.js';
+import { calculateFutureProjections } from '../utils/financialLogic.js';
 
 export const isGeminiConfigured = () => {
     return !!localStorage.getItem('user_gemini_api_key');
@@ -30,7 +30,14 @@ export const calculateStatsContext = (transactions, manualConfig) => {
 
     let fixedExpenses = manualConfig && manualConfig.fixedExpenses ? parseFloat(manualConfig.fixedExpenses) : 0;
     let monthlyIncome = manualConfig && manualConfig.income ? parseFloat(manualConfig.income) : 'Não informado';
-    let totalInvested = manualConfig && manualConfig.invested ? parseFloat(manualConfig.invested) : 0;
+    let manualBaseInvested = manualConfig && manualConfig.invested ? parseFloat(manualConfig.invested) : 0;
+
+    // Calculate total from transactions (investments)
+    const totalFromTransactions = transactions
+        .filter(t => t.type === 'expense' && t.category === 'investment')
+        .reduce((acc, t) => acc + parseFloat(t.amount), 0);
+
+    const totalPatrimonioReal = manualBaseInvested + totalFromTransactions;
 
     const recentTx = transactions.slice(0, 50).map(t =>
         `- ${t.date}: ${t.description} (${t.type === 'income' ? '+' : '-'} R$ ${t.amount}) [${t.category}]`
@@ -64,10 +71,14 @@ CONTEXTO FINANCEIRO DO USUÁRIO:
   - Saídas: R$ ${currentExpense.toFixed(2)}
   - Saldo: R$ ${currentBalance.toFixed(2)}
 
-- Configuração Manual:
-  - Renda Inicial: R$ ${monthlyIncome}
+- SITUAÇÃO DE PATRIMÔNIO (DASHBOARD):
+  - Patrimônio Investido (Manual): R$ ${manualBaseInvested.toFixed(2)}
+  - Aportes registrados via chat/transações: R$ ${totalFromTransactions.toFixed(2)}
+  - VALOR EXIBIDO NO CARD: R$ ${totalPatrimonioReal.toFixed(2)}
+
+- Configuração das Metas/Mensais:
+  - Renda Mensal: R$ ${monthlyIncome}
   - Gastos Fixos: R$ ${fixedExpenses.toFixed(2)}
-  - Patrimônio Registrado: R$ ${totalInvested.toFixed(2)}
 
 - Gastos por Categoria:
 ${categoryStats || "Nenhum gasto registrado ainda."}
@@ -82,22 +93,42 @@ INSTRUÇÕES DE IDENTIDADE:
 Você é o **Mêntore**, analista de finanças de elite. Baseie-se na metodologia de Gustavo Cerbasi. Use conceitos como **PMS** (Patrimônio Mínimo de Sobrevivência) e **PNIF** (Patrimônio para Independência Financeira).
 
 DIRETRIZES CRÍTICAS:
-1. **Diferenciação Crítica**: Avalie se gastos são necessidades ou desejos supérfluos.
-2. **Reserva de Emergência**: Prioridade absoluta se o saldo estiver instável.
-3. **Tom de Voz**: Profissional, direto e motivador.
+1. **Ver visão real**: O usuário vê o "PATRIMÔNIO TOTAL REAL" no dashboard. SEMPRE use esse valor para análise, conselhos e cálculos de independência.
+2. **Sincronização com a UI**: Se o usuário mudar o "Patrimônio Base" na UI, esse valor mudará aqui. Ignore históricos de chat se o valor base informado no prompt for diferente.
+3. **NÃO lance investimentos**: Se o usuário disser "investi X", comente sobre isso (analise o impacto), mas NÃO use a action "add_transaction". O usuário prefere lançar investimentos manualmente. Só use "add_transaction" para rendas ou gastos comuns (comida, lazer, aluguel) se solicitado.
+4. **Tom de Voz**: Profissional, direto e motivador.
 
 REGRAS DE COMANDO (JSON):
-Se o usuário quiser mudar o patrimônio (investido), renda ou gastos fixos, use UM ÚNICO bloco JSON no final da resposta.
+Se precisar realizar uma ação no sistema, use UM ÚNICO bloco JSON no final da resposta.
 
-1. **Cálculos Incrementais**: Se o usuário disser "investi X", "ganhei X" ou "adicionei X", você deve SOMAR ao valor atual do CONTEXTO e enviar o NOVO TOTAL. Se disser "gastei X", subtraia. Sempre assuma que é um novo aporte/gasto a menos que o usuário diga "agora é X" ou esteja corrigindo.
-2. **Formato do JSON**: Use somente números puros (Ex: "4500.00"). NUNCA use pontos de milhar (Ex: NUNCA use "4.500").
-3. **Isolamento**: O bloco JSON deve estar OBRIGATORIAMENTE entre crases ( \`\`\`json ... \`\`\` ) e deve ser a ÚLTIMA coisa na sua mensagem.
-4. **NÃO escreva nada técnico fora do JSON** (como emojis de engrenagem ou "Configuração Atualizada"). Deixe que o sistema cuide da confirmação técnica.
-
-Exemplo de comando correto:
+1. **Lançar Gasto/Renda (NÃO INVESTIMENTO)**: Para despesas ou ganhos do dia a dia:
 \`\`\`json
-    { "action": "update_manual_config", "data": { "invested": "5000.00" } }
+{ 
+  "action": "add_transaction", 
+  "data": { 
+    "description": "Descrição curta", 
+    "amount": "123.45", 
+    "type": "expense|income", 
+    "category": "..." 
+  } 
+}
 \`\`\`
+
+2. **Ajustar Configurações (Patrimônio/Renda/Gastos)**: Se o usuário pedir para corrigir valores configurados (Ex: "meu saldo inicial é X", "minha renda é X", "meus gastos fixos são X"):
+\`\`\`json
+{ 
+  "action": "update_manual_config", 
+  "data": { 
+    "invested": "VALOR_ABSOLUTO (opcional)",
+    "income": "VALOR_ABSOLUTO (opcional)",
+    "fixedExpenses": "VALOR_ABSOLUTO (opcional)"
+  } 
+}
+\`\`\`
+
+REGRAS TÉCNICAS:
+- **Formato do Valor**: Use somente números decimais (Ex: "4500.00"). NUNCA use pontos de milhar (Ex: NUNCA use "4.500,00").
+- **Isolamento**: O bloco JSON deve estar OBRIGATORIAMENTE entre crases ( \`\`\`json ... \`\`\` ) e ser a ÚLTIMA coisa na mensagem.
 `;
 };
 

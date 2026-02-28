@@ -55,23 +55,81 @@ export function AuthProvider({ children }) {
                 const subsQuery = query(subsRef, where('status', 'in', ['active', 'trialing']));
 
                 const checkStatus = (userData, activeSubs = []) => {
-                    const hasActiveSub = activeSubs.length > 0 || userData.subscription?.status === 'active';
                     const createdAt = user.metadata.creationTime ? new Date(user.metadata.creationTime) : new Date();
                     const now = new Date();
-                    const diffDays = Math.ceil(Math.abs(now - createdAt) / (1000 * 60 * 60 * 24));
 
-                    setDaysRemaining(Math.max(0, 7 - diffDays));
+                    // 1. Check Trial (7 days)
+                    const diffDaysTrial = Math.ceil((now - createdAt) / (1000 * 60 * 60 * 24));
+                    const isWithinTrial = diffDaysTrial <= 7;
 
-                    if (hasActiveSub) {
-                        setIsPremium(true);
+                    // 2. Check Subscription Data
+                    const stripeSub = activeSubs[0];
+                    const manualSub = userData.subscription || {};
+
+                    // PRIORITY: Stripe "active" or "trialing" status overrides manual blocks.
+                    let subStatus = (stripeSub?.status === 'active' || stripeSub?.status === 'trialing')
+                        ? 'active'
+                        : (manualSub?.status === 'expired' ? 'expired' : (stripeSub?.status || manualSub?.status));
+
+                    const subType = stripeSub?.items?.[0]?.plan?.nickname?.toLowerCase().includes('anual') ? 'annual' : (manualSub?.type || 'monthly');
+                    const subDate = stripeSub?.current_period_start ? new Date(stripeSub.current_period_start.seconds * 1000) : (manualSub?.date?.toDate ? manualSub.date.toDate() : (manualSub?.date ? new Date(manualSub.date) : null));
+
+                    let hasValidAccess = false;
+                    let remaining = 0;
+                    let isUnderTolerance = false;
+                    let isTrialState = false;
+
+                    if (subStatus === 'lifetime') {
+                        hasValidAccess = true;
+                        remaining = 9999;
                         setIsTrial(false);
-                    } else if (diffDays <= 7) {
-                        setIsPremium(true);
+                    } else if (subStatus === 'active') {
+                        const cycleDays = subType === 'annual' ? 365 : 30;
+                        const toleranceDays = 5;
+                        const diffDaysSub = Math.floor((now - subDate) / (1000 * 60 * 60 * 24));
+
+                        if (diffDaysSub <= cycleDays) {
+                            hasValidAccess = true;
+                            remaining = cycleDays - diffDaysSub;
+                        } else if (diffDaysSub <= cycleDays + toleranceDays) {
+                            hasValidAccess = true;
+                            isUnderTolerance = true;
+                            remaining = (cycleDays + toleranceDays) - diffDaysSub;
+                        } else {
+                            hasValidAccess = false;
+                            remaining = 0;
+                        }
+                        setIsTrial(false);
+                    } else if (subStatus === 'expired' || (manualSub?.status && manualSub.status !== 'active' && manualSub.status !== 'lifetime')) {
+                        // EXPLICIT BLOCK: If there's a manual status and it's not active/lifetime, block EVERYTHING.
+                        hasValidAccess = false;
+                        remaining = 0;
+                        setIsTrial(false);
+                    } else if (isWithinTrial) {
+                        hasValidAccess = true;
+                        remaining = 7 - diffDaysTrial;
+                        isTrialState = true;
                         setIsTrial(true);
                     } else {
-                        setIsPremium(false);
+                        hasValidAccess = false;
+                        remaining = 0;
                         setIsTrial(false);
                     }
+
+                    setIsPremium(hasValidAccess);
+                    setDaysRemaining(Math.max(0, remaining));
+
+                    // Export extra info for AdminPanel
+                    setCurrentUser(prev => ({
+                        ...prev,
+                        subscriptionInfo: {
+                            type: subType,
+                            date: subDate,
+                            status: subStatus,
+                            isUnderTolerance,
+                            daysRemaining: remaining
+                        }
+                    }));
                 };
 
                 // Shared data state
