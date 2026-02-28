@@ -3,8 +3,11 @@ import { createPortal } from 'react-dom';
 import { Activity, Info, TrendingUp, AlertTriangle, CheckCircle2, X } from 'lucide-react';
 
 export default function HealthScoreCard({ scoreData }) {
-    const { score, feedback, color, bg } = scoreData;
+    const { score, feedback, color, bg, breakdown } = scoreData;
     const [showLogic, setShowLogic] = useState(false);
+
+    // Formatação de moeda simples
+    const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
     return (
         <div className={`relative overflow-hidden rounded-3xl border border-white/10 backdrop-blur-xl transition-all duration-500 hover:shadow-2xl hover:shadow-blue-900/10 p-6 ${bg}`}>
@@ -21,34 +24,89 @@ export default function HealthScoreCard({ scoreData }) {
                                 <X className="w-6 h-6" />
                             </button>
                         </div>
-                        <div className="p-8 space-y-6">
+                        <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
                             <div className="space-y-4">
                                 <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
-                                    <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400 font-bold text-sm">20%</div>
+                                    <div className="flex flex-col items-center gap-1">
+                                        <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400 font-bold text-sm min-w-[45px] text-center">20%</div>
+                                        <span className={`text-[10px] font-bold ${breakdown?.performance > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>+{breakdown?.performance || 0} pts</span>
+                                    </div>
                                     <div>
-                                        <h4 className="font-bold text-slate-100">Performance Mensal</h4>
-                                        <p className="text-sm text-slate-400">Avalia se você está ganhando mais do que gastando no mês atual.</p>
+                                        <h4 className="font-bold text-slate-100 uppercase text-[10px] tracking-widest mb-1 text-slate-500">Performance Mensal</h4>
+                                        <p className="text-sm text-slate-400">Ganhos vs Gastos no mês atual.</p>
+                                        <div className="mt-2 text-xs flex gap-3 text-slate-500">
+                                            <span>Entradas: <b className="text-slate-300">{formatCurrency(breakdown?.data?.monthlyIncome || 0)}</b></span>
+                                            <span>Gastos: <b className="text-slate-300">{formatCurrency(breakdown?.data?.actualExpense || 0)}</b></span>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
-                                    <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold text-sm">30%</div>
+                                    <div className="flex flex-col items-center gap-1">
+                                        <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold text-sm min-w-[45px] text-center">30%</div>
+                                        <span className={`text-[10px] font-bold ${breakdown?.allocation > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>+{breakdown?.allocation || 0} pts</span>
+                                    </div>
                                     <div>
-                                        <h4 className="font-bold text-slate-100">Distribuição (Regra 50/30/20)</h4>
-                                        <p className="text-sm text-slate-400">Pontua se você mantém Necessidades abaixo de 50-60% e Desejos abaixo de 30-40%.</p>
+                                        <h4 className="font-bold text-slate-100 uppercase text-[10px] tracking-widest mb-1 text-slate-500">Regra 50/30/20</h4>
+                                        <p className="text-sm text-slate-400">Qualidade da distribuição dos seus gastos.</p>
+                                        <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-500">
+                                            <div className="flex flex-col">
+                                                <span>Necessidades (Meta &lt; 55%)</span>
+                                                <b className={`text-sm ${parseFloat(breakdown?.data?.necRatio) <= 55 ? 'text-emerald-400' : 'text-rose-400'}`}>{breakdown?.data?.necRatio}%</b>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span>Desejos (Meta &lt; 35%)</span>
+                                                <b className={`text-sm ${parseFloat(breakdown?.data?.desRatio) <= 35 ? 'text-emerald-400' : 'text-rose-400'}`}>{breakdown?.data?.desRatio}%</b>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
-                                    <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 font-bold text-sm">50%</div>
+                                    <div className="flex flex-col items-center gap-1">
+                                        <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 font-bold text-sm min-w-[45px] text-center">50%</div>
+                                        <span className={`text-[10px] font-bold ${breakdown?.reserve > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>+{breakdown?.reserve || 0} pts</span>
+                                    </div>
                                     <div>
-                                        <h4 className="font-bold text-slate-100">Reserva de Emergência (PMS)</h4>
-                                        <p className="text-sm text-slate-400">O pilar mais forte. Avalia se seu saldo atual cobre pelo menos 6 meses de seus Gastos Fixos.</p>
+                                        <h4 className="font-bold text-slate-100 uppercase text-[10px] tracking-widest mb-1 text-slate-500">Reserva de Emergência</h4>
+                                        <p className="text-sm text-slate-400">Quanto tempo seu saldo atual te sustenta.</p>
+                                        <div className="mt-2 space-y-2">
+                                            <div className="flex justify-between items-center text-[10px] text-slate-500 bg-white/5 p-2 rounded-xl border border-white/5">
+                                                <span>Saldo em Carteira (Mês Atual)</span>
+                                                <b className="text-slate-300">{formatCurrency(breakdown?.data?.monthlyBalance || 0)}</b>
+                                            </div>
+                                            <div className="flex justify-between items-center text-[10px] text-slate-500 bg-emerald-500/5 p-2 rounded-xl border border-emerald-500/10">
+                                                <span>Patrimônio Investido (Total)</span>
+                                                <b className="text-emerald-400">{formatCurrency(breakdown?.data?.totalPatrimonio || 0)}</b>
+                                            </div>
+
+                                            <div className="pt-2 border-t border-white/5 flex justify-between items-end">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-blue-400 uppercase font-black">Liquidez Total</span>
+                                                    <b className="text-lg text-white leading-tight">{formatCurrency(breakdown?.data?.totalLiquidity || 0)}</b>
+                                                </div>
+                                                <div className="flex flex-col items-end text-right">
+                                                    <span className="text-[10px] text-slate-500 uppercase">Meses de Cobertura</span>
+                                                    <b className={`text-xl ${parseFloat(breakdown?.data?.monthsCovered) >= 6 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                        {breakdown?.data?.monthsCovered} <span className="text-xs font-normal text-slate-500">/ 6 meses</span>
+                                                    </b>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/10">
+                                            <p className="text-[10px] text-blue-300 leading-relaxed italic">
+                                                *O Score agora considera apenas seu <b>Saldo do Mês + Patrimônio</b> para o cálculo da reserva.
+                                            </p>
+                                        </div>
+
+                                        <div className="mt-2 text-[10px] text-slate-500 text-center">
+                                            Baseado em Gastos Fixos de <b className="text-slate-400">{formatCurrency(breakdown?.data?.fixedExpenses || 0)}</b>/mês
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-
-                            <p className="text-xs text-center text-slate-500 italic">
+                            <p className="text-xs text-center text-slate-500 italic mt-4">
                                 "O score é um termômetro da sua liberdade. Números altos significam tranquilidade."
                             </p>
                         </div>

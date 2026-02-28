@@ -54,19 +54,26 @@ export const calculateHealthScore = (transactions, manualConfig) => {
     // 3. Emergency Reserve / Fixed Expenses (50 points)
     // Ideal: 6 months of fixed expenses
     const fixedExpenses = manualConfig && manualConfig.fixedExpenses ? parseFloat(manualConfig.fixedExpenses) : 0;
+    const investedManual = manualConfig && manualConfig.invested ? parseFloat(manualConfig.invested) : 0;
 
-    // totalBalance should include the manual invested value plus all transactions (income - expense)
-    // But since investments as "expense" already decrease balance, we use the net flow
-    const totalBalance = transactions.reduce((acc, t) => acc + (t.type === 'income' ? t.amount : -t.amount), 0);
-    // Add back the manual invested to reflect total available liquidity if needed, 
-    // but usually reserve is about LIQUID balance. Let's keep it as is or use a specific reserve logic.
-    // For now, let's stick to the balance (money in hand/bank).
+    // Saldo do mês atual (Entradas - Saídas totais, incluindo investimentos do mês)
+    const monthlyBalance = income - expense;
+
+    // Total de investimentos via transações (histórico completo)
+    const investmentTransactionsSum = transactions
+        .filter(t => t.type === 'expense' && SAVINGS_CATEGORIES.includes(t.category))
+        .reduce((acc, t) => acc + t.amount, 0);
+
+    const totalPatrimonio = investedManual + investmentTransactionsSum;
+
+    // Liquidez Total = Saldo do Mês Atual + Patrimônio Total
+    const totalLiquidity = monthlyBalance + totalPatrimonio;
 
     let reserveScore = 0;
     if (fixedExpenses > 0) {
-        const monthsCovered = totalBalance / fixedExpenses;
+        const monthsCovered = totalLiquidity / fixedExpenses;
         reserveScore = Math.min(50, (monthsCovered / 6) * 50);
-    } else if (totalBalance > 0) {
+    } else if (totalLiquidity > 0) {
         reserveScore = 25; // Default if no fixed expenses defined but balance is positive
     }
 
@@ -95,5 +102,27 @@ export const calculateHealthScore = (transactions, manualConfig) => {
         bg = "bg-rose-500/10";
     }
 
-    return { score: totalScore, feedback, color, bg };
+    return {
+        score: totalScore,
+        feedback,
+        color,
+        bg,
+        breakdown: {
+            performance: Math.round(performanceScore),
+            allocation: allocationScore,
+            reserve: Math.round(reserveScore),
+            data: {
+                monthlyIncome: income,
+                actualExpense,
+                monthlyBalance: income - expense,
+                totalLiquidity,
+                totalPatrimonio,
+                fixedExpenses,
+                monthsCovered: fixedExpenses > 0 ? (totalLiquidity / fixedExpenses).toFixed(1) : 0,
+                necRatio: income > 0 ? (necessities / income * 100).toFixed(0) : 0,
+                desRatio: income > 0 ? (desires / income * 100).toFixed(0) : 0,
+                savRatio: income > 0 ? ((income - actualExpense) / income * 100).toFixed(0) : 0
+            }
+        }
+    };
 };

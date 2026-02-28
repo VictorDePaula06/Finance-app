@@ -93,14 +93,23 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
 
     const addTransactionToDb = async (data) => {
         try {
-            await addDoc(collection(db, 'transactions'), {
+            // Use provided date or today if missing
+            let transactionDate = new Date();
+            if (data.date) {
+                transactionDate = new Date(data.date);
+            }
+
+            const docData = {
                 ...data,
+                date: transactionDate.toISOString(),
                 userId: currentUser.uid,
-                month: data.date.slice(0, 7),
+                month: transactionDate.toISOString().slice(0, 7),
                 createdAt: Date.now(),
                 isFixed: false
-            });
-            console.log("Transação adicionada via IA:", data);
+            };
+
+            await addDoc(collection(db, 'transactions'), docData);
+            console.log("Transação adicionada via IA:", docData);
             return true;
         } catch (error) {
             console.error("Erro ao adicionar via IA:", error);
@@ -444,27 +453,6 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                             isHidable={true}
                             isHidden={hidePatrimonio}
                             onToggle={togglePatrimonio}
-                            detail={
-                                <div className="space-y-1.5 mt-2 transition-all duration-300">
-                                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-medium">
-                                        <span>Reservado (Metas):</span>
-                                        <span className="text-emerald-400">R$ {reservedForGoals.toLocaleString()}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-medium pb-1.5 border-b border-white/5">
-                                        <span>Livre/Disponível:</span>
-                                        <span className="text-blue-400">R$ {availablePatrimonio.toLocaleString()}</span>
-                                    </div>
-                                    {(() => {
-                                        const health = calculateFinancialHealth(transactions, manualConfig);
-                                        const monthlyExpenses = health.totalEstimatedExpenses || 0;
-                                        if (totalPatrimonio > 0 && monthlyExpenses > 0) {
-                                            const months = (totalPatrimonio / monthlyExpenses).toFixed(1);
-                                            return <p className="text-[9px] text-slate-500 pt-1 font-semibold italic uppercase tracking-wider">Sustenta seu padrão por {months} {parseFloat(months) === 1 ? 'mês' : 'meses'}</p>;
-                                        }
-                                        return null;
-                                    })()}
-                                </div>
-                            }
                         />
                         <Card title="Ganhos (Mês)" value={income} icon={ArrowUpCircle} color="text-emerald-400" />
                         <Card title="Gastos (Mês)" value={expense} icon={ArrowDownCircle} color="text-rose-400" />
@@ -532,8 +520,8 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                 </div>
 
                 {/* Row 3: Toggles and Actions */}
-                <div className="md:col-span-12 flex flex-col md:flex-row items-center justify-between gap-4 mt-2">
-                    <div className="flex gap-6">
+                <div className="md:col-span-12 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 mt-2">
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
                         <label className="inline-flex items-center cursor-pointer select-none group">
                             <input
                                 type="checkbox"
@@ -594,7 +582,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                         )}
                     </div>
 
-                    <div className="flex gap-2 w-full md:w-auto">
+                    <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                         <div className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-700">
                             <button
                                 type="button"

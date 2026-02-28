@@ -56,10 +56,10 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                         ACESSO BLOQUEADO
                     </div>
                     <h1 className="text-4xl font-extrabold mb-4 bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent">
-                        Seu período de teste terminou
+                        Sua assinatura expirou
                     </h1>
                     <p className="text-slate-400 text-lg">
-                        Escolha um plano para continuar utilizando o **Mêntore** e ter acesso ao seu mentor financeiro IA.
+                        Seu período de acesso terminou. Escolha um plano para continuar utilizando o **Mêntore** e ter acesso ao seu mentor financeiro IA.
                     </p>
                 </div>
 

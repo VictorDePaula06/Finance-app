@@ -180,8 +180,12 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                                 ...command.data,
                                 amount: parseFloat(sanitizeAIValue(command.data.amount)) || 0
                             };
-                            await onAddTransaction(sanitizedData);
-                            displayMessage += `\n\n✅ **Transação Salva:** ${sanitizedData.description} (R$ ${sanitizedData.amount.toLocaleString('pt-BR')})`;
+                            const success = await onAddTransaction(sanitizedData);
+                            if (success) {
+                                displayMessage += `\n\n✅ **Transação Salva:** ${sanitizedData.description} (R$ ${sanitizedData.amount.toLocaleString('pt-BR')})`;
+                            } else {
+                                displayMessage += `\n\n❌ **Erro:** Não foi possível salvar a transação.`;
+                            }
                         }
                     } else if (command.action === 'delete_transaction') {
                         const { amount, description: descSearch, type } = command.data;

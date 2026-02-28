@@ -20,11 +20,15 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
     const [apiKey, setApiKey] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
+    const [isWealthLocked, setIsWealthLocked] = useState(true);
+    const [showConfirmUnlock, setShowConfirmUnlock] = useState(false);
 
     // Sync temp config with prop when config mode is entered
     useEffect(() => {
         if (isConfiguring) {
             setTempManualConfig(manualConfig);
+            setIsWealthLocked(true); // Lock wealth by default when opening
+            setShowConfirmUnlock(false);
             // Load saved API Key (LocalStorage as fallback)
             const savedKey = localStorage.getItem('user_gemini_api_key') || '';
             setApiKey(savedKey);
@@ -153,6 +157,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                             type="number"
                             value={tempManualConfig.income}
                             onChange={e => setTempManualConfig({ ...tempManualConfig, income: e.target.value })}
+                            onBlur={e => setTempManualConfig({ ...tempManualConfig, income: parseFloat(e.target.value) || 0 })}
                             placeholder="Ex: 5000.00"
                             className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-blue-500/50"
                         />
@@ -163,6 +168,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                             type="number"
                             value={tempManualConfig.fixedExpenses}
                             onChange={e => setTempManualConfig({ ...tempManualConfig, fixedExpenses: e.target.value })}
+                            onBlur={e => setTempManualConfig({ ...tempManualConfig, fixedExpenses: parseFloat(e.target.value) || 0 })}
                             placeholder="Aluguel, Internet, etc."
                             className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-blue-500/50"
                         />
@@ -181,16 +187,69 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                         </p>
                     </div>
                     <div className="pt-2">
-                        <label className="block text-xs font-medium text-purple-400 mb-1">Patrimônio / Investido Total (R$)</label>
-                        <input
-                            type="number"
-                            value={tempManualConfig.invested}
-                            onChange={e => setTempManualConfig({ ...tempManualConfig, invested: e.target.value })}
-                            placeholder="Ex: 10000.00"
-                            className="w-full bg-slate-900/50 border border-purple-500/30 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-purple-500/50"
-                        />
+                        <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-medium text-purple-400">Patrimônio Base / Saldo Inicial (R$)</label>
+                            {isWealthLocked ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConfirmUnlock(true)}
+                                    className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+                                >
+                                    <Calculator className="w-3 h-3" />
+                                    Forçar Ajuste
+                                </button>
+                            ) : (
+                                <span className="text-[10px] text-amber-400 flex items-center gap-1">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    Ajuste Liberado
+                                </span>
+                            )}
+                        </div>
+
+                        {showConfirmUnlock && (
+                            <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg animate-in fade-in slide-in-from-top-1">
+                                <p className="text-[10px] text-slate-300 mb-2 leading-relaxed">
+                                    Tem certeza que deseja ajustar manualmente seu patrimônio base?
+                                    Isso mudará o ponto inicial do seu saldo total.
+                                </p>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsWealthLocked(false);
+                                            setShowConfirmUnlock(false);
+                                        }}
+                                        className="text-[10px] bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded transition-colors font-bold"
+                                    >
+                                        Sim, confirmar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirmUnlock(false)}
+                                        className="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-200 px-2 py-1 rounded transition-colors"
+                                    >
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="relative">
+                            <input
+                                type="number"
+                                disabled={isWealthLocked}
+                                value={tempManualConfig.invested}
+                                onChange={e => setTempManualConfig({ ...tempManualConfig, invested: e.target.value })}
+                                onBlur={e => setTempManualConfig({ ...tempManualConfig, invested: parseFloat(e.target.value) || 0 })}
+                                placeholder="Ex: 10000.00"
+                                className={`w-full bg-slate-900/50 border rounded-lg px-3 py-2 text-slate-200 focus:outline-none transition-all ${isWealthLocked
+                                    ? 'border-slate-800 text-slate-500 cursor-not-allowed'
+                                    : 'border-purple-500/50 text-white shadow-[0_0_10px_rgba(168,85,247,0.1)]'
+                                    }`}
+                            />
+                        </div>
                         <p className="text-[10px] text-slate-500 mt-1">
-                            Este valor não soma no saldo diário, apenas para controle de patrimônio.
+                            Este valor é o seu ponto de partida. Investimentos lançados no histórico serão SOMADOS a este valor.
                         </p>
                     </div>
 
