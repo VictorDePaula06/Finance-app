@@ -146,6 +146,13 @@ function Dashboard() {
           />
         </section>
 
+        {/* Version Footer */}
+        <footer className="pt-8 pb-4 text-center">
+          <p className="text-slate-600 text-[10px] font-medium tracking-widest uppercase opacity-50">
+            Versão 3.0
+          </p>
+        </footer>
+
       </div>
     </div>
   );

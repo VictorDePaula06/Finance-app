@@ -19,8 +19,18 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                 ? import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY
                 : import.meta.env.VITE_STRIPE_PRICE_ID_YEARLY;
 
-            if (!priceId || priceId === 'price_...') {
-                alert('Configuração de pagamento incompleta. Preencha o Price ID no .env');
+            const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+
+            if (!priceId || priceId.startsWith('price_...')) {
+                console.error("Missing Price ID:", { billing, priceId });
+                alert('Configuração de pagamento incompleta (Price ID ausente).');
+                setIsRedirecting(false);
+                return;
+            }
+
+            if (!publishableKey) {
+                console.error("Missing Stripe Publishable Key");
+                alert('Configuração do Stripe incompleta (Chave Pública ausente).');
                 setIsRedirecting(false);
                 return;
             }
@@ -169,7 +179,8 @@ export default function SubscriptionBlock({ onAdminAccess }) {
 
             <p className="mt-12 text-slate-600 text-xs text-center">
                 Logado como: {currentUser?.email} <br />
-                ID: {currentUser?.uid}
+                ID: {currentUser?.uid} <br />
+                <span className="opacity-30 mt-1 inline-block">Versão 3.0</span>
             </p>
         </div>
     );
