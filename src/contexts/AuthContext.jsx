@@ -46,6 +46,14 @@ export function AuthProvider({ children }) {
             setCurrentUser(user);
 
             if (user) {
+                // Ensure email is synced to Firestore for Admin Panel
+                const userPrefsRef = doc(db, 'users', user.uid, 'settings', 'general');
+                getDoc(userPrefsRef).then(snap => {
+                    if (!snap.exists() || !snap.data().email) {
+                        setDoc(userPrefsRef, { email: user.email }, { merge: true });
+                    }
+                });
+
                 // 1. Listen to Extension Sync (Top Level User Doc)
                 const userRef = doc(db, 'users', user.uid);
                 // 2. Listen to App Settings

@@ -80,15 +80,16 @@ export default function AdminPanel({ onBack }) {
 
                     userList.push({
                         uid,
-                        email: settingsData.email || userData.email || customerData.email || 'N/A',
+                        email: settingsData.email || userData.email || customerData.email || userData.email || 'N/A',
                         isPremium: (isPremium || isLifetime) && !isExpired,
                         subType,
+                        subStatus, // Adding status for better visibility
                         subDate: subDate ? subDate.toLocaleDateString('pt-BR') : 'N/A',
                         daysLeft,
-                        isExpired,
+                        isExpired: isExpired && !isLifetime,
                         isTolerance: tolerance,
                         isLifetime,
-                        lastSync: (settingsData.subscription?.updatedAt || userData.subscription?.updatedAt)?.toDate().toLocaleDateString() || 'N/A'
+                        lastSync: (settingsData.subscription?.updatedAt || userData.subscription?.updatedAt)?.toDate?.().toLocaleDateString() || 'N/A'
                     });
                 }
             }
@@ -296,10 +297,10 @@ export default function AdminPanel({ onBack }) {
                                             </td>
                                             <td className="p-6">
                                                 <div className="flex flex-col">
-                                                    <span className={`text-sm font-bold ${user.isLifetime ? 'text-purple-400' : user.daysLeft <= 0 ? 'text-rose-400' : user.daysLeft <= 5 ? 'text-amber-400' : 'text-blue-400'}`}>
-                                                        {user.isLifetime ? '∞' : user.daysLeft <= 0 ? (user.isExpired ? 'BLOQUEADO' : 'EXPIRADO') : `${user.daysLeft} dias`}
+                                                    <span className={`text-sm font-bold ${user.isLifetime ? 'text-purple-400' : user.daysLeft <= 0 ? (user.subStatus === 'active' || user.subStatus === 'trialing' ? 'text-blue-400' : 'text-rose-400') : user.daysLeft <= 5 ? 'text-amber-400' : 'text-blue-400'}`}>
+                                                        {user.isLifetime ? '∞' : user.daysLeft <= 0 ? (user.isExpired ? 'BLOQUEADO' : (user.subStatus === 'active' || user.subStatus === 'trialing' ? 'PENDENTE SYNC' : 'EXPIRADO')) : `${user.daysLeft} dias`}
                                                     </span>
-                                                    <span className="text-[10px] text-slate-500">{user.isLifetime ? 'Duração Infinta' : user.daysLeft <= 0 ? 'Acesso Revogado' : 'restantes'}</span>
+                                                    <span className="text-[10px] text-slate-500">{user.isLifetime ? 'Duração Infinta' : user.daysLeft <= 0 ? (user.subStatus === 'free' ? 'Status: Gratuito' : 'Acesso Revogado') : 'restantes'}</span>
                                                 </div>
                                             </td>
                                             <td className="p-6 text-right">
