@@ -11,87 +11,98 @@ export default function AdminPanel({ onBack }) {
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            const querySnapshot = await getDocs(collectionGroup(db, 'settings'));
+            // Source 1: Users collection (everyone who logged in with latest fix)
+            const usersSnap = await getDocs(collection(db, 'users'));
+            // Source 2: Customers collection (Stripe extension creates this)
+            const customersSnap = await getDocs(collection(db, 'customers'));
+            // Source 3: Settings subcollections (Legacy/Existing users)
+            const settingsSnap = await getDocs(collectionGroup(db, 'settings'));
+
+            // Merge all unique UIDs
+            const allUids = new Set();
+            usersSnap.docs.forEach(d => allUids.add(d.id));
+            customersSnap.docs.forEach(d => allUids.add(d.id));
+            settingsSnap.docs.forEach(d => {
+                const pathParts = d.ref.path.split('/');
+                if (pathParts[1]) allUids.add(pathParts[1]);
+            });
+
             const userList = [];
 
-            for (const document of querySnapshot.docs) {
-                if (document.id === 'general') {
-                    const settingsData = document.data();
-                    const pathParts = document.ref.path.split('/');
-                    const uid = pathParts[1];
+            for (const uid of Array.from(allUids)) {
+                // Fetch each source for this UID
+                const userRef = doc(db, 'users', uid);
+                const userSnap = await getDoc(userRef);
+                const userData = userSnap.exists() ? userSnap.data() : {};
 
-                    // Check top-level user doc (synced by extension)
-                    const userRef = doc(db, 'users', uid);
-                    const userSnap = await getDoc(userRef);
-                    const userData = userSnap.exists() ? userSnap.data() : {};
+                const settingsRef = doc(db, 'users', uid, 'settings', 'general');
+                const settingsSnap = await getDoc(settingsRef);
+                const settingsData = settingsSnap.exists() ? settingsSnap.data() : {};
 
-                    // Check Stripe Customer Doc
-                    const customerRef = doc(db, 'customers', uid);
-                    const customerSnap = await getDoc(customerRef);
-                    const customerData = customerSnap.exists() ? customerSnap.data() : {};
+                const customerRef = doc(db, 'customers', uid);
+                const customerSnap = await getDoc(customerRef);
+                const customerData = customerSnap.exists() ? customerSnap.data() : {};
 
-                    // Check Subscriptions Subcollection
-                    const subsRef = collection(db, 'customers', uid, 'subscriptions');
-                    const subsSnap = await getDocs(subsRef);
-                    const hasActiveSubscription = subsSnap.docs.some(d =>
-                        ['active', 'trialing'].includes(d.data().status)
-                    );
+                const subsRef = collection(db, 'customers', uid, 'subscriptions');
+                const subsSnap = await getDocs(subsRef);
+                const stripeSubData = subsSnap.docs[0]?.data();
 
-                    const stripeSubData = subsSnap.docs[0]?.data();
-                    const subStatus = (stripeSubData?.status === 'active' || stripeSubData?.status === 'trialing')
-                        ? 'active'
-                        : (settingsData.subscription?.status || userData.subscription?.status || (stripeSubData?.status || 'free'));
+                const hasActiveSubscription = subsSnap.docs.some(d =>
+                    ['active', 'trialing'].includes(d.data().status)
+                );
 
-                    const isPremium = (subStatus === 'active' || subStatus === 'lifetime') || hasActiveSubscription;
+                const subStatus = (stripeSubData?.status === 'active' || stripeSubData?.status === 'trialing')
+                    ? 'active'
+                    : (settingsData.subscription?.status || userData.subscription?.status || (stripeSubData?.status || 'free'));
 
-                    // Subscription Detail Logic
-                    const subDateRaw = (stripeSubData?.status === 'active' || stripeSubData?.status === 'trialing')
-                        ? stripeSubData?.current_period_start
-                        : (settingsData.subscription?.date || userData.subscription?.date || stripeSubData?.current_period_start);
+                const isPremium = (subStatus === 'active' || subStatus === 'lifetime') || hasActiveSubscription;
 
-                    const subDate = subDateRaw?.toDate ? subDateRaw.toDate() : (subDateRaw ? new Date(subDateRaw) : null);
+                const subDateRaw = (stripeSubData?.status === 'active' || stripeSubData?.status === 'trialing')
+                    ? stripeSubData?.current_period_start
+                    : (settingsData.subscription?.date || userData.subscription?.date || stripeSubData?.current_period_start);
 
-                    const subType = (stripeSubData?.status === 'active' || stripeSubData?.status === 'trialing')
-                        ? (stripeSubData?.items?.[0]?.plan?.nickname?.toLowerCase().includes('anual') ? 'annual' : 'monthly')
-                        : (settingsData.subscription?.type || (stripeSubData?.items?.[0]?.plan?.nickname?.toLowerCase().includes('anual') ? 'annual' : 'monthly'));
+                const subDate = subDateRaw?.toDate ? subDateRaw.toDate() : (subDateRaw ? new Date(subDateRaw) : null);
 
-                    let daysLeft = 0;
-                    let isExpired = subStatus === 'expired';
-                    let tolerance = false;
-                    let isLifetime = subStatus === 'lifetime';
+                const subType = (stripeSubData?.status === 'active' || stripeSubData?.status === 'trialing')
+                    ? (stripeSubData?.items?.[0]?.plan?.nickname?.toLowerCase().includes('anual') ? 'annual' : 'monthly')
+                    : (settingsData.subscription?.type || (stripeSubData?.items?.[0]?.plan?.nickname?.toLowerCase().includes('anual') ? 'annual' : 'monthly'));
 
-                    if (subStatus === 'active' && subDate) {
-                        const now = new Date();
-                        const cycle = subType === 'annual' ? 365 : 30;
-                        const diff = Math.floor((now - subDate) / (1000 * 60 * 60 * 24));
+                let daysLeft = 0;
+                let isExpired = subStatus === 'expired';
+                let tolerance = false;
+                let isLifetime = subStatus === 'lifetime';
 
-                        if (diff <= cycle) {
-                            daysLeft = cycle - diff;
-                        } else if (diff <= cycle + 5) {
-                            daysLeft = (cycle + 5) - diff;
-                            tolerance = true;
-                        } else {
-                            daysLeft = 0;
-                            isExpired = true;
-                        }
-                    } else if (isLifetime) {
-                        daysLeft = 9999; // Representing unlimited
+                if (subStatus === 'active' && subDate) {
+                    const now = new Date();
+                    const cycle = subType === 'annual' ? 365 : 30;
+                    const diff = Math.floor((now - subDate) / (1000 * 60 * 60 * 24));
+
+                    if (diff <= cycle) {
+                        daysLeft = cycle - diff;
+                    } else if (diff <= cycle + 5) {
+                        daysLeft = (cycle + 5) - diff;
+                        tolerance = true;
+                    } else {
+                        daysLeft = 0;
+                        isExpired = true;
                     }
-
-                    userList.push({
-                        uid,
-                        email: settingsData.email || userData.email || customerData.email || userData.email || 'N/A',
-                        isPremium: (isPremium || isLifetime) && !isExpired,
-                        subType,
-                        subStatus, // Adding status for better visibility
-                        subDate: subDate ? subDate.toLocaleDateString('pt-BR') : 'N/A',
-                        daysLeft,
-                        isExpired: isExpired && !isLifetime,
-                        isTolerance: tolerance,
-                        isLifetime,
-                        lastSync: (settingsData.subscription?.updatedAt || userData.subscription?.updatedAt)?.toDate?.().toLocaleDateString() || 'N/A'
-                    });
+                } else if (isLifetime) {
+                    daysLeft = 9999;
                 }
+
+                userList.push({
+                    uid,
+                    email: settingsData.email || userData.email || customerData.email || 'N/A',
+                    isPremium: (isPremium || isLifetime) && !isExpired,
+                    subType,
+                    subStatus,
+                    subDate: subDate ? subDate.toLocaleDateString('pt-BR') : 'N/A',
+                    daysLeft,
+                    isExpired: isExpired && !isLifetime,
+                    isTolerance: tolerance,
+                    isLifetime,
+                    lastSync: (settingsData.subscription?.updatedAt || userData.subscription?.updatedAt)?.toDate?.().toLocaleDateString() || 'N/A'
+                });
             }
             setUsers(userList.sort((a, b) => (a.isPremium === b.isPremium) ? 0 : a.isPremium ? -1 : 1));
         } catch (error) {

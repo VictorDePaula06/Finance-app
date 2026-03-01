@@ -47,6 +47,15 @@ export function AuthProvider({ children }) {
 
             if (user) {
                 // Ensure email is synced to Firestore for Admin Panel
+                // 1. ENSURE TOP LEVEL USER DOC EXISTS (MAIN SOURCE FOR ADMIN)
+                const userRef = doc(db, 'users', user.uid);
+                setDoc(userRef, {
+                    email: user.email,
+                    lastLogin: new Date(),
+                    uid: user.uid
+                }, { merge: true });
+
+                // 2. Ensure settings document exists (Legacy/Sub-docs)
                 const userPrefsRef = doc(db, 'users', user.uid, 'settings', 'general');
                 getDoc(userPrefsRef).then(snap => {
                     if (!snap.exists() || !snap.data().email) {
@@ -55,7 +64,7 @@ export function AuthProvider({ children }) {
                 });
 
                 // 1. Listen to Extension Sync (Top Level User Doc)
-                const userRef = doc(db, 'users', user.uid);
+                // Already declared above as userRef
                 // 2. Listen to App Settings
                 const prefsRef = doc(db, 'users', user.uid, 'settings', 'general');
                 // 3. Listen to Subscriptions Collection (The Source of Truth)
