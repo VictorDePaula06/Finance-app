@@ -51,6 +51,7 @@ export function AuthProvider({ children }) {
                 const userRef = doc(db, 'users', user.uid);
                 setDoc(userRef, {
                     email: user.email,
+                    createdAt: user.metadata.creationTime,
                     lastLogin: new Date(),
                     uid: user.uid
                 }, { merge: true });

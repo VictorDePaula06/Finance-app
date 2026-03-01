@@ -71,6 +71,7 @@ export default function AdminPanel({ onBack }) {
                 let isExpired = subStatus === 'expired';
                 let tolerance = false;
                 let isLifetime = subStatus === 'lifetime';
+                let isTrial = false;
 
                 if (subStatus === 'active' && subDate) {
                     const now = new Date();
@@ -88,17 +89,33 @@ export default function AdminPanel({ onBack }) {
                     }
                 } else if (isLifetime) {
                     daysLeft = 9999;
+                } else {
+                    // TRIAL CHECK (If not Premium/Lifetime)
+                    const createdAt = userData.createdAt ? (userData.createdAt.toDate ? userData.createdAt.toDate() : new Date(userData.createdAt)) : null;
+                    if (createdAt) {
+                        const now = new Date();
+                        const diffDays = Math.ceil((now - createdAt) / (1000 * 60 * 60 * 24));
+                        if (diffDays <= 7) {
+                            isTrial = true;
+                            daysLeft = 7 - diffDays;
+                        } else {
+                            isExpired = true;
+                        }
+                    } else {
+                        isExpired = true;
+                    }
                 }
 
                 userList.push({
                     uid,
                     email: settingsData.email || userData.email || customerData.email || 'N/A',
-                    isPremium: (isPremium || isLifetime) && !isExpired,
+                    isPremium: (isPremium || isLifetime || isTrial) && !isExpired,
                     subType,
                     subStatus,
+                    isTrial,
                     subDate: subDate ? subDate.toLocaleDateString('pt-BR') : 'N/A',
                     daysLeft,
-                    isExpired: isExpired && !isLifetime,
+                    isExpired: isExpired && !isLifetime && !isTrial,
                     isTolerance: tolerance,
                     isLifetime,
                     lastSync: (settingsData.subscription?.updatedAt || userData.subscription?.updatedAt)?.toDate?.().toLocaleDateString() || 'N/A'
@@ -287,6 +304,11 @@ export default function AdminPanel({ onBack }) {
                                                         <TrendingUp className="w-3 h-3 text-purple-400" />
                                                         VITALÍCIO
                                                     </span>
+                                                ) : user.isTrial ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-bold uppercase transition-opacity">
+                                                        <Zap className="w-3 h-3 text-blue-400" />
+                                                        7 DIAS GRÁTIS
+                                                    </span>
                                                 ) : user.isPremium ? (
                                                     <div className="flex flex-col gap-1">
                                                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold uppercase ${user.isTolerance
@@ -308,10 +330,10 @@ export default function AdminPanel({ onBack }) {
                                             </td>
                                             <td className="p-6">
                                                 <div className="flex flex-col">
-                                                    <span className={`text-sm font-bold ${user.isLifetime ? 'text-purple-400' : user.daysLeft <= 0 ? (user.subStatus === 'active' || user.subStatus === 'trialing' ? 'text-blue-400' : 'text-rose-400') : user.daysLeft <= 5 ? 'text-amber-400' : 'text-blue-400'}`}>
+                                                    <span className={`text-sm font-bold ${user.isLifetime ? 'text-purple-400' : user.isTrial ? 'text-blue-400' : user.daysLeft <= 0 ? (user.subStatus === 'active' || user.subStatus === 'trialing' ? 'text-blue-400' : 'text-rose-400') : user.daysLeft <= 5 ? 'text-amber-400' : 'text-blue-400'}`}>
                                                         {user.isLifetime ? '∞' : user.daysLeft <= 0 ? (user.isExpired ? 'BLOQUEADO' : (user.subStatus === 'active' || user.subStatus === 'trialing' ? 'PENDENTE SYNC' : 'EXPIRADO')) : `${user.daysLeft} dias`}
                                                     </span>
-                                                    <span className="text-[10px] text-slate-500">{user.isLifetime ? 'Duração Infinta' : user.daysLeft <= 0 ? (user.subStatus === 'free' ? 'Status: Gratuito' : 'Acesso Revogado') : 'restantes'}</span>
+                                                    <span className="text-[10px] text-slate-500">{user.isLifetime ? 'Duração Infinta' : user.isTrial ? 'Período de Teste' : user.daysLeft <= 0 ? (user.subStatus === 'free' ? 'Status: Gratuito' : 'Acesso Revogado') : 'restantes'}</span>
                                                 </div>
                                             </td>
                                             <td className="p-6 text-right">
@@ -387,6 +409,8 @@ export default function AdminPanel({ onBack }) {
                                         <div className="shrink-0">
                                             {user.isLifetime ? (
                                                 <span className="inline-flex px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-bold">VITALÍCIO</span>
+                                            ) : user.isTrial ? (
+                                                <span className="inline-flex px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-bold">7 DIAS GRÁTIS</span>
                                             ) : user.isPremium ? (
                                                 <span className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] font-bold ${user.isTolerance ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
                                                     {user.isTolerance ? 'Tolerância' : user.subType === 'annual' ? 'ANUAL' : 'MENSAL'}
