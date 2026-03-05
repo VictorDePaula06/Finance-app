@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { LayoutDashboard, ArrowUpCircle, ArrowDownCircle, Trash2, Pencil, Calendar, Search, Wallet, TrendingUp, TrendingDown, FileText, X, Download, Home, Utensils, Car, Heart, Gamepad2, ShoppingBag, Briefcase, Laptop, Circle, Eye, EyeOff } from 'lucide-react';
+import { LayoutDashboard, ArrowUpCircle, ArrowDownCircle, Trash2, Pencil, Calendar, Search, Wallet, TrendingUp, TrendingDown, FileText, X, Download, Home, Utensils, Car, Heart, Gamepad2, ShoppingBag, Briefcase, Laptop, Circle, Eye, EyeOff, Info } from 'lucide-react';
 import { db } from '../services/firebase';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, orderBy, getDocs } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
@@ -36,7 +36,7 @@ function Card({ title, value, icon: Icon, color, highlight, isHidable, isHidden,
                     {isHidable && isHidden ? (
                         <span className="tracking-widest capitalize">••••••</span>
                     ) : (
-                        `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                        `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                     )}
                 </span>
             </div>
@@ -71,6 +71,9 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
     const [hideBalance, setHideBalance] = useState(() => {
         return localStorage.getItem('hideBalance') === 'true';
     });
+    const [isCumulativeView, setIsCumulativeView] = useState(() => {
+        return localStorage.getItem('isCumulativeView') === 'true';
+    });
 
     const togglePatrimonio = (e) => {
         e.stopPropagation();
@@ -84,6 +87,13 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
         const newValue = !hideBalance;
         setHideBalance(newValue);
         localStorage.setItem('hideBalance', String(newValue));
+    };
+
+    const toggleCumulativeView = (e) => {
+        e.stopPropagation();
+        const newValue = !isCumulativeView;
+        setIsCumulativeView(newValue);
+        localStorage.setItem('isCumulativeView', String(newValue));
     };
 
 
@@ -222,6 +232,35 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
         setDeleteData(transaction);
     };
 
+    const handleClearHistory = async () => {
+        if (!currentUser || !window.confirm('Tem certeza? Isso apagará TODAS as transações anteriores a este mês. Esta ação não pode ser desfeita.')) return;
+
+        try {
+            setIsDeleting(true);
+            const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+            const currentMonth = todayStr.slice(0, 7);
+
+            // Filter all transactions that are NOT in the current month
+            const toDelete = transactions.filter(t => getRobustMonth(t) < currentMonth);
+
+            if (toDelete.length === 0) {
+                alert('Nenhum dado antigo encontrado para apagar.');
+                return;
+            }
+
+            const deletePromises = toDelete.map(t => deleteDoc(doc(db, 'transactions', t.id)));
+            await Promise.all(deletePromises);
+
+            alert(`${toDelete.length} transações antigas foram apagadas com sucesso!`);
+            setShowReport(false);
+        } catch (error) {
+            console.error("Erro ao limpar histórico:", error);
+            alert('Erro ao apagar dados. Tente novamente.');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const confirmDelete = async (deleteFuture = false) => {
         if (!deleteId) return;
         setIsDeleting(true);
@@ -267,15 +306,47 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
     };
 
     const getRobustMonth = (t) => {
-        if (t.month) return t.month;
-        if (!t.date) return "";
-        let dStr = "";
+        if (!t.date) return t.month || "";
         try {
-            if (typeof t.date === 'string') dStr = t.date;
-            else if (t.date.toDate) dStr = t.date.toDate().toISOString();
-            else if (t.date.seconds) dStr = new Date(t.date.seconds * 1000).toISOString();
-        } catch (e) { return ""; }
-        return dStr.slice(0, 7);
+            const d = new Date(t.date);
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        } catch (e) {
+            return t.month || "";
+        }
+    };
+
+    const calculateCumulativeBalance = (targetMonth) => {
+        // 1. Filter all transactions up to target month
+        const allPrev = transactions
+            .filter(t => getRobustMonth(t) <= targetMonth)
+            .sort((a, b) => {
+                const dateDiff = new Date(a.date) - new Date(b.date);
+                if (dateDiff !== 0) return dateDiff;
+                // Tie-breaker: Resets ('initial_balance' or 'carryover') MUST come first on the same day
+                const aIsReset = a.category === 'initial_balance' || a.category === 'carryover';
+                const bIsReset = b.category === 'initial_balance' || b.category === 'carryover';
+                if (aIsReset && !bIsReset) return -1;
+                if (!aIsReset && bIsReset) return 1;
+                return 0;
+            });
+
+        if (allPrev.length === 0) return 0;
+
+        // 2. Find the most recent "initial_balance" or "carryover" up to that point
+        let startIndex = 0;
+        for (let i = allPrev.length - 1; i >= 0; i--) {
+            const cat = allPrev[i].category;
+            if (cat === 'initial_balance' || cat === 'carryover') {
+                startIndex = i;
+                break;
+            }
+        }
+
+        // 3. Sum from that point
+        return allPrev.slice(startIndex).reduce((acc, t) => {
+            const val = parseFloat(t.amount) || 0;
+            return t.type === 'income' ? acc + val : acc - val;
+        }, 0);
     };
 
     const chartTransactions = useMemo(() => {
@@ -298,24 +369,30 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
 
     // Body scroll lock effect with width compensation
     useEffect(() => {
-        if (deleteId) {
+        if (deleteId || showReport) {
             const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
             document.body.style.overflow = 'hidden';
-            document.documentElement.style.overflow = 'hidden';
+            // document.documentElement.style.overflow = 'hidden'; // Removed to avoid layout jumps
             if (scrollBarWidth > 0) {
                 document.body.style.paddingRight = `${scrollBarWidth}px`;
             }
             return () => {
                 document.body.style.overflow = '';
-                document.documentElement.style.overflow = '';
+                // document.documentElement.style.overflow = '';
                 document.body.style.paddingRight = '';
             };
         }
-    }, [deleteId]);
+    }, [deleteId, showReport]);
 
-    const income = useMemo(() => {
+    const incomeTotal = useMemo(() => {
         return filteredTransactions
             .filter(t => t.type === 'income')
+            .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    }, [filteredTransactions]);
+
+    const displayIncome = useMemo(() => {
+        return filteredTransactions
+            .filter(t => t.type === 'income' && t.category !== 'initial_balance' && t.category !== 'carryover' && t.category !== 'vault_redemption')
             .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     }, [filteredTransactions]);
 
@@ -325,8 +402,22 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
             .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     }, [filteredTransactions]);
 
+    const displayExpense = useMemo(() => {
+        return filteredTransactions
+            .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault')
+            .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    }, [filteredTransactions]);
 
-    const monthlyBalance = income - expense;
+    const prevBalanceForBreakdown = useMemo(() => {
+        const prevMonthDate = new Date(selectedMonth + '-02');
+        prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
+        const prevMonthStr = prevMonthDate.toISOString().slice(0, 7);
+        return calculateCumulativeBalance(prevMonthStr);
+    }, [transactions, selectedMonth]);
+
+    const monthlyBalance = incomeTotal - expense;
+    const displayMonthlyBalance = displayIncome - displayExpense;
+    const cumulativeBalance = calculateCumulativeBalance(selectedMonth);
 
     const totalInvestedFromTransactions = useMemo(() => {
         return transactions
@@ -350,11 +441,13 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                 report[monthKey] = { income: 0, expense: 0, balance: 0, date: monthKey };
             }
             if (t.type === 'income') {
-                report[monthKey].income += t.amount;
-                report[monthKey].balance += t.amount;
+                const val = parseFloat(t.amount) || 0;
+                report[monthKey].income += val;
+                report[monthKey].balance += val;
             } else {
-                report[monthKey].expense += t.amount;
-                report[monthKey].balance -= t.amount;
+                const val = parseFloat(t.amount) || 0;
+                report[monthKey].expense += val;
+                report[monthKey].balance -= val;
             }
         });
         return Object.values(report).sort((a, b) => b.date.localeCompare(a.date));
@@ -367,19 +460,29 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
     return (
         <div className="space-y-6 relative">
             {/* Report Modal */}
-            {showReport && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col shadow-2xl">
-                        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
-                            <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+            {showReport && createPortal(
+                <div key="report-portal-wrapper" className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-300">
+                    <div className="bg-slate-900 border border-slate-700/50 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl ring-1 ring-white/10">
+                        <div className="p-6 border-b border-slate-800 flex flex-col md:flex-row md:justify-between md:items-center gap-4 bg-slate-800/50">
+                            <div className="flex items-center gap-2">
                                 <FileText className="w-5 h-5 text-blue-400" />
-                                Relatório Mensal
-                            </h3>
-                            <button onClick={() => setShowReport(false)} className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white">
-                                <X className="w-6 h-6" />
-                            </button>
+                                <h3 className="text-xl font-bold text-slate-100 italic">Relatório Mensal</h3>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={handleClearHistory}
+                                    disabled={isDeleting}
+                                    className="px-3 py-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400 text-xs font-bold hover:bg-rose-500/20 transition-all flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    {isDeleting ? 'Limpando...' : 'Zerar Histórico Antigo'}
+                                </button>
+                                <button onClick={() => setShowReport(false)} className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white">
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
                         </div>
-                        <div className="overflow-y-auto p-6 space-y-4">
+                        <div className="overflow-y-auto p-6 space-y-4 custom-scrollbar">
                             {monthlyReport.length === 0 ? (
                                 <p className="text-center text-slate-500 py-8">Nenhum histórico encontrado.</p>
                             ) : (
@@ -390,7 +493,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                             setSelectedMonth(month.date);
                                             setShowReport(false);
                                         }}
-                                        className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl hover:bg-slate-700/30 hover:border-blue-500/30 transition-all cursor-pointer group"
+                                        className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl hover:bg-slate-700/30 hover:border-blue-500/30 transition-all cursor-pointer group active:scale-[0.99]"
                                     >
                                         <div className="flex justify-between items-center mb-3">
                                             <h4 className="font-bold text-lg text-slate-200 capitalize">
@@ -407,12 +510,16 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                             </div>
                                             <div>
                                                 <p className="text-xs text-slate-500 mb-1">Saídas</p>
-                                                <p className="text-rose-400 font-medium">- R$ {month.expense.toLocaleString()}</p>
+                                                <p className="text-rose-400 font-medium">- R$ {month.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-xs text-slate-500 mb-1">Saldo</p>
+                                                <p className="text-xs text-slate-500 mb-1">
+                                                    {isCumulativeView ? 'Saldo Acumulado' : 'Saldo do Mês'}
+                                                </p>
                                                 <p className={`font-bold ${month.balance >= 0 ? 'text-blue-400' : 'text-rose-400'}`}>
-                                                    R$ {month.balance.toLocaleString()}
+                                                    R$ {isCumulativeView
+                                                        ? calculateCumulativeBalance(month.date).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                                        : month.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </p>
                                             </div>
                                         </div>
@@ -421,7 +528,8 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                             )}
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Dashboard Cards */}
@@ -435,16 +543,42 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                     ))
                 ) : (
                     <>
-                        <Card
-                            title="Saldo em Carteira"
-                            value={monthlyBalance}
-                            icon={Wallet}
-                            color="text-blue-400"
-                            highlight={true}
-                            isHidable={true}
-                            isHidden={hideBalance}
-                            onToggle={toggleBalance}
-                        />
+                        <div className="relative group/card overflow-visible">
+                            <Card
+                                title={isCumulativeView ? "Saldo em Carteira" : "Saldo do Mês (Real)"}
+                                value={isCumulativeView ? cumulativeBalance : displayMonthlyBalance}
+                                icon={Wallet}
+                                color={isCumulativeView
+                                    ? (cumulativeBalance >= 0 ? "text-emerald-400" : "text-rose-400")
+                                    : (displayMonthlyBalance >= 0 ? "text-blue-400" : "text-rose-400")
+                                }
+                                highlight={true}
+                                isHidable={true}
+                                isHidden={hideBalance}
+                                onToggle={toggleBalance}
+                                detail={isCumulativeView
+                                    ? (() => {
+                                        // Check if there is an "opening" reset in the current month
+                                        const hasResetInMonth = filteredTransactions.some(t => t.category === 'initial_balance' || t.category === 'carryover');
+                                        if (hasResetInMonth) {
+                                            return `Valor atualizado em conta (com ajuste de saldo)`;
+                                        }
+                                        const prevText = prevBalanceForBreakdown.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                                        const monthlyText = monthlyBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                                        return `R$ ${prevText} (Anterior) + R$ ${monthlyText} (Mês)`;
+                                    })()
+                                    : "Resultado operacional apenas deste mês"}
+                            />
+                            <button
+                                onClick={toggleCumulativeView}
+                                className={`absolute -bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold border transition-all z-20 shadow-xl ${isCumulativeView
+                                    ? 'bg-blue-600 border-blue-400 text-white'
+                                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'
+                                    }`}
+                            >
+                                {isCumulativeView ? 'Ver Mensal' : 'Ver Acumulado'}
+                            </button>
+                        </div>
                         <Card
                             title="Patrimônio Investido"
                             value={totalPatrimonio}
@@ -454,8 +588,8 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                             isHidden={hidePatrimonio}
                             onToggle={togglePatrimonio}
                         />
-                        <Card title="Ganhos (Mês)" value={income} icon={ArrowUpCircle} color="text-emerald-400" />
-                        <Card title="Gastos (Mês)" value={expense} icon={ArrowDownCircle} color="text-rose-400" />
+                        <Card title="Ganhos (Mês)" value={displayIncome} icon={ArrowUpCircle} color="text-emerald-400" />
+                        <Card title="Gastos (Mês)" value={displayExpense} icon={ArrowDownCircle} color="text-rose-400" />
                     </>
                 )}
             </div>
@@ -517,6 +651,20 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                             </button>
                         ))}
                     </div>
+
+                    {/* Informative Tip */}
+                    {(category.id === 'initial_balance' || category.id === 'carryover' || (type === 'expense' && category.id === 'investment') || category.id === 'vault' || category.id === 'vault_redemption') && (
+                        <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                            <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                            <p className="text-[11px] text-blue-300 leading-relaxed">
+                                {category.id === 'initial_balance' && "O 'Saldo Inicial' é para calibrar o app: use para igualar o saldo oficial hoje com o que você tem no banco e começar do zero."}
+                                {category.id === 'carryover' && "A 'Sobra de Mês' é para continuidade: use na virada do mês para trazer o lucro acumulado que sobrou do mês anterior sem contar como salário."}
+                                {category.id === 'investment' && "Lançar como 'Investimento' não conta como um gasto real no mês, pois o dinheiro continua fazendo parte do seu patrimônio."}
+                                {category.id === 'vault' && "Lançamentos no 'Cofre' são reservas de patrimônio e ajudam a separar o que você não pretende gastar logo."}
+                                {category.id === 'vault_redemption' && "O 'Resgate Cofre' é uma transferência de volta para sua carteira e não será contabilizado como um ganho real (salário) no mês."}
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Row 3: Toggles and Actions */}

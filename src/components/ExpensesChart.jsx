@@ -57,7 +57,11 @@ export default function ExpensesChart({ transactions }) {
         const now = new Date().toISOString().slice(0, 7);
         // Better: let the parent filter. But for now, let's just make the categorical grouping robust.
 
-        const expenses = transactions.filter(t => t.type === 'expense');
+        const expenses = transactions.filter(t =>
+            t.type === 'expense' &&
+            t.category !== 'investment' &&
+            t.category !== 'vault'
+        );
         const grouped = expenses.reduce((acc, curr) => {
             const cat = curr.category || 'other';
             if (!acc[cat]) {
