@@ -18,7 +18,7 @@ import mobile2 from '../assets/mobile2.png';
 import mobile3 from '../assets/mobile3.png';
 import mobile4 from '../assets/mobile4.png';
 
-export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms }) {
+export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onViewManual }) {
     const [billing, setBilling] = React.useState('monthly');
     const [currentSlide, setCurrentSlide] = React.useState(0);
     const [currentMobileSlide, setCurrentMobileSlide] = React.useState(0);
@@ -303,7 +303,8 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms }) {
             <footer className="py-12 border-t border-slate-900 bg-slate-950">
                 <div className="max-w-7xl mx-auto px-6 text-center text-slate-500">
                     <p className="mb-4">&copy; {new Date().getFullYear()} Mêntore. Todos os direitos reservados.</p>
-                    <div className="flex justify-center gap-6 text-sm mb-8">
+                    <div className="flex flex-wrap justify-center gap-6 text-sm mb-8">
+                        <button onClick={onViewManual} className="text-blue-400 font-bold hover:text-blue-300 transition-colors">Manual do Sistema</button>
                         <button onClick={onViewTerms} className="hover:text-slate-300 transition-colors">Termos de Uso</button>
                         <button onClick={onViewPrivacy} className="hover:text-slate-300 transition-colors">Privacidade</button>
                         <a
