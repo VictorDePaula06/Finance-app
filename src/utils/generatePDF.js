@@ -57,20 +57,20 @@ export const generatePDF = async (transactions, selectedMonth_YYYY_MM, logoSrc) 
             doc.setFontSize(16);
             doc.setTextColor(255, 255, 255);
             doc.setFont("helvetica", "bold");
-            doc.text("Finance Control", 30, 16);
+            doc.text("Mêntor", 30, 16);
         } catch (e) {
             console.error("Erro ao carregar logo para PDF", e);
             // Fallback text if logo fails
             doc.setFontSize(16);
             doc.setTextColor(255, 255, 255);
             doc.setFont("helvetica", "bold");
-            doc.text("Finance Control", 14, 16);
+            doc.text("Mêntor", 14, 16);
         }
     } else {
         doc.setFontSize(16);
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
-        doc.text("Finance Control", 14, 16);
+        doc.text("Mêntor", 14, 16);
     }
 
     // Report Title
@@ -267,7 +267,7 @@ export const generatePDF = async (transactions, selectedMonth_YYYY_MM, logoSrc) 
         doc.setFontSize(8);
         doc.setTextColor(148, 163, 184); // Slate 400
         doc.text(
-            `Finance Control - Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`,
+            `Mêntor - Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`,
             14,
             doc.internal.pageSize.height - 10
         );
