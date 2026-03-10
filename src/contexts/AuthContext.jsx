@@ -106,20 +106,17 @@ export function AuthProvider({ children }) {
                         const toleranceDays = 5;
                         const diffDaysSub = Math.floor((now - subDate) / (1000 * 60 * 60 * 24));
 
-                        if (diffDaysSub <= cycleDays) {
+                        if (diffDaysSub <= cycleDays || diffDaysSub <= cycleDays + toleranceDays) {
                             hasValidAccess = true;
-                            remaining = cycleDays - diffDaysSub;
-                        } else if (diffDaysSub <= cycleDays + toleranceDays) {
-                            hasValidAccess = true;
-                            isUnderTolerance = true;
-                            remaining = (cycleDays + toleranceDays) - diffDaysSub;
+                            remaining = (diffDaysSub <= cycleDays) ? (cycleDays - diffDaysSub) : ((cycleDays + toleranceDays) - diffDaysSub);
+                            isUnderTolerance = diffDaysSub > cycleDays;
                         } else {
                             hasValidAccess = false;
                             remaining = 0;
                         }
                         setIsTrial(false);
-                    } else if (subStatus === 'expired' || (manualSub?.status && manualSub.status !== 'active' && manualSub.status !== 'lifetime')) {
-                        // EXPLICIT BLOCK: If there's a manual status and it's not active/lifetime, block EVERYTHING.
+                    } else if (subStatus === 'expired' || (manualSub?.status === 'blocked')) {
+                        // EXPLICIT BLOCK: Only if manually blocked or expired AND no Stripe sub is found
                         hasValidAccess = false;
                         remaining = 0;
                         setIsTrial(false);
