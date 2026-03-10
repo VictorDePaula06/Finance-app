@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../services/firebase';
 import { collection, getDocs, doc, updateDoc, query, getDoc, collectionGroup } from 'firebase/firestore';
-import { ArrowLeft, UserCheck, UserMinus, Shield, Search, RefreshCw, TrendingUp } from 'lucide-react';
+import { ArrowLeft, UserCheck, UserMinus, Shield, Search, RefreshCw, TrendingUp, Zap } from 'lucide-react';
 
 export default function AdminPanel({ onBack }) {
     const [users, setUsers] = useState([]);
