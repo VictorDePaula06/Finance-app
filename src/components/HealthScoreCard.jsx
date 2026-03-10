@@ -154,7 +154,7 @@ export default function HealthScoreCard({ scoreData }) {
                 <div className="flex-1 text-center md:text-left">
                     <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
                         <Activity className={`w-4 h-4 ${color}`} />
-                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Saúde Financeira Mêntore</h3>
+                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Saúde Financeira Mêntor</h3>
                     </div>
                     <p className="text-lg md:text-xl font-bold text-white mb-3">
                         {feedback}

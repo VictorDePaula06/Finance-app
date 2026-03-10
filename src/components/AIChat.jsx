@@ -252,9 +252,9 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
             {/* Header */}
             <div className="bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                    <img src={logo} alt="Mêntore" className="w-12 h-12 object-contain filter drop-shadow-md" />
+                    <img src={logo} alt="Mêntor" className="w-12 h-12 object-contain filter drop-shadow-md" />
                     <div>
-                        <h3 className="font-bold text-slate-100">Seu Mêntore</h3>
+                        <h3 className="font-bold text-slate-100">Seu Mêntor</h3>
                         <p className="text-xs text-emerald-400 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                             Online
@@ -334,7 +334,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                             ) : (
                                 <>
                                     <Bot className="w-4 h-4" />
-                                    Ativar Mêntore
+                                    Ativar Mêntor
                                 </>
                             )}
                         </button>
@@ -347,7 +347,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                             <div className="text-center mt-10 opacity-50">
                                 <Bot className="w-12 h-12 mx-auto mb-2 text-slate-600" />
                                 <p className="text-slate-500 text-sm px-6">
-                                    Olá! Sou o Mêntore, seu consultor financeiro. Pergunte sobre seus gastos, peça dicas ou simule compras.
+                                    Olá! Sou o Mêntor, seu consultor financeiro. Pergunte sobre seus gastos, peça dicas ou simule compras.
                                 </p>
                             </div>
                         )}
@@ -404,9 +404,9 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
             onClick={() => setIsOpen(true)}
             className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-full shadow-2xl transition-all hover:scale-110 z-[9999] flex items-center justify-center group"
         >
-            <img src={logo} alt="Mêntore" className="w-10 h-10 object-contain filter drop-shadow-md" />
+            <img src={logo} alt="Mêntor" className="w-10 h-10 object-contain filter drop-shadow-md" />
             <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 ease-in-out whitespace-nowrap text-sm font-bold">
-                Chat com Mêntore
+                Chat com Mêntor
             </span>
         </button>
     );

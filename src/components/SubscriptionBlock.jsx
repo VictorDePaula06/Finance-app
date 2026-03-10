@@ -69,7 +69,7 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                         Sua assinatura expirou
                     </h1>
                     <p className="text-slate-400 text-lg">
-                        Seu período de acesso terminou. Escolha um plano para continuar utilizando o **Mêntore** e ter acesso ao seu mentor financeiro IA.
+                        Seu período de acesso terminou. Escolha um plano para continuar utilizando o **Mêntor** e ter acesso ao seu mentor financeiro IA.
                     </p>
                 </div>
 

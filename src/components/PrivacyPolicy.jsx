@@ -31,7 +31,7 @@ export default function PrivacyPolicy({ onBack }) {
                             1. Coleta e Uso de Dados
                         </h2>
                         <p className="mb-4">
-                            O **Mêntore** leva sua privacidade a sério. Para fornecer nossos serviços, utilizamos o **Firebase (Google)** para autenticação e armazenamento seguro dos seus dados financeiros.
+                            O **Mêntor** leva sua privacidade a sério. Para fornecer nossos serviços, utilizamos o **Firebase (Google)** para autenticação e armazenamento seguro dos seus dados financeiros.
                         </p>
                         <p>
                             Os dados coletados incluem seu nome, e-mail e as transações financeiras que você insere manualmente. Estes dados são usados única e exclusivamente para que o aplicativo funcione e forneça o histórico e análises financeiras que você visualiza.
@@ -81,7 +81,7 @@ export default function PrivacyPolicy({ onBack }) {
                 </div>
 
                 <footer className="mt-20 pt-12 border-t border-slate-900 text-sm text-slate-600 text-center">
-                    &copy; 2026 Mêntore. Todos os direitos reservados.
+                    &copy; 2026 Mêntor. Todos os direitos reservados.
                 </footer>
             </div>
         </div>

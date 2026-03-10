@@ -88,7 +88,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
         } catch (error) {
             console.error("Erro na simulação IA:", error);
 
-            let errorMsg = "Erro ao consultar o Mêntore.";
+            let errorMsg = "Erro ao consultar o Mêntor.";
             if (error.message.includes('429') || error.message.includes('quota')) {
                 if (isPremium) {
                     errorMsg = "⏳ Alta demanda no servidor. Aguarde um momento e tente novamente.";
