@@ -39,147 +39,123 @@ export function AuthProvider({ children }) {
     }
 
     useEffect(() => {
-        let unsubscribePrefs = null;
-        let unsubscribeSubs = null;
-
         const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
-
-            if (user) {
-                // Ensure email is synced to Firestore for Admin Panel
-                // 1. ENSURE TOP LEVEL USER DOC EXISTS (MAIN SOURCE FOR ADMIN)
-                const userRef = doc(db, 'users', user.uid);
-                setDoc(userRef, {
-                    email: user.email,
-                    createdAt: user.metadata.creationTime,
-                    lastLogin: new Date(),
-                    uid: user.uid
-                }, { merge: true });
-
-                // 2. Ensure settings document exists (Legacy/Sub-docs)
-                const userPrefsRef = doc(db, 'users', user.uid, 'settings', 'general');
-                getDoc(userPrefsRef).then(snap => {
-                    if (!snap.exists() || !snap.data().email) {
-                        setDoc(userPrefsRef, { email: user.email }, { merge: true });
-                    }
-                });
-
-                // 1. Listen to Extension Sync (Top Level User Doc)
-                // Already declared above as userRef
-                // 2. Listen to App Settings
-                const prefsRef = doc(db, 'users', user.uid, 'settings', 'general');
-                // 3. Listen to Subscriptions Collection (The Source of Truth)
-                const subsRef = collection(db, 'customers', user.uid, 'subscriptions');
-                const subsQuery = query(subsRef, where('status', 'in', ['active', 'trialing']));
-
-                const checkStatus = (userData, activeSubs = []) => {
-                    const createdAt = user.metadata.creationTime ? new Date(user.metadata.creationTime) : new Date();
-                    const now = new Date();
-
-                    // 1. Check Trial (7 days)
-                    const diffDaysTrial = Math.ceil((now - createdAt) / (1000 * 60 * 60 * 24));
-                    const isWithinTrial = diffDaysTrial <= 7;
-
-                    // 2. Check Subscription Data
-                    const stripeSub = activeSubs[0];
-                    const manualSub = userData.subscription || {};
-
-                    // PRIORITY: Stripe "active" or "trialing" status overrides manual blocks.
-                    let subStatus = (stripeSub?.status === 'active' || stripeSub?.status === 'trialing')
-                        ? 'active'
-                        : (manualSub?.status === 'expired' ? 'expired' : (stripeSub?.status || manualSub?.status));
-
-                    const subType = stripeSub?.items?.[0]?.plan?.nickname?.toLowerCase().includes('anual') ? 'annual' : (manualSub?.type || 'monthly');
-                    const subDate = stripeSub?.current_period_start ? new Date(stripeSub.current_period_start.seconds * 1000) : (manualSub?.date?.toDate ? manualSub.date.toDate() : (manualSub?.date ? new Date(manualSub.date) : null));
-
-                    let hasValidAccess = false;
-                    let remaining = 0;
-                    let isUnderTolerance = false;
-                    let isTrialState = false;
-
-                    if (subStatus === 'lifetime') {
-                        hasValidAccess = true;
-                        remaining = 9999;
-                        setIsTrial(false);
-                    } else if (subStatus === 'active') {
-                        const cycleDays = subType === 'annual' ? 365 : 30;
-                        const toleranceDays = 5;
-                        const diffDaysSub = Math.floor((now - subDate) / (1000 * 60 * 60 * 24));
-
-                        if (diffDaysSub <= cycleDays || diffDaysSub <= cycleDays + toleranceDays) {
-                            hasValidAccess = true;
-                            remaining = (diffDaysSub <= cycleDays) ? (cycleDays - diffDaysSub) : ((cycleDays + toleranceDays) - diffDaysSub);
-                            isUnderTolerance = diffDaysSub > cycleDays;
-                        } else {
-                            hasValidAccess = false;
-                            remaining = 0;
-                        }
-                        setIsTrial(false);
-                    } else if (subStatus === 'expired' || (manualSub?.status === 'blocked')) {
-                        // EXPLICIT BLOCK: Only if manually blocked or expired AND no Stripe sub is found
-                        hasValidAccess = false;
-                        remaining = 0;
-                        setIsTrial(false);
-                    } else if (isWithinTrial) {
-                        hasValidAccess = true;
-                        remaining = 7 - diffDaysTrial;
-                        isTrialState = true;
-                        setIsTrial(true);
-                    } else {
-                        hasValidAccess = false;
-                        remaining = 0;
-                        setIsTrial(false);
-                    }
-
-                    setIsPremium(hasValidAccess);
-                    setDaysRemaining(Math.max(0, remaining));
-
-                    // Export extra info for AdminPanel
-                    setCurrentUser(prev => ({
-                        ...prev,
-                        subscriptionInfo: {
-                            type: subType,
-                            date: subDate,
-                            status: subStatus,
-                            isUnderTolerance,
-                            daysRemaining: remaining
-                        }
-                    }));
-                };
-
-                // Shared data state
-                let currentData = {};
-                let currentSubs = [];
-
-                unsubscribePrefs = onSnapshot(prefsRef, (snap) => {
-                    currentData = { ...currentData, ...(snap.exists() ? snap.data() : {}) };
-                    checkStatus(currentData, currentSubs);
-                    setLoading(false);
-                });
-
-                onSnapshot(userRef, (snap) => {
-                    currentData = { ...currentData, ...(snap.exists() ? snap.data() : {}) };
-                    checkStatus(currentData, currentSubs);
-                });
-
-                unsubscribeSubs = onSnapshot(subsQuery, (snap) => {
-                    currentSubs = snap.docs.map(d => d.data());
-                    checkStatus(currentData, currentSubs);
-                });
-
-            } else {
+            if (!user) {
                 setIsPremium(false);
                 setIsTrial(false);
                 setLoading(false);
+            } else {
+                // Ensure top-level user doc for Admin Panel
+                const userRef = doc(db, 'users', user.uid);
+                setDoc(userRef, {
+                    email: user.email,
+                    lastLogin: new Date(),
+                    uid: user.uid
+                }, { merge: true });
             }
+        });
+        return () => unsubscribeAuth();
+    }, []);
+
+    // Stable Subscription & Prefs Listener
+    useEffect(() => {
+        if (!currentUser) return;
+
+        let currentData = {};
+        let currentSubs = [];
+
+        const checkStatus = () => {
+            const createdAt = currentUser.metadata.creationTime ? new Date(currentUser.metadata.creationTime) : new Date();
+            const now = new Date();
+
+            // 1. Check Trial (7 days)
+            const diffDaysTrial = Math.ceil((now - createdAt) / (1000 * 60 * 60 * 24));
+            const isWithinTrial = diffDaysTrial <= 7;
+
+            // 2. Data Consolidation
+            const stripeSub = currentSubs[0];
+            const manualSub = currentData.subscription || {};
+
+            // PRIORITY: Stripe "active"/"trialing" status
+            let subStatus = (stripeSub?.status === 'active' || stripeSub?.status === 'trialing')
+                ? 'active'
+                : (manualSub?.status || stripeSub?.status || 'free');
+
+            const subType = stripeSub?.items?.[0]?.plan?.nickname?.toLowerCase().includes('anual') ? 'annual' : (manualSub?.type || 'monthly');
+            const subDate = stripeSub?.current_period_start ? new Date(stripeSub.current_period_start.seconds * 1000) : (manualSub?.date?.toDate ? manualSub.date.toDate() : (manualSub?.date ? new Date(manualSub.date) : null));
+
+            let hasValidAccess = false;
+            let remaining = 0;
+            let isUnderTolerance = false;
+
+            if (subStatus === 'lifetime' || manualSub?.status === 'lifetime') {
+                hasValidAccess = true;
+                remaining = 9999;
+                setIsTrial(false);
+            } else if (subStatus === 'active') {
+                const cycleDays = subType === 'annual' ? 365 : 30;
+                const toleranceDays = 5;
+                const diffDaysSub = subDate ? Math.floor((now - subDate) / (1000 * 60 * 60 * 24)) : 999;
+
+                if (diffDaysSub <= cycleDays || diffDaysSub <= cycleDays + toleranceDays) {
+                    hasValidAccess = true;
+                    remaining = (diffDaysSub <= cycleDays) ? (cycleDays - diffDaysSub) : ((cycleDays + toleranceDays) - diffDaysSub);
+                    isUnderTolerance = diffDaysSub > cycleDays;
+                }
+                setIsTrial(false);
+            } else if (manualSub?.status === 'blocked') {
+                hasValidAccess = false;
+                remaining = 0;
+                setIsTrial(false);
+            } else if (isWithinTrial) {
+                hasValidAccess = true;
+                remaining = 7 - diffDaysTrial;
+                setIsTrial(true);
+            }
+
+            setIsPremium(hasValidAccess);
+            setDaysRemaining(Math.max(0, remaining));
+
+            setCurrentUser(prev => prev ? ({
+                ...prev,
+                subscriptionInfo: {
+                    type: subType,
+                    date: subDate,
+                    status: subStatus,
+                    isUnderTolerance,
+                    daysRemaining: remaining
+                }
+            }) : null);
+        };
+
+        const prefsRef = doc(db, 'users', currentUser.uid, 'settings', 'general');
+        const userRef = doc(db, 'users', currentUser.uid);
+        const subsRef = collection(db, 'customers', currentUser.uid, 'subscriptions');
+        const subsQuery = query(subsRef, where('status', 'in', ['active', 'trialing']));
+
+        const unsubPrefs = onSnapshot(prefsRef, (snap) => {
+            if (snap.exists()) currentData = { ...currentData, ...snap.data() };
+            checkStatus();
+            setLoading(false);
+        });
+
+        const unsubUser = onSnapshot(userRef, (snap) => {
+            if (snap.exists()) currentData = { ...currentData, ...snap.data() };
+            checkStatus();
+        });
+
+        const unsubSubs = onSnapshot(subsQuery, (snap) => {
+            currentSubs = snap.docs.map(d => d.data());
+            checkStatus();
         });
 
         return () => {
-            unsubscribeAuth();
-            if (unsubscribePrefs) unsubscribePrefs();
-            if (unsubscribeSubs) unsubscribeSubs();
+            unsubPrefs();
+            unsubUser();
+            unsubSubs();
         };
-    }, []);
+    }, [currentUser?.uid]);
 
 
     // Cloud Sync Functions
