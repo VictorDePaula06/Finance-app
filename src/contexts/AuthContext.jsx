@@ -58,12 +58,11 @@ export function AuthProvider({ children }) {
         return () => unsubscribeAuth();
     }, []);
 
+    const dataRef = useRef({ prefs: {}, user: {}, subs: [], prefsLoaded: false, userLoaded: false, subsLoaded: false });
+
     // Stable Subscription & Prefs Listener
     useEffect(() => {
         if (!currentUser) return;
-
-        let currentData = {};
-        let currentSubs = [];
 
         const checkStatus = () => {
             const createdAt = currentUser.metadata.creationTime ? new Date(currentUser.metadata.creationTime) : new Date();
@@ -73,7 +72,10 @@ export function AuthProvider({ children }) {
             const diffDaysTrial = Math.ceil((now - createdAt) / (1000 * 60 * 60 * 24));
             const isWithinTrial = diffDaysTrial <= 7;
 
-            // 2. Data Consolidation
+            // 2. Data Consolidation (LATCHED)
+            const currentData = { ...dataRef.current.user, ...dataRef.current.prefs };
+            const currentSubs = dataRef.current.subs;
+
             const stripeSub = currentSubs[0];
             const manualSub = currentData.subscription || (currentData.isPremium ? { status: 'active' } : {});
 
@@ -82,14 +84,13 @@ export function AuthProvider({ children }) {
                 ? 'active'
                 : (manualSub?.status || stripeSub?.status || 'free');
 
-            // Normalized Status for simpler checks
             const isManualActive = ['active', 'monthly', 'annual', 'pro', 'premium'].includes(subStatus?.toLowerCase());
             const isManualLifetime = subStatus === 'lifetime' || manualSub?.status === 'lifetime';
 
             const subType = stripeSub?.items?.[0]?.plan?.nickname?.toLowerCase().includes('anual') ? 'annual' : (manualSub?.type || 'monthly');
             const subDate = stripeSub?.current_period_start ? new Date(stripeSub.current_period_start.seconds * 1000) : (manualSub?.date?.toDate ? manualSub.date.toDate() : (manualSub?.date ? new Date(manualSub.date) : null));
 
-            console.log('[Auth Debug] Processing access for:', currentUser.email, { subStatus, isManualActive, isManualLifetime, stripeSub: stripeSub?.status });
+            console.log(`[Auth Debug] User: ${currentUser.email}`, { subStatus, stripe: stripeSub?.status, manual: manualSub?.status });
 
             let hasValidAccess = false;
             let remaining = 0;
@@ -98,11 +99,9 @@ export function AuthProvider({ children }) {
             if (isManualLifetime) {
                 hasValidAccess = true;
                 remaining = 9999;
-                setIsTrial(false);
             } else if (subStatus === 'active' || isManualActive) {
                 const cycleDays = subType === 'annual' ? 365 : 30;
                 const toleranceDays = 5;
-                // If subDate is missing for manual sub, we assume it's valid if status is active
                 const diffDaysSub = subDate ? Math.floor((now - subDate) / (1000 * 60 * 60 * 24)) : 0;
 
                 if (diffDaysSub <= cycleDays || diffDaysSub <= cycleDays + toleranceDays) {
@@ -110,23 +109,23 @@ export function AuthProvider({ children }) {
                     remaining = (diffDaysSub <= cycleDays) ? (cycleDays - diffDaysSub) : ((cycleDays + toleranceDays) - diffDaysSub);
                     isUnderTolerance = diffDaysSub > cycleDays;
                 } else if (!stripeSub) {
-                    // If it's a manual sub and date is old/missing, but status is active, allow 1 day as safety
+                    // Manual safety fallback
                     hasValidAccess = true;
                     remaining = 1;
                 }
-                setIsTrial(false);
-            } else if (manualSub?.status === 'blocked') {
-                hasValidAccess = false;
-                remaining = 0;
-                setIsTrial(false);
-            } else if (isWithinTrial) {
+            } else if (isWithinTrial && manualSub?.status !== 'blocked') {
                 hasValidAccess = true;
                 remaining = 7 - diffDaysTrial;
                 setIsTrial(true);
             }
 
-            setIsPremium(hasValidAccess);
-            setDaysRemaining(Math.max(0, remaining));
+            // ONLY UPDATE IF LOADED OR ACCESS GRANTED
+            // This prevents "flickering" to false while listeners are still firing
+            if (hasValidAccess || (dataRef.current.subsLoaded && dataRef.current.prefsLoaded)) {
+                setIsPremium(hasValidAccess);
+                setDaysRemaining(Math.max(0, remaining));
+                if (!hasValidAccess) setIsTrial(false);
+            }
 
             setCurrentUser(prev => prev ? ({
                 ...prev,
@@ -146,18 +145,21 @@ export function AuthProvider({ children }) {
         const subsQuery = query(subsRef, where('status', 'in', ['active', 'trialing']));
 
         const unsubPrefs = onSnapshot(prefsRef, (snap) => {
-            if (snap.exists()) currentData = { ...currentData, ...snap.data() };
+            if (snap.exists()) dataRef.current.prefs = snap.data();
+            dataRef.current.prefsLoaded = true;
             checkStatus();
             setLoading(false);
         });
 
         const unsubUser = onSnapshot(userRef, (snap) => {
-            if (snap.exists()) currentData = { ...currentData, ...snap.data() };
+            if (snap.exists()) dataRef.current.user = snap.data();
+            dataRef.current.userLoaded = true;
             checkStatus();
         });
 
         const unsubSubs = onSnapshot(subsQuery, (snap) => {
-            currentSubs = snap.docs.map(d => d.data());
+            dataRef.current.subs = snap.docs.map(d => d.data());
+            dataRef.current.subsLoaded = true;
             checkStatus();
         });
 
