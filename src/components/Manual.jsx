@@ -53,7 +53,7 @@ export default function Manual({ onBack }) {
         { id: 'dashboard', title: 'Dashboard & Saldo', icon: Wallet },
         { id: 'health', title: 'Saúde Financeira', icon: ShieldCheck },
         { id: 'goals', title: 'Metas e Objetivos', icon: Target },
-        { id: 'advisor', title: 'IA Mêntor', icon: MessageSquare },
+        { id: 'advisor', title: 'IA Mêntore', icon: MessageSquare },
     ];
 
     return (
@@ -76,7 +76,7 @@ export default function Manual({ onBack }) {
                             <h1 className="text-3xl font-black bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent tracking-tighter">
                                 Manual do Sistema
                             </h1>
-                            <p className="text-slate-400 text-sm">Aprenda a dominar suas finanças com o Mêntor</p>
+                            <p className="text-slate-400 text-sm">Aprenda a dominar suas finanças com o Mêntore</p>
                         </div>
                     </div>
 
@@ -115,9 +115,9 @@ export default function Manual({ onBack }) {
                     <main className="lg:col-span-9 bg-slate-900/40 backdrop-blur-xl rounded-3xl border border-white/10 p-8 md:p-12 shadow-2xl min-h-[60vh]">
 
                         {/* 1. INTRO */}
-                        <Section id="intro" title="Seja bem-vindo ao Mêntore" icon={BookOpen} activeSection={activeSection}>
+                        <Section id="intro" title="Seja bem-vindo ao Mêntoree" icon={BookOpen} activeSection={activeSection}>
                             <p className="text-lg">
-                                O Mêntore não é apenas um gerenciador de gastos; é o seu <strong>copiloto financeiro</strong>.
+                                O Mêntoree não é apenas um gerenciador de gastos; é o seu <strong>copiloto financeiro</strong>.
                                 Nossa filosofia é baseada na clareza de dados e decisões inteligentes para levar você à autonomia financeira.
                             </p>
 

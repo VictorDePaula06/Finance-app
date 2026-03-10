@@ -24,7 +24,7 @@ export const generateManualPDF = async () => {
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(28);
         doc.setFont("helvetica", "bold");
-        doc.text("Mêntor", 14, 22);
+        doc.text("Mêntore", 14, 22);
 
         // Tagline
         doc.setFontSize(10);
@@ -104,7 +104,7 @@ export const generateManualPDF = async () => {
             doc.setFontSize(9);
             doc.setTextColor(...colors.lightText);
             doc.setFont("helvetica", "normal");
-            doc.text(`Mêntor - Manual Oficial v3.0`, 14, 287);
+            doc.text(`Mêntore - Manual Oficial v3.0`, 14, 287);
             doc.text(`Página ${i} de ${pageCount}`, 175, 287);
         }
     };
@@ -112,8 +112,8 @@ export const generateManualPDF = async () => {
     // --- PAGE 1: INTRODUCTION ---
     drawHeader("Guia Completo de Utilização");
 
-    addHeading("1. Introdução ao Mêntor");
-    addText("O Mêntor foi projetado para ser seu braço direito na gestão financeira. Nossa plataforma utiliza inteligência artificial para transformar dados brutos em decisões inteligentes, ajudando você a atingir a liberdade financeira mais rápido.");
+    addHeading("1. Introdução ao Mêntore");
+    addText("O Mêntore foi projetado para ser seu braço direito na gestão financeira. Nossa plataforma utiliza inteligência artificial para transformar dados brutos em decisões inteligentes, ajudando você a atingir a liberdade financeira mais rápido.");
 
     addHeading("2. Dashboard e Gestão de Saldos");
     addText("O Dashboard é onde você acompanha a pulsação do seu dinheiro em tempo real.");
@@ -131,7 +131,7 @@ export const generateManualPDF = async () => {
     // --- PAGE 2: SCORE & PILARES ---
     checkPageBreak(120);
     addHeading("3. Saúde Financeira (Score 0-100)");
-    addText("O Score Mêntor é um indicador de resiliência. Ele avalia automaticamente seu comportamento baseado em pilares recomendados por especialistas:");
+    addText("O Score Mêntore é um indicador de resiliência. Ele avalia automaticamente seu comportamento baseado em pilares recomendados por especialistas:");
 
     addSubHeading("Os 3 Pilares do Score:");
     addText("Performance (20%): Avalia se você manteve um balanço positivo no mês.", true);
@@ -143,7 +143,7 @@ export const generateManualPDF = async () => {
 
     // --- PAGE 3: IA & PRIVACIDADE ---
     checkPageBreak(80);
-    addHeading("5. IA Mêntor (IA Gemini)");
+    addHeading("5. IA Mêntore (IA Gemini)");
     addText("Integrado com a tecnologia Gemini, seu consultor financeiro está disponível 24h.");
     addText("Análise de Gastos: Peça para a IA identificar em qual categoria você mais gastou nos últimos meses.", true);
     addText("Previsões: Pergunte se uma compra específica impactará seu plano de longo prazo.", true);
