@@ -75,33 +75,44 @@ export function AuthProvider({ children }) {
 
             // 2. Data Consolidation
             const stripeSub = currentSubs[0];
-            const manualSub = currentData.subscription || {};
+            const manualSub = currentData.subscription || (currentData.isPremium ? { status: 'active' } : {});
 
             // PRIORITY: Stripe "active"/"trialing" status
             let subStatus = (stripeSub?.status === 'active' || stripeSub?.status === 'trialing')
                 ? 'active'
                 : (manualSub?.status || stripeSub?.status || 'free');
 
+            // Normalized Status for simpler checks
+            const isManualActive = ['active', 'monthly', 'annual', 'pro', 'premium'].includes(subStatus?.toLowerCase());
+            const isManualLifetime = subStatus === 'lifetime' || manualSub?.status === 'lifetime';
+
             const subType = stripeSub?.items?.[0]?.plan?.nickname?.toLowerCase().includes('anual') ? 'annual' : (manualSub?.type || 'monthly');
             const subDate = stripeSub?.current_period_start ? new Date(stripeSub.current_period_start.seconds * 1000) : (manualSub?.date?.toDate ? manualSub.date.toDate() : (manualSub?.date ? new Date(manualSub.date) : null));
+
+            console.log('[Auth Debug] Processing access for:', currentUser.email, { subStatus, isManualActive, isManualLifetime, stripeSub: stripeSub?.status });
 
             let hasValidAccess = false;
             let remaining = 0;
             let isUnderTolerance = false;
 
-            if (subStatus === 'lifetime' || manualSub?.status === 'lifetime') {
+            if (isManualLifetime) {
                 hasValidAccess = true;
                 remaining = 9999;
                 setIsTrial(false);
-            } else if (subStatus === 'active') {
+            } else if (subStatus === 'active' || isManualActive) {
                 const cycleDays = subType === 'annual' ? 365 : 30;
                 const toleranceDays = 5;
-                const diffDaysSub = subDate ? Math.floor((now - subDate) / (1000 * 60 * 60 * 24)) : 999;
+                // If subDate is missing for manual sub, we assume it's valid if status is active
+                const diffDaysSub = subDate ? Math.floor((now - subDate) / (1000 * 60 * 60 * 24)) : 0;
 
                 if (diffDaysSub <= cycleDays || diffDaysSub <= cycleDays + toleranceDays) {
                     hasValidAccess = true;
                     remaining = (diffDaysSub <= cycleDays) ? (cycleDays - diffDaysSub) : ((cycleDays + toleranceDays) - diffDaysSub);
                     isUnderTolerance = diffDaysSub > cycleDays;
+                } else if (!stripeSub) {
+                    // If it's a manual sub and date is old/missing, but status is active, allow 1 day as safety
+                    hasValidAccess = true;
+                    remaining = 1;
                 }
                 setIsTrial(false);
             } else if (manualSub?.status === 'blocked') {
