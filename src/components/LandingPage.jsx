@@ -47,8 +47,8 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
             <nav className="fixed w-full z-50 bg-slate-950/80 backdrop-blur-md border-b border-white/10">
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <img src={logo} alt="Mêntore Logo" className="w-10 h-auto" />
-                        <span className="font-black text-2xl tracking-tighter text-white">Mêntore</span>
+                        <img src={logo} alt="Finance Logo" className="w-10 h-auto" />
+                        <span className="font-black text-2xl tracking-tighter text-white">Finance App</span>
                     </div>
                     <button
                         onClick={onLogin}
@@ -302,7 +302,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
             {/* Footer */}
             <footer className="py-12 border-t border-slate-900 bg-slate-950">
                 <div className="max-w-7xl mx-auto px-6 text-center text-slate-500">
-                    <p className="mb-4">&copy; {new Date().getFullYear()} Mêntore. Todos os direitos reservados.</p>
+                    <p className="mb-4">&copy; {new Date().getFullYear()} Finance App. Todos os direitos reservados.</p>
                     <div className="flex flex-wrap justify-center gap-6 text-sm mb-8">
                         <button onClick={onViewManual} className="text-blue-400 font-bold hover:text-blue-300 transition-colors">Manual do Sistema</button>
                         <button onClick={onViewTerms} className="hover:text-slate-300 transition-colors">Termos de Uso</button>
