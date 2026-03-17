@@ -63,15 +63,24 @@ export default function AdminPanel({ onBack }) {
 
                 const subDate = subDateRaw?.toDate ? subDateRaw.toDate() : (subDateRaw ? new Date(subDateRaw) : null);
 
-                const subType = (stripeSubData?.status === 'active' || stripeSubData?.status === 'trialing')
-                    ? (stripeSubData?.items?.[0]?.plan?.nickname?.toLowerCase().includes('anual') ? 'annual' : 'monthly')
-                    : (settingsData.subscription?.type || (stripeSubData?.items?.[0]?.plan?.nickname?.toLowerCase().includes('anual') ? 'annual' : 'monthly'));
+                const annualPriceId = import.meta.env.VITE_STRIPE_PRICE_ID_YEARLY;
+                const stripePriceId = stripeSubData?.items?.[0]?.price?.id;
+                const stripeInterval = stripeSubData?.items?.[0]?.plan?.interval;
+
+                const isAnnual = stripePriceId === annualPriceId ||
+                    stripeInterval === 'year' ||
+                    stripeSubData?.items?.[0]?.plan?.nickname?.toLowerCase().includes('anual') ||
+                    settingsData.subscription?.type === 'annual';
 
                 let daysLeft = 0;
-                let isExpired = subStatus === 'expired';
+                let isBlocked = settingsData.subscription?.status === 'blocked';
+                let isExpired = subStatus === 'expired' || isBlocked;
                 let tolerance = false;
                 let isLifetime = subStatus === 'lifetime';
                 let isTrial = false;
+
+                const subType = isAnnual ? 'annual' : 'monthly';
+                const createdAt = userData.createdAt ? (userData.createdAt.toDate ? userData.createdAt.toDate() : new Date(userData.createdAt)) : null;
 
                 if (subStatus === 'active' && subDate) {
                     const now = new Date();
@@ -91,7 +100,6 @@ export default function AdminPanel({ onBack }) {
                     daysLeft = 9999;
                 } else {
                     // TRIAL CHECK (If not Premium/Lifetime)
-                    const createdAt = userData.createdAt ? (userData.createdAt.toDate ? userData.createdAt.toDate() : new Date(userData.createdAt)) : null;
                     if (createdAt) {
                         const now = new Date();
                         const diffDays = Math.ceil((now - createdAt) / (1000 * 60 * 60 * 24));
@@ -106,9 +114,10 @@ export default function AdminPanel({ onBack }) {
                     }
                 }
 
-                userList.push({
+                const userObj = {
                     uid,
                     email: settingsData.email || userData.email || customerData.email || 'N/A',
+                    stripeEmail: customerData.email || 'N/A',
                     isPremium: (isPremium || isLifetime || isTrial) && !isExpired,
                     subType,
                     subStatus,
@@ -118,8 +127,11 @@ export default function AdminPanel({ onBack }) {
                     isExpired: isExpired && !isLifetime && !isTrial,
                     isTolerance: tolerance,
                     isLifetime,
+                    isBlocked,
+                    createdAt: createdAt ? createdAt.toLocaleDateString('pt-BR') : 'N/A',
                     lastSync: (settingsData.subscription?.updatedAt || userData.subscription?.updatedAt)?.toDate?.().toLocaleDateString() || 'N/A'
-                });
+                };
+                userList.push(userObj);
             }
             setUsers(userList.sort((a, b) => (a.isPremium === b.isPremium) ? 0 : a.isPremium ? -1 : 1));
         } catch (error) {
@@ -139,7 +151,7 @@ export default function AdminPanel({ onBack }) {
             const userRef = doc(db, 'users', uid, 'settings', 'general');
             await updateDoc(userRef, {
                 subscription: {
-                    status: currentStatus ? 'expired' : 'active',
+                    status: currentStatus ? 'blocked' : 'active',
                     type: 'monthly',
                     date: new Date(),
                     updatedAt: new Date()
@@ -272,6 +284,7 @@ export default function AdminPanel({ onBack }) {
                                     <th className="p-6 text-slate-400 font-medium uppercase text-xs tracking-wider">E-mail / UID</th>
                                     <th className="p-6 text-slate-400 font-medium uppercase text-xs tracking-wider">Plano</th>
                                     <th className="p-6 text-slate-400 font-medium uppercase text-xs tracking-wider">Pagamento</th>
+                                    <th className="p-6 text-slate-400 font-medium uppercase text-xs tracking-wider">Cadastro</th>
                                     <th className="p-6 text-slate-400 font-medium uppercase text-xs tracking-wider">Vencimento</th>
                                     <th className="p-6 text-slate-400 font-medium uppercase text-xs tracking-wider text-right">Ação</th>
                                 </tr>
@@ -297,6 +310,11 @@ export default function AdminPanel({ onBack }) {
                                                 <div className="text-[10px] text-slate-500 font-mono select-all opacity-50">
                                                     {user.uid}
                                                 </div>
+                                                {user.stripeEmail && user.stripeEmail !== 'N/A' && user.stripeEmail !== user.email && (
+                                                    <div className="text-[10px] text-emerald-500 font-medium mt-1 select-all" title={`E-mail usado no Stripe`}>
+                                                        Pagamento: {user.stripeEmail}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="p-6">
                                                 {user.isLifetime ? (
@@ -328,12 +346,15 @@ export default function AdminPanel({ onBack }) {
                                             <td className="p-6 text-sm text-slate-400">
                                                 {user.isLifetime ? 'N/A' : user.subDate}
                                             </td>
+                                            <td className="p-6 text-sm text-slate-400">
+                                                {user.createdAt}
+                                            </td>
                                             <td className="p-6">
                                                 <div className="flex flex-col">
-                                                    <span className={`text-sm font-bold ${user.isLifetime ? 'text-purple-400' : user.isTrial ? 'text-blue-400' : user.daysLeft <= 0 ? (user.subStatus === 'active' || user.subStatus === 'trialing' ? 'text-blue-400' : 'text-rose-400') : user.daysLeft <= 5 ? 'text-amber-400' : 'text-blue-400'}`}>
-                                                        {user.isLifetime ? '∞' : user.daysLeft <= 0 ? (user.isExpired ? 'BLOQUEADO' : (user.subStatus === 'active' || user.subStatus === 'trialing' ? 'PENDENTE SYNC' : 'EXPIRADO')) : `${user.daysLeft} dias`}
+                                                    <span className={`text-sm font-bold ${user.isBlocked ? 'text-rose-600' : user.isLifetime ? 'text-purple-400' : user.isTrial ? 'text-blue-400' : user.daysLeft <= 0 ? (user.subStatus === 'active' || user.subStatus === 'trialing' ? 'text-blue-400' : 'text-rose-400') : user.daysLeft <= 5 ? 'text-amber-400' : 'text-blue-400'}`}>
+                                                        {user.isBlocked ? 'BLOQUEADO' : user.isLifetime ? '∞' : user.daysLeft <= 0 ? (user.isExpired ? 'BLOQUEADO' : (user.subStatus === 'active' || user.subStatus === 'trialing' ? 'PENDENTE SYNC' : 'EXPIRADO')) : `${user.daysLeft} dias`}
                                                     </span>
-                                                    <span className="text-[10px] text-slate-500">{user.isLifetime ? 'Duração Infinta' : user.isTrial ? 'Período de Teste' : user.daysLeft <= 0 ? (user.subStatus === 'free' ? 'Status: Gratuito' : 'Acesso Revogado') : 'restantes'}</span>
+                                                    <span className="text-[10px] text-slate-500">{user.isBlocked ? 'Acesso Revogado' : user.isLifetime ? 'Duração Infinta' : user.isTrial ? 'Período de Teste' : user.daysLeft <= 0 ? (user.subStatus === 'free' ? 'Status: Gratuito' : 'Acesso Revogado') : 'restantes'}</span>
                                                 </div>
                                             </td>
                                             <td className="p-6 text-right">
@@ -405,6 +426,11 @@ export default function AdminPanel({ onBack }) {
                                             <div className="text-[10px] text-slate-500 font-mono truncate">
                                                 {user.uid}
                                             </div>
+                                            {user.stripeEmail && user.stripeEmail !== 'N/A' && user.stripeEmail !== user.email && (
+                                                <div className="text-[10px] text-emerald-500 font-medium truncate mt-1">
+                                                    Stripe: {user.stripeEmail}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="shrink-0">
                                             {user.isLifetime ? (
@@ -428,8 +454,8 @@ export default function AdminPanel({ onBack }) {
                                         </div>
                                         <div>
                                             <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Vencimento</p>
-                                            <p className={`text-xs font-bold ${user.isLifetime ? 'text-purple-400' : user.daysLeft <= 0 ? 'text-rose-400' : 'text-blue-400'}`}>
-                                                {user.isLifetime ? '∞' : user.daysLeft <= 0 ? (user.isExpired ? 'BLOQUEADO' : 'EXPIRADO') : `${user.daysLeft} dias`}
+                                            <p className={`text-xs font-bold ${user.isBlocked ? 'text-rose-600' : user.isLifetime ? 'text-purple-400' : user.daysLeft <= 0 ? 'text-rose-400' : 'text-blue-400'}`}>
+                                                {user.isBlocked ? 'BLOQUEADO' : user.isLifetime ? '∞' : user.daysLeft <= 0 ? (user.isExpired ? 'BLOQUEADO' : 'EXPIRADO') : `${user.daysLeft} dias`}
                                             </p>
                                         </div>
                                     </div>

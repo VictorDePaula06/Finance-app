@@ -51,6 +51,7 @@ export function AuthProvider({ children }) {
                 setDoc(userRef, {
                     email: user.email,
                     lastLogin: new Date(),
+                    createdAt: user.metadata.creationTime,
                     uid: user.uid
                 }, { merge: true });
             }
@@ -86,20 +87,40 @@ export function AuthProvider({ children }) {
 
             const isManualActive = ['active', 'monthly', 'annual', 'pro', 'premium'].includes(subStatus?.toLowerCase());
             const isManualLifetime = subStatus === 'lifetime' || manualSub?.status === 'lifetime';
+            const isBlocked = manualSub?.status === 'blocked';
 
-            const subType = stripeSub?.items?.[0]?.plan?.nickname?.toLowerCase().includes('anual') ? 'annual' : (manualSub?.type || 'monthly');
+            const stripePriceId = stripeSub?.items?.[0]?.price?.id;
+            const annualPriceId = import.meta.env.VITE_STRIPE_PRICE_ID_YEARLY;
+            const stripeInterval = stripeSub?.items?.[0]?.plan?.interval;
+
+            const isAnnual = stripePriceId === annualPriceId ||
+                stripeInterval === 'year' ||
+                stripeSub?.items?.[0]?.plan?.nickname?.toLowerCase().includes('anual') ||
+                manualSub?.type === 'annual';
+
+            const subType = isAnnual ? 'annual' : (manualSub?.type || 'monthly');
+
             const subDate = stripeSub?.current_period_start ? new Date(stripeSub.current_period_start.seconds * 1000) : (manualSub?.date?.toDate ? manualSub.date.toDate() : (manualSub?.date ? new Date(manualSub.date) : null));
 
-            console.log(`[Auth Debug] User: ${currentUser.email}`, { subStatus, stripe: stripeSub?.status, manual: manualSub?.status });
+            console.log(`[Auth Debug] User: ${currentUser.email}`, {
+                subStatus,
+                stripe: stripeSub?.status,
+                manual: manualSub?.status,
+                isBlocked,
+                creationTime: currentUser.metadata.creationTime,
+                now: now.toISOString(),
+                diffDaysTrial,
+                isWithinTrial
+            });
 
             let hasValidAccess = false;
             let remaining = 0;
             let isUnderTolerance = false;
 
-            if (isManualLifetime) {
+            if (isManualLifetime && !isBlocked) {
                 hasValidAccess = true;
                 remaining = 9999;
-            } else if (subStatus === 'active' || isManualActive) {
+            } else if ((subStatus === 'active' || isManualActive) && !isBlocked) {
                 const cycleDays = subType === 'annual' ? 365 : 30;
                 const toleranceDays = 5;
                 const diffDaysSub = subDate ? Math.floor((now - subDate) / (1000 * 60 * 60 * 24)) : 0;
@@ -113,7 +134,7 @@ export function AuthProvider({ children }) {
                     hasValidAccess = true;
                     remaining = 1;
                 }
-            } else if (isWithinTrial && manualSub?.status !== 'blocked') {
+            } else if (isWithinTrial && !isBlocked) {
                 hasValidAccess = true;
                 remaining = 7 - diffDaysTrial;
                 setIsTrial(true);

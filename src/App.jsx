@@ -103,10 +103,12 @@ function Dashboard() {
               <p className="text-emerald-400 font-medium tracking-wide mt-1 animate-in fade-in slide-in-from-left-3">
                 👋 Olá, <span className="text-slate-100">{currentUser?.displayName?.split(' ')[0] || 'Usuário'}</span>
               </p>
+              <p className="text-[10px] text-slate-500 font-mono mt-0.5 opacity-80 select-all">
+                {currentUser?.email}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-xs text-slate-500 hidden md:block">{currentUser?.email}</span>
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('change-view', { detail: 'manual' }))}
               className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-blue-400 transition-colors"
