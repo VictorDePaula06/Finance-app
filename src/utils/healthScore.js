@@ -82,7 +82,7 @@ export const calculateHealthScore = (transactions, manualConfig) => {
     // Qualitative Feedback
     let feedback = "Comece a registrar seus gastos para ver seu score.";
     let color = "text-slate-400";
-    let bg = "bg-slate-800";
+    let bg = "bg-slate-400/10";
 
     if (totalScore >= 90) {
         feedback = "Excelente! Você está no caminho da Independência Financeira.";

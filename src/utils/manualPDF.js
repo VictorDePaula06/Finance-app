@@ -24,7 +24,7 @@ export const generateManualPDF = async () => {
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(28);
         doc.setFont("helvetica", "bold");
-        doc.text("Mêntore", 14, 22);
+        doc.text("Alívia", 14, 22);
 
         // Tagline
         doc.setFontSize(10);
@@ -104,7 +104,7 @@ export const generateManualPDF = async () => {
             doc.setFontSize(9);
             doc.setTextColor(...colors.lightText);
             doc.setFont("helvetica", "normal");
-            doc.text(`Mêntore - Manual Oficial v3.0`, 14, 287);
+            doc.text(`Alívia - Manual de Tranquilidade v3.0`, 14, 287);
             doc.text(`Página ${i} de ${pageCount}`, 175, 287);
         }
     };
@@ -112,8 +112,8 @@ export const generateManualPDF = async () => {
     // --- PAGE 1: INTRODUCTION ---
     drawHeader("Guia Completo de Utilização");
 
-    addHeading("1. Introdução ao Mêntore");
-    addText("O Mêntore foi projetado para ser seu braço direito na gestão financeira. Nossa plataforma utiliza inteligência artificial para transformar dados brutos em decisões inteligentes, ajudando você a atingir a liberdade financeira mais rápido.");
+    addHeading("1. Introdução à Alívia");
+    addText("A Alívia foi projetada para ser seu refúgio na gestão financeira. Nossa plataforma utiliza inteligência artificial para transformar a ansiedade dos números em caminhos de paz, ajudando você a atingir a tranquilidade financeira com leveza.");
 
     addHeading("2. Dashboard e Gestão de Saldos");
     addText("O Dashboard é onde você acompanha a pulsação do seu dinheiro em tempo real.");
@@ -121,21 +121,21 @@ export const generateManualPDF = async () => {
     addSubHeading("Diferença entre Saldos:");
     addText("Saldo em Carteira: Representa o montante total acumulado. É o dinheiro que você realmente possui hoje, considerando todo o histórico de entradas e saídas.", true);
     addText("Resultado Mensal: Foca exclusivamente no desempenho do mês atual. Indica se este mês você está 'lucrando' ou gastando mais do que ganha.", true);
-    addText("Patrimônio Investido: Soma o valor base definido nas configurações com todos os aportes realizados na categoria 'Investimento'.", true);
+    addText("Sementinha / Futuro: Soma o valor base definido por você com todos os aportes realizados para proteger o seu amanhã.", true);
 
     addSubHeading("Categorias Estratégicas:");
     addText("Saldo Inicial: Ajuste fundamental para alinhar o saldo do aplicativo com sua conta bancária real no primeiro uso.", true);
-    addText("Investimento: Entradas ou saídas nesta categoria não prejudicam seu score de gastos, pois são tratadas como reserva de patrimônio.", true);
-    addText("Cofre / Resgate: Utilize para separar valores específicos que não devem ser gastos no orçamento diário.", true);
+    addText("Sementinha / Futuro: Guardar valores aqui não prejudica seu score de tranquilidade, pois são tratados como proteção de patrimônio.", true);
+    addText("Cofre / Resgate: Utilize para separar valores específicos que não devem ser usados no dia a dia.", true);
 
     // --- PAGE 2: SCORE & PILARES ---
     checkPageBreak(120);
     addHeading("3. Saúde Financeira (Score 0-100)");
-    addText("O Score Mêntore é um indicador de resiliência. Ele avalia automaticamente seu comportamento baseado em pilares recomendados por especialistas:");
+    addText("O Nível de Tranquilidade da Alívia é um indicador de paz. Ele avalia automaticamente seu comportamento baseado em pilares de saúde financeira:");
 
     addSubHeading("Os 3 Pilares do Score:");
     addText("Performance (20%): Avalia se você manteve um balanço positivo no mês.", true);
-    addText("Alocação (30%): Verifica o equilíbrio entre necessidades (50%), desejos (30%) e investimentos (20%).", true);
+    addText("Alocação (30%): Verifica o equilíbrio entre o hoje (50% necessário, 30% lazer) e o amanhã (20% sementinhas).", true);
     addText("Reserva (50%): O ponto mais importante. Mede se seu patrimônio líquido é capaz de cobrir pelo menos 6 meses de suas despesas fixas.", true);
 
     addHeading("4. Metas e Objetivos");
@@ -143,12 +143,12 @@ export const generateManualPDF = async () => {
 
     // --- PAGE 3: IA & PRIVACIDADE ---
     checkPageBreak(80);
-    addHeading("5. IA Mêntore (IA Gemini)");
+    addHeading("5. Sua Alívia (IA Gemini)");
     addText("Integrado com a tecnologia Gemini, seu consultor financeiro está disponível 24h.");
     addText("Análise de Gastos: Peça para a IA identificar em qual categoria você mais gastou nos últimos meses.", true);
     addText("Previsões: Pergunte se uma compra específica impactará seu plano de longo prazo.", true);
     addText("Privacidade: Lembramos que seus dados são processados de forma segura e anônima para fins de consultoria.", true);
 
     finalizePDF();
-    doc.save("Manual_Mentore_Premium.pdf");
+    doc.save("Manual_Alivia_Premium.pdf");
 };

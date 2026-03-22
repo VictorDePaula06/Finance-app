@@ -203,7 +203,7 @@ export const calculateSpendingPace = (transactions, manualConfig) => {
         const budgetUsage = spent / limit;
 
         // Alerta se o gasto estiver à frente do tempo (zero de tolerância para ser proativo)
-        // Ou se já estourou o limite (usage >= 1)
+        // Ou se o mês ficou um pouco apertado (usage >= 1)
         if (budgetUsage >= 1) {
             alerts.push({
                 categoryId: catId,
@@ -211,7 +211,7 @@ export const calculateSpendingPace = (transactions, manualConfig) => {
                 limit,
                 usage: budgetUsage,
                 type: 'danger',
-                message: `Limite atingido! Você já gastou R$ ${spent.toFixed(2)} de R$ ${limit.toFixed(2)}.`
+                message: `O mês ficou um pouco apertado! Você já usou R$ ${spent.toFixed(2)} da sua margem de R$ ${limit.toFixed(2)}.`
             });
         } else if (budgetUsage > monthProgress) {
             alerts.push({
@@ -220,7 +220,7 @@ export const calculateSpendingPace = (transactions, manualConfig) => {
                 limit,
                 usage: budgetUsage,
                 type: 'warning',
-                message: `Ritmo acelerado! Você já usou ${(budgetUsage * 100).toFixed(0)}% do limite em ${(monthProgress * 100).toFixed(0)}% do mês.`
+                message: `Ritmo acelerado! Você já usou ${(budgetUsage * 100).toFixed(0)}% da sua margem em ${(monthProgress * 100).toFixed(0)}% do mês.`
             });
         }
     });

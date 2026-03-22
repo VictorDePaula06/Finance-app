@@ -4,6 +4,7 @@ import { LayoutDashboard, ArrowUpCircle, ArrowDownCircle, Trash2, Pencil, Calend
 import { db } from '../services/firebase';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, orderBy, getDocs } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import ExpensesChart from './ExpensesChart';
 import AIChat from './AIChat';
 import FinancialAdvisor from './FinancialAdvisor';
@@ -15,23 +16,27 @@ import logo from '../assets/logo.png';
 // New Card Component
 // New Card Component - Centered Content
 function Card({ title, value, icon: Icon, color, highlight, isHidable, isHidden, onToggle, detail }) {
+    const { theme } = useTheme();
     return (
-        <div key={`card-${title}`} className={`p-6 rounded-3xl border transition-all duration-300 hover:scale-[1.02] flex flex-col items-center text-center relative overflow-hidden ${highlight ? 'bg-blue-600/10 border-blue-500/30 shadow-lg shadow-blue-500/5' : 'bg-white/5 border-white/10 backdrop-blur-md'}`}>
+        <div key={`card-${title}`} className={`p-6 rounded-3xl border transition-all duration-300 hover:scale-[1.02] flex flex-col items-center text-center relative overflow-hidden ${
+            highlight 
+            ? (theme === 'light' ? 'bg-blue-500/10 border-blue-200 shadow-sm' : 'bg-blue-600/10 border-blue-500/30 shadow-lg shadow-blue-500/5') 
+            : 'glass-card'
+        }`}>
             <div className="absolute top-2 right-2 flex items-center gap-1">
                 {isHidable && (
-                    <button key="btn-toggle" onClick={onToggle} className="p-1 hover:bg-white/10 rounded-lg transition-colors text-slate-500 hover:text-slate-300">
+                    <button key="btn-toggle" onClick={onToggle} className={`p-1 rounded-lg transition-colors ${
+                        theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-slate-600' : 'hover:bg-white/10 text-slate-500 hover:text-slate-300'
+                    }`}>
                         {isHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                 )}
             </div>
-
-            <div className="mb-3 p-3 bg-white/5 rounded-2xl">
+            <div className={`mb-3 p-3 rounded-2xl ${theme === 'light' ? 'bg-[#f0fdfa]' : 'bg-white/5'}`}>
                 <Icon className={`w-8 h-8 ${color}`} />
             </div>
-
-            <span className="text-slate-400 text-sm font-medium mb-1">{title}</span>
-
-            <div className="text-3xl font-bold text-slate-100">
+            <span className={`text-sm font-medium mb-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>{title}</span>
+            <div className={`text-3xl font-bold ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>
                 <span key={isHidden ? 'hidden' : 'visible'}>
                     {isHidable && isHidden ? (
                         <span className="tracking-widest capitalize">••••••</span>
@@ -40,7 +45,7 @@ function Card({ title, value, icon: Icon, color, highlight, isHidable, isHidden,
                     )}
                 </span>
             </div>
-            {detail && <div className="text-[10px] text-slate-500 mt-2 font-medium">{detail}</div>}
+            {detail && <div className={`text-[10px] mt-2 font-medium ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>{detail}</div>}
         </div>
     );
 }
@@ -48,6 +53,7 @@ function Card({ title, value, icon: Icon, color, highlight, isHidable, isHidden,
 
 
 export default function TransactionSection({ manualConfig, updateManualConfig, transactions, goals = [], isLoadingData }) {
+    const { theme } = useTheme();
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
     const [date, setDate] = useState(() => {
@@ -74,6 +80,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
     const [isCumulativeView, setIsCumulativeView] = useState(() => {
         return localStorage.getItem('isCumulativeView') === 'true';
     });
+    const [isAliviaConfiguring, setIsAliviaConfiguring] = useState(false);
 
     const togglePatrimonio = (e) => {
         e.stopPropagation();
@@ -420,11 +427,30 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
     const cumulativeBalance = calculateCumulativeBalance(selectedMonth);
 
     const totalInvestedFromTransactions = useMemo(() => {
-        return transactions
-            .filter(t => t.type === 'expense' && t.category === 'investment')
-            .reduce((acc, t) => acc + parseFloat(t.amount), 0);
-    }, [transactions]);
+        return transactions.reduce((acc, t) => {
+            const val = parseFloat(t.amount) || 0;
+            
+            // If manual adjustment timestamp exists, ONLY count transactions created AFTER that adjustment
+            // We use 'investedAt' as the total balance as of that moment.
+            // Using t.createdAt (actual insertion time) is more reliable than t.date (user-assigned date)
+            const investedAt = manualConfig.investedAt || 0;
+            const createdAt = t.createdAt || 0;
+            
+            if (investedAt > 0 && createdAt <= investedAt) return acc;
 
+            // 'Sementinha' and 'Cofre' are additions to invested assets
+            if (t.type === 'expense' && (t.category === 'investment' || t.category === 'vault')) {
+                return acc + val;
+            }
+            // 'Resgate Cofre' is removal from invested assets (it returns to wallet)
+            if (t.type === 'income' && t.category === 'vault_redemption') {
+                return acc - val;
+            }
+            return acc;
+        }, 0);
+    }, [transactions, manualConfig.investedAt]);
+
+    // If manual value exists, it is the BASE. The transactions-sum adds to it.
     const totalPatrimonio = (parseFloat(manualConfig.invested) || 0) + totalInvestedFromTransactions;
 
     const reservedForGoals = useMemo(() => {
@@ -462,22 +488,32 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
             {/* Report Modal */}
             {showReport && createPortal(
                 <div key="report-portal-wrapper" className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-300">
-                    <div className="bg-slate-900 border border-slate-700/50 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl ring-1 ring-white/10">
-                        <div className="p-6 border-b border-slate-800 flex flex-col md:flex-row md:justify-between md:items-center gap-4 bg-slate-800/50">
+                    <div className={`border rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl ring-1 ring-white/10 ${
+                        theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-700/50'
+                    }`}>
+                        <div className={`p-6 border-b flex flex-col md:flex-row md:justify-between md:items-center gap-4 ${
+                            theme === 'light' ? 'bg-[#f0fdfa] border-emerald-100/50' : 'bg-slate-800/50 border-slate-800'
+                        }`}>
                             <div className="flex items-center gap-2">
-                                <FileText className="w-5 h-5 text-blue-400" />
-                                <h3 className="text-xl font-bold text-slate-100 italic">Relatório Mensal</h3>
+                                <FileText className="w-5 h-5 text-blue-500" />
+                                <h3 className={`text-xl font-bold italic ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>Relatório Mensal</h3>
                             </div>
                             <div className="flex items-center gap-3">
                                 <button
                                     onClick={handleClearHistory}
                                     disabled={isDeleting}
-                                    className="px-3 py-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400 text-xs font-bold hover:bg-rose-500/20 transition-all flex items-center gap-2 disabled:opacity-50"
+                                    className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-2 disabled:opacity-50 ${
+                                        theme === 'light' 
+                                        ? 'border-rose-200 bg-rose-50 text-rose-500 hover:bg-rose-100' 
+                                        : 'border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20'
+                                    }`}
                                 >
                                     <Trash2 className="w-3.5 h-3.5" />
                                     {isDeleting ? 'Limpando...' : 'Zerar Histórico Antigo'}
                                 </button>
-                                <button onClick={() => setShowReport(false)} className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-white">
+                                <button onClick={() => setShowReport(false)} className={`p-2 rounded-lg transition-colors ${
+                                    theme === 'light' ? 'hover:bg-emerald-50 text-slate-400 hover:text-emerald-500' : 'hover:bg-slate-700 text-slate-400 hover:text-white'
+                                }`}>
                                     <X className="w-6 h-6" />
                                 </button>
                             </div>
@@ -493,30 +529,34 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                             setSelectedMonth(month.date);
                                             setShowReport(false);
                                         }}
-                                        className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl hover:bg-slate-700/30 hover:border-blue-500/30 transition-all cursor-pointer group active:scale-[0.99]"
+                                        className={`p-4 rounded-xl border transition-all cursor-pointer group active:scale-[0.99] ${
+                                            theme === 'light' 
+                                            ? 'bg-white border-emerald-100/50 hover:border-emerald-200 hover:bg-emerald-50/30' 
+                                            : 'bg-slate-800/30 border-slate-700 hover:bg-slate-700/30 hover:border-blue-500/30'
+                                        }`}
                                     >
                                         <div className="flex justify-between items-center mb-3">
-                                            <h4 className="font-bold text-lg text-slate-200 capitalize">
+                                            <h4 className={`font-bold text-lg capitalize ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
                                                 {new Date(month.date + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
                                             </h4>
-                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${month.balance >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${month.balance >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
                                                 {month.balance >= 0 ? 'Positivo' : 'Negativo'}
                                             </span>
                                         </div>
                                         <div className="grid grid-cols-3 gap-4">
                                             <div>
                                                 <p className="text-xs text-slate-500 mb-1">Entradas</p>
-                                                <p className="text-emerald-400 font-medium">+ R$ {month.income.toLocaleString()}</p>
+                                                <p className="text-emerald-500 font-medium">+ R$ {month.income.toLocaleString()}</p>
                                             </div>
                                             <div>
                                                 <p className="text-xs text-slate-500 mb-1">Saídas</p>
-                                                <p className="text-rose-400 font-medium">- R$ {month.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                                <p className="text-rose-500 font-medium">- R$ {month.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-xs text-slate-500 mb-1">
                                                     {isCumulativeView ? 'Saldo Acumulado' : 'Saldo do Mês'}
                                                 </p>
-                                                <p className={`font-bold ${month.balance >= 0 ? 'text-blue-400' : 'text-rose-400'}`}>
+                                                <p className={`font-bold ${month.balance >= 0 ? (theme === 'light' ? 'text-blue-600' : 'text-blue-400') : 'text-rose-500'}`}>
                                                     R$ {isCumulativeView
                                                         ? calculateCumulativeBalance(month.date).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                                                         : month.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -595,71 +635,93 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
             </div>
 
             {/* Input Form */}
-            <form key={editingId || 'new-form'} onSubmit={handleSubmit} className="bg-white/5 backdrop-blur-xl p-6 md:p-8 rounded-3xl border border-white/10 shadow-2xl grid grid-cols-1 md:grid-cols-12 gap-4">
+            <form key={editingId || 'new-form'} onSubmit={handleSubmit} className={`p-6 md:p-8 rounded-3xl border shadow-2xl grid grid-cols-1 md:grid-cols-12 gap-4 ${
+                theme === 'light' ? 'glass-card border-emerald-100/50' : 'bg-[#111827]/80 backdrop-blur-xl border-white/5'
+            }`}>
                 <div className="md:col-span-12">
-                    <h3 className="text-lg font-bold text-slate-100 mb-2 flex items-center gap-2">
-                        {editingId ? <Pencil className="w-5 h-5 text-blue-400" /> : <LayoutDashboard className="w-5 h-5 text-emerald-400" />}
+                    <h3 className={`text-lg font-bold mb-2 flex items-center gap-2 ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
+                        {editingId ? <Pencil className="w-5 h-5 text-blue-500" /> : <LayoutDashboard className="w-5 h-5 text-verde-respira" />}
                         {editingId ? 'Editar Transação' : 'Nova Transação'}
                     </h3>
                 </div>
 
                 {/* Row 1: Description, Value, Date */}
                 <div className="md:col-span-6">
-                    <label className="block text-xs font-medium text-slate-400 mb-1 ml-1">Descrição</label>
+                    <label className={`block text-xs font-medium mb-1 ml-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Descrição</label>
                     <input
                         type="text"
                         placeholder="Ex: Mercado, Aluguel..."
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 transition-all ${
+                            theme === 'light' 
+                            ? 'bg-[#f0fdfa]/50 border-emerald-100/50 text-slate-800 focus:ring-emerald-500/20 placeholder:text-slate-400' 
+                            : 'bg-slate-900 border-slate-700 text-slate-200 focus:ring-blue-500/50 placeholder:text-slate-500'
+                        }`}
                     />
                 </div>
                 <div className="md:col-span-3">
-                    <label className="block text-xs font-medium text-slate-400 mb-1 ml-1">Valor</label>
+                    <label className={`block text-xs font-medium mb-1 ml-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Valor</label>
                     <input
                         type="number"
                         placeholder="R$ 0,00"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
-                        className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 transition-all ${
+                            theme === 'light' 
+                            ? 'bg-[#f0fdfa]/50 border-emerald-100/50 text-slate-800 focus:ring-emerald-500/20 placeholder:text-slate-400' 
+                            : 'bg-slate-900 border-slate-700 text-slate-200 focus:ring-blue-500/50 placeholder:text-slate-500'
+                        }`}
                     />
                 </div>
                 <div className="md:col-span-3">
-                    <label className="block text-xs font-medium text-slate-400 mb-1 ml-1">Data</label>
+                    <label className={`block text-xs font-medium mb-1 ml-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Data</label>
                     <input
                         type="date"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
-                        className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 [color-scheme:dark]"
+                        className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 transition-all ${
+                            theme === 'light' 
+                            ? 'bg-[#f0fdfa]/50 border-emerald-100/50 text-slate-800 focus:ring-emerald-500/20 [color-scheme:light]' 
+                            : 'bg-slate-900 border-slate-700 text-slate-200 focus:ring-blue-500/50 [color-scheme:dark]'
+                        }`}
                     />
                 </div>
 
                 {/* Row 2: Category Selector (Full Width) */}
                 <div className="md:col-span-12">
-                    <label className="block text-xs font-medium text-slate-400 mb-1 ml-1">Categoria</label>
-                    <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-1 p-1.5 bg-slate-900/50 rounded-xl border border-slate-700 max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
+                    <label className={`block text-xs font-medium mb-1 ml-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Categoria</label>
+                    <div className={`grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-1 p-1.5 border rounded-xl max-h-[180px] overflow-y-auto scrollbar-thin ${
+                        theme === 'light' ? 'bg-[#f0fdfa]/50 border-emerald-100/50 scrollbar-thumb-slate-200' : 'bg-slate-900 border-slate-700 scrollbar-thumb-slate-800'
+                    }`}>
                         {(type === 'income' ? CATEGORIES.income : CATEGORIES.expense).map(cat => (
                             <button
                                 key={cat.id}
                                 type="button"
                                 onClick={() => setCategory(cat)}
-                                className={`p-1.5 rounded-lg flex flex-col items-center justify-center gap-1 transition-all ${category.id === cat.id ? 'bg-slate-700 ring-1 ring-slate-500' : 'hover:bg-slate-800'}`}
+                                className={`p-1.5 rounded-lg flex flex-col items-center justify-center gap-1 transition-all ${
+                                    category.id === cat.id 
+                                    ? (theme === 'light' ? 'bg-verde-respira/20 ring-1 ring-verde-respira/50' : 'bg-slate-700 ring-1 ring-slate-500') 
+                                    : (theme === 'light' ? 'hover:bg-slate-100' : 'hover:bg-slate-800')
+                                }`}
                                 title={cat.label}
                             >
                                 <cat.icon className={`w-4 h-4 ${cat.color}`} />
-                                <span className="text-[9px] text-slate-400 truncate w-full text-center">{cat.label}</span>
+                                <span className={`text-[9px] truncate w-full text-center ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>{cat.label}</span>
                             </button>
                         ))}
                     </div>
 
                     {/* Informative Tip */}
                     {(category.id === 'initial_balance' || category.id === 'carryover' || (type === 'expense' && category.id === 'investment') || category.id === 'vault' || category.id === 'vault_redemption') && (
-                        <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
-                            <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                            <p className="text-[11px] text-blue-300 leading-relaxed">
+                        <div className={`mt-3 p-3 border rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2 ${
+                            theme === 'light' ? 'bg-emerald-50 border-emerald-100' : 'bg-blue-500/10 border-blue-500/30'
+                        }`}>
+                            <Info className={`w-4 h-4 shrink-0 mt-0.5 ${theme === 'light' ? 'text-blue-500' : 'text-blue-400'}`} />
+                            <p className={`text-[11px] leading-relaxed ${theme === 'light' ? 'text-blue-700' : 'text-blue-300'}`}>
                                 {category.id === 'initial_balance' && "O 'Saldo Inicial' é para calibrar o app: use para igualar o saldo oficial hoje com o que você tem no banco e começar do zero."}
                                 {category.id === 'carryover' && "A 'Sobra de Mês' é para continuidade: use na virada do mês para trazer o lucro acumulado que sobrou do mês anterior sem contar como salário."}
-                                {category.id === 'investment' && "Lançar como 'Investimento' não conta como um gasto real no mês, pois o dinheiro continua fazendo parte do seu patrimônio."}
+                                {category.id === 'investment' && "Lançar como 'Sementinha' não conta como um gasto comum, pois esse valor continua protegendo o seu futuro."}
                                 {category.id === 'vault' && "Lançamentos no 'Cofre' são reservas de patrimônio e ajudam a separar o que você não pretende gastar logo."}
                                 {category.id === 'vault_redemption' && "O 'Resgate Cofre' é uma transferência de volta para sua carteira e não será contabilizado como um ganho real (salário) no mês."}
                             </p>
@@ -677,8 +739,12 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                 checked={isRecurring}
                                 onChange={(e) => setIsRecurring(e.target.checked)}
                             />
-                            <div className="relative w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-slate-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:after:bg-white group-hover:after:bg-white transition-colors"></div>
-                            <span className="ms-2 text-xs font-medium text-slate-400 group-hover:text-slate-200 transition-colors">Parcelado</span>
+                            <div className={`relative w-9 h-5 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:rounded-full after:h-4 after:w-4 after:transition-all transition-colors ${
+                                theme === 'light' 
+                                ? 'bg-slate-200 peer-checked:bg-blue-500 after:bg-white after:shadow-sm' 
+                                : 'bg-slate-700 peer-checked:bg-blue-600 after:bg-slate-400'
+                            }`}></div>
+                            <span className={`ms-2 text-xs font-medium transition-colors ${theme === 'light' ? 'text-slate-500 group-hover:text-slate-700' : 'text-slate-400 group-hover:text-slate-200'}`}>Parcelado</span>
                         </label>
 
                         <label className="inline-flex items-center cursor-pointer select-none group">
@@ -688,56 +754,66 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                 checked={category.isFixed || false}
                                 onChange={(e) => setCategory({ ...category, isFixed: e.target.checked })}
                             />
-                            <div className="relative w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-slate-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-rose-600 peer-checked:after:bg-white group-hover:after:bg-white transition-colors"></div>
-                            <span className="ms-2 text-xs font-medium text-slate-400 group-hover:text-slate-200 transition-colors">Fixa</span>
+                            <div className={`relative w-9 h-5 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:rounded-full after:h-4 after:w-4 after:transition-all transition-colors ${
+                                theme === 'light' 
+                                ? 'bg-slate-200 peer-checked:bg-rose-500 after:bg-white after:shadow-sm' 
+                                : 'bg-slate-700 peer-checked:bg-rose-600 after:bg-slate-400'
+                            }`}></div>
+                            <span className={`ms-2 text-xs font-medium transition-colors ${theme === 'light' ? 'text-slate-500 group-hover:text-slate-700' : 'text-slate-400 group-hover:text-slate-200'}`}>Fixa</span>
                         </label>
                         {isRecurring && (
                             <div className="flex items-center gap-4 animate-in fade-in slide-in-from-left-2 transition-all">
-                                <div className="flex items-center gap-2">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase">Parcelas:</label>
-                                    <input
-                                        type="number"
-                                        min="2"
-                                        max="60"
-                                        value={installments}
-                                        onChange={(e) => setInstallments(parseInt(e.target.value))}
-                                        className="w-14 bg-slate-900/50 border border-slate-700 rounded-lg px-2 py-1 text-sm text-slate-200 focus:outline-none focus:border-blue-500/50"
-                                    />
-                                </div>
-                                <div className="flex bg-slate-900/50 p-1 rounded-lg border border-slate-700">
-                                    <button
-                                        type="button"
-                                        onClick={() => setInstallmentValueMode('total')}
-                                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${installmentValueMode === 'total'
-                                            ? 'bg-blue-600 text-white shadow-sm'
-                                            : 'text-slate-500 hover:text-slate-300'
+                                    <div className={`flex items-center gap-2 ${theme === 'light' ? 'text-slate-600' : 'text-slate-200'}`}>
+                                        <label className={`text-[10px] font-bold uppercase ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>Parcelas:</label>
+                                        <input
+                                            type="number"
+                                            min="2"
+                                            max="60"
+                                            value={installments}
+                                            onChange={(e) => setInstallments(parseInt(e.target.value))}
+                                            className={`w-14 border rounded-lg px-2 py-1 text-sm focus:outline-none transition-all ${
+                                                theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-400' : 'bg-slate-900/50 border-slate-700 text-slate-200 focus:border-blue-500/50'
                                             }`}
-                                    >
-                                        Valor Total
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setInstallmentValueMode('monthly')}
-                                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${installmentValueMode === 'monthly'
-                                            ? 'bg-blue-600 text-white shadow-sm'
-                                            : 'text-slate-500 hover:text-slate-300'
-                                            }`}
-                                    >
-                                        Mensal
-                                    </button>
-                                </div>
+                                        />
+                                    </div>
+                                    <div className={`flex p-1 rounded-lg border ${
+                                        theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/50 border-slate-700'
+                                    }`}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setInstallmentValueMode('total')}
+                                            className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${installmentValueMode === 'total'
+                                                ? (theme === 'light' ? 'bg-blue-500 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm')
+                                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                                }`}
+                                        >
+                                            Valor Total
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setInstallmentValueMode('monthly')}
+                                            className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${installmentValueMode === 'monthly'
+                                                ? (theme === 'light' ? 'bg-blue-500 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm')
+                                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                                }`}
+                                        >
+                                            Mensal
+                                        </button>
+                                    </div>
                             </div>
                         )}
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-                        <div className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-700">
+                        <div className={`flex p-1 rounded-xl border ${
+                            theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/50 border-slate-700'
+                        }`}>
                             <button
                                 type="button"
                                 onClick={() => { setType('income'); setCategory(CATEGORIES.income[CATEGORIES.income.length - 1]); }}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${type === 'income'
-                                    ? 'bg-emerald-500/20 text-emerald-400 shadow-sm'
-                                    : 'text-slate-400 hover:text-slate-200'
+                                    ? 'bg-emerald-500/20 text-emerald-500 shadow-sm'
+                                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                                     }`}
                             >
                                 <ArrowUpCircle className="w-4 h-4" />
@@ -746,15 +822,19 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                 type="button"
                                 onClick={() => { setType('expense'); setCategory(CATEGORIES.expense[CATEGORIES.expense.length - 1]); }}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${type === 'expense'
-                                    ? 'bg-rose-500/20 text-rose-400 shadow-sm'
-                                    : 'text-slate-400 hover:text-slate-200'
+                                    ? 'bg-rose-500/20 text-rose-500 shadow-sm'
+                                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                                     }`}
                             >
                                 <ArrowDownCircle className="w-4 h-4" />
                             </button>
                         </div>
 
-                        <button type="submit" className="flex-1 px-6 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl shadow-lg shadow-blue-500/20 transition-all">
+                        <button type="submit" className={`flex-1 px-6 font-bold py-2 rounded-xl shadow-lg transition-all ${
+                            theme === 'light' 
+                            ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-blue-500/10' 
+                            : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20'
+                        }`}>
                             {editingId ? 'Salvar' : 'Adicionar'}
                         </button>
                     </div>
@@ -762,13 +842,17 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
             </form >
 
             {/* List Header & Filter */}
-            < div className="flex flex-col md:flex-row md:items-center justify-between gap-4" >
-                <h3 className="text-xl font-bold text-slate-100">Transações</h3>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <h3 className={`text-xl font-bold ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>Transações</h3>
                 <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 w-full md:w-auto">
                     <div className="flex gap-2 w-full md:w-auto">
                         <button
                             onClick={exportToPDF}
-                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-800/50 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors text-sm font-medium"
+                            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl border transition-all text-sm font-medium shadow-sm ${
+                                theme === 'light' 
+                                ? 'bg-white/30 border-slate-200 text-slate-600 hover:text-blue-600 hover:bg-blue-50/50' 
+                                : 'bg-white/5 border-white/5 text-slate-400 hover:text-blue-400 hover:bg-white/10'
+                            }`}
                             title="Baixar Relatório em PDF"
                         >
                             <Download className="w-4 h-4" />
@@ -776,46 +860,61 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                         </button>
                         <button
                             onClick={() => setShowReport(true)}
-                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-800/50 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors text-sm font-medium"
+                            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl border transition-all text-sm font-medium shadow-sm ${
+                                theme === 'light' 
+                                ? 'bg-white/30 border-slate-200 text-slate-600 hover:text-blue-600 hover:bg-blue-50/50' 
+                                : 'bg-white/5 border-white/5 text-slate-400 hover:text-blue-400 hover:bg-white/10'
+                            }`}
                         >
                             <FileText className="w-4 h-4" />
                             Relatórios
                         </button>
                     </div>
-                    <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-2 rounded-xl border border-slate-700 w-full md:w-auto">
-                        <Calendar className="w-4 h-4 text-slate-400" />
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border w-full md:w-auto shadow-sm ${
+                        theme === 'light' ? 'bg-white/20 border-slate-200' : 'bg-white/5 border-white/5'
+                    }`}>
+                        <Calendar className={`w-4 h-4 ${theme === 'light' ? 'text-verde-respira' : 'text-verde-respira/70'}`} />
                         <input
                             type="month"
                             value={selectedMonth}
                             onChange={(e) => setSelectedMonth(e.target.value)}
-                            className="bg-transparent text-slate-300 text-sm focus:outline-none w-full [color-scheme:dark]"
+                            className={`bg-transparent text-sm focus:outline-none w-full ${
+                                theme === 'light' ? 'text-slate-700 [color-scheme:light]' : 'text-slate-200 [color-scheme:dark]'
+                            }`}
                         />
                     </div>
                 </div>
             </div>
 
             {/* Analytics Chart & Advisor */}
-            <div className={`grid grid-cols-1 ${transactions.length === 0 && !manualConfig.income ? '' : 'lg:grid-cols-2'} gap-8 mb-8 animate-in slide-in-from-bottom-5 fade-in duration-500`}>
-                <ExpensesChart transactions={chartTransactions} />
+            <div className={`grid grid-cols-1 ${transactions.length === 0 && !manualConfig.income ? '' : (isAliviaConfiguring ? 'lg:grid-cols-1' : 'lg:grid-cols-2')} gap-8 mb-8 animate-in slide-in-from-bottom-5 fade-in duration-500`}>
+                {!isAliviaConfiguring && <ExpensesChart transactions={chartTransactions} />}
                 <FinancialAdvisor
                     transactions={transactions}
                     manualConfig={manualConfig}
                     onConfigChange={updateManualConfig}
+                    onToggleConfig={setIsAliviaConfiguring}
                 />
             </div>
 
             {/* Category Filter & Search */}
             <div className="mb-6 space-y-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-1">
-                    <h4 className="text-sm font-semibold text-slate-400">Filtrar por Categoria</h4>
-                    <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-2 rounded-xl border border-slate-700 w-full md:w-72">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">Filtrar por Categoria</h4>
+                    <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border w-full md:w-72 shadow-sm focus-within:ring-2 transition-all ${
+                        theme === 'light' 
+                        ? 'bg-white/20 border-slate-200 focus-within:ring-blue-500/10 focus-within:border-blue-400' 
+                        : 'bg-white/5 border-white/5 focus-within:border-azul-ceu'
+                    }`}>
                         <Search className="w-4 h-4 text-slate-400" />
                         <input
                             type="text"
                             placeholder="Buscar transação..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-transparent text-slate-300 text-sm focus:outline-none w-full"
+                            className={`bg-transparent text-sm focus:outline-none w-full ${
+                                theme === 'light' ? 'text-slate-700 placeholder:text-slate-400' : 'text-slate-200 placeholder:text-slate-500'
+                            }`}
                         />
                     </div>
                 </div>
@@ -823,8 +922,8 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                     <button
                         onClick={() => setFilterCategory('all')}
                         className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap border ${filterCategory === 'all'
-                            ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/25'
-                            : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-slate-200'
+                            ? (theme === 'light' ? 'bg-blue-500 text-white border-blue-400 shadow-md' : 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/25')
+                            : (theme === 'light' ? 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50' : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-slate-200')
                             }`}
                     >
                         Todos
@@ -834,8 +933,8 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                             key={cat.id}
                             onClick={() => setFilterCategory(cat.id)}
                             className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap border flex items-center gap-2 ${filterCategory === cat.id
-                                ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/25'
-                                : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-slate-200'
+                                ? (theme === 'light' ? 'bg-[#69C8B9] text-white border-[#69C8B9] shadow-md' : 'bg-[#69C8B9] text-white border-[#69C8B9] shadow-lg shadow-[#69C8B9]/25')
+                                : (theme === 'light' ? 'bg-white/30 text-slate-500 border-slate-200 hover:bg-slate-50 shadow-sm' : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10 hover:text-slate-300 shadow-sm')
                                 }`}
                         >
                             <cat.icon className="w-3 h-3" />
@@ -847,8 +946,8 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                             key={cat.id}
                             onClick={() => setFilterCategory(cat.id)}
                             className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap border flex items-center gap-2 ${filterCategory === cat.id
-                                ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/25'
-                                : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-slate-200'
+                                ? (theme === 'light' ? 'bg-blue-500 text-white border-blue-400 shadow-md' : 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/25')
+                                : (theme === 'light' ? 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 shadow-sm' : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-slate-200')
                                 }`}
                         >
                             <cat.icon className="w-3 h-3" />
@@ -863,14 +962,22 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
             <div className="max-h-[500px] overflow-y-auto pr-2 -mr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent space-y-3">
                 {
                     filteredTransactions.length === 0 ? (
-                        <div className="text-center py-10 text-slate-500 bg-slate-800/30 rounded-2xl border border-slate-800 border-dashed">
+                        <div className={`text-center py-10 rounded-2xl border border-dashed ${
+                            theme === 'light' ? 'bg-verde-respira/5 border-verde-respira/30 text-slate-500' : 'bg-verde-respira/5 border-verde-respira/20 text-slate-400'
+                        }`}>
                             Nenhuma transação neste mês.
                         </div>
                     ) : (
                         filteredTransactions.map((t) => (
-                            <div key={t.id} className="group bg-slate-800/50 backdrop-blur-sm p-4 rounded-2xl border border-slate-700/50 hover:border-slate-600 transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div key={t.id} className={`group backdrop-blur-md p-4 rounded-2xl border transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm ${
+                                theme === 'light' 
+                                ? 'bg-white/20 border-white/50 hover:border-verde-respira/30 hover:bg-white/30' 
+                                : 'bg-white/5 border-white/5 hover:border-white/10'
+                            }`}>
                                 <div className="flex items-center gap-4 w-full md:w-auto">
-                                    <div className={`p-3 rounded-xl bg-slate-900/50 border border-slate-700`}>
+                                    <div className={`p-3 rounded-xl border ${
+                                        theme === 'light' ? 'bg-white/20 border-white/20' : 'bg-white/5 border-white/5'
+                                    }`}>
                                         {(() => {
                                             // Resolve Icon
                                             const catList = t.type === 'income' ? CATEGORIES.income : CATEGORIES.expense;
@@ -880,22 +987,26 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                         })()}
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-slate-200">{t.description}</h4>
-                                        <p className="text-xs text-slate-500 flex items-center gap-1">
+                                        <h4 className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>{t.description}</h4>
+                                        <p className={`text-xs flex items-center gap-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
                                             {new Date(t.date).toLocaleDateString()}
-                                            <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
+                                            <span className={`w-1 h-1 rounded-full ${theme === 'light' ? 'bg-slate-300' : 'bg-slate-600'}`}></span>
                                             {(() => {
                                                 const catList = t.type === 'income' ? CATEGORIES.income : CATEGORIES.expense;
                                                 const foundCat = catList.find(c => c.id === t.category);
                                                 return foundCat ? foundCat.label : 'Geral';
                                             })()}
                                             {t.isFixed && (
-                                                <span className="ml-2 text-[10px] font-bold bg-rose-500/20 text-rose-300 px-1.5 py-0.5 rounded border border-rose-500/20">
+                                                <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                                                    theme === 'light' ? 'bg-rose-50 text-rose-500 border-rose-100' : 'bg-rose-500/20 text-rose-300 border-rose-500/20'
+                                                }`}>
                                                     Fixa
                                                 </span>
                                             )}
                                             {t.description.match(/\(\d+\/\d+\)/) && (
-                                                <span className="ml-2 text-[10px] font-bold bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded border border-blue-500/20">
+                                                <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                                                    theme === 'light' ? 'bg-blue-50 text-blue-500 border-blue-100' : 'bg-blue-500/20 text-blue-300 border-blue-500/20'
+                                                }`}>
                                                     Recorrente
                                                 </span>
                                             )}
@@ -908,10 +1019,14 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                         {t.type === 'income' ? '+' : '-'} R$ {t.amount.toLocaleString()}
                                     </span>
                                     <div key="item-actions" className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                        <button key="btn-item-edit" onClick={() => handleEdit(t)} className="p-2 bg-slate-700/50 hover:bg-blue-500/10 text-slate-400 hover:text-blue-400 rounded-lg transition-colors">
+                                        <button key="btn-item-edit" onClick={() => handleEdit(t)} className={`p-2 rounded-lg transition-colors ${
+                                            theme === 'light' ? 'bg-white/30 hover:bg-blue-50/50 text-slate-400 hover:text-blue-500' : 'bg-slate-700/50 hover:bg-blue-500/10 text-slate-400 hover:text-blue-400'
+                                        }`}>
                                             <Pencil className="w-4 h-4" />
                                         </button>
-                                        <button key="btn-item-delete" onClick={() => handleDelete(t)} className="p-2 bg-slate-700/50 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 rounded-lg transition-colors">
+                                        <button key="btn-item-delete" onClick={() => handleDelete(t)} className={`p-2 rounded-lg transition-colors ${
+                                            theme === 'light' ? 'bg-white/30 hover:bg-rose-50/50 text-slate-400 hover:text-rose-500' : 'bg-slate-700/50 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400'
+                                        }`}>
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
@@ -932,10 +1047,12 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
             {/* Confirmation Modal - Rendered via Portal to ensure true centering and visibility */}
             {
                 deleteId && typeof document !== 'undefined' && createPortal(
-                    <div key="modal-backdrop" className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+                    <div key="modal-backdrop" className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
                         <div
                             key="modal-card"
-                            className="bg-slate-900 border border-slate-700/50 rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden"
+                            className={`border rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden ${
+                                theme === 'light' ? 'bg-white border-verde-respira/20' : 'bg-slate-900 border-slate-700/50'
+                            }`}
                             onClick={(e) => e.stopPropagation()}
                         >
                             {/* Inner Glow/Aesthetics */}
@@ -947,8 +1064,8 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                 </div>
 
                                 <div key="modal-text" className="space-y-2">
-                                    <h3 key="modal-title" className="text-xl font-bold text-slate-100 tracking-tight">Excluir Transação?</h3>
-                                    <p key="modal-desc" className="text-sm text-slate-400 leading-relaxed px-4">
+                                    <h3 key="modal-title" className={`text-xl font-bold tracking-tight ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>Excluir Transação?</h3>
+                                    <p key="modal-desc" className={`text-sm leading-relaxed px-4 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
                                         Esta ação removerá permanentemente este item do seu histórico e não poderá ser desfeita.
                                     </p>
                                 </div>
@@ -958,7 +1075,9 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                         <button
                                             key="btn-delete-only"
                                             onClick={() => confirmDelete(false)}
-                                            className="w-64 px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-all font-semibold text-sm border border-slate-700 shadow-lg"
+                                            className={`w-64 px-4 py-3 rounded-xl transition-all font-semibold text-sm border shadow-lg ${
+                                                theme === 'light' ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                                            }`}
                                         >
                                             Excluir apenas esta
                                         </button>
@@ -974,7 +1093,9 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                         <button
                                             key="btn-cancel-rec"
                                             onClick={() => setDeleteId(null)}
-                                            className="w-64 px-4 py-3 text-slate-400 hover:text-slate-100 transition-colors text-xs font-medium"
+                                            className={`w-64 px-4 py-3 transition-colors text-xs font-medium ${
+                                                theme === 'light' ? 'text-slate-400 hover:text-slate-700' : 'text-slate-600 hover:text-slate-300'
+                                            }`}
                                         >
                                             Cancelar
                                         </button>
@@ -993,7 +1114,9 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                         <button
                                             key="btn-cancel-single-final"
                                             onClick={() => setDeleteId(null)}
-                                            className="w-64 px-4 py-3 text-slate-400 hover:text-slate-100 transition-colors text-xs font-medium"
+                                            className={`w-64 px-4 py-3 transition-colors text-xs font-medium ${
+                                                theme === 'light' ? 'text-slate-400 hover:text-slate-700' : 'text-slate-600 hover:text-slate-300'
+                                            }`}
                                         >
                                             Cancelar
                                         </button>

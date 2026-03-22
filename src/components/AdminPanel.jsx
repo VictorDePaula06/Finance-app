@@ -233,54 +233,58 @@ export default function AdminPanel({ onBack }) {
     );
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-12 font-sans">
-            <div className="max-w-5xl mx-auto">
+        <div className="min-h-screen bg-[#f8fafc] text-slate-800 p-6 md:p-12 font-sans relative overflow-hidden">
+            {/* Background Orbs */}
+            <div className="absolute top-0 right-0 w-96 h-96 bg-[#69C8B9]/10 rounded-full blur-[120px] -z-10" />
+            <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#5CCEEA]/10 rounded-full blur-[120px] -z-10" />
+
+            <div className="max-w-5xl mx-auto relative z-10">
                 {/* Header */}
                 <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-12">
                     <button
                         onClick={onBack}
-                        className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors group w-fit"
+                        className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors group w-fit"
                     >
                         <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                        <span className="text-sm font-medium">Voltar ao Dashboard</span>
+                        <span className="text-sm font-bold uppercase tracking-tight">Voltar ao Dashboard</span>
                     </button>
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                            <Shield className="w-6 h-6 text-blue-400" />
+                        <div className="p-3 bg-white shadow-sm rounded-2xl border border-slate-100">
+                            <Shield className="w-6 h-6 text-[#5CCEEA]" />
                         </div>
-                        <h1 className="text-2xl md:text-3xl font-black tracking-tighter">Painel Admin</h1>
+                        <h1 className="text-2xl md:text-3xl font-black tracking-tighter text-slate-800">Painel Admin</h1>
                     </div>
                 </header>
 
                 {/* Search & Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                     <div className="md:col-span-2 relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
                         <input
                             type="text"
                             placeholder="Buscar por e-mail ou UID..."
-                            className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-base md:text-lg"
+                            className="w-full bg-white border border-slate-200 shadow-sm rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-[#5CCEEA]/20 transition-all text-base md:text-lg text-slate-800 placeholder:text-slate-400"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
                     <button
                         onClick={fetchUsers}
-                        className="flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-2xl py-4 md:py-0 transition-all"
+                        className="flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 shadow-sm rounded-2xl py-4 md:py-0 transition-all active:scale-95"
                         disabled={loading}
                     >
-                        <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''} text-[#69C8B9]`} />
                         <span className="font-bold">Atualizar Lista</span>
                     </button>
                 </div>
 
                 {/* Users List */}
-                <div className="bg-slate-900/50 border border-slate-800 rounded-3xl overflow-hidden backdrop-blur-xl">
+                <div className="bg-white/80 border border-slate-200 rounded-3xl overflow-hidden backdrop-blur-xl shadow-sm">
                     {/* Desktop Table View */}
                     <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-slate-800/50 border-b border-slate-800">
+                                <tr className="bg-slate-50 border-b border-slate-100">
                                     <th className="p-6 text-slate-400 font-medium uppercase text-xs tracking-wider">E-mail / UID</th>
                                     <th className="p-6 text-slate-400 font-medium uppercase text-xs tracking-wider">Plano</th>
                                     <th className="p-6 text-slate-400 font-medium uppercase text-xs tracking-wider">Pagamento</th>
@@ -302,9 +306,9 @@ export default function AdminPanel({ onBack }) {
                                     ))
                                 ) : filteredUsers.length > 0 ? (
                                     filteredUsers.map(user => (
-                                        <tr key={user.uid} className="hover:bg-white/5 transition-colors group">
+                                        <tr key={user.uid} className="hover:bg-slate-50/50 transition-colors group">
                                             <td className="p-6 text-sm">
-                                                <div className={`font-bold mb-1 transition-colors ${user.email === 'N/A' ? 'text-slate-500 italic' : 'text-white group-hover:text-blue-400'}`}>
+                                                <div className={`font-bold mb-1 transition-colors ${user.email === 'N/A' ? 'text-slate-400 italic font-medium' : 'text-slate-800 group-hover:text-[#5CCEEA]'}`}>
                                                     {user.email === 'N/A' ? 'Sem e-mail (Legacy)' : user.email}
                                                 </div>
                                                 <div className="text-[10px] text-slate-500 font-mono select-all opacity-50">
@@ -337,7 +341,7 @@ export default function AdminPanel({ onBack }) {
                                                         </span>
                                                     </div>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-500 text-[10px] font-bold uppercase transition-opacity">
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-500 text-[10px] font-bold uppercase transition-opacity">
                                                         <UserMinus className="w-3 h-3" />
                                                         FREE / TESTE
                                                     </span>
@@ -378,7 +382,7 @@ export default function AdminPanel({ onBack }) {
                                                     )}
                                                     <button
                                                         onClick={() => resetUser(user.uid)}
-                                                        className="px-3 py-2 rounded-xl font-bold text-[10px] transition-all border border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
+                                                        className="px-3 py-2 rounded-xl font-bold text-[10px] transition-all border border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:text-slate-600 shadow-sm"
                                                         title="Limpar assinatura manual"
                                                     >
                                                         Resetar

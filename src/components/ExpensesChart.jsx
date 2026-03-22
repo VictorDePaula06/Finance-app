@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
+import { useTheme } from '../contexts/ThemeContext';
 
 const COLORS = {
     housing: '#FB7185', // rose-400
@@ -36,6 +37,7 @@ const CATEGORY_LABELS = {
 };
 
 export default function ExpensesChart({ transactions }) {
+    const { theme } = useTheme();
     const getRobustMonth = (t) => {
         if (t.month) return t.month;
         if (!t.date) return "";
@@ -107,8 +109,8 @@ export default function ExpensesChart({ transactions }) {
 
     if (data.length === 0) {
         return (
-            <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 shadow-xl flex flex-col items-center justify-center min-h-[400px]">
-                <span className="text-slate-500 text-sm">Nenhuma despesa para exibir</span>
+            <div className="bg-verde-respira/5 p-6 rounded-2xl border border-verde-respira/20 border-dashed flex flex-col items-center justify-center min-h-[400px]">
+                <span className="text-slate-400 text-sm">Nenhuma despesa para exibir</span>
             </div>
         );
     }
@@ -116,8 +118,8 @@ export default function ExpensesChart({ transactions }) {
     const totalExpense = data.reduce((acc, curr) => acc + (parseFloat(curr.value) || 0), 0);
 
     return (
-        <div key="chart-container" className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 shadow-xl flex flex-col min-h-[440px]">
-            <h3 key="chart-title" className="text-lg font-bold text-slate-100 mb-4">Despesas por Categoria</h3>
+        <div key="chart-container" className="p-2 flex flex-col min-h-[440px]">
+            <h3 key="chart-title" className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 px-2">Despesas por Categoria</h3>
             <div key="chart-wrapper" className="h-72 w-full relative min-w-[300px]">
                 <ResponsiveContainer key="chart-resp" width="99%" height="100%">
                     <PieChart key="pie-root">
@@ -138,8 +140,8 @@ export default function ExpensesChart({ transactions }) {
                         </Pie>
                         <Tooltip
                             key="chart-tooltip"
-                            contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '12px', color: '#f8fafc' }}
-                            itemStyle={{ color: '#f8fafc' }}
+                            contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderColor: '#e2e8f0', borderRadius: '12px', color: '#1e293b', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                            itemStyle={{ color: '#1e293b', fontWeight: 'bold' }}
                             formatter={(value) => `R$ ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
                         />
                         <Legend
@@ -152,15 +154,19 @@ export default function ExpensesChart({ transactions }) {
                                 paddingTop: '20px',
                                 fontSize: '10px'
                             }}
-                            formatter={(value) => <span key={`legend-${value}`} className="text-slate-400 font-medium">{value}</span>}
+                            formatter={(value) => <span key={`legend-${value}`} className="text-slate-500 text-[10px] font-semibold">{value}</span>}
                         />
                     </PieChart>
                 </ResponsiveContainer>
             </div>
 
-            <div key="total-wrapper" className="mt-6 flex flex-col items-center justify-center p-4 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-sm">
-                <span key="total-label" className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Gasto Total</span>
-                <span key="total-value" className="text-3xl font-black text-white mt-1">
+            <div key="total-wrapper" className={`mt-auto flex flex-col items-center justify-center p-6 rounded-3xl border shadow-sm transition-all ${
+                theme === 'light' 
+                ? 'bg-verde-respira/5 border-verde-respira/10 hover:bg-verde-respira/10' 
+                : 'bg-white/5 border-white/10 hover:bg-white/10'
+            }`}>
+                <span key="total-label" className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Gasto Total no Período</span>
+                <span key="total-value" className={`text-4xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>
                     {`R$ ${totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 </span>
             </div>

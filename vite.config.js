@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'Finance Control',
-        short_name: 'Finance',
-        description: 'Gerencie seus ativos e metas',
+        name: 'Alívia',
+        short_name: 'Alívia',
+        description: 'Domine suas finanças com a Alívia',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',

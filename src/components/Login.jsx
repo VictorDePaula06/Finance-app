@@ -28,13 +28,7 @@ export default function Login() {
 
             <div className="glass-card p-10 rounded-3xl w-full max-w-md backdrop-blur-xl relative z-10 animate-in fade-in zoom-in duration-500">
                 <div className="flex flex-col items-center mb-10">
-                    <img src={logo} alt="Finance Control Logo" className="w-48 h-auto object-contain mb-6 animate-bounce-slow drop-shadow-2xl" />
-                    <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-emerald-400 to-teal-400 bg-clip-text text-transparent mb-2">
-                        Finance Control
-                    </h2>
-                    <p className="text-slate-400 text-sm font-medium">
-                        Gerencie seus ativos com inteligência
-                    </p>
+                    <img src={logo} alt="Alívia Logo" className="w-72 h-auto object-contain mb-2 animate-bounce-slow drop-shadow-2xl" />
                 </div>
 
                 {error && (
@@ -64,7 +58,7 @@ export default function Login() {
                             <div className="w-full border-t border-slate-700/50"></div>
                         </div>
                         <div className="relative flex justify-center">
-                            <span className="bg-[#0f172a] px-4 text-xs text-slate-500 uppercase tracking-widest bg-opacity-0 backdrop-blur-sm rounded-full">
+                            <span className="bg-white/80 px-4 text-[10px] text-slate-400 uppercase font-black tracking-[0.2em] backdrop-blur-sm rounded-full">
                                 Acesso Seguro
                             </span>
                         </div>
@@ -78,7 +72,7 @@ export default function Login() {
             </div>
 
             <footer className="absolute bottom-6 text-slate-500 text-xs font-medium">
-                © {new Date().getFullYear()} Finance Control
+                © {new Date().getFullYear()} Alívia
             </footer>
         </div>
     );

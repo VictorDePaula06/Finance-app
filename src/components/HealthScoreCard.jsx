@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Activity, Info, TrendingUp, AlertTriangle, CheckCircle2, X } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function HealthScoreCard({ scoreData }) {
+    const { theme } = useTheme();
     const { score, feedback, color, bg, breakdown } = scoreData;
     const [showLogic, setShowLogic] = useState(false);
 
@@ -10,30 +12,38 @@ export default function HealthScoreCard({ scoreData }) {
     const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
     return (
-        <div className={`relative overflow-hidden rounded-3xl border border-white/10 backdrop-blur-xl transition-all duration-500 hover:shadow-2xl hover:shadow-blue-900/10 p-6 ${bg}`}>
+        <div className={`relative overflow-hidden glass-card transition-all duration-500 hover:shadow-2xl hover:shadow-emerald-900/10 p-6 ${bg}`}>
             {/* Logic Modal */}
             {showLogic && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-slate-900 border border-slate-700/50 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-                        <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-800/50">
-                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                                <Activity className="w-5 h-5 text-blue-400" />
-                                Como o Score é calculado?
+                    <div className={`border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 ${
+                        theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-700/50'
+                    }`}>
+                        <div className={`p-6 border-b flex justify-between items-center ${
+                            theme === 'light' ? 'bg-[#f0fdfa] border-emerald-100/30' : 'bg-slate-900/50 border-white/5'
+                        }`}>
+                            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                <Activity className="w-5 h-5 text-emerald-500" />
+                                Como sua paz é calculada?
                             </h3>
-                            <button onClick={() => setShowLogic(false)} className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white">
+                            <button onClick={() => setShowLogic(false)} className={`p-2 rounded-lg transition-colors ${
+                                theme === 'light' ? 'hover:bg-blue-50 text-slate-400 hover:text-blue-500' : 'hover:bg-slate-800 text-slate-400 hover:text-white'
+                            }`}>
                                 <X className="w-6 h-6" />
                             </button>
                         </div>
                         <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
                             <div className="space-y-4">
-                                <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
+                                <div className={`flex items-start gap-4 p-4 rounded-2xl border transition-colors ${
+                                    theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
+                                }`}>
                                     <div className="flex flex-col items-center gap-1">
-                                        <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400 font-bold text-sm min-w-[45px] text-center">20%</div>
-                                        <span className={`text-[10px] font-bold ${breakdown?.performance > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>+{breakdown?.performance || 0} pts</span>
+                                        <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 font-bold text-sm min-w-[45px] text-center">20%</div>
+                                        <span className={`text-[10px] font-bold ${breakdown?.performance > 0 ? 'text-emerald-500' : theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>+{breakdown?.performance || 0} pts</span>
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-slate-100 uppercase text-[10px] tracking-widest mb-1 text-slate-500">Performance Mensal</h4>
-                                        <p className="text-sm text-slate-400">Ganhos vs Gastos no mês atual.</p>
+                                        <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-widest mb-1">Seu Mês</h4>
+                                        <p className="text-sm text-slate-400">Como você cuidou do seu dinheiro este mês.</p>
                                         <div className="mt-2 text-xs flex gap-3 text-slate-500">
                                             <span>Entradas: <b className="text-slate-300">{formatCurrency(breakdown?.data?.monthlyIncome || 0)}</b></span>
                                             <span>Gastos: <b className="text-slate-300">{formatCurrency(breakdown?.data?.actualExpense || 0)}</b></span>
@@ -41,13 +51,15 @@ export default function HealthScoreCard({ scoreData }) {
                                     </div>
                                 </div>
 
-                                <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
+                                <div className={`flex items-start gap-4 p-4 rounded-2xl border transition-colors ${
+                                    theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
+                                }`}>
                                     <div className="flex flex-col items-center gap-1">
-                                        <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold text-sm min-w-[45px] text-center">30%</div>
-                                        <span className={`text-[10px] font-bold ${breakdown?.allocation > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>+{breakdown?.allocation || 0} pts</span>
+                                        <div className="p-2 rounded-xl bg-blue-50 text-blue-500 font-bold text-sm min-w-[45px] text-center">30%</div>
+                                        <span className={`text-[10px] font-bold ${breakdown?.allocation > 0 ? 'text-emerald-500' : theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>+{breakdown?.allocation || 0} pts</span>
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-slate-100 uppercase text-[10px] tracking-widest mb-1 text-slate-500">Regra 50/30/20</h4>
+                                        <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-widest mb-1">Suas Sementinhas</h4>
                                         <p className="text-sm text-slate-400">Qualidade da distribuição dos seus gastos.</p>
                                         <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-500">
                                             <div className="flex flex-col">
@@ -62,14 +74,16 @@ export default function HealthScoreCard({ scoreData }) {
                                     </div>
                                 </div>
 
-                                <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
+                                <div className={`flex items-start gap-4 p-4 rounded-2xl border transition-colors ${
+                                    theme === 'light' ? 'bg-[#FFF08C]/10 border-[#FFF08C]/20' : 'bg-white/5 border-white/5'
+                                }`}>
                                     <div className="flex flex-col items-center gap-1">
-                                        <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 font-bold text-sm min-w-[45px] text-center">50%</div>
-                                        <span className={`text-[10px] font-bold ${breakdown?.reserve > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>+{breakdown?.reserve || 0} pts</span>
+                                        <div className="p-2 rounded-xl bg-[#FFF08C]/40 text-emerald-800 font-bold text-sm min-w-[45px] text-center">50%</div>
+                                        <span className={`text-[10px] font-bold ${breakdown?.reserve > 0 ? 'text-emerald-700' : theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>+{breakdown?.reserve || 0} pts</span>
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-slate-100 uppercase text-[10px] tracking-widest mb-1 text-slate-500">Reserva de Emergência</h4>
-                                        <p className="text-sm text-slate-400">Quanto tempo seu saldo atual te sustenta.</p>
+                                        <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-widest mb-1">Sua Proteção</h4>
+                                        <p className="text-sm text-slate-600">Quanto tempo suas reservas te mantêm em paz.</p>
                                         <div className="mt-2 space-y-2">
                                             <div className="flex justify-between items-center text-[10px] text-slate-500 bg-white/5 p-2 rounded-xl border border-white/5">
                                                 <span>Saldo em Carteira (Mês Atual)</span>
@@ -94,9 +108,9 @@ export default function HealthScoreCard({ scoreData }) {
                                             </div>
                                         </div>
 
-                                        <div className="mt-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/10">
-                                            <p className="text-[10px] text-blue-300 leading-relaxed italic">
-                                                *O Score agora considera apenas seu <b>Saldo do Mês + Patrimônio</b> para o cálculo da reserva.
+                                        <div className="mt-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                                            <p className="text-[10px] text-emerald-600 leading-relaxed italic">
+                                                *A Alívia considera seu <b>Saldo + Sementinhas</b> para medir sua tranquilidade.
                                             </p>
                                         </div>
 
@@ -107,7 +121,7 @@ export default function HealthScoreCard({ scoreData }) {
                                 </div>
                             </div>
                             <p className="text-xs text-center text-slate-500 italic mt-4">
-                                "O score é um termômetro da sua liberdade. Números altos significam tranquilidade."
+                                "Sua tranquilidade é o maior patrimônio que você pode construir."
                             </p>
                         </div>
                     </div>
@@ -145,8 +159,8 @@ export default function HealthScoreCard({ scoreData }) {
                         />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-3xl font-black text-white leading-none">{score}</span>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Score</span>
+                        <span className="text-3xl font-black text-slate-800 leading-none">{score}</span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Paz</span>
                     </div>
                 </div>
 
@@ -154,9 +168,9 @@ export default function HealthScoreCard({ scoreData }) {
                 <div className="flex-1 text-center md:text-left">
                     <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
                         <Activity className={`w-4 h-4 ${color}`} />
-                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Saúde Financeira Mêntor</h3>
+                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Nível de Tranquilidade</h3>
                     </div>
-                    <p className="text-lg md:text-xl font-bold text-white mb-3">
+                    <p className="text-lg md:text-xl font-bold text-slate-800 mb-3">
                         {feedback}
                     </p>
 

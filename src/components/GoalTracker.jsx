@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Target, Plus, Pencil, Check, X, Trophy, History, Trash2, TrendingUp, Calendar, Minus } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc, orderBy } from 'firebase/firestore';
 
 export default function GoalTracker() {
+    const { theme } = useTheme();
     const [goals, setGoals] = useState([]);
     const [activeTab, setActiveTab] = useState('active'); // 'active' | 'history'
     const [isAdding, setIsAdding] = useState(false);
@@ -126,21 +128,31 @@ export default function GoalTracker() {
 
             {/* Header & Tabs */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                     <Trophy className="w-6 h-6 text-yellow-400" />
                     Metas Financeiras
                 </h2>
 
-                <div className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-700 w-full md:w-auto">
+                <div className={`flex p-1 rounded-xl border w-full md:w-auto ${
+                    theme === 'light' ? 'bg-white/30 border-slate-200' : 'bg-slate-800 border-slate-700'
+                }`}>
                     <button
                         onClick={() => setActiveTab('active')}
-                        className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'active' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                        className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            activeTab === 'active' 
+                            ? (theme === 'light' ? 'bg-white/20 text-slate-800 shadow-sm border border-white/30' : 'bg-slate-700 text-white shadow-sm') 
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
                     >
                         Em Andamento
                     </button>
                     <button
                         onClick={() => setActiveTab('history')}
-                        className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'history' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                        className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            activeTab === 'history' 
+                            ? (theme === 'light' ? 'bg-white/20 text-slate-800 shadow-sm border border-white/30' : 'bg-slate-700 text-white shadow-sm') 
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
                     >
                         Histórico
                     </button>
@@ -151,7 +163,11 @@ export default function GoalTracker() {
             {activeTab === 'active' && !isAdding && (
                 <button
                     onClick={() => setIsAdding(true)}
-                    className="w-full py-3 border-2 border-dashed border-slate-700 rounded-xl text-slate-400 hover:border-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/5 transition-all font-medium flex items-center justify-center gap-2"
+                    className={`w-full py-3 border-2 border-dashed rounded-xl transition-all font-medium flex items-center justify-center gap-2 ${
+                        theme === 'light' 
+                        ? 'border-slate-300 text-slate-400 hover:border-verde-respira/50 hover:text-verde-respira hover:bg-verde-respira/5' 
+                        : 'border-slate-700 text-slate-500 hover:border-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/5'
+                    }`}
                 >
                     <Plus className="w-5 h-5" /> Nova Meta
                 </button>
@@ -159,8 +175,10 @@ export default function GoalTracker() {
 
             {/* Add Goal Form */}
             {isAdding && (
-                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 animate-in fade-in slide-in-from-top-4">
-                    <h3 className="text-slate-200 font-bold mb-3 flex items-center gap-2">
+                <div className={`p-4 rounded-xl border shadow-lg animate-in fade-in slide-in-from-top-4 ${
+                    theme === 'light' ? 'glass-card border-verde-respira/20' : 'bg-slate-900 border-emerald-500/20'
+                }`}>
+                    <h3 className={`font-bold mb-3 flex items-center gap-2 ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
                         <Target className="w-4 h-4 text-emerald-400" /> Nova Meta
                     </h3>
                     <div className="grid md:grid-cols-2 gap-3 mb-3">
@@ -169,14 +187,18 @@ export default function GoalTracker() {
                             placeholder="Nome (ex: Carro Novo)"
                             value={newTitle}
                             onChange={(e) => setNewTitle(e.target.value)}
-                            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
+                            className={`border rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500 transition-all ${
+                                theme === 'light' ? 'bg-white/40 border-slate-200 text-slate-800' : 'bg-slate-800 border-slate-700 text-slate-200'
+                            }`}
                         />
                         <input
                             type="number"
                             placeholder="Valor Alvo (R$)"
                             value={newTarget}
                             onChange={(e) => setNewTarget(e.target.value)}
-                            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
+                            className={`border rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500 transition-all ${
+                                theme === 'light' ? 'bg-white/40 border-slate-200 text-slate-800' : 'bg-slate-800 border-slate-700 text-slate-200'
+                            }`}
                         />
                         <div className="md:col-span-2">
                             <input
@@ -184,7 +206,9 @@ export default function GoalTracker() {
                                 placeholder="Prazo (Opcional)"
                                 value={newDeadline}
                                 onChange={(e) => setNewDeadline(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 [color-scheme:dark]"
+                                className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500 transition-all ${
+                                    theme === 'light' ? 'bg-white/40 border-slate-200 text-slate-800' : 'bg-slate-800 border-slate-700 text-slate-800 dark:text-slate-200'
+                                }`}
                             />
                         </div>
                     </div>
@@ -207,7 +231,11 @@ export default function GoalTracker() {
                         const isGoalCompleted = goal.current >= goal.target;
 
                         return (
-                            <div key={goal.id} className="bg-slate-900/30 p-4 rounded-xl border border-slate-700/50 hover:border-slate-600 transition-all group">
+                            <div key={goal.id} className={`p-4 rounded-xl border transition-all group shadow-sm ${
+                                theme === 'light' 
+                                ? 'bg-white/15 backdrop-blur-md border-white/20 hover:border-emerald-200 hover:bg-white/25' 
+                                : 'bg-white/5 border-white/5 hover:border-emerald-500/30 hover:bg-white/10'
+                            }`}>
 
                                 {/* Header: Title & Actions */}
                                 <div className="flex justify-between items-start mb-4">
@@ -216,28 +244,34 @@ export default function GoalTracker() {
                                             <input
                                                 value={editTitle}
                                                 onChange={(e) => setEditTitle(e.target.value)}
-                                                className="bg-slate-800 rounded px-2 py-1 text-sm border border-slate-600 text-white"
+                                                className={`rounded px-2 py-1 text-sm border focus:outline-none ${
+                                                    theme === 'light' ? 'bg-white border-slate-200 text-slate-800 focus:border-blue-400' : 'bg-slate-800 border-slate-600 text-white'
+                                                }`}
                                             />
                                             <input
                                                 type="number"
                                                 value={editTarget}
                                                 onChange={(e) => setEditTarget(e.target.value)}
-                                                className="bg-slate-800 rounded px-2 py-1 text-sm border border-slate-600 text-white"
+                                                className={`rounded px-2 py-1 text-sm border focus:outline-none ${
+                                                    theme === 'light' ? 'bg-white border-slate-200 text-slate-800 focus:border-blue-400' : 'bg-slate-800 border-slate-600 text-white'
+                                                }`}
                                             />
                                             <input
                                                 type="date"
                                                 value={editDeadline}
                                                 onChange={(e) => setEditDeadline(e.target.value)}
-                                                className="bg-slate-800 rounded px-2 py-1 text-sm border border-slate-600 text-white md:col-span-2 [color-scheme:dark]"
+                                                className={`rounded px-2 py-1 text-sm border md:col-span-2 focus:outline-none ${
+                                                    theme === 'light' ? 'bg-white border-slate-200 text-slate-800 focus:border-blue-400' : 'bg-slate-800 border-slate-600 text-white [color-scheme:dark]'
+                                                }`}
                                             />
                                         </div>
                                     ) : (
                                         <div>
-                                            <h3 className="font-bold text-lg text-slate-200">{goal.title}</h3>
+                                            <h3 className={`font-bold text-lg ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>{goal.title}</h3>
                                             <p className="text-xs text-slate-400">
-                                                Meta: <span className="text-slate-300">R$ {goal.target.toLocaleString()}</span>
+                                                Meta: <span className={theme === 'light' ? 'text-slate-600' : 'text-slate-300'}>R$ {goal.target.toLocaleString()}</span>
                                                 {goal.deadline && (
-                                                    <span className="ml-2 flex items-center gap-1 inline-flex text-blue-400">
+                                                    <span className="ml-2 flex items-center gap-1 inline-flex text-blue-500 dark:text-blue-400">
                                                         <Calendar className="w-3 h-3" />
                                                         {new Date(goal.deadline).toLocaleDateString()}
                                                     </span>
@@ -285,7 +319,9 @@ export default function GoalTracker() {
                                         <span>R$ {goal.current.toLocaleString()}</span>
                                         <span className={isGoalCompleted ? 'text-emerald-400 font-bold' : ''}>{percentage}%</span>
                                     </div>
-                                    <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
+                                    <div className={`h-3 rounded-full overflow-hidden transition-all duration-300 ${
+                                        theme === 'light' ? 'bg-slate-100 shadow-inner' : 'bg-slate-800'
+                                    }`}>
                                         <div
                                             className={`h-full transition-all duration-700 ease-out ${isGoalCompleted ? 'bg-emerald-400' : 'bg-gradient-to-r from-blue-500 to-emerald-400'}`}
                                             style={{ width: `${percentage}%` }}
@@ -321,7 +357,9 @@ export default function GoalTracker() {
                                             placeholder="Valor..."
                                             value={contributions[goal.id] || ''}
                                             onChange={(e) => setContributions(prev => ({ ...prev, [goal.id]: e.target.value }))}
-                                            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500/50"
+                                            className={`flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none transition-all ${
+                                                theme === 'light' ? 'bg-white/40 border-slate-200 text-slate-800 focus:border-blue-500/50' : 'bg-slate-900 border-slate-700 text-slate-200 focus:border-blue-500/50'
+                                            }`}
                                         />
                                         <button
                                             onClick={() => handleContribute(goal.id, goal.current, 1)}

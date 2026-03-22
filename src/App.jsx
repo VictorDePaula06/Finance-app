@@ -3,23 +3,25 @@ import TransactionSection from './components/TransactionSection';
 import GoalTracker from './components/GoalTracker';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { LayoutDashboard, LogOut, Shield, TrendingUp, BookOpen } from 'lucide-react';
+import { LayoutDashboard, LogOut, Shield, TrendingUp, BookOpen, Sparkles } from 'lucide-react';
 import InstallPrompt from './components/InstallPrompt';
 import logo from './assets/logo.png';
 import AdminPanel from './components/AdminPanel';
-
-// CONFIGURAÇÃO MASTER
-const MASTER_EMAIL = 'j.17jvictor@gmail.com'; // E-mail master do proprietário
-
 import HealthScoreCard from './components/HealthScoreCard';
 import { calculateHealthScore } from './utils/healthScore';
 import { db } from './services/firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { useEffect as useTransitionEffect } from 'react';
 import Manual from './components/Manual';
+import PanicButton from './components/PanicButton';
+import { generateSundayBreath } from './utils/sundayBreath';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+
+// CONFIGURAÇÃO MASTER
+const MASTER_EMAIL = 'j.17jvictor@gmail.com';
 
 function Dashboard() {
   const { logout, currentUser, saveUserPreferences, getUserPreferences } = useAuth();
+  const { theme } = useTheme();
   const [transactions, setTransactions] = useState([]);
   const [goals, setGoals] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -41,7 +43,6 @@ function Dashboard() {
   useEffect(() => {
     if (!currentUser) return;
 
-    // Load initial config from Cloud or Local
     getUserPreferences().then(prefs => {
       if (prefs && prefs.manualConfig) {
         setManualConfig(prefs.manualConfig);
@@ -52,7 +53,6 @@ function Dashboard() {
       }
     });
 
-    // Transactions Listener
     const qT = query(
       collection(db, 'transactions'),
       where('userId', '==', currentUser.uid),
@@ -63,7 +63,6 @@ function Dashboard() {
       setIsLoadingData(false);
     });
 
-    // Goals Listener
     const qG = query(
       collection(db, 'goals'),
       where('userId', '==', currentUser.uid),
@@ -82,22 +81,28 @@ function Dashboard() {
   const healthScore = calculateHealthScore(transactions, manualConfig);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50 relative font-sans">
+    <div className={`min-h-screen relative font-sans transition-colors duration-500 ${
+      theme === 'light' ? 'theme-light bg-[var(--bg-primary)] text-slate-800' : 'theme-dark bg-slate-950 text-slate-100'
+    }`}>
       {/* Background Decorative Orbs */}
-      <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
-      <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-emerald-600/5 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
+      <div className={`fixed top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] -z-10 pointer-events-none transition-opacity duration-1000 ${
+        theme === 'light' ? 'bg-[#69C8B9]/20' : 'bg-blue-600/10'
+      }`}></div>
+      <div className={`fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] -z-10 pointer-events-none transition-opacity duration-1000 ${
+        theme === 'light' ? 'bg-[#5CCEEA]/20' : 'bg-emerald-600/10'
+      }`}></div>
 
       <InstallPrompt />
 
       <div className="max-w-6xl mx-auto p-6 md:p-12 space-y-8 relative z-10">
-
-        {/* Header */}
         <header className="flex items-center justify-between mb-12">
           <div className="flex items-center gap-4">
-            <img src={logo} alt="Finance Control Logo" className="w-20 h-auto object-contain drop-shadow-lg" />
+            <img src={logo} alt="Alívia Logo" className="w-32 h-auto object-contain drop-shadow-lg -ml-4" />
             <div>
-              <p className="text-emerald-400 font-medium tracking-wide mt-1 animate-in fade-in slide-in-from-left-3">
-                👋 Olá, <span className="text-slate-100">{currentUser?.displayName?.split(' ')[0] || 'Usuário'}</span>
+              <p className={`font-medium tracking-wide mt-1 animate-in fade-in slide-in-from-left-3 ${
+                theme === 'light' ? 'text-[#69C8B9]' : 'text-emerald-400'
+              }`}>
+                👋 Olá, <span className={theme === 'light' ? 'text-slate-800' : 'text-white'}>{currentUser?.displayName?.split(' ')[0] || 'Usuário'}</span>
               </p>
               <p className="text-[10px] text-slate-500 font-mono mt-0.5 opacity-80 select-all">
                 {currentUser?.email}
@@ -107,14 +112,14 @@ function Dashboard() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('change-view', { detail: 'manual' }))}
-              className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-blue-400 transition-colors"
+              className="p-2 hover:bg-azul-ceu/10 rounded-lg text-slate-400 hover:text-blue-500 transition-colors"
               title="Manual do Sistema"
             >
               <BookOpen className="w-5 h-5" />
             </button>
             <button
               onClick={logout}
-              className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-rose-400 transition-colors"
+              className="p-2 hover:bg-rose-500/10 rounded-lg text-slate-400 hover:text-rose-500 transition-colors"
               title="Sair"
             >
               <LogOut className="w-5 h-5" />
@@ -122,18 +127,37 @@ function Dashboard() {
           </div>
         </header>
 
-        {/* Health Score Section */}
         <section className="animate-in fade-in slide-in-from-top-4 duration-700">
           <HealthScoreCard scoreData={healthScore} />
         </section>
 
-        {/* Goal Section */}
-        <section className="bg-slate-900/40 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        {(() => {
+          const breath = generateSundayBreath(transactions, manualConfig);
+          if (!breath.hasActivity) return null;
+          return (
+            <section className="animate-in fade-in zoom-in duration-1000">
+              <div className={`glass-card p-6 flex items-center gap-6 ${
+                theme === 'light' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-emerald-500/5 border-emerald-500/10'
+              }`}>
+                <div className="p-4 bg-verde-respira/20 rounded-2xl">
+                  <Sparkles className="w-8 h-8 text-verde-respira animate-pulse" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-emerald-800 uppercase tracking-widest mb-1">O Respiro da Semana</h4>
+                  <p className={theme === 'light' ? 'text-slate-700' : 'text-slate-300'}>
+                    {breath.message}
+                  </p>
+                </div>
+              </div>
+            </section>
+          );
+        })()}
+
+        <section className="glass-card p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <GoalTracker />
         </section>
 
-        {/* Transactions Section */}
-        <section className="bg-slate-900/40 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 md:p-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+        <section className="glass-card p-6 md:p-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
           <TransactionSection
             transactions={transactions}
             goals={goals}
@@ -143,22 +167,24 @@ function Dashboard() {
           />
         </section>
 
-        {/* Version Footer */}
         <footer className="pt-12 pb-8 text-center flex flex-col items-center gap-4">
           {currentUser?.email === MASTER_EMAIL && (
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('change-view', { detail: 'admin' }))}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-blue-400 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/40 border border-slate-200 text-slate-500 hover:text-blue-600 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all shadow-sm"
             >
               <Shield className="w-3.5 h-3.5" />
               Painel Admin
             </button>
           )}
-          <p className="text-slate-600 text-[10px] font-medium tracking-widest uppercase opacity-50">
+          <p className="text-slate-400 text-[10px] font-medium tracking-widest uppercase">
             Versão 3.0
           </p>
         </footer>
 
+        <PanicButton onPanicClick={(msg) => {
+          window.dispatchEvent(new CustomEvent('ai-panic', { detail: msg }));
+        }} />
       </div>
     </div>
   );
@@ -171,9 +197,8 @@ import SubscriptionBlock from './components/SubscriptionBlock';
 
 function AppContent() {
   const { currentUser, isPremium, isTrial, daysRemaining } = useAuth();
-  const [view, setView] = useState('landing'); // 'landing' | 'login' | 'privacy' | 'terms' | 'manual'
+  const [view, setView] = useState('landing');
 
-  // Handle cross-component view changes and Hash navigation
   useEffect(() => {
     const handleViewChange = (e) => setView(e.detail);
     const handleHashChange = () => {
@@ -182,8 +207,6 @@ function AppContent() {
 
     window.addEventListener('change-view', handleViewChange);
     window.addEventListener('hashchange', handleHashChange);
-
-    // Check hash on mount
     handleHashChange();
 
     return () => {
@@ -192,7 +215,6 @@ function AppContent() {
     };
   }, []);
 
-  // Check global views first
   if (view === 'login' && !currentUser) {
     return <Login onBack={() => setView('landing')} />;
   }
@@ -209,10 +231,7 @@ function AppContent() {
     return <Manual onBack={() => setView(currentUser ? 'dashboard' : 'landing')} />;
   }
 
-  // If user is logged in
   if (currentUser) {
-    console.log("[App Debug]", { email: currentUser.email, isPremium, isTrial, daysRemaining });
-    // 1. Admin Priority (Hidden Access or State)
     if (currentUser.email === MASTER_EMAIL && (view === 'admin' || window.location.hash === '#admin')) {
       return <AdminPanel onBack={() => {
         window.location.hash = '';
@@ -220,7 +239,6 @@ function AppContent() {
       }} />;
     }
 
-    // 2. Premium or Master Email Bypass
     if (isPremium || currentUser.email === MASTER_EMAIL) {
       return <Dashboard />;
     } else {
@@ -241,7 +259,9 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
     </AuthProvider>
   );
 }

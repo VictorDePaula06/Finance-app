@@ -1,13 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { MessageSquare, X, Send, Bot, User, Sparkles, AlertCircle, Key, Trash2, Loader2, Video, ChevronDown, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { Send, Bot, X, MessageSquare, Loader2, Key, Trash2, CheckCircle, ChevronDown, Video, AlertTriangle } from 'lucide-react';
-import { sendMessageToGemini, calculateStatsContext, isGeminiConfigured, validateApiKey } from '../services/gemini';
+import { useTheme } from '../contexts/ThemeContext';
+import { sendMessageToGemini, isGeminiConfigured, validateApiKey, calculateStatsContext } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
+
+import aliviaFinal from '../assets/alivia/alivia-final.png';
 import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
-import logo from '../assets/logo.png';
 
 export default function AIChat({ transactions, manualConfig, onAddTransaction, onDeleteTransaction, onConfigChange }) {
+    const { theme } = useTheme();
     const [isOpen, setIsOpen] = useState(false);
     const [hasKey, setHasKey] = useState(isGeminiConfigured());
     const [apiKey, setApiKey] = useState('');
@@ -101,39 +104,31 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
         }
     };
 
-    const handleSend = async (e) => {
-        e.preventDefault();
-        if (!input.trim() || isLoading) return;
+    const processMessage = async (inputMsg, isPanic = false) => {
+        if (!inputMsg.trim() || isLoading) return;
 
         if (!isGeminiConfigured()) {
-            setMessages(prev => [...prev, { role: 'user', text: input }, { role: 'model', text: 'ERRO: API Key não configurada. Por favor, configure sua chave no menu do assistente.' }]);
-            setInput('');
+            setMessages(prev => [...prev, { role: 'user', text: inputMsg }, { role: 'model', text: 'ERRO: API Key não configurada. Por favor, configure sua chave no menu do assistente.' }]);
             return;
         }
 
-        const userMsg = { role: 'user', text: input };
+        const userMsg = { role: 'user', text: inputMsg };
         setMessages(prev => [...prev, userMsg]);
-        setInput('');
         setIsLoading(true);
 
         try {
-            const context = calculateStatsContext(transactions, manualConfig);
-            const responseText = await sendMessageToGemini(messages, input, context);
+            const context = calculateStatsContext(transactions, manualConfig, isPanic);
+            const responseText = await sendMessageToGemini(messages, inputMsg, context);
 
             const sanitizeAIValue = (val) => {
                 if (!val) return '0';
                 let s = String(val).trim();
-                // Remove any currency symbol or spaces
                 s = s.replace(/[R$\s]/g, '');
-                // Handle BR format: 1.000,00 -> 1000.00
                 if (s.includes(',') && s.includes('.')) {
                     s = s.replace(/\./g, '').replace(',', '.');
                 } else if (s.includes(',')) {
-                    // Just a comma: 1000,00 -> 1000.00
                     s = s.replace(',', '.');
                 } else if (s.includes('.')) {
-                    // Just a dot: Could be US decimal or BR thousand
-                    // If it's like "1.000", it's likely thousand. If "1.50", it's decimal.
                     const parts = s.split('.');
                     if (parts.length > 2 || parts[parts.length - 1].length !== 2) {
                         s = s.replace(/\./g, '');
@@ -142,7 +137,6 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                 return s;
             };
 
-            // Enhanced JSON Extraction
             let jsonString = null;
             const blocks = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/g);
             if (blocks) {
@@ -162,11 +156,9 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
             if (jsonString) {
                 try {
                     const command = JSON.parse(jsonString);
-                    // CLEANUP: Aggressively remove technical blocks and hallucinations
-                    // We remove anything that looks like a JSON action and then any technical trailing text
                     displayMessage = responseText
                         .replace(/```(?:json)?[\s\S]*?```/g, '')
-                        .replace(/\{"action"[\s\S]*?\}/g, '') // Remove any raw JSON-like structures
+                        .replace(/\{"action"[\s\S]*?\}/g, '')
                         .split(/⚙️|Configuração\s+Atualizada|Patrimônio\s+Declarado|Ação\s+Registrada|Comando\s+Executado|```/i)[0]
                         .trim();
 
@@ -188,7 +180,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                             }
                         }
                     } else if (command.action === 'delete_transaction') {
-                        const { amount, description: descSearch, type } = command.data;
+                        const { amount, description: descSearch } = command.data;
                         let foundTx = null;
                         const targetAmount = parseFloat(sanitizeAIValue(amount));
                         for (let i = transactions.length - 1; i >= 0; i--) {
@@ -237,24 +229,49 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
             setMessages(prev => [...prev, { role: 'model', text: displayMessage }]);
         } catch (error) {
             console.error("Erro detalhado do Gemini:", error);
-            let userMsg = "Desculpe, ocorreu um erro ao processar sua solicitação.";
+            let errMsg = "Desculpe, ocorreu um erro ao processar sua solicitação.";
             if (error.message.includes('429') || error.message.includes('quota')) {
-                userMsg = "⚠️ **Limite atingido.**\n\nPor favor, aguarde alguns instantes e tente novamente. Se o erro persistir, o limite diário pode ter sido alcançado.";
+                errMsg = "⚠️ **Limite atingido.**\n\nPor favor, aguarde alguns instantes e tente novamente. Se o erro persistir, o limite diário pode ter sido alcançado.";
             }
-            setMessages(prev => [...prev, { role: 'model', text: userMsg }]);
+            setMessages(prev => [...prev, { role: 'model', text: errMsg }]);
         } finally {
             setIsLoading(false);
         }
     };
 
+    const handleSend = async (e) => {
+        e.preventDefault();
+        if (!input.trim() || isLoading) return;
+        const msg = input;
+        setInput('');
+        processMessage(msg, false);
+    };
+
+    useEffect(() => {
+        const handlePanic = (e) => {
+            const panicMsg = e.detail || "Preciso de ajuda com um gasto inesperado.";
+            setIsOpen(true);
+            setTimeout(() => {
+                processMessage(panicMsg, true);
+            }, 300);
+        };
+
+        window.addEventListener('ai-panic', handlePanic);
+        return () => window.removeEventListener('ai-panic', handlePanic);
+    }, [transactions, manualConfig]);
+
     const chatContent = isOpen ? (
-        <div className="fixed bottom-6 right-6 w-full max-w-sm h-[500px] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-[9999] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in">
+        <div className={`fixed bottom-6 right-6 w-full max-w-sm h-[500px] glass-card z-[9999] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in ${
+            theme === 'light' ? 'bg-white/70 shadow-xl border-verde-respira/20' : 'bg-slate-900 border-slate-700'
+        }`}>
             {/* Header */}
-            <div className="bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
+            <div className={`p-4 border-b flex justify-between items-center ${
+                theme === 'light' ? 'bg-[#f0fdfa]/80 border-verde-respira/10' : 'bg-slate-800 border-slate-700'
+            }`}>
                 <div className="flex items-center gap-3">
-                    <img src={logo} alt="Mêntor" className="w-12 h-12 object-contain filter drop-shadow-md" />
+                    <img src={aliviaFinal} alt="Alívia" className="w-12 h-12 object-cover rounded-full border-2 border-emerald-400 shadow-sm" />
                     <div>
-                        <h3 className="font-bold text-slate-100">Seu Mêntor</h3>
+                        <h3 className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>Sua Alívia</h3>
                         <p className="text-xs text-emerald-400 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                             Online
@@ -306,8 +323,8 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
 
                     <div className="w-full space-y-3">
                         {keyError && (
-                            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-red-200 text-xs animate-in slide-in-from-top-1">
-                                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-red-600 dark:text-red-200 text-xs animate-in slide-in-from-top-1">
+                                <AlertCircle className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" />
                                 {keyError}
                             </div>
                         )}
@@ -316,14 +333,20 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                             value={apiKey}
                             onChange={(e) => setApiKey(e.target.value)}
                             placeholder="Cole sua API Key aqui..."
-                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none placeholder:text-slate-600"
+                            className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 transition-all ${
+                                theme === 'light' 
+                                ? 'bg-white/40 border-slate-200 text-slate-800 focus:ring-verde-respira/30 focus:border-verde-respira' 
+                                : 'bg-slate-950 border-slate-700 text-white focus:ring-blue-500/30 focus:border-blue-500'
+                            }`}
                         />
                         <button
                             onClick={handleSaveKey}
                             disabled={!apiKey.trim() || isSavingKey}
-                            className={`w-full font-medium py-3 rounded-lg transition-all flex items-center justify-center gap-2 ${isSavingKey
+                            className={`w-full font-medium py-3 rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg ${isSavingKey
                                 ? 'bg-emerald-600 text-white'
-                                : 'bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white'
+                                : theme === 'light'
+                                    ? 'bg-[#69C8B9] hover:bg-[#5CCEEA] text-white'
+                                    : 'bg-blue-600 hover:bg-blue-500 text-white'
                                 }`}
                         >
                             {isSavingKey ? (
@@ -334,7 +357,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                             ) : (
                                 <>
                                     <Bot className="w-4 h-4" />
-                                    Ativar Mêntor
+                                    Ativar Alívia
                                 </>
                             )}
                         </button>
@@ -344,18 +367,20 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                 <>
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                         {messages.length === 0 && (
-                            <div className="text-center mt-10 opacity-50">
-                                <Bot className="w-12 h-12 mx-auto mb-2 text-slate-600" />
+                            <div className="text-center mt-10 opacity-70">
+                                <img src={aliviaFinal} alt="Alívia" className="w-24 h-24 mx-auto mb-4 rounded-full border-2 border-emerald-400 shadow-lg object-cover" />
                                 <p className="text-slate-500 text-sm px-6">
-                                    Olá! Sou o Mêntor, seu consultor financeiro. Pergunte sobre seus gastos, peça dicas ou simule compras.
+                                    Olá! Sou a Alívia, seu acolhimento financeiro. Vamos conversar sobre seus gastos ou como encontrar mais tranquilidade hoje?
                                 </p>
                             </div>
                         )}
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.role === 'user'
-                                    ? 'bg-blue-600 text-white rounded-br-none'
-                                    : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-none'
+                                <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm shadow-sm ${msg.role === 'user'
+                                    ? 'bg-[#5CCEEA] text-white rounded-br-none'
+                                    : theme === 'light'
+                                        ? 'bg-white/60 text-slate-800 border border-verde-respira/20 rounded-bl-none'
+                                        : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-none'
                                     }`}>
                                     <ReactMarkdown
                                         components={{
@@ -380,18 +405,28 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                         )}
                         <div ref={messagesEndRef} />
                     </div>
-                    <form onSubmit={handleSend} className="p-3 bg-slate-800/50 border-t border-slate-700 flex gap-2">
+                    <form onSubmit={handleSend} className={`p-3 border-t flex gap-2 ${
+                        theme === 'light' ? 'bg-[#f0fdfa]/50 border-verde-respira/10' : 'bg-slate-800/50 border-slate-700'
+                    }`}>
                         <input
                             type="text"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             placeholder="Digite sua mensagem..."
-                            className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500/50"
+                            className={`flex-1 border rounded-xl px-4 py-2 text-sm focus:outline-none transition-all ${
+                                theme === 'light'
+                                ? 'bg-white/40 border-slate-200 text-slate-800 focus:border-verde-respira'
+                                : 'bg-slate-900 border-slate-700 text-slate-200 focus:border-blue-500/50'
+                            }`}
                         />
                         <button
                             type="submit"
                             disabled={isLoading || !input.trim()}
-                            className="p-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-colors"
+                            className={`p-2 rounded-xl transition-all shadow-md ${
+                                theme === 'light'
+                                ? 'bg-[#69C8B9] hover:bg-[#5CCEEA] text-white shadow-emerald-500/10'
+                                : 'bg-blue-600 hover:bg-blue-500 text-white'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
                             <Send className="w-5 h-5" />
                         </button>
@@ -402,11 +437,13 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
     ) : (
         <button
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-full shadow-2xl transition-all hover:scale-110 z-[9999] flex items-center justify-center group"
+            className={`fixed bottom-8 right-6 h-16 w-16 hover:w-60 rounded-full shadow-2xl transition-all duration-500 ease-in-out hover:scale-105 z-[9999] flex items-center justify-start px-2 overflow-hidden group border-2 border-white/10 ${
+                theme === 'light' ? 'bg-[#69C8B9] text-white shadow-emerald-500/20' : 'bg-blue-600 text-white shadow-blue-500/20'
+            }`}
         >
-            <img src={logo} alt="Mêntor" className="w-10 h-10 object-contain filter drop-shadow-md" />
-            <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 ease-in-out whitespace-nowrap text-sm font-bold">
-                Chat com Mêntor
+            <img src={aliviaFinal} alt="Alívia" className="w-12 h-12 object-contain filter drop-shadow-md rounded-full border-2 border-white/20" />
+            <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-3 transition-all duration-300 ease-in-out whitespace-nowrap text-sm font-bold tracking-tight">
+                Chat com Alívia
             </span>
         </button>
     );
