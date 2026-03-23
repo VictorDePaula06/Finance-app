@@ -517,8 +517,8 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                 </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className={`p-4 rounded-2xl border shadow-sm transition-all ${
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div className={`p-4 rounded-2xl border shadow-sm transition-all flex flex-col items-center justify-center text-center ${
                     theme === 'light' 
                     ? 'bg-slate-50 border-slate-100 hover:bg-slate-100/50 hover:border-emerald-200' 
                     : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-emerald-500/30'
@@ -528,7 +528,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                         {health.disposableIncome.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </p>
                 </div>
-                <div className={`p-4 rounded-2xl border shadow-sm transition-all ${
+                <div className={`p-4 rounded-2xl border shadow-sm transition-all flex flex-col items-center justify-center text-center ${
                     theme === 'light' 
                     ? 'bg-slate-50 border-slate-100 hover:bg-slate-100/50 hover:border-blue-200' 
                     : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-blue-500/30'

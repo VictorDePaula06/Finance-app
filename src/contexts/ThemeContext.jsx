@@ -17,8 +17,9 @@ export function ThemeProvider({ children }) {
         localStorage.setItem('alivia-theme', theme);
         // Apply class to document element for global CSS targeting
         const root = window.document.documentElement;
-        root.classList.remove('theme-light', 'theme-dark');
+        root.classList.remove('theme-light', 'theme-dark', 'dark');
         root.classList.add(`theme-${theme}`);
+        if (theme === 'dark') root.classList.add('dark');
     }, [theme]);
 
     const toggleTheme = () => {

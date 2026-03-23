@@ -22,7 +22,7 @@ export default function HealthScoreCard({ scoreData }) {
                         <div className={`p-6 border-b flex justify-between items-center ${
                             theme === 'light' ? 'bg-[#f0fdfa] border-emerald-100/30' : 'bg-slate-900/50 border-white/5'
                         }`}>
-                            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                            <h3 className={`text-xl font-bold flex items-center gap-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                                 <Activity className="w-5 h-5 text-emerald-500" />
                                 Como sua paz é calculada?
                             </h3>
@@ -39,14 +39,14 @@ export default function HealthScoreCard({ scoreData }) {
                                 }`}>
                                     <div className="flex flex-col items-center gap-1">
                                         <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 font-bold text-sm min-w-[45px] text-center">20%</div>
-                                        <span className={`text-[10px] font-bold ${breakdown?.performance > 0 ? 'text-emerald-500' : theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>+{breakdown?.performance || 0} pts</span>
+                                        <span className={`text-[10px] font-bold ${breakdown?.performance > 0 ? 'text-emerald-500' : theme === 'light' ? 'text-slate-500' : 'text-slate-500'}`}>+{breakdown?.performance || 0} pts</span>
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-widest mb-1">Seu Mês</h4>
-                                        <p className="text-sm text-slate-400">Como você cuidou do seu dinheiro este mês.</p>
-                                        <div className="mt-2 text-xs flex gap-3 text-slate-500">
-                                            <span>Entradas: <b className="text-slate-300">{formatCurrency(breakdown?.data?.monthlyIncome || 0)}</b></span>
-                                            <span>Gastos: <b className="text-slate-300">{formatCurrency(breakdown?.data?.actualExpense || 0)}</b></span>
+                                        <h4 className={`font-bold uppercase text-[10px] tracking-widest mb-1 ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Seu Mês</h4>
+                                        <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-200'}`}>Como você cuidou do seu dinheiro este mês.</p>
+                                        <div className={`mt-2 text-xs flex gap-3 font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
+                                            <span>Entradas: <b className={theme === 'light' ? 'text-slate-900' : 'text-white'}>{formatCurrency(breakdown?.data?.monthlyIncome || 0)}</b></span>
+                                            <span>Gastos: <b className={theme === 'light' ? 'text-slate-900' : 'text-white'}>{formatCurrency(breakdown?.data?.actualExpense || 0)}</b></span>
                                         </div>
                                     </div>
                                 </div>
@@ -56,19 +56,19 @@ export default function HealthScoreCard({ scoreData }) {
                                 }`}>
                                     <div className="flex flex-col items-center gap-1">
                                         <div className="p-2 rounded-xl bg-blue-50 text-blue-500 font-bold text-sm min-w-[45px] text-center">30%</div>
-                                        <span className={`text-[10px] font-bold ${breakdown?.allocation > 0 ? 'text-emerald-500' : theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>+{breakdown?.allocation || 0} pts</span>
+                                        <span className={`text-[10px] font-bold ${breakdown?.allocation > 0 ? 'text-emerald-500' : theme === 'light' ? 'text-slate-500' : 'text-slate-500'}`}>+{breakdown?.allocation || 0} pts</span>
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-widest mb-1">Suas Sementinhas</h4>
-                                        <p className="text-sm text-slate-400">Qualidade da distribuição dos seus gastos.</p>
-                                        <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-500">
+                                        <h4 className={`font-bold uppercase text-[10px] tracking-widest mb-1 ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Suas Sementinhas</h4>
+                                        <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-200'}`}>Qualidade da distribuição dos seus gastos.</p>
+                                        <div className={`mt-2 grid grid-cols-2 gap-2 text-[10px] font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-100'}`}>
                                             <div className="flex flex-col">
                                                 <span>Necessidades (Meta &lt; 55%)</span>
-                                                <b className={`text-sm ${parseFloat(breakdown?.data?.necRatio) <= 55 ? 'text-emerald-400' : 'text-rose-400'}`}>{breakdown?.data?.necRatio}%</b>
+                                                <b className={`text-sm ${parseFloat(breakdown?.data?.necRatio) <= 55 ? 'text-emerald-600' : 'text-rose-600'}`}>{breakdown?.data?.necRatio}%</b>
                                             </div>
                                             <div className="flex flex-col">
                                                 <span>Desejos (Meta &lt; 35%)</span>
-                                                <b className={`text-sm ${parseFloat(breakdown?.data?.desRatio) <= 35 ? 'text-emerald-400' : 'text-rose-400'}`}>{breakdown?.data?.desRatio}%</b>
+                                                <b className={`text-sm ${parseFloat(breakdown?.data?.desRatio) <= 35 ? 'text-emerald-600' : 'text-rose-600'}`}>{breakdown?.data?.desRatio}%</b>
                                             </div>
                                         </div>
                                     </div>
@@ -79,30 +79,30 @@ export default function HealthScoreCard({ scoreData }) {
                                 }`}>
                                     <div className="flex flex-col items-center gap-1">
                                         <div className="p-2 rounded-xl bg-[#FFF08C]/40 text-emerald-800 font-bold text-sm min-w-[45px] text-center">50%</div>
-                                        <span className={`text-[10px] font-bold ${breakdown?.reserve > 0 ? 'text-emerald-700' : theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>+{breakdown?.reserve || 0} pts</span>
+                                        <span className={`text-[10px] font-bold ${breakdown?.reserve > 0 ? 'text-emerald-700' : theme === 'light' ? 'text-slate-500' : 'text-slate-500'}`}>+{breakdown?.reserve || 0} pts</span>
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-widest mb-1">Sua Proteção</h4>
-                                        <p className="text-sm text-slate-600">Quanto tempo suas reservas te mantêm em paz.</p>
+                                        <h4 className={`font-bold uppercase text-[10px] tracking-widest mb-1 ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Sua Proteção</h4>
+                                        <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-200'}`}>Quanto tempo suas reservas te mantêm em paz.</p>
                                         <div className="mt-2 space-y-2">
-                                            <div className="flex justify-between items-center text-[10px] text-slate-500 bg-white/5 p-2 rounded-xl border border-white/5">
+                                            <div className={`flex justify-between items-center text-[10px] font-bold bg-white/5 p-2 rounded-xl border border-white/5 ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
                                                 <span>Saldo em Carteira (Mês Atual)</span>
-                                                <b className="text-slate-300">{formatCurrency(breakdown?.data?.monthlyBalance || 0)}</b>
+                                                <b className={theme === 'light' ? 'text-slate-900' : 'text-white'}>{formatCurrency(breakdown?.data?.monthlyBalance || 0)}</b>
                                             </div>
-                                            <div className="flex justify-between items-center text-[10px] text-slate-500 bg-emerald-500/5 p-2 rounded-xl border border-emerald-500/10">
+                                            <div className={`flex justify-between items-center text-[10px] font-bold bg-emerald-500/5 p-2 rounded-xl border border-emerald-500/10 ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
                                                 <span>Patrimônio Investido (Total)</span>
-                                                <b className="text-emerald-400">{formatCurrency(breakdown?.data?.totalPatrimonio || 0)}</b>
+                                                <b className={theme === 'light' ? 'text-emerald-700' : 'text-emerald-400'}>{formatCurrency(breakdown?.data?.totalPatrimonio || 0)}</b>
                                             </div>
 
                                             <div className="pt-2 border-t border-white/5 flex justify-between items-end">
                                                 <div className="flex flex-col">
-                                                    <span className="text-[10px] text-blue-400 uppercase font-black">Liquidez Total</span>
-                                                    <b className="text-lg text-white leading-tight">{formatCurrency(breakdown?.data?.totalLiquidity || 0)}</b>
+                                                    <span className="text-[10px] text-blue-600 uppercase font-bold">Liquidez Total</span>
+                                                    <b className={`text-xl leading-tight ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(breakdown?.data?.totalLiquidity || 0)}</b>
                                                 </div>
                                                 <div className="flex flex-col items-end text-right">
-                                                    <span className="text-[10px] text-slate-500 uppercase">Meses de Cobertura</span>
-                                                    <b className={`text-xl ${parseFloat(breakdown?.data?.monthsCovered) >= 6 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                        {breakdown?.data?.monthsCovered} <span className="text-xs font-normal text-slate-500">/ 6 meses</span>
+                                                    <span className={`text-[10px] uppercase font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>Meses de Cobertura</span>
+                                                    <b className={`text-xl ${parseFloat(breakdown?.data?.monthsCovered) >= 6 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                        {breakdown?.data?.monthsCovered} <span className={`text-xs font-normal font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>/ 6 meses</span>
                                                     </b>
                                                 </div>
                                             </div>
@@ -114,13 +114,13 @@ export default function HealthScoreCard({ scoreData }) {
                                             </p>
                                         </div>
 
-                                        <div className="mt-2 text-[10px] text-slate-500 text-center">
-                                            Baseado em Gastos Fixos de <b className="text-slate-400">{formatCurrency(breakdown?.data?.fixedExpenses || 0)}</b>/mês
+                                        <div className={`mt-2 text-[10px] font-bold text-center ${theme === 'light' ? 'text-slate-700' : 'text-slate-400'}`}>
+                                            Baseado em Gastos Fixos de <b className={theme === 'light' ? 'text-slate-900' : 'text-slate-200'}>{formatCurrency(breakdown?.data?.fixedExpenses || 0)}</b>/mês
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <p className="text-xs text-center text-slate-500 italic mt-4">
+                            <p className={`text-xs text-center italic font-bold mt-4 ${theme === 'light' ? 'text-slate-700' : 'text-slate-500'}`}>
                                 "Sua tranquilidade é o maior patrimônio que você pode construir."
                             </p>
                         </div>

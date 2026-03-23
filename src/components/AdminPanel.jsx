@@ -424,10 +424,10 @@ export default function AdminPanel({ onBack }) {
                                 <div key={user.uid} className="p-6 space-y-4">
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1 min-w-0 pr-4">
-                                            <div className="font-bold text-white truncate mb-0.5">
+                                            <div className="font-bold text-slate-800 truncate mb-0.5">
                                                 {user.email === 'N/A' ? 'Sem e-mail' : user.email}
                                             </div>
-                                            <div className="text-[10px] text-slate-500 font-mono truncate">
+                                            <div className="text-[10px] text-slate-600 font-mono truncate">
                                                 {user.uid}
                                             </div>
                                             {user.stripeEmail && user.stripeEmail !== 'N/A' && user.stripeEmail !== user.email && (
@@ -446,20 +446,20 @@ export default function AdminPanel({ onBack }) {
                                                     {user.isTolerance ? 'Tolerância' : user.subType === 'annual' ? 'ANUAL' : 'MENSAL'}
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-500 text-[10px] font-bold">FREE</span>
+                                                <span className="inline-flex px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-bold">FREE</span>
                                             )}
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4 bg-slate-800/20 p-4 rounded-2xl border border-white/5">
                                         <div>
-                                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Pagamento</p>
-                                            <p className="text-xs text-slate-300">{user.isLifetime ? 'N/A' : user.subDate}</p>
+                                            <p className="text-[10px] text-slate-600 uppercase font-bold mb-1">Pagamento</p>
+                                            <p className="text-xs text-slate-500">{user.isLifetime ? 'N/A' : user.subDate}</p>
                                         </div>
                                         <div>
-                                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Vencimento</p>
-                                            <p className={`text-xs font-bold ${user.isBlocked ? 'text-rose-600' : user.isLifetime ? 'text-purple-400' : user.daysLeft <= 0 ? 'text-rose-400' : 'text-blue-400'}`}>
-                                                {user.isBlocked ? 'BLOQUEADO' : user.isLifetime ? '∞' : user.daysLeft <= 0 ? (user.isExpired ? 'BLOQUEADO' : 'EXPIRADO') : `${user.daysLeft} dias`}
+                                            <p className="text-[10px] text-slate-600 uppercase font-bold mb-1">Vencimento</p>
+                                            <p className={`text-xs font-bold ${user.isBlocked ? 'text-rose-600' : user.isLifetime ? 'text-purple-400' : user.daysLeft <= 0 ? (user.subStatus === 'active' || user.subStatus === 'trialing' ? 'text-blue-500' : 'text-rose-600') : user.daysLeft <= 5 ? 'text-amber-500' : 'text-blue-500'}`}>
+                                                {user.isBlocked ? 'BLOQUEADO' : user.isLifetime ? '∞' : user.daysLeft <= 0 ? (user.isExpired ? 'BLOQUEADO' : (user.subStatus === 'active' || user.subStatus === 'trialing' ? 'PENDENTE' : 'EXPIRADO')) : `${user.daysLeft} dias`}
                                             </p>
                                         </div>
                                     </div>
