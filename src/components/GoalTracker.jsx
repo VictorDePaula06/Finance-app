@@ -128,7 +128,7 @@ export default function GoalTracker() {
 
             {/* Header & Tabs */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <h2 className={`text-xl font-bold flex items-center gap-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                     <Trophy className="w-6 h-6 text-yellow-400" />
                     Metas Financeiras
                 </h2>
@@ -166,7 +166,7 @@ export default function GoalTracker() {
                     className={`w-full py-3 border-2 border-dashed rounded-xl transition-all font-medium flex items-center justify-center gap-2 ${
                         theme === 'light' 
                         ? 'border-slate-300 text-slate-400 hover:border-verde-respira/50 hover:text-verde-respira hover:bg-verde-respira/5' 
-                        : 'border-slate-700 text-slate-500 hover:border-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/5'
+                        : 'border-slate-700 text-slate-400 hover:border-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/5'
                     }`}
                 >
                     <Plus className="w-5 h-5" /> Nova Meta
@@ -187,7 +187,7 @@ export default function GoalTracker() {
                             placeholder="Nome (ex: Carro Novo)"
                             value={newTitle}
                             onChange={(e) => setNewTitle(e.target.value)}
-                            className={`border rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500 transition-all ${
+                            className={`border rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500 transition-all placeholder:text-slate-500 ${
                                 theme === 'light' ? 'bg-white/40 border-slate-200 text-slate-800' : 'bg-slate-800 border-slate-700 text-slate-200'
                             }`}
                         />
@@ -196,7 +196,7 @@ export default function GoalTracker() {
                             placeholder="Valor Alvo (R$)"
                             value={newTarget}
                             onChange={(e) => setNewTarget(e.target.value)}
-                            className={`border rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500 transition-all ${
+                            className={`border rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500 transition-all placeholder:text-slate-500 ${
                                 theme === 'light' ? 'bg-white/40 border-slate-200 text-slate-800' : 'bg-slate-800 border-slate-700 text-slate-200'
                             }`}
                         />
@@ -206,8 +206,8 @@ export default function GoalTracker() {
                                 placeholder="Prazo (Opcional)"
                                 value={newDeadline}
                                 onChange={(e) => setNewDeadline(e.target.value)}
-                                className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500 transition-all ${
-                                    theme === 'light' ? 'bg-white/40 border-slate-200 text-slate-800' : 'bg-slate-800 border-slate-700 text-slate-800 dark:text-slate-200'
+                                className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500 transition-all placeholder:text-slate-500 ${
+                                    theme === 'light' ? 'bg-white/40 border-slate-200 text-slate-800' : 'bg-slate-800 border-slate-700 text-slate-200'
                                 }`}
                             />
                         </div>
@@ -357,7 +357,7 @@ export default function GoalTracker() {
                                             placeholder="Valor..."
                                             value={contributions[goal.id] || ''}
                                             onChange={(e) => setContributions(prev => ({ ...prev, [goal.id]: e.target.value }))}
-                                            className={`flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none transition-all ${
+                                            className={`flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none transition-all placeholder:text-slate-500 ${
                                                 theme === 'light' ? 'bg-white/40 border-slate-200 text-slate-800 focus:border-blue-500/50' : 'bg-slate-900 border-slate-700 text-slate-200 focus:border-blue-500/50'
                                             }`}
                                         />

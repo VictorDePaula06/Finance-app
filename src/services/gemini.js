@@ -172,7 +172,7 @@ export const sendMessageToGemini = async (history, message, context) => {
         const chat = model.startChat({
             history: [
                 { role: "user", parts: [{ text: "System Prompt: " + context }] },
-                { role: "model", parts: [{ text: "Entendido. Serei seu Mêntore financeiro." }] },
+                { role: "model", parts: [{ text: "Entendido. Serei sua Alívia financeira." }] },
                 ...cleanHistory.slice(-10).map(msg => ({
                     role: msg.role === 'user' ? 'user' : 'model',
                     parts: [{ text: msg.text }]

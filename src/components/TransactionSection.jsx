@@ -70,6 +70,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
     const [searchTerm, setSearchTerm] = useState('');
     const [showReport, setShowReport] = useState(false);
+    const [showRealFlow, setShowRealFlow] = useState(true);
     const [filterCategory, setFilterCategory] = useState('all');
     const [hidePatrimonio, setHidePatrimonio] = useState(() => {
         return localStorage.getItem('hidePatrimonio') === 'true';
@@ -464,23 +465,42 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
         transactions.forEach(t => {
             const monthKey = t.date.slice(0, 7);
             if (!report[monthKey]) {
-                report[monthKey] = { income: 0, expense: 0, balance: 0, date: monthKey };
+                report[monthKey] = { 
+                    income: 0, expense: 0, balance: 0, 
+                    realIncome: 0, realExpense: 0, realBalance: 0,
+                    date: monthKey 
+                };
             }
+            
+            const val = parseFloat(t.amount) || 0;
+            
+            // Total Flow
             if (t.type === 'income') {
-                const val = parseFloat(t.amount) || 0;
                 report[monthKey].income += val;
                 report[monthKey].balance += val;
             } else {
-                const val = parseFloat(t.amount) || 0;
                 report[monthKey].expense += val;
                 report[monthKey].balance -= val;
+            }
+
+            // Real Flow (excluding transfers/initial balance)
+            if (t.type === 'income') {
+                if (t.category !== 'initial_balance' && t.category !== 'carryover' && t.category !== 'vault_redemption') {
+                    report[monthKey].realIncome += val;
+                    report[monthKey].realBalance += val;
+                }
+            } else {
+                if (t.category !== 'investment' && t.category !== 'vault') {
+                    report[monthKey].realExpense += val;
+                    report[monthKey].realBalance -= val;
+                }
             }
         });
         return Object.values(report).sort((a, b) => b.date.localeCompare(a.date));
     }, [transactions]);
 
     const exportToPDF = () => {
-        generatePDF(transactions, selectedMonth, logo);
+        generatePDF(transactions, selectedMonth, logo, showRealFlow);
     };
 
     return (
@@ -494,9 +514,38 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                         <div className={`p-6 border-b flex flex-col md:flex-row md:justify-between md:items-center gap-4 ${
                             theme === 'light' ? 'bg-[#f0fdfa] border-emerald-100/50' : 'bg-slate-800/50 border-slate-800'
                         }`}>
-                            <div className="flex items-center gap-2">
-                                <FileText className="w-5 h-5 text-blue-500" />
-                                <h3 className={`text-xl font-bold italic ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>Relatório Mensal</h3>
+                            <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                    <FileText className="w-5 h-5 text-blue-500" />
+                                    <h3 className={`text-xl font-bold italic ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>Relatório Mensal</h3>
+                                </div>
+                                <div className="flex items-center gap-4 mt-2">
+                                    <div className={`flex p-1 rounded-xl border ${theme === 'light' ? 'bg-white/50 border-emerald-100' : 'bg-slate-900/50 border-slate-700'}`}>
+                                        <button
+                                            onClick={() => setShowRealFlow(true)}
+                                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                showRealFlow 
+                                                ? (theme === 'light' ? 'bg-emerald-500 text-white shadow-md' : 'bg-emerald-600 text-white shadow-md') 
+                                                : 'text-slate-500 hover:text-slate-700'
+                                            }`}
+                                        >
+                                            Fluxo Real
+                                        </button>
+                                        <button
+                                            onClick={() => setShowRealFlow(false)}
+                                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                !showRealFlow 
+                                                ? (theme === 'light' ? 'bg-blue-500 text-white shadow-md' : 'bg-blue-600 text-white shadow-md') 
+                                                : 'text-slate-500 hover:text-slate-700'
+                                            }`}
+                                        >
+                                            Fluxo Total
+                                        </button>
+                                    </div>
+                                    <span className="text-xs text-slate-500 italic hidden md:block">
+                                        {showRealFlow ? "*Ignora aportes no Cofre e Sementinhas" : "*Mostra todas as movimentações brutas"}
+                                    </span>
+                                </div>
                             </div>
                             <div className="flex items-center gap-3">
                                 <button
@@ -539,27 +588,33 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                             <h4 className={`font-bold text-lg capitalize ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
                                                 {new Date(month.date + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
                                             </h4>
-                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${month.balance >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                                                {month.balance >= 0 ? 'Positivo' : 'Negativo'}
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                                (showRealFlow ? month.realBalance : month.balance) >= 0 
+                                                ? 'bg-emerald-500/10 text-emerald-500' 
+                                                : 'bg-rose-500/10 text-rose-500'
+                                            }`}>
+                                                {(showRealFlow ? month.realBalance : month.balance) >= 0 ? 'Positivo' : 'Negativo'}
                                             </span>
                                         </div>
                                         <div className="grid grid-cols-3 gap-4">
                                             <div>
                                                 <p className="text-xs text-slate-500 mb-1">Entradas</p>
-                                                <p className="text-emerald-500 font-medium">+ R$ {month.income.toLocaleString()}</p>
+                                                <p className="text-emerald-500 font-medium">
+                                                    + R$ {(showRealFlow ? month.realIncome : month.income).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </p>
                                             </div>
                                             <div>
                                                 <p className="text-xs text-slate-500 mb-1">Saídas</p>
-                                                <p className="text-rose-500 font-medium">- R$ {month.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                                <p className="text-rose-500 font-medium">
+                                                    - R$ {(showRealFlow ? month.realExpense : month.expense).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </p>
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-xs text-slate-500 mb-1">
-                                                    {isCumulativeView ? 'Saldo Acumulado' : 'Saldo do Mês'}
+                                                    {showRealFlow ? 'Saldo Real (Mês)' : (isCumulativeView ? 'Saldo Acumulado' : 'Saldo do Mês')}
                                                 </p>
-                                                <p className={`font-bold ${month.balance >= 0 ? (theme === 'light' ? 'text-blue-600' : 'text-blue-400') : 'text-rose-500'}`}>
-                                                    R$ {isCumulativeView
-                                                        ? calculateCumulativeBalance(month.date).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                                        : month.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                <p className={`font-bold ${(showRealFlow ? month.realBalance : month.balance) >= 0 ? (theme === 'light' ? 'text-blue-600' : 'text-blue-400') : 'text-rose-500'}`}>
+                                                    R$ {(showRealFlow ? month.realBalance : (isCumulativeView ? calculateCumulativeBalance(month.date) : month.balance)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </p>
                                             </div>
                                         </div>

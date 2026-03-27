@@ -5,9 +5,11 @@ import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     signOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    deleteUser,
+    GoogleAuthProvider
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, onSnapshot, collection, query, where } from 'firebase/firestore';
+import { doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -221,6 +223,56 @@ export function AuthProvider({ children }) {
         return docSnap.exists() ? docSnap.data().messages : [];
     }
 
+    async function deleteAccount() {
+        if (!currentUser) return;
+        const uid = currentUser.uid;
+
+        try {
+            // 1. Transactions
+            const qT = query(collection(db, 'transactions'), where('userId', '==', uid));
+            const snapT = await getDocs(qT);
+            const deleteT = snapT.docs.map(d => deleteDoc(d.ref));
+            await Promise.all(deleteT);
+
+            // 2. Goals
+            const qG = query(collection(db, 'goals'), where('userId', '==', uid));
+            const snapG = await getDocs(qG);
+            const deleteG = snapG.docs.map(d => deleteDoc(d.ref));
+            await Promise.all(deleteG);
+
+            // 3. Settings & Chat
+            await deleteDoc(doc(db, 'users', uid, 'settings', 'general'));
+            await deleteDoc(doc(db, 'users', uid, 'chat', 'history'));
+            // Em vez de deletar o documento base, marcamos como excluído para o admin ver
+            await updateDoc(doc(db, 'users', uid), { 
+                status: 'deleted', 
+                deletedAt: new Date(),
+                email: currentUser.email // Guardamos o e-mail no doc base para o admin identificar quem saiu
+            });
+
+            // 4. Auth User
+            const user = auth.currentUser;
+            if (user) {
+                try {
+                    await deleteUser(user);
+                } catch (err) {
+                    if (err.code === 'auth/requires-recent-login') {
+                        // Se for Google, tenta re-autenticar por popup
+                        const provider = new GoogleAuthProvider();
+                        await signInWithPopup(auth, provider);
+                        await deleteUser(auth.currentUser);
+                    } else {
+                        throw err;
+                    }
+                }
+            }
+            return { success: true };
+        } catch (error) {
+            console.error("Erro ao deletar conta:", error);
+            throw error;
+        }
+    }
+
     const value = {
         currentUser,
         isPremium,
@@ -230,6 +282,7 @@ export function AuthProvider({ children }) {
         signup,
         loginWithGoogle,
         logout,
+        deleteAccount,
         saveUserPreferences,
         getUserPreferences,
         saveChatHistory,

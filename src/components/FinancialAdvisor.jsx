@@ -1,11 +1,12 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { calculateFinancialHealth, calculateSpendingPace } from '../utils/financialLogic';
 import { CATEGORIES } from '../constants/categories';
 import { calculateStatsContext, sendMessageToGemini, validateApiKey } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
-import { Bot, Settings, X, Save, TrendingUp, TrendingDown, DollarSign, AlertTriangle, CheckCircle, Calculator, Video, ChevronDown, Moon, Sun } from 'lucide-react';
+import { Bot, Settings, X, Save, TrendingUp, TrendingDown, DollarSign, AlertTriangle, CheckCircle, Calculator, Video, ChevronDown, Moon, Sun, Trash2 } from 'lucide-react';
 import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
 
 import { useTheme } from '../contexts/ThemeContext';
@@ -13,12 +14,24 @@ import aliviaFinal from '../assets/alivia/alivia-final.png';
 
 export default function FinancialAdvisor({ transactions, manualConfig, onConfigChange, onToggleConfig }) {
     const { theme, toggleTheme } = useTheme();
+    const { deleteAccount } = useAuth();
     const [simAmount, setSimAmount] = useState('');
     const [simInstallments, setSimInstallments] = useState(1);
     const [simulationResult, setSimulationResult] = useState(null);
-
-    // Manual Configuration State
     const [isConfiguring, setIsConfiguring] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+    // Lock body scroll when delete confirmation is open
+    useEffect(() => {
+        if (showDeleteConfirm) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [showDeleteConfirm]);
 
     // Notify parent when configuration mode changes
     useEffect(() => {
@@ -30,7 +43,6 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
     // Inherit config from parent
     const [tempManualConfig, setTempManualConfig] = useState(manualConfig);
     const [apiKey, setApiKey] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
     const [isWealthLocked, setIsWealthLocked] = useState(true);
     const [showConfirmUnlock, setShowConfirmUnlock] = useState(false);
@@ -100,7 +112,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
         } catch (error) {
             console.error("Erro na simulação IA:", error);
 
-            let errorMsg = "Erro ao consultar o Mêntor.";
+            let errorMsg = "Erro ao consultar a Alívia.";
             if (error.message.includes('429') || error.message.includes('quota')) {
                 if (isPremium) {
                     errorMsg = "⏳ Alta demanda no servidor. Aguarde um momento e tente novamente.";
@@ -158,11 +170,23 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
         }, 1000);
     };
 
+    const handleDeleteAccount = async () => {
+        try {
+            setIsDeletingAccount(true);
+            await deleteAccount();
+        } catch (error) {
+            console.error("Falha ao excluir conta:", error);
+            alert("Erro ao excluir conta. Re-autentique-se e tente novamente.");
+            setIsDeletingAccount(false);
+            setShowDeleteConfirm(false);
+        }
+    };
+
     if (isConfiguring) {
         return (
             <div className="glass-card p-6 relative overflow-hidden transition-all">
                 <div className="flex justify-between items-center mb-6 border-b border-emerald-100/30 dark:border-white/10 pb-4">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <h3 className={`text-lg font-bold flex items-center gap-2 ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>
                         <Settings className="w-5 h-5 text-emerald-500" />
                         Configurar Alívia
                     </h3>
@@ -199,7 +223,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                         <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-tight">Renda Mensal Média (R$)</label>
                         <input
                             type="number"
-                            value={tempManualConfig.income}
+                            value={tempManualConfig.income ?? ''}
                             onChange={e => setTempManualConfig({ ...tempManualConfig, income: e.target.value })}
                             onBlur={e => setTempManualConfig({ ...tempManualConfig, income: parseFloat(e.target.value) || 0 })}
                             placeholder="Ex: 5000.00"
@@ -214,7 +238,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                         <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-tight">Gastos Fixos Mensais (R$)</label>
                         <input
                             type="number"
-                            value={tempManualConfig.fixedExpenses}
+                            value={tempManualConfig.fixedExpenses ?? ''}
                             onChange={e => setTempManualConfig({ ...tempManualConfig, fixedExpenses: e.target.value })}
                             onBlur={e => setTempManualConfig({ ...tempManualConfig, fixedExpenses: parseFloat(e.target.value) || 0 })}
                             placeholder="Aluguel, Internet, etc."
@@ -229,7 +253,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                         <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-tight">Estimativa de Variáveis (R$)</label>
                         <input
                             type="number"
-                            value={tempManualConfig.variableEstimate}
+                            value={tempManualConfig.variableEstimate ?? ''}
                             onChange={e => setTempManualConfig({ ...tempManualConfig, variableEstimate: e.target.value })}
                             placeholder="Média de fatura de cartão"
                             className={`w-full border rounded-lg px-3 py-2 transition-all shadow-sm focus:outline-none ${
@@ -294,7 +318,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                             <input
                                 type="number"
                                 disabled={isWealthLocked}
-                                value={tempManualConfig.invested}
+                                value={tempManualConfig.invested ?? ''}
                                 onChange={e => setTempManualConfig({ ...tempManualConfig, invested: e.target.value })}
                                 onBlur={e => setTempManualConfig({ ...tempManualConfig, invested: parseFloat(e.target.value) || 0 })}
                                 placeholder="Ex: 10000.00"
@@ -410,28 +434,92 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                         </details>
                     </div>
 
-                    <button
-                        type="submit"
-                        disabled={isSaving}
-                        className={`w-full font-medium py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 ${isSaving
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                            }`}
-                    >
-                        {isSaving ? (
-                            <React.Fragment key="saving-content">
-                                <CheckCircle key="icon-check" className="w-4 h-4" />
-                                <span key="text-saved">Configuração Salva!</span>
-                            </React.Fragment>
-                        ) : (
-                            <React.Fragment key="ready-content">
-                                <Save key="icon-save" className="w-4 h-4" />
-                                <span key="text-save">Salvar Configuração</span>
-                            </React.Fragment>
-                        )}
-                    </button>
-                </form >
-            </div >
+                    {/* Danger Zone */}
+                    <div className={`mt-8 pt-6 border-t ${theme === 'light' ? 'border-rose-100' : 'border-rose-500/20'}`}>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-rose-500 mb-4 flex items-center gap-2">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            Zona de Perigo
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setShowDeleteConfirm(true)}
+                            className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border text-xs font-bold transition-all ${
+                                theme === 'light'
+                                ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
+                                : 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20'
+                            } mb-2`}
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            {isDeletingAccount ? 'Excluindo...' : 'Excluir minha conta e todos os dados'}
+                        </button>
+                        <p className="text-[9px] text-slate-500 text-center italic">
+                            Ação irreversível. Todos os seus registros serão apagados.
+                        </p>
+                    </div>
+
+                    <div className="pt-4">
+                        <button
+                            type="submit"
+                            disabled={isSaving}
+                            className={`w-full font-medium py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 ${isSaving
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                }`}
+                        >
+                            {isSaving ? (
+                                <React.Fragment key="saving-content">
+                                    <CheckCircle key="icon-check" className="w-4 h-4" />
+                                    <span key="text-saved">Configuração Salva!</span>
+                                </React.Fragment>
+                            ) : (
+                                <React.Fragment key="ready-content">
+                                    <Save key="icon-save" className="w-4 h-4" />
+                                    <span key="text-save">Salvar Configuração</span>
+                                </React.Fragment>
+                            )}
+                        </button>
+                    </div>
+                </form>
+
+                {/* Custom Delete Confirmation Modal */}
+                {showDeleteConfirm && createPortal(
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
+                        <div className={`w-full max-w-sm p-8 rounded-3xl border shadow-2xl animate-in zoom-in-95 duration-300 ${
+                            theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-700'
+                        }`}>
+                            <div className="w-16 h-16 bg-rose-500/10 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                                <Trash2 className="w-8 h-8 text-rose-500 animate-pulse" />
+                            </div>
+                            <h3 className={`text-xl font-bold text-center mb-2 ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>
+                                Adeus, Capitão?
+                            </h3>
+                            <div className={`text-sm text-center mb-8 leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                                Esta ação é <span className="font-black text-rose-500">irreversível</span>. Todas as suas transações e metas serão apagadas para sempre.
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    onClick={handleDeleteAccount}
+                                    disabled={isDeletingAccount}
+                                    className="w-full py-4 bg-rose-500 hover:bg-rose-600 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-rose-500/20 transition-all active:scale-95 disabled:opacity-50"
+                                >
+                                    {isDeletingAccount ? "Processando..." : "SIM, APAGAR TUDO"}
+                                </button>
+                                <button
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    className={`w-full py-4 font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all border ${
+                                        theme === 'light' 
+                                        ? 'bg-slate-50 border-slate-100 text-slate-400 hover:bg-slate-100 hover:text-slate-600' 
+                                        : 'bg-slate-800/50 border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-slate-300'
+                                    }`}
+                                >
+                                    Mudei de ideia, manter dados
+                                </button>
+                            </div>
+                        </div>
+                    </div>,
+                    document.body
+                )}
+            </div>
         );
     }
 
@@ -452,11 +540,11 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                         />
                     </div>
 
-                    <h3 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">
+                    <h3 className={`text-2xl font-black mb-2 tracking-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                         Ative sua Alívia 🍃
                     </h3>
 
-                    <p className="text-slate-500 text-sm max-w-md mx-auto mb-8 leading-relaxed font-medium">
+                    <p className={`text-sm max-w-md mx-auto mb-8 leading-relaxed font-medium ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
                         Desbloqueie o poder da Inteligência Artificial para analisar seus gastos, prever seu saldo futuro e receber o acolhimento financeiro que você merece.
                     </p>
 
@@ -648,10 +736,10 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                                 </div>
                                 <ReactMarkdown
                                     components={{
-                                        strong: ({ node, ...props }) => <span className="font-bold text-slate-800" {...props} />,
+                                        strong: ({ node, ...props }) => <span className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-emerald-400'}`} {...props} />,
                                         ul: ({ node, ...props }) => <ul className="list-disc list-inside space-y-2 ml-1" {...props} />,
-                                        li: ({ node, ...props }) => <li className="text-slate-600 font-medium" {...props} />,
-                                        p: ({ node, ...props }) => <p className="mb-2 font-medium" {...props} />
+                                        li: ({ node, ...props }) => <li className={`font-medium ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`} {...props} />,
+                                        p: ({ node, ...props }) => <p className={`mb-2 font-medium ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`} {...props} />
                                     }}
                                 >
                                     {simulationResult.aiResponse}

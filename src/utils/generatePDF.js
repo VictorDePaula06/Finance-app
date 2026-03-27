@@ -12,7 +12,7 @@ const loadImage = (src) => {
     });
 };
 
-export const generatePDF = async (transactions, selectedMonth_YYYY_MM, logoSrc) => {
+export const generatePDF = async (transactions, selectedMonth_YYYY_MM, logoSrc, showRealFlow = false) => {
     const doc = new jsPDF();
 
     // --- Data Preparation ---
@@ -22,14 +22,26 @@ export const generatePDF = async (transactions, selectedMonth_YYYY_MM, logoSrc) 
         return tMonth === selectedMonth_YYYY_MM;
     }).sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    // Calculate Totals
-    const income = filtered
-        .filter(t => t.type === 'income')
-        .reduce((acc, t) => acc + Number(t.amount), 0);
+    // Calculate Totals based on view
+    let income, expense;
 
-    const expense = filtered
-        .filter(t => t.type === 'expense')
-        .reduce((acc, t) => acc + Number(t.amount), 0);
+    if (showRealFlow) {
+        income = filtered
+            .filter(t => t.type === 'income' && t.category !== 'initial_balance' && t.category !== 'carryover' && t.category !== 'vault_redemption')
+            .reduce((acc, t) => acc + Number(t.amount), 0);
+        
+        expense = filtered
+            .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault')
+            .reduce((acc, t) => acc + Number(t.amount), 0);
+    } else {
+        income = filtered
+            .filter(t => t.type === 'income')
+            .reduce((acc, t) => acc + Number(t.amount), 0);
+        
+        expense = filtered
+            .filter(t => t.type === 'expense')
+            .reduce((acc, t) => acc + Number(t.amount), 0);
+    }
 
     const balance = income - expense;
 
@@ -82,6 +94,14 @@ export const generatePDF = async (transactions, selectedMonth_YYYY_MM, logoSrc) 
     doc.setFontSize(12);
     doc.setTextColor(255, 255, 255);
     doc.text(formattedMonth, 14, 34);
+
+    // Indicator of flow type
+    doc.setFontSize(8);
+    doc.setTextColor(52, 211, 153); // Emerald 400
+    doc.setFont("helvetica", "bold");
+    const flowText = showRealFlow ? "VISÃO: FLUXO REAL (CONSUMO)" : "VISÃO: FLUXO TOTAL (BRUTO)";
+    const textWidth = doc.getTextWidth(flowText);
+    doc.text(flowText, 196 - textWidth, 34);
 
     // 2. Summary Cards
     const cardY = 50;

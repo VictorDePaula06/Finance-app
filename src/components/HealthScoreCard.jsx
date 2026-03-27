@@ -159,8 +159,8 @@ export default function HealthScoreCard({ scoreData }) {
                         />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-3xl font-black text-slate-800 leading-none">{score}</span>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Paz</span>
+                        <span className={`text-3xl font-black leading-none ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{score}</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Paz</span>
                     </div>
                 </div>
 
@@ -168,9 +168,9 @@ export default function HealthScoreCard({ scoreData }) {
                 <div className="flex-1 text-center md:text-left">
                     <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
                         <Activity className={`w-4 h-4 ${color}`} />
-                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Nível de Tranquilidade</h3>
+                        <h3 className={`text-sm font-bold uppercase tracking-wider ${theme === 'light' ? 'text-slate-400' : 'text-slate-300'}`}>Nível de Tranquilidade</h3>
                     </div>
-                    <p className="text-lg md:text-xl font-bold text-slate-800 mb-3">
+                    <p className={`text-lg md:text-xl font-bold mb-3 ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>
                         {feedback}
                     </p>
 

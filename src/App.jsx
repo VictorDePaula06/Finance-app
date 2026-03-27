@@ -15,6 +15,7 @@ import Manual from './components/Manual';
 import PanicButton from './components/PanicButton';
 import { generateSundayBreath } from './utils/sundayBreath';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import ReloadPrompt from './components/ReloadPrompt';
 
 // CONFIGURAÇÃO MASTER
 const MASTER_EMAIL = 'j.17jvictor@gmail.com';
@@ -178,7 +179,7 @@ function Dashboard() {
             </button>
           )}
           <p className="text-slate-400 text-[10px] font-medium tracking-widest uppercase">
-            Versão 3.0
+            VERSÃO 4.0
           </p>
         </footer>
 
@@ -258,10 +259,13 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ThemeProvider>
-        <AppContent />
-      </ThemeProvider>
-    </AuthProvider>
+    <>
+      <ReloadPrompt />
+      <AuthProvider>
+        <ThemeProvider>
+          <AppContent />
+        </ThemeProvider>
+      </AuthProvider>
+    </>
   );
 }
