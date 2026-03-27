@@ -1,7 +1,13 @@
-import { precacheAndRoute } from 'workbox-precaching'
+// v5.0.1 - Cache Busting
+const SW_VERSION = 'v5.0.1';
 
 // Precache de todos os assets do Vite
 precacheAndRoute(self.__WB_MANIFEST)
+
+// Forçar a ativação do novo Service Worker imediatamente
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
 
 // Listener para o evento de PUSH (Notificações Nativas)
 self.addEventListener('push', (event) => {
