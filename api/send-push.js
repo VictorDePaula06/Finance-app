@@ -3,20 +3,26 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 // Configuração do Firebase Admin (usando variáveis de ambiente)
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-
-if (!getApps().length) {
-    initializeApp({
-        credential: cert(serviceAccount)
-    });
-}
-
 const db = getFirestore();
 
 export default async function handler(req, res) {
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
-    }
+    // Garante resposta JSON mesmo em erro fatal
+    try {
+        if (req.method !== 'POST') {
+            return res.status(405).json({ error: 'Method not allowed' });
+        }
+
+        if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+            return res.status(500).json({ error: 'Configuração FIREBASE_SERVICE_ACCOUNT_KEY ausente no Vercel.' });
+        }
+
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+        
+        if (!getApps().length) {
+            initializeApp({
+                credential: cert(serviceAccount)
+            });
+        }
 
     const { title, body, url } = req.body;
 
@@ -70,8 +76,12 @@ export default async function handler(req, res) {
             stats: { totalSent, totalFailed }
         });
 
-    } catch (error) {
-        console.error('Erro global na Vercel Function:', error);
-        return res.status(500).json({ error: error.message });
+    } catch (globalError) {
+        console.error('Erro fatal na API:', globalError);
+        return res.status(500).json({ 
+            success: false, 
+            error: globalError.message,
+            stack: process.env.NODE_ENV === 'development' ? globalError.stack : undefined
+        });
     }
 }
