@@ -86,9 +86,6 @@ function Dashboard() {
     <div className={`min-h-screen relative font-sans transition-colors duration-500 ${
       theme === 'light' ? 'theme-light bg-[var(--bg-primary)] text-slate-800' : 'theme-dark bg-slate-950 text-slate-100'
     }`}>
-      <div className="bg-red-600 text-white text-[10px] font-bold text-center py-1 z-[9999] relative">
-        TESTE DE ATUALIZAÇÃO v5.0.3 - SE VOCÊ VÊ ISSO, O CÓDIGO ESTÁ NOVO! (LIMPE O CACHE SE NÃO VER)
-      </div>
       {/* Background Decorative Orbs */}
       <div className={`fixed top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] -z-10 pointer-events-none transition-opacity duration-1000 ${
         theme === 'light' ? 'bg-[#69C8B9]/20' : 'bg-blue-600/10'
