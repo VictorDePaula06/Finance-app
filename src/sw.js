@@ -1,5 +1,5 @@
-// v5.0.2 - Force update for mobile
-const SW_VERSION = 'v5.0.2';
+// v5.0.3 - Final transition (no debug)
+const SW_VERSION = 'v5.0.3';
 
 // Precache de todos os assets do Vite
 precacheAndRoute(self.__WB_MANIFEST)

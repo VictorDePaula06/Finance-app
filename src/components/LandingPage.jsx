@@ -89,10 +89,6 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
 
     return (
         <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-emerald-500/30 overflow-x-hidden">
-            {/* Banner de Debug para teste de Cache */}
-            <div className="bg-red-600 text-white text-[10px] py-1 text-center font-bold sticky top-0 z-[9999]">
-                LANDING v5.0 - SINCRONIZADO - SE VOCÊ VÊ ISSO, ESTÁ ATUALIZADO
-            </div>
             {/* Navbar - Light Mode */}
             <nav className="fixed top-0 left-0 right-0 z-[100] bg-white/80 backdrop-blur-xl">
                 <div className="max-w-7xl mx-auto px-4 md:px-6 h-24 md:h-32 flex items-center justify-between relative">
