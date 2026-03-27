@@ -265,18 +265,28 @@ export default function AdminPanel({ onBack }) {
 
         setIsSendingPush(true);
         try {
-            const { addDoc } = await import('firebase/firestore');
-            await addDoc(collection(db, 'notifications'), {
-                ...pushMessage,
-                sentAt: new Date(),
-                recipientCount: subscribedUsers.length,
-                status: 'pending'
+            // Chamada para a nossa Vercel Function (API)
+            const response = await fetch('/api/send-push', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: pushMessage.title,
+                    body: pushMessage.body,
+                    url: 'https://soualivia.com.br'
+                })
             });
-            alert(`Notificação agendada para ${subscribedUsers.length} usuários!`);
-            setPushMessage({ title: '', body: '' });
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert(`Sucesso! Notificação enviada para os dispositivos ativos.\nDetalhamento: ${result.message}`);
+                setPushMessage({ title: '', body: '' });
+            } else {
+                throw new Error(result.error || 'Erro desconhecido na API');
+            }
         } catch (error) {
-            console.error("Error scheduling push:", error);
-            alert("Erro ao agendar notificação.");
+            console.error("Error sending push:", error);
+            alert("Erro ao enviar notificação: " + error.message);
         } finally {
             setIsSendingPush(false);
         }
