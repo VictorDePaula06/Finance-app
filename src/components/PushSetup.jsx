@@ -59,6 +59,27 @@ export default function PushSetup() {
         }
     };
 
+    const [isVisible, setIsVisible] = useState(true);
+    const [hasInteracted, setHasInteracted] = useState(localStorage.getItem('push-prompt-hidden') === 'true');
+
+    useEffect(() => {
+        // Se já deu permissão, esconde depois de 3 segundos
+        if (status === 'granted') {
+            const timer = setTimeout(() => setIsVisible(false), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [status]);
+
+    const handleDismiss = (e) => {
+        e.stopPropagation();
+        setIsVisible(false);
+        localStorage.setItem('push-prompt-hidden', 'true');
+        setHasInteracted(true);
+    };
+
+    if (hasInteracted && status !== 'granted') return null;
+    if (!isVisible) return null;
+
     if (status === 'granted') return (
         <div className="fixed bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="bg-emerald-500 text-white px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg shadow-emerald-500/20 text-xs font-bold ring-1 ring-white/20">
@@ -70,19 +91,26 @@ export default function PushSetup() {
     if (status === 'denied') return null;
 
     return (
-        <div className="fixed bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="fixed bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-4 duration-500 group">
             <button 
                 onClick={subscribeUser}
                 disabled={status === 'asking'}
-                className="bg-white/80 backdrop-blur-md border border-slate-200 text-slate-700 px-5 py-3 rounded-2xl flex items-center gap-3 shadow-xl hover:bg-white transition-all group active:scale-95"
+                className="bg-white/80 backdrop-blur-md border border-slate-200 text-slate-700 px-5 py-3 rounded-2xl flex items-center gap-3 shadow-xl hover:bg-white transition-all active:scale-95 pr-10"
             >
                 <div className={`p-2 rounded-xl transition-colors ${status === 'asking' ? 'bg-amber-100 text-amber-500 animate-pulse' : 'bg-[#5CCEEA]/10 text-[#5CCEEA] group-hover:bg-[#5CCEEA] group-hover:text-white'}`}>
                     {status === 'asking' ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
                 </div>
                 <div className="text-left">
                     <p className="text-[10px] font-black uppercase tracking-tight leading-none mb-1">Alertas Reais</p>
-                    <p className="text-[9px] text-slate-500 leading-none">Receber notificações no celular</p>
+                    <p className="text-[9px] text-slate-500 leading-none">Receber notificações</p>
                 </div>
+            </button>
+            <button 
+                onClick={handleDismiss}
+                className="absolute top-2 right-2 p-1 text-slate-400 hover:text-slate-600 transition-colors opacity-0 group-hover:opacity-100"
+                title="Fechar"
+            >
+                <BellOff className="w-3 h-3" />
             </button>
         </div>
     );
