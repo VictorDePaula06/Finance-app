@@ -16,6 +16,7 @@ import PanicButton from './components/PanicButton';
 import { generateSundayBreath } from './utils/sundayBreath';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import ReloadPrompt from './components/ReloadPrompt';
+import PushSetup from './components/PushSetup';
 
 // CONFIGURAÇÃO MASTER
 const MASTER_EMAIL = 'j.17jvictor@gmail.com';
@@ -262,6 +263,7 @@ export default function App() {
     <>
       <ReloadPrompt />
       <AuthProvider>
+        <PushSetup />
         <ThemeProvider>
           <AppContent />
         </ThemeProvider>

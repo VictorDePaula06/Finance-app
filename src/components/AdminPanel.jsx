@@ -125,6 +125,7 @@ export default function AdminPanel({ onBack }) {
                     isLifetime,
                     isBlocked,
                     isDeleted: userData.status === 'deleted' || !userSnap.exists(),
+                    pushSubscriptions: userData.pushSubscriptions || [],
                     deletedAt: userData.deletedAt ? (userData.deletedAt.toDate ? userData.deletedAt.toDate() : new Date(userData.deletedAt)) : null,
                     createdAt: createdAt ? createdAt.toLocaleDateString('pt-BR') : 'N/A',
                     lastSync: (settingsData.subscription?.updatedAt || userData.subscription?.updatedAt)?.toDate?.().toLocaleDateString() || 'N/A'
@@ -237,9 +238,49 @@ export default function AdminPanel({ onBack }) {
             await deleteDoc(doc(db, 'users', uid, 'chat', 'history')).catch(() => {});
             await deleteDoc(doc(db, 'users', uid)).catch(() => {});
             await deleteDoc(doc(db, 'customers', uid)).catch(() => {});
-
             alert("Usuário e seus dados foram excluídos definitivamente do Firebase!");
             fetchUsers();
+        } catch (error) {
+            console.error("Error deleting user:", error);
+            alert("Erro ao excluir definitivamente: " + error.message);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const [pushMessage, setPushMessage] = useState({ title: '', body: '' });
+    const [isSendingPush, setIsSendingPush] = useState(false);
+
+    const sendPushToAll = async () => {
+        const subscribedUsers = users.filter(u => u.pushSubscriptions && u.pushSubscriptions.length > 0);
+        if (subscribedUsers.length === 0) {
+            alert("Nenhum usuário inscrito para notificações ainda.");
+            return;
+        }
+
+        if (!pushMessage.title || !pushMessage.body) {
+            alert("Preencha título e mensagem.");
+            return;
+        }
+
+        setIsSendingPush(true);
+        try {
+            const { addDoc } = await import('firebase/firestore');
+            await addDoc(collection(db, 'notifications'), {
+                ...pushMessage,
+                sentAt: new Date(),
+                recipientCount: subscribedUsers.length,
+                status: 'pending'
+            });
+            alert(`Notificação agendada para ${subscribedUsers.length} usuários!`);
+            setPushMessage({ title: '', body: '' });
+        } catch (error) {
+            console.error("Error scheduling push:", error);
+            alert("Erro ao agendar notificação.");
+        } finally {
+            setIsSendingPush(false);
+        }
+    };
         } catch (error) {
             console.error("Error deleting user:", error);
             alert("Erro ao excluir definitivamente: " + error.message);
@@ -460,6 +501,46 @@ export default function AdminPanel({ onBack }) {
                         ) : (
                             <div className="p-12 text-center text-slate-500">Nenhum usuário encontrado</div>
                         )}
+                    </div>
+                </div>
+
+                <div className="mt-8 bg-[#0f172a] text-white p-8 rounded-3xl shadow-xl border border-slate-800">
+                    <h2 className="text-xl font-black mb-6 flex items-center gap-3">
+                        <Zap className="w-6 h-6 text-[#5CCEEA]" /> 
+                        Notificação Push Global
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                            <input 
+                                type="text" 
+                                placeholder="Título da Notificação (ex: Novidade na Alívia!)" 
+                                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#5CCEEA]/50"
+                                value={pushMessage.title}
+                                onChange={(e) => setPushMessage({...pushMessage, title: e.target.value})}
+                            />
+                            <textarea 
+                                placeholder="Mensagem (ex: Acabamos de liberar os novos relatórios realistas. Confira!)" 
+                                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm h-32 focus:outline-none focus:ring-2 focus:ring-[#5CCEEA]/50"
+                                value={pushMessage.body}
+                                onChange={(e) => setPushMessage({...pushMessage, body: e.target.value})}
+                            />
+                        </div>
+                        <div className="bg-slate-900/50 border border-slate-700/50 rounded-2xl p-6 flex flex-col justify-between">
+                            <div>
+                                <p className="text-xs text-slate-400 uppercase font-bold mb-2">Status da Audiência</p>
+                                <div className="text-3xl font-black text-[#5CCEEA]">
+                                    {users.filter(u => u.pushSubscriptions?.length > 0).length}
+                                </div>
+                                <p className="text-[10px] text-slate-500 mt-1">Usuários com notificações ativas no celular</p>
+                            </div>
+                            <button 
+                                onClick={sendPushToAll}
+                                disabled={isSendingPush}
+                                className="w-full py-4 bg-gradient-to-r from-[#5CCEEA] to-[#69C8B9] text-white font-black rounded-xl shadow-lg shadow-[#5CCEEA]/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                            >
+                                {isSendingPush ? 'Enviando...' : 'ENVIAR NOTIFICAÇÃO AGORA'}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
