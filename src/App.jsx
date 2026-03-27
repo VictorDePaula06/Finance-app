@@ -86,6 +86,10 @@ function Dashboard() {
     <div className={`min-h-screen relative font-sans transition-colors duration-500 ${
       theme === 'light' ? 'theme-light bg-[var(--bg-primary)] text-slate-800' : 'theme-dark bg-slate-950 text-slate-100'
     }`}>
+      {/* Banner de Debug para teste de Cache */}
+      <div className="bg-red-600 text-white text-[10px] py-1 text-center font-bold sticky top-0 z-[9999]">
+        ALÍVIA v5.0 - SINCRONIZADO - SE VOCÊ VÊ ISSO, ESTÁ ATUALIZADO
+      </div>
       {/* Background Decorative Orbs */}
       <div className={`fixed top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] -z-10 pointer-events-none transition-opacity duration-1000 ${
         theme === 'light' ? 'bg-[#69C8B9]/20' : 'bg-blue-600/10'
