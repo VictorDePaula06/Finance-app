@@ -281,13 +281,6 @@ export default function AdminPanel({ onBack }) {
             setIsSendingPush(false);
         }
     };
-        } catch (error) {
-            console.error("Error deleting user:", error);
-            alert("Erro ao excluir definitivamente: " + error.message);
-        } finally {
-            setIsDeleting(false);
-        }
-    };
 
     const filteredUsers = users.filter(u => {
         const matchesSearch = u.email.toLowerCase().includes(searchTerm.toLowerCase()) || 

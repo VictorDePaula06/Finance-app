@@ -179,9 +179,7 @@ function Dashboard() {
               Painel Admin
             </button>
           )}
-          <p className="text-slate-400 text-[10px] font-medium tracking-widest uppercase">
-            VERSÃO 4.0
-          </p>
+            VERSÃO 5.0
         </footer>
 
         <PanicButton onPanicClick={(msg) => {
