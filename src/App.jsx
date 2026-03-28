@@ -97,37 +97,49 @@ function Dashboard() {
       <InstallPrompt />
 
       <div className="max-w-6xl mx-auto p-6 md:p-12 space-y-8 relative z-10">
-        <header className="flex items-center justify-between mb-12">
-          <div className="flex items-center gap-4">
-            <img src={logo} alt="Alívia Logo" className="w-32 h-auto object-contain drop-shadow-lg -ml-4" />
-            <div>
-              <p className={`font-medium tracking-wide mt-1 animate-in fade-in slide-in-from-left-3 ${
+        <header className="flex flex-col items-center mb-12 gap-4">
+          {/* Top: Logo Centered */}
+          <div className="w-full flex justify-center">
+            <img src={logo} alt="Alívia Logo" className="w-32 md:w-40 h-auto object-contain drop-shadow-xl" />
+          </div>
+
+          {/* Bottom: User Info and Actions */}
+          <div className={`w-full flex items-center justify-between p-4 rounded-3xl border ${
+            theme === 'light' ? 'bg-white/50 border-slate-100 shadow-sm' : 'bg-slate-800/20 border-slate-700/50'
+          }`}>
+            <div className="flex flex-col">
+              <p className={`font-black tracking-wide text-sm animate-in fade-in slide-in-from-left-3 ${
                 theme === 'light' ? 'text-[#69C8B9]' : 'text-emerald-400'
               }`}>
                 👋 Olá, <span className={theme === 'light' ? 'text-slate-800' : 'text-white'}>{currentUser?.displayName?.split(' ')[0] || 'Usuário'}</span>
               </p>
-              <p className="text-[10px] text-slate-500 font-mono mt-0.5 opacity-80 select-all">
+              <p className="text-[9px] text-slate-500 font-mono opacity-80 select-all">
                 {currentUser?.email}
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-2 md:gap-4">
-            <ReloadPrompt />
-            <PushSetup />
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('change-view', { detail: 'manual' }))}
-              className="p-2 hover:bg-azul-ceu/10 rounded-lg text-slate-400 hover:text-blue-500 transition-colors"
-              title="Manual do Sistema"
-            >
-              <BookOpen className="w-5 h-5" />
-            </button>
-            <button
-              onClick={logout}
-              className="p-2 hover:bg-rose-500/10 rounded-lg text-slate-400 hover:text-rose-500 transition-colors"
-              title="Sair"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
+
+            <div className="flex items-center gap-1 md:gap-3">
+              <ReloadPrompt />
+              <PushSetup />
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('change-view', { detail: 'manual' }))}
+                className={`p-2 rounded-xl transition-all ${
+                  theme === 'light' ? 'hover:bg-blue-50 text-slate-400 hover:text-blue-500' : 'hover:bg-blue-500/10 text-slate-500 hover:text-blue-400'
+                }`}
+                title="Manual do Sistema"
+              >
+                <BookOpen className="w-5 h-5" />
+              </button>
+              <button
+                onClick={logout}
+                className={`p-2 rounded-xl transition-all ${
+                  theme === 'light' ? 'hover:bg-rose-50 text-slate-400 hover:text-rose-500' : 'hover:bg-rose-500/10 text-slate-500 hover:text-rose-400'
+                }`}
+                title="Sair"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </header>
 
@@ -182,7 +194,7 @@ function Dashboard() {
             </button>
           )}
           <p className="text-slate-400 text-[10px] font-medium tracking-widest uppercase opacity-50">
-            VERSÃO 5.0
+            VERSÃO 5.5
           </p>
         </footer>
 
