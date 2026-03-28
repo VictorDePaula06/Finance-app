@@ -111,7 +111,9 @@ function Dashboard() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
+            <ReloadPrompt />
+            <PushSetup />
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('change-view', { detail: 'manual' }))}
               className="p-2 hover:bg-azul-ceu/10 rounded-lg text-slate-400 hover:text-blue-500 transition-colors"
@@ -261,9 +263,7 @@ function AppContent() {
 export default function App() {
   return (
     <>
-      <ReloadPrompt />
       <AuthProvider>
-        <PushSetup />
         <ThemeProvider>
           <AppContent />
         </ThemeProvider>

@@ -14,7 +14,9 @@ import {
     Calendar,
     Zap,
     Check,
-    Download
+    Download,
+    Sparkles,
+    Megaphone
 } from 'lucide-react';
 import { generateManualPDF } from '../utils/manualPDF';
 import { useTheme } from '../contexts/ThemeContext';
@@ -59,6 +61,7 @@ export default function Manual({ onBack }) {
         { id: 'goals', title: 'Metas e Objetivos', icon: Target },
         { id: 'advisor', title: 'Sua Alívia', icon: MessageSquare },
         { id: 'experience', title: 'Experiência Alívia', icon: Zap },
+        { id: 'news', title: 'Novidades', icon: Sparkles },
     ];
 
     return (
@@ -418,6 +421,88 @@ export default function Manual({ onBack }) {
                             </div>
                         </Section>
 
+                        {/* 7. NEWS */}
+                        <Section id="news" title="Novidades do Sistema" icon={Sparkles} activeSection={activeSection} theme={theme}>
+                            <p className="mb-8">Acompanhe aqui todas as atualizações e melhorias que implementamos para tornar sua jornada financeira cada vez mais leve.</p>
+
+                            <div className="space-y-8 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-emerald-500 before:to-transparent">
+                                
+                                {/* Item 1 */}
+                                <div className="relative pl-12">
+                                    <div className={`absolute left-0 top-1 w-8 h-8 rounded-full border-4 flex items-center justify-center z-10 ${
+                                        theme === 'light' ? 'bg-white border-emerald-500' : 'bg-slate-900 border-emerald-500'
+                                    }`}>
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                                    </div>
+                                    <div className={`p-6 rounded-2xl border transition-all hover:scale-[1.01] ${
+                                        theme === 'light' ? 'bg-white border-emerald-100 shadow-sm' : 'bg-slate-800/40 border-slate-700'
+                                    }`}>
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                                            <h4 className={`text-lg font-black ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>Notificações Inteligentes 🔔</h4>
+                                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/20 text-emerald-400'
+                                            }`}>Hoje</span>
+                                        </div>
+                                        <p className="text-sm mb-4">Lançamos um novo sistema de avisos integrados no cabeçalho. Agora você pode ativar notificações push para receber alertas de segurança e atualizações em tempo real.</p>
+                                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Ativação em um clique</li>
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Sem cards intrusivos</li>
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Histórico no Manual</li>
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Modo Silencioso</li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                {/* Item 2 */}
+                                <div className="relative pl-12">
+                                    <div className={`absolute left-0 top-1 w-8 h-8 rounded-full border-4 flex items-center justify-center z-10 ${
+                                        theme === 'light' ? 'bg-white border-blue-500/50' : 'bg-slate-900 border-blue-500/50'
+                                    }`}>
+                                        <div className="w-2 h-2 rounded-full bg-blue-500/50" />
+                                    </div>
+                                    <div className={`p-6 rounded-2xl border transition-all hover:scale-[1.01] ${
+                                        theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-800/20 border-slate-800'
+                                    }`}>
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                                            <h4 className={`text-lg font-black ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>Refinamento Visual (v5.0) ✨</h4>
+                                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-slate-800 text-slate-400'
+                                            }`}>Março 2026</span>
+                                        </div>
+                                        <p className="text-sm">Modernizamos toda a interface com Glassmorphism (Efeito Vidro) e um novo sistema de cores mais suave para reduzir a ansiedade ao olhar para os números.</p>
+                                    </div>
+                                </div>
+
+                                {/* Item 3 */}
+                                <div className="relative pl-12">
+                                    <div className={`absolute left-0 top-1 w-8 h-8 rounded-full border-4 flex items-center justify-center z-10 ${
+                                        theme === 'light' ? 'bg-white border-purple-500/30' : 'bg-slate-900 border-purple-500/30'
+                                    }`}>
+                                        <div className="w-2 h-2 rounded-full bg-purple-500/30" />
+                                    </div>
+                                    <div className={`p-6 rounded-2xl border transition-all hover:scale-[1.01] ${
+                                        theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-800/10 border-slate-800'
+                                    }`}>
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                                            <h4 className={`text-lg font-black ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>IA Evoluída com Gemini 🤖</h4>
+                                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-slate-800 text-slate-400'
+                                            }`}>Fevereiro 2026</span>
+                                        </div>
+                                        <p className="text-sm">A Sua Alívia agora entende melhor o seu contexto financeiro e consegue dar dicas muito mais precisas sobre onde economizar.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className={`mt-12 p-6 rounded-3xl border text-center ${
+                                theme === 'light' ? 'bg-blue-50 border-blue-100' : 'bg-blue-500/5 border-blue-500/10'
+                            }`}>
+                                <Megaphone className="w-8 h-8 text-blue-500 mx-auto mb-4" />
+                                <h5 className={`font-bold mb-2 ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>Queremos te ouvir!</h5>
+                                <p className="text-xs opacity-75">Sentiu falta de alguma funcionalidade? Converse com a Alívia no chat e dê sua sugestão. Evoluímos o sistema com base no seu feedback.</p>
+                            </div>
+                        </Section>
+
                     </main>
                 </div>
 
@@ -428,7 +513,7 @@ export default function Manual({ onBack }) {
                     <p className={`text-[10px] font-medium tracking-widest uppercase opacity-50 ${
                         theme === 'light' ? 'text-slate-400' : 'text-slate-600'
                     }`}>
-                        Alívia • Tranquilidade Financeira • v5.0
+                        Alívia • Tranquilidade Financeira • v5.5
                     </p>
                 </footer>
 

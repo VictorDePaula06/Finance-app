@@ -472,7 +472,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
             <footer className="py-12 border-t border-slate-100 bg-white">
                 <div className="max-w-7xl mx-auto px-6 text-center text-slate-400">
                     <p className="mb-2">&copy; {new Date().getFullYear()} Alívia. Todos os direitos reservados.</p>
-                    <p className="mb-4 text-[10px] font-bold tracking-widest uppercase opacity-40">v5.0</p>
+                    <p className="mb-4 text-[10px] font-bold tracking-widest uppercase opacity-40">v5.5</p>
                     <div className="flex flex-wrap justify-center gap-6 text-sm mb-8">
                         <button onClick={onViewManual} className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors">Manual do Sistema</button>
                         <button onClick={onViewTerms} className="hover:text-slate-300 transition-colors">Termos de Uso</button>

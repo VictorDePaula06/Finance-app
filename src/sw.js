@@ -1,7 +1,7 @@
 import { precacheAndRoute } from 'workbox-precaching';
 
 // v5.0.4 - Fix Workbox imports
-const SW_VERSION = 'v5.0.4';
+const SW_VERSION = 'v5.5.0';
 
 // Precache de todos os assets do Vite
 precacheAndRoute(self.__WB_MANIFEST)

@@ -31,21 +31,23 @@ export default function PushSetup() {
         setStatus('asking');
         try {
             const registration = await navigator.serviceWorker.ready;
-            
-            // Pede permissão nativa
             const permission = await Notification.requestPermission();
+            
             if (permission !== 'granted') {
                 setStatus('denied');
                 return;
             }
 
-            // Cria a assinatura de push
+            if (!publicKey) {
+                setStatus('error');
+                return;
+            }
+
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: urlBase64ToUint8Array(publicKey)
             });
 
-            // Salva no Firestore do Usuário
             if (currentUser) {
                 const userRef = doc(db, 'users', currentUser.uid);
                 await updateDoc(userRef, {
@@ -60,59 +62,71 @@ export default function PushSetup() {
         }
     };
 
+    const unsubscribeUser = async () => {
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.getSubscription();
+            if (subscription) {
+                await subscription.unsubscribe();
+                // Opcional: remover do Firestore se necessário, mas por agora apenas local
+                setStatus('idle');
+            }
+        } catch (error) {
+            console.error('Erro ao desativar notificações:', error);
+        }
+    };
+
     const [isVisible, setIsVisible] = useState(true);
     const [hasInteracted, setHasInteracted] = useState(localStorage.getItem('push-prompt-hidden') === 'true');
 
     useEffect(() => {
-        // Se já deu permissão, esconde depois de 3 segundos
-        if (status === 'granted') {
-            const timer = setTimeout(() => setIsVisible(false), 3000);
-            return () => clearTimeout(timer);
-        }
-    }, [status]);
-
-    const handleDismiss = (e) => {
-        e.stopPropagation();
-        setIsVisible(false);
-        localStorage.setItem('push-prompt-hidden', 'true');
-        setHasInteracted(true);
-    };
-
-    if (hasInteracted && status !== 'granted') return null;
-    if (!isVisible) return null;
-
-    if (status === 'granted') return (
-        <div className="fixed bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-emerald-500 text-white px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg shadow-emerald-500/20 text-xs font-bold ring-1 ring-white/20">
-                <CheckCircle2 className="w-4 h-4" /> Notificações Ativas
-            </div>
-        </div>
-    );
+        // Verifica se já está inscrito ao carregar
+        const checkSubscription = async () => {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.getSubscription();
+                if (subscription) setStatus('granted');
+            }
+        };
+        checkSubscription();
+    }, []);
 
     if (status === 'denied') return null;
 
+    if (status === 'granted') return (
+        <button 
+            onClick={unsubscribeUser}
+            className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 text-emerald-600 rounded-xl text-[10px] font-bold border border-emerald-500/20 hover:bg-rose-500/20 hover:text-rose-600 hover:border-rose-500/30 transition-all group"
+            title="Desativar Notificações"
+        >
+            <CheckCircle2 className="w-4 h-4 group-hover:hidden text-emerald-500" />
+            <BellOff className="w-4 h-4 hidden group-hover:block text-rose-500" />
+            <span className="hidden md:inline">Ativado</span>
+        </button>
+    );
+
+    if (status === 'error') return (
+        <button 
+            onClick={subscribeUser}
+            className="flex items-center gap-2 px-3 py-2 bg-rose-500/10 text-rose-600 rounded-xl text-[10px] font-bold border border-rose-500/20 hover:bg-rose-500/20 transition-all"
+            title="Erro ao ativar. Clique para tentar novamente. Verifique o console."
+        >
+            <BellOff className="w-4 h-4 text-rose-500" />
+            <span className="hidden md:inline">Erro Alerta</span>
+        </button>
+    );
+
     return (
-        <div className="fixed bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-4 duration-500 group">
-            <button 
-                onClick={subscribeUser}
-                disabled={status === 'asking'}
-                className="bg-white/80 backdrop-blur-md border border-slate-200 text-slate-700 px-5 py-3 rounded-2xl flex items-center gap-3 shadow-xl hover:bg-white transition-all active:scale-95 pr-10"
-            >
-                <div className={`p-2 rounded-xl transition-colors ${status === 'asking' ? 'bg-amber-100 text-amber-500 animate-pulse' : 'bg-[#5CCEEA]/10 text-[#5CCEEA] group-hover:bg-[#5CCEEA] group-hover:text-white'}`}>
-                    {status === 'asking' ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
-                </div>
-                <div className="text-left">
-                    <p className="text-[10px] font-black uppercase tracking-tight leading-none mb-1">Alertas Reais</p>
-                    <p className="text-[9px] text-slate-500 leading-none">Receber notificações</p>
-                </div>
-            </button>
-            <button 
-                onClick={handleDismiss}
-                className="absolute top-2 right-2 p-1 text-slate-400 hover:text-slate-600 transition-colors opacity-0 group-hover:opacity-100"
-                title="Fechar"
-            >
-                <BellOff className="w-3 h-3" />
-            </button>
-        </div>
+        <button 
+            onClick={subscribeUser}
+            disabled={status === 'asking'}
+            title="Ativar Notificações"
+            className={`p-2 rounded-xl transition-all flex items-center gap-2 group ${
+                status === 'asking' ? 'bg-amber-100 text-amber-500 animate-pulse' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/20'
+            }`}
+        >
+            <Bell className="w-5 h-5" />
+            <span className="text-[10px] font-bold uppercase tracking-tight hidden md:inline-block">Alertas</span>
+        </button>
     );
 }
