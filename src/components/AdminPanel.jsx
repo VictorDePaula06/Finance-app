@@ -300,94 +300,94 @@ export default function AdminPanel({ onBack }) {
     });
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] text-slate-800 p-6 md:p-12 font-sans relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-[#69C8B9]/10 rounded-full blur-[120px] -z-10" />
-            <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#5CCEEA]/10 rounded-full blur-[120px] -z-10" />
+        <div className="min-h-screen bg-slate-950 text-slate-200 p-6 md:p-12 font-sans relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-[120px] -z-10" />
+            <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/5 rounded-full blur-[120px] -z-10" />
 
-            <div className="max-w-5xl mx-auto relative z-10">
+            <div className="max-w-6xl mx-auto relative z-10">
                 <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-12">
-                    <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors group w-fit">
+                    <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-slate-300 transition-colors group w-fit">
                         <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
                         <span className="text-sm font-bold uppercase tracking-tight">Voltar ao Dashboard</span>
                     </button>
                     <div className="flex items-center gap-3">
-                        <div className="p-3 bg-white shadow-sm rounded-2xl border border-slate-100">
-                            <Shield className="w-6 h-6 text-[#5CCEEA]" />
+                        <div className="p-3 bg-slate-900/50 shadow-xl rounded-2xl border border-white/5">
+                            <Shield className="w-6 h-6 text-emerald-400" />
                         </div>
-                        <h1 className="text-2xl md:text-3xl font-black tracking-tighter text-slate-800">Painel Admin</h1>
+                        <h1 className="text-2xl md:text-3xl font-black tracking-tighter text-white">Painel Admin</h1>
                     </div>
                 </header>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                     <div className="md:col-span-2 relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
                         <input
                             type="text"
                             placeholder="Buscar por e-mail ou UID..."
-                            className="w-full bg-white border border-slate-200 shadow-sm rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-[#5CCEEA]/20 transition-all text-base md:text-lg text-slate-800 placeholder:text-slate-400"
+                            className="w-full bg-slate-900/50 border border-white/5 shadow-xl rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all text-base md:text-lg text-slate-100 placeholder:text-slate-600"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <div className="flex bg-white border border-slate-200 p-1 rounded-2xl shadow-sm">
+                    <div className="flex bg-slate-900/50 border border-white/5 p-1 rounded-2xl shadow-xl">
                         <button
                             onClick={() => setShowDeleted(false)}
-                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${!showDeleted ? 'bg-[#5CCEEA] text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${!showDeleted ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'text-slate-500 hover:bg-white/5'}`}
                         >
                             Ativos
                         </button>
                         <button
                             onClick={() => setShowDeleted(true)}
-                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${showDeleted ? 'bg-rose-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${showDeleted ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'text-slate-500 hover:bg-white/5'}`}
                         >
                             Excluídos
                         </button>
                     </div>
                     <button
                         onClick={fetchUsers}
-                        className="flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 shadow-sm rounded-2xl py-4 md:py-0 transition-all active:scale-95"
+                        className="flex items-center justify-center gap-2 bg-slate-900/50 hover:bg-slate-800 text-slate-300 border border-white/5 shadow-xl rounded-2xl py-4 md:py-0 transition-all active:scale-95"
                         disabled={loading}
                     >
-                        <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''} text-[#69C8B9]`} />
+                        <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''} text-emerald-400`} />
                         <span className="font-bold">Atualizar Lista</span>
                     </button>
                 </div>
 
-                <div className="bg-white/80 border border-slate-200 rounded-3xl overflow-hidden backdrop-blur-xl shadow-sm">
+                <div className="bg-slate-900/40 border border-white/5 rounded-3xl overflow-hidden backdrop-blur-xl shadow-2xl">
                     <div className="hidden md:block overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                        <table className="w-full text-left border-collapse min-w-[1000px]">
                             <thead>
-                                <tr className="bg-slate-50 border-b border-slate-100">
-                                    <th className="p-6 text-slate-400 font-medium uppercase text-xs tracking-wider">E-mail / UID</th>
-                                    <th className="p-6 text-slate-400 font-medium uppercase text-xs tracking-wider">Plano</th>
-                                    <th className="p-6 text-slate-400 font-medium uppercase text-xs tracking-wider">Pagamento</th>
-                                    <th className="p-6 text-slate-400 font-medium uppercase text-xs tracking-wider">Cadastro</th>
-                                    <th className="p-6 text-slate-400 font-medium uppercase text-xs tracking-wider">Vencimento</th>
-                                    <th className="p-6 text-slate-400 font-medium uppercase text-xs tracking-wider text-right">Ação</th>
+                                <tr className="bg-slate-800/50 border-b border-white/5">
+                                    <th className="p-6 text-slate-500 font-medium uppercase text-xs tracking-wider">E-mail / UID</th>
+                                    <th className="p-6 text-slate-500 font-medium uppercase text-xs tracking-wider">Plano</th>
+                                    <th className="p-6 text-slate-500 font-medium uppercase text-xs tracking-wider">Pagamento</th>
+                                    <th className="p-6 text-slate-500 font-medium uppercase text-xs tracking-wider">Cadastro</th>
+                                    <th className="p-6 text-slate-500 font-medium uppercase text-xs tracking-wider">Vencimento</th>
+                                    <th className="p-6 text-slate-500 font-medium uppercase text-xs tracking-wider text-right">Ação</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-white/5">
                                 {loading ? (
                                     Array(3).fill(0).map((_, i) => (
                                         <tr key={i} className="animate-pulse">
-                                            <td className="p-6"><div className="h-4 bg-slate-100 rounded w-48"></div></td>
-                                            <td className="p-6"><div className="h-4 bg-slate-100 rounded w-16"></div></td>
-                                            <td className="p-6"><div className="h-4 bg-slate-100 rounded w-24"></div></td>
-                                            <td className="p-6"><div className="h-4 bg-slate-100 rounded w-24"></div></td>
-                                            <td className="p-6"><div className="h-4 bg-slate-100 rounded w-24"></div></td>
-                                            <td className="p-6"><div className="h-8 bg-slate-100 rounded w-32 ml-auto"></div></td>
+                                            <td className="p-6"><div className="h-4 bg-slate-800 rounded w-48"></div></td>
+                                            <td className="p-6"><div className="h-4 bg-slate-800 rounded w-16"></div></td>
+                                            <td className="p-6"><div className="h-4 bg-slate-800 rounded w-24"></div></td>
+                                            <td className="p-6"><div className="h-4 bg-slate-800 rounded w-24"></div></td>
+                                            <td className="p-6"><div className="h-4 bg-slate-800 rounded w-24"></div></td>
+                                            <td className="p-6"><div className="h-8 bg-slate-800 rounded w-32 ml-auto"></div></td>
                                         </tr>
                                     ))
                                 ) : filteredUsers.length > 0 ? (
                                     filteredUsers.map(user => (
-                                        <tr key={user.uid} className="hover:bg-slate-50/50 transition-colors group border-b border-slate-100">
+                                        <tr key={user.uid} className="hover:bg-white/5 transition-colors group border-b border-white/5">
                                             <td className="p-6 text-sm">
-                                                <div className={`font-bold mb-1 transition-colors ${user.email === 'N/A' ? 'text-slate-400 italic font-medium' : 'text-slate-800 group-hover:text-[#5CCEEA]'}`}>
+                                                <div className={`font-bold mb-1 transition-colors ${user.email === 'N/A' ? 'text-slate-600 italic font-medium' : 'text-slate-100 group-hover:text-emerald-400'}`}>
                                                     {user.email === 'N/A' ? 'Sem e-mail (Legacy)' : user.email}
                                                 </div>
                                                 <div className="text-[10px] text-slate-500 font-mono select-all opacity-50">{user.uid}</div>
                                                 {user.stripeEmail && user.stripeEmail !== 'N/A' && user.stripeEmail !== user.email && (
-                                                    <div className="text-[10px] text-emerald-500 font-medium mt-1 select-all">Pagamento: {user.stripeEmail}</div>
+                                                    <div className="text-[10px] text-emerald-500/70 font-medium mt-1 select-all">Pagamento: {user.stripeEmail}</div>
                                                 )}
                                             </td>
                                             <td className="p-6">
@@ -416,10 +416,10 @@ export default function AdminPanel({ onBack }) {
                                                     {!user.isDeleted ? (
                                                         <>
                                                             {!user.isLifetime && (
-                                                                <button onClick={() => setLifetime(user.uid)} className="px-3 py-2 rounded-xl font-bold text-[10px] transition-all border border-purple-500/20 bg-purple-500/10 text-purple-400 hover:bg-purple-500">Vitalício</button>
+                                                                <button onClick={() => setLifetime(user.uid)} className="px-3 py-2 rounded-xl font-bold text-[10px] transition-all border border-purple-500/20 bg-purple-500/10 text-purple-400 hover:bg-purple-600 hover:text-white">Vitalício</button>
                                                             )}
-                                                            <button onClick={() => resetUser(user.uid)} className="px-3 py-2 rounded-xl font-bold text-[10px] transition-all border border-slate-200 bg-white text-slate-400 hover:border-slate-300 shadow-sm">Resetar</button>
-                                                            <button onClick={() => togglePremium(user.uid, user.isPremium)} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all border ${user.isPremium ? 'border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white'}`}>
+                                                            <button onClick={() => resetUser(user.uid)} className="px-3 py-2 rounded-xl font-bold text-[10px] transition-all border border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200">Resetar</button>
+                                                            <button onClick={() => togglePremium(user.uid, user.isPremium)} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all border ${user.isPremium ? 'border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-600 hover:text-white' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-600 hover:text-white'}`}>
                                                                 {user.isPremium ? 'Bloquear' : 'Ativar'}
                                                             </button>
                                                         </>
@@ -466,14 +466,14 @@ export default function AdminPanel({ onBack }) {
                                             )}
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                    <div className="grid grid-cols-2 gap-4 bg-slate-900/50 p-4 rounded-2xl border border-white/5">
                                         <div>
                                             <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Pagamento</p>
-                                            <p className="text-xs text-slate-600">{user.isLifetime ? 'N/A' : user.subDate}</p>
+                                            <p className="text-xs text-slate-400">{user.isLifetime ? 'N/A' : user.subDate}</p>
                                         </div>
                                         <div>
                                             <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Vencimento</p>
-                                            <p className={`text-xs font-bold ${user.isBlocked ? 'text-rose-600' : user.daysLeft <= 0 ? 'text-rose-600' : 'text-blue-500'}`}>{user.isBlocked ? 'BLOQUEADO' : user.isLifetime ? '∞' : `${user.daysLeft} dias`}</p>
+                                            <p className={`text-xs font-bold ${user.isBlocked ? 'text-rose-500' : user.daysLeft <= 0 ? 'text-rose-500' : 'text-blue-400'}`}>{user.isBlocked ? 'BLOQUEADO' : user.isLifetime ? '∞' : `${user.daysLeft} dias`}</p>
                                         </div>
                                     </div>
                                     <div className="flex flex-wrap gap-2">

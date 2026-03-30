@@ -29,7 +29,7 @@ import Mobile4 from '../assets/Mobile4.jpeg';
 
 
 
-export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onViewManual }) {
+export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onViewManual, onViewContact }) {
     const [billing, setBilling] = React.useState('monthly');
     const [currentSlide, setCurrentSlide] = React.useState(0);
     const [currentMobileSlide, setCurrentMobileSlide] = React.useState(0);
@@ -477,24 +477,14 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                         <button onClick={onViewManual} className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors">Manual do Sistema</button>
                         <button onClick={onViewTerms} className="hover:text-slate-300 transition-colors">Termos de Uso</button>
                         <button onClick={onViewPrivacy} className="hover:text-slate-300 transition-colors">Privacidade</button>
-                        <a
-                            href="https://wa.me/5500000000000"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:text-slate-300 transition-colors"
-                        >
-                            Suporte
-                        </a>
                     </div>
                     <div className="flex justify-center">
-                        <a
-                            href="https://wa.me/5500000000000"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold rounded-lg hover:bg-emerald-600/20 transition-all"
+                        <button
+                            onClick={onViewContact}
+                            className="flex items-center gap-2 px-6 py-2 bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold rounded-lg hover:bg-emerald-600/20 transition-all"
                         >
-                            Dúvidas? Chame no WhatsApp
-                        </a>
+                            Contato
+                        </button>
                     </div>
                 </div>
             </footer>

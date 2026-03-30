@@ -210,11 +210,42 @@ import LandingPage from './components/LandingPage';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfUse from './components/TermsOfUse';
 import SubscriptionBlock from './components/SubscriptionBlock';
+import Contact from './components/Contact';
+import WelcomeModal from './components/WelcomeModal';
 
 function AppContent() {
-  const { currentUser, isPremium, isTrial, daysRemaining } = useAuth();
+  const { currentUser, isPremium, isTrial, daysRemaining, getUserPreferences, saveUserPreferences } = useAuth();
+  const { theme } = useTheme();
   const [view, setView] = useState('landing');
+  const [showWelcome, setShowWelcome] = useState(false);
 
+  useEffect(() => {
+    if (currentUser && (view === 'landing' || view === 'login')) {
+      setView('dashboard');
+    }
+  }, [currentUser, view]);
+
+  useEffect(() => {
+    if (currentUser && view === 'dashboard') {
+      getUserPreferences().then(prefs => {
+        if (!prefs || !prefs.hasSeenWelcome) {
+          setShowWelcome(true);
+        }
+      });
+    }
+  }, [currentUser, view]);
+
+  const handleCloseWelcome = async (goToManual = false) => {
+    setShowWelcome(false);
+    await saveUserPreferences({ hasSeenWelcome: true });
+    if (goToManual) {
+      setView('manual');
+      // Trigger deep link to settings section in Manual
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('manual-section', { detail: 'settings' }));
+      }, 100);
+    }
+  };
   useEffect(() => {
     const handleViewChange = (e) => setView(e.detail);
     const handleHashChange = () => {
@@ -230,6 +261,19 @@ function AppContent() {
       window.removeEventListener('hashchange', handleHashChange);
     };
   }, []);
+
+  const dashboardView = (
+    <>
+      <Dashboard />
+      {showWelcome && (
+        <WelcomeModal 
+          theme={theme}
+          onStartConfig={() => handleCloseWelcome(true)}
+          onSkip={() => handleCloseWelcome(false)}
+        />
+      )}
+    </>
+  );
 
   if (view === 'login' && !currentUser) {
     return <Login onBack={() => setView('landing')} />;
@@ -247,6 +291,10 @@ function AppContent() {
     return <Manual onBack={() => setView(currentUser ? 'dashboard' : 'landing')} />;
   }
 
+  if (view === 'contact') {
+    return <Contact onBack={() => setView(currentUser ? 'dashboard' : 'landing')} />;
+  }
+
   if (currentUser) {
     if (currentUser.email === MASTER_EMAIL && (view === 'admin' || window.location.hash === '#admin')) {
       return <AdminPanel onBack={() => {
@@ -256,7 +304,7 @@ function AppContent() {
     }
 
     if (isPremium || currentUser.email === MASTER_EMAIL) {
-      return <Dashboard />;
+      return dashboardView;
     } else {
       return <SubscriptionBlock onAdminAccess={() => setView('admin')} />;
     }
@@ -268,6 +316,7 @@ function AppContent() {
       onViewPrivacy={() => setView('privacy')}
       onViewTerms={() => setView('terms')}
       onViewManual={() => setView('manual')}
+      onViewContact={() => setView('contact')}
     />
   );
 }

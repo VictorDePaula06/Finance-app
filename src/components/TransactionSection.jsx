@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { LayoutDashboard, ArrowUpCircle, ArrowDownCircle, Trash2, Pencil, Calendar, Search, Wallet, TrendingUp, TrendingDown, FileText, X, Download, Home, Utensils, Car, Heart, Gamepad2, ShoppingBag, Briefcase, Laptop, Circle, Eye, EyeOff, Info } from 'lucide-react';
 import { db } from '../services/firebase';
@@ -54,6 +54,7 @@ function Card({ title, value, icon: Icon, color, highlight, isHidable, isHidden,
 
 export default function TransactionSection({ manualConfig, updateManualConfig, transactions, goals = [], isLoadingData }) {
     const { theme } = useTheme();
+    const formRef = useRef(null);
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
     const [date, setDate] = useState(() => {
@@ -229,6 +230,11 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
         const formattedDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         setDate(formattedDate);
         setEditingId(t.id);
+        
+        // Scroll to form
+        if (formRef.current) {
+            formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     };
 
     const [deleteId, setDeleteId] = useState(null);
@@ -690,7 +696,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
             </div>
 
             {/* Input Form */}
-            <form key={editingId || 'new-form'} onSubmit={handleSubmit} className={`p-6 md:p-8 rounded-3xl border shadow-2xl grid grid-cols-1 md:grid-cols-12 gap-4 ${
+            <form ref={formRef} key={editingId || 'new-form'} onSubmit={handleSubmit} className={`p-6 md:p-8 rounded-3xl border shadow-2xl grid grid-cols-1 md:grid-cols-12 gap-4 ${
                 theme === 'light' ? 'glass-card border-emerald-100/50' : 'bg-[#111827]/80 backdrop-blur-xl border-white/5'
             }`}>
                 <div className="md:col-span-12">
@@ -817,7 +823,8 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                             <span className={`ms-2 text-xs font-medium transition-colors ${theme === 'light' ? 'text-slate-500 group-hover:text-slate-700' : 'text-slate-400 group-hover:text-slate-200'}`}>Fixa</span>
                         </label>
                         {isRecurring && (
-                            <div className="flex items-center gap-4 animate-in fade-in slide-in-from-left-2 transition-all">
+                            <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-left-2 transition-all">
+                                <div className="flex items-center gap-4 transition-all">
                                     <div className={`flex items-center gap-2 ${theme === 'light' ? 'text-slate-600' : 'text-slate-200'}`}>
                                         <label className={`text-[10px] font-bold uppercase ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>Parcelas:</label>
                                         <input
@@ -855,6 +862,18 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                             Mensal
                                         </button>
                                     </div>
+                                </div>
+                                <div className={`text-[10px] font-medium animate-in fade-in slide-in-from-left-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                                    {installmentValueMode === 'total' ? (
+                                        <span>
+                                            O valor de <strong className={theme === 'light' ? 'text-slate-700' : 'text-slate-200'}>R$ {(parseFloat(amount) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> será dividido em {installments}x de <strong className={theme === 'light' ? 'text-blue-600' : 'text-blue-400'}>R$ {((parseFloat(amount) || 0) / installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>.
+                                        </span>
+                                    ) : (
+                                        <span>
+                                            O valor de <strong className={theme === 'light' ? 'text-slate-700' : 'text-slate-200'}>R$ {(parseFloat(amount) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> será lançado integralmente em cada um dos próximos {installments} meses.
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>

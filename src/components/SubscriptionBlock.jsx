@@ -166,9 +166,7 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                     </button>
 
                     <a
-                        href="https://wa.me/5500000000000"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        href="mailto:suporte.soualivia@gmail.com"
                         className="flex items-center gap-2 text-slate-400 hover:text-emerald-600 transition-colors text-sm font-medium"
                     >
                         <MessageSquare className="w-4 h-4" />

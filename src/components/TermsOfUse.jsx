@@ -65,16 +65,14 @@ export default function TermsOfUse({ onBack }) {
                     <section className="bg-emerald-50 rounded-2xl border border-emerald-100 p-8 shadow-sm">
                         <h2 className="text-xl font-bold text-slate-900 mb-4 text-center">SAC - Atendimento ao Cliente</h2>
                         <p className="mb-6 text-center text-slate-600">
-                            Dúvidas sobre os termos ou precisa de ajuda? Fale conosco agora.
+                            Dúvidas sobre os termos ou precisa de ajuda? Entre em contato por e-mail.
                         </p>
                         <div className="flex justify-center">
                             <a
-                                href="https://wa.me/5500000000000"
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                href="mailto:suporte.soualivia@gmail.com"
                                 className="inline-flex items-center gap-2 px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-500/20"
                             >
-                                WhatsApp Suporte
+                                suporte.soualivia@gmail.com
                             </a>
                         </div>
                     </section>

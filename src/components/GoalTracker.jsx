@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Target, Plus, Pencil, Check, X, Trophy, History, Trash2, TrendingUp, Calendar, Minus } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -7,6 +7,7 @@ import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc
 
 export default function GoalTracker() {
     const { theme } = useTheme();
+    const addFormRef = useRef(null);
     const [goals, setGoals] = useState([]);
     const [activeTab, setActiveTab] = useState('active'); // 'active' | 'history'
     const [isAdding, setIsAdding] = useState(false);
@@ -162,7 +163,14 @@ export default function GoalTracker() {
             {/* Add Goal Button */}
             {activeTab === 'active' && !isAdding && (
                 <button
-                    onClick={() => setIsAdding(true)}
+                    onClick={() => {
+                        setIsAdding(true);
+                        setTimeout(() => {
+                            if (addFormRef.current) {
+                                addFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                        }, 100);
+                    }}
                     className={`w-full py-3 border-2 border-dashed rounded-xl transition-all font-medium flex items-center justify-center gap-2 ${
                         theme === 'light' 
                         ? 'border-slate-300 text-slate-400 hover:border-verde-respira/50 hover:text-verde-respira hover:bg-verde-respira/5' 
@@ -175,7 +183,7 @@ export default function GoalTracker() {
 
             {/* Add Goal Form */}
             {isAdding && (
-                <div className={`p-4 rounded-xl border shadow-lg animate-in fade-in slide-in-from-top-4 ${
+                <div ref={addFormRef} className={`p-4 rounded-xl border shadow-lg animate-in fade-in slide-in-from-top-4 ${
                     theme === 'light' ? 'glass-card border-verde-respira/20' : 'bg-slate-900 border-emerald-500/20'
                 }`}>
                     <h3 className={`font-bold mb-3 flex items-center gap-2 ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>

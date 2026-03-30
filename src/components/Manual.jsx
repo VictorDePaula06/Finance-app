@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     BookOpen,
     ArrowLeft,
@@ -16,10 +16,21 @@ import {
     Check,
     Download,
     Sparkles,
-    Megaphone
+    Megaphone,
+    Search,
+    Key,
+    Settings,
+    Loader2,
+    Eye,
+    EyeOff,
+    Video,
+    ChevronDown
 } from 'lucide-react';
+import tutorialVideoManual from '../assets/tutorial-gemini-key2.mp4';
+import tutorialVideoOriginal from '../assets/tutorial-gemini-key.mp4';
 import { generateManualPDF } from '../utils/manualPDF';
 import { useTheme } from '../contexts/ThemeContext';
+import { validateApiKey } from '../services/gemini';
 
 const Section = ({ id, title, icon: Icon, children, activeSection, theme }) => (
     <div id={id} className={`transition-all duration-500 ${activeSection === id ? 'opacity-100 translate-x-0' : 'hidden opacity-0 -translate-x-4'}`}>
@@ -52,10 +63,45 @@ const FeatureCard = ({ title, description, icon: Icon, color, theme }) => (
 export default function Manual({ onBack }) {
     const { theme } = useTheme();
     const [activeSection, setActiveSection] = useState('intro');
+    const [apiKey, setApiKey] = useState(localStorage.getItem('user_gemini_api_key') || '');
+    const [showPassword, setShowPassword] = useState(false);
+    const [isValidating, setIsValidating] = useState(false);
+    const [saveStatus, setSaveStatus] = useState(null); // 'success' | 'error'
 
+    useEffect(() => {
+        const handleManualSection = (e) => {
+            if (e.detail) setActiveSection(e.detail);
+        };
+        window.addEventListener('manual-section', handleManualSection);
+        return () => window.removeEventListener('manual-section', handleManualSection);
+    }, []);
+
+    const handleSaveApiKey = async () => {
+        if (!apiKey.trim()) {
+            localStorage.removeItem('user_gemini_api_key');
+            setSaveStatus('success');
+            setTimeout(() => setSaveStatus(null), 3000);
+            return;
+        }
+
+        setIsValidating(true);
+        setSaveStatus(null);
+        
+        const isValid = await validateApiKey(apiKey.trim());
+        
+        if (isValid) {
+            localStorage.setItem('user_gemini_api_key', apiKey.trim());
+            setSaveStatus('success');
+            setTimeout(() => setSaveStatus(null), 3000);
+        } else {
+            setSaveStatus('error');
+        }
+        setIsValidating(false);
+    };
 
     const sections = [
         { id: 'intro', title: 'Boas-vindas', icon: BookOpen },
+        { id: 'settings', title: 'Configurações de IA', icon: Settings },
         { id: 'dashboard', title: 'Dashboard & Saldo', icon: Wallet },
         { id: 'health', title: 'Saúde Financeira', icon: ShieldCheck },
         { id: 'goals', title: 'Metas e Objetivos', icon: Target },
@@ -140,7 +186,145 @@ export default function Manual({ onBack }) {
                         theme === 'light' ? 'bg-white/80 border-emerald-100/50' : 'bg-slate-900/40 border-white/10'
                     }`}>
 
-                        {/* 1. INTRO */}
+                        {/* 1. SETTINGS */}
+                        <Section id="settings" title="Configurações de Inteligência Artificial" icon={Settings} activeSection={activeSection} theme={theme}>
+                            <div className={`p-8 rounded-[2rem] border mb-8 ${
+                                theme === 'light' ? 'bg-white border-emerald-100 shadow-sm' : 'bg-slate-900 border-white/5'
+                            }`}>
+                                <div className="flex flex-col md:flex-row gap-8 items-start">
+                                    <div className="flex-1 space-y-6">
+                                        <h3 className={`text-lg font-bold flex items-center gap-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                            <Key className="w-5 h-5 text-emerald-500" />
+                                            Sua Chave de API Gemini
+                                        </h3>
+                                        <p className="text-sm">
+                                            Para que a Alívia possa falar com você e analisar suas finanças, precisamos de uma chave de API do Google Gemini. 
+                                            A chave é gratuita para uso pessoal e fica guardada apenas no seu navegador.
+                                        </p>
+                                        
+                                        <div className="space-y-4">
+                                            <div className="relative">
+                                                <input
+                                                    type={showPassword ? "text" : "password"}
+                                                    placeholder="Pule ou cole sua chave aqui (AIza...)"
+                                                    value={apiKey}
+                                                    onChange={(e) => setApiKey(e.target.value)}
+                                                    className={`w-full px-5 py-4 rounded-2xl border transition-all pr-14 ${
+                                                        theme === 'light' 
+                                                        ? 'bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-emerald-500/20' 
+                                                        : 'bg-slate-800 border-white/5 focus:bg-slate-700/50 focus:ring-2 focus:ring-blue-500/20 text-white'
+                                                    }`}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-400"
+                                                    title={showPassword ? "Esconder" : "Mostrar"}
+                                                >
+                                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                                </button>
+                                                
+                                                {saveStatus === 'success' && !showPassword && (
+                                                    <div className="absolute right-14 top-1/2 -translate-y-1/2 text-emerald-500 flex items-center gap-1 animate-in fade-in slide-in-from-right-2">
+                                                        <Check className="w-5 h-5" />
+                                                        <span className="text-xs font-bold">Salvo!</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="flex flex-col sm:flex-row gap-3">
+                                                <button
+                                                    onClick={handleSaveApiKey}
+                                                    disabled={isValidating}
+                                                    className={`flex-1 py-4 px-6 rounded-2xl font-black text-white flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 disabled:opacity-50 ${
+                                                        theme === 'light' ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20' : 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/20'
+                                                    }`}
+                                                >
+                                                    {isValidating ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
+                                                    Salvar e Validar Chave
+                                                </button>
+                                                
+                                                <a
+                                                    href="https://aistudio.google.com/app/apikey"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className={`flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-bold text-sm border transition-all ${
+                                                        theme === 'light' ? 'border-slate-200 text-slate-500 hover:bg-slate-50' : 'border-white/5 text-slate-400 hover:bg-white/5'
+                                                    }`}
+                                                >
+                                                    Pegar chave gratuita
+                                                    <ChevronRight className="w-4 h-4" />
+                                                </a>
+                                            </div>
+
+                                            <div className={`p-4 rounded-2xl border ${theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-white/5 border-white/5'}`}>
+                                                <details className="group">
+                                                    <summary className="flex items-center justify-between cursor-pointer text-sm font-bold text-slate-500 hover:text-emerald-500 transition-colors">
+                                                        <span className="flex items-center gap-2">
+                                                            <Video className="w-5 h-5" />
+                                                            Como obter uma chave? (Tutorial em Vídeo)
+                                                        </span>
+                                                        <ChevronDown className="w-5 h-5 transition-transform group-open:rotate-180" />
+                                                    </summary>
+                                                    <div className="mt-4 space-y-4">
+                                                        <p className="text-xs leading-relaxed opacity-70">
+                                                            Siga o passo a passo no vídeo abaixo para gerar sua chave gratuita no Google AI Studio em menos de 1 minuto.
+                                                        </p>
+                                                        <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-black shadow-lg">
+                                                            <video
+                                                                src={tutorialVideoManual}
+                                                                controls
+                                                                className="w-full aspect-video object-contain"
+                                                            >
+                                                                Seu navegador não suporta a tag de vídeo.
+                                                            </video>
+                                                        </div>
+                                                    </div>
+                                                </details>
+                                            </div>
+                                        </div>
+
+                                        {saveStatus === 'success' && (
+                                            <div className="mt-6 p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-center animate-in fade-in slide-in-from-top-4 duration-500 shadow-lg shadow-emerald-500/5">
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="p-3 bg-emerald-500/20 rounded-full">
+                                                        <Sparkles className="w-6 h-6 animate-pulse" />
+                                                    </div>
+                                                    <p className="font-black tracking-tight text-lg">
+                                                        Sua Alívia está configurada e pronta para te ajudar! 🍃
+                                                    </p>
+                                                    <p className="text-xs opacity-70">
+                                                        Agora você pode aproveitar o poder da inteligência artificial nas suas finanças.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {saveStatus === 'error' && (
+                                            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-bold animate-shake">
+                                                Chave inválida. Por favor, verifique se copiou corretamente do Google AI Studio.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <h3 className={`text-lg font-bold border-b pb-4 ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>Por que preciso disso?</h3>
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div className={`p-5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'}`}>
+                                        <h4 className="font-bold mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4 text-emerald-500" /> Inteligência Real</h4>
+                                        <p className="text-xs">Diferente de planilhas comuns, a Alívia usa o Gemini 2.5 Flash para entender sua linguagem natural e te dar conselhos empáticos.</p>
+                                    </div>
+                                    <div className={`p-5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'}`}>
+                                        <h4 className="font-bold mb-2 flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-500" /> Total Privacidade</h4>
+                                        <p className="text-xs">Sua chave é armazenada LOCALMENTE. Nós não temos acesso a ela, garantindo que suas conversas fiquem apenas entre você e a IA.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </Section>
+
+                        {/* 2. INTRO */}
                         <Section id="intro" title="Seja bem-vindo à Alívia" icon={BookOpen} activeSection={activeSection} theme={theme}>
                             <p className="text-lg">
                                 A Alívia não é apenas um gerenciador de gastos; é o seu <strong>acolhimento financeiro</strong>.
