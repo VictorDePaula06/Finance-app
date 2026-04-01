@@ -261,8 +261,8 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
     }, [transactions, manualConfig]);
 
     const chatContent = isOpen ? (
-        <div className={`fixed bottom-6 right-6 w-full max-w-sm h-[500px] glass-card z-[9999] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in ${
-            theme === 'light' ? 'bg-white/70 shadow-xl border-verde-respira/20' : 'bg-slate-900 border-slate-700'
+        <div className={`fixed bottom-4 inset-x-4 sm:inset-x-auto sm:bottom-6 sm:right-6 w-auto sm:w-full sm:max-w-sm h-[500px] glass-card z-[9999] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in ${
+            theme === 'light' ? '!bg-white/95 shadow-xl border-verde-respira/20' : '!bg-slate-900/98 border-slate-700'
         }`}>
             {/* Header */}
             <div className={`p-4 border-b flex justify-between items-center ${
@@ -437,7 +437,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
     ) : (
         <button
             onClick={() => setIsOpen(true)}
-            className={`fixed bottom-8 right-6 h-16 w-16 hover:w-60 rounded-full shadow-2xl transition-all duration-500 ease-in-out hover:scale-105 z-[9999] flex items-center justify-start px-2 overflow-hidden group border-2 border-white/10 ${
+            className={`fixed bottom-8 right-4 sm:right-6 h-16 w-16 hover:w-60 rounded-full shadow-2xl transition-all duration-500 ease-in-out hover:scale-105 z-[9999] flex items-center justify-start px-2 overflow-hidden group border-2 border-white/10 ${
                 theme === 'light' ? 'bg-[#69C8B9] text-white shadow-emerald-500/20' : 'bg-blue-600 text-white shadow-blue-500/20'
             }`}
         >
