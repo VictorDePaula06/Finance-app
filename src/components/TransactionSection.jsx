@@ -68,7 +68,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
     const [installmentValueMode, setInstallmentValueMode] = useState('monthly'); // 'total' | 'monthly'
     const [editingId, setEditingId] = useState(null);
     const { currentUser } = useAuth();
-    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+    const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleDateString('en-CA').slice(0, 7)); // YYYY-MM (Local)
     const [searchTerm, setSearchTerm] = useState('');
     const [showReport, setShowReport] = useState(false);
     const [showRealFlow, setShowRealFlow] = useState(true);
@@ -425,7 +425,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
     const prevBalanceForBreakdown = useMemo(() => {
         const prevMonthDate = new Date(selectedMonth + '-02');
         prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
-        const prevMonthStr = prevMonthDate.toISOString().slice(0, 7);
+        const prevMonthStr = prevMonthDate.toLocaleDateString('en-CA').slice(0, 7); // YYYY-MM (Local)
         return calculateCumulativeBalance(prevMonthStr);
     }, [transactions, selectedMonth]);
 

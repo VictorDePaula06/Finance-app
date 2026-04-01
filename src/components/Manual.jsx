@@ -611,8 +611,8 @@ export default function Manual({ onBack }) {
 
                             <div className="space-y-8 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-emerald-500 before:to-transparent">
                                 
-                                {/* Item 1 */}
-                                <div className="relative pl-12">
+                                {/* Item 1: Resumo Mensal */}
+                                <div className="relative pl-12 font-sans">
                                     <div className={`absolute left-0 top-1 w-8 h-8 rounded-full border-4 flex items-center justify-center z-10 ${
                                         theme === 'light' ? 'bg-white border-emerald-500' : 'bg-slate-900 border-emerald-500'
                                     }`}>
@@ -622,18 +622,38 @@ export default function Manual({ onBack }) {
                                         theme === 'light' ? 'bg-white border-emerald-100 shadow-sm' : 'bg-slate-800/40 border-slate-700'
                                     }`}>
                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                                            <h4 className={`text-lg font-black ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>Resumo Mensal da Alívia 📅</h4>
+                                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/20 text-emerald-400'
+                                            }`}>Novo</span>
+                                        </div>
+                                        <p className="text-sm mb-4">Transformamos a virada do mês em um momento de paz. Agora, a Alívia analisa automaticamente o mês que passou e te recebe com um feedback acolhedor e dicas práticas.</p>
+                                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Análise de Ganhos vs Gastos</li>
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Dicas personalizadas via IA</li>
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Top Categoria de Gastos</li>
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Visão clara do Saldo Final</li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                {/* Item 2 */}
+                                <div className="relative pl-12 opacity-80">
+                                    <div className={`absolute left-0 top-1 w-8 h-8 rounded-full border-4 flex items-center justify-center z-10 ${
+                                        theme === 'light' ? 'bg-white border-emerald-500/50' : 'bg-slate-900 border-emerald-500/50'
+                                    }`}>
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500/50" />
+                                    </div>
+                                    <div className={`p-6 rounded-2xl border transition-all hover:scale-[1.01] ${
+                                        theme === 'light' ? 'bg-white border-emerald-100 shadow-sm' : 'bg-slate-800/40 border-slate-700'
+                                    }`}>
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                                             <h4 className={`text-lg font-black ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>Notificações Inteligentes 🔔</h4>
                                             <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                                                 theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/20 text-emerald-400'
-                                            }`}>Hoje</span>
+                                            }`}>Março 2026</span>
                                         </div>
                                         <p className="text-sm mb-4">Lançamos um novo sistema de avisos integrados no cabeçalho. Agora você pode ativar notificações push para receber alertas de segurança e atualizações em tempo real.</p>
-                                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Ativação em um clique</li>
-                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Sem cards intrusivos</li>
-                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Histórico no Manual</li>
-                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Modo Silencioso</li>
-                                        </ul>
                                     </div>
                                 </div>
 

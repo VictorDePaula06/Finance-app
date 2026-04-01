@@ -9,7 +9,7 @@ export default function PanicButton({ onPanicClick }) {
         <>
             <button
                 onClick={() => setIsOpen(true)}
-                className="fixed bottom-28 right-6 w-16 h-16 flex items-center justify-center bg-rose-500 text-white rounded-full shadow-lg shadow-rose-900/20 hover:scale-110 transition-all z-40 group"
+                className="fixed bottom-28 right-4 sm:right-6 w-16 h-16 flex items-center justify-center bg-rose-500 text-white rounded-full shadow-lg shadow-rose-900/20 hover:scale-110 transition-all z-40 group"
                 title="Botão do Pânico"
             >
                 <Octagon className="w-7 h-7 group-hover:animate-pulse" />

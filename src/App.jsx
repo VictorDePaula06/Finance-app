@@ -17,6 +17,9 @@ import { generateSundayBreath } from './utils/sundayBreath';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import ReloadPrompt from './components/ReloadPrompt';
 import PushSetup from './components/PushSetup';
+import MonthlyReviewModal from './components/MonthlyReviewModal';
+import { generateMonthlyReview } from './services/gemini';
+import { CATEGORIES } from './constants/categories';
 
 // CONFIGURAÇÃO MASTER
 const MASTER_EMAIL = 'j.17jvictor@gmail.com';
@@ -35,6 +38,11 @@ function Dashboard() {
     invested: '',
     categoryBudgets: {}
   });
+
+  const [showMonthlyReview, setShowMonthlyReview] = useState(false);
+  const [monthlyReviewText, setMonthlyReviewText] = useState('');
+  const [previousMonthStats, setPreviousMonthStats] = useState({ income: 0, expense: 0, balance: 0, topCategory: '' });
+  const [previousMonthName, setPreviousMonthName] = useState('');
 
   const updateManualConfig = (newConfig) => {
     setManualConfig(newConfig);
@@ -79,6 +87,80 @@ function Dashboard() {
       unsubG();
     };
   }, [currentUser]);
+
+  // Efeito para detectar virada de mês e mostrar resumo
+  useEffect(() => {
+    if (!currentUser || isLoadingData || transactions.length === 0) return;
+
+    const checkMonthlyReview = async () => {
+      const prefs = await getUserPreferences();
+      const today = new Date();
+      const currentMonthKey = today.toLocaleDateString('en-CA').slice(0, 7); // YYYY-MM
+      
+      const lastSeen = prefs?.lastMonthlyReviewSeen || '';
+      
+      if (lastSeen && lastSeen < currentMonthKey) {
+        // O mês virou! Vamos pegar os dados do mês anterior
+        const prevDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const prevMonthKey = prevDate.toLocaleDateString('en-CA').slice(0, 7);
+        const prevMonthNameFull = prevDate.toLocaleDateString('pt-BR', { month: 'long' });
+        
+        const prevTransactions = transactions.filter(t => {
+          const tDate = t.date?.slice(0, 7) || t.month;
+          return tDate === prevMonthKey;
+        });
+
+        if (prevTransactions.length > 0) {
+          const income = prevTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+          const expense = prevTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+          
+          const catTotals = {};
+          prevTransactions.filter(t => t.type === 'expense').forEach(t => {
+            catTotals[t.category] = (catTotals[t.category] || 0) + t.amount;
+          });
+          
+          let topCatId = 'other';
+          let max = 0;
+          Object.entries(catTotals).forEach(([id, val]) => {
+            if (val > max) { max = val; topCatId = id; }
+          });
+          
+          const topCatLabel = CATEGORIES.expense.find(c => c.id === topCatId)?.label || 'Outros';
+
+          const stats = { income, expense, balance: income - expense, topCategory: topCatLabel };
+          setPreviousMonthStats(stats);
+          setPreviousMonthName(prevMonthNameFull);
+          
+          // Gerar texto com Gemini
+          try {
+            const review = await generateMonthlyReview(
+              today.toLocaleDateString('pt-BR', { month: 'long' }), 
+              stats, 
+              manualConfig
+            );
+            setMonthlyReviewText(review);
+            setShowMonthlyReview(true);
+          } catch (err) {
+            console.error("Erro ao carregar resumo da Alívia:", err);
+          }
+        } else {
+            // Se não tem transações no mês anterior, apenas marca como visto para não tentar de novo
+            await saveUserPreferences({ lastMonthlyReviewSeen: currentMonthKey });
+        }
+      } else if (!lastSeen) {
+        // Primeira vez usando o app ou prefs limpas - marca o mês atual como visto
+        await saveUserPreferences({ lastMonthlyReviewSeen: currentMonthKey });
+      }
+    };
+
+    checkMonthlyReview();
+  }, [currentUser, isLoadingData, transactions.length]);
+
+  const handleCloseMonthlyReview = async () => {
+    setShowMonthlyReview(false);
+    const currentMonthKey = new Date().toLocaleDateString('en-CA').slice(0, 7);
+    await saveUserPreferences({ lastMonthlyReviewSeen: currentMonthKey });
+  };
 
   const healthScore = calculateHealthScore(transactions, manualConfig);
 
@@ -201,6 +283,15 @@ function Dashboard() {
         <PanicButton onPanicClick={(msg) => {
           window.dispatchEvent(new CustomEvent('ai-panic', { detail: msg }));
         }} />
+
+        <MonthlyReviewModal 
+          isOpen={showMonthlyReview}
+          onClose={handleCloseMonthlyReview}
+          reviewText={monthlyReviewText}
+          monthName={previousMonthName}
+          stats={previousMonthStats}
+          theme={theme}
+        />
       </div>
     </div>
   );

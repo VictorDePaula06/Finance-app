@@ -148,7 +148,7 @@ export const calculateFutureProjections = (transactions, manualConfig, months = 
     for (let i = 0; i < months; i++) {
         // ... (rest of date logic)
         const targetDate = new Date(today.getFullYear(), today.getMonth() + i, 1);
-        const monthKey = targetDate.toISOString().slice(0, 7); // YYYY-MM
+        const monthKey = targetDate.toLocaleDateString('en-CA').slice(0, 7); // YYYY-MM (Local)
 
         // For current month (index 0), we should probably look at ACTUAL spending so far?
         // Or keep it simple: Projection always shows "Planned" state.
@@ -182,7 +182,7 @@ export const calculateSpendingPace = (transactions, manualConfig) => {
     if (categoryIds.length === 0) return [];
 
     const today = new Date();
-    const currentMonth = today.toISOString().slice(0, 7);
+    const currentMonth = today.toLocaleDateString('en-CA').slice(0, 7); // YYYY-MM (Local)
     const dayOfMonth = today.getDate();
     const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     const monthProgress = dayOfMonth / daysInMonth;

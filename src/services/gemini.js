@@ -21,7 +21,7 @@ export const validateApiKey = async (apiKey) => {
 
 export const calculateStatsContext = (transactions, manualConfig, isPanic = false) => {
     const today = new Date();
-    const currentMonth = today.toISOString().slice(0, 7);
+    const currentMonth = today.toLocaleDateString('en-CA').slice(0, 7); // YYYY-MM (Local)
 
     const currentTransactions = transactions.filter(t => t.date.startsWith(currentMonth));
     const currentIncome = currentTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
@@ -186,5 +186,49 @@ export const sendMessageToGemini = async (history, message, context) => {
     } catch (error) {
         console.error("Gemini Error:", error);
         throw error;
+    }
+};
+
+export const generateMonthlyReview = async (monthName, stats, manualConfig) => {
+    const apiKey = localStorage.getItem('user_gemini_api_key');
+    if (!apiKey) throw new Error("API Key não configurada");
+
+    const { income, expense, balance, topCategory } = stats;
+    const fixedExpenses = manualConfig?.fixedExpenses || 0;
+    const monthlyIncome = manualConfig?.income || 0;
+
+    const prompt = `
+Você é a **Alívia**, assistente financeira acolhedora.
+O usuário acabou de virar o mês e você está aqui para dar um "abraço financeiro" e um norte para o próximo mês (${monthName}).
+
+DADOS DO MÊS QUE PASSOU:
+- Entradas Totais: R$ ${income.toFixed(2)}
+- Gastos Totais: R$ ${expense.toFixed(2)}
+- Saldo Final: R$ ${balance.toFixed(2)}
+- Categoria onde mais gastou: ${topCategory}
+
+CONFIGURAÇÃO ATUAL:
+- Renda Esperada: R$ ${monthlyIncome}
+- Gastos Fixos: R$ ${fixedExpenses}
+
+SUA TAREFA:
+1. Comece com uma saudação calorosa e valide o esforço do usuário por ter completado mais um mês.
+2. Comente brevemente sobre o saldo final (se foi positivo, parabenize; se negativo, acolha e dê esperança).
+3. Dê 2 dicas práticas e curtas para o mês de ${monthName} baseadas nos dados acima.
+4. Mantenha o tom de "Cuidadora", empática e descomplicada.
+5. Use markdown para negrito. Máximo de 3 parágrafos curtos.
+
+Responda apenas com o texto do feedback.
+`;
+
+    try {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text();
+    } catch (error) {
+        console.error("Erro ao gerar resumo mensal:", error);
+        return "Olá! Tive um probleminha para analisar o mês que passou, mas o importante é que você está aqui. Vamos fazer deste novo mês um período de muita paz e organização!";
     }
 };

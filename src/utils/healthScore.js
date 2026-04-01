@@ -4,7 +4,7 @@ export const SAVINGS_CATEGORIES = ['investment'];
 
 export const calculateHealthScore = (transactions, manualConfig) => {
     const today = new Date();
-    const currentMonth = today.toISOString().slice(0, 7);
+    const currentMonth = today.toLocaleDateString('en-CA').slice(0, 7); // YYYY-MM (Local)
 
     const getRobustMonth = (t) => {
         if (t.month) return t.month;
