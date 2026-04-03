@@ -35,7 +35,7 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                 return;
             }
 
-            await createCheckoutSession(currentUser.uid, priceId);
+            await createCheckoutSession(currentUser.uid, priceId, () => setIsRedirecting(false));
         } catch (error) {
             console.error("Checkout Error:", error);
             alert("Erro ao iniciar pagamento. Verifique sua conexão.");
