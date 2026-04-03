@@ -54,9 +54,23 @@ export default function AdminPanel({ onBack }) {
 
                 const isPremium = (subStatus === 'active' || subStatus === 'lifetime') || hasActiveSubscription;
 
-                const subDateRaw = (stripeSubData?.status === 'active' || stripeSubData?.status === 'trialing')
-                    ? stripeSubData?.current_period_start
-                    : (settingsData.subscription?.date || userData.subscription?.date || stripeSubData?.current_period_start);
+                const datesToCompare = [
+                    stripeSubData?.current_period_start,
+                    settingsData.subscription?.date,
+                    userData.subscription?.date,
+                    stripeSubData?.trial_start,
+                    stripeSubData?.current_period_end // Incluindo para garantir histórico
+                ].filter(Boolean);
+
+                const getTimestamp = (d) => {
+                    if (d.toDate) return d.toDate().getTime();
+                    if (d instanceof Date) return d.getTime();
+                    return new Date(d).getTime();
+                };
+
+                const subDateRaw = datesToCompare.length > 0 
+                    ? new Date(Math.max(...datesToCompare.map(getTimestamp)))
+                    : (userData.createdAt || null);
 
                 const subDate = subDateRaw?.toDate ? subDateRaw.toDate() : (subDateRaw ? new Date(subDateRaw) : null);
 
@@ -400,7 +414,7 @@ export default function AdminPanel({ onBack }) {
                                                         <UserCheck className="w-3 h-3" />{user.isTolerance ? 'Tolerância' : user.subType === 'annual' ? 'ANUAL' : 'MENSAL'}
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-500 text-[10px] font-bold uppercase"><UserMinus className="w-3 h-3" />FREE</span>
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-bold uppercase"><UserMinus className="w-3 h-3" />EXPIRADO</span>
                                                 )}
                                             </td>
                                             <td className="p-6 text-sm text-slate-400">{user.isLifetime ? 'N/A' : user.subDate}</td>
@@ -462,7 +476,7 @@ export default function AdminPanel({ onBack }) {
                                             ) : user.isPremium ? (
                                                 <span className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] font-bold ${user.isTolerance ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>{user.subType === 'annual' ? 'ANUAL' : 'MENSAL'}</span>
                                             ) : (
-                                                <span className="inline-flex px-2 py-0.5 rounded-full bg-slate-100 border border-slate-700 text-slate-400 text-[10px] font-bold">FREE</span>
+                                                <span className="inline-flex px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-bold">EXPIRADO</span>
                                             )}
                                         </div>
                                     </div>
