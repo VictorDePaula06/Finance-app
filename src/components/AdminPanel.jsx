@@ -58,8 +58,7 @@ export default function AdminPanel({ onBack }) {
                     stripeSubData?.current_period_start,
                     settingsData.subscription?.date,
                     userData.subscription?.date,
-                    stripeSubData?.trial_start,
-                    stripeSubData?.current_period_end // Incluindo para garantir histórico
+                    stripeSubData?.trial_start
                 ].filter(Boolean);
 
                 const getTimestamp = (d) => {
@@ -93,17 +92,23 @@ export default function AdminPanel({ onBack }) {
                 const subType = isAnnual ? 'annual' : 'monthly';
                 const createdAt = userData.createdAt ? (userData.createdAt.toDate ? userData.createdAt.toDate() : new Date(userData.createdAt)) : null;
 
+                // Lógica de cálculo de dias e segurança de expiração
                 if (subStatus === 'active' && subDate) {
                     const now = new Date();
                     const cycle = subType === 'annual' ? 365 : 30;
                     const diff = Math.floor((now - subDate) / (1000 * 60 * 60 * 24));
 
-                    if (diff <= cycle) {
+                    // Se a data for no futuro (erro de sistema), resetamos
+                    if (diff < 0) {
+                        daysLeft = 0;
+                        isExpired = true;
+                    } else if (diff <= cycle) {
                         daysLeft = cycle - diff;
                     } else if (diff <= cycle + 5) {
                         daysLeft = (cycle + 5) - diff;
                         tolerance = true;
                     } else {
+                        // Trava de segurança: Se passou de 35 dias (30 + 5 tol), vira expirado
                         daysLeft = 0;
                         isExpired = true;
                     }
