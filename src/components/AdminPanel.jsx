@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../services/firebase';
-import { collection, getDocs, doc, updateDoc, query, getDoc, collectionGroup, deleteDoc, where, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, setDoc, query, getDoc, collectionGroup, deleteDoc, where, writeBatch } from 'firebase/firestore';
 import { ArrowLeft, UserCheck, UserMinus, Shield, Search, RefreshCw, TrendingUp, Zap, Trash2, Filter } from 'lucide-react';
 
 export default function AdminPanel({ onBack }) {
@@ -166,14 +166,14 @@ export default function AdminPanel({ onBack }) {
     const togglePremium = async (uid, currentStatus) => {
         try {
             const userRef = doc(db, 'users', uid, 'settings', 'general');
-            await updateDoc(userRef, {
+            await setDoc(userRef, {
                 subscription: {
                     status: currentStatus ? 'blocked' : 'active',
                     type: 'monthly',
                     date: new Date(),
                     updatedAt: new Date()
                 }
-            });
+            }, { merge: true });
             fetchUsers();
         } catch (error) {
             console.error("Error updating user:", error);
@@ -184,13 +184,13 @@ export default function AdminPanel({ onBack }) {
     const setLifetime = async (uid) => {
         try {
             const userRef = doc(db, 'users', uid, 'settings', 'general');
-            await updateDoc(userRef, {
+            await setDoc(userRef, {
                 subscription: {
                     status: 'lifetime',
                     type: 'lifetime',
                     updatedAt: new Date()
                 }
-            });
+            }, { merge: true });
             fetchUsers();
         } catch (error) {
             console.error("Error setting lifetime:", error);
@@ -204,11 +204,13 @@ export default function AdminPanel({ onBack }) {
             const fortyDaysAgo = new Date();
             fortyDaysAgo.setDate(fortyDaysAgo.getDate() - 40);
 
-            await updateDoc(userRef, {
-                'subscription.date': fortyDaysAgo,
-                'subscription.status': 'active',
-                'subscription.updatedAt': new Date()
-            });
+            await setDoc(userRef, {
+                subscription: {
+                    date: fortyDaysAgo,
+                    status: 'active',
+                    updatedAt: new Date()
+                }
+            }, { merge: true });
             fetchUsers();
         } catch (error) {
             console.error("Error simulating expiration:", error);
@@ -227,8 +229,8 @@ export default function AdminPanel({ onBack }) {
                 'subscription.updatedAt': new Date()
             };
             await Promise.all([
-                updateDoc(settingsRef, resetData),
-                updateDoc(userRef, resetData).catch(() => { })
+                setDoc(settingsRef, resetData, { merge: true }),
+                setDoc(userRef, resetData, { merge: true }).catch(() => { })
             ]);
             alert("Status manual resetado com sucesso!");
             fetchUsers();

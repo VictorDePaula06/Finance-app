@@ -717,7 +717,7 @@ export default function Manual({ onBack }) {
                     <p className={`text-[10px] font-medium tracking-widest uppercase opacity-50 ${
                         theme === 'light' ? 'text-slate-400' : 'text-slate-600'
                     }`}>
-                        Alívia • Tranquilidade Financeira • v5.5
+                        Alívia • Tranquilidade Financeira • v6.0
                     </p>
                 </footer>
 
