@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageSquare, X, Send, Bot, User, Sparkles, AlertCircle, Key, Trash2, Loader2, Video, ChevronDown, CheckCircle } from 'lucide-react';
+import { MessageSquare, X, Send, Bot, User, Sparkles, AlertCircle, Key, Trash2, Loader2, Video, ChevronDown, CheckCircle, Maximize2, Minimize2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { sendMessageToGemini, isGeminiConfigured, validateApiKey, calculateStatsContext } from '../services/gemini';
@@ -12,6 +12,7 @@ import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
 export default function AIChat({ transactions, manualConfig, onAddTransaction, onDeleteTransaction, onConfigChange }) {
     const { theme } = useTheme();
     const [isOpen, setIsOpen] = useState(false);
+    const [isMaximized, setIsMaximized] = useState(false);
     const [hasKey, setHasKey] = useState(isGeminiConfigured());
     const [apiKey, setApiKey] = useState('');
     const [messages, setMessages] = useState(() => {
@@ -272,7 +273,9 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
     }, [transactions, manualConfig]);
 
     const chatContent = isOpen ? (
-        <div className={`fixed bottom-4 inset-x-4 sm:inset-x-auto sm:bottom-6 sm:right-6 w-auto sm:w-full sm:max-w-sm h-[500px] glass-card z-[9999] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in ${
+        <div className={`fixed bottom-4 inset-x-4 sm:inset-x-auto sm:bottom-6 sm:right-6 w-auto sm:w-full transition-all duration-300 md:duration-500 ease-in-out ${
+            isMaximized ? 'sm:max-w-2xl h-[85vh]' : 'sm:max-w-sm h-[500px]'
+        } glass-card z-[9999] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in ${
             theme === 'light' ? '!bg-white/95 shadow-xl border-verde-respira/20' : '!bg-slate-900/98 border-slate-700'
         }`}>
             {/* Header */}
@@ -290,6 +293,13 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    <button 
+                        onClick={() => setIsMaximized(!isMaximized)} 
+                        className="hidden sm:block text-slate-400 hover:text-emerald-400 transition-colors" 
+                        title={isMaximized ? "Recolher" : "Expandir"}
+                    >
+                        {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                    </button>
                     <button onClick={clearHistory} className="text-slate-400 hover:text-rose-400 transition-colors" title="Limpar Histórico">
                         <Trash2 className="w-4 h-4" />
                     </button>
