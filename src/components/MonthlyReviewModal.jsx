@@ -8,7 +8,7 @@ export default function MonthlyReviewModal({ isOpen, onClose, reviewText, monthN
 
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-500">
-            <div className={`relative w-full max-w-2xl rounded-[2.5rem] border overflow-hidden shadow-2xl transition-all duration-700 animate-in zoom-in-95 slide-in-from-bottom-8 ${
+            <div className={`relative w-full max-w-2xl max-h-[90vh] md:max-h-[85vh] rounded-[2rem] md:rounded-[2.5rem] border overflow-y-auto shadow-2xl transition-all duration-700 animate-in zoom-in-95 slide-in-from-bottom-8 scrollbar-hide ${
                 theme === 'light' 
                 ? 'bg-white border-emerald-100 shadow-emerald-500/10' 
                 : 'bg-slate-900 border-white/10 shadow-black/50'
@@ -28,7 +28,7 @@ export default function MonthlyReviewModal({ isOpen, onClose, reviewText, monthN
 
                 <div className="relative p-6 md:p-10 flex flex-col items-center">
                     {/* Alívia Header */}
-                    <div className="flex items-center gap-4 mb-8 self-start md:self-center">
+                    <div className="flex items-center gap-4 mb-6 md:mb-8 self-start md:self-center">
                         <div className="relative">
                             <div className={`p-0.5 rounded-full bg-gradient-to-br ${
                                 theme === 'light' ? 'from-emerald-100 to-white' : 'from-blue-600/40 to-emerald-500/40'
@@ -53,9 +53,8 @@ export default function MonthlyReviewModal({ isOpen, onClose, reviewText, monthN
                         </div>
                     </div>
 
-                    {/* Stats Grid */}
-                    <div className="grid grid-cols-3 gap-3 w-full mb-8">
-                        <div className={`p-4 rounded-3xl border flex flex-col items-center text-center ${
+                    <div className="grid grid-cols-3 gap-2 md:gap-3 w-full mb-6 md:mb-8">
+                        <div className={`p-3 md:p-4 rounded-2xl md:rounded-3xl border flex flex-col items-center text-center ${
                             theme === 'light' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-white/5 border-white/5'
                         }`}>
                             <TrendingUp className="w-5 h-5 text-emerald-400 mb-2" />
@@ -85,7 +84,7 @@ export default function MonthlyReviewModal({ isOpen, onClose, reviewText, monthN
                     </div>
 
                     {/* AI Message */}
-                    <div className={`w-full p-6 md:p-8 rounded-[2rem] border mb-10 leading-relaxed text-sm md:text-base ${
+                    <div className={`w-full p-5 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border mb-6 md:mb-10 leading-relaxed text-sm md:text-base ${
                         theme === 'light' 
                         ? 'bg-[#f0fdfa]/80 border-emerald-100/50 text-slate-700' 
                         : 'bg-slate-800/40 border-white/5 text-slate-300'
@@ -103,10 +102,10 @@ export default function MonthlyReviewModal({ isOpen, onClose, reviewText, monthN
                     {/* Action Button */}
                     <button
                         onClick={onClose}
-                        className="group w-full max-w-sm py-5 px-8 bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 text-white rounded-[2rem] shadow-xl shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3"
+                        className="group w-full max-w-sm py-4 md:py-5 px-6 md:px-8 bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 text-white rounded-[1.5rem] md:rounded-[2rem] shadow-xl shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3"
                     >
-                        <span className="font-bold text-lg leading-none">Começar {monthName}</span>
-                        <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+                        <span className="font-bold text-base md:text-lg leading-none">Começar {monthName}</span>
+                        <ArrowRight className="w-5 h-5 md:w-6 md:h-6 group-hover:translate-x-1 transition-transform" />
                     </button>
                     
                     <p className="mt-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest opacity-50 flex items-center gap-2">
@@ -122,6 +121,13 @@ export default function MonthlyReviewModal({ isOpen, onClose, reviewText, monthN
                 }
                 .animate-bounce-subtle {
                     animation: bounce-subtle 3s ease-in-out infinite;
+                }
+                .scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                }
+                .scrollbar-hide {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
                 }
             `}} />
         </div>

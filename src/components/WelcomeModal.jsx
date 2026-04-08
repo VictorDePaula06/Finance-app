@@ -1,11 +1,11 @@
 import React from 'react';
-import { Sparkles, ArrowRight, X, Bot, ShieldCheck, Heart } from 'lucide-react';
+import { Sparkles, ArrowRight, X, Bot, ShieldCheck, Heart, TrendingUp, Target, Calendar } from 'lucide-react';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
 
 export default function WelcomeModal({ onStartConfig, onSkip, theme }) {
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-500">
-            <div className={`relative w-full max-w-lg rounded-[2.5rem] border overflow-hidden shadow-2xl transition-all duration-700 animate-in zoom-in-95 slide-in-from-bottom-8 ${
+            <div className={`relative w-full max-w-xl max-h-[90vh] rounded-[2rem] md:rounded-[2.5rem] border overflow-y-auto shadow-2xl transition-all duration-700 animate-in zoom-in-95 slide-in-from-bottom-8 scrollbar-hide ${
                 theme === 'light' 
                 ? 'bg-white border-emerald-100 shadow-emerald-500/10' 
                 : 'bg-slate-900 border-white/10 shadow-black/50'
@@ -48,11 +48,42 @@ export default function WelcomeModal({ onStartConfig, onSkip, theme }) {
                         Bem-vinda(o) à Alívia! 
                     </h2>
                     
-                    <p className={`text-base md:text-lg mb-10 leading-relaxed ${
+                    <p className={`text-base md:text-lg mb-8 leading-relaxed ${
                         theme === 'light' ? 'text-slate-600' : 'text-slate-300'
                     }`}>
                         Sou sua nova assistente financeira. Estou aqui para transformar seus números em <span className="font-bold text-emerald-500 italic">paz de espírito</span>.
                     </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full mb-10 text-left">
+                        <div className={`p-4 rounded-2xl border ${theme === 'light' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-white/5 border-white/5'}`}>
+                            <div className="flex items-center gap-3 mb-2">
+                                <Bot className="w-5 h-5 text-emerald-500" />
+                                <span className={`font-bold text-sm ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>IA Consultora</span>
+                            </div>
+                            <p className="text-xs opacity-70">Tire dúvidas e peça dicas sobre suas finanças em tempo real com a Alívia.</p>
+                        </div>
+                        <div className={`p-4 rounded-2xl border ${theme === 'light' ? 'bg-blue-50/50 border-blue-100' : 'bg-white/5 border-white/5'}`}>
+                            <div className="flex items-center gap-3 mb-2">
+                                <TrendingUp className="w-5 h-5 text-blue-500" />
+                                <span className={`font-bold text-sm ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Health Score</span>
+                            </div>
+                            <p className="text-xs opacity-70">Sua saúde financeira resumida em uma nota que se adapta aos seus hábitos.</p>
+                        </div>
+                        <div className={`p-4 rounded-2xl border ${theme === 'light' ? 'bg-purple-50/50 border-purple-100' : 'bg-white/5 border-white/5'}`}>
+                            <div className="flex items-center gap-3 mb-2">
+                                <Target className="w-5 h-5 text-purple-500" />
+                                <span className={`font-bold text-sm ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Metas de Vida</span>
+                            </div>
+                            <p className="text-xs opacity-70">Transforme sonhos em realidade acompanhando o progresso dos seus objetivos.</p>
+                        </div>
+                        <div className={`p-4 rounded-2xl border ${theme === 'light' ? 'bg-amber-50/50 border-amber-100' : 'bg-white/5 border-white/5'}`}>
+                            <div className="flex items-center gap-3 mb-2">
+                                <Calendar className="w-5 h-5 text-amber-500" />
+                                <span className={`font-bold text-sm ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Resumo Mensal</span>
+                            </div>
+                            <p className="text-xs opacity-70">Todo primeiro dia do mês, receba um feedback detalhado da sua evolução.</p>
+                        </div>
+                    </div>
 
                     <div className="w-full space-y-4">
                         <button
@@ -92,6 +123,13 @@ export default function WelcomeModal({ onStartConfig, onSkip, theme }) {
                 }
                 .animate-bounce-subtle {
                     animation: bounce-subtle 3s ease-in-out infinite;
+                }
+                .scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                }
+                .scrollbar-hide {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
                 }
             `}} />
         </div>
