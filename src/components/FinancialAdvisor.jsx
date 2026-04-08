@@ -134,7 +134,6 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
             const result = await validateApiKey(apiKey.trim());
             if (!result.valid) {
                 setError(result.error || "Chave de API inválida ou expirada. Verifique no Google AI Studio.");
-                setIsSavingKey(false);
                 setIsSaving(false);
                 return;
             }
