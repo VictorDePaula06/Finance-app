@@ -62,7 +62,7 @@ export const calculateStatsContext = (transactions, manualConfig, isPanic = fals
 
     const totalPatrimonioReal = manualBaseInvested + totalFromTransactions;
 
-    const recentTx = transactions.slice(0, 50).map(t =>
+    const recentTx = transactions.slice(0, 15).map(t =>
         `- ${t.date}: ${t.description} (${t.type === 'income' ? '+' : '-'} R$ ${t.amount}) [${t.category}]`
     ).join('\n');
 
@@ -196,7 +196,7 @@ export const sendMessageToGemini = async (history, message, context) => {
             history: [
                 { role: "user", parts: [{ text: "System Prompt: " + context }] },
                 { role: "model", parts: [{ text: "Entendido. Serei sua Alívia financeira." }] },
-                ...cleanHistory.slice(-5).map(msg => ({
+                ...cleanHistory.slice(-3).map(msg => ({
                     role: msg.role === 'user' ? 'user' : 'model',
                     parts: [{ text: msg.text }]
                 }))
