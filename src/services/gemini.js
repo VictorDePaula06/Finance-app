@@ -10,7 +10,7 @@ export const validateApiKey = async (apiKey) => {
     if (!apiKey) return { valid: false, error: 'Chave não informada' };
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         await model.countTokens("Test");
         return { valid: true };
     } catch (error) {
@@ -198,7 +198,7 @@ export const sendMessageToGemini = async (history, message, context) => {
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const cleanHistory = history.filter(msg => !msg.text.includes('{"action":'));
 
@@ -256,7 +256,7 @@ Responda apenas com o texto do feedback.
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const result = await withRetry(() => model.generateContent(prompt));
         const response = await result.response;
         return response.text();
