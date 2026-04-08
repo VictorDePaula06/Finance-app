@@ -69,9 +69,9 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
         if (apiKey.trim()) {
             setIsSavingKey(true);
 
-            const result = await validateApiKey(apiKey.trim());
-            if (!result.valid) {
-                setKeyError(result.error || "Chave de API inválida! Verifique e tente novamente.");
+            const isValid = await validateApiKey(apiKey.trim());
+            if (!isValid) {
+                setKeyError("Chave de API inválida! Verifique e tente novamente.");
                 setIsSavingKey(false);
                 return;
             }

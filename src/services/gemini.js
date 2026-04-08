@@ -7,25 +7,15 @@ export const isGeminiConfigured = () => {
 };
 
 export const validateApiKey = async (apiKey) => {
-    if (!apiKey) return { valid: false, error: 'Chave não informada' };
+    if (!apiKey) return false;
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         await model.countTokens("Test");
-        return { valid: true };
+        return true;
     } catch (error) {
         console.error("API Key validation failed:", error);
-        let errorMsg = error.message || 'Erro desconhecido';
-        
-        if (errorMsg.includes('API key expired')) {
-            errorMsg = 'Esta chave de API expirou. Por favor, gere uma nova no Google AI Studio.';
-        } else if (errorMsg.includes('API key not found') || errorMsg.includes('INVALID_ARGUMENT')) {
-            errorMsg = 'Chave de API inválida. Verifique se copiou corretamente (Dica: começa com AIza).';
-        } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
-            errorMsg = 'Modelo não encontrado ou API indisponível nesta região.';
-        }
-        
-        return { valid: false, error: errorMsg };
+        return false;
     }
 };
 
@@ -206,7 +196,7 @@ export const sendMessageToGemini = async (history, message, context) => {
             history: [
                 { role: "user", parts: [{ text: "System Prompt: " + context }] },
                 { role: "model", parts: [{ text: "Entendido. Serei sua Alívia financeira." }] },
-                ...cleanHistory.slice(-10).map(msg => ({
+                ...cleanHistory.slice(-5).map(msg => ({
                     role: msg.role === 'user' ? 'user' : 'model',
                     parts: [{ text: msg.text }]
                 }))
