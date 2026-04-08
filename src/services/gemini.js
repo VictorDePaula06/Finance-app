@@ -7,15 +7,25 @@ export const isGeminiConfigured = () => {
 };
 
 export const validateApiKey = async (apiKey) => {
-    if (!apiKey) return false;
+    if (!apiKey) return { valid: false, error: 'Chave não informada' };
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
         await model.countTokens("Test");
-        return true;
+        return { valid: true };
     } catch (error) {
         console.error("API Key validation failed:", error);
-        return false;
+        let errorMsg = error.message || 'Erro desconhecido';
+        
+        if (errorMsg.includes('API key expired')) {
+            errorMsg = 'Esta chave de API expirou. Por favor, gere uma nova no Google AI Studio.';
+        } else if (errorMsg.includes('API key not found') || errorMsg.includes('INVALID_ARGUMENT')) {
+            errorMsg = 'Chave de API inválida. Verifique se copiou corretamente (Dica: começa com AIza).';
+        } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
+            errorMsg = 'Modelo não encontrado ou API indisponível nesta região.';
+        }
+        
+        return { valid: false, error: errorMsg };
     }
 };
 
@@ -188,7 +198,7 @@ export const sendMessageToGemini = async (history, message, context) => {
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
         const cleanHistory = history.filter(msg => !msg.text.includes('{"action":'));
 
@@ -246,7 +256,7 @@ Responda apenas com o texto do feedback.
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
         const result = await withRetry(() => model.generateContent(prompt));
         const response = await result.response;
         return response.text();
