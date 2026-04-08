@@ -19,15 +19,23 @@ export const validateApiKey = async (apiKey) => {
     }
 };
 
-// Internal helper for retrying AI calls on 503/429 errors
-const withRetry = async (fn, retries = 3, delay = 1000) => {
+// Internal helper for retrying AI calls on 503/429 errors (Resilience for Free Tier)
+const withRetry = async (fn, retries = 5, delay = 2000) => {
     try {
         return await fn();
     } catch (error) {
-        const isTransient = error.message?.includes('503') || error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('high demand');
+        const isTransient = 
+            error.message?.includes('503') || 
+            error.message?.includes('429') || 
+            error.message?.includes('quota') || 
+            error.message?.includes('high demand') ||
+            error.status === 429 ||
+            error.status === 503;
+
         if (isTransient && retries > 0) {
-            console.log(`Gemini busy (503/429). Retrying in ${delay}ms... (${retries} left)`);
+            console.log(`Gemini ocupado ou limite atingido. Tentando novamente em ${delay/1000}s... (${retries} tentativas restantes)`);
             await new Promise(resolve => setTimeout(resolve, delay));
+            // Backoff exponencial: dobra o tempo de espera a cada falha
             return withRetry(fn, retries - 1, delay * 2);
         }
         throw error;
