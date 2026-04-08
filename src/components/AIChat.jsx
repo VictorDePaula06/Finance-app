@@ -23,6 +23,8 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
     const [isSavingKey, setIsSavingKey] = useState(false);
     const [keyError, setKeyError] = useState('');
     const messagesEndRef = useRef(null);
+    const initialSyncDone = useRef(false);
+    const prevMessagesLength = useRef(messages.length);
 
     const { saveUserPreferences, getUserPreferences, saveChatHistory, getChatHistory } = useAuth();
 
@@ -52,11 +54,10 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
             if (getChatHistory) {
                 getChatHistory().then(remoteHistory => {
                     if (remoteHistory && remoteHistory.length > 0) {
-                        setMessages(prev => {
-                            if (prev.length === 0) return remoteHistory;
-                            return remoteHistory;
-                        });
+                        setMessages(remoteHistory);
+                        prevMessagesLength.current = remoteHistory.length;
                     }
+                    initialSyncDone.current = true;
                 });
             }
         }
@@ -92,9 +93,19 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
 
     useEffect(() => {
         localStorage.setItem('geminiChatHistory', JSON.stringify(messages));
-        if (messages.length > 0) {
+        
+        // Só salva na nuvem se o sync inicial já terminou E o número de mensagens mudou
+        // Isso evita que o cache local sobrescreva a nuvem no carregamento inicial
+        if (initialSyncDone.current && messages.length > prevMessagesLength.current) {
             saveChatHistory(messages);
         }
+        
+        // Se mensagens foram limpas, também sincroniza
+        if (initialSyncDone.current && messages.length === 0 && prevMessagesLength.current > 0) {
+            saveChatHistory([]);
+        }
+
+        prevMessagesLength.current = messages.length;
     }, [messages]);
 
     const clearHistory = () => {
