@@ -19,6 +19,21 @@ export const validateApiKey = async (apiKey) => {
     }
 };
 
+// Internal helper for retrying AI calls on 503/429 errors
+const withRetry = async (fn, retries = 3, delay = 1000) => {
+    try {
+        return await fn();
+    } catch (error) {
+        const isTransient = error.message?.includes('503') || error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('high demand');
+        if (isTransient && retries > 0) {
+            console.log(`Gemini busy (503/429). Retrying in ${delay}ms... (${retries} left)`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return withRetry(fn, retries - 1, delay * 2);
+        }
+        throw error;
+    }
+};
+
 export const calculateStatsContext = (transactions, manualConfig, isPanic = false) => {
     const today = new Date();
     const currentMonth = today.toLocaleDateString('en-CA').slice(0, 7); // YYYY-MM (Local)
@@ -180,7 +195,7 @@ export const sendMessageToGemini = async (history, message, context) => {
             ]
         });
 
-        const result = await chat.sendMessage(message);
+        const result = await withRetry(() => chat.sendMessage(message));
         const response = await result.response;
         return response.text();
     } catch (error) {
@@ -224,7 +239,7 @@ Responda apenas com o texto do feedback.
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-        const result = await model.generateContent(prompt);
+        const result = await withRetry(() => model.generateContent(prompt));
         const response = await result.response;
         return response.text();
     } catch (error) {

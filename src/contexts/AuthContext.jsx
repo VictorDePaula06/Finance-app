@@ -23,6 +23,7 @@ export function AuthProvider({ children }) {
     const [isPremium, setIsPremium] = useState(false);
     const [isTrial, setIsTrial] = useState(false);
     const [daysRemaining, setDaysRemaining] = useState(0);
+    const [userPrefs, setUserPrefs] = useState(null);
 
     function signup(email, password) {
         return createUserWithEmailAndPassword(auth, email, password);
@@ -143,9 +144,12 @@ export function AuthProvider({ children }) {
                 setIsTrial(true);
             }
 
+            const isExpired = !hasValidAccess && (dataRef.current.subsLoaded || dataRef.current.prefsLoaded);
+
             // ONLY UPDATE IF LOADED OR ACCESS GRANTED
-            // This prevents "flickering" to false while listeners are still firing
-            if (hasValidAccess || (dataRef.current.subsLoaded && dataRef.current.prefsLoaded)) {
+            // This prevents "flickering" to false while listeners are still firing,
+            // but forces false if we have load confirmation.
+            if (hasValidAccess || isExpired) {
                 setIsPremium(hasValidAccess);
                 setDaysRemaining(Math.max(0, remaining));
                 if (!hasValidAccess) setIsTrial(false);
@@ -158,7 +162,8 @@ export function AuthProvider({ children }) {
                     date: subDate,
                     status: subStatus,
                     isUnderTolerance,
-                    daysRemaining: remaining
+                    daysRemaining: remaining,
+                    isExpired
                 }
             }) : null);
         };
@@ -169,7 +174,11 @@ export function AuthProvider({ children }) {
         const subsQuery = query(subsRef, where('status', 'in', ['active', 'trialing']));
 
         const unsubPrefs = onSnapshot(prefsRef, (snap) => {
-            if (snap.exists()) dataRef.current.prefs = snap.data();
+            if (snap.exists()) {
+                const data = snap.data();
+                dataRef.current.prefs = data;
+                setUserPrefs(data);
+            }
             dataRef.current.prefsLoaded = true;
             checkStatus();
             setLoading(false);
@@ -187,6 +196,15 @@ export function AuthProvider({ children }) {
             checkStatus();
         });
 
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                console.log("[Auth] App em foco - Re-validando assinatura...");
+                checkStatus();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
         const interval = setInterval(() => {
             console.log("[Auth] Re-check periódico de expiração...");
             checkStatus();
@@ -196,6 +214,7 @@ export function AuthProvider({ children }) {
             unsubPrefs();
             unsubUser();
             unsubSubs();
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             clearInterval(interval);
         };
     }, [currentUser?.uid]);
@@ -293,7 +312,8 @@ export function AuthProvider({ children }) {
         saveUserPreferences,
         getUserPreferences,
         saveChatHistory,
-        getChatHistory
+        getChatHistory,
+        userPrefs
     };
 
     return (

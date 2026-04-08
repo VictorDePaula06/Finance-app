@@ -14,7 +14,8 @@ import aliviaFinal from '../assets/alivia/alivia-final.png';
 
 export default function FinancialAdvisor({ transactions, manualConfig, onConfigChange, onToggleConfig }) {
     const { theme, toggleTheme } = useTheme();
-    const { deleteAccount } = useAuth();
+    const { saveUserPreferences, getUserPreferences, isPremium, userPrefs, deleteAccount } = useAuth();
+    
     const [simAmount, setSimAmount] = useState('');
     const [simInstallments, setSimInstallments] = useState(1);
     const [simulationResult, setSimulationResult] = useState(null);
@@ -51,24 +52,18 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
     useEffect(() => {
         if (isConfiguring) {
             setTempManualConfig(manualConfig);
-            setIsWealthLocked(true); // Lock wealth by default when opening
+            setIsWealthLocked(true); 
             setShowConfirmUnlock(false);
-            // Load saved API Key (LocalStorage as fallback)
-            const savedKey = localStorage.getItem('user_gemini_api_key') || '';
+            
+            // Sync API Key from userPrefs (cloud) or localStorage (fallback)
+            const savedKey = userPrefs?.apiKey || localStorage.getItem('user_gemini_api_key') || '';
             setApiKey(savedKey);
-            setError(''); // Clear error when opening
-
-            // Load from Firestore
-            if (getUserPreferences) {
-                getUserPreferences().then(prefs => {
-                    if (prefs && prefs.apiKey) {
-                        setApiKey(prefs.apiKey);
-                        localStorage.setItem('user_gemini_api_key', prefs.apiKey);
-                    }
-                });
+            if (userPrefs?.apiKey) {
+                localStorage.setItem('user_gemini_api_key', userPrefs.apiKey);
             }
+            setError(''); 
         }
-    }, [isConfiguring, manualConfig]);
+    }, [isConfiguring, manualConfig, userPrefs]);
 
 
 
@@ -82,7 +77,6 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
 
     const [isLoading, setIsLoading] = useState(false);
 
-    const { saveUserPreferences, getUserPreferences, isPremium } = useAuth(); // Added isPremium
 
     const handleSimulate = async (e) => {
         e.preventDefault();
@@ -152,12 +146,10 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
             saveUserPreferences({ apiKey: '' });
         }
 
-        // Add timestamp if wealth was unlocked during this save (Directly indicates an adjustment)
+        // Final config
         const finalConfig = { ...tempManualConfig };
-        if (!isWealthLocked && tempManualConfig.invested > 0) {
-            finalConfig.investedAt = Date.now();
-        } else if (tempManualConfig.invested !== manualConfig.invested) {
-            // Fallback for case where value changed without manual unlock (security/backwards compatibility)
+        // Handle value changes (investedAt is no longer used for additive model, but we keep it compatible if needed)
+        if (tempManualConfig.invested !== manualConfig.invested) {
             finalConfig.investedAt = Date.now();
         }
 
@@ -268,7 +260,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                     </div>
                     <div className="pt-2">
                         <div className="flex items-center justify-between mb-1">
-                            <label className="block text-xs font-medium text-emerald-400">Sementinha Base / Saldo Inicial (R$)</label>
+                            <label className="block text-xs font-medium text-emerald-400">Saldo Inicial / Patrimônio Externo (R$)</label>
                             {isWealthLocked ? (
                                 <button
                                     type="button"
@@ -333,7 +325,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                             />
                         </div>
                         <p className="text-[10px] text-slate-400 mt-1">
-                            Este valor é **ABSOLUTO** e sobrescreve o saldo calculado pelo seu histórico de lançamentos.
+                            Este valor é **ADITIVO** e soma ao patrimônio calculado pelo seu histórico de lançamentos. Deixe **0** para usar apenas as transações.
                         </p>
                     </div>
 

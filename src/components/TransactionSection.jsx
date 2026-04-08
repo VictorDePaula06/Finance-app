@@ -437,25 +437,17 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
         return transactions.reduce((acc, t) => {
             const val = parseFloat(t.amount) || 0;
             
-            // If manual adjustment timestamp exists, ONLY count transactions created AFTER that adjustment
-            // We use 'investedAt' as the total balance as of that moment.
-            // Using t.createdAt (actual insertion time) is more reliable than t.date (user-assigned date)
-            const investedAt = manualConfig.investedAt || 0;
-            const createdAt = t.createdAt || 0;
-            
-            if (investedAt > 0 && createdAt <= investedAt) return acc;
-
             // 'Sementinha' and 'Cofre' are additions to invested assets
             if (t.type === 'expense' && (t.category === 'investment' || t.category === 'vault')) {
                 return acc + val;
             }
-            // 'Resgate Cofre' is removal from invested assets (it returns to wallet)
+            // 'Resgate Cofre' is removal from invested assets (it returns to wallet/balance)
             if (t.type === 'income' && t.category === 'vault_redemption') {
                 return acc - val;
             }
             return acc;
         }, 0);
-    }, [transactions, manualConfig.investedAt]);
+    }, [transactions]);
 
     // If manual value exists, it is the BASE. The transactions-sum adds to it.
     const totalPatrimonio = (parseFloat(manualConfig.invested) || 0) + totalInvestedFromTransactions;

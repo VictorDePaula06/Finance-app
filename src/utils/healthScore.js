@@ -1,6 +1,6 @@
 export const NECESSITY_CATEGORIES = ['housing', 'food', 'transport', 'health', 'education', 'taxes', 'church', 'loan'];
 export const DESIRE_CATEGORIES = ['leisure', 'shopping', 'personal_care', 'subscriptions', 'pets', 'other'];
-export const SAVINGS_CATEGORIES = ['investment'];
+export const SAVINGS_CATEGORIES = ['investment', 'vault'];
 
 export const calculateHealthScore = (transactions, manualConfig) => {
     const today = new Date();
@@ -61,8 +61,16 @@ export const calculateHealthScore = (transactions, manualConfig) => {
 
     // Total de investimentos via transações (histórico completo)
     const investmentTransactionsSum = transactions
-        .filter(t => t.type === 'expense' && SAVINGS_CATEGORIES.includes(t.category))
-        .reduce((acc, t) => acc + t.amount, 0);
+        .reduce((acc, t) => {
+            const val = parseFloat(t.amount) || 0;
+            if (t.type === 'expense' && (t.category === 'investment' || t.category === 'vault')) {
+                return acc + val;
+            }
+            if (t.type === 'income' && t.category === 'vault_redemption') {
+                return acc - val;
+            }
+            return acc;
+        }, 0);
 
     const totalPatrimonio = investedManual + investmentTransactionsSum;
 

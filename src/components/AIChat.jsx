@@ -84,7 +84,11 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                 setHasKey(true);
                 setMessages(prev => {
                     if (prev.length === 0) {
-                        return [...prev, { role: 'model', text: '✅ **API Key Configurada!**\n\nAgora sou seu assistente pessoal. Em que posso ajudar?' }];
+                        return [...prev, { 
+                            role: 'model', 
+                            text: '✅ **API Key Configurada!**\n\nAgora sou seu assistente pessoal. Em que posso ajudar?',
+                            timestamp: new Date().toISOString()
+                        }];
                     }
                     return prev;
                 });
@@ -124,7 +128,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
             return;
         }
 
-        const userMsg = { role: 'user', text: inputMsg };
+        const userMsg = { role: 'user', text: inputMsg, timestamp: new Date().toISOString() };
         setMessages(prev => [...prev, userMsg]);
         setIsLoading(true);
 
@@ -238,14 +242,21 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                     console.error("Failed to parse Gemini command:", e);
                 }
             }
-            setMessages(prev => [...prev, { role: 'model', text: displayMessage }]);
+            setMessages(prev => [...prev, { role: 'model', text: displayMessage, timestamp: new Date().toISOString() }]);
         } catch (error) {
             console.error("Erro detalhado do Gemini:", error);
             let errMsg = "Desculpe, ocorreu um erro ao processar sua solicitação.";
-            if (error.message.includes('429') || error.message.includes('quota')) {
-                errMsg = "⚠️ **Limite atingido.**\n\nPor favor, aguarde alguns instantes e tente novamente. Se o erro persistir, o limite diário pode ter sido alcançado.";
+            
+            const isBusy = error.message?.includes('503') || error.message?.includes('high demand') || error.message?.includes('overloaded');
+            const isQuota = error.message?.includes('429') || error.message?.includes('quota');
+
+            if (isBusy) {
+                errMsg = "⏳ **A Alívia está muito requisitada agora.**\n\nOs servidores do Google estão com alta demanda. Tentei repetir a mensagem, mas ainda não consegui. Por favor, aguarde um minutinho e tente novamente.";
+            } else if (isQuota) {
+                errMsg = "⚠️ **Limite de uso atingido.**\n\nO limite de processamento da sua chave de API foi alcançado. Por favor, aguarde alguns instantes antes de enviar uma nova mensagem.";
             }
-            setMessages(prev => [...prev, { role: 'model', text: errMsg }]);
+            
+            setMessages(prev => [...prev, { role: 'model', text: errMsg, timestamp: new Date().toISOString() }]);
         } finally {
             setIsLoading(false);
         }
@@ -396,8 +407,8 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                             </div>
                         )}
                         {messages.map((msg, idx) => (
-                            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm shadow-sm ${msg.role === 'user'
+                            <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm relative ${msg.role === 'user'
                                     ? 'bg-[#5CCEEA] text-white rounded-br-none'
                                     : theme === 'light'
                                         ? 'bg-white/60 text-slate-800 border border-verde-respira/20 rounded-bl-none'
@@ -413,6 +424,18 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                                     >
                                         {msg.text}
                                     </ReactMarkdown>
+                                    
+                                    {msg.timestamp && (
+                                        <div className={`text-[9px] mt-1 opacity-60 flex justify-end gap-1 ${msg.role === 'user' ? 'text-white' : 'text-slate-500'}`}>
+                                            <span>
+                                                {new Date(msg.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                            </span>
+                                            <span>•</span>
+                                            <span>
+                                                {new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}

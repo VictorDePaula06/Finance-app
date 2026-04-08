@@ -25,7 +25,7 @@ import { CATEGORIES } from './constants/categories';
 const MASTER_EMAIL = 'j.17jvictor@gmail.com';
 
 function Dashboard() {
-  const { logout, currentUser, saveUserPreferences, getUserPreferences } = useAuth();
+  const { logout, currentUser, saveUserPreferences, getUserPreferences, userPrefs } = useAuth();
   const { theme } = useTheme();
   const [transactions, setTransactions] = useState([]);
   const [goals, setGoals] = useState([]);
@@ -51,17 +51,17 @@ function Dashboard() {
   };
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (userPrefs?.manualConfig) {
+      setManualConfig(userPrefs.manualConfig);
+      localStorage.setItem('financialAdvisorSettings', JSON.stringify(userPrefs.manualConfig));
+    } else {
+      const saved = localStorage.getItem('financialAdvisorSettings');
+      if (saved) setManualConfig(JSON.parse(saved));
+    }
+  }, [userPrefs]);
 
-    getUserPreferences().then(prefs => {
-      if (prefs && prefs.manualConfig) {
-        setManualConfig(prefs.manualConfig);
-        localStorage.setItem('financialAdvisorSettings', JSON.stringify(prefs.manualConfig));
-      } else {
-        const saved = localStorage.getItem('financialAdvisorSettings');
-        if (saved) setManualConfig(JSON.parse(saved));
-      }
-    });
+  useEffect(() => {
+    if (!currentUser) return;
 
     const qT = query(
       collection(db, 'transactions'),

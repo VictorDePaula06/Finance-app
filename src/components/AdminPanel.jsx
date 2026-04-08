@@ -198,22 +198,23 @@ export default function AdminPanel({ onBack }) {
         }
     };
 
-    const simulateExpiration = async (uid) => {
+    const simulateDate = async (uid, dateStr) => {
         try {
             const userRef = doc(db, 'users', uid, 'settings', 'general');
-            const fortyDaysAgo = new Date();
-            fortyDaysAgo.setDate(fortyDaysAgo.getDate() - 40);
+            const targetDate = new Date(dateStr);
 
             await setDoc(userRef, {
                 subscription: {
-                    date: fortyDaysAgo,
+                    date: targetDate,
                     status: 'active',
-                    updatedAt: new Date()
+                    updatedAt: new Date(),
+                    type: 'monthly'
                 }
             }, { merge: true });
+            alert(`Simulando pagamento em: ${targetDate.toLocaleDateString('pt-BR')}`);
             fetchUsers();
         } catch (error) {
-            console.error("Error simulating expiration:", error);
+            console.error("Error simulating date:", error);
         }
     };
 
@@ -439,6 +440,7 @@ export default function AdminPanel({ onBack }) {
                                                             {!user.isLifetime && (
                                                                 <button onClick={() => setLifetime(user.uid)} className="px-3 py-2 rounded-xl font-bold text-[10px] transition-all border border-purple-500/20 bg-purple-500/10 text-purple-400 hover:bg-purple-600 hover:text-white">Vitalício</button>
                                                             )}
+                                                            <button onClick={() => simulateDate(user.uid, '2026-03-01')} className="px-3 py-2 rounded-xl font-bold text-[10px] transition-all border border-amber-500/20 bg-amber-500/10 text-amber-500 hover:bg-amber-600 hover:text-white">Simular 01/Mar</button>
                                                             <button onClick={() => resetUser(user.uid)} className="px-3 py-2 rounded-xl font-bold text-[10px] transition-all border border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200">Resetar</button>
                                                             <button onClick={() => togglePremium(user.uid, user.isPremium)} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all border ${user.isPremium ? 'border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-600 hover:text-white' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-600 hover:text-white'}`}>
                                                                 {user.isPremium ? 'Bloquear' : 'Ativar'}
