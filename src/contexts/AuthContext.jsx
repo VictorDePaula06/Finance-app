@@ -131,10 +131,11 @@ export function AuthProvider({ children }) {
                     hasValidAccess = true;
                     remaining = (diffDaysSub <= cycleDays) ? (cycleDays - diffDaysSub) : ((cycleDays + toleranceDays) - diffDaysSub);
                     isUnderTolerance = diffDaysSub > cycleDays;
-                } else if (!stripeSub) {
-                    // Manual safety fallback
-                    hasValidAccess = true;
-                    remaining = 1;
+                } else {
+                    // SE PASSOU DA TOLERÂNCIA, GARANTE QUE BLOQUEIA
+                    // Removido fallback de 1 dia que permitia acesso indevido
+                    hasValidAccess = false;
+                    remaining = 0;
                 }
             } else if (isWithinTrial && !isBlocked) {
                 hasValidAccess = true;
@@ -186,10 +187,16 @@ export function AuthProvider({ children }) {
             checkStatus();
         });
 
+        const interval = setInterval(() => {
+            console.log("[Auth] Re-check periódico de expiração...");
+            checkStatus();
+        }, 1000 * 60 * 5); // 5 minutos
+
         return () => {
             unsubPrefs();
             unsubUser();
             unsubSubs();
+            clearInterval(interval);
         };
     }, [currentUser?.uid]);
 
