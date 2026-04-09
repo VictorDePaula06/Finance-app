@@ -330,23 +330,42 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                     </div>
 
 
-                    <div className="pt-4 border-t border-emerald-100/50">
-                        <label className="block text-xs font-bold text-slate-500 mb-3 flex items-center gap-2 uppercase tracking-tight">
-                            <TrendingUp className="w-4 h-4 text-emerald-500" />
-                            Margem de Segurança por Categoria
-                        </label>
-                        <div className={`space-y-3 p-4 rounded-2xl border max-h-48 overflow-y-auto scrollbar-thin ${
+                    <div className="pt-6 border-t border-emerald-100/50">
+                        <div className="flex flex-col gap-2 mb-4">
+                            <label className="text-[11px] font-black text-emerald-500 uppercase tracking-[0.15em] flex items-center gap-2">
+                                <TrendingUp className="w-4 h-4" />
+                                Margem de Segurança por Categoria
+                            </label>
+                            <div className={`p-4 rounded-2xl border text-[11px] leading-relaxed transition-all ${
+                                theme === 'light'
+                                ? 'bg-blue-50/50 border-blue-100 text-slate-600'
+                                : 'bg-blue-500/5 border-blue-500/20 text-slate-400'
+                            }`}>
+                                <p>
+                                    <span className="font-bold text-blue-400 mr-1">O que é isso?</span> 
+                                    Defina quanto você pretende gastar no máximo em cada categoria. A Alívia usará esses valores para monitorar seu ritmo e te avisar se você estiver gastando rápido demais, garantindo que o dinheiro dure até o fim do mês.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-2xl border max-h-[400px] overflow-y-auto scrollbar-thin ${
                             theme === 'light'
                             ? 'bg-[#f0fdfa]/30 border-emerald-100/50 scrollbar-thumb-slate-200'
                             : 'bg-slate-900/30 border-slate-700/50 scrollbar-thumb-slate-700'
                         }`}>
                             {CATEGORIES.expense.map(cat => (
-                                <div key={cat.id} className="flex items-center justify-between gap-4">
-                                    <div className="flex items-center gap-2">
-                                        <cat.icon className={`w-3.5 h-3.5 ${cat.color}`} />
-                                        <span className={`text-[11px] font-medium ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>{cat.label}</span>
+                                <div key={cat.id} className={`flex items-center justify-between gap-3 p-3 rounded-xl border transition-all ${
+                                    theme === 'light'
+                                    ? 'bg-white/80 border-slate-100 hover:border-emerald-200'
+                                    : 'bg-slate-800/40 border-slate-700/50 hover:border-emerald-500/30'
+                                }`}>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <div className={`p-1.5 rounded-lg shrink-0 ${theme === 'light' ? 'bg-slate-50' : 'bg-slate-900/50'}`}>
+                                            <cat.icon className={`w-4 h-4 ${cat.color}`} />
+                                        </div>
+                                        <span className={`text-[12px] font-bold truncate ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>{cat.label}</span>
                                     </div>
-                                    <div className="relative">
+                                    <div className="relative shrink-0">
                                         <input
                                             type="number"
                                             value={tempManualConfig.categoryBudgets?.[cat.id] || ''}
@@ -355,13 +374,13 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                                                 setTempManualConfig({ ...tempManualConfig, categoryBudgets: newBudgets });
                                             }}
                                             placeholder="0,00"
-                                            className={`w-24 border rounded-lg px-2 py-1 text-[10px] focus:outline-none shadow-sm pr-6 ${
+                                            className={`w-28 border rounded-xl px-3 py-2 text-xs font-bold focus:outline-none shadow-sm pr-7 transition-all ${
                                                 theme === 'light'
-                                                ? 'bg-white border-slate-200 text-slate-800 focus:border-blue-300'
-                                                : 'bg-slate-800 border-slate-700 text-slate-100 focus:border-emerald-500/50'
+                                                ? 'bg-white border-slate-200 text-slate-800 focus:border-blue-400 focus:ring-4 focus:ring-blue-400/10'
+                                                : 'bg-slate-900 border-slate-600 text-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'
                                             }`}
                                         />
-                                        <span className="absolute right-2 top-1.5 text-[8px] text-slate-400">R$</span>
+                                        <span className={`absolute right-3 top-2.5 text-[10px] font-black ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>R$</span>
                                     </div>
                                 </div>
                             ))}

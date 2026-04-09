@@ -105,7 +105,7 @@ export default function Login() {
             </div>
 
             <footer className="absolute bottom-10 text-slate-400 text-xs font-bold uppercase tracking-widest pointer-events-none opacity-50">
-                © {new Date().getFullYear()} Alívia • Finanças com Alma
+                © {new Date().getFullYear()} ALÍVIA
             </footer>
 
             <style dangerouslySetInnerHTML={{ __html: `

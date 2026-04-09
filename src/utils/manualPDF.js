@@ -128,6 +128,9 @@ export const generateManualPDF = async () => {
     addText("Sementinha / Futuro: Guardar valores aqui não prejudica seu score de tranquilidade, pois são tratados como proteção de patrimônio.", true);
     addText("Cofre / Resgate: Utilize para separar valores específicos que não devem ser usados no dia a dia.", true);
 
+    addSubHeading("Margem de Segurança (Controle de Ritmo):");
+    addText("A Margem de Segurança é o seu teto de gastos individual por categoria. Ao definir um valor (ex: R$ 500 para Alimentação), a Alívia monitora a velocidade dos seus gastos diariamente. Se você gastar metade desse valor nos primeiros dias do mês, ela emitirá um 'Alerta de Tranquilidade' para te ajudar a recalcular a rota antes que o dinheiro acabe.");
+
     // --- PAGE 2: SCORE & PILARES ---
     checkPageBreak(120);
     addHeading("3. Saúde Financeira (Score 0-100)");
