@@ -611,6 +611,32 @@ export default function Manual({ onBack }) {
 
                             <div className="space-y-8 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-emerald-500 before:to-transparent">
                                 
+                                {/* Item 0: Assinaturas e Base do Cartão */}
+                                <div className="relative pl-12 font-sans">
+                                    <div className={`absolute left-0 top-1 w-8 h-8 rounded-full border-4 flex items-center justify-center z-10 ${
+                                        theme === 'light' ? 'bg-white border-blue-500' : 'bg-slate-900 border-blue-500'
+                                    }`}>
+                                        <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                                    </div>
+                                    <div className={`p-6 rounded-2xl border transition-all hover:scale-[1.01] ${
+                                        theme === 'light' ? 'bg-indigo-50/30 border-indigo-100 shadow-sm' : 'bg-blue-500/5 border-blue-500/20'
+                                    }`}>
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                                            <h4 className={`text-lg font-black ${theme === 'light' ? 'text-indigo-900' : 'text-blue-100'}`}>Base Fixa do Cartão 💳</h4>
+                                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                theme === 'light' ? 'bg-indigo-100 text-indigo-600' : 'bg-blue-500/20 text-blue-400'
+                                            }`}>Destaque</span>
+                                        </div>
+                                        <p className="text-sm mb-4">Elimine a poluição do seu extrato! Agora você pode cadastrar suas assinaturas (Netflix, Spotify, Apple) uma única vez. Elas compõem sua base de gastos automaticamente sem criar dezenas de linhas repetitivas.</p>
+                                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-blue-500" /> Cadastro único e inteligente</li>
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-blue-500" /> Edição inline simplificada</li>
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-blue-500" /> Projeção futura automática</li>
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-blue-500" /> Extrato 100% limpo</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                
                                 {/* Item 1: Resumo Mensal */}
                                 <div className="relative pl-12 font-sans">
                                     <div className={`absolute left-0 top-1 w-8 h-8 rounded-full border-4 flex items-center justify-center z-10 ${
@@ -717,7 +743,7 @@ export default function Manual({ onBack }) {
                     <p className={`text-[10px] font-medium tracking-widest uppercase opacity-50 ${
                         theme === 'light' ? 'text-slate-400' : 'text-slate-600'
                     }`}>
-                        Alívia • Tranquilidade Financeira • v6.0
+                        Alívia • Tranquilidade Financeira • v6.5.2
                     </p>
                 </footer>
 

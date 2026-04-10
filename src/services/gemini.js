@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { CATEGORIES } from '../constants/categories.js';
-import { calculateFutureProjections } from '../utils/financialLogic.js';
+import { calculateFutureProjections, calculateCumulativeBalance } from '../utils/financialLogic.js';
 
 export const isGeminiConfigured = () => {
     return !!localStorage.getItem('user_gemini_api_key');
@@ -84,7 +84,7 @@ export const calculateStatsContext = (transactions, manualConfig, isPanic = fals
 
     const futureProjections = calculateFutureProjections(transactions, manualConfig, 3);
     const projectionsText = futureProjections.map(p =>
-        `- ${p.date}: Saldo Previsto R$ ${p.balance.toFixed(2)} (Renda: ${p.income} - Comprometido: ${p.committed.toFixed(2)})`
+        `- ${p.date}: Saldo Final Estimado R$ ${p.balance.toFixed(2)} (Performance: ${p.monthlyDelta > 0 ? '+' : ''}${p.monthlyDelta.toFixed(2)})`
     ).join('\n');
 
     const expensesByCategory = {};
@@ -102,105 +102,61 @@ export const calculateStatsContext = (transactions, manualConfig, isPanic = fals
         })
         .join('\n');
 
-    const getRobustMonth = (t) => {
-        if (t.month) return t.month;
-        if (!t.date) return "";
-        return t.date.slice(0, 7); // Simplest, most consistent with Dashboard
-    };
-
-    const calculateCumulativeBalance = (targetMonth) => {
-        const allPrev = [...transactions]
-            .filter(t => getRobustMonth(t) <= targetMonth)
-            .sort((a, b) => {
-                const dateDiff = new Date(a.date) - new Date(b.date);
-                if (dateDiff !== 0) return dateDiff;
-                // Tie-breaker: Resets ('initial_balance' or 'carryover') MUST come first on the same day
-                const aIsReset = a.category === 'initial_balance' || a.category === 'carryover';
-                const bIsReset = b.category === 'initial_balance' || b.category === 'carryover';
-                if (aIsReset && !bIsReset) return -1;
-                if (!aIsReset && bIsReset) return 1;
-                return 0;
-            });
-
-        if (allPrev.length === 0) return 0;
-
-        let startIndex = 0;
-        for (let i = allPrev.length - 1; i >= 0; i--) {
-            if (allPrev[i].category === 'initial_balance' || allPrev[i].category === 'carryover') {
-                startIndex = i;
-                break;
-            }
-        }
-
-        return allPrev.slice(startIndex).reduce((acc, t) => {
-            const val = parseFloat(t.amount) || 0;
-            return t.type === 'income' ? acc + val : acc - val;
-        }, 0);
-    };
-
     // Correct Previous Balance for detailed explanation
     const previousMonthStr = (() => {
         const [year, month] = currentMonth.split('-').map(Number);
         const d = new Date(year, month - 2, 1);
         return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
     })();
-    const previousBalance = calculateCumulativeBalance(previousMonthStr);
+    const previousBalance = calculateCumulativeBalance(transactions, previousMonthStr);
 
-    const cumulativeBalance = calculateCumulativeBalance(currentMonth);
+    const cumulativeBalance = calculateCumulativeBalance(transactions, currentMonth);
 
     return `
 CONTEXTO FINANCEIRO DO USUÁRIO (Mês: ${currentMonth}):
 - DADOS DO DASHBOARD (A VERDADE ABSOLUTA):
-  - SALDO EM CARTEIRA (TOTAL ACUMULADO): R$ ${cumulativeBalance.toFixed(2)}
-  - Composição do Saldo: R$ ${previousBalance.toFixed(2)} (Sobra Anterior) + R$ ${currentBalance.toFixed(2)} (Ganhos/Gastos de Abril)
+  - SALDO EM CARTEIRA (TOTAL ACUMULADO HOJE): R$ ${cumulativeBalance.toFixed(2)}
+  - Composição do Saldo Atual: R$ ${previousBalance.toFixed(2)} (Sobra Anterior) + R$ ${currentBalance.toFixed(2)} (Ganhos/Gastos Reais de Abril)
   
-  - Ganhos Reais do Mês: R$ ${realIncome.toFixed(2)}
-  - Gastos Reais do Mês: R$ ${realExpense.toFixed(2)}
-  - Aportes/Investimentos (Cofre/Sementinha): R$ ${investmentAmount.toFixed(2)}
+  - Ganhos Reais Lançados no Mês: R$ ${realIncome.toFixed(2)}
+  - Gastos Reais Lançados no Mês (Consumo): R$ ${realExpense.toFixed(2)}
+  - Aportes/Investimentos Realizados: R$ ${investmentAmount.toFixed(2)}
+
+- CONFIGURAÇÃO MENSAL (BASELINE):
+  - Renda Esperada: R$ ${monthlyIncome}
+  - Gastos Fixos Esperados (Conta de Luz, Aluguel, etc.): R$ ${fixedExpenses.toFixed(2)}
+  - Assinaturas/Base Fixa de Cartão (Spotify, Netflix, etc.): R$ ${(manualConfig?.recurringSubs || []).reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0).toFixed(2)}
+  ${(manualConfig?.recurringSubs || []).map(s => `    * ${s.name}: R$ ${parseFloat(s.amount).toFixed(2)}`).join('\n')}
+
+- PROJEÇÃO DE SALDO FUTURO (CUMULATIVO):
+  (Baseado no Saldo Atual + Expectativa de Renda - Expectativa de Gastos/Parcelas/Base do Cartão)
+${projectionsText}
 
 - ATENÇÃO CRÍTICA (NÃO CONFUNDA NÚMEROS):
-  - O Saldo em Carteira é R$ ${cumulativeBalance.toFixed(2)}. 
-  - O Total Gasto em Transporte é R$ ${expensesByCategory['transport']?.toFixed(2) || '0.00'}.
-  - NUNCA diga que o Saldo em Carteira é um gasto de categoria, mesmo que os números sejam parecidos.
-  - Se o usuário perguntar o saldo, use APENAS o valor: R$ ${cumulativeBalance.toFixed(2)}.
+  1. O Saldo em Carteira HOJE é R$ ${cumulativeBalance.toFixed(2)}. 
+  2. O Saldo Previsto para o fim do mês (visto na Projeção Acima) considera o que ainda pode entrar e sair conforme configurado.
+  3. SEMPRE use o Saldo em Carteira Atual para decisões de liquidez imediata.
+  4. Analise compras parceladas pelo impacto MENSAL (parcela) na sua sobra e pelo impacto TOTAL na dívida.
 
-- SITUAÇÃO DE PATRIMÔNIO (FORA DA CARTEIRA):
-  - Patrimônio Investido Total: R$ ${totalPatrimonioReal.toFixed(2)}
-  - Aportes via chat (incluídos no total): R$ ${totalFromTransactions.toFixed(2)}
-
-- CONFIGURAÇÃO MENSAL:
-  - Renda Configurada: R$ ${monthlyIncome}
-  - Gastos Fixos Configurados: R$ ${fixedExpenses.toFixed(2)}
-
-- DETALHES DE GASTOS (Consumo):
+- DETALHES DE GASTOS POR CATEGORIA (Mês Atual):
 ${categoryStats || "Nenhum gasto de consumo registrado ainda."}
-
-- PROJEÇÃO FUTURA (Próximos 3 meses):
-${projectionsText}
 
 - ÚLTIMAS TRANSAÇÕES:
 ${recentTx}
 
-INSTRUÇÕES DE IDENTIDADE:
-Você é a **Alívia**, uma guia financeira pessoal focada em **Inteligência Financeira e Objetividade**. Sua missão é transformar a ansiedade financeira em clareza técnica e controle. Você é profissional, direta e eficiente, mas mantém um tom amigável e encorajador.
+INSTRUÇÕES DE IDENTIDADE E COMPORTAMENTO:
+Você é a **Alívia**, uma guia financeira de altíssima performance. Sua missão é dar clareza técnica e segurança.
 
-DIRETRIZES DE VOZ E TOM:
-1. **Objetiva e Direta**: Vá direto ao ponto. Use dados para embasar suas respostas. Evite introduções longas ou rodeios.
-2. **Profissional**: NÃO use termos de carinho como "meu anjo", "meu amor", "querido(a)", "linda", ou qualquer variação maternal/romântica. Trate o usuário pelo nome ou de forma profissional.
-3. **Descomplicada**: Use termos claros, mas mantenha a precisão técnica necessária para a educação financeira.
-4. **Focada em Soluções**: Toda análise deve vir acompanhada de um próximo passo claro e prático.
+DIRETRIZES DE ANÁLISE (INTELIGÊNCIA REAL):
+1. **Compras Parceladas**: Se o usuário perguntar sobre uma compra parcelada, não se desespere pelo valor total se o saldo atual for baixo. Calcule se a PARCELA cabe na "sobra mensal" (Renda - Fixos - Variáveis). 
+2. **Projeções Negativas**: Se a projeção de saldo for negativa, analise se é uma "burrice técnica" (configuração de renda baixa demais vs gastos reais altos) ou se é um risco real de endividamento.
+3. **Seja Educadora**: Se uma compra for viável mas arriscada, explique: "Embora você tenha saldo hoje, essa parcela consome X% da sua margem de segurança mensal".
+4. **Objetividade Acima de Tudo**: Apresente os dados antes da opinião. 
 
-DICIONÁRIO DE CONDUTA:
-- Em vez de "Sementinha", use "Investimento" ou "Reserva para o Futuro".
-- Em vez de "Abraço financeiro", use "Análise completa" ou "Plano de ação".
-- NÃO use eufemismos que diminuam a importância da seriedade financeira.
-
-DIRETRIZES CRÍTICAS:
-1. **Priorize Dados**: Sempre que houver uma dúvida sobre valores, apresente os números primeiro.
-2. **Execute Ações**: Se o usuário descrever um gasto ou ganho, processe-o imediatamente via JSON e confirme de forma curta.
-3. **NÃO lance investimentos**: Comente o impacto, mas NÃO use a action "add_transaction" para investimentos (o usuário prefere manual). Use para gastos/rendas comuns se solicitado.
-4. **Visão Real**: Use sempre o "PATRIMÔNIO TOTAL REAL" do dashboard para análises.
-5. **Comunicação Enxuta**: Se a resposta puder ser dada em um parágrafo, não use três.
+INSTRUÇÕES DE TOM:
+- Profissional, direta, segura de si. 
+- NUNCA use eufemismos infantis ou termos de carinho.
+- Trate o dinheiro com a seriedade de um banco e o acolhimento de uma mentora.
 
 REGRAS DE COMANDO (JSON):
 Se precisar realizar uma ação no sistema, use UM ÚNICO bloco JSON no final da resposta.

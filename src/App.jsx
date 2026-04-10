@@ -36,7 +36,8 @@ function Dashboard() {
     fixedExpenses: '',
     variableEstimate: '',
     invested: '',
-    categoryBudgets: {}
+    categoryBudgets: {},
+    recurringSubs: []
   });
 
   const [showMonthlyReview, setShowMonthlyReview] = useState(false);
@@ -276,7 +277,7 @@ function Dashboard() {
             </button>
           )}
           <p className="text-slate-400 text-[10px] font-medium tracking-widest uppercase opacity-50">
-            VERSÃO 6.5.1
+            VERSÃO 6.5.2
           </p>
         </footer>
 

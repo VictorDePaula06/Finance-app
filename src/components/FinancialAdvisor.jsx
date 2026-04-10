@@ -6,7 +6,7 @@ import { calculateFinancialHealth, calculateSpendingPace } from '../utils/financ
 import { CATEGORIES } from '../constants/categories';
 import { calculateStatsContext, sendMessageToGemini, validateApiKey } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
-import { Bot, Settings, X, Save, TrendingUp, TrendingDown, DollarSign, AlertTriangle, CheckCircle, Calculator, Video, ChevronDown, Moon, Sun, Trash2 } from 'lucide-react';
+import { Bot, Settings, X, Save, TrendingUp, TrendingDown, DollarSign, AlertTriangle, CheckCircle, Calculator, Video, ChevronDown, Moon, Sun, Trash2, CreditCard, Pencil, Check } from 'lucide-react';
 import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
 
 import { useTheme } from '../contexts/ThemeContext';
@@ -23,6 +23,8 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
     const [isSaving, setIsSaving] = useState(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [editingSubId, setEditingSubId] = useState(null);
+    const [editingValues, setEditingValues] = useState({ name: '', amount: '' });
 
     // Lock body scroll when delete confirmation is open
     useEffect(() => {
@@ -431,7 +433,6 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                                 <p>1. Acesse o <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">Google AI Studio</a>.</p>
                                 <p>2. Crie uma nova chave de API (é gratuito).</p>
                                 <p>3. Cole a chave no campo acima.</p>
-
                                 <div className="mt-3 rounded-lg overflow-hidden border border-slate-700 bg-black">
                                     <video
                                         src={tutorialVideo}
@@ -443,6 +444,165 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                                 </div>
                             </div>
                         </details>
+                    </div>
+
+                    {/* Recurring Subscriptions Management */}
+                    <div className="pt-6 border-t border-emerald-100/50">
+                        <div className="flex flex-col gap-2 mb-4">
+                            <label className="text-[11px] font-black text-emerald-500 uppercase tracking-[0.15em] flex items-center gap-2">
+                                <CreditCard className="w-4 h-4" />
+                                Assinaturas e Base do Cartão
+                            </label>
+                            <div className={`p-4 rounded-2xl border text-[11px] leading-relaxed transition-all ${
+                                theme === 'light'
+                                ? 'bg-purple-50/50 border-purple-100 text-slate-600'
+                                : 'bg-purple-500/5 border-purple-500/20 text-slate-400'
+                            }`}>
+                                <p>
+                                    <span className="font-bold text-purple-400 mr-1">Base Fixa:</span> 
+                                    Cadastre aqui assinaturas (Spotify, Netflix) que você paga via cartão. Elas não aparecerão individualmente no extrato, mas a Alívia as considerará como um compromisso fixo mensal automático.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            {(tempManualConfig.recurringSubs || []).map((sub, idx) => {
+                                const isEditing = editingSubId === sub.id;
+                                return (
+                                    <div key={sub.id || idx} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                                        theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-800/40 border-slate-700/50'
+                                    }`}>
+                                        {isEditing ? (
+                                            <div className="flex-1 grid grid-cols-2 gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={editingValues.name}
+                                                    onChange={e => setEditingValues({ ...editingValues, name: e.target.value })}
+                                                    className={`px-2 py-1 text-xs rounded border focus:outline-none ${
+                                                        theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-900 border-slate-700 text-white'
+                                                    }`}
+                                                />
+                                                <input
+                                                    type="number"
+                                                    value={editingValues.amount}
+                                                    onChange={e => setEditingValues({ ...editingValues, amount: e.target.value })}
+                                                    className={`px-2 py-1 text-xs rounded border focus:outline-none ${
+                                                        theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-900 border-slate-700 text-white'
+                                                    }`}
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="flex-1">
+                                                <p className={`text-xs font-bold ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>{sub.name}</p>
+                                                <p className="text-[10px] text-slate-500">R$ {parseFloat(sub.amount).toFixed(2)}</p>
+                                            </div>
+                                        )}
+                                        
+                                        <div className="flex gap-1">
+                                            {isEditing ? (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const newSubs = [...tempManualConfig.recurringSubs];
+                                                            newSubs[idx] = { ...sub, name: editingValues.name, amount: parseFloat(editingValues.amount) || 0 };
+                                                            setTempManualConfig({ ...tempManualConfig, recurringSubs: newSubs });
+                                                            setEditingSubId(null);
+                                                        }}
+                                                        className="p-2 text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-colors"
+                                                    >
+                                                        <Check className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setEditingSubId(null)}
+                                                        className="p-2 text-slate-400 hover:bg-slate-500/10 rounded-lg transition-colors"
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setEditingSubId(sub.id);
+                                                            setEditingValues({ name: sub.name, amount: sub.amount });
+                                                        }}
+                                                        className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors"
+                                                    >
+                                                        <Pencil className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const newSubs = tempManualConfig.recurringSubs.filter((_, i) => i !== idx);
+                                                            setTempManualConfig({ ...tempManualConfig, recurringSubs: newSubs });
+                                                        }}
+                                                        className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
+                            <div className={`p-4 rounded-2xl border-2 border-dashed flex flex-col gap-3 ${
+                                theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/50 border-slate-800'
+                            }`}>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <input
+                                        type="text"
+                                        id="new-sub-name"
+                                        placeholder="Ex: Spotify"
+                                        className={`px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 ${
+                                            theme === 'light' ? 'bg-white border-slate-200 focus:ring-blue-400' : 'bg-slate-900 border-slate-700 text-white focus:ring-blue-500/50'
+                                        }`}
+                                    />
+                                    <input
+                                        type="number"
+                                        id="new-sub-amount"
+                                        placeholder="Valor R$"
+                                        className={`px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 ${
+                                            theme === 'light' ? 'bg-white border-slate-200 focus:ring-blue-400' : 'bg-slate-900 border-slate-700 text-white focus:ring-blue-500/50'
+                                        }`}
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const nameEl = document.getElementById('new-sub-name');
+                                        const amountEl = document.getElementById('new-sub-amount');
+                                        if (nameEl.value && amountEl.value) {
+                                            const newSub = { 
+                                                id: Date.now().toString(), 
+                                                name: nameEl.value, 
+                                                amount: parseFloat(amountEl.value) 
+                                            };
+                                            const currentSubs = tempManualConfig.recurringSubs || [];
+                                            setTempManualConfig({ ...tempManualConfig, recurringSubs: [...currentSubs, newSub] });
+                                            nameEl.value = '';
+                                            amountEl.value = '';
+                                        }
+                                    }}
+                                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95"
+                                >
+                                    Adicionar Assinatura
+                                </button>
+                            </div>
+                        </div>
+
+                        {(tempManualConfig.recurringSubs || []).length > 0 && (
+                            <div className="mt-3 flex justify-between items-center px-1">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Base Total Mensal:</span>
+                                <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-800' : 'text-purple-400'}`}>
+                                    R$ {tempManualConfig.recurringSubs.reduce((acc, s) => acc + parseFloat(s.amount), 0).toFixed(2)}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Danger Zone */}
@@ -659,10 +819,10 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                                     }`} />
                             </div>
                             <div className="space-y-1">
-                                <p className="text-xs font-bold text-slate-200">
+                                <p className={`text-xs font-bold ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
                                     {CATEGORIES.expense.find(c => c.id === alert.categoryId)?.label}
                                 </p>
-                                <p className="text-[11px] text-slate-400 leading-relaxed">
+                                <p className={`text-[11px] leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
                                     {alert.message}
                                 </p>
                                 <div className="w-full h-1.5 bg-slate-800 rounded-full mt-2 overflow-hidden">

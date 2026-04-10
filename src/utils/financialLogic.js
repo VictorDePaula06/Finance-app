@@ -63,6 +63,10 @@ export const calculateFinancialHealth = (transactions, manualConfig = null) => {
         totalEstimatedExpenses = (parseFloat(manualConfig.fixedExpenses) || 0) + (parseFloat(manualConfig.variableEstimate) || 0);
     }
 
+    // Add recurring subscriptions (card base) to estimated expenses
+    const recurringTotal = (manualConfig?.recurringSubs || []).reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0);
+    totalEstimatedExpenses += recurringTotal;
+
     disposableIncome = averageIncome - totalEstimatedExpenses;
 
     return {
@@ -108,72 +112,120 @@ export const simulatePurchase = (amount, installments, healthData) => {
     };
 };
 
+export const calculateCumulativeBalance = (transactions, targetMonth) => {
+    const getRobustMonth = (t) => {
+        if (t.month) return t.month;
+        if (!t.date) return "";
+        return t.date.slice(0, 7);
+    };
+
+    const allPrev = [...(transactions || [])]
+        .filter(t => getRobustMonth(t) <= targetMonth)
+        .sort((a, b) => {
+            const dateDiff = new Date(a.date) - new Date(b.date);
+            if (dateDiff !== 0) return dateDiff;
+            const aIsReset = a.category === 'initial_balance' || a.category === 'carryover';
+            const bIsReset = b.category === 'initial_balance' || b.category === 'carryover';
+            if (aIsReset && !bIsReset) return -1;
+            if (!aIsReset && bIsReset) return 1;
+            return 0;
+        });
+
+    if (allPrev.length === 0) return 0;
+
+    let startIndex = 0;
+    for (let i = allPrev.length - 1; i >= 0; i--) {
+        if (allPrev[i].category === 'initial_balance' || allPrev[i].category === 'carryover') {
+            startIndex = i;
+            break;
+        }
+    }
+
+    return allPrev.slice(startIndex).reduce((acc, t) => {
+        const val = parseFloat(t.amount) || 0;
+        return t.type === 'income' ? acc + val : acc - val;
+    }, 0);
+};
+
 export const calculateFutureProjections = (transactions, manualConfig, months = 6) => {
     const today = new Date();
+    const currentMonthKey = today.toLocaleDateString('en-CA').slice(0, 7);
+    const dayOfMonth = today.getDate();
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const monthProgress = dayOfMonth / daysInMonth;
+    const remainingFraction = 1 - monthProgress;
+
     const projections = [];
 
     // Base Values
-    // 1. Income: Manual Config > Average
-    let monthlyIncome = 0;
-    if (manualConfig?.income) {
-        monthlyIncome = parseFloat(manualConfig.income);
-    } else {
+    let monthlyIncome = manualConfig?.income ? parseFloat(manualConfig.income) : 0;
+    if (monthlyIncome === 0) {
         const health = calculateFinancialHealth(transactions, null);
         monthlyIncome = health.averageIncome || 0;
     }
 
-    // 2. Fixed Expenses: Manual Config > 0
     const fixedExpenses = manualConfig?.fixedExpenses ? parseFloat(manualConfig.fixedExpenses) : 0;
+    const variableExpenses = manualConfig?.variableEstimate ? parseFloat(manualConfig.variableEstimate) : 0;
+    const recurringTotal = (manualConfig?.recurringSubs || []).reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0);
 
-    // 3. Variable Expenses Estimate
-    // Logic: Manual Config > (Average Total - Fixed) > 0
-    let variableExpenses = 0;
-    if (manualConfig?.variableEstimate) {
-        variableExpenses = parseFloat(manualConfig.variableEstimate);
-    } else {
-        // If no manual estimate, we try to infer.
-        // Option A: Use historical average minus fixed. 
-        // Problem: If historical average is huge due to a bad month, this tanks the projection.
-        // Adjustment: Use a safer heuristic or strictly what's configured.
-
-        // Let's rely on the user's "Disposable Income" heuristic from health check if available,
-        // otherwise default to 0 to avoid scaring the user with "High Risk" due to old data.
-        // better to assume 0 variable if undefined than to assume infinite debt.
-
-        // However, completely ignoring variable expenses makes the simulation too optimistic.
-        // Compromise: Use 0 by default if manual config is missing, forcing user to configure it for accuracy.
-        variableExpenses = 0;
-    }
+    // Start from current real balance
+    let rollingBalance = calculateCumulativeBalance(transactions, currentMonthKey);
 
     for (let i = 0; i < months; i++) {
-        // ... (rest of date logic)
         const targetDate = new Date(today.getFullYear(), today.getMonth() + i, 1);
-        const monthKey = targetDate.toLocaleDateString('en-CA').slice(0, 7); // YYYY-MM (Local)
+        const monthKey = targetDate.toLocaleDateString('en-CA').slice(0, 7);
 
-        // For current month (index 0), we should probably look at ACTUAL spending so far?
-        // Or keep it simple: Projection always shows "Planned" state.
-        // Let's stick to "Planned" structure: Income - (Fixed + Installments + Estimated Variable)
-
-        // Calculate Installments for this specific month
+        // Fetch installments/transactions specifically launched for this future month
         const monthTransactions = transactions.filter(t => t.month === monthKey && t.type === 'expense');
         const monthInstallmentsTotal = monthTransactions.reduce((acc, t) => acc + parseFloat(t.amount), 0);
 
-        const totalCommitted = fixedExpenses + monthInstallmentsTotal + variableExpenses;
-        const projectedBalance = monthlyIncome - totalCommitted;
+        let monthlyDelta = 0;
+
+        if (i === 0) {
+            // Current Month: We only project what is REMAINING.
+            // Heuristic: If we already spent more than planned, delta is just installments.
+            // If we have "budget" left, we subtract the remaining fraction of fixed/variable.
+            const totalPlannedExpenses = fixedExpenses + variableExpenses;
+            
+            // To be safe and avoid double counting: 
+            // We assume fixed/variable are spread through the month.
+            // Remaining = (Planned Total) * fractionRemaining.
+            // We don't subtract actuals because rollingBalance already includes them.
+            const remainingBudget = totalPlannedExpenses * remainingFraction;
+            const remainingIncome = monthlyIncome * remainingFraction;
+            
+            monthlyDelta = remainingIncome - (remainingBudget + monthInstallmentsTotal + recurringTotal);
+            // Note: monthInstallmentsTotal for current month might already be in rollingBalance.
+            // But usually, installments are launched as transactions. 
+            // If they are ALREADY in the balance, we shouldn't subtract them again.
+            // In this app, installments for the current month ARE transactions.
+            // So for i=0, monthInstallmentsTotal is likely already reflected in rollingBalance.
+            // For simplicity and to avoid the "apocalypse" projection:
+            monthlyDelta = remainingIncome - remainingBudget;
+        } else {
+            // Future Months
+            const totalCommitted = fixedExpenses + monthInstallmentsTotal + variableExpenses + recurringTotal;
+            monthlyDelta = monthlyIncome - totalCommitted;
+        }
+
+        rollingBalance += monthlyDelta;
 
         projections.push({
             date: monthKey,
-            balance: projectedBalance,
-            committed: totalCommitted,
+            balance: rollingBalance,
+            monthlyDelta: monthlyDelta, // New field for clarity
             income: monthlyIncome,
+            committed: fixedExpenses + monthInstallmentsTotal + variableExpenses,
             installments: monthInstallmentsTotal,
             variableEstimated: variableExpenses,
-            fixed: fixedExpenses
+            fixed: fixedExpenses,
+            recurring: recurringTotal
         });
     }
 
     return projections;
 };
+
 export const calculateSpendingPace = (transactions, manualConfig) => {
     if (!manualConfig || !manualConfig.categoryBudgets) return [];
 
