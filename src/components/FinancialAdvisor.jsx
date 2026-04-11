@@ -24,7 +24,12 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [editingSubId, setEditingSubId] = useState(null);
-    const [editingValues, setEditingValues] = useState({ name: '', amount: '' });
+    const [editingValues, setEditingValues] = useState({ 
+        name: '', 
+        amount: '', 
+        totalInstallments: '', 
+        currentInstallment: '' 
+    });
 
     // Lock body scroll when delete confirmation is open
     useEffect(() => {
@@ -486,15 +491,51 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                                                     type="number"
                                                     value={editingValues.amount}
                                                     onChange={e => setEditingValues({ ...editingValues, amount: e.target.value })}
+                                                    placeholder="Valor R$"
                                                     className={`px-2 py-1 text-xs rounded border focus:outline-none ${
                                                         theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-900 border-slate-700 text-white'
                                                     }`}
                                                 />
+                                                <div className="col-span-2 grid grid-cols-2 gap-2 mt-1">
+                                                    <div className="flex flex-col gap-1">
+                                                        <label className="text-[9px] uppercase font-bold text-slate-500 ml-1">Parcela Atual</label>
+                                                        <input
+                                                            type="number"
+                                                            value={editingValues.currentInstallment}
+                                                            onChange={e => setEditingValues({ ...editingValues, currentInstallment: e.target.value })}
+                                                            placeholder="Ex: 5"
+                                                            className={`px-2 py-1 text-[10px] rounded border focus:outline-none ${
+                                                                theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-900 border-slate-700 text-white'
+                                                            }`}
+                                                        />
+                                                    </div>
+                                                    <div className="flex flex-col gap-1">
+                                                        <label className="text-[9px] uppercase font-bold text-slate-500 ml-1">Total de Parcelas</label>
+                                                        <input
+                                                            type="number"
+                                                            value={editingValues.totalInstallments}
+                                                            onChange={e => setEditingValues({ ...editingValues, totalInstallments: e.target.value })}
+                                                            placeholder="Ex: 12"
+                                                            className={`px-2 py-1 text-[10px] rounded border focus:outline-none ${
+                                                                theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-900 border-slate-700 text-white'
+                                                            }`}
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
                                         ) : (
                                             <div className="flex-1">
                                                 <p className={`text-xs font-bold ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>{sub.name}</p>
-                                                <p className="text-[10px] text-slate-500">R$ {parseFloat(sub.amount).toFixed(2)}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-[10px] text-slate-500 font-medium">R$ {parseFloat(sub.amount).toFixed(2)}</p>
+                                                    {sub.totalInstallments > 0 && (
+                                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                                                            theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-slate-700/50 text-slate-400'
+                                                        }`}>
+                                                            Parcela {sub.currentInstallment} de {sub.totalInstallments}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
                                         
@@ -505,7 +546,13 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                                                         type="button"
                                                         onClick={() => {
                                                             const newSubs = [...tempManualConfig.recurringSubs];
-                                                            newSubs[idx] = { ...sub, name: editingValues.name, amount: parseFloat(editingValues.amount) || 0 };
+                                                            newSubs[idx] = { 
+                                                                ...sub, 
+                                                                name: editingValues.name, 
+                                                                amount: parseFloat(editingValues.amount) || 0,
+                                                                currentInstallment: parseInt(editingValues.currentInstallment) || 0,
+                                                                totalInstallments: parseInt(editingValues.totalInstallments) || 0
+                                                            };
                                                             setTempManualConfig({ ...tempManualConfig, recurringSubs: newSubs });
                                                             setEditingSubId(null);
                                                         }}
@@ -527,7 +574,12 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                                                         type="button"
                                                         onClick={() => {
                                                             setEditingSubId(sub.id);
-                                                            setEditingValues({ name: sub.name, amount: sub.amount });
+                                                            setEditingValues({ 
+                                                                name: sub.name, 
+                                                                amount: sub.amount,
+                                                                currentInstallment: sub.currentInstallment || '',
+                                                                totalInstallments: sub.totalInstallments || ''
+                                                            });
                                                         }}
                                                         className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors"
                                                     >
@@ -571,21 +623,52 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                                         }`}
                                     />
                                 </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[9px] uppercase font-black text-slate-500 ml-1 tracking-widest">Parcela Atual</label>
+                                        <input
+                                            type="number"
+                                            id="new-sub-current"
+                                            placeholder="Ex: 1"
+                                            className={`px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 ${
+                                                theme === 'light' ? 'bg-white border-slate-200 focus:ring-blue-400' : 'bg-slate-900 border-slate-700 text-white focus:ring-blue-500/50'
+                                            }`}
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[9px] uppercase font-black text-slate-500 ml-1 tracking-widest">Total Parcelas</label>
+                                        <input
+                                            type="number"
+                                            id="new-sub-total"
+                                            placeholder="Ex: 12"
+                                            className={`px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-1 ${
+                                                theme === 'light' ? 'bg-white border-slate-200 focus:ring-blue-400' : 'bg-slate-900 border-slate-700 text-white focus:ring-blue-500/50'
+                                            }`}
+                                        />
+                                    </div>
+                                </div>
                                 <button
                                     type="button"
                                     onClick={() => {
                                         const nameEl = document.getElementById('new-sub-name');
                                         const amountEl = document.getElementById('new-sub-amount');
+                                        const currentEl = document.getElementById('new-sub-current');
+                                        const totalEl = document.getElementById('new-sub-total');
+                                        
                                         if (nameEl.value && amountEl.value) {
                                             const newSub = { 
                                                 id: Date.now().toString(), 
                                                 name: nameEl.value, 
-                                                amount: parseFloat(amountEl.value) 
+                                                amount: parseFloat(amountEl.value),
+                                                currentInstallment: parseInt(currentEl.value) || 0,
+                                                totalInstallments: parseInt(totalEl.value) || 0
                                             };
                                             const currentSubs = tempManualConfig.recurringSubs || [];
                                             setTempManualConfig({ ...tempManualConfig, recurringSubs: [...currentSubs, newSub] });
                                             nameEl.value = '';
                                             amountEl.value = '';
+                                            currentEl.value = '';
+                                            totalEl.value = '';
                                         }
                                     }}
                                     className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95"

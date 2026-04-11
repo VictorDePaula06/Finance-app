@@ -12,14 +12,20 @@ export default function InstallPrompt() {
             return;
         }
 
-        // Check if dismissed previously in this session
-        if (sessionStorage.getItem('installPromptDismissed')) {
+        // Check if dismissed previously - Use localStorage for persistence across sessions
+        if (localStorage.getItem('installPromptDismissed')) {
             return;
         }
 
         const ua = window.navigator.userAgent.toLowerCase();
         const isIOS = /iphone|ipad|ipod/.test(ua);
         const isAndroid = /android/.test(ua);
+        const isMobile = isIOS || isAndroid;
+
+        // Don't show on desktop as per user request
+        if (!isMobile) {
+            return;
+        }
 
         if (isIOS) {
             setPlatform('ios');
@@ -30,8 +36,6 @@ export default function InstallPrompt() {
             // Wait for beforeinstallprompt event for Android, but also set a fallback timer
             const timer = setTimeout(() => setShow(true), 3000);
             return () => clearTimeout(timer);
-        } else {
-            setPlatform('desktop');
         }
 
         const handler = (e) => {
@@ -57,13 +61,14 @@ export default function InstallPrompt() {
         // Optionally, send analytics event with outcome of user choice
         if (outcome === 'accepted') {
             setShow(false);
+            localStorage.setItem('installPromptDismissed', 'true');
         }
         setDeferredPrompt(null);
     };
 
     const handleDismiss = () => {
         setShow(false);
-        sessionStorage.setItem('installPromptDismissed', 'true');
+        localStorage.setItem('installPromptDismissed', 'true');
     };
 
     if (!show) return null;

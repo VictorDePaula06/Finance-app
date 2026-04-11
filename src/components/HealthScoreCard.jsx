@@ -5,7 +5,11 @@ import { useTheme } from '../contexts/ThemeContext';
 
 export default function HealthScoreCard({ scoreData }) {
     const { theme } = useTheme();
-    const { score, feedback, color, bg, breakdown } = scoreData;
+    
+    // Safety check to prevent component crash
+    if (!scoreData) return null;
+    
+    const { score = 0, feedback = "", color = "text-slate-400", bg = "bg-slate-400/10", breakdown = {} } = scoreData;
     const [showLogic, setShowLogic] = useState(false);
 
     // Formatação de moeda simples
@@ -130,7 +134,7 @@ export default function HealthScoreCard({ scoreData }) {
             )}
 
             {/* Background Decoration */}
-            <div className={`absolute top-0 right-0 w-32 h-32 blur-[60px] opacity-20 rounded-full -translate-y-1/2 translate-x-1/2 ${color.replace('text', 'bg')}`}></div>
+            <div className={`absolute top-0 right-0 w-32 h-32 blur-[60px] opacity-20 rounded-full -translate-y-1/2 translate-x-1/2 ${(color || 'text-slate-400').replace('text', 'bg')}`}></div>
 
             <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
                 {/* Gauge Area */}

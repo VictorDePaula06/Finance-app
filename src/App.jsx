@@ -101,6 +101,22 @@ function Dashboard() {
       const lastSeen = prefs?.lastMonthlyReviewSeen || '';
       
       if (lastSeen && lastSeen < currentMonthKey) {
+        // Incrementador de Parcelas Automático
+        if (manualConfig?.recurringSubs?.length > 0) {
+          const updatedSubs = manualConfig.recurringSubs.map(sub => {
+            if (sub.totalInstallments > 0) {
+              return { ...sub, currentInstallment: (sub.currentInstallment || 0) + 1 };
+            }
+            return sub;
+          });
+          
+          const newConfig = { ...manualConfig, recurringSubs: updatedSubs };
+          setManualConfig(newConfig);
+          localStorage.setItem('financialAdvisorSettings', JSON.stringify(newConfig));
+          await saveUserPreferences({ manualConfig: newConfig });
+          console.log("[Auto-Increment] Parcelas atualizadas para o novo mês.");
+        }
+
         // O mês virou! Vamos pegar os dados do mês anterior
         const prevDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
         const prevMonthKey = prevDate.toLocaleDateString('en-CA').slice(0, 7);
@@ -226,14 +242,16 @@ function Dashboard() {
           </div>
         </header>
 
-        <section className="animate-in fade-in slide-in-from-top-4 duration-700">
-          <HealthScoreCard scoreData={healthScore} />
-        </section>
+        {!isLoadingData && (
+          <section className="animate-in fade-in slide-in-from-top-4 duration-700">
+            <HealthScoreCard scoreData={healthScore} />
+          </section>
+        )}
 
         {(() => {
           const breath = generateSundayBreath(transactions, manualConfig);
           if (!breath.hasActivity) return null;
-          return (
+          return !isLoadingData && (
             <section className="animate-in fade-in zoom-in duration-1000">
               <div className={`glass-card p-6 flex items-center gap-6 ${
                 theme === 'light' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-emerald-500/5 border-emerald-500/10'
@@ -277,7 +295,7 @@ function Dashboard() {
             </button>
           )}
           <p className="text-slate-400 text-[10px] font-medium tracking-widest uppercase opacity-50">
-            VERSÃO 6.5.2
+            VERSÃO 6.5.3
           </p>
         </footer>
 

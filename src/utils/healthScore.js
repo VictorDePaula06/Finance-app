@@ -21,18 +21,18 @@ export const calculateHealthScore = (transactions, manualConfig) => {
     const monthTx = transactions.filter(t => getRobustMonth(t) === currentMonth);
 
     // 1. Month Performance (20 points)
-    const income = monthTx.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-    const expense = monthTx.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+    const income = monthTx.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    const expense = monthTx.filter(t => t.type === 'expense').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     // Treat investments as "savings" rather than typical expenses for performance purposes
-    const savings = monthTx.filter(t => t.type === 'expense' && SAVINGS_CATEGORIES.includes(t.category)).reduce((acc, t) => acc + t.amount, 0);
+    const savings = monthTx.filter(t => t.type === 'expense' && SAVINGS_CATEGORIES.includes(t.category)).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     const actualExpense = expense - savings;
 
     const performanceScore = income > 0 ? Math.min(20, (Math.max(0, income - actualExpense) / income) * 100 * 0.2) : 0;
 
     // 2. Budget Allocation (30 points)
     // 50/30/20 Rule: 50% Necessities, 30% Desires, 20% Savings
-    const necessities = monthTx.filter(t => t.type === 'expense' && NECESSITY_CATEGORIES.includes(t.category)).reduce((acc, t) => acc + t.amount, 0);
-    const desires = monthTx.filter(t => t.type === 'expense' && DESIRE_CATEGORIES.includes(t.category)).reduce((acc, t) => acc + t.amount, 0);
+    const necessities = monthTx.filter(t => t.type === 'expense' && NECESSITY_CATEGORIES.includes(t.category)).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    const desires = monthTx.filter(t => t.type === 'expense' && DESIRE_CATEGORIES.includes(t.category)).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
     let allocationScore = 0;
     if (income > 0) {
@@ -85,7 +85,12 @@ export const calculateHealthScore = (transactions, manualConfig) => {
         reserveScore = 25; // Default if no fixed expenses defined but balance is positive
     }
 
-    const totalScore = Math.min(100, Math.round(performanceScore + allocationScore + reserveScore));
+    // Ensure scores are never NaN
+    const safePerf = isNaN(performanceScore) ? 0 : performanceScore;
+    const safeAlloc = isNaN(allocationScore) ? 0 : allocationScore;
+    const safeReserve = isNaN(reserveScore) ? 0 : reserveScore;
+
+    const totalScore = Math.min(100, Math.round(safePerf + safeAlloc + safeReserve));
 
     // Qualitative Feedback
     let feedback = "Comece a registrar seus gastos para ver seu score.";
@@ -126,10 +131,10 @@ export const calculateHealthScore = (transactions, manualConfig) => {
                 totalLiquidity,
                 totalPatrimonio,
                 fixedExpenses,
-                monthsCovered: fixedExpenses > 0 ? (totalLiquidity / fixedExpenses).toFixed(1) : 0,
-                necRatio: income > 0 ? (necessities / income * 100).toFixed(0) : 0,
-                desRatio: income > 0 ? (desires / income * 100).toFixed(0) : 0,
-                savRatio: income > 0 ? ((income - actualExpense) / income * 100).toFixed(0) : 0
+                monthsCovered: fixedExpenses > 0 ? (totalLiquidity / fixedExpenses).toFixed(1) : "0.0",
+                necRatio: income > 0 ? (necessities / income * 100).toFixed(0) : "0",
+                desRatio: income > 0 ? (desires / income * 100).toFixed(0) : "0",
+                savRatio: income > 0 ? ((income - actualExpense) / income * 100).toFixed(0) : "0"
             }
         }
     };

@@ -64,7 +64,12 @@ export const calculateFinancialHealth = (transactions, manualConfig = null) => {
     }
 
     // Add recurring subscriptions (card base) to estimated expenses
-    const recurringTotal = (manualConfig?.recurringSubs || []).reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0);
+    // In current month health, we only count subscriptions that haven't reached their limit
+    const recurringTotal = (manualConfig?.recurringSubs || []).reduce((acc, s) => {
+        const amount = parseFloat(s.amount) || 0;
+        const isExpired = s.totalInstallments > 0 && s.currentInstallment > s.totalInstallments;
+        return isExpired ? acc : acc + amount;
+    }, 0);
     totalEstimatedExpenses += recurringTotal;
 
     disposableIncome = averageIncome - totalEstimatedExpenses;
@@ -166,7 +171,18 @@ export const calculateFutureProjections = (transactions, manualConfig, months = 
 
     const fixedExpenses = manualConfig?.fixedExpenses ? parseFloat(manualConfig.fixedExpenses) : 0;
     const variableExpenses = manualConfig?.variableEstimate ? parseFloat(manualConfig.variableEstimate) : 0;
-    const recurringTotal = (manualConfig?.recurringSubs || []).reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0);
+    
+    // helper to calculate recurring total for a specific month offset
+    const getRecurringTotalForMonth = (offset) => {
+        return (manualConfig?.recurringSubs || []).reduce((acc, s) => {
+            const amount = parseFloat(s.amount) || 0;
+            // If it's a "forever" sub or hasn't expired yet
+            const isForever = !s.totalInstallments || s.totalInstallments === 0;
+            const isNotYetExpired = !isForever && (s.currentInstallment + offset <= s.totalInstallments);
+            
+            return (isForever || isNotYetExpired) ? acc + amount : acc;
+        }, 0);
+    };
 
     // Start from current real balance
     let rollingBalance = calculateCumulativeBalance(transactions, currentMonthKey);
@@ -179,32 +195,22 @@ export const calculateFutureProjections = (transactions, manualConfig, months = 
         const monthTransactions = transactions.filter(t => t.month === monthKey && t.type === 'expense');
         const monthInstallmentsTotal = monthTransactions.reduce((acc, t) => acc + parseFloat(t.amount), 0);
 
+        let currentMonthRecurring = 0;
         let monthlyDelta = 0;
 
         if (i === 0) {
-            // Current Month: We only project what is REMAINING.
-            // Heuristic: If we already spent more than planned, delta is just installments.
-            // If we have "budget" left, we subtract the remaining fraction of fixed/variable.
+            // Current Month
             const totalPlannedExpenses = fixedExpenses + variableExpenses;
-            
-            // To be safe and avoid double counting: 
-            // We assume fixed/variable are spread through the month.
-            // Remaining = (Planned Total) * fractionRemaining.
-            // We don't subtract actuals because rollingBalance already includes them.
             const remainingBudget = totalPlannedExpenses * remainingFraction;
             const remainingIncome = monthlyIncome * remainingFraction;
             
-            monthlyDelta = remainingIncome - (remainingBudget + monthInstallmentsTotal + recurringTotal);
-            // Note: monthInstallmentsTotal for current month might already be in rollingBalance.
-            // But usually, installments are launched as transactions. 
-            // If they are ALREADY in the balance, we shouldn't subtract them again.
-            // In this app, installments for the current month ARE transactions.
-            // So for i=0, monthInstallmentsTotal is likely already reflected in rollingBalance.
-            // For simplicity and to avoid the "apocalypse" projection:
+            // For i=0, we use remaining projections
             monthlyDelta = remainingIncome - remainingBudget;
+            currentMonthRecurring = getRecurringTotalForMonth(0);
         } else {
             // Future Months
-            const totalCommitted = fixedExpenses + monthInstallmentsTotal + variableExpenses + recurringTotal;
+            currentMonthRecurring = getRecurringTotalForMonth(i);
+            const totalCommitted = fixedExpenses + monthInstallmentsTotal + variableExpenses + currentMonthRecurring;
             monthlyDelta = monthlyIncome - totalCommitted;
         }
 
@@ -213,13 +219,13 @@ export const calculateFutureProjections = (transactions, manualConfig, months = 
         projections.push({
             date: monthKey,
             balance: rollingBalance,
-            monthlyDelta: monthlyDelta, // New field for clarity
+            monthlyDelta: monthlyDelta,
             income: monthlyIncome,
-            committed: fixedExpenses + monthInstallmentsTotal + variableExpenses,
+            committed: fixedExpenses + monthInstallmentsTotal + variableExpenses + currentMonthRecurring,
             installments: monthInstallmentsTotal,
             variableEstimated: variableExpenses,
             fixed: fixedExpenses,
-            recurring: recurringTotal
+            recurring: currentMonthRecurring
         });
     }
 

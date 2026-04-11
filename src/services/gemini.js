@@ -126,7 +126,13 @@ CONTEXTO FINANCEIRO DO USUÁRIO (Mês: ${currentMonth}):
   - Renda Esperada: R$ ${monthlyIncome}
   - Gastos Fixos Esperados (Conta de Luz, Aluguel, etc.): R$ ${fixedExpenses.toFixed(2)}
   - Assinaturas/Base Fixa de Cartão (Spotify, Netflix, etc.): R$ ${(manualConfig?.recurringSubs || []).reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0).toFixed(2)}
-  ${(manualConfig?.recurringSubs || []).map(s => `    * ${s.name}: R$ ${parseFloat(s.amount).toFixed(2)}`).join('\n')}
+  ${(manualConfig?.recurringSubs || []).map(s => {
+    let str = `    * ${s.name}: R$ ${parseFloat(s.amount).toFixed(2)}`;
+    if (s.totalInstallments > 0) {
+      str += ` (Parcela ${s.currentInstallment} de ${s.totalInstallments})`;
+    }
+    return str;
+  }).join('\n')}
 
 - PROJEÇÃO DE SALDO FUTURO (CUMULATIVO):
   (Baseado no Saldo Atual + Expectativa de Renda - Expectativa de Gastos/Parcelas/Base do Cartão)
@@ -256,6 +262,8 @@ DADOS DO MÊS ENCERRADO:
 CONFIGURAÇÃO ATUAL:
 - Renda Prevista: R$ ${monthlyIncome}
 - Gastos Fixos: R$ ${fixedExpenses}
+- Assinaturas/Base do Cartão:
+${(manualConfig?.recurringSubs || []).map(s => `  * ${s.name}: R$ ${parseFloat(s.amount).toFixed(2)}${s.totalInstallments > 0 ? ` (Parcela ${s.currentInstallment} de ${s.totalInstallments})` : ''}`).join('\n') || '  (Nenhuma assinura configurada)'}
 
 SUA TAREFA:
 1. Apresente o balanço do mês de forma direta.
