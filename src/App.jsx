@@ -257,12 +257,12 @@ function Dashboard() {
           if (!breath.hasActivity) return null;
           return !isLoadingData && (
             <section className="animate-in fade-in zoom-in duration-1000">
-              <div className={`glass-card p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 ${
+              <div className={`glass-card p-6 flex flex-col md:flex-row items-center justify-between gap-6 ${
                 theme === 'light' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-emerald-500/5 border-emerald-500/10'
               }`}>
                 <div className="flex items-center gap-6">
                   <div className="p-4 bg-verde-respira/20 rounded-2xl">
-                    <Sparkles className="w-8 h-8 text-verde-respira animate-pulse" />
+                    <TrendingUp className="w-8 h-8 text-verde-respira" />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-emerald-800 uppercase tracking-widest mb-1">Destaque da Semana</h4>
