@@ -3,7 +3,7 @@ import TransactionSection from './components/TransactionSection';
 import GoalTracker from './components/GoalTracker';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { LayoutDashboard, LogOut, Shield, TrendingUp, BookOpen, Sparkles } from 'lucide-react';
+import { LayoutDashboard, LogOut, Shield, TrendingUp, BookOpen, Sparkles, History, ArrowRight, Clock, Wallet, X } from 'lucide-react';
 import InstallPrompt from './components/InstallPrompt';
 import logo from './assets/logo.png';
 import AdminPanel from './components/AdminPanel';
@@ -30,6 +30,13 @@ function Dashboard() {
   const [transactions, setTransactions] = useState([]);
   const [goals, setGoals] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [showManual, setShowManual] = useState(false);
+  const [showMonthlyReview, setShowMonthlyReview] = useState(false);
+  const [showInvestmentHistory, setShowInvestmentHistory] = useState(false);
+  const [monthlyReviewData, setMonthlyReviewData] = useState(null);
+  const [previousMonthStats, setPreviousMonthStats] = useState({ income: 0, expense: 0, balance: 0, topCategory: '' });
+  const [previousMonthName, setPreviousMonthName] = useState('');
 
   const [manualConfig, setManualConfig] = useState({
     income: '',
@@ -40,10 +47,7 @@ function Dashboard() {
     recurringSubs: []
   });
 
-  const [showMonthlyReview, setShowMonthlyReview] = useState(false);
   const [monthlyReviewText, setMonthlyReviewText] = useState('');
-  const [previousMonthStats, setPreviousMonthStats] = useState({ income: 0, expense: 0, balance: 0, topCategory: '' });
-  const [previousMonthName, setPreviousMonthName] = useState('');
 
   const updateManualConfig = (newConfig) => {
     setManualConfig(newConfig);
@@ -253,22 +257,117 @@ function Dashboard() {
           if (!breath.hasActivity) return null;
           return !isLoadingData && (
             <section className="animate-in fade-in zoom-in duration-1000">
-              <div className={`glass-card p-6 flex items-center gap-6 ${
+              <div className={`glass-card p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 ${
                 theme === 'light' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-emerald-500/5 border-emerald-500/10'
               }`}>
-                <div className="p-4 bg-verde-respira/20 rounded-2xl">
-                  <Sparkles className="w-8 h-8 text-verde-respira animate-pulse" />
+                <div className="flex items-center gap-6">
+                  <div className="p-4 bg-verde-respira/20 rounded-2xl">
+                    <Sparkles className="w-8 h-8 text-verde-respira animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-emerald-800 uppercase tracking-widest mb-1">Destaque da Semana</h4>
+                    <p className={theme === 'light' ? 'text-slate-700' : 'text-slate-300'}>
+                      {breath.message}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-emerald-800 uppercase tracking-widest mb-1">O Respiro da Semana</h4>
-                  <p className={theme === 'light' ? 'text-slate-700' : 'text-slate-300'}>
-                    {breath.message}
-                  </p>
-                </div>
+                
+                <button
+                  onClick={() => setShowInvestmentHistory(true)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap group ${
+                    theme === 'light' 
+                    ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-md shadow-emerald-500/20' 
+                    : 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30'
+                  }`}
+                >
+                  <History className="w-4 h-4 group-hover:rotate-[-30deg] transition-transform" />
+                  Ver Histórico
+                  <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
             </section>
           );
         })()}
+
+        {/* Investment History Modal */}
+        {showInvestmentHistory && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className={`border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 ${
+              theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-700'
+            }`}>
+              <div className={`p-6 border-b flex justify-between items-center ${
+                theme === 'light' ? 'bg-emerald-50/30 border-emerald-100' : 'bg-emerald-500/5 border-white/5'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-500/20 rounded-xl">
+                    <TrendingUp className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <div>
+                    <h3 className={`text-lg font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Histórico de Reservas</h3>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Resumo de Investimentos e Reservas</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowInvestmentHistory(false)} className={`p-2 rounded-lg transition-colors ${
+                  theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-slate-600' : 'hover:bg-slate-800 text-slate-400 hover:text-white'
+                }`}>
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                <div className="space-y-3">
+                  {transactions
+                    .filter(t => (t.type === 'expense' && (t.category === 'investment' || t.category === 'vault')) || t.category === 'vault_redemption')
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .slice(0, 15)
+                    .map((t, idx) => (
+                      <div key={t.id} className={`p-4 rounded-2xl border flex items-center justify-between group transition-all ${
+                        theme === 'light' ? 'bg-slate-50 border-slate-100 hover:border-emerald-200' : 'bg-white/5 border-white/5 hover:bg-white/10'
+                      }`}>
+                        <div className="flex items-center gap-4">
+                          <div className={`p-2.5 rounded-xl ${
+                             t.category === 'vault_redemption' 
+                             ? (theme === 'light' ? 'bg-rose-50 text-rose-500' : 'bg-rose-500/10 text-rose-400')
+                             : (theme === 'light' ? 'bg-emerald-50 text-emerald-500' : 'bg-emerald-500/10 text-emerald-400')
+                          }`}>
+                            {t.category === 'vault_redemption' ? <Wallet className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                          </div>
+                          <div>
+                            <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>{t.description}</p>
+                            <p className="text-[10px] text-slate-500 font-medium">
+                              {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-sm font-black ${
+                            t.category === 'vault_redemption' ? 'text-rose-500' : 'text-emerald-500'
+                          }`}>
+                            {t.category === 'vault_redemption' ? '-' : '+'} R$ {t.amount?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </p>
+                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500">
+                            {t.category === 'investment' ? 'Investimento' : 'Cofre'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  {transactions.filter(t => (t.type === 'expense' && (t.category === 'investment' || t.category === 'vault')) || t.category === 'vault_redemption').length === 0 && (
+                    <div className="text-center py-12 opacity-50">
+                      <TrendingUp className="w-12 h-12 mx-auto mb-4 text-slate-500" />
+                      <p className="text-sm font-medium">Nenhum investimento registrado ainda.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className={`p-4 border-t text-center ${theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                <p className={`text-[10px] font-bold italic ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                  "A constância é a base da sua saúde financeira."
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <section className="glass-card p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <GoalTracker />

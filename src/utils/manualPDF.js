@@ -121,11 +121,11 @@ export const generateManualPDF = async () => {
     addSubHeading("Diferença entre Saldos:");
     addText("Saldo em Carteira: Representa o montante total acumulado. É o dinheiro que você realmente possui hoje, considerando todo o histórico de entradas e saídas.", true);
     addText("Resultado Mensal: Foca exclusivamente no desempenho do mês atual. Indica se este mês você está 'lucrando' ou gastando mais do que ganha.", true);
-    addText("Sementinha / Futuro: Soma o valor base definido por você com todos os aportes realizados para proteger o seu amanhã.", true);
+    addText("Investimento / Futuro: Soma o valor base definido por você com todos os aportes realizados para proteger o seu amanhã.", true);
 
     addSubHeading("Categorias Estratégicas:");
     addText("Saldo Inicial: Ajuste fundamental para alinhar o saldo do aplicativo com sua conta bancária real no primeiro uso.", true);
-    addText("Sementinha / Futuro: Guardar valores aqui não prejudica seu score de tranquilidade, pois são tratados como proteção de patrimônio.", true);
+    addText("Investimento / Futuro: Guardar valores aqui não prejudica seu score de tranquilidade, pois são tratados como proteção de patrimônio.", true);
     addText("Cofre / Resgate: Utilize para separar valores específicos que não devem ser usados no dia a dia.", true);
 
     addSubHeading("Margem de Segurança (Controle de Ritmo):");
@@ -138,7 +138,7 @@ export const generateManualPDF = async () => {
 
     addSubHeading("Os 3 Pilares do Score:");
     addText("Performance (20%): Avalia se você manteve um balanço positivo no mês.", true);
-    addText("Alocação (30%): Verifica o equilíbrio entre o hoje (50% necessário, 30% lazer) e o amanhã (20% sementinhas).", true);
+    addText("Alocação (30%): Verifica o equilíbrio entre o hoje (50% necessário, 30% lazer) e o amanhã (20% investimentos).", true);
     addText("Reserva (50%): O ponto mais importante. Mede se seu patrimônio líquido é capaz de cobrir pelo menos 6 meses de suas despesas fixas.", true);
 
     addHeading("4. Metas e Objetivos");

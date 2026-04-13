@@ -541,7 +541,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                         </button>
                                     </div>
                                     <span className="text-xs text-slate-500 italic hidden md:block">
-                                        {showRealFlow ? "*Ignora aportes no Cofre e Sementinhas" : "*Mostra todas as movimentações brutas"}
+                                        {showRealFlow ? "*Ignora aportes no Cofre e Investimentos" : "*Mostra todas as movimentações brutas"}
                                     </span>
                                 </div>
                             </div>
@@ -774,7 +774,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                             <p className={`text-[11px] leading-relaxed ${theme === 'light' ? 'text-blue-700' : 'text-blue-300'}`}>
                                 {category.id === 'initial_balance' && "O 'Saldo Inicial' é para calibrar o app: use para igualar o saldo oficial hoje com o que você tem no banco e começar do zero."}
                                 {category.id === 'carryover' && "A 'Sobra de Mês' é para continuidade: use na virada do mês para trazer o lucro acumulado que sobrou do mês anterior sem contar como salário."}
-                                {category.id === 'investment' && "Lançar como 'Sementinha' não conta como um gasto comum, pois esse valor continua protegendo o seu futuro."}
+                                {category.id === 'investment' && "Lançar como 'Investimento' não conta como um gasto comum, pois esse valor continua protegendo o seu futuro."}
                                 {category.id === 'vault' && "Lançamentos no 'Cofre' são reservas de patrimônio e ajudam a separar o que você não pretende gastar logo."}
                                 {category.id === 'vault_redemption' && "O 'Resgate Cofre' é uma transferência de volta para sua carteira e não será contabilizado como um ganho real (salário) no mês."}
                             </p>

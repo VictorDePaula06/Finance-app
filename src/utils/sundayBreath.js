@@ -23,9 +23,9 @@ export const generateSundayBreath = (transactions, manualConfig) => {
         totalSaved,
         totalIncome,
         message: totalSaved > 0 
-            ? `Esta semana você plantou R$ ${totalSaved.toFixed(2)} para o seu futuro. Sinta esse alívio! 🌱`
+            ? `Esta semana você reservou R$ ${totalSaved.toFixed(2)} para o seu futuro. Sinta esse alívio! ✨`
             : lastWeek.length > 0 
                 ? "Você manteve sua vida financeira sob controle esta semana. Cada dia é um passo rumo à paz."
-                : "Semana tranquila. Que tal começar a próxima plantando uma pequena sementinha?"
+                : "Semana tranquila. Que tal começar a próxima fazendo um pequeno investimento?"
     };
 };

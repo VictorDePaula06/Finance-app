@@ -4,8 +4,8 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { calculateFinancialHealth, calculateSpendingPace } from '../utils/financialLogic';
 import { CATEGORIES } from '../constants/categories';
-import { calculateStatsContext, sendMessageToGemini, validateApiKey } from '../services/gemini';
-import ReactMarkdown from 'react-markdown';
+import { validateApiKey } from '../services/gemini';
+
 import { Bot, Settings, X, Save, TrendingUp, TrendingDown, DollarSign, AlertTriangle, CheckCircle, Calculator, Video, ChevronDown, Moon, Sun, Trash2, CreditCard, Pencil, Check } from 'lucide-react';
 import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
 
@@ -16,9 +16,6 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
     const { theme, toggleTheme } = useTheme();
     const { saveUserPreferences, getUserPreferences, isPremium, userPrefs, deleteAccount } = useAuth();
     
-    const [simAmount, setSimAmount] = useState('');
-    const [simInstallments, setSimInstallments] = useState(1);
-    const [simulationResult, setSimulationResult] = useState(null);
     const [isConfiguring, setIsConfiguring] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -85,48 +82,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
     const [isLoading, setIsLoading] = useState(false);
 
 
-    const handleSimulate = async (e) => {
-        e.preventDefault();
-        if (!simAmount || !health.hasData) return;
 
-        setIsLoading(true);
-        setSimulationResult(null);
-
-        try {
-            const context = calculateStatsContext(transactions, manualConfig);
-            const prompt = `
-            ACAO: O usuário quer simular uma compra.
-            Item: Compra simulada
-            Valor: R$ ${simAmount}
-            Parcelas: ${simInstallments}x de R$ ${(parseFloat(simAmount) / parseInt(simInstallments)).toFixed(2)}
-            
-            Analise a viabilidade dessa compra considerando:
-            1. O impacto no saldo deste mês.
-            2. O impacto nos PRÓXIMOS meses (veja a "PROJEÇÃO FUTURA" no contexto), considerando que as parcelas vão somar aos gastos comprometidos já existentes.
-            3. Se o saldo ficar negativado em algum mês futuro, ALERTE com gravidade.
-            
-            Seja direto: "Compra Viável" ou "Alto Risco". Explique o porquê citando os meses afetados.`;
-
-            const history = JSON.parse(localStorage.getItem('geminiChatHistory') || '[]');
-            const response = await sendMessageToGemini(history, prompt, context);
-            setSimulationResult({ aiResponse: response });
-        } catch (error) {
-            console.error("Erro na simulação IA:", error);
-
-            let errorMsg = "Erro ao consultar a Alívia.";
-            if (error.message.includes('429') || error.message.includes('quota')) {
-                if (isPremium) {
-                    errorMsg = "⏳ Alta demanda no servidor. Aguarde um momento e tente novamente.";
-                } else {
-                    errorMsg = "🔒 Limite do Plano Gratuito atingido. O plano gratuito tem um limite de requisições por minuto. Aguarde alguns segundos ou faça Upgrade para liberar acesso ilimitado.";
-                }
-            }
-
-            setSimulationResult({ error: errorMsg });
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
 
 
@@ -921,88 +877,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                 </div>
             )}
 
-            <div className="border-t border-slate-100 pt-6">
-                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2 px-1">
-                    <Calculator className="w-3.5 h-3.5 text-[#5CCEEA]" />
-                    Simular Nova Conquista
-                </h4>
 
-                <form onSubmit={handleSimulate} className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-[10px] text-slate-400 mb-1 font-bold uppercase tracking-widest">Valor Total</label>
-                            <input
-                                type="number"
-                                value={simAmount}
-                                onChange={e => setSimAmount(e.target.value)}
-                                placeholder="R$ 0,00"
-                                className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none shadow-sm transition-all ${
-                                    theme === 'light'
-                                    ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-300'
-                                    : 'bg-slate-900 border-slate-700 text-slate-100 focus:border-blue-500/50'
-                                }`}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-[10px] text-slate-400 mb-1 font-bold uppercase tracking-widest">Parcelas</label>
-                            <input
-                                type="number"
-                                min="1"
-                                max="60"
-                                value={simInstallments}
-                                onChange={e => setSimInstallments(e.target.value)}
-                                className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none shadow-sm transition-all ${
-                                    theme === 'light'
-                                    ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-300'
-                                    : 'bg-slate-900 border-slate-700 text-slate-100 focus:border-blue-500/50'
-                                }`}
-                            />
-                        </div>
-                    </div>
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="w-full bg-[#5CCEEA] hover:bg-[#69C8B9] disabled:bg-slate-100 disabled:text-slate-300 text-white font-black py-4 rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5CCEEA]/10 mt-2 active:scale-[0.98]"
-                    >
-                        {isLoading ? (
-                            <>
-                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                Analisando...
-                            </>
-                        ) : (
-                            'Analisar Viabilidade'
-                        )}
-                    </button>
-                </form>
-
-                {simulationResult && (
-                    <div className={`mt-4 p-5 rounded-2xl border animate-in fade-in slide-in-from-top-2 bg-white/20 border-[#5CCEEA]/20 shadow-md`}>
-                        {simulationResult.error ? (
-                            <div key="sim-error" className="flex items-center gap-2 text-rose-500">
-                                <AlertTriangle className="w-5 h-5 shrink-0" />
-                                <span className="text-sm font-bold">{simulationResult.error}</span>
-                            </div>
-                        ) : (
-                            <div key="sim-success" className="text-sm text-slate-700 leading-relaxed space-y-2">
-                                <div className="flex items-center gap-2 mb-3 text-[#69C8B9] font-black border-b border-slate-100 pb-3 text-[10px] uppercase tracking-widest">
-                                    <img src={aliviaFinal} alt="Alívia" className="w-5 h-5 object-cover rounded-full shadow-sm" />
-                                    Análise da Alívia
-                                </div>
-                                <ReactMarkdown
-                                    components={{
-                                        strong: ({ node, ...props }) => <span className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-emerald-400'}`} {...props} />,
-                                        ul: ({ node, ...props }) => <ul className="list-disc list-inside space-y-2 ml-1" {...props} />,
-                                        li: ({ node, ...props }) => <li className={`font-medium ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`} {...props} />,
-                                        p: ({ node, ...props }) => <p className={`mb-2 font-medium ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`} {...props} />
-                                    }}
-                                >
-                                    {simulationResult.aiResponse}
-                                </ReactMarkdown>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
         </div>
     );
 }

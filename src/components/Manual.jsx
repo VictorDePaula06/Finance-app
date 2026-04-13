@@ -106,7 +106,7 @@ export default function Manual({ onBack }) {
         { id: 'health', title: 'Saúde Financeira', icon: ShieldCheck },
         { id: 'goals', title: 'Metas e Objetivos', icon: Target },
         { id: 'advisor', title: 'Sua Alívia', icon: MessageSquare },
-        { id: 'experience', title: 'Experiência Alívia', icon: Zap },
+        { id: 'experience', title: 'Destaques do Alívia', icon: Zap },
         { id: 'news', title: 'Novidades', icon: Sparkles },
     ];
 
@@ -395,7 +395,7 @@ export default function Manual({ onBack }) {
                                     theme === 'light' ? 'border-purple-400 bg-purple-50' : 'border-purple-500 bg-purple-500/5'
                                 }`}>
                                     <h4 className={`font-bold mb-1 ${theme === 'light' ? 'text-purple-600' : 'text-purple-400'}`}>Patrimônio Investido</h4>
-                                    <p className={`text-sm ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>Total de valor guardado para o seu futuro. Ele soma o valor base definido por você com todos os aportes na categoria <strong>"Sementinha"</strong>.</p>
+                                    <p className={`text-sm ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>Total de valor guardado para o seu futuro. Ele soma o valor base definido por você com todos os aportes na categoria <strong>"Investimento"</strong>.</p>
                                 </div>
                             </div>
 
@@ -421,7 +421,7 @@ export default function Manual({ onBack }) {
                                 <li className={`p-4 rounded-xl border ${
                                     theme === 'light' ? 'bg-[#f0fdfa]/50 border-emerald-100/50' : 'bg-slate-800/30 border-slate-700'
                                 }`}>
-                                    <span className={`font-bold block mb-1 ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`}>Sementinha (Futuro)</span>
+                                    <span className={`font-bold block mb-1 ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`}>Investimento (Futuro)</span>
                                     <span className={`text-xs ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Transações nesta categoria NÃO são consideradas "gastos" no cálculo de Saúde Financeira, pois o valor continua sendo seu patrimônio.</span>
                                 </li>
                                 <li className={`p-4 rounded-xl border ${
@@ -484,7 +484,7 @@ export default function Manual({ onBack }) {
                                     </li>
                                     <li className={`flex items-center gap-2 text-sm ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
                                         <ChevronRight className="w-4 h-4 text-emerald-500" />
-                                        Destinar pelo menos 20% do que ganha para <strong>Sementinhas (Futuro)</strong>.
+                                        Destinar pelo menos 20% do que ganha para <strong>Investimentos (Reservas)</strong>.
                                     </li>
                                     <li className={`flex items-center gap-2 text-sm ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
                                         <ChevronRight className="w-4 h-4 text-emerald-500" />
@@ -568,8 +568,8 @@ export default function Manual({ onBack }) {
                         </Section>
 
                         {/* 6. EXPERIENCE */}
-                        <Section id="experience" title="Experiência e Alívio" icon={Zap} activeSection={activeSection} theme={theme}>
-                            <p>A Alívia foi desenhada para transformar sua ansiedade em tranquilidade através de metáforas e suporte imediato.</p>
+                        <Section id="experience" title="Destaques do Alívia" icon={Zap} activeSection={activeSection} theme={theme}>
+                            <p>O Alívia foi desenhado para transformar sua ansiedade em tranquilidade através de dados claros e suporte imediato.</p>
 
                             <div className="space-y-6 mt-6">
                                 <div className={`p-6 rounded-2xl border ${
@@ -577,9 +577,9 @@ export default function Manual({ onBack }) {
                                 }`}>
                                     <h4 className="font-black text-lg mb-3 flex items-center gap-2">
                                         <Zap className="w-5 h-5 text-yellow-500" />
-                                        O Respiro da Semana
+                                        Destaque da Semana
                                     </h4>
-                                    <p className="text-sm">Um resumo positivo que aparece no dashboard para celebrar suas conquistas financeiras nos últimos 7 dias. Ele foca no que você fez de **certo**!</p>
+                                    <p className="text-sm">Um resumo positivo que aparece no dashboard para celebrar suas conquistas financeiras nos últimos 7 dias. Ele foca no que você fez de **correto**!</p>
                                 </div>
 
                                 <div className={`p-6 rounded-2xl border ${
@@ -587,11 +587,11 @@ export default function Manual({ onBack }) {
                                 }`}>
                                     <h4 className="font-black text-lg mb-3 flex items-center gap-2">
                                         <Zap className="w-5 h-5 text-emerald-500" />
-                                        Plantar uma "Sementinha" 🌱
+                                        Realizar um Investimento 💎
                                     </h4>
                                     <p className="text-sm mb-4">É o nosso convite para você começar a investir no seu futuro, mesmo com pouco.</p>
                                     <div className="bg-white/5 p-4 rounded-xl border border-white/5 text-xs italic">
-                                        <strong>Como fazer?</strong> Basta realizar um lançamento de **SAÍDA** na categoria **Investimento** ou **Cofre**. Isso alimenta seu patrimônio e faz a sementinha crescer no seu score de tranquilidade!
+                                        <strong>Como fazer?</strong> Basta realizar um lançamento de **SAÍDA** na categoria **Investimento** ou **Cofre**. Isso alimenta seu patrimônio e aumenta seu score de tranquilidade!
                                     </div>
                                 </div>
 

@@ -63,7 +63,7 @@ export default function HealthScoreCard({ scoreData }) {
                                         <span className={`text-[10px] font-bold ${breakdown?.allocation > 0 ? 'text-emerald-500' : theme === 'light' ? 'text-slate-500' : 'text-slate-500'}`}>+{breakdown?.allocation || 0} pts</span>
                                     </div>
                                     <div>
-                                        <h4 className={`font-bold uppercase text-[10px] tracking-widest mb-1 ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Suas Sementinhas</h4>
+                                        <h4 className={`font-bold uppercase text-[10px] tracking-widest mb-1 ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Seus Investimentos</h4>
                                         <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-200'}`}>Qualidade da distribuição dos seus gastos.</p>
                                         <div className={`mt-2 grid grid-cols-2 gap-2 text-[10px] font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-100'}`}>
                                             <div className="flex flex-col">
@@ -86,7 +86,7 @@ export default function HealthScoreCard({ scoreData }) {
                                         <span className={`text-[10px] font-bold ${breakdown?.reserve > 0 ? 'text-emerald-700' : theme === 'light' ? 'text-slate-500' : 'text-slate-500'}`}>+{breakdown?.reserve || 0} pts</span>
                                     </div>
                                     <div>
-                                        <h4 className={`font-bold uppercase text-[10px] tracking-widest mb-1 ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Sua Proteção</h4>
+                                        <h4 className={`font-bold uppercase text-[10px] tracking-widest mb-1 ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>Sua Reserva</h4>
                                         <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-200'}`}>Quanto tempo suas reservas te mantêm em paz.</p>
                                         <div className="mt-2 space-y-2">
                                             <div className={`flex justify-between items-center text-[10px] font-bold bg-white/5 p-2 rounded-xl border border-white/5 ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
@@ -114,7 +114,7 @@ export default function HealthScoreCard({ scoreData }) {
 
                                         <div className="mt-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
                                             <p className="text-[10px] text-emerald-600 leading-relaxed italic">
-                                                *A Alívia considera seu <b>Saldo + Sementinhas</b> para medir sua tranquilidade.
+                                                *A Alívia considera seu <b>Saldo + Investimentos</b> para medir sua tranquilidade.
                                             </p>
                                         </div>
 
