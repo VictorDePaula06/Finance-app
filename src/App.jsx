@@ -394,7 +394,7 @@ function Dashboard() {
             </button>
           )}
           <p className="text-slate-400 text-[10px] font-medium tracking-widest uppercase opacity-50">
-            VERSÃO 6.5.3
+            VERSÃO 6.5.4
           </p>
         </footer>
 

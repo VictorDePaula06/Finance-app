@@ -24,6 +24,7 @@ export function AuthProvider({ children }) {
     const [isTrial, setIsTrial] = useState(false);
     const [daysRemaining, setDaysRemaining] = useState(0);
     const [userPrefs, setUserPrefs] = useState(null);
+    const expiryTimeoutRef = useRef(null);
 
     function signup(email, password) {
         return createUserWithEmailAndPassword(auth, email, password);
@@ -69,11 +70,13 @@ export function AuthProvider({ children }) {
         if (!currentUser) return;
 
         const checkStatus = () => {
+            if (expiryTimeoutRef.current) clearTimeout(expiryTimeoutRef.current);
             const createdAt = currentUser.metadata.creationTime ? new Date(currentUser.metadata.creationTime) : new Date();
             const now = new Date();
 
             // 1. Check Trial (7 days)
-            const diffDaysTrial = Math.ceil((now - createdAt) / (1000 * 60 * 60 * 24));
+            const msInDay = 1000 * 60 * 60 * 24;
+            const diffDaysTrial = Math.ceil((now - createdAt) / msInDay);
             const isWithinTrial = diffDaysTrial <= 7;
 
             // 2. Data Consolidation (LATCHED)
@@ -126,7 +129,8 @@ export function AuthProvider({ children }) {
             } else if ((subStatus === 'active' || isManualActive) && !isBlocked) {
                 const cycleDays = subType === 'annual' ? 365 : 30;
                 const toleranceDays = 5;
-                const diffDaysSub = subDate ? Math.floor((now - subDate) / (1000 * 60 * 60 * 24)) : 0;
+                const msInDay = 1000 * 60 * 60 * 24;
+                const diffDaysSub = subDate ? Math.floor((now - subDate) / msInDay) : 0;
 
                 if (diffDaysSub <= cycleDays || diffDaysSub <= cycleDays + toleranceDays) {
                     hasValidAccess = true;
@@ -166,6 +170,33 @@ export function AuthProvider({ children }) {
                     isExpired
                 }
             }) : null);
+
+            // 3. SCHEDULE NEXT CHECK (Precision Watchdog)
+            // Se tiver acesso válido, agendamos o próximo check para o momento exato da expiração
+            if (hasValidAccess && subDate) {
+                const cycle = subType === 'annual' ? 365 : 30;
+                const tolerance = 5;
+                
+                const msInDay = 24 * 60 * 60 * 1000;
+                const timeToExpireRegular = subDate.getTime() + (cycle * msInDay);
+                const timeToExpireTolerance = subDate.getTime() + ((cycle + tolerance) * msInDay);
+                
+                const msUntilRegular = timeToExpireRegular - now.getTime();
+                const msUntilTolerance = timeToExpireTolerance - now.getTime();
+
+                // Pegamos o próximo evento que ainda não aconteceu
+                let nextEventMs = 0;
+                if (msUntilRegular > 0) nextEventMs = msUntilRegular;
+                else if (msUntilTolerance > 0) nextEventMs = msUntilTolerance;
+
+                if (nextEventMs > 0) {
+                    // Adicionamos 1 segundo de margem para garantir que o 'now' do próximo check já seja após a expiração
+                    expiryTimeoutRef.current = setTimeout(() => {
+                        console.log("[Auth] Expirou! Gatilho de precisão executando bloqueio...");
+                        checkStatus();
+                    }, nextEventMs + 1000); 
+                }
+            }
         };
 
         const prefsRef = doc(db, 'users', currentUser.uid, 'settings', 'general');
@@ -208,12 +239,13 @@ export function AuthProvider({ children }) {
         const interval = setInterval(() => {
             console.log("[Auth] Re-check periódico de expiração...");
             checkStatus();
-        }, 1000 * 60 * 5); // 5 minutos
+        }, 1000 * 60 * 1); // 1 minuto (Watchdog de segurança)
 
         return () => {
             unsubPrefs();
             unsubUser();
             unsubSubs();
+            if (expiryTimeoutRef.current) clearTimeout(expiryTimeoutRef.current);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             clearInterval(interval);
         };
