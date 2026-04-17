@@ -65,6 +65,8 @@ export function AuthProvider({ children }) {
 
     const dataRef = useRef({ prefs: {}, user: {}, subs: [], prefsLoaded: false, userLoaded: false, subsLoaded: false });
 
+    const lastSubInfoRef = useRef("");
+
     // Stable Subscription & Prefs Listener
     useEffect(() => {
         if (!currentUser) return;
@@ -74,19 +76,13 @@ export function AuthProvider({ children }) {
             const createdAt = currentUser.metadata.creationTime ? new Date(currentUser.metadata.creationTime) : new Date();
             const now = new Date();
 
-            // 1. Check Trial (7 days)
-            const msInDay = 1000 * 60 * 60 * 24;
-            const diffDaysTrial = Math.ceil((now - createdAt) / msInDay);
-            const isWithinTrial = diffDaysTrial <= 7;
-
-            // 2. Data Consolidation (LATCHED)
+            // 1. Data Consolidation
             const currentData = { ...dataRef.current.user, ...dataRef.current.prefs };
             const currentSubs = dataRef.current.subs;
 
             const stripeSub = currentSubs[0];
             const manualSub = currentData.subscription || (currentData.isPremium ? { status: 'active' } : {});
 
-            // PRIORITY: Stripe "active"/"trialing" status
             let subStatus = (stripeSub?.status === 'active' || stripeSub?.status === 'trialing')
                 ? 'active'
                 : (manualSub?.status || stripeSub?.status || 'free');
@@ -95,52 +91,30 @@ export function AuthProvider({ children }) {
             const isManualLifetime = subStatus === 'lifetime' || manualSub?.status === 'lifetime';
             const isBlocked = manualSub?.status === 'blocked';
 
-            const stripePriceId = stripeSub?.items?.[0]?.price?.id;
-            const annualPriceId = import.meta.env.VITE_STRIPE_PRICE_ID_YEARLY;
-            const stripeInterval = stripeSub?.items?.[0]?.plan?.interval;
-
-            const isAnnual = stripePriceId === annualPriceId ||
-                stripeInterval === 'year' ||
-                stripeSub?.items?.[0]?.plan?.nickname?.toLowerCase().includes('anual') ||
-                manualSub?.type === 'annual';
-
-            const subType = isAnnual ? 'annual' : (manualSub?.type || 'monthly');
-
+            const subType = (stripeSub?.items?.[0]?.plan?.interval === 'year' || manualSub?.type === 'annual') ? 'annual' : (manualSub?.type || 'monthly');
             const subDate = stripeSub?.current_period_start ? new Date(stripeSub.current_period_start.seconds * 1000) : (manualSub?.date?.toDate ? manualSub.date.toDate() : (manualSub?.date ? new Date(manualSub.date) : null));
 
-            console.log(`[Auth Debug] User: ${currentUser.email}`, {
-                subStatus,
-                stripe: stripeSub?.status,
-                manual: manualSub?.status,
-                isBlocked,
-                creationTime: currentUser.metadata.creationTime,
-                now: now.toISOString(),
-                diffDaysTrial,
-                isWithinTrial
-            });
+            const createdAtDate = new Date(currentUser.metadata.creationTime);
+            const msInDay = 1000 * 60 * 60 * 24;
+            const diffDaysTrial = Math.ceil((now - createdAtDate) / msInDay);
+            const isWithinTrial = diffDaysTrial <= 7;
 
             let hasValidAccess = false;
             let remaining = 0;
             let isUnderTolerance = false;
+            const toleranceDays = 5;
 
             if (isManualLifetime && !isBlocked) {
                 hasValidAccess = true;
                 remaining = 9999;
             } else if ((subStatus === 'active' || isManualActive) && !isBlocked) {
                 const cycleDays = subType === 'annual' ? 365 : 30;
-                const toleranceDays = 5;
-                const msInDay = 1000 * 60 * 60 * 24;
                 const diffDaysSub = subDate ? Math.floor((now - subDate) / msInDay) : 0;
 
                 if (diffDaysSub <= cycleDays || diffDaysSub <= cycleDays + toleranceDays) {
                     hasValidAccess = true;
                     remaining = (diffDaysSub <= cycleDays) ? (cycleDays - diffDaysSub) : ((cycleDays + toleranceDays) - diffDaysSub);
                     isUnderTolerance = diffDaysSub > cycleDays;
-                } else {
-                    // SE PASSOU DA TOLERÂNCIA, GARANTE QUE BLOQUEIA
-                    // Removido fallback de 1 dia que permitia acesso indevido
-                    hasValidAccess = false;
-                    remaining = 0;
                 }
             } else if (isWithinTrial && !isBlocked) {
                 hasValidAccess = true;
@@ -149,52 +123,55 @@ export function AuthProvider({ children }) {
             }
 
             const isExpired = !hasValidAccess && (dataRef.current.subsLoaded || dataRef.current.prefsLoaded);
+            
+            // New Sync State
+            const newSubInfo = {
+                type: subType,
+                date: subDate ? subDate.getTime() : null,
+                status: subStatus,
+                isUnderTolerance,
+                daysRemaining: Math.max(0, remaining),
+                isExpired,
+                hasValidAccess
+            };
 
-            // ONLY UPDATE IF LOADED OR ACCESS GRANTED
-            // This prevents "flickering" to false while listeners are still firing,
-            // but forces false if we have load confirmation.
-            if (hasValidAccess || isExpired) {
+            const subInfoString = JSON.stringify(newSubInfo);
+
+            // ONLY UPDATE IF LOADED OR ACCESS GRANTED OR STATE CHANGED
+            if (subInfoString !== lastSubInfoRef.current) {
+                lastSubInfoRef.current = subInfoString;
+                
                 setIsPremium(hasValidAccess);
                 setDaysRemaining(Math.max(0, remaining));
                 if (!hasValidAccess) setIsTrial(false);
+
+                setCurrentUser(prev => prev ? ({
+                    ...prev,
+                    subscriptionInfo: {
+                        ...newSubInfo,
+                        date: subDate // back to Date object for UI
+                    }
+                }) : null);
+
+                console.log(`[Auth Sync] User: ${currentUser.email}`, newSubInfo);
             }
 
-            setCurrentUser(prev => prev ? ({
-                ...prev,
-                subscriptionInfo: {
-                    type: subType,
-                    date: subDate,
-                    status: subStatus,
-                    isUnderTolerance,
-                    daysRemaining: remaining,
-                    isExpired
-                }
-            }) : null);
-
             // 3. SCHEDULE NEXT CHECK (Precision Watchdog)
-            // Se tiver acesso válido, agendamos o próximo check para o momento exato da expiração
+            // Agendamos apenas se houver uma data de expiração futura próxima (> 1 min)
             if (hasValidAccess && subDate) {
                 const cycle = subType === 'annual' ? 365 : 30;
-                const tolerance = 5;
+                const totalCycle = cycle + toleranceDays;
                 
-                const msInDay = 24 * 60 * 60 * 1000;
-                const timeToExpireRegular = subDate.getTime() + (cycle * msInDay);
-                const timeToExpireTolerance = subDate.getTime() + ((cycle + tolerance) * msInDay);
-                
-                const msUntilRegular = timeToExpireRegular - now.getTime();
-                const msUntilTolerance = timeToExpireTolerance - now.getTime();
+                const timeToExpire = subDate.getTime() + (totalCycle * msInDay);
+                const msUntilFinish = timeToExpire - now.getTime();
 
-                // Pegamos o próximo evento que ainda não aconteceu
-                let nextEventMs = 0;
-                if (msUntilRegular > 0) nextEventMs = msUntilRegular;
-                else if (msUntilTolerance > 0) nextEventMs = msUntilTolerance;
-
-                if (nextEventMs > 0) {
-                    // Adicionamos 1 segundo de margem para garantir que o 'now' do próximo check já seja após a expiração
+                // Só agenda se o tempo for futuro mas não muito longe (ex: menor que 40 dias)
+                // e maior que 5 segundos para evitar loops de curtíssimo prazo
+                if (msUntilFinish > 5000 && msUntilFinish < (40 * msInDay)) {
                     expiryTimeoutRef.current = setTimeout(() => {
-                        console.log("[Auth] Expirou! Gatilho de precisão executando bloqueio...");
+                        console.log("[Auth] Monitor de expiração disparado.");
                         checkStatus();
-                    }, nextEventMs + 1000); 
+                    }, Math.min(msUntilFinish + 2000, 1000 * 60 * 60)); // Máximo 1h
                 }
             }
         };

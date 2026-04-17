@@ -3,7 +3,7 @@ import TransactionSection from './components/TransactionSection';
 import GoalTracker from './components/GoalTracker';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { LayoutDashboard, LogOut, Shield, TrendingUp, BookOpen, Sparkles, History, ArrowRight, Clock, Wallet, X } from 'lucide-react';
+import { LayoutDashboard, LogOut, Shield, TrendingUp, BookOpen, Sparkles, History, ArrowRight, Clock, Wallet, X, CreditCard } from 'lucide-react';
 import InstallPrompt from './components/InstallPrompt';
 import logo from './assets/logo.png';
 import AdminPanel from './components/AdminPanel';
@@ -224,6 +224,20 @@ function Dashboard() {
             <div className="flex items-center gap-1 md:gap-3">
               <ReloadPrompt />
               <PushSetup />
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('change-view', { detail: 'manual' }));
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('manual-section', { detail: 'billing' }));
+                  }, 100);
+                }}
+                className={`p-2 rounded-xl transition-all ${
+                  theme === 'light' ? 'hover:bg-blue-50 text-slate-400 hover:text-blue-500' : 'hover:bg-blue-500/10 text-slate-500 hover:text-blue-400'
+                }`}
+                title="Sua Assinatura"
+              >
+                <CreditCard className="w-5 h-5" />
+              </button>
               <button
                 onClick={() => window.dispatchEvent(new CustomEvent('change-view', { detail: 'manual' }))}
                 className={`p-2 rounded-xl transition-all ${

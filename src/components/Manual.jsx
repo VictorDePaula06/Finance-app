@@ -24,12 +24,15 @@ import {
     Eye,
     EyeOff,
     Video,
-    ChevronDown
+    ChevronDown,
+    CreditCard
 } from 'lucide-react';
 import tutorialVideoManual from '../assets/tutorial-gemini-key2.mp4';
 import tutorialVideoOriginal from '../assets/tutorial-gemini-key.mp4';
 import { generateManualPDF } from '../utils/manualPDF';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import { createPortalSession } from '../services/stripe';
 import { validateApiKey } from '../services/gemini';
 
 const Section = ({ id, title, icon: Icon, children, activeSection, theme }) => (
@@ -105,6 +108,7 @@ export default function Manual({ onBack }) {
         { id: 'dashboard', title: 'Dashboard & Saldo', icon: Wallet },
         { id: 'health', title: 'Saúde Financeira', icon: ShieldCheck },
         { id: 'goals', title: 'Metas e Objetivos', icon: Target },
+        { id: 'billing', title: 'Assinatura e Faturamento', icon: CreditCard },
         { id: 'advisor', title: 'Sua Alívia', icon: MessageSquare },
         { id: 'experience', title: 'Destaques do Alívia', icon: Zap },
         { id: 'news', title: 'Novidades', icon: Sparkles },
@@ -605,6 +609,11 @@ export default function Manual({ onBack }) {
                             </div>
                         </Section>
 
+                        {/* 6. BILLING */}
+                        <Section id="billing" title="Assinatura e Faturamento" icon={CreditCard} activeSection={activeSection} theme={theme}>
+                            <BillingManager theme={theme} />
+                        </Section>
+
                         {/* 7. NEWS */}
                         <Section id="news" title="Novidades do Sistema" icon={Sparkles} activeSection={activeSection} theme={theme}>
                             <p className="mb-8">Acompanhe aqui todas as atualizações e melhorias que implementamos para tornar sua jornada financeira cada vez mais leve.</p>
@@ -762,6 +771,131 @@ export default function Manual({ onBack }) {
           .rounded-3xl, .rounded-2xl { border-radius: 8px !important; }
         }
       `}</style>
+        </div>
+    );
+}
+
+function BillingManager({ theme }) {
+    const { currentUser, isPremium, isTrial, daysRemaining } = useAuth();
+    const [isPortalLoading, setIsPortalLoading] = useState(false);
+
+    const handleManageBilling = async () => {
+        setIsPortalLoading(true);
+        try {
+            await createPortalSession(currentUser.uid, () => setIsPortalLoading(false));
+        } catch (err) {
+            console.error(err);
+            setIsPortalLoading(false);
+        }
+    };
+
+    return (
+        <div className="space-y-8">
+            <div className={`p-8 rounded-[2rem] border overflow-hidden relative ${
+                theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'
+            }`}>
+                {/* Background Decor */}
+                <div className="absolute top-0 right-0 p-8 opacity-5">
+                    <CreditCard className="w-32 h-32" />
+                </div>
+
+                <div className="relative z-10">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+                        <div>
+                            <h3 className={`text-xl font-bold mb-1 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Sua Assinatura</h3>
+                            <p className="text-sm text-slate-500">Gerencie seus pagamentos e métodos de cobrança.</p>
+                        </div>
+                        <div className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest ${
+                            isPremium 
+                            ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' 
+                            : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
+                        }`}>
+                            {isPremium ? 'Plano Ativo' : 'Acesso Expirado'}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                        <div className={`p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                            <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Status de Acesso</p>
+                            <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
+                                {isPremium 
+                                    ? (isTrial ? `Período de Teste (${daysRemaining} dias)` : 'Premium ilimitado') 
+                                    : 'Aguardando Ativação'}
+                            </p>
+                        </div>
+                        <div className={`p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                            <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Duração Restante</p>
+                            <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
+                                {daysRemaining > 0 ? `${daysRemaining} dias de Alívia` : 'Créditos expirados'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <button
+                            onClick={handleManageBilling}
+                            disabled={isPortalLoading}
+                            className={`w-full py-4 px-6 rounded-2xl font-black text-white flex items-center justify-center gap-3 transition-all shadow-lg active:scale-95 disabled:opacity-50 ${
+                                theme === 'light' ? 'bg-slate-900 hover:bg-slate-800 shadow-slate-900/20' : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/20'
+                            }`}
+                        >
+                            {isPortalLoading ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                                <CreditCard className="w-5 h-5" />
+                            )}
+                            Gerenciar Assinatura e Cartão
+                        </button>
+                        
+                        <p className={`text-[11px] text-center italic ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Você será redirecionado para o ambiente seguro do Stripe para atualizar seus dados ou cancelar renovações.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div className={`p-8 rounded-3xl border ${
+                theme === 'light' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-emerald-500/5 border-emerald-500/10'
+            }`}>
+                <h4 className={`font-black mb-6 flex items-center gap-2 ${theme === 'light' ? 'text-emerald-800' : 'text-emerald-400'}`}>
+                    <ShieldCheck className="w-5 h-5" />
+                    Transparência e SAC Alívia
+                </h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <h5 className={`font-bold text-sm ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>O acesso é bloqueado na hora?</h5>
+                        <p className={`text-[11px] leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
+                            Não. Ao cancelar a renovação, você continua com acesso Premium até o final do período que já foi pago. Seu acesso só voltará ao plano gratuito na data da próxima cobrança.
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <h5 className={`font-bold text-sm ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>O valor é estornado ao cancelar?</h5>
+                        <p className={`text-[11px] leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
+                            O cancelamento interrompe cobranças futuras, mas não gera estorno automático de meses já pagos ou do mês atual em uso.
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <h5 className={`font-bold text-sm ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Posso apenas remover o cartão?</h5>
+                        <p className={`text-[11px] leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
+                            Sim! Ao remover o cartão no portal, o sistema não conseguirá renovar sua assinatura no próximo mês, suspendendo o serviço automaticamente sem novas cobranças.
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <h5 className={`font-bold text-sm ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Precisa de ajuda com faturas?</h5>
+                        <p className={`text-[11px] leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
+                            No próprio portal você pode baixar todas as suas faturas passadas e recibos de pagamento em PDF para seu controle.
+                        </p>
+                    </div>
+                </div>
+
+                <div className={`mt-6 pt-6 border-t ${theme === 'light' ? 'border-emerald-100/50' : 'border-white/5'} text-[10px] text-center opacity-60`}>
+                    O Alívia utiliza a tecnologia do Stripe para garantir que seus dados bancários nunca fiquem salvos em nossos servidores próprios.
+                </div>
+            </div>
         </div>
     );
 }

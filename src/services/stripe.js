@@ -56,3 +56,20 @@ export async function createCheckoutSession(uid, priceId, onFinish) {
         throw err;
     }
 }
+
+export async function createPortalSession(uid, onFinish) {
+    // Usando o link oficial do portal que você ativou no dashboard
+    const PORTAL_LINK = "https://billing.stripe.com/p/login/00waEY8WW5ZK0V95TJ7kc00";
+    
+    console.log("Abrindo Portal do Cliente (Link Oficial)...");
+    
+    try {
+        // Redireciona diretamente para o link do portal
+        window.location.assign(PORTAL_LINK);
+        if (onFinish) onFinish();
+    } catch (err) {
+        console.error("Erro ao abrir portal:", err);
+        alert("Não foi possível abrir o portal. Verifique sua conexão.");
+        if (onFinish) onFinish();
+    }
+}
