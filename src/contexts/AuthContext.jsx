@@ -52,12 +52,28 @@ export function AuthProvider({ children }) {
             } else {
                 // Ensure top-level user doc for Admin Panel
                 const userRef = doc(db, 'users', user.uid);
-                setDoc(userRef, {
+                const userSnap = await getDoc(userRef);
+                const userData = userSnap.exists() ? userSnap.data() : {};
+                
+                const updateData = {
                     email: user.email,
                     lastLogin: new Date(),
-                    createdAt: user.metadata.creationTime,
                     uid: user.uid
-                }, { merge: true });
+                };
+                
+                // CRITICAL: If no trialStartDate exists, this is their "First App Access"
+                // We set it to NOW to guarantee 7 days of trial automatically.
+                if (!userData.trialStartDate) {
+                    updateData.trialStartDate = new Date();
+                    console.log(`[Auth] New user or missing trial. Activating 7-day trial for: ${user.email}`);
+                }
+
+                // Keep createdAt for history, but we don't use it for billing anymore
+                if (!userData.createdAt) {
+                    updateData.createdAt = user.metadata.creationTime || new Date().toISOString();
+                }
+
+                await setDoc(userRef, updateData, { merge: true });
             }
         });
         return () => unsubscribeAuth();
@@ -94,7 +110,8 @@ export function AuthProvider({ children }) {
             const subType = (stripeSub?.items?.[0]?.plan?.interval === 'year' || manualSub?.type === 'annual') ? 'annual' : (manualSub?.type || 'monthly');
             const subDate = stripeSub?.current_period_start ? new Date(stripeSub.current_period_start.seconds * 1000) : (manualSub?.date?.toDate ? manualSub.date.toDate() : (manualSub?.date ? new Date(manualSub.date) : null));
 
-            const createdAtDate = new Date(currentUser.metadata.creationTime);
+            const trialStart = dataRef.current.user?.trialStartDate?.toDate ? dataRef.current.user.trialStartDate.toDate() : (dataRef.current.user?.trialStartDate ? new Date(dataRef.current.user.trialStartDate) : createdAt);
+            const createdAtDate = trialStart; 
             const msInDay = 1000 * 60 * 60 * 24;
             const diffDaysTrial = Math.ceil((now - createdAtDate) / msInDay);
             const isWithinTrial = diffDaysTrial <= 7;
@@ -132,6 +149,7 @@ export function AuthProvider({ children }) {
                 isUnderTolerance,
                 daysRemaining: Math.max(0, remaining),
                 isExpired,
+                isTrial: isWithinTrial && !stripeSub && !isManualActive && !isManualLifetime,
                 hasValidAccess
             };
 
@@ -143,7 +161,7 @@ export function AuthProvider({ children }) {
                 
                 setIsPremium(hasValidAccess);
                 setDaysRemaining(Math.max(0, remaining));
-                if (!hasValidAccess) setIsTrial(false);
+                setIsTrial(newSubInfo.isTrial);
 
                 setCurrentUser(prev => prev ? ({
                     ...prev,

@@ -66,10 +66,14 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                         ACESSO BLOQUEADO
                     </div>
                     <h1 className="text-4xl font-extrabold mb-4 text-slate-900 tracking-tight">
-                        Sua assinatura expirou
+                        {currentUser?.subscriptionInfo?.daysRemaining === 0 && !currentUser?.subscriptionInfo?.isTrial 
+                            ? "Sua assinatura expirou" 
+                            : "Seu período de teste terminou"}
                     </h1>
                     <p className="text-slate-600 text-lg">
-                        Seu período de acesso terminou. Escolha um plano para continuar utilizando a Alívia e ter acesso ao seu acolhimento financeiro IA.
+                        {currentUser?.subscriptionInfo?.daysRemaining === 0 && !currentUser?.subscriptionInfo?.isTrial
+                            ? "Seu período de acesso terminou. Escolha um plano para continuar utilizando a Alívia e ter acesso ao seu acolhimento financeiro IA."
+                            : "Esperamos que tenha gostado da experiência! Escolha um plano agora para manter seus dados salvos e continuar sua jornada financeira."}
                     </p>
                 </div>
 
