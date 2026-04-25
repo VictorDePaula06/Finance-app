@@ -481,13 +481,13 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
     ) : (
         <button
             onClick={() => setIsOpen(true)}
-            className={`fixed bottom-8 right-4 sm:right-6 h-16 w-16 hover:w-60 rounded-full shadow-2xl transition-all duration-500 ease-in-out hover:scale-105 z-[9999] flex items-center justify-start px-2 overflow-hidden group border-2 border-white/10 ${
-                theme === 'light' ? 'bg-[#69C8B9] text-white shadow-emerald-500/20' : 'bg-blue-600 text-white shadow-blue-500/20'
+            className={`fixed bottom-8 right-4 sm:right-6 h-16 w-16 hover:w-60 rounded-full shadow-[0_0_40px_rgba(59,130,246,0.6)] transition-all duration-500 ease-in-out hover:scale-110 z-[9999] flex items-center justify-start px-2 overflow-hidden group border-4 border-white/20 ${
+                theme === 'light' ? 'bg-[#69C8B9] text-white' : 'bg-blue-600 text-white'
             }`}
         >
-            <img src={aliviaFinal} alt="Alívia" className="w-12 h-12 object-contain filter drop-shadow-md rounded-full border-2 border-white/20" />
-            <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-3 transition-all duration-300 ease-in-out whitespace-nowrap text-sm font-bold tracking-tight">
-                Chat com Alívia
+            <img src={aliviaFinal} alt="Alívia" className="w-12 h-12 object-cover rounded-full border-2 border-white/40 shadow-sm" />
+            <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-4 transition-all duration-500 ease-in-out whitespace-nowrap text-sm font-black tracking-widest uppercase">
+                Conversar com Alívia
             </span>
         </button>
     );

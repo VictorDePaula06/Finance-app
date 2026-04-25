@@ -37,13 +37,22 @@
   --modal-bg: #0f172a;
 }
 
-body {
+html, body {
   margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden;
+  position: relative;
   min-height: 100vh;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: background-color 0.5s ease, color 0.5s ease;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+#root {
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .theme-light body {
@@ -116,19 +125,35 @@ body {
 
 /* Custom Scrollbar - Light Alívia Style */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(203, 213, 225, 0.1);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(105, 200, 185, 0.3);
+  background: rgba(105, 200, 185, 0.2);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(105, 200, 185, 0.6);
+  background: rgba(105, 200, 185, 0.4);
+}
+
+.main-content {
+  margin-left: 256px;
+  min-height: 100vh;
+  transition: all 0.5s ease;
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+@media (max-width: 1024px) {
+  .main-content {
+    margin-left: 0;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
 }

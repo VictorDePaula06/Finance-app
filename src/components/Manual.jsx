@@ -25,7 +25,8 @@ import {
     EyeOff,
     Video,
     ChevronDown,
-    CreditCard
+    CreditCard,
+    Coins
 } from 'lucide-react';
 import tutorialVideoManual from '../assets/tutorial-gemini-key2.mp4';
 import tutorialVideoOriginal from '../assets/tutorial-gemini-key.mp4';
@@ -106,6 +107,7 @@ export default function Manual({ onBack }) {
         { id: 'intro', title: 'Boas-vindas', icon: BookOpen },
         { id: 'settings', title: 'Configurações de IA', icon: Settings },
         { id: 'dashboard', title: 'Dashboard & Saldo', icon: Wallet },
+        { id: 'investments', title: 'Investimentos', icon: TrendingUp },
         { id: 'health', title: 'Saúde Financeira', icon: ShieldCheck },
         { id: 'goals', title: 'Metas e Objetivos', icon: Target },
         { id: 'billing', title: 'Assinatura e Faturamento', icon: CreditCard },
@@ -141,7 +143,7 @@ export default function Manual({ onBack }) {
                             <ArrowLeft className="w-6 h-6" />
                         </button>
                         <div>
-                            <h1 className={`text-3xl font-black bg-gradient-to-r bg-clip-text text-transparent tracking-tighter ${
+                            <h1 className={`text-2xl font-bold bg-gradient-to-r bg-clip-text text-transparent ${
                                 theme === 'light' ? 'from-emerald-600 to-emerald-400' : 'from-blue-400 to-emerald-400'
                             }`}>
                                 Manual do Sistema
@@ -240,7 +242,7 @@ export default function Manual({ onBack }) {
                                                 <button
                                                     onClick={handleSaveApiKey}
                                                     disabled={isValidating}
-                                                    className={`flex-1 py-4 px-6 rounded-2xl font-black text-white flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 disabled:opacity-50 ${
+                                                    className={`flex-1 py-4 px-6 rounded-2xl font-bold text-white flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 disabled:opacity-50 ${
                                                         theme === 'light' ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20' : 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/20'
                                                     }`}
                                                 >
@@ -437,7 +439,73 @@ export default function Manual({ onBack }) {
                             </ul>
                         </Section>
 
-                        {/* 3. HEALTH SCORE */}
+                        {/* 3. INVESTMENTS */}
+                        <Section id="investments" title="Patrimônio e Investimentos" icon={TrendingUp} activeSection={activeSection} theme={theme}>
+                            <p className="text-lg">
+                                A aba de Investimentos é onde você consolida toda a sua riqueza. O Alívia não é uma corretora, mas um <strong>agregador inteligente</strong> que te ajuda a ver o "quadro geral" do seu dinheiro.
+                            </p>
+
+                            <div className="grid md:grid-cols-2 gap-6 mt-8">
+                                <div className={`p-6 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'}`}>
+                                    <h4 className="font-bold mb-3 flex items-center gap-2">
+                                        <Sparkles className="w-5 h-5 text-yellow-500" />
+                                        Criptoativos (Preço Automático)
+                                    </h4>
+                                    <p className="text-xs leading-relaxed opacity-80 mb-4">
+                                        Para Bitcoin, Ethereum e outras moedas, o Alívia busca o preço em tempo real via <strong>Mercado Bitcoin</strong>.
+                                    </p>
+                                    <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/10">
+                                        <p className="text-[11px] font-bold text-blue-500 uppercase mb-1">A Regra do Símbolo:</p>
+                                        <p className="text-[11px] opacity-75 italic">
+                                            O campo <strong>Símbolo/Ticker</strong> deve conter o código exato (ex: BTC, SOL, ETH). É por ele que o sistema encontra o valor de mercado.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className={`p-6 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'}`}>
+                                    <h4 className="font-bold mb-3 flex items-center gap-2">
+                                        <ShieldCheck className="w-5 h-5 text-emerald-500" />
+                                        Renda Fixa (Sincronia Manual)
+                                    </h4>
+                                    <p className="text-xs leading-relaxed opacity-80 mb-4">
+                                        Como bancos não abrem dados de títulos privados, você tem o poder de <strong>Sincronizar o Preço Atual</strong>.
+                                    </p>
+                                    <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
+                                        <p className="text-[11px] font-bold text-emerald-500 uppercase mb-1">Como fazer:</p>
+                                        <p className="text-[11px] opacity-75 italic">
+                                            No portal do seu banco, veja o "Valor Unitário Atual" do seu Tesouro ou CDB e digite no campo verde do Alívia. Seu patrimônio ficará 100% igual ao real.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className={`mt-8 p-8 rounded-[2.5rem] border ${theme === 'light' ? 'bg-blue-50 border-blue-100 shadow-sm' : 'bg-blue-500/5 border-blue-500/20'}`}>
+                                <div className="flex items-start gap-4">
+                                    <div className="p-3 bg-blue-500 rounded-2xl shadow-lg shadow-blue-500/30">
+                                        <Coins className="w-6 h-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h4 className={`text-lg font-black mb-2 ${theme === 'light' ? 'text-blue-900' : 'text-blue-100'}`}>O Poder do "Novo Aporte" 💎</h4>
+                                        <p className="text-sm opacity-80 leading-relaxed">
+                                            Comprou mais um pouquinho do mesmo ativo? Use o botão de <strong>Moedas</strong> no card do investimento. 
+                                            Você só informa quanto comprou e quanto pagou hoje. O Alívia recalcula seu <strong>Preço Médio</strong> e sua <strong>Quantidade</strong> automaticamente, sem você precisar de planilhas complexas.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-8 space-y-4">
+                                <h4 className={`font-bold flex items-center gap-2 ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>
+                                    <PieChart className="w-4 h-4 text-emerald-500" />
+                                    Categorização e Filtros
+                                </h4>
+                                <p className="text-sm opacity-80">
+                                    Use os botões de filtro (Tudo, Tesouro, Cripto) no topo da página para focar em uma estratégia específica. Os cards de resumo (Total Investido, Lucro Bruto) se adaptam automaticamente ao filtro selecionado.
+                                </p>
+                            </div>
+                        </Section>
+
+                        {/* 4. HEALTH SCORE */}
                         <Section id="health" title="Saúde Financeira e Score" icon={ShieldCheck} activeSection={activeSection} theme={theme}>
                             <p>O Nível de Tranquilidade da Alívia vai de 0 a 100 e é composto por três pilares essenciais:</p>
 
@@ -752,7 +820,7 @@ export default function Manual({ onBack }) {
                     <p className={`text-[10px] font-medium tracking-widest uppercase opacity-50 ${
                         theme === 'light' ? 'text-slate-400' : 'text-slate-600'
                     }`}>
-                        Alívia • Tranquilidade Financeira • v6.5.2
+                        Alívia • Tranquilidade Financeira • v6.5.5
                     </p>
                 </footer>
 

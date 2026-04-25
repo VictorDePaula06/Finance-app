@@ -5,7 +5,6 @@ import { db } from '../services/firebase';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, orderBy, getDocs } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import ExpensesChart from './ExpensesChart';
 import AIChat from './AIChat';
 import FinancialAdvisor from './FinancialAdvisor';
 import { CATEGORIES } from '../constants/categories';
@@ -52,7 +51,7 @@ function Card({ title, value, icon: Icon, color, highlight, isHidable, isHidden,
 
 
 
-export default function TransactionSection({ manualConfig, updateManualConfig, transactions, goals = [], isLoadingData }) {
+export default function TransactionSection({ manualConfig, updateManualConfig, transactions, goals = [], isLoadingData, onGoToSettings }) {
     const { theme } = useTheme();
     const formRef = useRef(null);
     const [amount, setAmount] = useState('');
@@ -953,13 +952,13 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
             </div>
 
             {/* Analytics Chart & Advisor */}
-            <div className={`grid grid-cols-1 ${transactions.length === 0 && !manualConfig.income ? '' : (isAliviaConfiguring ? 'lg:grid-cols-1' : 'lg:grid-cols-2')} gap-8 mb-8 animate-in slide-in-from-bottom-5 fade-in duration-500`}>
-                {!isAliviaConfiguring && <ExpensesChart transactions={chartTransactions} />}
+            <div className="animate-in slide-in-from-bottom-5 fade-in duration-500">
                 <FinancialAdvisor
                     transactions={transactions}
                     manualConfig={manualConfig}
                     onConfigChange={updateManualConfig}
                     onToggleConfig={setIsAliviaConfiguring}
+                    onGoToSettings={onGoToSettings}
                 />
             </div>
 

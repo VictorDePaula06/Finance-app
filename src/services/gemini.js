@@ -249,14 +249,17 @@ export const generateMonthlyReview = async (monthName, stats, manualConfig) => {
     const fixedExpenses = manualConfig?.fixedExpenses || 0;
     const monthlyIncome = manualConfig?.income || 0;
 
+    const currentMonthLabel = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    const isCurrentMonth = monthName.toLowerCase() === currentMonthLabel.toLowerCase();
+
     const prompt = `
 Você é a **Alívia**, assistente financeira focada em clareza e resultados.
-O usuário encerrou o mês e você deve fornecer uma análise técnica e objetiva do desempenho financeiro dele em ${monthName}.
+${isCurrentMonth ? `O usuário está no meio do mês de ${monthName} e você deve fornecer uma análise PARCIAL e objetiva do desempenho atual dele.` : `O usuário encerrou o mês e você deve fornecer uma análise técnica e objetiva do desempenho financeiro dele em ${monthName}.`}
 
-DADOS DO MÊS ENCERRADO:
+DADOS DO MÊS ${isCurrentMonth ? 'ATÉ AGORA' : 'ENCERRADO'}:
 - Entradas Totais: R$ ${income.toFixed(2)}
 - Gastos Totais: R$ ${expense.toFixed(2)}
-- Saldo Final: R$ ${balance.toFixed(2)}
+- Saldo Atual: R$ ${balance.toFixed(2)}
 - Categoria de Maior Impacto: ${topCategory}
 
 CONFIGURAÇÃO ATUAL:
@@ -267,8 +270,8 @@ ${(manualConfig?.recurringSubs || []).map(s => `  * ${s.name}: R$ ${parseFloat(s
 
 SUA TAREFA:
 1. Apresente o balanço do mês de forma direta.
-2. Analise se o saldo final foi coerente com a renda prevista.
-3. Forneça 2 recomendações práticas e curtas para o mês de ${monthName} focadas em eficiência financeira.
+2. ${isCurrentMonth ? 'Avalie se o ritmo de gastos está saudável para chegar ao fim do mês com saldo.' : 'Analise se o saldo final foi coerente com a renda prevista.'}
+3. Forneça 2 recomendações práticas e curtas focadas em eficiência financeira.
 4. Mantenha o tom profissional, direto e sem termos de carinho.
 5. Use markdown para negrito. Máximo de 2 parágrafos objetivos.
 

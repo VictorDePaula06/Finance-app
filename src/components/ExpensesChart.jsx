@@ -36,7 +36,7 @@ const CATEGORY_LABELS = {
     other: 'Outro'
 };
 
-export default function ExpensesChart({ transactions }) {
+export default function ExpensesChart({ transactions, targetMonth }) {
     const { theme } = useTheme();
     const getRobustMonth = (t) => {
         if (t.month) return t.month;
@@ -56,13 +56,12 @@ export default function ExpensesChart({ transactions }) {
         // Wait, repository version of ExpensesChart.jsx line 38: export default function ExpensesChart({ transactions })
         // It receives transactions. We should probably filter THEM by month if we want to be consistent with the 0 balance fix.
 
-        const now = new Date().toISOString().slice(0, 7);
-        // Better: let the parent filter. But for now, let's just make the categorical grouping robust.
-
+        const monthToFilter = targetMonth || new Date().toISOString().slice(0, 7);
         const expenses = transactions.filter(t =>
             t.type === 'expense' &&
             t.category !== 'investment' &&
-            t.category !== 'vault'
+            t.category !== 'vault' &&
+            (t.date?.slice(0, 7) === monthToFilter || t.month === monthToFilter)
         );
         const grouped = expenses.reduce((acc, curr) => {
             const cat = curr.category || 'other';

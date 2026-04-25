@@ -6,6 +6,9 @@ import ReactMarkdown from 'react-markdown';
 export default function MonthlyReviewModal({ isOpen, onClose, reviewText, monthName, stats, theme }) {
     if (!isOpen) return null;
 
+    const currentMonthLabel = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    const isCurrentMonth = monthName.toLowerCase() === currentMonthLabel.toLowerCase();
+
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-500">
             <div className={`relative w-full max-w-2xl max-h-[90vh] md:max-h-[85vh] rounded-[2rem] md:rounded-[2.5rem] border overflow-y-auto shadow-2xl transition-all duration-700 animate-in zoom-in-95 slide-in-from-bottom-8 scrollbar-hide ${
@@ -47,9 +50,9 @@ export default function MonthlyReviewModal({ isOpen, onClose, reviewText, monthN
                             <h2 className={`text-xl md:text-2xl font-black tracking-tight ${
                                 theme === 'light' ? 'text-slate-900' : 'text-white'
                             }`}>
-                                O Mês que Passou
+                                {isCurrentMonth ? 'Como está seu mês' : 'O Mês que Passou'}
                             </h2>
-                            <p className="text-emerald-500 font-bold uppercase tracking-widest text-[10px]">Feedback da Alívia</p>
+                            <p className="text-emerald-500 font-bold uppercase tracking-widest text-[10px]">Feedback da Alívia em {monthName}</p>
                         </div>
                     </div>
 
@@ -104,13 +107,15 @@ export default function MonthlyReviewModal({ isOpen, onClose, reviewText, monthN
                         onClick={onClose}
                         className="group w-full max-w-sm py-4 md:py-5 px-6 md:px-8 bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 text-white rounded-[1.5rem] md:rounded-[2rem] shadow-xl shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3"
                     >
-                        <span className="font-bold text-base md:text-lg leading-none">Começar {monthName}</span>
+                        <span className="font-bold text-base md:text-lg leading-none">Entendido</span>
                         <ArrowRight className="w-5 h-5 md:w-6 md:h-6 group-hover:translate-x-1 transition-transform" />
                     </button>
                     
-                    <p className="mt-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest opacity-50 flex items-center gap-2">
-                        <Calendar className="w-3 h-3" /> Relatório de Fechamento Automático
-                    </p>
+                    {!isCurrentMonth && (
+                        <p className="mt-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest opacity-50 flex items-center gap-2">
+                            <Calendar className="w-3 h-3" /> Relatório de Fechamento Automático
+                        </p>
+                    )}
                 </div>
             </div>
 
