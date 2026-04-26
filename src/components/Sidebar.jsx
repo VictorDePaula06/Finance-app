@@ -64,7 +64,14 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }) => {
         </button>
 
         {/* Logo Section */}
-        <div className="p-8 flex flex-col items-center justify-center">
+        <div 
+          className="p-8 flex flex-col items-center justify-center cursor-pointer select-none"
+          onDoubleClick={() => {
+            if (currentUser?.email === 'j.17jvictor@gmail.com') {
+              window.dispatchEvent(new CustomEvent('change-view', { detail: 'admin' }));
+            }
+          }}
+        >
           <img src={logo} alt="Alívia Logo" className="w-48 h-48 object-contain drop-shadow-[0_0_40px_rgba(16,185,129,0.15)] transition-all hover:scale-105 duration-700" />
         </div>
 
@@ -136,7 +143,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }) => {
             <p className={`text-[9px] font-black uppercase tracking-[0.3em] opacity-20 ${
               theme === 'light' ? 'text-slate-400' : 'text-slate-500'
             }`}>
-              Alívia • v7.1.0
+              Alívia • v7.1.1
             </p>
           </div>
         </div>
