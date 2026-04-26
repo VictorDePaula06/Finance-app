@@ -75,6 +75,16 @@ function Dashboard() {
   }, [userPrefs]);
 
   useEffect(() => {
+    const handler = (e) => {
+      if (e.detail && typeof e.detail === 'object') {
+        updateManualConfig(e.detail);
+      }
+    };
+    window.addEventListener('onboarding-complete', handler);
+    return () => window.removeEventListener('onboarding-complete', handler);
+  }, []);
+
+  useEffect(() => {
     if (!currentUser) return;
 
     // Listen to Transactions
@@ -342,6 +352,14 @@ function Dashboard() {
             </div>
           )}
 
+          { activeTab === 'patrimonio' && (
+            <PatrimonioTab
+              transactions={transactions}
+              manualConfig={manualConfig}
+              updateManualConfig={updateManualConfig}
+            />
+          )}
+
           { activeTab === 'metas' && <GoalTracker />}
 
           { activeTab === 'cartoes' && <CardsTab /> }
@@ -439,7 +457,8 @@ import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfUse from './components/TermsOfUse';
 import SubscriptionBlock from './components/SubscriptionBlock';
 import Contact from './components/Contact';
-import WelcomeModal from './components/WelcomeModal';
+import WelcomeJourney from './components/WelcomeJourney';
+import PatrimonioTab from './components/PatrimonioTab';
 
 function AppContent() {
   const { currentUser, isPremium, getUserPreferences, saveUserPreferences } = useAuth();
@@ -492,10 +511,14 @@ function AppContent() {
       <>
         <Dashboard />
         {showWelcome && (
-          <WelcomeModal 
-            theme={theme}
-            onStartConfig={() => handleCloseWelcome(true)}
-            onSkip={() => handleCloseWelcome(false)}
+          <WelcomeJourney
+            onComplete={(config) => {
+              if (config && config.income !== undefined) {
+                // updateManualConfig is in Dashboard scope, use event
+                window.dispatchEvent(new CustomEvent('onboarding-complete', { detail: config }));
+              }
+              handleCloseWelcome(false);
+            }}
           />
         )}
       </>

@@ -30,6 +30,7 @@ const CardsTab = () => {
   const [newCard, setNewCard] = useState({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10 });
   const [editingCardId, setEditingCardId] = useState(null);
   const [newSub, setNewSub] = useState({ name: '', value: '', day: 1, cardId: '' });
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, type, title }
 
   useEffect(() => {
     if (!currentUser) return;
@@ -70,9 +71,8 @@ const CardsTab = () => {
   };
 
   const handleDeleteCard = async (id) => {
-    if (window.confirm('Excluir este cartão?')) {
-      await deleteDoc(doc(db, 'cards', id));
-    }
+    await deleteDoc(doc(db, 'cards', id));
+    setDeleteConfirm(null);
   };
 
   const handleAddSub = async (e) => {
@@ -89,6 +89,7 @@ const CardsTab = () => {
 
   const handleDeleteSub = async (id) => {
     await deleteDoc(doc(db, 'subscriptions', id));
+    setDeleteConfirm(null);
   };
 
   const getCardSubs = (cardId) => subscriptions.filter(s => s.cardId === cardId);
@@ -184,8 +185,8 @@ const CardsTab = () => {
                   )}
                 </div>
 
-                {/* Action Buttons (Visible on Hover) */}
-                <div className="absolute top-8 right-8 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                {/* Action Buttons (Repositioned to avoid overlap) */}
+                <div className="absolute top-2 right-8 flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 md:translate-y-2 md:group-hover:translate-y-0 z-20">
                     <button 
                     onClick={() => {
                         setEditingCardId(card.id);
@@ -197,12 +198,31 @@ const CardsTab = () => {
                     <Pencil className="w-4 h-4" />
                     </button>
                     <button 
-                    onClick={() => handleDeleteCard(card.id)}
+                    onClick={() => setDeleteConfirm({ id: card.id, type: 'card', title: card.name })}
                     className="p-2.5 bg-rose-500/80 hover:bg-rose-500 text-white rounded-xl shadow-2xl backdrop-blur-md transition-colors"
                     >
                     <Trash2 className="w-4 h-4" />
                     </button>
                 </div>
+
+                {/* Delete overlay for Card */}
+                {deleteConfirm?.id === card.id && deleteConfirm?.type === 'card' && (
+                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-center z-[100] animate-in fade-in duration-300">
+                        <div className="max-w-[280px] w-full space-y-4">
+                            <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <Trash2 className="w-8 h-8 text-rose-500" />
+                            </div>
+                            <h4 className="text-white font-black text-xl">Excluir?</h4>
+                            <p className="text-white/60 text-xs leading-relaxed">
+                                Você está removendo o cartão <span className="text-white font-bold">{card.name}</span>. Esta ação não pode ser desfeita.
+                            </p>
+                            <div className="flex gap-3 pt-4">
+                                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3.5 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors">Voltar</button>
+                                <button onClick={() => handleDeleteCard(card.id)} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
               </div>
             );
           })}
@@ -246,10 +266,24 @@ const CardsTab = () => {
                   <div className="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center">
                     <Tag className="w-6 h-6 text-purple-500" />
                   </div>
-                  <button onClick={() => handleDeleteSub(sub.id)} className="p-2 text-slate-500 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all bg-white/5 rounded-xl">
+                  <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className="p-2 text-slate-500 hover:text-rose-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all bg-white/5 rounded-xl">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
+
+                {/* Delete overlay for Subscription */}
+                {deleteConfirm?.id === sub.id && deleteConfirm?.type === 'sub' && (
+                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300">
+                        <div className="max-w-[200px] w-full">
+                            <Trash2 className="w-8 h-8 text-rose-500 mx-auto mb-3" />
+                            <p className="text-white font-black text-sm mb-6 leading-tight">Excluir {sub.name}?</p>
+                            <div className="flex gap-2">
+                                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl bg-white/10 text-white font-black text-[9px] uppercase tracking-widest">Não</button>
+                                <button onClick={() => handleDeleteSub(sub.id)} className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white font-black text-[9px] uppercase tracking-widest">Sim</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 <div className="space-y-1">
                   <h4 className={`font-black text-base ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{sub.name}</h4>
                   <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black flex items-center gap-1.5">

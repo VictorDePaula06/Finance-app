@@ -10,7 +10,8 @@ import {
   LogOut,
   X,
   HelpCircle,
-  PieChart
+  PieChart,
+  Landmark
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -22,6 +23,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }) => {
 
   const menuItems = [
     { id: 'visao', label: 'Visão Geral', icon: LayoutDashboard },
+    { id: 'patrimonio', label: 'Patrimônio', icon: Landmark },
     { id: 'metas', label: 'Metas', icon: Target },
     { id: 'transacoes', label: 'Transações', icon: Wallet },
     { id: 'cartoes', label: 'Cartões', icon: CreditCard },
@@ -134,7 +136,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }) => {
             <p className={`text-[9px] font-black uppercase tracking-[0.3em] opacity-20 ${
               theme === 'light' ? 'text-slate-400' : 'text-slate-500'
             }`}>
-              Alívia • v6.5.5
+              Alívia • v7.0.0
             </p>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Shield, Moon, Sun, Key, Check, AlertCircle, Loader2, Video, HelpCircle, Sparkles, ChevronRight, Bookmark, X, CreditCard, Calculator } from 'lucide-react';
+import { Settings, Shield, Moon, Sun, Key, Check, AlertCircle, Loader2, Video, HelpCircle, Sparkles, ChevronRight, Bookmark, X, CreditCard, Calculator, Trash2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { validateApiKey } from '../services/gemini';
@@ -9,7 +9,10 @@ import AliviaConfigForm from './AliviaConfigForm';
 
 const SettingsTab = ({ manualConfig, updateManualConfig }) => {
   const { theme, toggleTheme } = useTheme();
-  const { currentUser } = useAuth();
+  const { currentUser, deleteAccount, logout } = useAuth();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [apiKey, setApiKey] = useState(manualConfig.geminiKey || '');
   const [isValidating, setIsValidating] = useState(false);
   const [validationStatus, setValidationStatus] = useState(null); // 'success' | 'error'
@@ -265,6 +268,55 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
               </div>
             ))}
           </div>
+        </section>
+      </div>
+
+      {/* Danger Zone */}
+      <div className="col-span-full">
+        <section className={`p-8 rounded-[2.5rem] border ${theme === 'light' ? 'bg-white border-rose-100 shadow-sm' : 'bg-slate-900 border-rose-500/20'}`}>
+          <h3 className="text-sm font-black uppercase tracking-widest mb-2 flex items-center gap-2 text-rose-500">
+            <AlertTriangle className="w-4 h-4" /> Zona de Perigo
+          </h3>
+          <p className="text-xs text-slate-500 mb-6">Esta ação é irreversível. Todos os seus dados, transações e metas serão permanentemente apagados.</p>
+
+          {!showDeleteConfirm ? (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex items-center gap-2 px-6 py-3 rounded-2xl border border-rose-500/30 text-rose-500 text-xs font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all"
+            >
+              <Trash2 className="w-4 h-4" /> Apagar minha conta
+            </button>
+          ) : (
+            <div className={`p-6 rounded-2xl border ${theme === 'light' ? 'bg-rose-50 border-rose-200' : 'bg-rose-500/10 border-rose-500/30'}`}>
+              <p className="text-sm font-black text-rose-500 mb-4">Tem certeza absoluta? Isso apagará todas as suas transações, metas e dados da conta.</p>
+              {deleteError && <p className="text-xs text-rose-400 mb-3">{deleteError}</p>}
+              <div className="flex gap-3">
+                <button
+                  onClick={async () => {
+                    setIsDeletingAccount(true);
+                    setDeleteError('');
+                    try {
+                      await deleteAccount();
+                    } catch (err) {
+                      setDeleteError('Erro ao apagar conta. Tente fazer logout e login novamente.');
+                      setIsDeletingAccount(false);
+                    }
+                  }}
+                  disabled={isDeletingAccount}
+                  className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-rose-500 text-white text-xs font-black uppercase tracking-widest hover:bg-rose-600 transition-all disabled:opacity-60"
+                >
+                  {isDeletingAccount ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  {isDeletingAccount ? 'Apagando...' : 'Sim, apagar tudo'}
+                </button>
+                <button
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteError(''); }}
+                  className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/10 text-slate-300 hover:bg-white/20'}`}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
         </section>
       </div>
 

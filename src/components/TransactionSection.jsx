@@ -67,21 +67,33 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
     const [installmentValueMode, setInstallmentValueMode] = useState('monthly'); // 'total' | 'monthly'
     const [editingId, setEditingId] = useState(null);
     const { currentUser } = useAuth();
-    const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleDateString('en-CA').slice(0, 7)); // YYYY-MM (Local)
+    const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleDateString('en-CA').slice(0, 7));
     const [searchTerm, setSearchTerm] = useState('');
     const [showReport, setShowReport] = useState(false);
     const [showRealFlow, setShowRealFlow] = useState(true);
     const [filterCategory, setFilterCategory] = useState('all');
-    const [hidePatrimonio, setHidePatrimonio] = useState(() => {
-        return localStorage.getItem('hidePatrimonio') === 'true';
-    });
-    const [hideBalance, setHideBalance] = useState(() => {
-        return localStorage.getItem('hideBalance') === 'true';
-    });
-    const [isCumulativeView, setIsCumulativeView] = useState(() => {
-        return localStorage.getItem('isCumulativeView') === 'true';
-    });
+    const [hidePatrimonio, setHidePatrimonio] = useState(() => localStorage.getItem('hidePatrimonio') === 'true');
+    const [hideBalance, setHideBalance] = useState(() => localStorage.getItem('hideBalance') === 'true');
+    const [isCumulativeView, setIsCumulativeView] = useState(() => localStorage.getItem('isCumulativeView') === 'true');
     const [isAliviaConfiguring, setIsAliviaConfiguring] = useState(false);
+
+    // Savings jars + investments for linking
+    const [jars, setJars] = useState([]);
+    const [investments, setInvestments] = useState([]);
+    const [linkedJarId, setLinkedJarId] = useState('');
+    const [linkedInvestmentId, setLinkedInvestmentId] = useState('');
+
+    useEffect(() => {
+        if (!currentUser) return;
+        const q = query(collection(db, 'savings_jars'), where('userId', '==', currentUser.uid));
+        return onSnapshot(q, snap => setJars(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    }, [currentUser]);
+
+    useEffect(() => {
+        if (!currentUser) return;
+        const q = query(collection(db, 'investments'), where('userId', '==', currentUser.uid));
+        return onSnapshot(q, snap => setInvestments(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    }, [currentUser]);
 
     const togglePatrimonio = (e) => {
         e.stopPropagation();
@@ -139,8 +151,13 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
         e.preventDefault();
         if (!amount || !description || !currentUser) return;
 
+        // Vault transactions REQUIRE a cofrinho selection
+        if ((category.id === 'vault' || category.id === 'vault_redemption') && jars.length > 0 && !linkedJarId) {
+            alert('Por favor, selecione qual cofrinho está sendo movimentado.');
+            return;
+        }
+
         const val = parseFloat(amount);
-        // Create date object (noon local time) to avoid timezone shifts
         const [year, month, day] = date.split('-').map(Number);
         const transactionDate = new Date(year, month - 1, day, 12, 0, 0);
 
@@ -148,12 +165,14 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
             description,
             amount: val,
             type,
-            category: category.id, // Store category ID for simplicity
+            category: category.id,
             date: transactionDate.toISOString(),
             userId: currentUser.uid,
-            month: transactionDate.toISOString().slice(0, 7), // Store month for easier filtering
+            month: transactionDate.toISOString().slice(0, 7),
             createdAt: Date.now(),
-            isFixed: category.isFixed || false // Store if it is a fixed expense
+            isFixed: category.isFixed || false,
+            linkedJarId: linkedJarId || null,
+            linkedInvestmentId: linkedInvestmentId || null,
         };
 
         try {
@@ -163,57 +182,61 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
             } else {
                 if (isRecurring && installments > 1) {
                     const batchPromises = [];
-                    // Calculate individual installment amount
-                    const installmentAmount = installmentValueMode === 'total'
-                        ? val / installments
-                        : val;
-
+                    const installmentAmount = installmentValueMode === 'total' ? val / installments : val;
                     for (let i = 0; i < installments; i++) {
                         const nextDate = new Date(transactionDate);
                         nextDate.setMonth(nextDate.getMonth() + i);
-
-                        const recurringData = {
+                        batchPromises.push(addDoc(collection(db, 'transactions'), {
                             ...transactionData,
                             amount: installmentAmount,
                             description: `${description} (${i + 1}/${installments})`,
                             date: nextDate.toISOString(),
                             month: nextDate.toISOString().slice(0, 7)
-                        };
-                        batchPromises.push(addDoc(collection(db, 'transactions'), recurringData));
+                        }));
                     }
                     await Promise.all(batchPromises);
                 } else if (transactionData.isFixed) {
-                    // Generate for 12 months for fixed expenses
                     const batchPromises = [];
                     for (let i = 0; i < 12; i++) {
                         const nextDate = new Date(transactionDate);
                         nextDate.setMonth(nextDate.getMonth() + i);
-
-                        const fixedData = {
+                        batchPromises.push(addDoc(collection(db, 'transactions'), {
                             ...transactionData,
                             date: nextDate.toISOString(),
                             month: nextDate.toISOString().slice(0, 7)
-                        };
-                        batchPromises.push(addDoc(collection(db, 'transactions'), fixedData));
+                        }));
                     }
                     await Promise.all(batchPromises);
                 } else {
                     await addDoc(collection(db, 'transactions'), transactionData);
                 }
+
+                // Update linked jar balance after saving
+                if (linkedJarId) {
+                    const jar = jars.find(j => j.id === linkedJarId);
+                    if (jar) {
+                        const delta = category.id === 'vault' ? val : -val; // vault = entrada no cofrinho, vault_redemption = saída
+                        const newBalance = Math.max(0, (jar.balance || 0) + delta);
+                        await updateDoc(doc(db, 'savings_jars', linkedJarId), { balance: newBalance, updatedAt: new Date().toISOString() });
+                    }
+                }
             }
+
             setAmount('');
             setDescription('');
-            // Reset to defaults
             const now = new Date();
             setDate(now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0'));
             setType('expense');
             setCategory({ id: 'other', label: 'Outro', icon: Circle, color: 'text-slate-400' });
             setIsRecurring(false);
             setInstallments(2);
+            setLinkedJarId('');
+            setLinkedInvestmentId('');
         } catch (error) {
             console.error("Error saving transaction:", error);
         }
     };
+
 
     const handleEdit = (t) => {
         setAmount(t.amount);
@@ -624,67 +647,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                 document.body
             )}
 
-            {/* Dashboard Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                {isLoadingData ? (
-                    Array(4).fill(0).map((_, i) => (
-                        <div key={`skeleton-${i}`} className="p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md animate-pulse">
-                            <div className="h-4 w-24 bg-white/10 rounded mb-4 shadow"></div>
-                            <div className="h-8 w-32 bg-white/10 rounded shadow"></div>
-                        </div>
-                    ))
-                ) : (
-                    <>
-                        <div className="relative group/card overflow-visible">
-                            <Card
-                                title={isCumulativeView ? "Saldo em Carteira" : "Saldo do Mês (Real)"}
-                                value={isCumulativeView ? cumulativeBalance : displayMonthlyBalance}
-                                icon={Wallet}
-                                color={isCumulativeView
-                                    ? (cumulativeBalance >= 0 ? "text-emerald-400" : "text-rose-400")
-                                    : (displayMonthlyBalance >= 0 ? "text-blue-400" : "text-rose-400")
-                                }
-                                highlight={true}
-                                isHidable={true}
-                                isHidden={hideBalance}
-                                onToggle={toggleBalance}
-                                detail={isCumulativeView
-                                    ? (() => {
-                                        // Check if there is an "opening" reset in the current month
-                                        const hasResetInMonth = filteredTransactions.some(t => t.category === 'initial_balance' || t.category === 'carryover');
-                                        if (hasResetInMonth) {
-                                            return `Valor atualizado em conta (com ajuste de saldo)`;
-                                        }
-                                        const prevText = prevBalanceForBreakdown.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-                                        const monthlyText = monthlyBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-                                        return `R$ ${prevText} (Anterior) + R$ ${monthlyText} (Mês)`;
-                                    })()
-                                    : "Resultado operacional apenas deste mês"}
-                            />
-                            <button
-                                onClick={toggleCumulativeView}
-                                className={`absolute -bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold border transition-all z-20 shadow-xl ${isCumulativeView
-                                    ? 'bg-blue-600 border-blue-400 text-white'
-                                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'
-                                    }`}
-                            >
-                                {isCumulativeView ? 'Ver Mensal' : 'Ver Acumulado'}
-                            </button>
-                        </div>
-                        <Card
-                            title="Patrimônio Investido"
-                            value={totalPatrimonio}
-                            icon={TrendingUp}
-                            color="text-purple-400"
-                            isHidable={true}
-                            isHidden={hidePatrimonio}
-                            onToggle={togglePatrimonio}
-                        />
-                        <Card title="Ganhos (Mês)" value={displayIncome} icon={ArrowUpCircle} color="text-emerald-400" />
-                        <Card title="Gastos (Mês)" value={displayExpense} icon={ArrowDownCircle} color="text-rose-400" />
-                    </>
-                )}
-            </div>
+
 
             {/* Input Form */}
             <form ref={formRef} key={editingId || 'new-form'} onSubmit={handleSubmit} className={`p-6 md:p-8 rounded-3xl border shadow-2xl grid grid-cols-1 md:grid-cols-12 gap-4 ${
@@ -868,6 +831,72 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                             </div>
                         )}
                     </div>
+
+                    {/* Cofrinho selector for vault / vault_redemption */}
+                    {(category.id === 'vault' || category.id === 'vault_redemption') && (
+                        <div className={`animate-in slide-in-from-top-2 duration-300 p-4 rounded-2xl border ${
+                            theme === 'light' ? 'bg-emerald-50 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/20'
+                        }`}>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-emerald-600 block mb-2">
+                                🐷 {category.id === 'vault' ? 'Guardar em qual Cofrinho?' : 'Resgatar de qual Cofrinho?'}
+                            </label>
+                            {jars.length === 0 ? (
+                                <p className="text-xs text-slate-500">Nenhum cofrinho criado ainda. Vá em Investimentos → Cofrinhos.</p>
+                            ) : (
+                                <select
+                                    value={linkedJarId}
+                                    onChange={e => setLinkedJarId(e.target.value)}
+                                    required
+                                    className={`w-full p-3 rounded-xl border font-bold text-sm focus:outline-none appearance-none ${
+                                        theme === 'light' ? 'bg-white border-emerald-200 text-slate-800' : 'bg-slate-900 border-emerald-500/30 text-white'
+                                    }`}
+                                >
+                                    <option value="">— Selecione um cofrinho —</option>
+                                    {jars.map(j => (
+                                        <option key={j.id} value={j.id}>
+                                            {j.name} · R$ {j.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · {j.cdiPercent}% CDI
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                            {linkedJarId && (() => {
+                                const jar = jars.find(j => j.id === linkedJarId);
+                                const val = parseFloat(amount) || 0;
+                                const newBal = category.id === 'vault' ? (jar?.balance || 0) + val : Math.max(0, (jar?.balance || 0) - val);
+                                return (
+                                    <p className="text-[10px] mt-2 text-emerald-600 font-bold">
+                                        Novo saldo após lançamento: R$ {newBal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </p>
+                                );
+                            })()}
+                        </div>
+                    )}
+
+                    {/* Optional investment link */}
+                    {category.id === 'investment' && investments.length > 0 && (
+                        <div className={`animate-in slide-in-from-top-2 duration-300 p-4 rounded-2xl border ${
+                            theme === 'light' ? 'bg-purple-50 border-purple-200' : 'bg-purple-500/10 border-purple-500/20'
+                        }`}>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-purple-500 block mb-2">
+                                📈 Vincular a um ativo (Opcional)
+                            </label>
+                            <select
+                                value={linkedInvestmentId}
+                                onChange={e => setLinkedInvestmentId(e.target.value)}
+                                className={`w-full p-3 rounded-xl border font-bold text-sm focus:outline-none appearance-none ${
+                                    theme === 'light' ? 'bg-white border-purple-200 text-slate-800' : 'bg-slate-900 border-purple-500/30 text-white'
+                                }`}
+                            >
+                                <option value="">— Só registrar como saída —</option>
+                                {investments.map(inv => (
+                                    <option key={inv.id} value={inv.id}>{inv.name} ({inv.symbol})</option>
+                                ))}
+                            </select>
+                            <p className="text-[10px] mt-2 text-slate-500">
+                                {linkedInvestmentId ? 'Esta saída será marcada como aporte neste ativo (informacional).' : 'Sem vínculo, registra apenas como saída no fluxo.'}
+                            </p>
+                        </div>
+                    )}
 
                     <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                         <div className={`flex p-1 rounded-xl border ${

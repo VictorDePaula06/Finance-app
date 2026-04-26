@@ -26,7 +26,8 @@ import {
     Video,
     ChevronDown,
     CreditCard,
-    Coins
+    Coins,
+    PiggyBank
 } from 'lucide-react';
 import tutorialVideoManual from '../assets/tutorial-gemini-key2.mp4';
 import tutorialVideoOriginal from '../assets/tutorial-gemini-key.mp4';
@@ -386,22 +387,22 @@ export default function Manual({ onBack }) {
                                 <div className={`border-l-4 pl-4 py-2 rounded-r-xl ${
                                     theme === 'light' ? 'border-blue-400 bg-blue-50' : 'border-blue-500 bg-blue-500/5'
                                 }`}>
-                                    <h4 className={`font-bold mb-1 ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`}>Saldo em Carteira (Acumulado)</h4>
-                                    <p className={`text-sm ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>Representa o dinheiro que você tem disponível <strong>hoje</strong>. Ele soma tudo o que entrou e subtrai o que saiu desde que você começou a usar o app.</p>
+                                    <h4 className={`font-bold mb-1 ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`}>Saldo do Mês (Real)</h4>
+                                    <p className={`text-sm ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>É o seu <strong>Resultado Operacional</strong>. Representa a diferença entre o que entrou (Ganhos) e o que saiu (Gastos) neste mês, sem contar movimentações internas como depósitos em cofrinhos ou investimentos.</p>
                                 </div>
 
                                 <div className={`border-l-4 pl-4 py-2 rounded-r-xl ${
                                     theme === 'light' ? 'border-emerald-400 bg-emerald-50' : 'border-emerald-500 bg-emerald-500/5'
                                 }`}>
-                                    <h4 className={`font-bold mb-1 ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`}>Resultado Mensal</h4>
-                                    <p className={`text-sm ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>Foca apenas no desempenho deste mês. É a diferença entre o que você ganhou (Salário) e o que gastou (Contas).</p>
+                                    <h4 className={`font-bold mb-1 ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`}>Patrimônio Total Consolidado</h4>
+                                    <p className={`text-sm ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>A soma real de tudo o que você acumulou: <strong>Cofrinhos + Investimentos</strong>. Este é o número que realmente define sua riqueza e segurança financeira.</p>
                                 </div>
 
                                 <div className={`border-l-4 pl-4 py-2 rounded-r-xl ${
                                     theme === 'light' ? 'border-purple-400 bg-purple-50' : 'border-purple-500 bg-purple-500/5'
                                 }`}>
-                                    <h4 className={`font-bold mb-1 ${theme === 'light' ? 'text-purple-600' : 'text-purple-400'}`}>Patrimônio Investido</h4>
-                                    <p className={`text-sm ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>Total de valor guardado para o seu futuro. Ele soma o valor base definido por você com todos os aportes na categoria <strong>"Investimento"</strong>.</p>
+                                    <h4 className={`font-bold mb-1 ${theme === 'light' ? 'text-purple-600' : 'text-purple-400'}`}>Saldo Acumulado (Carteira)</h4>
+                                    <p className={`text-sm ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>Representa o dinheiro disponível na sua conta corrente/carteira. Ao depositar em um cofrinho, este valor diminui, pois o dinheiro sai da "circulação" para a reserva.</p>
                                 </div>
                             </div>
 
@@ -434,7 +435,7 @@ export default function Manual({ onBack }) {
                                     theme === 'light' ? 'bg-[#f0fdfa]/50 border-emerald-100/50' : 'bg-slate-800/30 border-slate-700'
                                 }`}>
                                     <span className={`font-bold block mb-1 ${theme === 'light' ? 'text-amber-600' : 'text-amber-400'}`}>Cofre / Resgate</span>
-                                    <span className={`text-xs ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Funciona como uma 'gaveta'. Você tira da carteira e coloca no cofre para separar valores que não pretende gastar logo.</span>
+                                    <span className={`text-xs ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Movimentação direta para seus cofrinhos. Ao lançar, você deve selecionar qual cofrinho está recebendo ou liberando o valor. O saldo do cofrinho é atualizado instantaneamente.</span>
                                 </li>
                             </ul>
                         </Section>
@@ -464,16 +465,16 @@ export default function Manual({ onBack }) {
 
                                 <div className={`p-6 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'}`}>
                                     <h4 className="font-bold mb-3 flex items-center gap-2">
-                                        <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                                        Renda Fixa (Sincronia Manual)
+                                        <PiggyBank className="w-5 h-5 text-emerald-500" />
+                                        Cofrinhos (Piggy Banks)
                                     </h4>
                                     <p className="text-xs leading-relaxed opacity-80 mb-4">
-                                        Como bancos não abrem dados de títulos privados, você tem o poder de <strong>Sincronizar o Preço Atual</strong>.
+                                        Reservas de liquidez imediata (ex: Reserva de Emergência). Você cria seus cofrinhos e define qual percentual do <strong>CDI</strong> eles rendem.
                                     </p>
                                     <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
-                                        <p className="text-[11px] font-bold text-emerald-500 uppercase mb-1">Como fazer:</p>
+                                        <p className="text-[11px] font-bold text-emerald-500 uppercase mb-1">Como alimentar:</p>
                                         <p className="text-[11px] opacity-75 italic">
-                                            No portal do seu banco, veja o "Valor Unitário Atual" do seu Tesouro ou CDB e digite no campo verde do Alívia. Seu patrimônio ficará 100% igual ao real.
+                                            Vá em Transações e faça um lançamento do tipo <strong>Saída</strong> com a categoria <strong>Cofre</strong>. O app perguntará em qual "porquinho" você deseja guardar.
                                         </p>
                                     </div>
                                 </div>
@@ -588,13 +589,16 @@ export default function Manual({ onBack }) {
 
                                 <div className="space-y-4">
                                     <h4 className={`font-bold flex items-center gap-2 ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>
-                                        <Check className="w-4 h-4 text-emerald-500" />
-                                        Gestão de Depósitos
+                                        <PiggyBank className="w-4 h-4 text-emerald-500" />
+                                        Sincronia com Ativos 🐷
                                     </h4>
-                                    <p className={`text-sm ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>Você pode adicionar ou remover dinheiro de uma meta a qualquer momento usando os botões <span className="text-emerald-500 font-bold">+</span> e <span className="text-rose-500 font-bold">-</span>.</p>
-                                    <p className={`text-xs leading-relaxed italic border-t pt-2 ${
-                                        theme === 'light' ? 'text-slate-400 border-emerald-100/30' : 'text-slate-500 border-white/5'
-                                    }`}>Nota: O valor nas metas não altera seu saldo da carteira automaticamente, ele funciona como uma reserva 'mental' dentro do app.</p>
+                                    <p className={`text-sm ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>Agora você pode vincular suas metas diretamente aos seus <strong>Cofrinhos e Investimentos</strong>.</p>
+                                    <div className={`p-4 rounded-xl border ${
+                                        theme === 'light' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-emerald-500/5 border-emerald-500/20'
+                                    }`}>
+                                        <p className={`text-[11px] uppercase tracking-widest font-bold mb-2 ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-500'}`}>Vantagem:</p>
+                                        <p className={`text-[11px] leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>O "Acumulado" da meta passará a mostrar o saldo real dos seus ativos em tempo real. Não precisa mais lançar contribuições manuais para o que já está guardado!</p>
+                                    </div>
                                 </div>
                             </div>
                         </Section>
@@ -688,7 +692,31 @@ export default function Manual({ onBack }) {
 
                             <div className="space-y-8 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-emerald-500 before:to-transparent">
                                 
-                                {/* Item 0: Assinaturas e Base do Cartão */}
+                                {/* Item 0: Sincronia de Metas e Cofrinhos (v6.0) */}
+                                <div className="relative pl-12 font-sans">
+                                    <div className={`absolute left-0 top-1 w-8 h-8 rounded-full border-4 flex items-center justify-center z-10 ${
+                                        theme === 'light' ? 'bg-white border-emerald-500' : 'bg-slate-900 border-emerald-500'
+                                    }`}>
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                                    </div>
+                                    <div className={`p-6 rounded-2xl border transition-all hover:scale-[1.01] ${
+                                        theme === 'light' ? 'bg-emerald-50/30 border-emerald-100 shadow-sm' : 'bg-emerald-500/5 border-emerald-500/20'
+                                    }`}>
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                                            <h4 className={`text-lg font-black ${theme === 'light' ? 'text-emerald-900' : 'text-emerald-100'}`}>Sincronia Inteligente (v6.0) 🐷</h4>
+                                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/20 text-emerald-400'
+                                            }`}>Versão Atual</span>
+                                        </div>
+                                        <p className="text-sm mb-4">O maior salto de automação da Alívia! Agora suas metas conversam em tempo real com seus cofrinhos e ativos. O patrimônio consolidado foi redesenhado para evitar dupla contagem e focar no que importa: sua evolução financeira real.</p>
+                                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Vínculo Multi-Ativos em Metas</li>
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Saldo Real de Cofrinhos em Transações</li>
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Patrimônio Consolidado Limpo</li>
+                                            <li className="flex items-center gap-2 text-[11px] opacity-75"><Check className="w-3 h-3 text-emerald-500" /> Rendimento Diário de Cofrinhos</li>
+                                        </ul>
+                                    </div>
+                                </div>
                                 <div className="relative pl-12 font-sans">
                                     <div className={`absolute left-0 top-1 w-8 h-8 rounded-full border-4 flex items-center justify-center z-10 ${
                                         theme === 'light' ? 'bg-white border-blue-500' : 'bg-slate-900 border-blue-500'
@@ -820,7 +848,7 @@ export default function Manual({ onBack }) {
                     <p className={`text-[10px] font-medium tracking-widest uppercase opacity-50 ${
                         theme === 'light' ? 'text-slate-400' : 'text-slate-600'
                     }`}>
-                        Alívia • Tranquilidade Financeira • v6.5.5
+                        Alívia • Tranquilidade Financeira • v7.0.0
                     </p>
                 </footer>
 
