@@ -21,8 +21,14 @@ export const calculateHealthScore = (transactions, manualConfig) => {
     const monthTx = transactions.filter(t => getRobustMonth(t) === currentMonth);
 
     // 1. Month Performance (20 points)
-    const income = monthTx.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    const expense = monthTx.filter(t => t.type === 'expense').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    // Filter logic aligned with App.jsx display logic
+    const income = monthTx
+        .filter(t => t.type === 'income' && t.category !== 'initial_balance' && t.category !== 'carryover' && t.category !== 'vault_redemption')
+        .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+
+    const expense = monthTx
+        .filter(t => t.type === 'expense')
+        .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     // Treat investments as "savings" rather than typical expenses for performance purposes
     const savings = monthTx.filter(t => t.type === 'expense' && SAVINGS_CATEGORIES.includes(t.category)).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     const actualExpense = expense - savings;
@@ -56,8 +62,11 @@ export const calculateHealthScore = (transactions, manualConfig) => {
     const fixedExpenses = manualConfig && manualConfig.fixedExpenses ? parseFloat(manualConfig.fixedExpenses) : 0;
     const investedManual = manualConfig && manualConfig.invested ? parseFloat(manualConfig.invested) : 0;
 
-    // Saldo do mês atual (Entradas - Saídas totais, incluindo investimentos do mês)
-    const monthlyBalance = income - expense;
+    // Saldo Operacional do mês (Entradas - Despesas típicas, SEM contar investimentos/cofrinhos como 'gasto')
+    const operatingSurplus = income - actualExpense;
+    
+    // Fluxo de Caixa Líquido (Entradas - Saídas totais, incluindo investimentos)
+    const netCashFlow = income - expense;
 
     // Total de investimentos via transações (histórico completo)
     const investmentTransactionsSum = transactions
@@ -74,8 +83,8 @@ export const calculateHealthScore = (transactions, manualConfig) => {
 
     const totalPatrimonio = investedManual + investmentTransactionsSum;
 
-    // Liquidez Total = Saldo do Mês Atual + Patrimônio Total
-    const totalLiquidity = monthlyBalance + totalPatrimonio;
+    // Liquidez Total = Fluxo de Caixa Líquido + Patrimônio Total
+    const totalLiquidity = netCashFlow + totalPatrimonio;
 
     let reserveScore = 0;
     if (fixedExpenses > 0) {
@@ -127,7 +136,8 @@ export const calculateHealthScore = (transactions, manualConfig) => {
             data: {
                 monthlyIncome: income,
                 actualExpense,
-                monthlyBalance: income - expense,
+                monthlyBalance: operatingSurplus, // Display the surplus (operating) as requested by user
+                netCashFlow,
                 totalLiquidity,
                 totalPatrimonio,
                 fixedExpenses,
