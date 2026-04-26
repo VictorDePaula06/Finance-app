@@ -1,7 +1,8 @@
 import { precacheAndRoute } from 'workbox-precaching';
 
 // v5.0.4 - Fix Workbox imports
-const SW_VERSION = 'v6.0.0';
+// v6.1.0 - Robust Push Handling
+const SW_VERSION = 'v7.1.1';
 
 // Precache de todos os assets do Vite
 precacheAndRoute(self.__WB_MANIFEST)
@@ -13,8 +14,16 @@ self.addEventListener('install', () => {
 
 // Listener para o evento de PUSH (Notificações Nativas)
 self.addEventListener('push', (event) => {
-  const data = event.data ? event.data.json() : {}
-  const title = data.title || 'Alívia'
+  let data = {};
+  
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    // Se não for JSON, tenta pegar como texto
+    data = { body: event.data ? event.data.text() : '' };
+  }
+
+  const title = data.title || 'Alívia';
   const options = {
     body: data.body || 'Você tem uma nova atualização!',
     icon: '/icon.png',
@@ -22,13 +31,16 @@ self.addEventListener('push', (event) => {
     vibrate: [100, 50, 100],
     data: {
       url: data.url || '/'
-    }
-  }
+    },
+    // Garantir que a notificação apareça mesmo que o app esteja aberto
+    tag: 'alivia-notification-' + Date.now(),
+    renotify: true
+  };
 
   event.waitUntil(
     self.registration.showNotification(title, options)
-  )
-})
+  );
+});
 
 // Listener para clique na notificação
 self.addEventListener('notificationclick', (event) => {
