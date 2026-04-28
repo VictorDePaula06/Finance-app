@@ -1,6 +1,8 @@
 export const calculateFinancialHealth = (transactions, manualConfig = null) => {
     // Default values
     let averageIncome = 0;
+    let activeIncome = 0;
+    let currentMonthIncome = 0;
     let averageExpenses = 0;
     let fixedExpenses = 0;
     let variableEstimate = 0;
@@ -37,10 +39,18 @@ export const calculateFinancialHealth = (transactions, manualConfig = null) => {
         averageExpenses = totalExpenses / months;
     }
 
-    // 2. Apply Manual Overrides
+    // Calculate current month actual income
+    const currentMonthKey = today.toLocaleDateString('en-CA').slice(0, 7);
+    (transactions || []).forEach(t => {
+        const txMonth = t.month || (t.date ? t.date.slice(0, 7) : '');
+        if (txMonth === currentMonthKey && t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category)) {
+            currentMonthIncome += parseFloat(t.amount) || 0;
+        }
+    });
+
+    // 2. Apply Manual Overrides for Fallbacks
     if (manualConfig) {
         if (manualConfig.income > 0) {
-            averageIncome = parseFloat(manualConfig.income);
             hasData = true; // Manual input is enough to have data
         }
         if (manualConfig.fixedExpenses > 0) {
@@ -72,10 +82,15 @@ export const calculateFinancialHealth = (transactions, manualConfig = null) => {
     }, 0);
     totalEstimatedExpenses += recurringTotal;
 
-    disposableIncome = averageIncome - totalEstimatedExpenses;
+    // Active income prioritized for Saldo Livre: Actual Month Income > Manual Config > Historical Average
+    activeIncome = currentMonthIncome > 0 ? currentMonthIncome : (manualConfig?.income > 0 ? parseFloat(manualConfig.income) : averageIncome);
+    
+    disposableIncome = activeIncome - totalEstimatedExpenses;
 
     return {
         averageIncome,
+        activeIncome,
+        currentMonthIncome,
         averageExpenses, // Historical average
         totalEstimatedExpenses, // Used for calculation
         disposableIncome,
@@ -85,12 +100,12 @@ export const calculateFinancialHealth = (transactions, manualConfig = null) => {
 };
 
 export const simulatePurchase = (amount, installments, healthData) => {
-    const { disposableIncome, averageIncome } = healthData;
+    const { disposableIncome, activeIncome } = healthData;
     const monthlyCost = installments > 0 ? amount / installments : amount;
 
     // Scenarios
     const remainingAfterPurchase = disposableIncome - monthlyCost;
-    const incomeImpactPercentage = (monthlyCost / averageIncome) * 100;
+    const incomeImpactPercentage = (monthlyCost / activeIncome) * 100;
 
     let status = 'approved'; // approved, warning, denied
     let message = '';
@@ -98,7 +113,7 @@ export const simulatePurchase = (amount, installments, healthData) => {
     if (remainingAfterPurchase < 0) {
         status = 'denied';
         message = 'Esta compra excede seu saldo livre médio mensal. Alto risco de endividamento.';
-    } else if (remainingAfterPurchase < (averageIncome * 0.1)) { // Less than 10% buffer remains
+    } else if (remainingAfterPurchase < (activeIncome * 0.1)) { // Less than 10% buffer remains
         status = 'warning';
         message = 'Aprovado, mas com cautela. Seu saldo livre ficará muito baixo (' + remainingAfterPurchase.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + ').';
     } else if (incomeImpactPercentage > 30) {

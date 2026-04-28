@@ -27,48 +27,41 @@ import { db } from '../services/firebase';
 import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 
-const JAR_COLORS = [
-    { id: 'emerald', label: 'Verde', cls: 'bg-emerald-500', text: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-    { id: 'blue', label: 'Azul', cls: 'bg-blue-500', text: 'text-blue-500', bg: 'bg-blue-500/10' },
-    { id: 'purple', label: 'Roxo', cls: 'bg-purple-500', text: 'text-purple-500', bg: 'bg-purple-500/10' },
-    { id: 'amber', label: 'Âmbar', cls: 'bg-amber-500', text: 'text-amber-500', bg: 'bg-amber-500/10' },
-    { id: 'rose', label: 'Rosa', cls: 'bg-rose-500', text: 'text-rose-500', bg: 'bg-rose-500/10' },
-    { id: 'cyan', label: 'Ciano', cls: 'bg-cyan-500', text: 'text-cyan-500', bg: 'bg-cyan-500/10' },
-];
+
 
 export default function InvestmentsTab() {
     const { theme } = useTheme();
     const { currentUser } = useAuth();
     const [investments, setInvestments] = useState([]);
-    const [jars, setJars] = useState([]);
     const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, type, title }
-    const [isAddingJar, setIsAddingJar] = useState(false);
-    const [editingJarId, setEditingJarId] = useState(null);
-    const [jarForm, setJarForm] = useState({ name: '', balance: '', cdiPercent: '100', color: 'emerald' });
     const [isAdding, setIsAdding] = useState(false);
     const [isEditing, setIsEditing] = useState(null);
     const [isAporting, setIsAporting] = useState(null);
     const [isLoadingPrices, setIsLoadingPrices] = useState(false);
-    const [prices, setPrices] = useState({});
+    const [prices, setPrices] = useState({ USD: 5.0 });
     const [filter, setFilter] = useState('all');
+    const [showUSDAsBRL, setShowUSDAsBRL] = useState(false);
     
     const [newAsset, setNewAsset] = useState({
-        type: 'crypto',
-        name: 'Bitcoin',
-        symbol: 'BTC',
+        type: 'renda_fixa',
+        name: '',
+        symbol: '',
         quantity: '',
         purchasePrice: '',
         manualCurrentPrice: '',
+        isUSD: false,
         aporteAmount: '',
         aporteQuantity: ''
     });
 
     // Asset Types Config
     const ASSET_TYPES = {
-        crypto: { label: 'Cripto', icon: Bitcoin, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-        tesouro: { label: 'Tesouro', icon: Landmark, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-        cdb: { label: 'CDB/LCI', icon: LineChart, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-        stocks: { label: 'Ações/FIIs', icon: Activity, color: 'text-purple-500', bg: 'bg-purple-500/10' }
+        renda_fixa: { label: 'Renda Fixa', icon: Landmark, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+        acoes: { label: 'Ações', icon: Activity, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+        etfs: { label: 'ETFs', icon: PieChart, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
+        fiis: { label: 'Fundos Imobiliários', icon: LineChart, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+        crypto: { label: 'Criptomoedas', icon: Bitcoin, color: 'text-orange-500', bg: 'bg-orange-500/10' },
+        imoveis: { label: 'Imóveis', icon: PiggyBank, color: 'text-amber-500', bg: 'bg-amber-500/10' }
     };
 
     useEffect(() => {
@@ -81,57 +74,92 @@ export default function InvestmentsTab() {
         return () => unsubscribe();
     }, [currentUser]);
 
-    useEffect(() => {
-        if (!currentUser) return;
-        const q = query(collection(db, 'savings_jars'), where('userId', '==', currentUser.uid));
-        const unsub = onSnapshot(q, (snap) => {
-            setJars(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        });
-        return () => unsub();
-    }, [currentUser]);
 
-    const handleSaveJar = async (e) => {
-        e.preventDefault();
-        const data = {
-            name: jarForm.name,
-            balance: parseFloat(jarForm.balance) || 0,
-            cdiPercent: parseFloat(jarForm.cdiPercent) || 100,
-            color: jarForm.color,
-            userId: currentUser.uid,
-            updatedAt: new Date().toISOString(),
-        };
-        if (editingJarId) {
-            await updateDoc(doc(db, 'savings_jars', editingJarId), data);
-        } else {
-            await addDoc(collection(db, 'savings_jars'), { ...data, createdAt: new Date().toISOString() });
-        }
-        setIsAddingJar(false);
-        setEditingJarId(null);
-        setJarForm({ name: '', balance: '', cdiPercent: '100', color: 'emerald' });
-    };
 
-    const handleDeleteJar = async (id) => {
-        await deleteDoc(doc(db, 'savings_jars', id));
-        setDeleteConfirm(null);
-    };
-
-    // Fetch Prices (Crypto + Basic Indices)
     const fetchLivePrices = async () => {
         setIsLoadingPrices(true);
         try {
-            // Fetch BTC-BRL from Mercado Bitcoin
-            const btcRes = await fetch('https://api.mercadobitcoin.net/api/v4/tickers?symbols=BTC-BRL');
-            const btcData = await btcRes.json();
-            
-            // Fetch CDI from BCB (Approximate/Monthly)
-            const cdiRes = await fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json');
-            const cdiData = await cdiRes.json();
+            const newPrices = { ...prices };
 
-            setPrices({
-                BTC: parseFloat(btcData[0].last),
-                CDI: parseFloat(cdiData[0].valor) * 365, // Simplified annualization
-                // We'll use purchase price + estimated CDI for fixed income if live data is missing
-            });
+            // Fetch USD-BRL from AwesomeAPI
+            try {
+                const usdRes = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL');
+                const usdData = await usdRes.json();
+                newPrices.USD = parseFloat(usdData.USDBRL.bid);
+            } catch (e) {
+                console.warn("Could not fetch USD rate");
+            }
+
+            // Fetch Crypto from Binance (Covers almost all pairs in USD and BRL)
+            const cryptoTickers = [...new Set(investments.filter(a => a.type === 'crypto' && a.symbol).map(a => a.symbol.toUpperCase()))];
+            if (cryptoTickers.length > 0) {
+                try {
+                    const binanceRes = await fetch('https://api.binance.com/api/v3/ticker/price');
+                    const binanceData = await binanceRes.json();
+                    
+                    cryptoTickers.forEach(ticker => {
+                        const usdtPair = binanceData.find(p => p.symbol === `${ticker}USDT`);
+                        const brlPair = binanceData.find(p => p.symbol === `${ticker}BRL`);
+                        
+                        if (usdtPair) newPrices[`${ticker}_USD`] = parseFloat(usdtPair.price);
+                        if (brlPair) newPrices[`${ticker}_BRL`] = parseFloat(brlPair.price);
+                    });
+                } catch (e) {
+                    console.warn("Could not fetch Binance prices");
+                }
+            }
+
+            // Fetch Stocks, ETFs, FIIs
+            const stockTickers = [...new Set(investments.filter(a => ['acoes', 'etfs', 'fiis'].includes(a.type) && a.symbol).map(a => a.symbol.toUpperCase()))];
+            if (stockTickers.length > 0) {
+                await Promise.all(stockTickers.map(async (ticker) => {
+                    try {
+                        // 1. Try Brapi (Best for BR stocks)
+                        const brapiRes = await fetch(`https://brapi.dev/api/quote/${ticker}`);
+                        if (brapiRes.ok) {
+                            const brapiData = await brapiRes.json();
+                            if (brapiData.results && brapiData.results[0]) {
+                                newPrices[ticker] = parseFloat(brapiData.results[0].regularMarketPrice);
+                                return;
+                            }
+                        }
+                    } catch (e) {}
+
+                    try {
+                        // 2. Try Yahoo Finance directly (For US stocks like NVDA)
+                        const yhRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`);
+                        if (yhRes.ok) {
+                            const yhData = await yhRes.json();
+                            if (yhData.chart && yhData.chart.result && yhData.chart.result[0]) {
+                                newPrices[ticker] = parseFloat(yhData.chart.result[0].meta.regularMarketPrice);
+                                return;
+                            }
+                        }
+                    } catch (e) {}
+
+                    try {
+                        // 3. Fallback to Proxy for Yahoo Finance if CORS blocked
+                        const proxyRes = await fetch(`https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`);
+                        if (proxyRes.ok) {
+                            const proxyData = await proxyRes.json();
+                            if (proxyData.chart && proxyData.chart.result && proxyData.chart.result[0]) {
+                                newPrices[ticker] = parseFloat(proxyData.chart.result[0].meta.regularMarketPrice);
+                            }
+                        }
+                    } catch (e) {}
+                }));
+            }
+
+            // Fetch CDI from BCB
+            try {
+                const cdiRes = await fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json');
+                const cdiData = await cdiRes.json();
+                newPrices.CDI = parseFloat(cdiData[0].valor) * 365;
+            } catch (e) {
+                console.warn("Could not fetch CDI");
+            }
+
+            setPrices(newPrices);
         } catch (error) {
             console.error("Price fetch failed:", error);
         } finally {
@@ -140,10 +168,13 @@ export default function InvestmentsTab() {
     };
 
     useEffect(() => {
-        fetchLivePrices();
-        const interval = setInterval(fetchLivePrices, 60000 * 5); // 5 min
+        if (investments.length > 0) {
+            fetchLivePrices();
+        }
+        // Update every 2 minutes as requested
+        const interval = setInterval(fetchLivePrices, 60000 * 2); 
         return () => clearInterval(interval);
-    }, []);
+    }, [investments.length]);
 
     const parseBrazilianNumber = (val) => {
         if (!val) return 0;
@@ -185,7 +216,7 @@ export default function InvestmentsTab() {
             setIsAdding(false);
             setIsEditing(null);
             setIsAporting(null);
-            setNewAsset({ type: 'crypto', name: 'Bitcoin', symbol: 'BTC', quantity: '', purchasePrice: '', manualCurrentPrice: '', aporteAmount: '', aporteQuantity: '' });
+            setNewAsset({ type: 'crypto', name: 'Bitcoin', symbol: 'BTC', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, aporteAmount: '', aporteQuantity: '' });
         } catch (error) {
             console.error("Error saving asset:", error);
         }
@@ -213,7 +244,7 @@ export default function InvestmentsTab() {
             });
 
             setIsAporting(null);
-            setNewAsset({ type: 'crypto', name: 'Bitcoin', symbol: 'BTC', quantity: '', purchasePrice: '', manualCurrentPrice: '', aporteAmount: '', aporteQuantity: '' });
+            setNewAsset({ type: 'crypto', name: 'Bitcoin', symbol: 'BTC', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, aporteAmount: '', aporteQuantity: '' });
         } catch (error) {
             console.error("Error processing aporte:", error);
         }
@@ -229,17 +260,28 @@ export default function InvestmentsTab() {
         let currentValue = 0;
 
         filteredInvestments.forEach(asset => {
-            const invested = asset.quantity * asset.purchasePrice;
+            const usdMultiplier = asset.isUSD ? (prices.USD || 5.0) : 1;
+            const invested = asset.quantity * asset.purchasePrice * usdMultiplier;
             totalInvested += invested;
 
             let currentPrice = asset.manualCurrentPrice || asset.purchasePrice;
-            if (asset.type === 'crypto' && prices[asset.symbol]) {
-                currentPrice = prices[asset.symbol];
+            if (asset.type === 'crypto' && asset.symbol) {
+                const sym = asset.symbol.toUpperCase();
+                if (asset.isUSD && prices[`${sym}_USD`]) {
+                    currentPrice = prices[`${sym}_USD`];
+                } else if (!asset.isUSD && prices[`${sym}_BRL`]) {
+                    currentPrice = prices[`${sym}_BRL`];
+                } else if (!asset.isUSD && prices[`${sym}_USD`] && prices.USD) {
+                    currentPrice = prices[`${sym}_USD`] * prices.USD; // fallback conversion
+                }
+            } else if (['acoes', 'etfs', 'fiis'].includes(asset.type) && asset.symbol) {
+                const sym = asset.symbol.toUpperCase();
+                if (prices[sym]) currentPrice = prices[sym];
             } else if (!asset.manualCurrentPrice && (asset.type === 'tesouro' || asset.type === 'cdb')) {
                 currentPrice = asset.purchasePrice * 1.05; 
             }
             
-            currentValue += (asset.quantity * currentPrice);
+            currentValue += (asset.quantity * currentPrice * usdMultiplier);
         });
 
         const profit = currentValue - totalInvested;
@@ -284,9 +326,20 @@ export default function InvestmentsTab() {
                         <RefreshCw className={`w-5 h-5 ${isLoadingPrices ? 'animate-spin' : ''}`} />
                     </button>
                     <button 
+                        onClick={() => setShowUSDAsBRL(!showUSDAsBRL)}
+                        className={`px-4 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${
+                            showUSDAsBRL 
+                            ? (theme === 'light' ? 'bg-blue-100 text-blue-600' : 'bg-blue-500/20 text-blue-400') 
+                            : (theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-slate-800 text-slate-400 hover:bg-slate-700')
+                        }`}
+                        title="Converter valores estrangeiros para BRL na visualização"
+                    >
+                        {showUSDAsBRL ? 'Mostrando em R$' : 'Mostrar em R$'}
+                    </button>
+                    <button  
                         onClick={() => {
                             setIsEditing(null);
-                            setNewAsset({ type: 'crypto', name: 'Bitcoin', symbol: 'BTC', quantity: '', purchasePrice: '', manualCurrentPrice: '' });
+                            setNewAsset({ type: 'crypto', name: 'Bitcoin', symbol: 'BTC', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false });
                             setIsAdding(true);
                         }}
                         className="px-6 py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 flex items-center gap-3 transition-all active:scale-95"
@@ -362,9 +415,21 @@ export default function InvestmentsTab() {
                     Object.entries(groupedInvestments).map(([type, assets]) => {
                         const Config = ASSET_TYPES[type] || ASSET_TYPES.crypto;
                         const typeTotal = assets.reduce((sum, a) => {
-                            let price = a.manualCurrentPrice || (prices[a.symbol] || a.purchasePrice);
+                            const usdMultiplier = a.isUSD ? (prices.USD || 5.0) : 1;
+                            let price = a.manualCurrentPrice || a.purchasePrice;
+                            
+                            if (a.type === 'crypto' && a.symbol) {
+                                const sym = a.symbol.toUpperCase();
+                                if (a.isUSD && prices[`${sym}_USD`]) price = prices[`${sym}_USD`];
+                                else if (!a.isUSD && prices[`${sym}_BRL`]) price = prices[`${sym}_BRL`];
+                                else if (!a.isUSD && prices[`${sym}_USD`] && prices.USD) price = prices[`${sym}_USD`] * prices.USD;
+                            } else if (['acoes', 'etfs', 'fiis'].includes(a.type) && a.symbol) {
+                                const sym = a.symbol.toUpperCase();
+                                if (prices[sym]) price = prices[sym];
+                            }
+                            
                             if (!a.manualCurrentPrice && (a.type === 'tesouro' || a.type === 'cdb')) price = a.purchasePrice * 1.05;
-                            return sum + (a.quantity * price);
+                            return sum + (a.quantity * price * usdMultiplier);
                         }, 0);
 
                         return (
@@ -388,13 +453,32 @@ export default function InvestmentsTab() {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {assets.map(asset => {
-                                        let currentPrice = asset.manualCurrentPrice || (prices[asset.symbol] || asset.purchasePrice);
+                                        let currentPrice = asset.manualCurrentPrice || asset.purchasePrice;
+                                        
+                                        if (asset.type === 'crypto' && asset.symbol) {
+                                            const sym = asset.symbol.toUpperCase();
+                                            if (asset.isUSD && prices[`${sym}_USD`]) currentPrice = prices[`${sym}_USD`];
+                                            else if (!asset.isUSD && prices[`${sym}_BRL`]) currentPrice = prices[`${sym}_BRL`];
+                                            else if (!asset.isUSD && prices[`${sym}_USD`] && prices.USD) currentPrice = prices[`${sym}_USD`] * prices.USD;
+                                        } else if (['acoes', 'etfs', 'fiis'].includes(asset.type) && asset.symbol) {
+                                            const sym = asset.symbol.toUpperCase();
+                                            if (prices[sym]) currentPrice = prices[sym];
+                                        }
+                                        
                                         if (!asset.manualCurrentPrice && (asset.type === 'tesouro' || asset.type === 'cdb')) currentPrice = asset.purchasePrice * 1.05;
 
-                                        const currentVal = asset.quantity * currentPrice;
-                                        const investedVal = asset.quantity * asset.purchasePrice;
-                                        const profit = currentVal - investedVal;
-                                        const profitPct = (profit / investedVal) * 100;
+                                        const trueInvested = asset.quantity * asset.purchasePrice * (asset.isUSD ? prices.USD : 1);
+                                        const trueCurrent = asset.quantity * currentPrice * (asset.isUSD ? prices.USD : 1);
+                                        const profitPct = trueInvested > 0 ? ((trueCurrent - trueInvested) / trueInvested) * 100 : 0;
+                                        
+                                        // Visual Toggle logic
+                                        const displayMultiplier = asset.isUSD && showUSDAsBRL ? (prices.USD || 5.0) : 1;
+                                        const displayCurrency = asset.isUSD && !showUSDAsBRL ? '$' : 'R$';
+                                        
+                                        const displayPurchasePrice = asset.purchasePrice * displayMultiplier;
+                                        const displayCurrentPrice = currentPrice * displayMultiplier;
+                                        const displayCurrentVal = asset.quantity * displayCurrentPrice;
+                                        const profitVal = displayCurrentVal - (asset.quantity * displayPurchasePrice);
 
                                         return (
                                             <div key={asset.id} className={`group relative p-8 rounded-[2.5rem] border transition-all hover:shadow-2xl ${
@@ -414,21 +498,21 @@ export default function InvestmentsTab() {
                                                         <div className="flex justify-between items-center border-b border-white/5 pb-4">
                                                             <p className="text-[11px] uppercase font-black text-slate-500 opacity-60 tracking-tighter">Médio / Atual</p>
                                                             <div className="text-right">
-                                                                <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>R$ {asset.purchasePrice.toLocaleString('pt-BR')}</p>
-                                                                <p className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>R$ {currentPrice.toLocaleString('pt-BR')}</p>
+                                                                <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>{displayCurrency} {displayPurchasePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                                <p className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{displayCurrency} {displayCurrentPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                                             </div>
                                                         </div>
 
-                                                        <div className="flex justify-between items-end py-2">
+                                                        <div className="flex justify-between items-end">
                                                             <div>
                                                                 <p className="text-[11px] uppercase font-black text-slate-500 opacity-60 tracking-tighter">Patrimônio</p>
-                                                                <p className={`text-2xl font-black ${profit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                                                    R$ {currentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                <p className={`text-2xl font-black ${profitVal >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                                    {displayCurrency} {displayCurrentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                                 </p>
                                                             </div>
                                                             <div className="text-right">
-                                                                <p className={`text-[11px] font-black px-3 py-1.5 rounded-xl ${profit >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                                                                    {profit >= 0 ? '+' : ''}{profitPct.toFixed(1)}%
+                                                                <p className={`text-[11px] font-black px-3 py-1.5 rounded-xl ${profitPct >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                                                                    {profitPct >= 0 ? '+' : ''}{profitPct.toFixed(1)}%
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -524,71 +608,25 @@ export default function InvestmentsTab() {
                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Nome</label>
                                     <input 
                                         type="text"
-                                        list="asset-names"
                                         value={newAsset.name}
                                         onChange={(e) => setNewAsset({...newAsset, name: e.target.value})}
                                         className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
                                             theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
                                         }`}
-                                        placeholder="Ex: Selic 2029"
+                                        placeholder="Ex: Selic 2029, Vale3..."
                                     />
-                                    <datalist id="asset-names">
-                                        {newAsset.type === 'crypto' && (
-                                            <>
-                                                <option value="Bitcoin" />
-                                                <option value="Ethereum" />
-                                                <option value="Solana" />
-                                            </>
-                                        )}
-                                        {newAsset.type === 'tesouro' && (
-                                            <>
-                                                <option value="Tesouro Selic 2029" />
-                                                <option value="Tesouro IPCA+ 2045" />
-                                                <option value="Tesouro Renda+ 2065" />
-                                                <option value="Tesouro Educar+ 2040" />
-                                            </>
-                                        )}
-                                        {newAsset.type === 'cdb' && (
-                                            <>
-                                                <option value="CDB 100% CDI" />
-                                                <option value="LCI/LCA Isento" />
-                                                <option value="CDB Prefixado" />
-                                            </>
-                                        )}
-                                    </datalist>
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Símbolo/Ticker</label>
                                     <input 
                                         type="text"
-                                        list={newAsset.type === 'crypto' ? "crypto-symbols" : ""}
                                         value={newAsset.symbol}
                                         onChange={(e) => setNewAsset({...newAsset, symbol: e.target.value.toUpperCase()})}
                                         className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
                                             theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
                                         }`}
-                                        placeholder={newAsset.type === 'crypto' ? "Ex: BTC" : "Opcional"}
+                                        placeholder="Opcional (Ex: BTC, VALE3)"
                                     />
-                                    {newAsset.type === 'crypto' && (
-                                        <datalist id="crypto-symbols">
-                                            <option value="BTC" />
-                                            <option value="ETH" />
-                                            <option value="SOL" />
-                                            <option value="XRP" />
-                                            <option value="ADA" />
-                                            <option value="DOT" />
-                                            <option value="DOGE" />
-                                            <option value="MATIC" />
-                                            <option value="LINK" />
-                                            <option value="USDT" />
-                                            <option value="USDC" />
-                                        </datalist>
-                                    )}
-                                    {newAsset.type === 'crypto' && (
-                                        <p className="text-[8px] font-bold text-slate-500 mt-1 uppercase tracking-tighter opacity-70">
-                                            * Use o código da moeda para preço automático
-                                        </p>
-                                    )}
                                 </div>
                             </div>
 
@@ -607,38 +645,63 @@ export default function InvestmentsTab() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Preço Médio (R$)</label>
-                                    <input 
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={newAsset.purchasePrice}
-                                        onChange={(e) => setNewAsset({...newAsset, purchasePrice: e.target.value})}
-                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
-                                        }`}
-                                        placeholder="0.00"
-                                    />
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block flex items-center gap-1">
+                                        Preço Médio ({newAsset.isUSD ? 'USD' : 'R$'})
+                                    </label>
+                                    <div className="relative">
+                                        <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                            {newAsset.isUSD ? '$' : 'R$'}
+                                        </span>
+                                        <input 
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={newAsset.purchasePrice}
+                                            onChange={(e) => setNewAsset({...newAsset, purchasePrice: e.target.value})}
+                                            className={`w-full p-4 pl-12 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                            }`}
+                                            placeholder="0.00"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
-                            {(newAsset.type === 'tesouro' || newAsset.type === 'cdb') && (
-                                <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 animate-in slide-in-from-top-2">
-                                    <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2 block">Sincronizar Preço Atual (R$)</label>
+                            <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-500/5 border border-slate-500/10">
+                                <input 
+                                    type="checkbox"
+                                    id="isUSD-add"
+                                    checked={newAsset.isUSD}
+                                    onChange={(e) => setNewAsset({...newAsset, isUSD: e.target.checked})}
+                                    className="w-5 h-5 rounded-lg border-slate-300 text-emerald-500 focus:ring-emerald-500/40 cursor-pointer"
+                                />
+                                <label htmlFor="isUSD-add" className={`text-xs font-bold cursor-pointer ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
+                                    Ativo dolarizado (Preço em USD)
+                                </label>
+                            </div>
+
+                            <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 animate-in slide-in-from-top-2">
+                                <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2 block">
+                                    Preço Atual ({newAsset.isUSD ? 'USD' : 'R$'})
+                                </label>
+                                <div className="relative">
+                                    <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 text-emerald-600/50`}>
+                                        {newAsset.isUSD ? '$' : 'R$'}
+                                    </span>
                                     <input 
                                         type="text"
                                         inputMode="decimal"
                                         value={newAsset.manualCurrentPrice || ''}
                                         onChange={(e) => setNewAsset({...newAsset, manualCurrentPrice: e.target.value})}
-                                        className={`w-full p-4 rounded-xl border font-bold text-sm focus:outline-none transition-all ${
+                                        className={`w-full p-4 pl-12 rounded-xl border font-bold text-sm focus:outline-none transition-all ${
                                             theme === 'light' ? 'bg-white border-emerald-100 text-slate-800 focus:border-emerald-500' : 'bg-slate-900 border-emerald-500/20 text-white focus:border-emerald-500'
                                         }`}
-                                        placeholder="Valor unitário atual (ex: 181.63)"
+                                        placeholder="Valor unitário atual"
                                     />
-                                    <p className="text-[9px] font-bold text-emerald-600/70 mt-2 italic">
-                                        * Use este campo para deixar o saldo igual ao do seu banco/portal.
-                                    </p>
                                 </div>
-                            )}
+                                <p className="text-[9px] font-bold text-emerald-600/70 mt-2 italic">
+                                    * Se vazio, usará o preço médio de compra. Se for cripto, buscará valor automático caso haja ticker.
+                                </p>
+                            </div>
 
                             <div className="flex gap-4 pt-4">
                                 <button 
@@ -686,7 +749,6 @@ export default function InvestmentsTab() {
                         <form onSubmit={handleAporte} className="space-y-6">
                             <div className="grid grid-cols-1 gap-6">
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block text-center">Quanto você comprou HOJE?</label>
                                     <div className="flex gap-4">
                                         <div className="flex-1">
                                             <p className="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Quantidade</p>
@@ -703,19 +765,36 @@ export default function InvestmentsTab() {
                                             />
                                         </div>
                                         <div className="flex-1">
-                                            <p className="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Total Pago (R$)</p>
-                                            <input 
-                                                type="text"
-                                                inputMode="decimal"
-                                                required
-                                                value={newAsset.aporteAmount}
-                                                onChange={(e) => setNewAsset({...newAsset, aporteAmount: e.target.value})}
-                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                                    theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/10 text-white focus:border-blue-500'
-                                                }`}
-                                                placeholder="0.00"
-                                            />
+                                            <p className="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Custo Total ({newAsset.isUSD ? 'USD' : 'R$'})</p>
+                                            <div className="relative">
+                                                <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                    {newAsset.isUSD ? '$' : 'R$'}
+                                                </span>
+                                                <input 
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    required
+                                                    value={newAsset.aporteAmount}
+                                                    onChange={(e) => setNewAsset({...newAsset, aporteAmount: e.target.value})}
+                                                    className={`w-full p-4 pl-12 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/10 text-white focus:border-blue-500'
+                                                    }`}
+                                                    placeholder="0.00"
+                                                />
+                                            </div>
                                         </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-4 p-4 rounded-2xl bg-blue-500/5 border border-blue-500/10">
+                                        <input 
+                                            type="checkbox"
+                                            id="isUSD-aporte"
+                                            checked={newAsset.isUSD}
+                                            onChange={(e) => setNewAsset({...newAsset, isUSD: e.target.checked})}
+                                            className="w-5 h-5 rounded-lg border-slate-300 text-blue-500 focus:ring-blue-500/40 cursor-pointer"
+                                        />
+                                        <label htmlFor="isUSD-aporte" className={`text-xs font-bold cursor-pointer ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
+                                            Este aporte foi feito em Dólar (USD)
+                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -749,170 +828,7 @@ export default function InvestmentsTab() {
             )}
 
 
-            {/* ── COFRINHOS ─────────────────────────────────── */}
-            <div className="space-y-6">
-                <div className="flex items-center justify-between px-1">
-                    <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${theme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/10'}`}>
-                            <PiggyBank className="w-4 h-4 text-emerald-500" />
-                        </div>
-                        <h3 className={`text-sm font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                            Cofrinhos
-                        </h3>
-                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-500">{jars.length}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        {jars.length > 0 && (
-                            <p className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                                Total: R$ {jars.reduce((a, j) => a + (j.balance || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </p>
-                        )}
-                        <button
-                            onClick={() => { setEditingJarId(null); setJarForm({ name: '', balance: '', cdiPercent: '100', color: 'emerald' }); setIsAddingJar(true); }}
-                            className={`px-4 py-2 rounded-xl font-black text-xs flex items-center gap-2 transition-all ${theme === 'light' ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'bg-emerald-600 text-white hover:bg-emerald-500'}`}
-                        >
-                            <Plus className="w-3 h-3" /> Novo Cofrinho
-                        </button>
-                    </div>
-                </div>
 
-                {jars.length === 0 ? (
-                    <div className={`p-10 rounded-[2.5rem] border border-dashed text-center ${theme === 'light' ? 'border-slate-200' : 'border-white/10'}`}>
-                        <PiggyBank className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-                        <p className="text-sm font-bold text-slate-500">Nenhum cofrinho ainda.</p>
-                        <p className="text-xs text-slate-400 mt-1">Crie um para registrar suas reservas com rendimento.</p>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {jars.map(jar => {
-                            const colorCfg = JAR_COLORS.find(c => c.id === jar.color) || JAR_COLORS[0];
-                            // CDI diário estimado
-                            const cdiAnual = (prices.CDI || 10.65) / 100;
-                            const dailyRate = Math.pow(1 + cdiAnual * (jar.cdiPercent / 100), 1 / 365) - 1;
-                            const dailyYield = jar.balance * dailyRate;
-                            return (
-                                <div key={jar.id} className={`group relative p-8 rounded-[2.5rem] border transition-all hover:shadow-2xl ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`}>
-                                    <div className="flex items-start justify-between mb-6">
-                                        <div className={`p-4 rounded-2xl ${colorCfg.bg} shadow-inner`}>
-                                            <PiggyBank className={`w-7 h-7 ${colorCfg.text}`} />
-                                        </div>
-                                    </div>
-
-                                    <h4 className={`font-black text-base mb-1 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{jar.name}</h4>
-                                    <p className={`text-3xl font-black mb-4 ${colorCfg.text}`}>
-                                        R$ {jar.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                    </p>
-                                    <div className="flex items-center gap-2 mb-6 flex-wrap">
-                                        <span className={`text-[11px] font-black px-2.5 py-1 rounded-lg ${colorCfg.bg} ${colorCfg.text}`}>
-                                            {jar.cdiPercent}% do CDI
-                                        </span>
-                                        <span className="text-[11px] font-black text-emerald-500">
-                                            +R$ {dailyYield.toFixed(2)}/dia
-                                        </span>
-                                    </div>
-
-                                    <div className="flex items-center justify-center gap-3 mt-6 pt-6 border-t border-white/5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
-                                        <button 
-                                            onClick={() => { setJarForm({ name: jar.name, balance: String(jar.balance), cdiPercent: String(jar.cdiPercent), color: jar.color }); setEditingJarId(jar.id); setIsAddingJar(true); }}
-                                            className="flex-1 flex items-center justify-center gap-2 py-4 bg-emerald-500/10 text-emerald-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all shadow-lg shadow-emerald-500/5"
-                                        >
-                                            <Pencil className="w-4 h-4" /> Ajustar
-                                        </button>
-                                        <button 
-                                            onClick={() => setDeleteConfirm({ id: jar.id, type: 'jar', title: jar.name })}
-                                            className="p-4 bg-slate-500/10 text-slate-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-
-                                    {/* Delete overlay for Jar */}
-                                    {deleteConfirm?.id === jar.id && deleteConfirm?.type === 'jar' && (
-                                        <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-center z-50 animate-in fade-in duration-300">
-                                            <div className="max-w-[200px] w-full">
-                                                <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                                                    <Trash2 className="w-8 h-8 text-rose-500" />
-                                                </div>
-                                                <p className="text-white font-black text-lg mb-1">Remover {jar.name}?</p>
-                                                <p className="text-white/50 text-[10px] mb-8 leading-tight">O saldo será perdido.</p>
-                                                <div className="flex gap-3">
-                                                    <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-4 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors">Não</button>
-                                                    <button onClick={() => handleDeleteJar(jar.id)} className="flex-1 py-4 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Sim</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
-
-            {/* Modal: Cofrinho */}
-            {isAddingJar && (
-                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-                    <div className={`w-full max-w-md rounded-[3rem] p-8 border animate-in zoom-in-95 duration-300 ${theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10'}`}>
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h3 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                    {editingJarId ? 'Editar Cofrinho' : 'Novo Cofrinho'}
-                                </h3>
-                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Reserva com rendimento</p>
-                            </div>
-                            <button onClick={() => { setIsAddingJar(false); setEditingJarId(null); }}
-                                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <form onSubmit={handleSaveJar} className="space-y-5">
-                            <div>
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Nome do Cofrinho</label>
-                                <input required type="text" value={jarForm.name} onChange={e => setJarForm(f => ({ ...f, name: e.target.value }))}
-                                    placeholder='Ex: "Cofrinho Nubank"'
-                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-white/5 border-white/10 text-white'}`} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Saldo atual (R$)</label>
-                                    <input required type="number" step="0.01" value={jarForm.balance} onChange={e => setJarForm(f => ({ ...f, balance: e.target.value }))}
-                                        placeholder="0,00"
-                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-white/5 border-white/10 text-white'}`} />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">% do CDI</label>
-                                    <input required type="number" value={jarForm.cdiPercent} onChange={e => setJarForm(f => ({ ...f, cdiPercent: e.target.value }))}
-                                        placeholder="100"
-                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-white/5 border-white/10 text-white'}`} />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Cor</label>
-                                <div className="flex gap-2">
-                                    {JAR_COLORS.map(c => (
-                                        <button key={c.id} type="button" onClick={() => setJarForm(f => ({ ...f, color: c.id }))}
-                                            className={`w-8 h-8 rounded-full transition-all ${c.cls} ${jarForm.color === c.id ? 'ring-2 ring-offset-2 ring-offset-slate-900 ring-white scale-110' : 'opacity-60 hover:opacity-100'}`} />
-                                    ))}
-                                </div>
-                            </div>
-                            <div className={`p-4 rounded-2xl ${theme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/10'}`}>
-                                <p className="text-xs text-emerald-600 font-bold">
-                                    💡 Rendimento estimado: R$ {((parseFloat(jarForm.balance) || 0) * (Math.pow(1 + ((prices.CDI || 10.65) / 100) * ((parseFloat(jarForm.cdiPercent) || 100) / 100), 1 / 365) - 1)).toFixed(2)}/dia
-                                </p>
-                            </div>
-                            <div className="flex gap-4 pt-2">
-                                <button type="button" onClick={() => { setIsAddingJar(false); setEditingJarId(null); }}
-                                    className={`flex-1 py-4 rounded-2xl font-black text-sm ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>
-                                    Cancelar
-                                </button>
-                                <button type="submit" className="flex-1 py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 transition-all active:scale-95">
-                                    {editingJarId ? 'Salvar' : 'Criar Cofrinho'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
 
             {/* Footer Sources */}
             <div className={`mt-10 p-8 rounded-[2.5rem] border text-center space-y-4 ${

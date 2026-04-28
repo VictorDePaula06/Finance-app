@@ -11,26 +11,39 @@ import {
   X,
   HelpCircle,
   PieChart,
-  Landmark
+  Landmark,
+  PiggyBank,
+  ShieldCheck,
+  TrendingDown,
+  ArrowUpCircle
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import logo from '../assets/logo.png';
 
-const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }) => {
+const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, setActiveModule }) => {
   const { currentUser, logout } = useAuth();
   const { theme } = useTheme();
 
   const menuItems = [
-    { id: 'visao', label: 'Visão Geral', icon: LayoutDashboard },
-    { id: 'patrimonio', label: 'Patrimônio', icon: Landmark },
-    { id: 'metas', label: 'Metas', icon: Target },
-    { id: 'transacoes', label: 'Transações', icon: Wallet },
-    { id: 'cartoes', label: 'Cartões', icon: CreditCard },
-    { id: 'investimentos', label: 'Investimentos', icon: PieChart },
-    { id: 'analise', label: 'Análise', icon: TrendingUp },
-    { id: 'ajustes', label: 'Ajustes', icon: Settings },
+    // Gastos Module
+    { id: 'visao', label: 'Visão Geral', icon: LayoutDashboard, module: 'gastos' },
+    { id: 'entradas', label: 'Entradas', icon: ArrowUpCircle, module: 'gastos' },
+    { id: 'gastos', label: 'Gastos', icon: TrendingDown, module: 'gastos' },
+    { id: 'analise', label: 'Análise de Gastos', icon: TrendingUp, module: 'gastos' },
+    { id: 'cartoes', label: 'Cartões', icon: CreditCard, module: 'gastos' },
+    
+    // Patrimônio Module
+    { id: 'patrimonio', label: 'Patrimônio', icon: Landmark, module: 'patrimonio' },
+    { id: 'reserva', label: 'Reserva Emergência', icon: ShieldCheck, module: 'patrimonio' },
+    { id: 'investimentos', label: 'Investimentos', icon: PieChart, module: 'patrimonio' },
+    { id: 'metas', label: 'Metas', icon: Target, module: 'patrimonio' },
+
+    // Common
+    { id: 'ajustes', label: 'Ajustes', icon: Settings, module: 'common' },
   ];
+
+  const visibleItems = menuItems.filter(item => item.module === activeModule || item.module === 'common');
 
   const handleTabClick = (id) => {
     setActiveTab(id);
@@ -76,8 +89,22 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }) => {
         </div>
 
         {/* Navigation Links */}
-        <nav className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar">
-          {menuItems.map((item) => {
+        <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto custom-scrollbar">
+          <button
+            onClick={() => setActiveModule('hub')}
+            className={`w-full flex items-center gap-3 p-3 mb-4 rounded-xl transition-all duration-300 group font-bold text-sm text-left ${
+              theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            <LayoutDashboard className="w-4 h-4" />
+            Voltar para Início
+          </button>
+
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 px-3 opacity-60">
+            {activeModule === 'gastos' ? 'Controle de Gastos' : 'Construção de Patrimônio'}
+          </div>
+
+          {visibleItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (

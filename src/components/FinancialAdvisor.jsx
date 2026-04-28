@@ -234,9 +234,9 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                     ? 'bg-slate-50 border-slate-100 hover:bg-slate-100/50 hover:border-blue-200' 
                     : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-blue-500/30'
                 }`}>
-                    <p className={`text-[10px] mb-1 font-bold uppercase tracking-widest ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>Renda Média</p>
+                    <p className={`text-[10px] mb-1 font-bold uppercase tracking-widest ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>Entradas do Mês</p>
                     <p className="font-black text-xl text-blue-400">
-                        {health.averageIncome.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        {health.activeIncome.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </p>
                 </div>
             </div>

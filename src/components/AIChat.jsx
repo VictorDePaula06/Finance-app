@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { MessageSquare, X, Send, Bot, User, Sparkles, AlertCircle, Key, Trash2, Loader2, Video, ChevronDown, CheckCircle, Maximize2, Minimize2 } from 'lucide-react';
+import { db } from '../services/firebase';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { sendMessageToGemini, isGeminiConfigured, validateApiKey, calculateStatsContext } from '../services/gemini';
@@ -23,11 +25,13 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
     const [isLoading, setIsLoading] = useState(false);
     const [isSavingKey, setIsSavingKey] = useState(false);
     const [keyError, setKeyError] = useState('');
+    const [jars, setJars] = useState([]);
+    const [investments, setInvestments] = useState([]);
     const messagesEndRef = useRef(null);
     const initialSyncDone = useRef(false);
     const prevMessagesLength = useRef(messages.length);
 
-    const { saveUserPreferences, getUserPreferences, saveChatHistory, getChatHistory } = useAuth();
+    const { currentUser, saveUserPreferences, getUserPreferences, saveChatHistory, getChatHistory } = useAuth();
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -36,6 +40,17 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
     useEffect(() => {
         scrollToBottom();
     }, [messages, isOpen]);
+
+    // WATCHDOG: Safety reset for Alivia (if she gets stuck for more than 25s)
+    useEffect(() => {
+        if (isLoading) {
+            const timer = setTimeout(() => {
+                console.warn("[Watchdog] Alívia demorando demais ou travada. Resetando estado...");
+                setIsLoading(false);
+            }, 25000);
+            return () => clearTimeout(timer);
+        }
+    }, [isLoading]);
 
     useEffect(() => {
         if (isOpen) {
@@ -61,8 +76,16 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                     initialSyncDone.current = true;
                 });
             }
+
+            if (currentUser) {
+                const qJars = query(collection(db, 'savings_jars'), where('userId', '==', currentUser.uid));
+                const qInv = query(collection(db, 'investments'), where('userId', '==', currentUser.uid));
+                const unsubJars = onSnapshot(qJars, snap => setJars(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+                const unsubInv = onSnapshot(qInv, snap => setInvestments(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+                return () => { unsubJars(); unsubInv(); };
+            }
         }
-    }, [isOpen]);
+    }, [isOpen, currentUser]);
 
     const handleSaveKey = async () => {
         setKeyError('');
@@ -131,9 +154,12 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
         const userMsg = { role: 'user', text: inputMsg, timestamp: new Date().toISOString() };
         setMessages(prev => [...prev, userMsg]);
         setIsLoading(true);
+        
+        // Final fallback to ensure Alivia doesn't get stuck
+        const safetyReset = setTimeout(() => setIsLoading(false), 30000);
 
         try {
-            const context = calculateStatsContext(transactions, manualConfig, isPanic);
+            const context = calculateStatsContext(transactions, manualConfig, isPanic, jars, investments);
             const responseText = await sendMessageToGemini(messages, inputMsg, context);
 
             const sanitizeAIValue = (val) => {
@@ -188,7 +214,10 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                                 ...command.data,
                                 amount: parseFloat(sanitizeAIValue(command.data.amount)) || 0
                             };
-                            const success = await onAddTransaction(sanitizedData);
+                            const success = await Promise.race([
+                                onAddTransaction(sanitizedData),
+                                new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout ao salvar transação")), 15000))
+                            ]);
                             if (success) {
                                 displayMessage += `\n\n✅ **Transação Salva:** ${sanitizedData.description} (R$ ${sanitizedData.amount.toLocaleString('pt-BR')})`;
                             } else {
@@ -258,6 +287,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
             
             setMessages(prev => [...prev, { role: 'model', text: errMsg, timestamp: new Date().toISOString() }]);
         } finally {
+            clearTimeout(safetyReset);
             setIsLoading(false);
         }
     };

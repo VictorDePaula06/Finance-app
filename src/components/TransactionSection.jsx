@@ -899,30 +899,6 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                     )}
 
                     <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-                        <div className={`flex p-1 rounded-xl border ${
-                            theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/50 border-slate-700'
-                        }`}>
-                            <button
-                                type="button"
-                                onClick={() => { setType('income'); setCategory(CATEGORIES.income[CATEGORIES.income.length - 1]); }}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${type === 'income'
-                                    ? 'bg-emerald-500/20 text-emerald-500 shadow-sm'
-                                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-                                    }`}
-                            >
-                                <ArrowUpCircle className="w-4 h-4" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { setType('expense'); setCategory(CATEGORIES.expense[CATEGORIES.expense.length - 1]); }}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${type === 'expense'
-                                    ? 'bg-rose-500/20 text-rose-500 shadow-sm'
-                                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-                                    }`}
-                            >
-                                <ArrowDownCircle className="w-4 h-4" />
-                            </button>
-                        </div>
 
                         <button type="submit" className={`flex-1 px-6 font-bold py-2 rounded-xl shadow-lg transition-all ${
                             theme === 'light' 

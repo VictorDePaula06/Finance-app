@@ -61,14 +61,9 @@ export function AuthProvider({ children }) {
                     uid: user.uid
                 };
                 
-                // CRITICAL: If no trialStartDate exists, this is their "First App Access"
-                // We set it to NOW to guarantee 7 days of trial automatically.
                 if (!userData.trialStartDate) {
                     updateData.trialStartDate = new Date();
-                    console.log(`[Auth] New user or missing trial. Activating 7-day trial for: ${user.email}`);
                 }
-
-                // Keep createdAt for history, but we don't use it for billing anymore
                 if (!userData.createdAt) {
                     updateData.createdAt = user.metadata.creationTime || new Date().toISOString();
                 }
@@ -208,16 +203,27 @@ export function AuthProvider({ children }) {
             dataRef.current.prefsLoaded = true;
             checkStatus();
             setLoading(false);
+        }, (err) => {
+            console.error("Erro no Firebase Prefs:", err);
+            dataRef.current.prefsLoaded = true;
+            checkStatus();
+            setLoading(false);
         });
 
         const unsubUser = onSnapshot(userRef, (snap) => {
             if (snap.exists()) dataRef.current.user = snap.data();
             dataRef.current.userLoaded = true;
             checkStatus();
+        }, () => {
+            dataRef.current.userLoaded = true;
+            checkStatus();
         });
 
         const unsubSubs = onSnapshot(subsQuery, (snap) => {
             dataRef.current.subs = snap.docs.map(d => d.data());
+            dataRef.current.subsLoaded = true;
+            checkStatus();
+        }, () => {
             dataRef.current.subsLoaded = true;
             checkStatus();
         });
@@ -250,15 +256,28 @@ export function AuthProvider({ children }) {
     // Cloud Sync Functions
     async function saveUserPreferences(data) {
         if (!currentUser) return;
-        const userRef = doc(db, 'users', currentUser.uid, 'settings', 'general');
-        await setDoc(userRef, data, { merge: true });
+        
+        // Atualiza o estado local imediatamente para a UI não travar
+        setUserPrefs(prev => ({ ...prev, ...data }));
+        
+        try {
+            const userRef = doc(db, 'users', currentUser.uid, 'settings', 'general');
+            await setDoc(userRef, data, { merge: true });
+        } catch(err) {
+            console.error("Erro ao salvar preferências:", err);
+        }
     }
 
     async function getUserPreferences() {
         if (!currentUser) return null;
-        const userRef = doc(db, 'users', currentUser.uid, 'settings', 'general');
-        const docSnap = await getDoc(userRef);
-        return docSnap.exists() ? docSnap.data() : null;
+        try {
+            const userRef = doc(db, 'users', currentUser.uid, 'settings', 'general');
+            const docSnap = await getDoc(userRef);
+            if (docSnap.exists()) return docSnap.data();
+        } catch (err) {
+            console.error("Erro ao buscar preferências:", err);
+        }
+        return null;
     }
 
     async function saveChatHistory(messages) {

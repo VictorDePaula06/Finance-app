@@ -12,8 +12,11 @@ import {
     Bot,
     Sparkles,
     MessageSquare,
-    AlertCircle
+    AlertCircle,
+    Sun,
+    Moon
 } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 import logo from '../assets/logo.png';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
 import dashboardReal from '../assets/dashboard-real.png';
@@ -30,6 +33,7 @@ import Mobile4 from '../assets/Mobile4.jpeg';
 
 
 export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onViewManual, onViewContact }) {
+    const { theme, toggleTheme } = useTheme();
     const [billing, setBilling] = React.useState('monthly');
     const [currentSlide, setCurrentSlide] = React.useState(0);
     const [currentMobileSlide, setCurrentMobileSlide] = React.useState(0);
@@ -88,9 +92,9 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
     }, [mobileSlides.length]);
 
     return (
-        <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-emerald-500/30 overflow-x-hidden">
-            {/* Navbar - Light Mode */}
-            <nav className="fixed top-0 left-0 right-0 z-[100] bg-white/80 backdrop-blur-xl">
+        <div className={`min-h-screen font-sans selection:bg-emerald-500/30 overflow-x-hidden transition-colors duration-500 ${theme === 'light' ? 'bg-white text-slate-900' : 'bg-slate-950 text-white'}`}>
+            {/* Navbar */}
+            <nav className={`fixed top-0 left-0 right-0 z-[100] backdrop-blur-xl border-b transition-colors duration-500 ${theme === 'light' ? 'bg-white/80 border-transparent' : 'bg-slate-950/80 border-white/5'}`}>
                 <div className="max-w-7xl mx-auto px-4 md:px-6 h-24 md:h-32 flex items-center justify-between relative">
                     {/* Left: Spacer */}
                     <div className="w-20 md:w-32 invisible md:visible h-1"></div>
@@ -100,8 +104,19 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                         <img src={logo} alt="Alívia Logo" className="w-28 md:w-40 h-auto transition-all hover:scale-105 pointer-events-auto" />
                     </div>
 
-                    {/* Right: Login Button */}
-                    <div className="flex justify-end z-10">
+                    {/* Right: Actions */}
+                    <div className="flex items-center justify-end gap-3 z-10">
+                        <button
+                            onClick={toggleTheme}
+                            className={`p-2.5 rounded-full transition-all border ${
+                                theme === 'light' 
+                                    ? 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-emerald-500' 
+                                    : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-emerald-400'
+                            }`}
+                            title="Alternar Tema"
+                        >
+                            {theme === 'light' ? <Moon className="w-4 h-4 md:w-5 md:h-5" /> : <Sun className="w-4 h-4 md:w-5 md:h-5" />}
+                        </button>
                         <button
                             onClick={onLogin}
                             className="px-4 py-2 md:px-6 md:py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] md:text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20"

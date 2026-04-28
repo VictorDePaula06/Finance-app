@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Wallet, PiggyBank, TrendingUp, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3 } from 'lucide-react';
+import { Wallet, PiggyBank, TrendingUp, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { generatePatrimonyAnalysis, isGeminiConfigured } from '../services/gemini';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -54,9 +56,11 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   const [jars, setJars] = useState([]);
   const [investments, setInvestments] = useState([]);
   const [cdiAnual, setCdiAnual] = useState(10.65); // fallback %
-  const [isCumulativeView, setIsCumulativeView] = useState(() => localStorage.getItem('isCumulativeView') === 'true');
-  const [hideBalance, setHideBalance] = useState(() => localStorage.getItem('hideBalance') === 'true');
   const [hidePatrimonio, setHidePatrimonio] = useState(() => localStorage.getItem('hidePatrimonio') === 'true');
+  const [usdRate, setUsdRate] = useState(5.0);
+  const [userConfig, setUserConfig] = useState(null);
+  const [aiAnalysis, setAiAnalysis] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // ── listeners ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -72,67 +76,27 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   }, [currentUser]);
 
   useEffect(() => {
+    if (!currentUser) return;
+    import('firebase/firestore').then(({ doc, getDoc }) => {
+      getDoc(doc(db, 'users', currentUser.uid)).then(d => {
+        if (d.exists()) setUserConfig(d.data());
+      });
+    });
+  }, [currentUser]);
+
+  useEffect(() => {
     fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json')
       .then(r => r.json())
       .then(d => setCdiAnual(parseFloat(d[0].valor) * 365))
       .catch(() => {});
+      
+    fetch('https://economia.awesomeapi.com.br/last/USD-BRL')
+      .then(r => r.json())
+      .then(d => setUsdRate(parseFloat(d.USDBRL.bid)))
+      .catch(() => {});
   }, []);
 
   // ── calculations ───────────────────────────────────────────────────────────
-  const selectedMonth = new Date().toLocaleDateString('en-CA').slice(0, 7);
-
-  const getRobustMonth = (t) => {
-    try { const d = new Date(t.date); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
-    catch { return t.month || ''; }
-  };
-
-  const filteredTransactions = useMemo(() =>
-    transactions.filter(t => getRobustMonth(t) === selectedMonth),
-    [transactions, selectedMonth]
-  );
-
-  // Resultado operacional do mes (exclui vault/investimentos - e o "livre" do mes)
-  const operationalIncome = useMemo(() =>
-    filteredTransactions
-      .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
-      .reduce((a, t) => a + (parseFloat(t.amount) || 0), 0),
-    [filteredTransactions]
-  );
-
-  const operationalExpense = useMemo(() =>
-    filteredTransactions
-      .filter(t => t.type === 'expense' && !['investment', 'vault'].includes(t.category))
-      .reduce((a, t) => a + (parseFloat(t.amount) || 0), 0),
-    [filteredTransactions]
-  );
-
-  const operationalBalance = operationalIncome - operationalExpense; // ex: R$ 2.805
-
-  const calculateCumulative = (targetMonth) => {
-    const allPrev = transactions
-      .filter(t => getRobustMonth(t) <= targetMonth)
-      .sort((a, b) => {
-        const diff = new Date(a.date) - new Date(b.date);
-        if (diff !== 0) return diff;
-        const aR = ['initial_balance', 'carryover'].includes(a.category);
-        const bR = ['initial_balance', 'carryover'].includes(b.category);
-        return aR && !bR ? -1 : !aR && bR ? 1 : 0;
-      });
-    if (!allPrev.length) return 0;
-    let start = 0;
-    for (let i = allPrev.length - 1; i >= 0; i--) {
-      if (['initial_balance', 'carryover'].includes(allPrev[i].category)) { start = i; break; }
-    }
-    return allPrev.slice(start).reduce((a, t) => t.type === 'income' ? a + (parseFloat(t.amount) || 0) : a - (parseFloat(t.amount) || 0), 0);
-  };
-
-  const cumulativeBalance = useMemo(() => calculateCumulative(selectedMonth), [transactions]);
-  const prevMonth = (() => { const d = new Date(selectedMonth + '-02'); d.setMonth(d.getMonth() - 1); return d.toLocaleDateString('en-CA').slice(0, 7); })();
-  const prevBalance = useMemo(() => calculateCumulative(prevMonth), [transactions]);
-
-  // walletBalance é só informacional (card), NÃO entra no patrimonioTotal
-  const walletBalance = isCumulativeView ? cumulativeBalance : operationalBalance;
-
   // Jars
   const jarsTotal = useMemo(() => jars.reduce((a, j) => a + (j.balance || 0), 0), [jars]);
   const jarsDailyYield = useMemo(() =>
@@ -147,14 +111,33 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   const investmentsTotal = useMemo(() => {
     return investments.reduce((acc, a) => {
       const price = a.manualCurrentPrice || a.purchasePrice;
-      return acc + (a.quantity * price);
+      const usdMultiplier = a.isUSD ? usdRate : 1;
+      return acc + (a.quantity * price * usdMultiplier);
     }, 0);
-  }, [investments]);
+  }, [investments, usdRate]);
+
+  const investmentsCost = useMemo(() => {
+    return investments.reduce((acc, a) => {
+      const usdMultiplier = a.isUSD ? usdRate : 1;
+      return acc + (a.quantity * (a.purchasePrice || 0) * usdMultiplier);
+    }, 0);
+  }, [investments, usdRate]);
 
   // Patrimônio = apenas ativos acumulados (cofrinhos + investimentos)
-  // O saldo operacional do mês NÃO entra aqui para evitar dupla contagem
   const patrimonioTotal = jarsTotal + investmentsTotal;
   const totalDailyYield = jarsDailyYield;
+  const investmentsProfit = investmentsTotal - investmentsCost;
+
+  const handleAnalyze = async () => {
+    if (!isGeminiConfigured()) {
+        alert("Você precisa configurar sua chave da Alívia (Menu Inferior Direito) para usar esta função.");
+        return;
+    }
+    setIsAnalyzing(true);
+    const analysis = await generatePatrimonyAnalysis(jarsTotal, investmentsTotal, userConfig);
+    setAiAnalysis(analysis);
+    setIsAnalyzing(false);
+  };
 
   // ── render ─────────────────────────────────────────────────────────────────
   const h1 = isDark ? 'text-white' : 'text-slate-900';
@@ -191,7 +174,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
                 <div style={{ width: `${investmentsTotal / patrimonioTotal * 100}%` }} className="bg-purple-500 transition-all" />
               </div>
               <div className="flex gap-4 text-[10px] font-black text-slate-400">
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Cofrinhos</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Reserva</span>
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />Investimentos</span>
               </div>
             </div>
@@ -201,36 +184,14 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
 
       {/* ── 3 pillar cards ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Saldo Carteira */}
-        <div className="relative">
-          <MiniCard
-            label={isCumulativeView ? 'Saldo em Carteira' : 'Saldo do Mês (Real)'}
-            value={walletBalance}
-            icon={Wallet}
-            color={walletBalance >= 0 ? 'text-blue-400' : 'text-rose-400'}
-            isDark={isDark}
-            highlight
-            isHidable
-            isHidden={hideBalance}
-            onToggle={() => { const v = !hideBalance; setHideBalance(v); localStorage.setItem('hideBalance', String(v)); }}
-            detail={isCumulativeView ? 'Saldo acumulado na conta' : 'Resultado operacional deste mês (sem cofrinhos/invest.)'}
-          />
-          <button onClick={() => { const v = !isCumulativeView; setIsCumulativeView(v); localStorage.setItem('isCumulativeView', String(v)); }}
-            className={`absolute -bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold border z-20 shadow-xl transition-all ${
-              isCumulativeView ? 'bg-blue-600 border-blue-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'
-            }`}>
-            {isCumulativeView ? 'Ver Mensal' : 'Ver Acumulado'}
-          </button>
-        </div>
-
-        {/* Cofrinhos */}
+        {/* Reserva de Emergência */}
         <MiniCard
-          label="Cofrinhos"
+          label="Reserva"
           value={jarsTotal}
           icon={PiggyBank}
           color="text-emerald-400"
           isDark={isDark}
-          detail={jars.length > 0 ? `${jars.length} cofrinho${jars.length > 1 ? 's' : ''} • +R$ ${fmt(jarsDailyYield)}/dia` : 'Crie cofrinhos na aba Investimentos'}
+          detail={jars.length > 0 ? `${jars.length} ativo${jars.length > 1 ? 's' : ''} na reserva • +R$ ${fmt(jarsDailyYield)}/dia` : 'Comece sua reserva de emergência'}
         />
 
         {/* Investimentos */}
@@ -243,31 +204,109 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
           isHidable
           isHidden={hidePatrimonio}
           onToggle={() => { const v = !hidePatrimonio; setHidePatrimonio(v); localStorage.setItem('hidePatrimonio', String(v)); }}
-          detail="Tesouro, Cripto, CDB e mais"
+          detail="Tesouro, Cripto, CDB, Ações e mais"
+        />
+
+        {/* Rentabilidade (Lucro Investimentos + Projeção Reservas) */}
+        <MiniCard
+          label="Lucro (Investimentos)"
+          value={investmentsProfit}
+          icon={ArrowUpCircle}
+          color={investmentsProfit >= 0 ? "text-emerald-400" : "text-rose-400"}
+          isDark={isDark}
+          detail={`+R$ ${fmt(jarsDailyYield * 30)}/mês proj. nas reservas`}
         />
       </div>
 
       {/* spacer for floating button */}
       <div className="h-2" />
 
-      {/* ── 4 operational cards ── */}
-      <div>
-        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 ${sub}`}>Fluxo Operacional — {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <MiniCard label="Ganhos (Mês)" value={operationalIncome} icon={ArrowUpCircle} color="text-emerald-400" isDark={isDark} />
-          <MiniCard label="Gastos (Mês)" value={operationalExpense} icon={ArrowDownCircle} color="text-rose-400" isDark={isDark} />
-          <div className={`col-span-2 p-5 rounded-3xl border flex items-center justify-between ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100 shadow-sm'}`}>
-            <div>
-              <p className={`text-xs font-medium ${sub}`}>Resultado do Mês</p>
-              <p className={`text-2xl font-bold mt-1 ${(operationalIncome - operationalExpense) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                {fmtSigned(operationalIncome - operationalExpense)}
-              </p>
-              <p className="text-[10px] text-slate-500 mt-1">Sem cofrinhos/investimentos</p>
+      {/* ── METAS E PERFIL ── */}
+      {userConfig && (
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
+        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 ${sub}`}>Seu Plano de Construção</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className={`p-6 rounded-3xl border flex flex-col justify-center ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100 shadow-sm'}`}>
+            <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Objetivos</h3>
+            <div className="flex flex-wrap gap-2">
+               {userConfig.objectives?.map(obj => (
+                  <span key={obj} className="px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-bold">{obj}</span>
+               ))}
+               {(!userConfig.objectives || userConfig.objectives.length === 0) && <span className="text-xs text-slate-500">Nenhuma meta definida.</span>}
             </div>
-            <BarChart3 className={`w-10 h-10 ${(operationalIncome - operationalExpense) >= 0 ? 'text-emerald-500/30' : 'text-rose-500/30'}`} />
+          </div>
+          <div className={`p-6 rounded-3xl border flex flex-col justify-center ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100 shadow-sm'}`}>
+            <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Perfil de Investidor</h3>
+            <p className={`text-3xl font-black capitalize tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                {userConfig.riskProfile || 'Não definido'}
+            </p>
           </div>
         </div>
       </div>
+      )}
+
+      {/* ── ALÍVIA ANALYSIS ── */}
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+          <div className={`p-6 md:p-8 rounded-[2rem] border relative overflow-hidden ${
+              isDark ? 'bg-slate-900 border-emerald-500/20' : 'bg-[#f0fdfa] border-emerald-500/20 shadow-sm'
+          }`}>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+              
+              <div className="flex items-center gap-3 mb-6">
+                  <div className={`p-3 rounded-2xl ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-100'} shadow-inner`}>
+                      <Bot className={`w-6 h-6 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                  </div>
+                  <div>
+                      <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Saúde do seu Patrimônio</h3>
+                      <p className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Análise com Alívia AI</p>
+                  </div>
+              </div>
+
+              {!aiAnalysis && !isAnalyzing && (
+                  <button 
+                      onClick={handleAnalyze}
+                      className={`w-full md:w-auto px-6 py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${
+                          isDark 
+                          ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20' 
+                          : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
+                      }`}
+                  >
+                      <Sparkles className="w-4 h-4" />
+                      Gerar Análise Personalizada
+                  </button>
+              )}
+
+              {isAnalyzing && (
+                  <div className="flex items-center gap-3 text-emerald-500 font-bold p-4">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span className="animate-pulse">Alívia está analisando seus dados...</span>
+                  </div>
+              )}
+
+              {aiAnalysis && !isAnalyzing && (
+                  <div className={`mt-4 text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                      <ReactMarkdown
+                          components={{
+                              p: ({ ...props }) => <p className="mb-4 last:mb-0" {...props} />,
+                              strong: ({ ...props }) => <strong className={`font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} {...props} />
+                          }}
+                      >
+                          {aiAnalysis}
+                      </ReactMarkdown>
+                      
+                      <button 
+                          onClick={handleAnalyze}
+                          className={`mt-6 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                              isDark ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'
+                          }`}
+                      >
+                          Atualizar Análise
+                      </button>
+                  </div>
+              )}
+          </div>
+      </div>
+      
     </div>
   );
 }

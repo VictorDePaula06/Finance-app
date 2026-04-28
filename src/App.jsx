@@ -10,7 +10,7 @@ import AdminPanel from './components/AdminPanel';
 import HealthScoreCard from './components/HealthScoreCard';
 import { calculateHealthScore } from './utils/healthScore';
 import { db } from './services/firebase';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import Manual from './components/Manual';
 import PanicButton from './components/PanicButton';
 import { generateSundayBreath } from './utils/sundayBreath';
@@ -22,14 +22,18 @@ import { generateMonthlyReview } from './services/gemini';
 import { CATEGORIES } from './constants/categories';
 
 // NEW COMPONENTS
+import Hub from './components/Hub';
 import Sidebar from './components/Sidebar';
+import PatrimonyWelcome from './components/PatrimonyWelcome';
 import SettingsTab from './components/SettingsTab';
 import AIChat from './components/AIChat';
 import PaceAlerts from './components/PaceAlerts';
 import { calculateSpendingPace } from './utils/financialLogic';
 import AnalysisTab from './components/AnalysisTab';
+import IncomeTab from './components/IncomeTab';
 import CardsTab from './components/CardsTab';
 import InvestmentsTab from './components/InvestmentsTab';
+import EmergencyReserveTab from './components/EmergencyReserveTab';
 
 // CONFIGURAÇÃO MASTER
 const MASTER_EMAIL = 'j.17jvictor@gmail.com';
@@ -42,6 +46,7 @@ function Dashboard() {
   const [cards, setCards] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [activeModule, setActiveModule] = useState('hub');
   const [activeTab, setActiveTab] = useState('visao');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showMonthlyReview, setShowMonthlyReview] = useState(false);
@@ -92,6 +97,9 @@ function Dashboard() {
     const unsubT = onSnapshot(qT, (snapshot) => {
       setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setIsLoadingData(false);
+    }, (err) => {
+      console.warn("[Dev] Erro ao buscar transações:", err);
+      setIsLoadingData(false);
     });
 
     // Listen to Goals
@@ -116,6 +124,38 @@ function Dashboard() {
       unsubT(); unsubG(); unsubC(); unsubS();
     };
   }, [currentUser]);
+
+  const handleAIChatAddTransaction = async (data) => {
+    if (!currentUser) return false;
+    try {
+      const dateStr = data.date || new Date().toISOString().split('T')[0];
+      const transactionData = {
+        ...data,
+        userId: currentUser.uid,
+        createdAt: Date.now(),
+        date: dateStr,
+        month: dateStr.slice(0, 7),
+        amount: parseFloat(data.amount) || 0
+      };
+      await addDoc(collection(db, 'transactions'), transactionData);
+      return true;
+    } catch (error) {
+      console.error("Erro ao adicionar transação via AI:", error);
+      return false;
+    }
+  };
+
+  const handleAIChatDeleteTransaction = async (id) => {
+    if (!currentUser) return false;
+    try {
+      await deleteDoc(doc(db, 'transactions', id));
+      return true;
+    } catch (error) {
+      console.error("Erro ao deletar transação via AI:", error);
+      return false;
+    }
+  };
+
 
   // VIRADA DE MÊS LOGIC - Keeping existing logic
   useEffect(() => {
@@ -197,11 +237,23 @@ function Dashboard() {
     return { displayIncome, displayExpense, balance: displayIncome - displayExpense };
   }, [transactions]);
 
+  if (activeModule === 'hub') {
+    return (
+      <Hub 
+        onSelectModule={(mod) => {
+          setActiveModule(mod);
+          if (mod === 'gastos') setActiveTab('visao');
+          else if (mod === 'patrimonio') setActiveTab('patrimonio');
+        }} 
+      />
+    );
+  }
+
   return (
     <div className={`sidebar-layout transition-colors duration-500 ${
       theme === 'light' ? 'theme-light' : 'theme-dark'
     }`}>
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} activeModule={activeModule} setActiveModule={setActiveModule} />
 
       <main className="main-content relative z-10 p-4 md:p-12 overflow-x-hidden">
         <InstallPrompt />
@@ -364,12 +416,19 @@ function Dashboard() {
 
           { activeTab === 'cartoes' && <CardsTab /> }
           
+          { activeTab === 'reserva' && <EmergencyReserveTab /> }
+          
           { activeTab === 'investimentos' && <InvestmentsTab /> }
 
           {activeTab === 'analise' && (
             <AnalysisTab transactions={transactions} />
           )}
-          {activeTab === 'transacoes' && (
+
+          {activeTab === 'entradas' && (
+            <IncomeTab transactions={transactions} />
+          )}
+
+          {activeTab === 'gastos' && (
             <TransactionSection 
               transactions={transactions}
               goals={goals}
@@ -393,6 +452,8 @@ function Dashboard() {
           transactions={transactions} 
           manualConfig={manualConfig} 
           onConfigChange={updateManualConfig}
+          onAddTransaction={handleAIChatAddTransaction}
+          onDeleteTransaction={handleAIChatDeleteTransaction}
         />
 
         <PanicButton onPanicClick={(msg) => {
@@ -407,6 +468,12 @@ function Dashboard() {
           stats={previousMonthStats}
           theme={theme}
         />
+
+        {activeModule === 'patrimonio' && !userPrefs?.hasSeenPatrimonyWelcome && (
+          <PatrimonyWelcome onComplete={() => {
+            window.dispatchEvent(new CustomEvent('patrimony-onboarding-complete'));
+          }} />
+        )}
 
         {/* Investment History Modal */}
         {showInvestmentHistory && (
@@ -457,14 +524,12 @@ import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfUse from './components/TermsOfUse';
 import SubscriptionBlock from './components/SubscriptionBlock';
 import Contact from './components/Contact';
-import WelcomeJourney from './components/WelcomeJourney';
 import PatrimonioTab from './components/PatrimonioTab';
 
 function AppContent() {
   const { currentUser, isPremium, getUserPreferences, saveUserPreferences } = useAuth();
   const { theme } = useTheme();
   const [view, setView] = useState('landing');
-  const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
     if (currentUser && (view === 'landing' || view === 'login')) {
@@ -475,26 +540,22 @@ function AppContent() {
   useEffect(() => {
     if (currentUser && view === 'dashboard') {
       getUserPreferences().then(prefs => {
-        if (!prefs || !prefs.hasSeenWelcome) setShowWelcome(true);
+        if (!prefs || !prefs.hasSeenWelcome) {
+          saveUserPreferences({ hasSeenWelcome: true });
+        }
       });
     }
   }, [currentUser, view]);
 
-  const handleCloseWelcome = async (goToManual = false) => {
-    setShowWelcome(false);
-    await saveUserPreferences({ hasSeenWelcome: true });
-    if (goToManual) {
-      setView('manual');
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('manual-section', { detail: 'settings' }));
-      }, 100);
-    }
-  };
 
   useEffect(() => {
     const handleViewChange = (e) => setView(e.detail);
+    
     window.addEventListener('change-view', handleViewChange);
-    return () => window.removeEventListener('change-view', handleViewChange);
+    
+    return () => {
+      window.removeEventListener('change-view', handleViewChange);
+    };
   }, []);
 
   if (view === 'login' && !currentUser) return <Login onBack={() => setView('landing')} />;
@@ -510,17 +571,6 @@ function AppContent() {
     return isPremium || currentUser.email === MASTER_EMAIL ? (
       <>
         <Dashboard />
-        {showWelcome && (
-          <WelcomeJourney
-            onComplete={(config) => {
-              if (config && config.income !== undefined) {
-                // updateManualConfig is in Dashboard scope, use event
-                window.dispatchEvent(new CustomEvent('onboarding-complete', { detail: config }));
-              }
-              handleCloseWelcome(false);
-            }}
-          />
-        )}
       </>
     ) : (
       <SubscriptionBlock onAdminAccess={() => setView('admin')} />

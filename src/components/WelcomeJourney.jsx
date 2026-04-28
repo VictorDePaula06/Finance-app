@@ -28,15 +28,13 @@ export default function WelcomeJourney({ onComplete }) {
   const [data, setData] = useState({
     objectives: [],
     income: '',
-    emergencyReserve: '',
-    investments: '',
     riskProfile: '',
     investmentPercent: 20,
     alerts: { ceiling: true, weeklyReport: true },
   });
 
   const firstName = currentUser?.displayName?.split(' ')[0] || 'você';
-  const totalSteps = 8;
+  const totalSteps = 7;
 
   const isDark = theme !== 'light';
   const card = isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100 shadow-sm';
@@ -46,9 +44,10 @@ export default function WelcomeJourney({ onComplete }) {
 
   const handleComplete = async () => {
     setIsSaving(true);
+    
     const manualConfig = {
       income: parseFloat(data.income) || 0,
-      invested: parseFloat(data.investments) || 0,
+      invested: 0,
       fixedExpenses: 0,
       variableEstimate: 0,
       categoryBudgets: {},
@@ -60,8 +59,6 @@ export default function WelcomeJourney({ onComplete }) {
       onboarding: {
         objectives: data.objectives,
         income: parseFloat(data.income) || 0,
-        emergencyReserve: parseFloat(data.emergencyReserve) || 0,
-        investments: parseFloat(data.investments) || 0,
         riskProfile: data.riskProfile,
         investmentPercent: data.investmentPercent,
         alerts: data.alerts,
@@ -88,11 +85,7 @@ export default function WelcomeJourney({ onComplete }) {
       const suggested = (inc * data.investmentPercent / 100).toFixed(0);
       return `Com R$ ${inc.toLocaleString('pt-BR')} de renda, ${data.investmentPercent}% representa R$ ${Number(suggested).toLocaleString('pt-BR')}/mês investidos.`;
     }
-    if (step === 4 && data.emergencyReserve && data.income) {
-      const months = (parseFloat(data.emergencyReserve) / parseFloat(data.income)).toFixed(1);
-      return `Sua reserva cobre ${months} meses de renda — ${parseFloat(months) >= 6 ? 'ótimo!' : 'o ideal é ter 6 meses.'}`;
-    }
-    if (step === 6 && data.riskProfile) {
+    if (step === 4 && data.riskProfile) {
       const map = { conservative: 'priorizar renda fixa e segurança', moderate: 'balancear entre segurança e crescimento', aggressive: 'buscar ativos de maior retorno' };
       return `Entendido! Vou te ajudar a ${map[data.riskProfile]}.`;
     }
@@ -222,43 +215,11 @@ export default function WelcomeJourney({ onComplete }) {
             </div>
           )}
 
-          {/* STEP 4: Capital */}
+          {/* STEP 4: Risk Profile */}
           {step === 4 && (
             <div className="flex flex-col gap-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">04 — CAPITAL ATUAL</p>
-                <h2 className={`text-2xl font-black ${text}`}>Seu combustível inicial</h2>
-                <p className={`text-sm mt-1 ${sub}`}>Valores que você já tem guardados hoje.</p>
-              </div>
-              <div>
-                <label className={`text-[10px] font-black uppercase tracking-widest mb-2 block ${sub}`}>🛡️ Reserva de Emergência (R$)</label>
-                <div className="relative">
-                  <span className={`absolute left-4 top-1/2 -translate-y-1/2 font-black text-sm ${sub}`}>R$</span>
-                  <input type="number" value={data.emergencyReserve} onChange={e => setData(d => ({ ...d, emergencyReserve: e.target.value }))}
-                    placeholder="0,00" className={`${inputCls} pl-12`} />
-                </div>
-              </div>
-              <div>
-                <label className={`text-[10px] font-black uppercase tracking-widest mb-2 block ${sub}`}>📈 Investimentos (R$)</label>
-                <div className="relative">
-                  <span className={`absolute left-4 top-1/2 -translate-y-1/2 font-black text-sm ${sub}`}>R$</span>
-                  <input type="number" value={data.investments} onChange={e => setData(d => ({ ...d, investments: e.target.value }))}
-                    placeholder="0,00" className={`${inputCls} pl-12`} />
-                </div>
-              </div>
-              {comment && (
-                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-100'}`}>
-                  <p className="text-sm text-blue-500 font-semibold">💡 {comment}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* STEP 5: Risk Profile */}
-          {step === 5 && (
-            <div className="flex flex-col gap-4">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">05 — PERFIL</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">04 — PERFIL</p>
                 <h2 className={`text-2xl font-black ${text}`}>Seu perfil de investidor</h2>
                 <p className={`text-sm mt-1 ${sub}`}>Como a Alívia deve sugerir alocações do seu patrimônio?</p>
               </div>
@@ -286,11 +247,11 @@ export default function WelcomeJourney({ onComplete }) {
             </div>
           )}
 
-          {/* STEP 6: Alerts */}
-          {step === 6 && (
+          {/* STEP 5: Alerts */}
+          {step === 5 && (
             <div className="flex flex-col gap-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">06 — ALERTAS</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">05 — ALERTAS</p>
                 <h2 className={`text-2xl font-black ${text}`}>Como devo te avisar?</h2>
                 <p className={`text-sm mt-1 ${sub}`}>Configure como a Alívia vai te manter no caminho certo.</p>
               </div>
@@ -321,8 +282,8 @@ export default function WelcomeJourney({ onComplete }) {
             </div>
           )}
 
-          {/* STEP 7: Done */}
-          {step === 7 && (
+          {/* STEP 6: Done */}
+          {step === 6 && (
             <div className="flex flex-col items-center text-center gap-6 py-4">
               <div className="p-6 rounded-[2rem] bg-gradient-to-br from-emerald-500/20 to-blue-500/20">
                 <Landmark className="w-16 h-16 text-emerald-500" />

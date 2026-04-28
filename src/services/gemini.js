@@ -42,7 +42,7 @@ const withRetry = async (fn, retries = 5, delay = 2000) => {
     }
 };
 
-export const calculateStatsContext = (transactions, manualConfig, isPanic = false) => {
+export const calculateStatsContext = (transactions, manualConfig, isPanic = false, jars = [], investments = []) => {
     const today = new Date();
     const currentMonth = today.toLocaleDateString('en-CA').slice(0, 7); // YYYY-MM (Local)
 
@@ -78,8 +78,8 @@ export const calculateStatsContext = (transactions, manualConfig, isPanic = fals
 
     const totalPatrimonioReal = manualBaseInvested + totalFromTransactions;
 
-    const recentTx = transactions.slice(0, 15).map(t =>
-        `- ${t.date}: ${t.description} (${t.type === 'income' ? '+' : '-'} R$ ${t.amount}) [${t.category}]`
+    const recentTx = transactions.slice(0, 30).map(t =>
+        `- ${t.date}: ${t.description} (${t.type === 'income' ? '+' : '-'} R$ ${t.amount}) [ID: ${t.category}]`
     ).join('\n');
 
     const futureProjections = calculateFutureProjections(transactions, manualConfig, 3);
@@ -112,10 +112,26 @@ export const calculateStatsContext = (transactions, manualConfig, isPanic = fals
 
     const cumulativeBalance = calculateCumulativeBalance(transactions, currentMonth);
 
+    const jarsTotal = jars.reduce((a, j) => a + (j.balance || 0), 0);
+    const investmentsTotal = investments.reduce((acc, a) => {
+        const price = a.manualCurrentPrice || a.purchasePrice || 0;
+        const usdMultiplier = a.isUSD ? 5.0 : 1; // Approx for AI context
+        return acc + (a.quantity * price * usdMultiplier);
+    }, 0);
+    const patrimonioTotal = jarsTotal + investmentsTotal;
+
+    const jarsText = jars.length > 0 ? jars.map(j => `  - ${j.name || 'Reserva'}: R$ ${(j.balance || 0).toFixed(2)}`).join('\n') : '  - Nenhuma reserva cadastrada.';
+    const invText = investments.length > 0 ? investments.map(i => `  - ${i.name || i.type} (${i.symbol || '-'}): ${i.quantity} ativos`).join('\n') : '  - Nenhum investimento cadastrado.';
+
+    const expenseCategories = CATEGORIES.expense.map(c => `${c.id} (${c.label})`).join(', ');
+    const incomeCategories = CATEGORIES.income.map(c => `${c.id} (${c.label})`).join(', ');
+
     return `
 CONTEXTO FINANCEIRO DO USUÁRIO (Mês: ${currentMonth}):
 - DADOS DO DASHBOARD (A VERDADE ABSOLUTA):
   - SALDO EM CARTEIRA (TOTAL ACUMULADO HOJE): R$ ${cumulativeBalance.toFixed(2)}
+  - CATEGORIAS DE DESPESA DISPONÍVEIS: ${expenseCategories}
+  - CATEGORIAS DE RECEITA DISPONÍVEIS: ${incomeCategories}
   - Composição do Saldo Atual: R$ ${previousBalance.toFixed(2)} (Sobra Anterior) + R$ ${currentBalance.toFixed(2)} (Ganhos/Gastos Reais de Abril)
   
   - Ganhos Reais Lançados no Mês: R$ ${realIncome.toFixed(2)}
@@ -137,6 +153,13 @@ CONTEXTO FINANCEIRO DO USUÁRIO (Mês: ${currentMonth}):
 - PROJEÇÃO DE SALDO FUTURO (CUMULATIVO):
   (Baseado no Saldo Atual + Expectativa de Renda - Expectativa de Gastos/Parcelas/Base do Cartão)
 ${projectionsText}
+
+- CONSTRUÇÃO DE PATRIMÔNIO E RESERVAS:
+  - Patrimônio Total Consolidado: R$ ${patrimonioTotal.toFixed(2)}
+  - Total em Reservas: R$ ${jarsTotal.toFixed(2)}
+${jarsText}
+  - Total em Investimentos: R$ ${investmentsTotal.toFixed(2)} (Valor aproximado)
+${invText}
 
 - ATENÇÃO CRÍTICA (NÃO CONFUNDA NÚMEROS):
   1. O Saldo em Carteira HOJE é R$ ${cumulativeBalance.toFixed(2)}. 
@@ -164,6 +187,9 @@ INSTRUÇÕES DE TOM:
 - NUNCA use eufemismos infantis ou termos de carinho.
 - Trate o dinheiro com a seriedade de um banco e o acolhimento de uma mentora.
 
+DICA DE CATEGORIZAÇÃO:
+Ao lançar gastos, mapeie a descrição para o ID de categoria mais próximo (Ex: Uber/99 -> transport, iFood/Restaurante -> food, Aluguel -> housing, Netflix/Spotify -> subscriptions, Farmácia -> health).
+
 REGRAS DE COMANDO (JSON):
 Se precisar realizar uma ação no sistema, use UM ÚNICO bloco JSON no final da resposta.
 
@@ -175,7 +201,8 @@ Se precisar realizar uma ação no sistema, use UM ÚNICO bloco JSON no final da
     "description": "Descrição curta", 
     "amount": "123.45", 
     "type": "expense|income", 
-    "category": "..." 
+    "category": "ID_DA_CATEGORIA",
+    "date": "YYYY-MM-DD (Opcional, use se o usuário especificar uma data)"
   } 
 }
 \`\`\`
@@ -287,5 +314,50 @@ Responda apenas com o texto do feedback.
     } catch (error) {
         console.error("Erro ao gerar resumo mensal:", error);
         return "Olá! Tive um probleminha para analisar o mês que passou, mas o importante é que você está aqui. Vamos fazer deste novo mês um período de muita paz e organização!";
+    }
+};
+
+export const generatePatrimonyAnalysis = async (jarsTotal, investmentsTotal, userConfig) => {
+    const apiKey = localStorage.getItem('user_gemini_api_key');
+    if (!apiKey) throw new Error("API Key não configurada");
+
+    const patrimonioTotal = jarsTotal + investmentsTotal;
+    const monthlyIncome = userConfig?.income || 'Não informado';
+    const fixedExpenses = userConfig?.fixedExpenses || 'Não informado';
+    const riskProfile = userConfig?.riskProfile || 'Não definido';
+
+    const prompt = `
+Você é a **Alívia**, especialista financeira do usuário.
+
+DADOS DO PATRIMÔNIO ATUAL:
+- Total em Reserva de Emergência: R$ ${jarsTotal.toFixed(2)}
+- Total em Investimentos: R$ ${investmentsTotal.toFixed(2)}
+- Patrimônio Total: R$ ${patrimonioTotal.toFixed(2)}
+
+DADOS DO USUÁRIO:
+- Renda Mensal: R$ ${monthlyIncome}
+- Gastos Fixos: R$ ${fixedExpenses}
+- Perfil de Investidor: ${riskProfile}
+
+TAREFA:
+Faça uma análise curta, encorajadora e profunda sobre a saúde do patrimônio do usuário.
+1. Avalie a Reserva de Emergência (em meses de gastos fixos, se houver dado numérico, ou de forma geral).
+2. Comente sobre o volume investido vs. perfil do investidor.
+3. Diga se o patrimônio está bom para a média brasileira ou se ele já está se destacando por poupar.
+4. Mantenha em no máximo 2 ou 3 parágrafos curtos.
+5. Use tom direto, mas extremamente acolhedor e profissional. NUNCA use diminutivos. Use formatação markdown para destacar os pontos fortes.
+
+Responda apenas com o texto do feedback.
+`;
+
+    try {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const result = await withRetry(() => model.generateContent(prompt));
+        const response = await result.response;
+        return response.text();
+    } catch (error) {
+        console.error("Erro ao gerar análise de patrimônio:", error);
+        return "Sua jornada de construção de patrimônio está em andamento. Continue alimentando suas reservas e investimentos consistentemente.";
     }
 };
