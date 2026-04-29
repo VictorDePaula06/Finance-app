@@ -3,7 +3,7 @@ import TransactionSection from './components/TransactionSection';
 import GoalTracker from './components/GoalTracker';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen } from 'lucide-react';
+import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark } from 'lucide-react';
 import InstallPrompt from './components/InstallPrompt';
 import logo from './assets/logo.png';
 import AdminPanel from './components/AdminPanel';
@@ -34,6 +34,9 @@ import IncomeTab from './components/IncomeTab';
 import CardsTab from './components/CardsTab';
 import InvestmentsTab from './components/InvestmentsTab';
 import EmergencyReserveTab from './components/EmergencyReserveTab';
+import WalletSummary from './components/WalletSummary';
+import ExitsTab from './components/ExitsTab';
+import { calculateCumulativeBalance } from './utils/financialLogic';
 
 // CONFIGURAÇÃO MASTER
 const MASTER_EMAIL = 'j.17jvictor@gmail.com';
@@ -42,6 +45,7 @@ function Dashboard() {
   const { currentUser, saveUserPreferences, getUserPreferences, userPrefs } = useAuth();
   const { theme } = useTheme();
   const [transactions, setTransactions] = useState([]);
+  const [savingsJars, setSavingsJars] = useState([]);
   const [goals, setGoals] = useState([]);
   const [cards, setCards] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
@@ -54,6 +58,7 @@ function Dashboard() {
   const [monthlyReviewText, setMonthlyReviewText] = useState('');
   const [previousMonthStats, setPreviousMonthStats] = useState({ income: 0, expense: 0, balance: 0, topCategory: '' });
   const [previousMonthName, setPreviousMonthName] = useState('');
+  const [cdiRate, setCdiRate] = useState(10.65);
 
   const [manualConfig, setManualConfig] = useState({
     income: '',
@@ -63,6 +68,14 @@ function Dashboard() {
     categoryBudgets: {},
     recurringSubs: []
   });
+
+  const [hideBalance, setHideBalance] = useState(() => localStorage.getItem('hideBalance') === 'true');
+
+  const toggleHideBalance = () => {
+    const newValue = !hideBalance;
+    setHideBalance(newValue);
+    localStorage.setItem('hideBalance', String(newValue));
+  };
 
   const updateManualConfig = (newConfig) => {
     setManualConfig(newConfig);
@@ -90,11 +103,23 @@ function Dashboard() {
   }, []);
 
   useEffect(() => {
+    // Fetch approximate CDI rate for the dashboard
+    fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json')
+        .then(res => res.json())
+        .then(data => {
+            if (data && data[0] && data[0].valor) {
+                setCdiRate(parseFloat(data[0].valor) * 365);
+            }
+        })
+        .catch(err => console.warn("Erro ao buscar CDI no Dashboard:", err));
+  }, []);
+
+  useEffect(() => {
     if (!currentUser) return;
 
     // Listen to Transactions
     const qT = query(collection(db, 'transactions'), where('userId', '==', currentUser.uid), orderBy('date', 'desc'));
-    const unsubT = onSnapshot(qT, (snapshot) => {
+    const unsubscribeTransactions = onSnapshot(qT, (snapshot) => {
       setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setIsLoadingData(false);
     }, (err) => {
@@ -103,8 +128,8 @@ function Dashboard() {
     });
 
     // Listen to Goals
-    const qG = query(collection(db, 'goals'), where('userId', '==', currentUser.uid));
-    const unsubG = onSnapshot(qG, (snapshot) => {
+    const qGoals = query(collection(db, 'goals'), where('userId', '==', currentUser.uid));
+    const unsubscribeGoals = onSnapshot(qGoals, (snapshot) => {
       setGoals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
@@ -120,8 +145,22 @@ function Dashboard() {
       setSubscriptions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    // Listen to Savings Jars
+    const qSavings = query(collection(db, 'savings_jars'), where('userId', '==', currentUser.uid));
+    const unsubscribeSavings = onSnapshot(qSavings, { includeMetadataChanges: true }, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log("[Dev] Dados de Investimentos (savings_jars) recebidos:", data);
+      setSavingsJars(data);
+    }, (err) => {
+      console.warn("[Dev] Erro de conexão ao buscar investimentos:", err);
+    });
+
     return () => {
-      unsubT(); unsubG(); unsubC(); unsubS();
+      unsubscribeTransactions();
+      unsubscribeGoals();
+      unsubC();
+      unsubS();
+      unsubscribeSavings();
     };
   }, [currentUser]);
 
@@ -221,21 +260,38 @@ function Dashboard() {
   const healthScore = calculateHealthScore(transactions, manualConfig);
   const paceAlerts = useMemo(() => calculateSpendingPace(transactions, manualConfig), [transactions, manualConfig]);
 
-  // STATS FOR ANALYSIS TAB
-  const statsForAnalysis = useMemo(() => {
-    const todayStr = new Date().toLocaleDateString('en-CA').slice(0, 7);
-    const filtered = transactions.filter(t => (t.date?.slice(0, 7) || t.month) === todayStr);
+  // GLOBAL WALLET STATS
+  const walletStats = useMemo(() => {
+    const currentMonthKey = new Date().toLocaleDateString('en-CA').slice(0, 7);
+    const filtered = transactions.filter(t => (t.date?.slice(0, 7) || t.month) === currentMonthKey);
     
-    const displayIncome = filtered
-        .filter(t => t.type === 'income' && t.category !== 'initial_balance' && t.category !== 'carryover' && t.category !== 'vault_redemption')
+    const income = filtered
+        .filter(t => t.type === 'income')
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
-    const displayExpense = filtered
-        .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault')
+    const expense = filtered
+        .filter(t => t.type === 'expense')
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
-    return { displayIncome, displayExpense, balance: displayIncome - displayExpense };
+    const balance = calculateCumulativeBalance(transactions, currentMonthKey);
+    
+    return { income, expense, balance };
   }, [transactions]);
+
+  // INVESTMENT STATS FOR OVERVIEW
+  const investmentStats = useMemo(() => {
+    const totalGuarded = savingsJars.reduce((acc, curr) => acc + (parseFloat(curr.balance) || 0), 0);
+    const dailyYield = savingsJars.reduce((acc, curr) => {
+        const cdiAnual = cdiRate / 100; 
+        const percent = (parseFloat(curr.cdiPercent) || 100) / 100;
+        const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
+        const val = parseFloat(curr.balance) || 0;
+        return acc + (val * dailyRate);
+    }, 0);
+    
+    console.log("[Dev] Estatísticas de Investimento calculadas:", { totalGuarded, dailyYield });
+    return { totalGuarded, dailyYield };
+  }, [savingsJars, cdiRate]);
 
   if (activeModule === 'hub') {
     return (
@@ -332,6 +388,40 @@ function Dashboard() {
 
           {activeTab === 'visao' && (
             <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <WalletSummary 
+                income={walletStats.income} 
+                expense={walletStats.expense} 
+                balance={walletStats.balance}
+                isHidden={hideBalance}
+                onToggle={toggleHideBalance}
+              />
+
+              {/* Investment Summary in Overview - MOVED TO TOP */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className={`p-8 rounded-[2.5rem] border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-500">
+                      <Landmark className="w-5 h-5" />
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Guardado em Investimentos</p>
+                  </div>
+                  <p className={`text-3xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                    R$ {investmentStats.totalGuarded.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div className={`p-8 rounded-[2.5rem] border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-blue-500/10 rounded-xl text-blue-500">
+                      <TrendingUp className="w-5 h-5" />
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Rendimento do Patrimônio</p>
+                  </div>
+                  <p className="text-3xl font-black text-emerald-500">
+                    + R$ {investmentStats.dailyYield.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <span className="text-sm font-bold opacity-60">/dia</span>
+                  </p>
+                </div>
+              </div>
+
               <HealthScoreCard scoreData={healthScore} />
               
               {paceAlerts.length > 0 && <PaceAlerts paceAlerts={paceAlerts} />}
@@ -425,18 +515,29 @@ function Dashboard() {
           )}
 
           {activeTab === 'entradas' && (
-            <IncomeTab transactions={transactions} />
+            <div className="space-y-10">
+               <WalletSummary 
+                income={walletStats.income} 
+                expense={walletStats.expense} 
+                balance={walletStats.balance}
+                isHidden={hideBalance}
+                onToggle={toggleHideBalance}
+              />
+              <IncomeTab transactions={transactions} savingsJars={savingsJars} />
+            </div>
           )}
 
           {activeTab === 'gastos' && (
-            <TransactionSection 
-              transactions={transactions}
-              goals={goals}
-              isLoadingData={isLoadingData}
-              manualConfig={manualConfig}
-              updateManualConfig={updateManualConfig}
-              onGoToSettings={() => setActiveTab('ajustes')}
-            />
+            <div className="space-y-10">
+               <WalletSummary 
+                income={walletStats.income} 
+                expense={walletStats.expense} 
+                balance={walletStats.balance}
+                isHidden={hideBalance}
+                onToggle={toggleHideBalance}
+              />
+              <ExitsTab transactions={transactions} />
+            </div>
           )}
           
           { activeTab === 'manual' && (

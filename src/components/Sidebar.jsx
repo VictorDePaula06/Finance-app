@@ -29,7 +29,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
     // Gastos Module
     { id: 'visao', label: 'Visão Geral', icon: LayoutDashboard, module: 'gastos' },
     { id: 'entradas', label: 'Entradas', icon: ArrowUpCircle, module: 'gastos' },
-    { id: 'gastos', label: 'Gastos', icon: TrendingDown, module: 'gastos' },
+    { id: 'gastos', label: 'Saídas', icon: TrendingDown, module: 'gastos' },
     { id: 'analise', label: 'Análise de Gastos', icon: TrendingUp, module: 'gastos' },
     { id: 'cartoes', label: 'Cartões', icon: CreditCard, module: 'gastos' },
     
@@ -85,7 +85,13 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
             }
           }}
         >
-          <img src={logo} alt="Alívia Logo" className="w-48 h-48 object-contain drop-shadow-[0_0_40px_rgba(16,185,129,0.15)] transition-all hover:scale-105 duration-700" />
+          <img 
+            src={logo} 
+            alt="Alívia Logo" 
+            className={`w-48 h-48 object-contain drop-shadow-[0_0_40px_rgba(16,185,129,0.15)] transition-all hover:scale-105 duration-700 ${
+              theme === 'dark' ? 'brightness-0 invert' : ''
+            }`} 
+          />
         </div>
 
         {/* Navigation Links */}

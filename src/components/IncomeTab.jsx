@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/firebase';
-import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { TrendingUp, Trash2, ArrowUpCircle, CircleDollarSign, Loader2 } from 'lucide-react';
+import { TrendingUp, Trash2, ArrowUpCircle, CircleDollarSign, Loader2, Pencil, X, Landmark, ArrowDownCircle } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
 
-export default function IncomeTab({ transactions }) {
+export default function IncomeTab({ transactions, savingsJars }) {
     const { theme } = useTheme();
     const { currentUser } = useAuth();
     
@@ -19,6 +19,11 @@ export default function IncomeTab({ transactions }) {
     const [isUSD, setIsUSD] = useState(false);
     const [usdRate, setUsdRate] = useState(null);
     const [isLoadingRate, setIsLoadingRate] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const [showRescueModal, setShowRescueModal] = useState(false);
+    const [rescueAmount, setRescueAmount] = useState('');
+    const [selectedJarId, setSelectedJarId] = useState('');
+    const [isRescuing, setIsRescuing] = useState(false);
     
     // Fetch USD rate once
     useEffect(() => {
@@ -59,30 +64,96 @@ export default function IncomeTab({ transactions }) {
         else if (lowerDesc.includes('presente') || lowerDesc.includes('doação')) catId = 'gift';
 
         const transactionData = {
-            description: isUSD ? `${description} (U$ ${parseFloat(amount).toFixed(2)})` : description,
+            description: isUSD && !editingId ? `${description} (U$ ${parseFloat(amount).toFixed(2)})` : description,
             amount: finalAmount,
             type: 'income',
             category: catId,
             date: transactionDate.toISOString(),
             userId: currentUser.uid,
             month: transactionDate.toISOString().slice(0, 7),
-            createdAt: Date.now(),
+            updatedAt: Date.now(),
             isFixed: false
         };
 
         try {
-            await addDoc(collection(db, 'transactions'), transactionData);
+            if (editingId) {
+                const { createdAt, ...updateData } = transactionData;
+                await updateDoc(doc(db, 'transactions', editingId), updateData);
+            } else {
+                await addDoc(collection(db, 'transactions'), {
+                    ...transactionData,
+                    createdAt: Date.now()
+                });
+            }
             setAmount('');
             setDescription('');
             setIsUSD(false);
+            setEditingId(null);
         } catch (error) {
             console.error("Error saving income:", error);
         }
     };
 
+    const handleEdit = (inc) => {
+        setEditingId(inc.id);
+        setDescription(inc.description);
+        setAmount(inc.amount.toString());
+        const d = new Date(inc.date);
+        setDate(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+        setIsUSD(false); // Reset USD on edit for simplicity
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     const handleDelete = async (id) => {
         if (window.confirm("Deseja remover esta entrada?")) {
             await deleteDoc(doc(db, 'transactions', id));
+        }
+    };
+
+    // Total available in investments
+    const totalAvailable = savingsJars?.reduce((acc, jar) => acc + (parseFloat(jar.balance) || 0), 0) || 0;
+
+    const handleRescue = async (e) => {
+        e.preventDefault();
+        const val = parseFloat(rescueAmount);
+        if (!val || val <= 0 || !selectedJarId || isRescuing) return;
+
+        const targetJar = savingsJars.find(j => j.id === selectedJarId);
+        if (!targetJar || val > (parseFloat(targetJar.balance) || 0)) {
+            alert('Valor superior ao saldo desta reserva!');
+            return;
+        }
+
+        setIsRescuing(true);
+        try {
+            // 1. Update Specific Jar
+            const newBalance = (parseFloat(targetJar.balance) || 0) - val;
+            await updateDoc(doc(db, 'savings_jars', targetJar.id), {
+                balance: newBalance,
+                updatedAt: new Date().toISOString()
+            });
+
+            // 2. Add Income Transaction
+            await addDoc(collection(db, 'transactions'), {
+                description: `Resgate: ${targetJar.name}`,
+                amount: val,
+                type: 'income',
+                category: 'vault_redemption',
+                date: new Date().toISOString(),
+                userId: currentUser.uid,
+                month: new Date().toISOString().slice(0, 7),
+                createdAt: Date.now()
+            });
+
+            setRescueAmount('');
+            setSelectedJarId('');
+            setShowRescueModal(false);
+            alert('Resgate efetuado com sucesso!');
+        } catch (error) {
+            console.error("Erro ao resgatar:", error);
+            alert('Erro ao processar resgate.');
+        } finally {
+            setIsRescuing(false);
         }
     };
 
@@ -104,10 +175,25 @@ export default function IncomeTab({ transactions }) {
                     <div className={`p-3 rounded-2xl ${theme === 'light' ? 'bg-emerald-100' : 'bg-emerald-500/20'}`}>
                         <ArrowUpCircle className={`w-6 h-6 ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`} />
                     </div>
-                    <div>
-                        <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Nova Entrada</h3>
+                    <div className="flex-1">
+                        <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                            {editingId ? 'Editar Entrada' : 'Nova Entrada'}
+                        </h3>
                         <p className={`text-xs ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Registre seus salários, serviços extras e rendimentos.</p>
                     </div>
+                    {editingId && (
+                        <button 
+                            type="button" 
+                            onClick={() => {
+                                setEditingId(null);
+                                setDescription('');
+                                setAmount('');
+                            }}
+                            className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
@@ -197,7 +283,7 @@ export default function IncomeTab({ transactions }) {
                         }`}
                     >
                         <TrendingUp className="w-4 h-4" />
-                        Registrar Entrada
+                        {editingId ? 'Salvar Alterações' : 'Registrar Entrada'}
                     </button>
                 </div>
                 
@@ -208,6 +294,21 @@ export default function IncomeTab({ transactions }) {
                     </div>
                 )}
             </form>
+
+            {/* Rescue Button */}
+            <div className="flex justify-center sm:justify-end">
+                <button 
+                    onClick={() => setShowRescueModal(true)}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl border font-black text-xs uppercase tracking-widest transition-all hover:scale-105 active:scale-95 ${
+                        theme === 'light' 
+                        ? 'bg-blue-50 border-blue-100 text-blue-600 hover:bg-blue-100' 
+                        : 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20'
+                    }`}
+                >
+                    <Landmark className="w-4 h-4" />
+                    Resgatar de Investimento
+                </button>
+            </div>
 
             {/* List of Incomes */}
             <div className={`p-6 rounded-[2rem] border shadow-sm ${
@@ -256,10 +357,18 @@ export default function IncomeTab({ transactions }) {
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-4">
-                                        <span className="font-black text-emerald-500">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-black text-emerald-500 mr-2">
                                             + R$ {parseFloat(inc.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                         </span>
+                                        <button 
+                                            onClick={() => handleEdit(inc)}
+                                            className={`p-2 rounded-lg transition-colors ${
+                                                theme === 'light' ? 'text-slate-300 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10'
+                                            }`}
+                                        >
+                                            <Pencil className="w-4 h-4" />
+                                        </button>
                                         <button 
                                             onClick={() => handleDelete(inc.id)}
                                             className={`p-2 rounded-lg transition-colors ${
@@ -275,6 +384,94 @@ export default function IncomeTab({ transactions }) {
                     )}
                 </div>
             </div>
+
+            {/* Rescue Modal */}
+            {showRescueModal && (
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className={`w-full max-w-md rounded-[2.5rem] p-8 md:p-10 border relative animate-in zoom-in-95 duration-300 ${
+                        theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+                    }`}>
+                        <button 
+                            onClick={() => setShowRescueModal(false)}
+                            className="absolute top-6 right-6 p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        <div className="space-y-6">
+                            <div className="text-center space-y-2">
+                                <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <ArrowDownCircle className="w-8 h-8 text-blue-500" />
+                                </div>
+                                <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Resgatar Valor</h3>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mova dinheiro do investimento para sua carteira</p>
+                            </div>
+
+                            <div className={`p-4 rounded-2xl border text-center ${
+                                theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
+                            }`}>
+                                <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Disponível para Resgate</p>
+                                <p className={`text-2xl font-black ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`}>
+                                    R$ {totalAvailable.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </p>
+                            </div>
+
+                            <form onSubmit={handleRescue} className="space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Selecione a Reserva</label>
+                                        <select 
+                                            required
+                                            value={selectedJarId}
+                                            onChange={(e) => setSelectedJarId(e.target.value)}
+                                            className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                theme === 'light' 
+                                                ? 'bg-slate-50 border-slate-100 text-slate-800' 
+                                                : 'bg-slate-800 border-white/5 text-white'
+                                            }`}
+                                        >
+                                            <option value="" className={theme === 'dark' ? 'bg-slate-900 text-slate-400' : ''}>
+                                                Selecione a reserva...
+                                            </option>
+                                            {savingsJars?.map(jar => (
+                                                <option 
+                                                    key={jar.id} 
+                                                    value={jar.id}
+                                                    className={theme === 'dark' ? 'bg-slate-900 text-white' : ''}
+                                                >
+                                                    {jar.name} (R$ {parseFloat(jar.balance).toLocaleString('pt-BR')})
+                                                </option>
+                                            ))}
+                                        </select>
+                                </div>
+
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Quanto deseja resgatar?</label>
+                                    <input 
+                                        type="number" step="0.01" required
+                                        value={rescueAmount}
+                                        onChange={(e) => setRescueAmount(e.target.value)}
+                                        placeholder="0.00"
+                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                            theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/5 text-white focus:border-blue-500'
+                                        }`}
+                                    />
+                                    {selectedJarId && parseFloat(rescueAmount) > (parseFloat(savingsJars.find(j => j.id === selectedJarId)?.balance) || 0) && (
+                                        <p className="text-[10px] text-rose-500 font-bold mt-2 ml-1">Valor superior ao saldo desta reserva!</p>
+                                    )}
+                                </div>
+
+                                <button 
+                                    type="submit"
+                                    disabled={!rescueAmount || !selectedJarId || isRescuing}
+                                    className="w-full py-4 bg-blue-500 hover:bg-blue-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
+                                >
+                                    {isRescuing ? 'Processando...' : 'Confirmar Resgate'}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -30,7 +30,11 @@ export default function Login() {
             <div className="w-full max-w-lg relative z-10 animate-in fade-in zoom-in duration-700">
                 {/* Header/Brand */}
                 <div className="flex flex-col items-center mb-12">
-                    <img src={logo} alt="Alívia Logo" className="w-48 h-auto object-contain mb-8 drop-shadow-sm" />
+                    <img 
+                        src={logo} 
+                        alt="Alívia Logo" 
+                        className="w-48 h-auto object-contain mb-8 drop-shadow-sm brightness-0" 
+                    />
                     
                     <div className="relative group">
                         <div className="absolute inset-0 bg-emerald-400/20 rounded-full blur-2xl animate-pulse"></div>
