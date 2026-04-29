@@ -115,55 +115,82 @@ export default function IncomeTab({ transactions, savingsJars }) {
 
     const handleRescue = async (e) => {
         e.preventDefault();
+        if (!currentUser) return;
+
         const val = parseFloat(rescueAmount);
         if (!val || val <= 0 || !selectedJarId || isRescuing) return;
 
-        const targetJar = savingsJars.find(j => j.id === selectedJarId);
+        const targetJar = savingsJars?.find(j => j.id === selectedJarId);
         if (!targetJar || val > (parseFloat(targetJar.balance) || 0)) {
             alert('Valor superior ao saldo desta reserva!');
             return;
         }
 
         setIsRescuing(true);
+        // Fechar modal imediatamente para dar feedback visual de que o comando foi aceito
+        setShowRescueModal(false);
+
         try {
+            const now = new Date();
+            const isoDate = now.toISOString();
+            const monthStr = isoDate.slice(0, 7);
+
             // 1. Update Specific Jar
             const newBalance = (parseFloat(targetJar.balance) || 0) - val;
-            await updateDoc(doc(db, 'savings_jars', targetJar.id), {
+            const jarUpdate = updateDoc(doc(db, 'savings_jars', targetJar.id), {
                 balance: newBalance,
-                updatedAt: new Date().toISOString()
+                updatedAt: isoDate
             });
 
             // 2. Add Income Transaction
-            await addDoc(collection(db, 'transactions'), {
+            const transAdd = addDoc(collection(db, 'transactions'), {
                 description: `Resgate: ${targetJar.name}`,
                 amount: val,
                 type: 'income',
                 category: 'vault_redemption',
-                date: new Date().toISOString(),
+                date: isoDate,
                 userId: currentUser.uid,
-                month: new Date().toISOString().slice(0, 7),
+                month: monthStr,
                 createdAt: Date.now()
             });
 
+            // Executa ambos em paralelo para ser mais rápido
+            await Promise.all([jarUpdate, transAdd]);
+
+            // Limpar estados
             setRescueAmount('');
             setSelectedJarId('');
-            setShowRescueModal(false);
-            alert('Resgate efetuado com sucesso!');
+            
+            console.log("Resgate processado com sucesso!");
         } catch (error) {
             console.error("Erro ao resgatar:", error);
-            alert('Erro ao processar resgate.');
+            alert('Erro ao processar resgate. Verifique sua conexão.');
         } finally {
             setIsRescuing(false);
         }
     };
 
-    // Current month incomes
-    const currentMonthStr = new Date().toLocaleDateString('en-CA').slice(0, 7);
-    const recentIncomes = transactions
-        .filter(t => t.type === 'income' && t.date.startsWith(currentMonthStr) && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
-        .sort((a, b) => new Date(b.date) - new Date(a.date));
+    // Logic to filter transactions for the current month
+    const currentMonthKey = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+
+    // 1. Regular Incomes (Salary, Freelance, etc)
+    const recentIncomes = transactions.filter(t => {
+        const isIncome = t.type === 'income';
+        const isNotSpecial = !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category);
+        const matchesMonth = t.month === currentMonthKey || (t.date && t.date.startsWith(currentMonthKey));
+        return isIncome && isNotSpecial && matchesMonth;
+    }).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // 2. Redemptions (Moving from Patrimony to Wallet)
+    const recentRedemptions = transactions.filter(t => {
+        const isIncome = t.type === 'income';
+        const isRedemption = t.category === 'vault_redemption' || (t.description && t.description.includes('Resgate:'));
+        const matchesMonth = t.month === currentMonthKey || (t.date && t.date.slice(0, 7) === currentMonthKey);
+        return isIncome && isRedemption && matchesMonth;
+    }).sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const totalIncomeMonth = recentIncomes.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    const totalRedemptionMonth = recentRedemptions.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
@@ -309,9 +336,8 @@ export default function IncomeTab({ transactions, savingsJars }) {
                     Resgatar de Investimento
                 </button>
             </div>
-
-            {/* List of Incomes */}
-            <div className={`p-6 rounded-[2rem] border shadow-sm ${
+             {/* Section 1: Main Incomes */}
+            <div className={`p-6 rounded-[2.5rem] border shadow-sm ${
                 theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'
             }`}>
                 <div className="flex justify-between items-center mb-6">
@@ -329,9 +355,6 @@ export default function IncomeTab({ transactions, savingsJars }) {
                 <div className="space-y-3">
                     {recentIncomes.length === 0 ? (
                         <div className="text-center py-8">
-                            <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3">
-                                <TrendingUp className="w-8 h-8 text-slate-300 dark:text-slate-600" />
-                            </div>
                             <p className="text-sm font-bold text-slate-400 dark:text-slate-500">Nenhuma entrada registrada este mês.</p>
                         </div>
                     ) : (
@@ -381,6 +404,77 @@ export default function IncomeTab({ transactions, savingsJars }) {
                                 </div>
                             );
                         })
+                    )}
+                </div>
+            </div>
+
+            {/* Section 2: Redemptions (DEDICATED SECTION) */}
+            <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm ${
+                theme === 'light' ? 'bg-white border-blue-100/50 shadow-blue-500/5' : 'bg-slate-900 border-blue-500/10'
+            }`}>
+                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 bg-blue-500/10 rounded-2xl">
+                            <Landmark className="w-6 h-6 text-blue-500" />
+                        </div>
+                        <div>
+                            <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                Movimentações de Resgate
+                            </h3>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Patrimônio → Carteira</p>
+                        </div>
+                    </div>
+                    <div className="text-right px-4 py-2 bg-blue-500/5 rounded-2xl border border-blue-500/10">
+                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Total Resgatado</span>
+                        <span className={`text-2xl font-black ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`}>
+                            R$ {totalRedemptionMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    {recentRedemptions.length === 0 ? (
+                        <div className="text-center py-12 border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[2rem]">
+                            <p className="text-sm font-bold text-slate-400 italic">Nenhum resgate de investimento este mês.</p>
+                        </div>
+                    ) : (
+                        recentRedemptions.map(inc => (
+                            <div key={inc.id} className={`flex items-center justify-between p-5 rounded-2xl border transition-all hover:shadow-lg ${
+                                theme === 'light' ? 'bg-blue-50/30 border-blue-100/50 hover:bg-blue-50 hover:border-blue-200' : 'bg-blue-500/5 border-blue-500/10 hover:bg-blue-500/10'
+                            }`}>
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-inner ${
+                                        theme === 'light' ? 'bg-white' : 'bg-slate-900'
+                                    }`}>
+                                        <Landmark className={`w-6 h-6 text-blue-500`} />
+                                    </div>
+                                    <div>
+                                        <h4 className={`font-bold text-base ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
+                                            {inc.description}
+                                        </h4>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <p className={`text-[11px] font-bold ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                {new Date(inc.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+                                            </p>
+                                            <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-500 text-white">Sucesso</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <span className="font-black text-xl text-blue-500">
+                                        + R$ {parseFloat(inc.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </span>
+                                    <button 
+                                        onClick={() => handleDelete(inc.id)}
+                                        className={`p-2.5 rounded-xl transition-colors ${
+                                            theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
+                                        }`}
+                                    >
+                                        <Trash2 className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))
                     )}
                 </div>
             </div>

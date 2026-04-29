@@ -345,7 +345,7 @@ function Dashboard() {
                 <div className="min-w-0">
                   <h2 className={`text-base md:text-2xl font-black truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                     {activeTab === 'visao' ? (
-                      <>Olá, <span className="text-emerald-500">{currentUser?.displayName?.split(' ')[0] || 'Joao'}</span></>
+                      <>Olá, <span className="text-emerald-500">{currentUser?.displayName?.split(' ')[0] || 'Joao'}</span> {window.location.hostname === 'localhost' && <span className="ml-2 text-[10px] bg-amber-500/20 text-amber-500 px-2 py-0.5 rounded-full uppercase tracking-widest border border-amber-500/20">Modo Dev</span>}</>
                     ) : (
                       <span className="capitalize text-emerald-500">{activeTab}</span>
                     )}

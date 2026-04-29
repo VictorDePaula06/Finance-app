@@ -85,8 +85,40 @@ export default function EmergencyReserveTab() {
             };
 
             if (isEditing) {
+                // Sincronizar com transações
+                const oldReserve = reserves.find(r => r.id === isEditing);
+                const oldBalance = oldReserve?.balance || 0;
+                const diff = balance - oldBalance;
+
+                if (diff !== 0) {
+                    await addDoc(collection(db, 'transactions'), {
+                        description: diff > 0 ? `Aporte Reserva: ${formData.name}` : `Resgate/Ajuste Reserva: ${formData.name}`,
+                        amount: Math.abs(diff),
+                        type: diff > 0 ? 'expense' : 'income',
+                        category: diff > 0 ? 'investment' : 'vault_redemption',
+                        date: new Date().toISOString(),
+                        userId: currentUser.uid,
+                        month: new Date().toISOString().slice(0, 7),
+                        createdAt: Date.now()
+                    });
+                }
+                
                 await updateDoc(doc(db, 'savings_jars', isEditing), dataToSave);
             } else {
+                // Nova reserva - Registrar saída da carteira
+                if (balance > 0) {
+                    await addDoc(collection(db, 'transactions'), {
+                        description: `Criação de Reserva: ${formData.name}`,
+                        amount: balance,
+                        type: 'expense',
+                        category: 'investment',
+                        date: new Date().toISOString(),
+                        userId: currentUser.uid,
+                        month: new Date().toISOString().slice(0, 7),
+                        createdAt: Date.now()
+                    });
+                }
+
                 await addDoc(collection(db, 'savings_jars'), {
                     ...dataToSave,
                     createdAt: new Date().toISOString(),

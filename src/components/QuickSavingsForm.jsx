@@ -83,10 +83,10 @@ export default function QuickSavingsForm({ onTransactionAdded }) {
             setCdiPercent('100');
             
             if (onTransactionAdded) onTransactionAdded();
-            alert('Investimento registrado com sucesso!');
+            console.log('Investimento registrado com sucesso!');
         } catch (error) {
             console.error("Erro ao salvar investimento rápido:", error);
-            alert('Erro ao salvar. Tente novamente.');
+            alert('Erro ao salvar. Verifique sua conexão.');
         } finally {
             setIsSaving(false);
         }

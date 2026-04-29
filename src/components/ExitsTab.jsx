@@ -130,9 +130,32 @@ export default function ExitsTab({ transactions }) {
         setShowModal(true);
     };
 
-    const handleDelete = async (id) => {
+    const handleDelete = async (transaction) => {
         if (window.confirm("Deseja remover esta saída?")) {
-            await deleteDoc(doc(db, 'transactions', id));
+            try {
+                // 1. Delete the transaction
+                await deleteDoc(doc(db, 'transactions', transaction.id));
+
+                // 2. If it was an investment, try to find and delete the corresponding jar
+                if (transaction.category === 'investment') {
+                    const jarName = transaction.description.replace('Investimento: ', '');
+                    const qJars = query(
+                        collection(db, 'savings_jars'), 
+                        where('userId', '==', currentUser.uid),
+                        where('name', '==', jarName)
+                    );
+                    
+                    const { getDocs } = await import('firebase/firestore');
+                    const jarSnap = await getDocs(qJars);
+                    
+                    // Delete all jars with this name (usually just one, but safe)
+                    const deletePromises = jarSnap.docs.map(d => deleteDoc(doc(db, 'savings_jars', d.id)));
+                    await Promise.all(deletePromises);
+                    console.log("[Dev] Cofrinho associado removido.");
+                }
+            } catch (err) {
+                console.error("Erro ao deletar:", err);
+            }
         }
     };
 
@@ -294,7 +317,7 @@ export default function ExitsTab({ transactions }) {
                                             <Pencil className="w-4 h-4" />
                                         </button>
                                         <button 
-                                            onClick={() => handleDelete(t.id)}
+                                            onClick={() => handleDelete(t)}
                                             className={`p-2 rounded-lg transition-colors ${
                                                 theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
                                             }`}

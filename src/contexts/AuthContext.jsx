@@ -26,6 +26,9 @@ export function AuthProvider({ children }) {
     const [userPrefs, setUserPrefs] = useState(null);
     const expiryTimeoutRef = useRef(null);
 
+    // MODO DEV: Bypass de autenticação para localhost
+    const IS_DEV = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
     function signup(email, password) {
         return createUserWithEmailAndPassword(auth, email, password);
     }
@@ -43,6 +46,20 @@ export function AuthProvider({ children }) {
     }
 
     useEffect(() => {
+        if (IS_DEV) {
+            console.log("[Dev Mode] Ativando bypass de autenticação...");
+            const mockUser = {
+                uid: 'dev-user-123',
+                email: 'j.17jvictor@gmail.com',
+                displayName: 'João (Dev)',
+                photoURL: 'https://github.com/identicons/j.png'
+            };
+            setCurrentUser(mockUser);
+            setIsPremium(true);
+            setLoading(false);
+            return;
+        }
+
         const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
             if (!user) {
@@ -81,6 +98,29 @@ export function AuthProvider({ children }) {
     // Stable Subscription & Prefs Listener
     useEffect(() => {
         if (!currentUser) return;
+
+        if (IS_DEV) {
+            console.log("[Dev Mode] Simulando preferências e status premium...");
+            const mockPrefs = {
+                hasSeenWelcome: true,
+                hasSeenPatrimonyWelcome: true,
+                lastMonthlyReviewSeen: new Date().toISOString().slice(0, 7),
+                manualConfig: {
+                    income: 7500,
+                    fixedExpenses: 3200,
+                    variableEstimate: 1500,
+                    invested: 10000,
+                    categoryBudgets: {},
+                    recurringSubs: []
+                }
+            };
+            setUserPrefs(mockPrefs);
+            setIsPremium(true);
+            setDaysRemaining(9999);
+            setIsTrial(false);
+            setLoading(false);
+            return;
+        }
 
         const checkStatus = () => {
             if (expiryTimeoutRef.current) clearTimeout(expiryTimeoutRef.current);
@@ -260,6 +300,13 @@ export function AuthProvider({ children }) {
         // Atualiza o estado local imediatamente para a UI não travar
         setUserPrefs(prev => ({ ...prev, ...data }));
         
+        if (IS_DEV) {
+            console.log("[Dev Mode] Salvando preferências no localStorage...");
+            const current = userPrefs || {};
+            localStorage.setItem('dev_user_prefs', JSON.stringify({ ...current, ...data }));
+            return;
+        }
+
         try {
             const userRef = doc(db, 'users', currentUser.uid, 'settings', 'general');
             await setDoc(userRef, data, { merge: true });
@@ -270,6 +317,10 @@ export function AuthProvider({ children }) {
 
     async function getUserPreferences() {
         if (!currentUser) return null;
+        if (IS_DEV) {
+            const saved = localStorage.getItem('dev_user_prefs');
+            return saved ? JSON.parse(saved) : userPrefs;
+        }
         try {
             const userRef = doc(db, 'users', currentUser.uid, 'settings', 'general');
             const docSnap = await getDoc(userRef);
@@ -282,6 +333,10 @@ export function AuthProvider({ children }) {
 
     async function saveChatHistory(messages) {
         if (!currentUser) return;
+        if (IS_DEV) {
+            localStorage.setItem('dev_chat_history', JSON.stringify(messages));
+            return;
+        }
         const chatRef = doc(db, 'users', currentUser.uid, 'chat', 'history');
         // Firestore has a size limit for documents (1MB). For a simple chat history, this is usually fine.
         // If it grows too large, we might need a subcollection, but for now a single doc is simpler.
@@ -290,6 +345,10 @@ export function AuthProvider({ children }) {
 
     async function getChatHistory() {
         if (!currentUser) return [];
+        if (IS_DEV) {
+            const saved = localStorage.getItem('dev_chat_history');
+            return saved ? JSON.parse(saved) : [];
+        }
         const chatRef = doc(db, 'users', currentUser.uid, 'chat', 'history');
         const docSnap = await getDoc(chatRef);
         return docSnap.exists() ? docSnap.data().messages : [];
