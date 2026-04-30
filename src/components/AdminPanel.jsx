@@ -178,6 +178,7 @@ export default function AdminPanel({ onBack }) {
                     isExpired: isExpired && !isLifetime && !isTrial,
                     isLifetime,
                     isBlocked,
+                    isStandard: subStatus === 'free' || subStatus === 'expired',
                     isAdmin: userData.isAdmin || false,
                     pushSubscriptions: userData.pushSubscriptions || [],
                     createdAt: baseDate ? baseDate.toLocaleDateString('pt-BR') : 'N/A',
@@ -222,10 +223,17 @@ export default function AdminPanel({ onBack }) {
 
             const newState = {
                 isAdmin: changes.hasOwnProperty('isAdmin') ? changes.isAdmin : user.isAdmin,
-                isPremium: changes.hasOwnProperty('isPremium') ? changes.isPremium : user.isPremium,
-                isLifetime: changes.hasOwnProperty('isLifetime') ? changes.isLifetime : user.isLifetime,
-                isBlocked: changes.hasOwnProperty('isBlocked') ? changes.isBlocked : user.isBlocked
+                isPremium: changes.hasOwnProperty('isPremium') ? (changes.isPremium && !changes.isStandard) : user.isPremium,
+                isLifetime: changes.hasOwnProperty('isLifetime') ? (changes.isLifetime && !changes.isStandard) : user.isLifetime,
+                isBlocked: changes.hasOwnProperty('isBlocked') ? changes.isBlocked : user.isBlocked,
+                isStandard: changes.hasOwnProperty('isStandard') ? changes.isStandard : user.isStandard
             };
+
+            // Se marcar Standard como true, desmarca Premium e Vitalício
+            if (changes.isStandard) {
+                newState.isPremium = false;
+                newState.isLifetime = false;
+            }
 
             batch.update(userRef, { isAdmin: newState.isAdmin });
 
@@ -625,7 +633,7 @@ export default function AdminPanel({ onBack }) {
                                 { id: 'isAdmin', label: 'Este usuário é um administrador', desc: 'Permite acesso total ao Painel Admin', color: 'bg-purple-500' },
                                 { id: 'isPremium', label: 'Plano Premium Ativo', desc: 'Acesso completo a todas as ferramentas', color: 'bg-emerald-500' },
                                 { id: 'isLifetime', label: 'Plano Vitalício', desc: 'Acesso permanente e ilimitado ao sistema', color: 'bg-blue-500' },
-                                { id: 'isStandard', label: 'Plano Standard (Ilustrativo)', desc: 'Versão limitada do sistema', color: 'bg-slate-500', disabled: true },
+                                { id: 'isStandard', label: 'Plano Standard', desc: 'Versão limitada do sistema', color: 'bg-slate-500' },
                                 { id: 'isBlocked', label: 'Bloquear Usuário', desc: 'Impedir acesso imediato ao sistema', color: 'bg-rose-500' }
                             ].map(flag => (
                                 <button 
