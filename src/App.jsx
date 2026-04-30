@@ -266,11 +266,11 @@ function Dashboard() {
     const filtered = transactions.filter(t => (t.date?.slice(0, 7) || t.month) === currentMonthKey);
     
     const income = filtered
-        .filter(t => t.type === 'income')
+        .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
     const expense = filtered
-        .filter(t => t.type === 'expense')
+        .filter(t => t.type === 'expense' && t.category !== 'investment')
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
     const balance = calculateCumulativeBalance(transactions, currentMonthKey);
@@ -675,15 +675,15 @@ function AppContent() {
   if (view === 'contact') return <Contact onBack={() => setView(currentUser ? 'dashboard' : 'landing')} />;
 
   if (currentUser) {
-    if (currentUser.email === MASTER_EMAIL && view === 'admin') {
+    if (isAdmin && view === 'admin') {
       return <AdminPanel onBack={() => setView('dashboard')} />;
     }
-    return isPremium || currentUser.email === MASTER_EMAIL ? (
+    return isPremium || isAdmin ? (
       <>
         <Dashboard />
       </>
     ) : (
-      <SubscriptionBlock onAdminAccess={() => setView('admin')} />
+      <SubscriptionBlock onAdminAccess={() => isAdmin && setView('admin')} />
     );
   }
 

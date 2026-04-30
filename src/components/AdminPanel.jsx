@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../services/firebase';
 import { collection, getDocs, doc, updateDoc, setDoc, query, getDoc, collectionGroup, deleteDoc, where, writeBatch } from 'firebase/firestore';
-import { ArrowLeft, UserCheck, UserMinus, Shield, Search, RefreshCw, TrendingUp, Zap, Trash2, Filter } from 'lucide-react';
+import { ArrowLeft, UserCheck, UserMinus, Shield, Search, RefreshCw, TrendingUp, Zap, Trash2, Filter, ShieldAlert, Users, CreditCard, Clock } from 'lucide-react';
 
 export default function AdminPanel({ onBack }) {
     const [users, setUsers] = useState([]);
@@ -148,6 +148,7 @@ export default function AdminPanel({ onBack }) {
                     isLifetime,
                     isBlocked,
                     isDeleted: userData.status === 'deleted' || !userSnap.exists(),
+                    isAdmin: userData.isAdmin || false,
                     pushSubscriptions: userData.pushSubscriptions || [],
                     deletedAt: userData.deletedAt ? (userData.deletedAt.toDate ? userData.deletedAt.toDate() : new Date(userData.deletedAt)) : null,
                     createdAt: baseDate ? baseDate.toLocaleDateString('pt-BR') : 'N/A',
@@ -182,6 +183,21 @@ export default function AdminPanel({ onBack }) {
         } catch (error) {
             console.error("Error updating user:", error);
             alert("Erro ao atualizar status do usuário: " + error.message);
+        }
+    };
+
+    const toggleAdmin = async (uid, currentIsAdmin) => {
+        if (!window.confirm(`Deseja ${currentIsAdmin ? 'REMOVER' : 'TORNAR'} este usuário um administrador?`)) return;
+        try {
+            const userRef = doc(db, 'users', uid);
+            await setDoc(userRef, {
+                isAdmin: !currentIsAdmin
+            }, { merge: true });
+            alert("Status de administrador atualizado!");
+            fetchUsers();
+        } catch (error) {
+            console.error("Error toggling admin:", error);
+            alert("Erro ao atualizar status de administrador.");
         }
     };
 
@@ -410,147 +426,200 @@ export default function AdminPanel({ onBack }) {
     });
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-200 p-6 md:p-12 font-sans relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-[120px] -z-10" />
-            <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/5 rounded-full blur-[120px] -z-10" />
+        <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-12 font-sans relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[150px] -z-10" />
+            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[150px] -z-10" />
 
-            <div className="max-w-6xl mx-auto relative z-10">
+            <div className="max-w-7xl mx-auto relative z-10">
                 <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-12">
-                    <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-slate-300 transition-colors group w-fit">
-                        <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                        <span className="text-sm font-bold uppercase tracking-tight">Voltar ao Dashboard</span>
-                    </button>
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-slate-900/50 shadow-xl rounded-2xl border border-white/5">
-                            <Shield className="w-6 h-6 text-emerald-400" />
+                    <div>
+                        <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-slate-300 transition-colors group mb-4">
+                            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Painel Operacional</span>
+                        </button>
+                        <div className="flex items-center gap-4">
+                            <div className="p-4 bg-emerald-500/10 shadow-2xl rounded-3xl border border-emerald-500/20">
+                                <Shield className="w-8 h-8 text-emerald-400" />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-white">Administração</h1>
+                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Gestão de Usuários e Sistema</p>
+                            </div>
                         </div>
-                        <h1 className="text-2xl md:text-3xl font-black tracking-tighter text-white">Painel Admin</h1>
+                    </div>
+
+                    <div className="flex items-center gap-4 bg-slate-900/50 p-2 rounded-[2rem] border border-white/5 backdrop-blur-md">
+                        <div className="px-6 text-center border-r border-white/10">
+                            <p className="text-[9px] font-black text-slate-500 uppercase">Total</p>
+                            <p className="text-xl font-black text-white">{users.length}</p>
+                        </div>
+                        <div className="px-6 text-center border-r border-white/10">
+                            <p className="text-[9px] font-black text-emerald-500 uppercase">Premium</p>
+                            <p className="text-xl font-black text-emerald-500">{users.filter(u => u.isPremium).length}</p>
+                        </div>
+                        <div className="px-6 text-center">
+                            <p className="text-[9px] font-black text-blue-500 uppercase">Trial</p>
+                            <p className="text-xl font-black text-blue-500">{users.filter(u => u.isTrial).length}</p>
+                        </div>
                     </div>
                 </header>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                    <div className="md:col-span-2 relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-10">
+                    <div className="md:col-span-6 relative">
+                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
                         <input
                             type="text"
                             placeholder="Buscar por e-mail ou UID..."
-                            className="w-full bg-slate-900/50 border border-white/5 shadow-xl rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all text-base md:text-lg text-slate-100 placeholder:text-slate-600"
+                            className="w-full bg-slate-900/50 border border-white/10 shadow-xl rounded-[2rem] py-5 pl-14 pr-6 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-lg text-slate-100 placeholder:text-slate-600 backdrop-blur-xl"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <div className="flex bg-slate-900/50 border border-white/5 p-1 rounded-2xl shadow-xl">
+                    
+                    <div className="md:col-span-3 flex bg-slate-900/50 border border-white/10 p-2 rounded-[2rem] shadow-xl backdrop-blur-xl">
                         <button
                             onClick={() => setShowDeleted(false)}
-                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${!showDeleted ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'text-slate-500 hover:bg-white/5'}`}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${!showDeleted ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30' : 'text-slate-500 hover:bg-white/5'}`}
                         >
-                            Ativos
+                            <Users className="w-4 h-4" /> Ativos
                         </button>
                         <button
                             onClick={() => setShowDeleted(true)}
-                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${showDeleted ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'text-slate-500 hover:bg-white/5'}`}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${showDeleted ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30' : 'text-slate-500 hover:bg-white/5'}`}
                         >
-                            Excluídos
+                            <Trash2 className="w-4 h-4" /> Excluídos
                         </button>
                     </div>
-                    <button
-                        onClick={fetchUsers}
-                        className="flex items-center justify-center gap-2 bg-slate-900/50 hover:bg-slate-800 text-slate-300 border border-white/5 shadow-xl rounded-2xl py-4 md:py-0 transition-all active:scale-95"
-                        disabled={loading}
-                    >
-                        <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''} text-emerald-400`} />
-                        <span className="font-bold">Atualizar Lista</span>
-                    </button>
-                    <button
-                        onClick={resetGlobalData}
-                        disabled={isResettingGlobal}
-                        className="flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 shadow-xl rounded-2xl py-4 md:py-0 transition-all active:scale-95"
-                    >
-                        <Trash2 className={`w-5 h-5 ${isResettingGlobal ? 'animate-pulse' : ''}`} />
-                        <span className="font-bold">{isResettingGlobal ? 'Resetando...' : 'Reset Global'}</span>
-                    </button>
+
+                    <div className="md:col-span-3 flex gap-3">
+                        <button
+                            onClick={fetchUsers}
+                            className="flex-1 flex items-center justify-center gap-2 bg-slate-900/50 hover:bg-slate-800 text-slate-300 border border-white/10 shadow-xl rounded-[2rem] transition-all active:scale-95 group backdrop-blur-xl"
+                            disabled={loading}
+                        >
+                            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : 'group-hover:rotate-180'} transition-transform duration-500 text-emerald-400`} />
+                        </button>
+                        <button
+                            onClick={resetGlobalData}
+                            disabled={isResettingGlobal}
+                            className="flex-1 flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 shadow-xl rounded-[2rem] transition-all active:scale-95 backdrop-blur-xl"
+                        >
+                            <Trash2 className={`w-5 h-5 ${isResettingGlobal ? 'animate-pulse' : ''}`} />
+                        </button>
+                    </div>
                 </div>
 
-                <div className="bg-slate-900/40 border border-white/5 rounded-3xl overflow-hidden backdrop-blur-xl shadow-2xl">
-                    <div className="hidden md:block overflow-x-auto">
-                        <table className="w-full text-left border-collapse min-w-[1000px]">
+                <div className="bg-slate-900/40 border border-white/10 rounded-[3rem] overflow-hidden backdrop-blur-2xl shadow-2xl relative">
+                    <div className="hidden lg:block overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-slate-800/50 border-b border-white/5">
-                                    <th className="p-6 text-slate-500 font-medium uppercase text-xs tracking-wider">E-mail / UID</th>
-                                    <th className="p-6 text-slate-500 font-medium uppercase text-xs tracking-wider">Plano</th>
-                                    <th className="p-6 text-slate-500 font-medium uppercase text-xs tracking-wider">Pagamento</th>
-                                    <th className="p-6 text-slate-500 font-medium uppercase text-xs tracking-wider">Cadastro</th>
-                                    <th className="p-6 text-slate-500 font-medium uppercase text-xs tracking-wider">Vencimento</th>
-                                    <th className="p-6 text-slate-500 font-medium uppercase text-xs tracking-wider text-right">Ação</th>
+                                <tr className="bg-slate-900/80 border-b border-white/10">
+                                    <th className="p-8 text-slate-500 font-black uppercase text-[10px] tracking-[0.2em]">Usuário / ID</th>
+                                    <th className="p-8 text-slate-500 font-black uppercase text-[10px] tracking-[0.2em]">Status de Acesso</th>
+                                    <th className="p-8 text-slate-500 font-black uppercase text-[10px] tracking-[0.2em]">Detalhes</th>
+                                    <th className="p-8 text-slate-500 font-black uppercase text-[10px] tracking-[0.2em] text-right">Ações Gerenciais</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-white/5">
+                            <tbody className="divide-y divide-white/10">
                                 {loading ? (
-                                    Array(3).fill(0).map((_, i) => (
+                                    Array(5).fill(0).map((_, i) => (
                                         <tr key={i} className="animate-pulse">
-                                            <td className="p-6"><div className="h-4 bg-slate-800 rounded w-48"></div></td>
-                                            <td className="p-6"><div className="h-4 bg-slate-800 rounded w-16"></div></td>
-                                            <td className="p-6"><div className="h-4 bg-slate-800 rounded w-24"></div></td>
-                                            <td className="p-6"><div className="h-4 bg-slate-800 rounded w-24"></div></td>
-                                            <td className="p-6"><div className="h-4 bg-slate-800 rounded w-24"></div></td>
-                                            <td className="p-6"><div className="h-8 bg-slate-800 rounded w-32 ml-auto"></div></td>
+                                            <td className="p-8"><div className="h-4 bg-slate-800 rounded-full w-48 mb-2"></div><div className="h-3 bg-slate-800 rounded-full w-32 opacity-50"></div></td>
+                                            <td className="p-8"><div className="h-6 bg-slate-800 rounded-full w-24"></div></td>
+                                            <td className="p-8"><div className="h-4 bg-slate-800 rounded-full w-32"></div></td>
+                                            <td className="p-8"><div className="h-10 bg-slate-800 rounded-2xl w-40 ml-auto"></div></td>
                                         </tr>
                                     ))
                                 ) : filteredUsers.length > 0 ? (
                                     filteredUsers.map(user => (
-                                        <tr key={user.uid} className="hover:bg-white/5 transition-colors group border-b border-white/5">
-                                            <td className="p-6 text-sm">
-                                                <div className={`font-bold mb-1 transition-colors ${user.email === 'N/A' ? 'text-slate-600 italic font-medium' : 'text-slate-100 group-hover:text-emerald-400'}`}>
-                                                    {user.email === 'N/A' ? 'Sem e-mail (Legacy)' : user.email}
-                                                </div>
-                                                <div className="text-[10px] text-slate-500 font-mono select-all opacity-50">{user.uid}</div>
-                                                {user.stripeEmail && user.stripeEmail !== 'N/A' && user.stripeEmail !== user.email && (
-                                                    <div className="text-[10px] text-emerald-500/70 font-medium mt-1 select-all">Pagamento: {user.stripeEmail}</div>
-                                                )}
-                                            </td>
-                                            <td className="p-6">
-                                                {user.isLifetime ? (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-bold uppercase"><TrendingUp className="w-3 h-3" />VITALÍCIO</span>
-                                                ) : user.isTrial ? (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-bold uppercase"><Zap className="w-3 h-3" />7 DIAS GRÁTIS</span>
-                                                ) : user.isPremium ? (
-                                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold uppercase ${user.isTolerance ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
-                                                        <UserCheck className="w-3 h-3" />{user.isTolerance ? 'Tolerância' : user.subType === 'annual' ? 'ANUAL' : 'MENSAL'}
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-bold uppercase"><UserMinus className="w-3 h-3" />EXPIRADO</span>
-                                                )}
-                                            </td>
-                                            <td className="p-6 text-sm text-slate-400">{user.isLifetime ? 'N/A' : user.subDate}</td>
-                                            <td className="p-6 text-sm text-slate-400">{user.createdAt}</td>
-                                            <td className="p-6">
-                                                <div className="flex flex-col">
-                                                    <span className={`text-sm font-bold ${user.isBlocked ? 'text-rose-600' : user.isLifetime ? 'text-purple-400' : user.daysLeft <= 0 ? 'text-rose-400' : 'text-blue-400'}`}>{user.isBlocked ? 'BLOQUEADO' : user.isLifetime ? '∞' : `${user.daysLeft} dias`}</span>
-                                                    <span className="text-[10px] text-slate-500">{user.isBlocked ? 'Acesso Revogado' : user.isLifetime ? 'Duração Infinta' : 'restantes'}</span>
+                                        <tr key={user.uid} className="hover:bg-white/[0.03] transition-colors group border-b border-white/10">
+                                            <td className="p-8">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border transition-all ${user.isAdmin ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' : 'bg-slate-800 border-white/10 text-slate-500'}`}>
+                                                        {user.isAdmin ? <ShieldAlert className="w-6 h-6" /> : <Users className="w-6 h-6" />}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className={`font-black text-base truncate mb-0.5 transition-colors ${user.email === 'N/A' ? 'text-slate-600 italic font-medium' : 'text-slate-100 group-hover:text-emerald-400'}`}>
+                                                            {user.email === 'N/A' ? 'Sem e-mail (Legacy)' : user.email}
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-500 font-mono select-all opacity-40">{user.uid}</div>
+                                                    </div>
                                                 </div>
                                             </td>
-                                            <td className="p-6 text-right">
-                                                <div className="flex items-center justify-end gap-2">
+                                            <td className="p-8">
+                                                <div className="flex flex-col gap-2">
+                                                    {user.isAdmin && (
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[9px] font-black uppercase tracking-widest w-fit">ADMINISTRADOR</span>
+                                                    )}
+                                                    <div className="flex gap-2">
+                                                        {user.isLifetime ? (
+                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-400 text-[9px] font-black uppercase tracking-widest"><TrendingUp className="w-3 h-3" />VITALÍCIO</span>
+                                                        ) : user.isTrial ? (
+                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-500/40 text-blue-400 text-[9px] font-black uppercase tracking-widest"><Zap className="w-3 h-3" />TRIAL 7D</span>
+                                                        ) : user.isPremium ? (
+                                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest ${user.isTolerance ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'}`}>
+                                                                <UserCheck className="w-3 h-3" />{user.isTolerance ? 'Tolerância' : user.subType === 'annual' ? 'ANUAL' : 'MENSAL'}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 text-[9px] font-black uppercase tracking-widest"><UserMinus className="w-3 h-3" />EXPIRADO</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="p-8">
+                                                <div className="grid grid-cols-2 gap-x-8 gap-y-2">
+                                                    <div>
+                                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1"><CreditCard className="w-2.5 h-2.5" /> Pagamento</p>
+                                                        <p className="text-xs font-bold text-slate-300">{user.isLifetime ? 'N/A' : user.subDate}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> Vencimento</p>
+                                                        <p className={`text-xs font-bold ${user.isBlocked ? 'text-rose-500' : user.daysLeft <= 0 ? 'text-rose-400' : 'text-blue-400'}`}>{user.isBlocked ? 'BLOQUEADO' : user.isLifetime ? '∞' : `${user.daysLeft} dias`}</p>
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Membro desde</p>
+                                                        <p className="text-xs font-bold text-slate-400">{user.createdAt}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="p-8 text-right">
+                                                <div className="flex items-center justify-end gap-3 flex-wrap max-w-[400px] ml-auto">
                                                     {!user.isDeleted ? (
                                                         <>
-                                                            {!user.isLifetime && (
-                                                                <button onClick={() => setLifetime(user.uid)} className="px-3 py-2 rounded-xl font-bold text-[10px] transition-all border border-purple-500/20 bg-purple-500/10 text-purple-400 hover:bg-purple-600 hover:text-white">Vitalício</button>
-                                                            )}
-                                                            <button onClick={() => simulateDate(user.uid, '2026-03-01')} className="px-3 py-2 rounded-xl font-bold text-[10px] transition-all border border-amber-500/20 bg-amber-500/10 text-amber-500 hover:bg-amber-600 hover:text-white">Simular 01/Mar</button>
-                                                            <button onClick={() => renewTrial(user.uid)} className="px-3 py-2 rounded-xl font-bold text-[10px] transition-all border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-600 hover:text-white">Renovar Trial</button>
-                                                            <button onClick={() => resetUser(user.uid)} className="px-3 py-2 rounded-xl font-bold text-[10px] transition-all border border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200">Resetar</button>
-                                                            <button onClick={() => togglePremium(user.uid, user.isPremium)} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all border ${user.isPremium ? 'border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-600 hover:text-white' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-600 hover:text-white'}`}>
-                                                                {user.isPremium ? 'Bloquear' : 'Ativar'}
+                                                            <button 
+                                                                onClick={() => toggleAdmin(user.uid, user.isAdmin)} 
+                                                                className={`px-4 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border ${user.isAdmin ? 'bg-amber-500/20 border-amber-500/40 text-amber-400 hover:bg-amber-600 hover:text-white' : 'bg-slate-800 border-white/10 text-slate-400 hover:bg-slate-700 hover:text-white'}`}
+                                                            >
+                                                                {user.isAdmin ? 'Remover Admin' : 'Tornar Admin'}
                                                             </button>
+                                                            
+                                                            {!user.isLifetime && (
+                                                                <button onClick={() => setLifetime(user.uid)} className="px-4 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-600 hover:text-white shadow-lg shadow-purple-500/10">Vitalício</button>
+                                                            )}
+                                                            
+                                                            <button onClick={() => renewTrial(user.uid)} className="px-4 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-600 hover:text-white shadow-lg shadow-emerald-500/10">Renovar Trial</button>
+                                                            
+                                                            <button onClick={() => togglePremium(user.uid, user.isPremium)} className={`px-5 py-2.5 rounded-2xl font-black text-xs uppercase tracking-tighter transition-all border ${user.isPremium ? 'border-rose-500/40 bg-rose-500/10 text-rose-400 hover:bg-rose-600 hover:text-white' : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-600 hover:text-white'}`}>
+                                                                {user.isPremium ? 'Bloquear' : 'Ativar Acesso'}
+                                                            </button>
+                                                            
+                                                            <div className="flex gap-2">
+                                                                <button onClick={() => simulateDate(user.uid, '2026-03-01')} className="p-2.5 rounded-xl border border-white/5 bg-white/5 text-slate-500 hover:text-amber-400 hover:border-amber-400/30 transition-all" title="Simular 01/Mar">
+                                                                    <Clock className="w-4 h-4" />
+                                                                </button>
+                                                                <button onClick={() => resetUser(user.uid)} className="p-2.5 rounded-xl border border-white/5 bg-white/5 text-slate-500 hover:text-rose-400 hover:border-rose-400/30 transition-all" title="Resetar Status">
+                                                                    <RefreshCw className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
                                                         </>
                                                     ) : (
-                                                        <div className="flex items-center gap-4">
+                                                        <div className="flex items-center gap-6">
                                                             <div className="flex flex-col items-end">
-                                                                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Excluído em</span>
-                                                                <span className="text-xs text-slate-500 font-medium">{user.deletedAt ? user.deletedAt.toLocaleDateString('pt-BR') : 'Registro Legado'}</span>
+                                                                <span className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] mb-1">Excluído em</span>
+                                                                <span className="text-xs text-slate-500 font-bold">{user.deletedAt ? user.deletedAt.toLocaleDateString('pt-BR') : 'Registro Legado'}</span>
                                                             </div>
-                                                            <button onClick={() => adminDeleteUser(user.uid, user.email)} disabled={isDeleting} className="p-2 rounded-xl text-rose-400 hover:bg-rose-500 hover:text-white transition-all border border-rose-500/20 bg-rose-500/5 group" title="Apagar Registro Definitivamente">
-                                                                <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                                            <button onClick={() => adminDeleteUser(user.uid, user.email)} disabled={isDeleting} className="p-4 rounded-2xl text-rose-400 hover:bg-rose-600 hover:text-white transition-all border border-rose-500/30 bg-rose-500/10 group shadow-lg shadow-rose-500/20" title="Apagar Registro Definitivamente">
+                                                                <Trash2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
                                                             </button>
                                                         </div>
                                                     )}
@@ -559,70 +628,62 @@ export default function AdminPanel({ onBack }) {
                                         </tr>
                                     ))
                                 ) : (
-                                    <tr><td colSpan="6" className="p-12 text-center text-slate-500">Nenhum usuário encontrado</td></tr>
+                                    <tr><td colSpan="4" className="p-20 text-center">
+                                        <div className="flex flex-col items-center opacity-30">
+                                            <Users className="w-16 h-16 mb-4" />
+                                            <p className="font-black uppercase tracking-widest text-sm">Nenhum usuário encontrado</p>
+                                        </div>
+                                    </td></tr>
                                 )}
                             </tbody>
                         </table>
                     </div>
 
-                    <div className="md:hidden divide-y divide-slate-100">
+                    <div className="lg:hidden divide-y divide-white/5">
                         {loading ? (
-                            Array(3).fill(0).map((_, i) => <div key={i} className="p-6 animate-pulse"><div className="h-4 bg-slate-100 rounded w-48 mb-4"></div><div className="h-4 bg-slate-100 rounded w-full"></div></div>)
+                            Array(3).fill(0).map((_, i) => <div key={i} className="p-8 animate-pulse"><div className="h-4 bg-slate-800 rounded-full w-48 mb-4"></div><div className="h-20 bg-slate-800 rounded-3xl w-full"></div></div>)
                         ) : filteredUsers.length > 0 ? (
                             filteredUsers.map(user => (
-                                <div key={user.uid} className="p-6 space-y-4">
-                                    <div className="flex justify-between items-start">
-                                        <div className="flex-1 min-w-0 pr-4">
-                                            <div className="font-bold text-slate-800 truncate mb-0.5">{user.email === 'N/A' ? 'Sem e-mail' : user.email}</div>
-                                            <div className="text-[10px] text-slate-600 font-mono truncate">{user.uid}</div>
+                                <div key={user.uid} className="p-8 space-y-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${user.isAdmin ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' : 'bg-slate-800 border-white/10 text-slate-500'}`}>
+                                            {user.isAdmin ? <ShieldAlert className="w-6 h-6" /> : <Users className="w-6 h-6" />}
                                         </div>
-                                        <div className="shrink-0">
-                                            {user.isLifetime ? (
-                                                <span className="inline-flex px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-bold">VITALÍCIO</span>
-                                            ) : user.isPremium ? (
-                                                <span className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] font-bold ${user.isTolerance ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>{user.subType === 'annual' ? 'ANUAL' : 'MENSAL'}</span>
-                                            ) : (
-                                                <span className="inline-flex px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-bold">EXPIRADO</span>
-                                            )}
+                                        <div className="min-w-0">
+                                            <div className="font-black text-slate-100 truncate">{user.email === 'N/A' ? 'Sem e-mail' : user.email}</div>
+                                            <div className="text-[10px] text-slate-500 font-mono truncate">{user.uid}</div>
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4 bg-slate-900/50 p-4 rounded-2xl border border-white/5">
+                                    <div className="grid grid-cols-2 gap-4 bg-slate-950/50 p-6 rounded-3xl border border-white/5 shadow-inner">
                                         <div>
-                                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Pagamento</p>
-                                            <p className="text-xs text-slate-400">{user.isLifetime ? 'N/A' : user.subDate}</p>
+                                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Status</p>
+                                            {user.isLifetime ? (
+                                                <span className="text-purple-400 text-[10px] font-black">VITALÍCIO</span>
+                                            ) : user.isPremium ? (
+                                                <span className="text-emerald-500 text-[10px] font-black">PREMIUM</span>
+                                            ) : (
+                                                <span className="text-rose-500 text-[10px] font-black">EXPIRADO</span>
+                                            )}
                                         </div>
                                         <div>
-                                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Vencimento</p>
+                                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Vencimento</p>
                                             <p className={`text-xs font-bold ${user.isBlocked ? 'text-rose-500' : user.daysLeft <= 0 ? 'text-rose-500' : 'text-blue-400'}`}>{user.isBlocked ? 'BLOQUEADO' : user.isLifetime ? '∞' : `${user.daysLeft} dias`}</p>
                                         </div>
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="flex flex-wrap gap-3">
                                         {!user.isDeleted ? (
                                             <>
-                                                {!user.isLifetime && (
-                                                    <button onClick={() => setLifetime(user.uid)} className="flex-1 px-3 py-2 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-xl text-[10px] font-bold">Vitalício</button>
-                                                )}
-                                                <button onClick={() => resetUser(user.uid)} className="flex-1 px-3 py-2 bg-slate-100 border border-slate-200 text-slate-500 rounded-xl text-[10px] font-bold hover:bg-slate-200">Resetar</button>
-                                                <button onClick={() => togglePremium(user.uid, user.isPremium)} className={`w-full py-3 rounded-xl font-bold text-xs border transition-all ${user.isPremium ? 'border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white'}`}>
-                                                    {user.isPremium ? 'Bloquear Acesso' : 'Ativar Premium'}
-                                                </button>
+                                                <button onClick={() => toggleAdmin(user.uid, user.isAdmin)} className="flex-1 py-3 rounded-xl bg-slate-800 text-white font-bold text-[10px] uppercase">{user.isAdmin ? 'Remover Admin' : 'Tornar Admin'}</button>
+                                                <button onClick={() => togglePremium(user.uid, user.isPremium)} className={`flex-1 py-3 rounded-xl font-bold text-[10px] uppercase ${user.isPremium ? 'bg-rose-600' : 'bg-emerald-600'} text-white`}>{user.isPremium ? 'Bloquear' : 'Ativar'}</button>
                                             </>
                                         ) : (
-                                            <div className="w-full flex flex-col gap-2">
-                                                <div className="w-full p-4 bg-rose-500/5 border border-rose-500/10 rounded-2xl text-center">
-                                                    <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">Conta Excluída</p>
-                                                    <p className="text-xs text-slate-500">Em {user.deletedAt ? user.deletedAt.toLocaleDateString('pt-BR') : 'Registro Legado'}</p>
-                                                </div>
-                                                <button onClick={() => adminDeleteUser(user.uid, user.email)} className="w-full py-3 rounded-xl font-bold text-xs border border-rose-500/20 bg-rose-500/5 text-rose-400 flex items-center justify-center gap-2 hover:bg-rose-500 hover:text-white transition-all">
-                                                    <Trash2 className="w-4 h-4" />Apagar Registro Definitivamente
-                                                </button>
-                                            </div>
+                                            <button onClick={() => adminDeleteUser(user.uid, user.email)} className="w-full py-3 rounded-xl bg-rose-600 text-white font-bold text-[10px] uppercase">Apagar Definitivamente</button>
                                         )}
                                     </div>
                                 </div>
                             ))
                         ) : (
-                            <div className="p-12 text-center text-slate-500">Nenhum usuário encontrado</div>
+                            <div className="p-20 text-center opacity-30">Nenhum usuário</div>
                         )}
                     </div>
                 </div>

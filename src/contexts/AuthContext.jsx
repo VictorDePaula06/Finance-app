@@ -91,7 +91,7 @@ export function AuthProvider({ children }) {
                 await setDoc(userRef, updateData, { merge: true });
 
                 // Admin check
-                setIsAdmin(user.email === 'financealivia@gmail.com');
+                setIsAdmin(user.email === 'financealivia@gmail.com' || userData.isAdmin === true);
             }
         });
         return () => unsubscribeAuth();
