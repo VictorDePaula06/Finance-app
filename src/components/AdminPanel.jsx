@@ -34,7 +34,8 @@ import {
     Fingerprint,
     Calendar,
     Ban,
-    Edit3
+    Edit3,
+    Info
 } from 'lucide-react';
 
 export default function AdminPanel({ onBack }) {
@@ -47,9 +48,19 @@ export default function AdminPanel({ onBack }) {
     const [isSaving, setIsSaving] = useState(false);
     const [isResettingGlobal, setIsResettingGlobal] = useState(false);
     
+    // UI State for custom notifications and confirmations
+    const [toast, setToast] = useState(null);
+    const [confirmDialog, setConfirmDialog] = useState(null);
+
     // Notification state
     const [pushMessage, setPushMessage] = useState({ title: '', body: '' });
     const [isSendingPush, setIsSendingPush] = useState(false);
+
+    // Helper to show toast
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3000);
+    };
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -209,7 +220,6 @@ export default function AdminPanel({ onBack }) {
             const settingsRef = doc(db, 'users', uid, 'settings', 'general');
             const batch = writeBatch(db);
 
-            // Determinar os novos valores baseados no estado ATUAL + MUDANÇA
             const newState = {
                 isAdmin: changes.hasOwnProperty('isAdmin') ? changes.isAdmin : user.isAdmin,
                 isPremium: changes.hasOwnProperty('isPremium') ? changes.isPremium : user.isPremium,
@@ -217,10 +227,8 @@ export default function AdminPanel({ onBack }) {
                 isBlocked: changes.hasOwnProperty('isBlocked') ? changes.isBlocked : user.isBlocked
             };
 
-            // 1. Atualizar Admin no doc do usuário
             batch.update(userRef, { isAdmin: newState.isAdmin });
 
-            // 2. Calcular Status da Assinatura
             let finalStatus = 'free';
             let finalType = 'monthly';
 
@@ -244,19 +252,19 @@ export default function AdminPanel({ onBack }) {
             }, { merge: true });
 
             await batch.commit();
-            alert("Alterações salvas!");
+            showToast("Alterações salvas!");
             setEditingUser(null);
             fetchUsers();
         } catch (error) {
             console.error("Error saving changes:", error);
-            alert("Erro ao salvar alterações.");
+            showToast("Erro ao salvar alterações", "error");
         } finally {
             setIsSaving(false);
         }
     };
 
     const sendPushToAll = async () => {
-        if (!pushMessage.title || !pushMessage.body) return alert("Preencha título e mensagem");
+        if (!pushMessage.title || !pushMessage.body) return showToast("Preencha título e mensagem", "error");
         setIsSendingPush(true);
         try {
             const subs = users.flatMap(u => u.pushSubscriptions || []);
@@ -266,81 +274,133 @@ export default function AdminPanel({ onBack }) {
                 body: JSON.stringify({ subscriptions: subs, title: pushMessage.title, body: pushMessage.body })
             });
             if (res.ok) {
-                alert("Notificação enviada!");
+                showToast("Notificação enviada!");
                 setPushMessage({ title: '', body: '' });
             }
         } catch (error) {
             console.error("Push error:", error);
+            showToast("Erro ao enviar push", "error");
         } finally {
             setIsSendingPush(false);
         }
     };
 
     const resetGlobalData = async () => {
-        if (!window.confirm("CUIDADO: Isso irá resetar o banco de dados para todos os usuários logados. Deseja prosseguir?")) return;
-        setIsResettingGlobal(true);
-        try {
-            const qT = await getDocs(collection(db, 'transactions'));
-            const qG = await getDocs(collection(db, 'goals'));
-            const batch = writeBatch(db);
-            qT.docs.forEach(d => batch.delete(d.ref));
-            qG.docs.forEach(d => batch.delete(d.ref));
-            
-            const usersSnap = await getDocs(collection(db, 'users'));
-            for (const userDoc of usersSnap.docs) {
-                const settingsRef = doc(db, 'users', userDoc.id, 'settings', 'general');
-                batch.set(settingsRef, {
-                    manualConfig: {
-                        income: 0,
-                        fixedExpenses: 0,
-                        variableEstimate: 0,
-                        invested: 0,
-                        categoryBudgets: {},
-                        recurringSubs: []
-                    },
-                    hasSeenWelcome: false,
-                    hasSeenPatrimonyWelcome: false
-                }, { merge: true });
+        setConfirmDialog({
+            title: "Reset Global de Dados",
+            message: "ATENÇÃO: Isso irá resetar o banco de dados (transações e metas) para todos os usuários logados. Esta ação é irreversível. Deseja prosseguir?",
+            confirmText: "Sim, Resetar Tudo",
+            onConfirm: async () => {
+                setIsResettingGlobal(true);
+                setConfirmDialog(null);
+                try {
+                    const qT = await getDocs(collection(db, 'transactions'));
+                    const qG = await getDocs(collection(db, 'goals'));
+                    const batch = writeBatch(db);
+                    qT.docs.forEach(d => batch.delete(d.ref));
+                    qG.docs.forEach(d => batch.delete(d.ref));
+                    
+                    const usersSnap = await getDocs(collection(db, 'users'));
+                    for (const userDoc of usersSnap.docs) {
+                        const settingsRef = doc(db, 'users', userDoc.id, 'settings', 'general');
+                        batch.set(settingsRef, {
+                            manualConfig: {
+                                income: 0,
+                                fixedExpenses: 0,
+                                variableEstimate: 0,
+                                invested: 0,
+                                categoryBudgets: {},
+                                recurringSubs: []
+                            },
+                            hasSeenWelcome: false,
+                            hasSeenPatrimonyWelcome: false
+                        }, { merge: true });
+                    }
+                    
+                    await batch.commit();
+                    showToast("Dados resetados globalmente!");
+                    fetchUsers();
+                } catch (error) {
+                    console.error("Error resetting global data:", error);
+                    showToast("Erro no reset global", "error");
+                } finally {
+                    setIsResettingGlobal(false);
+                }
             }
-            
-            await batch.commit();
-            alert("Dados resetados globalmente.");
-            fetchUsers();
-        } catch (error) {
-            console.error("Error resetting global data:", error);
-            alert("Erro no reset global.");
-        } finally {
-            setIsResettingGlobal(false);
-        }
+        });
     };
 
-    const adminDeleteUser = async (uid, email) => {
-        if (!window.confirm(`ATENÇÃO: Deseja realmente DELETAR todos os dados de ${email}?`)) return;
-        try {
-            const batch = writeBatch(db);
-            const qT = query(collection(db, 'transactions'), where('userId', '==', uid));
-            const snapT = await getDocs(qT);
-            snapT.docs.forEach(d => batch.delete(d.ref));
-            
-            const qG = query(collection(db, 'goals'), where('userId', '==', uid));
-            const snapG = await getDocs(qG);
-            snapG.docs.forEach(d => batch.delete(d.ref));
-            
-            await batch.commit();
+    const adminDeleteUser = async (user) => {
+        setConfirmDialog({
+            title: "Excluir Usuário",
+            message: `Você tem certeza que deseja excluir permanentemente a conta de ${user.email}? Todos os dados financeiros serão apagados.`,
+            confirmText: "Excluir Agora",
+            onConfirm: async () => {
+                setConfirmDialog(null);
+                try {
+                    const batch = writeBatch(db);
+                    const qT = query(collection(db, 'transactions'), where('userId', '==', user.uid));
+                    const snapT = await getDocs(qT);
+                    snapT.docs.forEach(d => batch.delete(d.ref));
+                    
+                    const qG = query(collection(db, 'goals'), where('userId', '==', user.uid));
+                    const snapG = await getDocs(qG);
+                    snapG.docs.forEach(d => batch.delete(d.ref));
+                    
+                    await batch.commit();
 
-            await deleteDoc(doc(db, 'users', uid)).catch(() => {});
-            await deleteDoc(doc(db, 'customers', uid)).catch(() => {});
-            alert("Usuário excluído.");
-            setEditingUser(null);
-            fetchUsers();
-        } catch (error) {
-            console.error("Error deleting user:", error);
-            alert("Erro ao deletar usuário.");
-        }
+                    await deleteDoc(doc(db, 'users', user.uid)).catch(() => {});
+                    await deleteDoc(doc(db, 'customers', user.uid)).catch(() => {});
+                    showToast("Usuário excluído!");
+                    setEditingUser(null);
+                    fetchUsers();
+                } catch (error) {
+                    console.error("Error deleting user:", error);
+                    showToast("Erro ao deletar usuário", "error");
+                }
+            }
+        });
     };
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-[#5CCEEA]/30">
+            {/* Toast System */}
+            {toast && (
+                <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[300] animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className={`px-8 py-4 rounded-3xl shadow-2xl flex items-center gap-4 border ${toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'} backdrop-blur-2xl`}>
+                        {toast.type === 'success' ? <Check className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                        <span className="text-xs font-black uppercase tracking-widest">{toast.message}</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Custom Confirm Modal */}
+            {confirmDialog && (
+                <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-slate-900 border border-white/10 rounded-[3rem] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <Info className="w-8 h-8 text-rose-500" />
+                        </div>
+                        <h3 className="text-xl font-black text-white text-center mb-4 uppercase tracking-tight">{confirmDialog.title}</h3>
+                        <p className="text-sm text-slate-400 text-center mb-10 leading-relaxed">{confirmDialog.message}</p>
+                        <div className="flex gap-4">
+                            <button 
+                                onClick={() => setConfirmDialog(null)}
+                                className="flex-1 py-4 rounded-2xl bg-white/5 text-slate-300 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={confirmDialog.onConfirm}
+                                className="flex-1 py-4 rounded-2xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-900/20 hover:bg-rose-500 transition-all"
+                            >
+                                {confirmDialog.confirmText || 'Confirmar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header Sticky */}
             <header className="sticky top-0 z-[100] backdrop-blur-2xl bg-slate-950/80 border-b border-white/5 p-6 flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -590,7 +650,7 @@ export default function AdminPanel({ onBack }) {
 
                         <div className="mt-10 flex gap-4">
                             <button 
-                                onClick={() => adminDeleteUser(editingUser.uid, editingUser.email)}
+                                onClick={() => adminDeleteUser(editingUser)}
                                 className="flex-1 py-4 rounded-2xl bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all"
                             >
                                 Excluir Conta
