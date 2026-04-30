@@ -36,7 +36,8 @@ import {
     Ban,
     Edit3,
     Info,
-    Gift
+    Gift,
+    Save
 } from 'lucide-react';
 
 export default function AdminPanel({ onBack }) {
@@ -45,7 +46,11 @@ export default function AdminPanel({ onBack }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' or 'users'
     const [userSubTab, setUserSubTab] = useState('admins'); // 'admins', 'premium', 'standard', 'gratuito'
-    const [editingUser, setEditingUser] = useState(null);
+    
+    // Modal State
+    const [editingUser, setEditingUser] = useState(null); // Original user
+    const [pendingUser, setPendingUser] = useState(null); // Draft of changes
+    
     const [isSaving, setIsSaving] = useState(false);
     const [isResettingGlobal, setIsResettingGlobal] = useState(false);
     
@@ -104,7 +109,7 @@ export default function AdminPanel({ onBack }) {
                 const manualStatus = settingsData.subscription?.status || userData.subscription?.status;
                 const stripeActive = (stripeSubData?.status === 'active' || stripeSubData?.status === 'trialing');
 
-                let subStatus = 'free';
+                let subStatus = 'free'; // Default Gratuito
                 if (manualStatus === 'blocked') {
                     subStatus = 'blocked';
                 } else if (manualStatus === 'lifetime') {
@@ -223,69 +228,87 @@ export default function AdminPanel({ onBack }) {
     }), [users]);
 
     // Handle Edit Actions
-    const saveUserChanges = async (user, changes) => {
-        setIsSaving(true);
-        const uid = user.uid;
-        try {
-            const userRef = doc(db, 'users', uid);
-            const settingsRef = doc(db, 'users', uid, 'settings', 'general');
-            const batch = writeBatch(db);
+    const saveUserChanges = async () => {
+        if (!pendingUser) return;
+        
+        setConfirmDialog({
+            title: "Confirmar Alterações",
+            message: `Deseja salvar as permissões para o usuário ${pendingUser.email}?`,
+            confirmText: "Salvar Agora",
+            onConfirm: async () => {
+                setIsSaving(true);
+                setConfirmDialog(null);
+                try {
+                    const uid = pendingUser.uid;
+                    const userRef = doc(db, 'users', uid);
+                    const settingsRef = doc(db, 'users', uid, 'settings', 'general');
+                    const batch = writeBatch(db);
 
-            const newState = {
-                isAdmin: changes.hasOwnProperty('isAdmin') ? changes.isAdmin : user.isAdmin,
-                isPremium: changes.hasOwnProperty('isPremium') ? changes.isPremium : user.isPremium,
-                isLifetime: changes.hasOwnProperty('isLifetime') ? changes.isLifetime : user.isLifetime,
-                isBlocked: changes.hasOwnProperty('isBlocked') ? changes.isBlocked : user.isBlocked,
-                isStandard: changes.hasOwnProperty('isStandard') ? changes.isStandard : user.isStandard,
-                isFree: changes.hasOwnProperty('isFree') ? changes.isFree : user.isFree
-            };
+                    // Update Admin
+                    batch.update(userRef, { isAdmin: pendingUser.isAdmin });
 
-            // Exclusividade de Planos (Radio Button behavior)
-            if (changes.isPremium) { newState.isLifetime = false; newState.isStandard = false; newState.isFree = false; }
-            if (changes.isLifetime) { newState.isPremium = false; newState.isStandard = false; newState.isFree = false; }
-            if (changes.isStandard) { newState.isPremium = false; newState.isLifetime = false; newState.isFree = false; }
-            if (changes.isFree) { newState.isPremium = false; newState.isLifetime = false; newState.isStandard = false; }
+                    // Map Status
+                    let finalStatus = 'free';
+                    let finalType = 'monthly';
 
-            batch.update(userRef, { isAdmin: newState.isAdmin });
+                    if (pendingUser.isBlocked) {
+                        finalStatus = 'blocked';
+                    } else if (pendingUser.isLifetime) {
+                        finalStatus = 'lifetime';
+                        finalType = 'lifetime';
+                    } else if (pendingUser.isPremium) {
+                        finalStatus = 'active';
+                        finalType = 'monthly';
+                    } else if (pendingUser.isStandard) {
+                        finalStatus = 'standard';
+                        finalType = 'monthly';
+                    } else if (pendingUser.isFree) {
+                        finalStatus = 'free';
+                        finalType = 'monthly';
+                    }
 
-            let finalStatus = 'free';
-            let finalType = 'monthly';
+                    batch.set(settingsRef, {
+                        subscription: {
+                            status: finalStatus,
+                            type: finalType,
+                            updatedAt: new Date(),
+                            date: (pendingUser.isPremium || pendingUser.isLifetime || pendingUser.isStandard) ? new Date() : null
+                        }
+                    }, { merge: true });
 
-            if (newState.isBlocked) {
-                finalStatus = 'blocked';
-            } else if (newState.isLifetime) {
-                finalStatus = 'lifetime';
-                finalType = 'lifetime';
-            } else if (newState.isPremium) {
-                finalStatus = 'active';
-                finalType = 'monthly';
-            } else if (newState.isStandard) {
-                finalStatus = 'standard';
-                finalType = 'monthly';
-            } else if (newState.isFree) {
-                finalStatus = 'free';
-                finalType = 'monthly';
-            }
-
-            batch.set(settingsRef, {
-                subscription: {
-                    status: finalStatus,
-                    type: finalType,
-                    updatedAt: new Date(),
-                    date: (newState.isPremium || newState.isLifetime || newState.isStandard) ? new Date() : null
+                    await batch.commit();
+                    showToast("Alterações aplicadas com sucesso!");
+                    setEditingUser(null);
+                    setPendingUser(null);
+                    fetchUsers();
+                } catch (error) {
+                    console.error("Error saving changes:", error);
+                    showToast("Erro ao salvar alterações", "error");
+                } finally {
+                    setIsSaving(false);
                 }
-            }, { merge: true });
+            }
+        });
+    };
 
-            await batch.commit();
-            showToast("Alterações salvas!");
-            setEditingUser(null);
-            fetchUsers();
-        } catch (error) {
-            console.error("Error saving changes:", error);
-            showToast("Erro ao salvar alterações", "error");
-        } finally {
-            setIsSaving(false);
+    const handleFlagToggle = (flagId) => {
+        if (!pendingUser) return;
+        
+        let newPending = { ...pendingUser };
+        const newVal = !newPending[flagId];
+        
+        if (flagId === 'isAdmin' || flagId === 'isBlocked') {
+            newPending[flagId] = newVal;
+        } else {
+            // Planos (Exclusividade)
+            if (newVal) {
+                newPending.isPremium = (flagId === 'isPremium');
+                newPending.isLifetime = (flagId === 'isLifetime');
+                newPending.isStandard = (flagId === 'isStandard');
+                newPending.isFree = (flagId === 'isFree');
+            }
         }
+        setPendingUser(newPending);
     };
 
     const sendPushToAll = async () => {
@@ -378,6 +401,7 @@ export default function AdminPanel({ onBack }) {
                     await deleteDoc(doc(db, 'customers', user.uid)).catch(() => {});
                     showToast("Usuário excluído!");
                     setEditingUser(null);
+                    setPendingUser(null);
                     fetchUsers();
                 } catch (error) {
                     console.error("Error deleting user:", error);
@@ -403,8 +427,8 @@ export default function AdminPanel({ onBack }) {
             {confirmDialog && (
                 <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
                     <div className="bg-slate-900 border border-white/10 rounded-[3rem] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 duration-300">
-                        <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <Info className="w-8 h-8 text-rose-500" />
+                        <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <Info className="w-8 h-8 text-blue-500" />
                         </div>
                         <h3 className="text-xl font-black text-white text-center mb-4 uppercase tracking-tight">{confirmDialog.title}</h3>
                         <p className="text-sm text-slate-400 text-center mb-10 leading-relaxed">{confirmDialog.message}</p>
@@ -417,7 +441,7 @@ export default function AdminPanel({ onBack }) {
                             </button>
                             <button 
                                 onClick={confirmDialog.onConfirm}
-                                className="flex-1 py-4 rounded-2xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-900/20 hover:bg-rose-500 transition-all"
+                                className="flex-1 py-4 rounded-2xl bg-gradient-to-r from-[#5CCEEA] to-[#69C8B9] text-slate-950 text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 transition-all"
                             >
                                 {confirmDialog.confirmText || 'Confirmar'}
                             </button>
@@ -521,7 +545,7 @@ export default function AdminPanel({ onBack }) {
                     <div className="space-y-8">
                         {/* Sub Tabs */}
                         <div className="flex flex-wrap items-center justify-between gap-6">
-                            <div className="flex items-center gap-2 p-1.5 bg-slate-900/50 rounded-2xl border border-white/5 overflow-x-auto custom-scrollbar">
+                            <div className="flex items-center gap-2 p-1.5 bg-slate-900 rounded-2xl border border-white/5 overflow-x-auto custom-scrollbar">
                                 {[
                                     { id: 'admins', label: 'Admins', count: stats.admins },
                                     { id: 'premium', label: 'Premium', count: stats.premium },
@@ -541,7 +565,7 @@ export default function AdminPanel({ onBack }) {
                                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                                 <input 
                                     type="text" placeholder="Buscar por e-mail..." 
-                                    className="w-full bg-slate-900/50 border border-white/5 rounded-2xl py-4 pl-12 pr-6 text-sm focus:outline-none focus:ring-2 focus:ring-[#5CCEEA]/30"
+                                    className="w-full bg-slate-900 border border-white/5 rounded-2xl py-4 pl-12 pr-6 text-sm focus:outline-none focus:ring-2 focus:ring-[#5CCEEA]/30"
                                     value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                                 />
                             </div>
@@ -555,7 +579,7 @@ export default function AdminPanel({ onBack }) {
                                         <th className="p-8 text-[10px] font-black text-slate-500 uppercase tracking-widest">Identidade / Cadastro</th>
                                         <th className="p-8 text-[10px] font-black text-slate-500 uppercase tracking-widest">Plano Atual</th>
                                         <th className="p-8 text-[10px] font-black text-slate-500 uppercase tracking-widest">Estado</th>
-                                        <th className="p-8 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Configurações</th>
+                                        <th className="p-8 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
@@ -613,7 +637,10 @@ export default function AdminPanel({ onBack }) {
                                                 </td>
                                                 <td className="p-8 text-right">
                                                     <button 
-                                                        onClick={() => setEditingUser(user)}
+                                                        onClick={() => {
+                                                            setEditingUser(user);
+                                                            setPendingUser({ ...user });
+                                                        }}
                                                         className="p-3 rounded-2xl bg-white/5 hover:bg-[#5CCEEA] hover:text-slate-950 text-slate-400 transition-all transform hover:scale-110"
                                                     >
                                                         <Edit3 className="w-5 h-5" />
@@ -634,10 +661,10 @@ export default function AdminPanel({ onBack }) {
             </main>
 
             {/* Edit User Modal */}
-            {editingUser && (
+            {editingUser && pendingUser && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
                     <div className="bg-slate-900 border border-white/10 rounded-[3rem] w-full max-w-md p-10 shadow-2xl relative animate-in zoom-in-95 duration-300">
-                        <button onClick={() => setEditingUser(null)} className="absolute top-8 right-8 p-3 rounded-2xl hover:bg-white/5 text-slate-500 hover:text-white transition-all">
+                        <button onClick={() => { setEditingUser(null); setPendingUser(null); }} className="absolute top-8 right-8 p-3 rounded-2xl hover:bg-white/5 text-slate-500 hover:text-white transition-all">
                             <X className="w-6 h-6" />
                         </button>
 
@@ -645,30 +672,27 @@ export default function AdminPanel({ onBack }) {
                             <div className="w-20 h-20 bg-[#5CCEEA]/10 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
                                 <Settings className="w-10 h-10 text-[#5CCEEA]" />
                             </div>
-                            <h3 className="text-2xl font-black text-white mb-2">Editar Usuário</h3>
+                            <h3 className="text-2xl font-black text-white mb-2">Editar Permissões</h3>
                             <p className="text-xs font-bold text-slate-500 truncate px-4">{editingUser.email}</p>
                         </div>
 
-                        <div className="space-y-4 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
+                        <div className="space-y-4 max-h-[45vh] overflow-y-auto custom-scrollbar pr-2 mb-8">
                             {[
-                                { id: 'isAdmin', label: 'Este usuário é um administrador', desc: 'Permite acesso total ao Painel Admin', color: 'bg-purple-500' },
-                                { id: 'isPremium', label: 'Plano Premium Ativo', desc: 'Acesso completo a todas as ferramentas', color: 'bg-emerald-500' },
-                                { id: 'isLifetime', label: 'Plano Vitalício', desc: 'Acesso permanente e ilimitado ao sistema', color: 'bg-blue-500' },
-                                { id: 'isStandard', label: 'Plano Standard', desc: 'Versão intermediária do sistema', color: 'bg-slate-500' },
-                                { id: 'isFree', label: 'Plano Gratuito', desc: 'Versão básica limitada do sistema', color: 'bg-rose-400' },
-                                { id: 'isBlocked', label: 'Bloquear Usuário', desc: 'Impedir acesso imediato ao sistema', color: 'bg-rose-600' }
+                                { id: 'isAdmin', label: 'Administrador do Sistema', desc: 'Acesso total ao Painel Admin', color: 'bg-purple-500' },
+                                { id: 'isPremium', label: 'Plano Premium', desc: 'Acesso completo às ferramentas', color: 'bg-emerald-500' },
+                                { id: 'isLifetime', label: 'Plano Vitalício', desc: 'Acesso permanente ilimitado', color: 'bg-blue-500' },
+                                { id: 'isStandard', label: 'Plano Standard', desc: 'Versão intermediária', color: 'bg-slate-500' },
+                                { id: 'isFree', label: 'Plano Gratuito', desc: 'Versão básica inicial', color: 'bg-rose-400' },
+                                { id: 'isBlocked', label: 'Bloquear Usuário', desc: 'Suspender acesso imediatamente', color: 'bg-rose-600' }
                             ].map(flag => (
                                 <button 
                                     key={flag.id}
                                     disabled={isSaving}
-                                    onClick={() => {
-                                        const newVal = !editingUser[flag.id];
-                                        saveUserChanges(editingUser, { [flag.id]: newVal });
-                                    }}
-                                    className={`w-full p-5 rounded-2xl border transition-all flex items-center gap-4 text-left relative overflow-hidden group ${editingUser[flag.id] ? 'bg-white/5 border-[#5CCEEA]/50' : 'bg-transparent border-white/5 hover:border-white/10'}`}
+                                    onClick={() => handleFlagToggle(flag.id)}
+                                    className={`w-full p-5 rounded-2xl border transition-all flex items-center gap-4 text-left relative overflow-hidden group ${pendingUser[flag.id] ? 'bg-white/5 border-[#5CCEEA]/50' : 'bg-transparent border-white/5 hover:border-white/10'}`}
                                 >
-                                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${editingUser[flag.id] ? `${flag.color} border-transparent` : 'border-white/20'}`}>
-                                        {editingUser[flag.id] && <Check className="w-4 h-4 text-white" />}
+                                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${pendingUser[flag.id] ? `${flag.color} border-transparent` : 'border-white/20'}`}>
+                                        {pendingUser[flag.id] && <Check className="w-4 h-4 text-white" />}
                                     </div>
                                     <div className="flex-1">
                                         <p className="text-xs font-black text-white">{flag.label}</p>
@@ -678,19 +702,28 @@ export default function AdminPanel({ onBack }) {
                             ))}
                         </div>
 
-                        <div className="mt-10 flex gap-4">
+                        <div className="flex flex-col gap-3">
                             <button 
-                                onClick={() => adminDeleteUser(editingUser)}
-                                className="flex-1 py-4 rounded-2xl bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all"
+                                onClick={saveUserChanges}
+                                disabled={isSaving}
+                                className="w-full py-5 bg-gradient-to-r from-[#5CCEEA] to-[#69C8B9] text-slate-950 text-xs font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-[#5CCEEA]/10 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
                             >
-                                Excluir Conta
+                                <Save className="w-4 h-4" /> Salvar Alterações
                             </button>
-                            <button 
-                                onClick={() => setEditingUser(null)}
-                                className="flex-1 py-4 rounded-2xl bg-white/5 text-slate-300 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
-                            >
-                                Fechar
-                            </button>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button 
+                                    onClick={() => adminDeleteUser(editingUser)}
+                                    className="py-4 rounded-2xl bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all"
+                                >
+                                    Excluir Conta
+                                </button>
+                                <button 
+                                    onClick={() => { setEditingUser(null); setPendingUser(null); }}
+                                    className="py-4 rounded-2xl bg-white/5 text-slate-300 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                                >
+                                    Cancelar
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
