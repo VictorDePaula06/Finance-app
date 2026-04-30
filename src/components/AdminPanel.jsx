@@ -215,7 +215,17 @@ export default function AdminPanel({ onBack }) {
             if (changes.hasOwnProperty('isBlocked')) {
                 batch.set(settingsRef, {
                     subscription: {
-                        status: changes.isBlocked ? 'blocked' : (changes.isPremium ? 'active' : 'free'),
+                        status: changes.isBlocked ? 'blocked' : (changes.isLifetime ? 'lifetime' : (changes.isPremium ? 'active' : 'free')),
+                        updatedAt: new Date()
+                    }
+                }, { merge: true });
+            }
+
+            if (changes.hasOwnProperty('isLifetime')) {
+                batch.set(settingsRef, {
+                    subscription: {
+                        status: changes.isLifetime ? 'lifetime' : (changes.isPremium ? 'active' : 'free'),
+                        type: changes.isLifetime ? 'lifetime' : 'monthly',
                         updatedAt: new Date()
                     }
                 }, { merge: true });
@@ -542,6 +552,7 @@ export default function AdminPanel({ onBack }) {
                             {[
                                 { id: 'isAdmin', label: 'Este usuário é um administrador', desc: 'Permite acesso total ao Painel Admin', color: 'bg-purple-500' },
                                 { id: 'isPremium', label: 'Plano Premium Ativo', desc: 'Acesso completo a todas as ferramentas', color: 'bg-emerald-500' },
+                                { id: 'isLifetime', label: 'Plano Vitalício', desc: 'Acesso permanente e ilimitado ao sistema', color: 'bg-blue-500' },
                                 { id: 'isStandard', label: 'Plano Standard (Ilustrativo)', desc: 'Versão limitada do sistema', color: 'bg-slate-500', disabled: true },
                                 { id: 'isBlocked', label: 'Bloquear Usuário', desc: 'Impedir acesso imediato ao sistema', color: 'bg-rose-500' }
                             ].map(flag => (
