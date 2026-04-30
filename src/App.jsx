@@ -411,7 +411,7 @@ function Dashboard() {
                     <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-500">
                       <Landmark className="w-5 h-5" />
                     </div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Guardado em Investimentos</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Guardado em Reservas</p>
                   </div>
                   <p className={`text-3xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                     R$ {investmentStats.totalGuarded.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -422,7 +422,7 @@ function Dashboard() {
                     <div className="p-2 bg-blue-500/10 rounded-xl text-blue-500">
                       <TrendingUp className="w-5 h-5" />
                     </div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Rendimento do Patrimônio</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Rendimento da Reserva</p>
                   </div>
                   <p className="text-3xl font-black text-emerald-500">
                     + R$ {investmentStats.dailyYield.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <span className="text-sm font-bold opacity-60">/dia</span>
