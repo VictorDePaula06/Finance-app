@@ -24,6 +24,7 @@ export default function IncomeTab({ transactions, savingsJars }) {
     const [rescueAmount, setRescueAmount] = useState('');
     const [selectedJarId, setSelectedJarId] = useState('');
     const [isRescuing, setIsRescuing] = useState(false);
+    const [cdiRate, setCdiRate] = useState(10.65);
     
     // Fetch USD rate once
     useEffect(() => {
@@ -33,8 +34,15 @@ export default function IncomeTab({ transactions, savingsJars }) {
                 const response = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL');
                 const data = await response.json();
                 setUsdRate(parseFloat(data.USDBRL.ask));
+                
+                // Buscar CDI também
+                const cdiRes = await fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json');
+                const cdiData = await cdiRes.json();
+                if (cdiData && cdiData[0] && cdiData[0].valor) {
+                    setCdiRate(parseFloat(cdiData[0].valor) * 365);
+                }
             } catch (error) {
-                console.error("Erro ao buscar cotação:", error);
+                console.error("Erro ao buscar cotações:", error);
                 setUsdRate(5.0); // Fallback
             } finally {
                 setIsLoadingRate(false);
@@ -136,7 +144,15 @@ export default function IncomeTab({ transactions, savingsJars }) {
             const monthStr = isoDate.slice(0, 7);
 
             // 1. Update Specific Jar
-            const newBalance = (parseFloat(targetJar.balance) || 0) - val;
+            const cdiAnual = cdiRate / 100;
+            const percent = (targetJar.cdiPercent || 100) / 100;
+            const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
+            const lastUpdate = targetJar.updatedAt ? new Date(targetJar.updatedAt) : (targetJar.createdAt ? new Date(targetJar.createdAt) : new Date());
+            const now = new Date();
+            const diffDays = Math.max(0, now - lastUpdate) / (1000 * 60 * 60 * 24);
+            const dynamicBalance = targetJar.balance * Math.pow(1 + dailyRate, diffDays);
+
+            const newBalance = dynamicBalance - val;
             const jarUpdate = updateDoc(doc(db, 'savings_jars', targetJar.id), {
                 balance: newBalance,
                 updatedAt: isoDate
@@ -526,15 +542,24 @@ export default function IncomeTab({ transactions, savingsJars }) {
                                             <option value="" className={theme === 'dark' ? 'bg-slate-900 text-slate-400' : ''}>
                                                 Selecione a reserva...
                                             </option>
-                                            {savingsJars?.map(jar => (
-                                                <option 
-                                                    key={jar.id} 
-                                                    value={jar.id}
-                                                    className={theme === 'dark' ? 'bg-slate-900 text-white' : ''}
-                                                >
-                                                    {jar.name} (R$ {parseFloat(jar.balance).toLocaleString('pt-BR')})
-                                                </option>
-                                            ))}
+                                            {savingsJars?.map(jar => {
+                                                const cdiAnual = cdiRate / 100;
+                                                const percent = (jar.cdiPercent || 100) / 100;
+                                                const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
+                                                const lastUpdate = jar.updatedAt ? new Date(jar.updatedAt) : (jar.createdAt ? new Date(jar.createdAt) : new Date());
+                                                const diffDays = Math.max(0, new Date() - lastUpdate) / (1000 * 60 * 60 * 24);
+                                                const dynamicBalance = jar.balance * Math.pow(1 + dailyRate, diffDays);
+                                                
+                                                return (
+                                                    <option 
+                                                        key={jar.id} 
+                                                        value={jar.id}
+                                                        className={theme === 'dark' ? 'bg-slate-900 text-white' : ''}
+                                                    >
+                                                        {jar.name} (R$ {dynamicBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                                                    </option>
+                                                );
+                                            })}
                                         </select>
                                 </div>
 

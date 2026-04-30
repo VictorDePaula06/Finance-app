@@ -280,7 +280,16 @@ function Dashboard() {
 
   // INVESTMENT STATS FOR OVERVIEW
   const investmentStats = useMemo(() => {
-    const totalGuarded = savingsJars.reduce((acc, curr) => acc + (parseFloat(curr.balance) || 0), 0);
+    const totalGuarded = savingsJars.reduce((acc, curr) => {
+        const cdiAnual = cdiRate / 100;
+        const percent = (curr.cdiPercent || 100) / 100;
+        const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
+        const lastUpdate = curr.updatedAt ? new Date(curr.updatedAt) : (curr.createdAt ? new Date(curr.createdAt) : new Date());
+        const diffDays = Math.max(0, new Date() - lastUpdate) / (1000 * 60 * 60 * 24);
+        const dynamicBalance = (parseFloat(curr.balance) || 0) * Math.pow(1 + dailyRate, diffDays);
+        return acc + dynamicBalance;
+    }, 0);
+    
     const dailyYield = savingsJars.reduce((acc, curr) => {
         const cdiAnual = cdiRate / 100; 
         const percent = (parseFloat(curr.cdiPercent) || 100) / 100;
@@ -289,7 +298,6 @@ function Dashboard() {
         return acc + (val * dailyRate);
     }, 0);
     
-    console.log("[Dev] Estatísticas de Investimento calculadas:", { totalGuarded, dailyYield });
     return { totalGuarded, dailyYield };
   }, [savingsJars, cdiRate]);
 

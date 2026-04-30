@@ -206,6 +206,15 @@ export default function EmergencyReserveTab() {
                         const cdiAnual = cdiRate / 100;
                         const percent = (reserve.cdiPercent || 100) / 100;
                         const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
+                        
+                        // Cálculo do Saldo Dinâmico (Saldo Base + Rendimento Acumulado)
+                        const lastUpdate = reserve.updatedAt ? new Date(reserve.updatedAt) : (reserve.createdAt ? new Date(reserve.createdAt) : new Date());
+                        const now = new Date();
+                        const diffTime = Math.max(0, now - lastUpdate);
+                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                        
+                        // Juros compostos simples para o período
+                        const dynamicBalance = reserve.balance * Math.pow(1 + dailyRate, diffDays);
                         const dailyYield = reserve.balance * dailyRate;
 
                         return (
@@ -252,9 +261,9 @@ export default function EmergencyReserveTab() {
 
                                 <div className="mt-6 pt-6 border-t border-white/5 flex justify-between items-end">
                                     <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Saldo Atual</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Saldo Atualizado</p>
                                         <p className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                            R$ {reserve.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            R$ {dynamicBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </p>
                                     </div>
                                     <div className="text-right">
