@@ -189,50 +189,50 @@ export default function AdminPanel({ onBack }) {
     }), [users]);
 
     // Handle Edit Actions
-    const saveUserChanges = async (uid, changes) => {
+    const saveUserChanges = async (user, changes) => {
         setIsSaving(true);
+        const uid = user.uid;
         try {
             const userRef = doc(db, 'users', uid);
             const settingsRef = doc(db, 'users', uid, 'settings', 'general');
-
             const batch = writeBatch(db);
 
-            if (changes.hasOwnProperty('isAdmin')) {
-                batch.update(userRef, { isAdmin: changes.isAdmin });
+            // Determinar os novos valores baseados no estado ATUAL + MUDANÇA
+            const newState = {
+                isAdmin: changes.hasOwnProperty('isAdmin') ? changes.isAdmin : user.isAdmin,
+                isPremium: changes.hasOwnProperty('isPremium') ? changes.isPremium : user.isPremium,
+                isLifetime: changes.hasOwnProperty('isLifetime') ? changes.isLifetime : user.isLifetime,
+                isBlocked: changes.hasOwnProperty('isBlocked') ? changes.isBlocked : user.isBlocked
+            };
+
+            // 1. Atualizar Admin no doc do usuário
+            batch.update(userRef, { isAdmin: newState.isAdmin });
+
+            // 2. Calcular Status da Assinatura
+            let finalStatus = 'free';
+            let finalType = 'monthly';
+
+            if (newState.isBlocked) {
+                finalStatus = 'blocked';
+            } else if (newState.isLifetime) {
+                finalStatus = 'lifetime';
+                finalType = 'lifetime';
+            } else if (newState.isPremium) {
+                finalStatus = 'active';
+                finalType = 'monthly';
             }
 
-            if (changes.hasOwnProperty('isPremium')) {
-                batch.set(settingsRef, {
-                    subscription: {
-                        status: changes.isPremium ? 'active' : 'free',
-                        type: 'monthly',
-                        date: new Date(),
-                        updatedAt: new Date()
-                    }
-                }, { merge: true });
-            }
-
-            if (changes.hasOwnProperty('isBlocked')) {
-                batch.set(settingsRef, {
-                    subscription: {
-                        status: changes.isBlocked ? 'blocked' : (changes.isLifetime ? 'lifetime' : (changes.isPremium ? 'active' : 'free')),
-                        updatedAt: new Date()
-                    }
-                }, { merge: true });
-            }
-
-            if (changes.hasOwnProperty('isLifetime')) {
-                batch.set(settingsRef, {
-                    subscription: {
-                        status: changes.isLifetime ? 'lifetime' : (changes.isPremium ? 'active' : 'free'),
-                        type: changes.isLifetime ? 'lifetime' : 'monthly',
-                        updatedAt: new Date()
-                    }
-                }, { merge: true });
-            }
+            batch.set(settingsRef, {
+                subscription: {
+                    status: finalStatus,
+                    type: finalType,
+                    updatedAt: new Date(),
+                    date: newState.isPremium || newState.isLifetime ? new Date() : null
+                }
+            }, { merge: true });
 
             await batch.commit();
-            alert("Alterações salvas com sucesso!");
+            alert("Alterações salvas!");
             setEditingUser(null);
             fetchUsers();
         } catch (error) {
@@ -561,7 +561,7 @@ export default function AdminPanel({ onBack }) {
                                     disabled={flag.disabled || isSaving}
                                     onClick={() => {
                                         const newVal = !editingUser[flag.id];
-                                        saveUserChanges(editingUser.uid, { [flag.id]: newVal });
+                                        saveUserChanges(editingUser, { [flag.id]: newVal });
                                     }}
                                     className={`w-full p-5 rounded-2xl border transition-all flex items-center gap-4 text-left relative overflow-hidden group ${editingUser[flag.id] ? 'bg-white/5 border-[#5CCEEA]/50' : 'bg-transparent border-white/5 hover:border-white/10'} ${flag.disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                                 >
