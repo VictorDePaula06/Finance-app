@@ -35,7 +35,8 @@ import {
     Calendar,
     Ban,
     Edit3,
-    Info
+    Info,
+    Gift
 } from 'lucide-react';
 
 export default function AdminPanel({ onBack }) {
@@ -43,7 +44,7 @@ export default function AdminPanel({ onBack }) {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' or 'users'
-    const [userSubTab, setUserSubTab] = useState('admins'); // 'admins', 'premium', 'standard'
+    const [userSubTab, setUserSubTab] = useState('admins'); // 'admins', 'premium', 'standard', 'gratuito'
     const [editingUser, setEditingUser] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isResettingGlobal, setIsResettingGlobal] = useState(false);
@@ -108,15 +109,22 @@ export default function AdminPanel({ onBack }) {
                     subStatus = 'blocked';
                 } else if (manualStatus === 'lifetime') {
                     subStatus = 'lifetime';
+                } else if (manualStatus === 'standard') {
+                    subStatus = 'standard';
                 } else if (stripeActive) {
                     subStatus = 'active';
-                } else if (manualStatus) {
-                    subStatus = manualStatus;
+                } else if (manualStatus === 'active') {
+                    subStatus = 'active';
+                } else if (manualStatus === 'free') {
+                    subStatus = 'free';
                 } else if (stripeSubData?.status) {
                     subStatus = stripeSubData.status;
                 }
 
-                const isPremium = (subStatus === 'active' || subStatus === 'lifetime') || hasActiveSubscription;
+                const isPremium = (subStatus === 'active' || subStatus === 'lifetime');
+                const isLifetime = (subStatus === 'lifetime');
+                const isStandard = (subStatus === 'standard');
+                const isFree = (subStatus === 'free');
 
                 const datesToCompare = [
                     stripeSubData?.current_period_start,
@@ -140,9 +148,8 @@ export default function AdminPanel({ onBack }) {
                 const isAnnual = settingsData.subscription?.type === 'annual' || stripeSubData?.items?.[0]?.plan?.interval === 'year';
 
                 let daysLeft = 0;
-                let isBlocked = settingsData.subscription?.status === 'blocked';
-                let isExpired = subStatus === 'expired' || isBlocked;
-                let isLifetime = subStatus === 'lifetime';
+                let isBlocked = subStatus === 'blocked';
+                let isExpired = subStatus === 'expired';
                 let isTrial = false;
 
                 const subType = isAnnual ? 'annual' : 'monthly';
@@ -169,7 +176,7 @@ export default function AdminPanel({ onBack }) {
                 userList.push({
                     uid,
                     email: settingsData.email || userData.email || customerData.email || 'N/A',
-                    isPremium: (isPremium || isLifetime || isTrial) && !isExpired,
+                    isPremium: (isPremium || isTrial) && !isExpired && !isBlocked,
                     subType,
                     subStatus,
                     isTrial,
@@ -178,7 +185,8 @@ export default function AdminPanel({ onBack }) {
                     isExpired: isExpired && !isLifetime && !isTrial,
                     isLifetime,
                     isBlocked,
-                    isStandard: subStatus === 'free' || subStatus === 'expired',
+                    isStandard,
+                    isFree,
                     isAdmin: userData.isAdmin || false,
                     pushSubscriptions: userData.pushSubscriptions || [],
                     createdAt: baseDate ? baseDate.toLocaleDateString('pt-BR') : 'N/A',
@@ -201,7 +209,8 @@ export default function AdminPanel({ onBack }) {
         let list = users.filter(u => u.email.toLowerCase().includes(searchTerm.toLowerCase()));
         if (userSubTab === 'admins') return list.filter(u => u.isAdmin);
         if (userSubTab === 'premium') return list.filter(u => u.isPremium && !u.isAdmin);
-        if (userSubTab === 'standard') return list.filter(u => !u.isPremium && !u.isAdmin);
+        if (userSubTab === 'standard') return list.filter(u => u.isStandard && !u.isAdmin);
+        if (userSubTab === 'gratuito') return list.filter(u => u.isFree && !u.isAdmin);
         return list;
     }, [users, searchTerm, userSubTab]);
 
@@ -209,7 +218,8 @@ export default function AdminPanel({ onBack }) {
         total: users.length,
         premium: users.filter(u => u.isPremium && !u.isAdmin).length,
         admins: users.filter(u => u.isAdmin).length,
-        standard: users.filter(u => !u.isPremium && !u.isAdmin).length
+        standard: users.filter(u => u.isStandard && !u.isAdmin).length,
+        free: users.filter(u => u.isFree && !u.isAdmin).length
     }), [users]);
 
     // Handle Edit Actions
@@ -223,17 +233,18 @@ export default function AdminPanel({ onBack }) {
 
             const newState = {
                 isAdmin: changes.hasOwnProperty('isAdmin') ? changes.isAdmin : user.isAdmin,
-                isPremium: changes.hasOwnProperty('isPremium') ? (changes.isPremium && !changes.isStandard) : user.isPremium,
-                isLifetime: changes.hasOwnProperty('isLifetime') ? (changes.isLifetime && !changes.isStandard) : user.isLifetime,
+                isPremium: changes.hasOwnProperty('isPremium') ? changes.isPremium : user.isPremium,
+                isLifetime: changes.hasOwnProperty('isLifetime') ? changes.isLifetime : user.isLifetime,
                 isBlocked: changes.hasOwnProperty('isBlocked') ? changes.isBlocked : user.isBlocked,
-                isStandard: changes.hasOwnProperty('isStandard') ? changes.isStandard : user.isStandard
+                isStandard: changes.hasOwnProperty('isStandard') ? changes.isStandard : user.isStandard,
+                isFree: changes.hasOwnProperty('isFree') ? changes.isFree : user.isFree
             };
 
-            // Se marcar Standard como true, desmarca Premium e Vitalício
-            if (changes.isStandard) {
-                newState.isPremium = false;
-                newState.isLifetime = false;
-            }
+            // Exclusividade de Planos (Radio Button behavior)
+            if (changes.isPremium) { newState.isLifetime = false; newState.isStandard = false; newState.isFree = false; }
+            if (changes.isLifetime) { newState.isPremium = false; newState.isStandard = false; newState.isFree = false; }
+            if (changes.isStandard) { newState.isPremium = false; newState.isLifetime = false; newState.isFree = false; }
+            if (changes.isFree) { newState.isPremium = false; newState.isLifetime = false; newState.isStandard = false; }
 
             batch.update(userRef, { isAdmin: newState.isAdmin });
 
@@ -248,6 +259,12 @@ export default function AdminPanel({ onBack }) {
             } else if (newState.isPremium) {
                 finalStatus = 'active';
                 finalType = 'monthly';
+            } else if (newState.isStandard) {
+                finalStatus = 'standard';
+                finalType = 'monthly';
+            } else if (newState.isFree) {
+                finalStatus = 'free';
+                finalType = 'monthly';
             }
 
             batch.set(settingsRef, {
@@ -255,7 +272,7 @@ export default function AdminPanel({ onBack }) {
                     status: finalStatus,
                     type: finalType,
                     updatedAt: new Date(),
-                    date: newState.isPremium || newState.isLifetime ? new Date() : null
+                    date: (newState.isPremium || newState.isLifetime || newState.isStandard) ? new Date() : null
                 }
             }, { merge: true });
 
@@ -441,19 +458,20 @@ export default function AdminPanel({ onBack }) {
                 {activeTab === 'dashboard' && (
                     <div className="space-y-8">
                         {/* Summary Metrics */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                             {[
                                 { label: 'Total Usuários', val: stats.total, icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
                                 { label: 'Premium Ativos', val: stats.premium, icon: Zap, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
                                 { label: 'Admins', val: stats.admins, icon: Shield, color: 'text-purple-400', bg: 'bg-purple-400/10' },
-                                { label: 'Standard', val: stats.standard, icon: CreditCard, color: 'text-slate-400', bg: 'bg-slate-400/10' }
+                                { label: 'Standard', val: stats.standard, icon: CreditCard, color: 'text-slate-400', bg: 'bg-slate-400/10' },
+                                { label: 'Gratuito', val: stats.free, icon: Gift, color: 'text-rose-400', bg: 'bg-rose-400/10' }
                             ].map(item => (
                                 <div key={item.label} className="p-8 rounded-[2.5rem] border border-white/5 bg-slate-900/50 backdrop-blur-xl hover:border-[#5CCEEA]/30 transition-all group">
                                     <div className={`p-3 rounded-2xl ${item.bg} ${item.color} w-fit mb-6 transition-transform group-hover:scale-110`}>
                                         <item.icon className="w-6 h-6" />
                                     </div>
                                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{item.label}</p>
-                                    <p className="text-4xl font-black text-white">{item.val}</p>
+                                    <p className="text-3xl font-black text-white">{item.val}</p>
                                 </div>
                             ))}
                         </div>
@@ -503,16 +521,17 @@ export default function AdminPanel({ onBack }) {
                     <div className="space-y-8">
                         {/* Sub Tabs */}
                         <div className="flex flex-wrap items-center justify-between gap-6">
-                            <div className="flex items-center gap-2 p-1.5 bg-slate-900/50 rounded-2xl border border-white/5">
+                            <div className="flex items-center gap-2 p-1.5 bg-slate-900/50 rounded-2xl border border-white/5 overflow-x-auto custom-scrollbar">
                                 {[
-                                    { id: 'admins', label: 'Administradores', count: stats.admins },
+                                    { id: 'admins', label: 'Admins', count: stats.admins },
                                     { id: 'premium', label: 'Premium', count: stats.premium },
-                                    { id: 'standard', label: 'Standard', count: stats.standard }
+                                    { id: 'standard', label: 'Standard', count: stats.standard },
+                                    { id: 'gratuito', label: 'Gratuito', count: stats.free }
                                 ].map(tab => (
                                     <button 
                                         key={tab.id}
                                         onClick={() => setUserSubTab(tab.id)}
-                                        className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${userSubTab === tab.id ? 'bg-slate-800 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                                        className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${userSubTab === tab.id ? 'bg-slate-800 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                                     >
                                         {tab.label} ({tab.count})
                                     </button>
@@ -570,8 +589,10 @@ export default function AdminPanel({ onBack }) {
                                                         <span className="px-3 py-1.5 rounded-xl bg-purple-500/10 text-purple-400 text-[10px] font-black uppercase tracking-widest border border-purple-500/20">VITALÍCIO</span>
                                                     ) : user.isPremium ? (
                                                         <span className="px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">PREMIUM</span>
-                                                    ) : (
+                                                    ) : user.isStandard ? (
                                                         <span className="px-3 py-1.5 rounded-xl bg-slate-500/10 text-slate-400 text-[10px] font-black uppercase tracking-widest border border-slate-500/20">STANDARD</span>
+                                                    ) : (
+                                                        <span className="px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-400 text-[10px] font-black uppercase tracking-widest border border-rose-500/20">GRATUITO</span>
                                                     )}
                                                 </td>
                                                 <td className="p-8">
@@ -628,22 +649,23 @@ export default function AdminPanel({ onBack }) {
                             <p className="text-xs font-bold text-slate-500 truncate px-4">{editingUser.email}</p>
                         </div>
 
-                        <div className="space-y-4">
+                        <div className="space-y-4 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
                             {[
                                 { id: 'isAdmin', label: 'Este usuário é um administrador', desc: 'Permite acesso total ao Painel Admin', color: 'bg-purple-500' },
                                 { id: 'isPremium', label: 'Plano Premium Ativo', desc: 'Acesso completo a todas as ferramentas', color: 'bg-emerald-500' },
                                 { id: 'isLifetime', label: 'Plano Vitalício', desc: 'Acesso permanente e ilimitado ao sistema', color: 'bg-blue-500' },
-                                { id: 'isStandard', label: 'Plano Standard', desc: 'Versão limitada do sistema', color: 'bg-slate-500' },
-                                { id: 'isBlocked', label: 'Bloquear Usuário', desc: 'Impedir acesso imediato ao sistema', color: 'bg-rose-500' }
+                                { id: 'isStandard', label: 'Plano Standard', desc: 'Versão intermediária do sistema', color: 'bg-slate-500' },
+                                { id: 'isFree', label: 'Plano Gratuito', desc: 'Versão básica limitada do sistema', color: 'bg-rose-400' },
+                                { id: 'isBlocked', label: 'Bloquear Usuário', desc: 'Impedir acesso imediato ao sistema', color: 'bg-rose-600' }
                             ].map(flag => (
                                 <button 
                                     key={flag.id}
-                                    disabled={flag.disabled || isSaving}
+                                    disabled={isSaving}
                                     onClick={() => {
                                         const newVal = !editingUser[flag.id];
                                         saveUserChanges(editingUser, { [flag.id]: newVal });
                                     }}
-                                    className={`w-full p-5 rounded-2xl border transition-all flex items-center gap-4 text-left relative overflow-hidden group ${editingUser[flag.id] ? 'bg-white/5 border-[#5CCEEA]/50' : 'bg-transparent border-white/5 hover:border-white/10'} ${flag.disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                    className={`w-full p-5 rounded-2xl border transition-all flex items-center gap-4 text-left relative overflow-hidden group ${editingUser[flag.id] ? 'bg-white/5 border-[#5CCEEA]/50' : 'bg-transparent border-white/5 hover:border-white/10'}`}
                                 >
                                     <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${editingUser[flag.id] ? `${flag.color} border-transparent` : 'border-white/20'}`}>
                                         {editingUser[flag.id] && <Check className="w-4 h-4 text-white" />}
