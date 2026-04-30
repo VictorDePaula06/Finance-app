@@ -110,18 +110,20 @@ export default function AdminPanel({ onBack }) {
                 const stripeActive = (stripeSubData?.status === 'active' || stripeSubData?.status === 'trialing');
 
                 let subStatus = 'free'; // Default Gratuito
+                
+                // PRIORIDADE: Manual (Admin) sempre ganha do Automático (Stripe)
                 if (manualStatus === 'blocked') {
                     subStatus = 'blocked';
                 } else if (manualStatus === 'lifetime') {
                     subStatus = 'lifetime';
                 } else if (manualStatus === 'standard') {
                     subStatus = 'standard';
-                } else if (stripeActive) {
-                    subStatus = 'active';
                 } else if (manualStatus === 'active') {
                     subStatus = 'active';
                 } else if (manualStatus === 'free') {
                     subStatus = 'free';
+                } else if (stripeActive) {
+                    subStatus = 'active';
                 } else if (stripeSubData?.status) {
                     subStatus = stripeSubData.status;
                 }
@@ -300,12 +302,15 @@ export default function AdminPanel({ onBack }) {
         if (flagId === 'isAdmin' || flagId === 'isBlocked') {
             newPending[flagId] = newVal;
         } else {
-            // Planos (Exclusividade)
+            // Planos (Comportamento de Radio Button - Sempre um ativo)
             if (newVal) {
                 newPending.isPremium = (flagId === 'isPremium');
                 newPending.isLifetime = (flagId === 'isLifetime');
                 newPending.isStandard = (flagId === 'isStandard');
                 newPending.isFree = (flagId === 'isFree');
+            } else {
+                // Se tentar desmarcar o que já está ativo, ignoramos para garantir que um plano esteja sempre selecionado
+                return;
             }
         }
         setPendingUser(newPending);
