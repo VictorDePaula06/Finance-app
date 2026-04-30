@@ -39,7 +39,7 @@ import ExitsTab from './components/ExitsTab';
 import { calculateCumulativeBalance } from './utils/financialLogic';
 
 // CONFIGURAÇÃO MASTER
-const MASTER_EMAIL = 'j.17jvictor@gmail.com';
+const MASTER_EMAIL = 'financealivia@gmail.com';
 
 function Dashboard() {
   const { currentUser, saveUserPreferences, getUserPreferences, userPrefs } = useAuth();
@@ -647,6 +647,15 @@ function AppContent() {
       });
     }
   }, [currentUser, view]);
+
+  // Logic to reset Admin Test User data
+  const { resetUserData, isAdmin } = useAuth();
+  useEffect(() => {
+    if (currentUser && currentUser.email === MASTER_EMAIL) {
+      console.log("[Admin] Test account detected. Resetting data...");
+      resetUserData(currentUser.uid);
+    }
+  }, [currentUser?.uid]);
 
 
   useEffect(() => {

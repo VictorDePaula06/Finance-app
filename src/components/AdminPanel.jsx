@@ -9,6 +9,7 @@ export default function AdminPanel({ onBack }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [showDeleted, setShowDeleted] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isResettingGlobal, setIsResettingGlobal] = useState(false);
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -294,6 +295,69 @@ export default function AdminPanel({ onBack }) {
             setIsDeleting(false);
         }
     };
+    
+    const resetGlobalData = async () => {
+        const password = window.prompt("ATENÇÃO CRÍTICA: Isso irá apagar TODAS as transações e dados de patrimônio de TODOS os usuários do sistema. Digite 'RESET_GLOBAL' para confirmar:");
+        
+        if (password !== 'RESET_GLOBAL') {
+            alert("Operação cancelada.");
+            return;
+        }
+
+        setIsResettingGlobal(true);
+        try {
+            const collectionsToClear = ['transactions', 'savings_jars', 'goals', 'cards'];
+            let totalDeleted = 0;
+
+            for (const collName of collectionsToClear) {
+                console.log(`[Admin] Limpando coleção: ${collName}`);
+                const snap = await getDocs(collection(db, collName));
+                
+                let batch = writeBatch(db);
+                let count = 0;
+
+                for (const d of snap.docs) {
+                    batch.delete(d.ref);
+                    count++;
+                    totalDeleted++;
+
+                    if (count === 499) {
+                        await batch.commit();
+                        batch = writeBatch(db);
+                        count = 0;
+                    }
+                }
+                if (count > 0) {
+                    await batch.commit();
+                }
+            }
+
+            const usersSnap = await getDocs(collection(db, 'users'));
+            for (const userDoc of usersSnap.docs) {
+                const settingsRef = doc(db, 'users', userDoc.id, 'settings', 'general');
+                await setDoc(settingsRef, {
+                    manualConfig: {
+                        income: 0,
+                        fixedExpenses: 0,
+                        variableEstimate: 0,
+                        invested: 0,
+                        categoryBudgets: {},
+                        recurringSubs: []
+                    },
+                    hasSeenWelcome: false,
+                    hasSeenPatrimonyWelcome: false
+                }, { merge: true });
+            }
+
+            alert(`Sucesso! ${totalDeleted} registros foram removidos e as configurações de todos os usuários foram resetadas.`);
+            fetchUsers();
+        } catch (error) {
+            console.error("Erro no reset global:", error);
+            alert("Erro ao realizar reset global: " + error.message);
+        } finally {
+            setIsResettingGlobal(false);
+        }
+    };
 
     const [pushMessage, setPushMessage] = useState({ title: '', body: '' });
     const [isSendingPush, setIsSendingPush] = useState(false);
@@ -312,7 +376,6 @@ export default function AdminPanel({ onBack }) {
 
         setIsSendingPush(true);
         try {
-            // Chamada para a nossa Vercel Function (API)
             const response = await fetch('/api/send-push', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -397,6 +460,14 @@ export default function AdminPanel({ onBack }) {
                     >
                         <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''} text-emerald-400`} />
                         <span className="font-bold">Atualizar Lista</span>
+                    </button>
+                    <button
+                        onClick={resetGlobalData}
+                        disabled={isResettingGlobal}
+                        className="flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 shadow-xl rounded-2xl py-4 md:py-0 transition-all active:scale-95"
+                    >
+                        <Trash2 className={`w-5 h-5 ${isResettingGlobal ? 'animate-pulse' : ''}`} />
+                        <span className="font-bold">{isResettingGlobal ? 'Resetando...' : 'Reset Global'}</span>
                     </button>
                 </div>
 

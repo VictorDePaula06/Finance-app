@@ -24,6 +24,7 @@ export function AuthProvider({ children }) {
     const [isTrial, setIsTrial] = useState(false);
     const [daysRemaining, setDaysRemaining] = useState(0);
     const [userPrefs, setUserPrefs] = useState(null);
+    const [isAdmin, setIsAdmin] = useState(false);
     const expiryTimeoutRef = useRef(null);
 
     // MODO DEV: Bypass de autenticação para localhost
@@ -49,23 +50,25 @@ export function AuthProvider({ children }) {
         if (IS_DEV) {
             console.log("[Dev Mode] Ativando bypass de autenticação...");
             const mockUser = {
-                uid: 'dev-user-123',
-                email: 'j.17jvictor@gmail.com',
-                displayName: 'João (Dev)',
-                photoURL: 'https://github.com/identicons/j.png'
+                uid: 'dev-user-admin',
+                email: 'financealivia@gmail.com',
+                displayName: 'Admin (Dev)',
+                photoURL: 'https://github.com/identicons/a.png'
             };
             setCurrentUser(mockUser);
             setIsPremium(true);
+            setIsAdmin(true);
             setLoading(false);
             return;
         }
 
-        const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+                const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
             if (!user) {
                 setIsPremium(false);
                 setIsTrial(false);
                 setLoading(false);
+                setIsAdmin(false);
             } else {
                 // Ensure top-level user doc for Admin Panel
                 const userRef = doc(db, 'users', user.uid);
@@ -86,6 +89,9 @@ export function AuthProvider({ children }) {
                 }
 
                 await setDoc(userRef, updateData, { merge: true });
+
+                // Admin check
+                setIsAdmin(user.email === 'financealivia@gmail.com');
             }
         });
         return () => unsubscribeAuth();
@@ -404,6 +410,58 @@ export function AuthProvider({ children }) {
         }
     }
 
+    async function resetUserData(uid) {
+        if (!uid) return;
+        try {
+            console.log(`[Admin] Resetando dados para o usuário: ${uid}`);
+            
+            // 1. Transactions
+            const qT = query(collection(db, 'transactions'), where('userId', '==', uid));
+            const snapT = await getDocs(qT);
+            const deleteT = snapT.docs.map(d => deleteDoc(d.ref));
+            await Promise.all(deleteT);
+
+            // 2. Goals
+            const qG = query(collection(db, 'goals'), where('userId', '==', uid));
+            const snapG = await getDocs(qG);
+            const deleteG = snapG.docs.map(d => deleteDoc(d.ref));
+            await Promise.all(deleteG);
+
+            // 3. Savings Jars
+            const qJ = query(collection(db, 'savings_jars'), where('userId', '==', uid));
+            const snapJ = await getDocs(qJ);
+            const deleteJ = snapJ.docs.map(d => deleteDoc(d.ref));
+            await Promise.all(deleteJ);
+
+            // 4. Cards
+            const qC = query(collection(db, 'cards'), where('userId', '==', uid));
+            const snapC = await getDocs(qC);
+            const deleteC = snapC.docs.map(d => deleteDoc(d.ref));
+            await Promise.all(deleteC);
+
+            // 5. Settings Reset
+            const userPrefsRef = doc(db, 'users', uid, 'settings', 'general');
+            await setDoc(userPrefsRef, {
+                hasSeenWelcome: true,
+                hasSeenPatrimonyWelcome: true,
+                manualConfig: {
+                    income: 0,
+                    fixedExpenses: 0,
+                    variableEstimate: 0,
+                    invested: 0,
+                    categoryBudgets: {},
+                    recurringSubs: []
+                }
+            }, { merge: true });
+
+            console.log("[Admin] Reset de dados concluído.");
+            return { success: true };
+        } catch (error) {
+            console.error("Erro ao resetar dados:", error);
+            throw error;
+        }
+    }
+
     const value = {
         currentUser,
         isPremium,
@@ -414,11 +472,13 @@ export function AuthProvider({ children }) {
         loginWithGoogle,
         logout,
         deleteAccount,
+        resetUserData,
         saveUserPreferences,
         getUserPreferences,
         saveChatHistory,
         getChatHistory,
-        userPrefs
+        userPrefs,
+        isAdmin
     };
 
     return (

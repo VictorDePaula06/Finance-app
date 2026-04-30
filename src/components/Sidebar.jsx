@@ -22,7 +22,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import logo from '../assets/logo.png';
 
 const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, setActiveModule }) => {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, isAdmin } = useAuth();
   const { theme } = useTheme();
 
   const menuItems = [
@@ -80,7 +80,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
         <div 
           className="p-8 flex flex-col items-center justify-center cursor-pointer select-none"
           onDoubleClick={() => {
-            if (currentUser?.email === 'j.17jvictor@gmail.com') {
+            if (isAdmin) {
               window.dispatchEvent(new CustomEvent('change-view', { detail: 'admin' }));
             }
           }}
@@ -140,6 +140,20 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
               </button>
             );
           })}
+
+          {isAdmin && (
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('change-view', { detail: 'admin' }))}
+              className={`w-full flex items-center gap-3 p-3 mt-8 rounded-xl transition-all duration-300 group border ${
+                theme === 'light' 
+                  ? 'bg-amber-50 border-amber-100 text-amber-600 hover:bg-amber-100' 
+                  : 'bg-amber-500/5 border-amber-500/20 text-amber-400 hover:bg-amber-500/10'
+              }`}
+            >
+              <ShieldCheck className="w-5 h-5" />
+              <span className="text-sm font-black uppercase tracking-wider">Painel Admin</span>
+            </button>
+          )}
         </nav>
 
         {/* User Profile Section */}
