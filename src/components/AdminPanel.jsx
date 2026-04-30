@@ -89,9 +89,21 @@ export default function AdminPanel({ onBack }) {
                     ['active', 'trialing'].includes(d.data().status)
                 );
 
-                const subStatus = (stripeSubData?.status === 'active' || stripeSubData?.status === 'trialing')
-                    ? 'active'
-                    : (settingsData.subscription?.status || userData.subscription?.status || (stripeSubData?.status || 'free'));
+                const manualStatus = settingsData.subscription?.status || userData.subscription?.status;
+                const stripeActive = (stripeSubData?.status === 'active' || stripeSubData?.status === 'trialing');
+
+                let subStatus = 'free';
+                if (manualStatus === 'blocked') {
+                    subStatus = 'blocked';
+                } else if (manualStatus === 'lifetime') {
+                    subStatus = 'lifetime';
+                } else if (stripeActive) {
+                    subStatus = 'active';
+                } else if (manualStatus) {
+                    subStatus = manualStatus;
+                } else if (stripeSubData?.status) {
+                    subStatus = stripeSubData.status;
+                }
 
                 const isPremium = (subStatus === 'active' || subStatus === 'lifetime') || hasActiveSubscription;
 
