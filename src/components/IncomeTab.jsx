@@ -148,7 +148,6 @@ export default function IncomeTab({ transactions, savingsJars }) {
             const percent = (targetJar.cdiPercent || 100) / 100;
             const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
             const lastUpdate = targetJar.updatedAt ? new Date(targetJar.updatedAt) : (targetJar.createdAt ? new Date(targetJar.createdAt) : new Date());
-            const now = new Date();
             const diffDays = Math.max(0, now - lastUpdate) / (1000 * 60 * 60 * 24);
             const dynamicBalance = targetJar.balance * Math.pow(1 + dailyRate, diffDays);
 
