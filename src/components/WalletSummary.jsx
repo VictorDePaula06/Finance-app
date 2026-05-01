@@ -42,7 +42,7 @@ export default function WalletSummary({ income, expense, balance, isHidden, onTo
                     <div className="p-2 bg-emerald-500/10 rounded-xl">
                         <TrendingUp className="w-4 h-4 text-emerald-500" />
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Entradas no Mês</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Recebimentos no Mês</span>
                 </div>
                 <div className={`text-2xl font-black ${isHidden ? 'blur-md select-none' : 'text-emerald-500'}`}>
                     {isHidden ? 'R$ 0.000,00' : formatCurrency(income)}
@@ -57,7 +57,7 @@ export default function WalletSummary({ income, expense, balance, isHidden, onTo
                     <div className="p-2 bg-rose-500/10 rounded-xl">
                         <TrendingDown className="w-4 h-4 text-rose-500" />
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Saídas no Mês</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Lançamentos no Mês</span>
                 </div>
                 <div className={`text-2xl font-black ${isHidden ? 'blur-md select-none' : 'text-rose-500'}`}>
                     {isHidden ? 'R$ 0.000,00' : formatCurrency(expense)}

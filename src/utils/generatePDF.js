@@ -138,10 +138,10 @@ export const generatePDF = async (transactions, selectedMonth_YYYY_MM, logoSrc, 
     };
 
     // Card 1: Income
-    drawCard(14, "Entradas", income, 'green');
+    drawCard(14, "Recebimentos", income, 'green');
 
     // Card 2: Expense
-    drawCard(14 + cardWidth + gap, "Saídas", expense, 'red');
+    drawCard(14 + cardWidth + gap, "Lançamentos", expense, 'red');
 
     // Card 3: Balance
     drawCard(14 + (cardWidth + gap) * 2, "Saldo Final", balance, balance >= 0 ? 'blue' : 'red');
@@ -231,7 +231,7 @@ export const generatePDF = async (transactions, selectedMonth_YYYY_MM, logoSrc, 
             new Date(t.date).getDate().toString().padStart(2, '0'), // Just the day
             t.description + (t.isFixed ? ' (Fixa)' : '') + (t.installments ? ` (${t.currentInstallment}/${t.installments})` : ''),
             foundCat ? foundCat.label : 'Geral',
-            t.type === 'income' ? 'Entrada' : 'Saída',
+            t.type === 'income' ? 'Recebimento' : 'Lançamento',
             `R$ ${Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
         ];
     });

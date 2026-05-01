@@ -314,7 +314,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     <TrendingDown className={`w-8 h-8 ${theme === 'light' ? 'text-rose-500' : 'text-rose-400'}`} />
                 </div>
                 <div className="text-center">
-                    <h2 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Histórico de Saídas</h2>
+                    <h2 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Histórico de Lançamentos</h2>
                     <p className={`text-sm ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Visualize seus últimos lançamentos e registre novos gastos.</p>
                 </div>
                 <button 
@@ -325,7 +325,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     className="group flex items-center gap-3 px-8 py-4 bg-rose-500 hover:bg-rose-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-rose-500/20 transition-all active:scale-95 hover:scale-105"
                 >
                     <Plus className="w-5 h-5 transition-transform group-hover:rotate-90" />
-                    Lançamento de Saída
+                    Lançamento de Despesa
                 </button>
             </div>
 

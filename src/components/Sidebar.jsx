@@ -28,8 +28,8 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
   const menuItems = [
     // Gastos Module
     { id: 'visao', label: 'Visão Geral', icon: LayoutDashboard, module: 'gastos' },
-    { id: 'entradas', label: 'Entradas', icon: ArrowUpCircle, module: 'gastos' },
-    { id: 'gastos', label: 'Saídas', icon: TrendingDown, module: 'gastos' },
+    { id: 'entradas', label: 'Recebimentos', icon: ArrowUpCircle, module: 'gastos' },
+    { id: 'gastos', label: 'Lançamentos', icon: TrendingDown, module: 'gastos' },
     { id: 'analise', label: 'Análise de Gastos', icon: TrendingUp, module: 'gastos' },
     { id: 'cartoes', label: 'Cartões', icon: CreditCard, module: 'gastos' },
     

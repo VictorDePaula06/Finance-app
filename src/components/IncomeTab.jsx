@@ -219,7 +219,7 @@ export default function IncomeTab({ transactions, savingsJars }) {
                     </div>
                     <div className="flex-1">
                         <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                            {editingId ? 'Editar Entrada' : 'Nova Entrada'}
+                            {editingId ? 'Editar Recebimento' : 'Novo Recebimento'}
                         </h3>
                         <p className={`text-xs ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Registre seus salários, serviços extras e rendimentos.</p>
                     </div>
@@ -325,7 +325,7 @@ export default function IncomeTab({ transactions, savingsJars }) {
                         }`}
                     >
                         <TrendingUp className="w-4 h-4" />
-                        {editingId ? 'Salvar Alterações' : 'Registrar Entrada'}
+                        {editingId ? 'Salvar Alterações' : 'Registrar Recebimento'}
                     </button>
                 </div>
                 
@@ -357,7 +357,7 @@ export default function IncomeTab({ transactions, savingsJars }) {
             }`}>
                 <div className="flex justify-between items-center mb-6">
                     <h3 className={`text-sm font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                        Entradas deste Mês
+                        Recebimentos deste Mês
                     </h3>
                     <div className="text-right">
                         <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Total Recebido</span>

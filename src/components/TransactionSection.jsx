@@ -618,13 +618,13 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                         </div>
                                         <div className="grid grid-cols-3 gap-4">
                                             <div>
-                                                <p className="text-xs text-slate-500 mb-1">Entradas</p>
+                                                <p className="text-xs text-slate-500 mb-1">Recebimentos</p>
                                                 <p className="text-emerald-500 font-medium">
                                                     + R$ {(showRealFlow ? month.realIncome : month.income).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </p>
                                             </div>
                                             <div>
-                                                <p className="text-xs text-slate-500 mb-1">Saídas</p>
+                                                <p className="text-xs text-slate-500 mb-1">Lançamentos</p>
                                                 <p className="text-rose-500 font-medium">
                                                     - R$ {(showRealFlow ? month.realExpense : month.expense).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </p>
