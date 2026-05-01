@@ -202,11 +202,13 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 if (jar) {
                     existingJarId = jar.id;
                     const cdiAnual = (cdiRate || 10.65) / 100;
-                    const percent = (jar.cdiPercent || 100) / 100;
+                    const percent = (parseFloat(jar.cdiPercent) || 100) / 100;
                     const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
                     const lastUpdate = jar.updatedAt ? new Date(jar.updatedAt) : (jar.createdAt ? new Date(jar.createdAt) : new Date());
                     const diffDays = Math.max(0, now - lastUpdate) / (1000 * 60 * 60 * 24);
-                    const currentDynamicBalance = jar.balance * Math.pow(1 + dailyRate, diffDays);
+                    
+                    const jarBalance = parseFloat(jar.balance) || 0;
+                    const currentDynamicBalance = jarBalance * Math.pow(1 + dailyRate, diffDays);
                     
                     jarDataToSave = {
                         balance: currentDynamicBalance + val,
@@ -235,6 +237,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     jar: jarDataToSave,
                     jarId: existingJarId 
                 });
+                setIsSaving(false); // Garante que destrave caso mostre o aviso
                 setStep('warning');
                 return;
             }
@@ -269,24 +272,30 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         }
     };
 
-    const handleConfirmWarning = () => {
-        if (!pendingSave) return;
+    const handleConfirmWarning = async () => {
+        if (!pendingSave || isSaving) return;
         setIsSaving(true);
         
-        if (pendingSave.type === 'expense') {
-            addDoc(collection(db, 'transactions'), pendingSave.data).catch(err => console.error(err));
-        } else if (pendingSave.type === 'investment') {
-            addDoc(collection(db, 'transactions'), pendingSave.transaction).catch(err => console.error(err));
-            if (pendingSave.jarId) {
-                updateDoc(doc(db, 'savings_jars', pendingSave.jarId), pendingSave.jar).catch(err => console.error(err));
-            } else {
-                addDoc(collection(db, 'savings_jars'), pendingSave.jar).catch(err => console.error(err));
+        try {
+            if (pendingSave.type === 'expense') {
+                await addDoc(collection(db, 'transactions'), pendingSave.data);
+            } else if (pendingSave.type === 'investment') {
+                await addDoc(collection(db, 'transactions'), pendingSave.transaction);
+                if (pendingSave.jarId) {
+                    await updateDoc(doc(db, 'savings_jars', pendingSave.jarId), pendingSave.jar);
+                } else {
+                    await addDoc(collection(db, 'savings_jars'), pendingSave.jar);
+                }
             }
-        }
 
-        setIsSaving(false);
-        setStep('success');
-        setPendingSave(null);
+            setIsSaving(false);
+            setStep('success');
+            setPendingSave(null);
+        } catch (error) {
+            console.error("Erro ao confirmar aviso:", error);
+            alert("Erro ao salvar lançamento.");
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -348,8 +357,8 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className={`font-black ${t.category === 'investment' ? 'text-blue-500' : 'text-rose-500'} mr-2`}>
-                                            - R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        <span className={`font-black ${t.category === 'investment' ? 'text-blue-400' : 'text-rose-500'} mr-2`}>
+                                            {t.category === 'investment' ? '+' : '-'} R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                         </span>
                                         <button 
                                             onClick={() => handleEdit(t)}
