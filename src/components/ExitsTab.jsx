@@ -18,10 +18,10 @@ import {
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
-import { collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, updateDoc, query, where } from 'firebase/firestore';
 import { CATEGORIES } from '../constants/categories';
 
-export default function ExitsTab({ transactions }) {
+export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.65 }) {
     const { theme } = useTheme();
     const { currentUser } = useAuth();
     
@@ -38,6 +38,9 @@ export default function ExitsTab({ transactions }) {
     const [category, setCategory] = useState('other');
     const [cdiPercent, setCdiPercent] = useState('100');
     const [pendingSave, setPendingSave] = useState(null); // Para guardar o que seria salvo após o aviso
+    const [selectedJarId, setSelectedJarId] = useState('');
+    const [isNewReserve, setIsNewReserve] = useState(false);
+    const [reserveType, setReserveType] = useState('cofrinho');
 
     // Filtered Transactions (Only Expenses/Exits)
     const exits = useMemo(() => {
@@ -69,6 +72,9 @@ export default function ExitsTab({ transactions }) {
         setShowModal(false);
         setIsSaving(false);
         setPendingSave(null);
+        setSelectedJarId('');
+        setIsNewReserve(false);
+        setReserveType('cofrinho');
     };
 
     const handleSaveGasto = async (e) => {
@@ -162,6 +168,13 @@ export default function ExitsTab({ transactions }) {
     const handleSaveInvestimento = async (e) => {
         e.preventDefault();
         if (!description || !amount || isSaving) return;
+        
+        // Se não for nova reserva, precisa ter selecionado uma
+        if (!isNewReserve && !selectedJarId) {
+            alert("Selecione uma reserva ou escolha 'Criar Nova'");
+            return;
+        }
+
         setIsSaving(true);
 
         try {
@@ -180,23 +193,48 @@ export default function ExitsTab({ transactions }) {
                 createdAt: Date.now()
             };
 
-            const jarData = {
-                name: description,
-                balance: val,
-                cdiPercent: perc,
-                type: 'cofrinho',
-                color: 'emerald',
-                userId: currentUser.uid,
-                createdAt: now.toISOString(),
-                updatedAt: now.toISOString()
-            };
+            let jarDataToSave = null;
+            let existingJarId = null;
 
-            // Logs para depuração local
-            console.log("[Dev] Preparando salvamento de investimento:", { transactionData, jarData });
+            if (selectedJarId && selectedJarId !== 'new' && !isNewReserve) {
+                // UPDATE EXISTING JAR
+                const jar = savingsJars.find(j => j.id === selectedJarId);
+                if (jar) {
+                    existingJarId = jar.id;
+                    const cdiAnual = (cdiRate || 10.65) / 100;
+                    const percent = (jar.cdiPercent || 100) / 100;
+                    const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
+                    const lastUpdate = jar.updatedAt ? new Date(jar.updatedAt) : (jar.createdAt ? new Date(jar.createdAt) : new Date());
+                    const diffDays = Math.max(0, now - lastUpdate) / (1000 * 60 * 60 * 24);
+                    const currentDynamicBalance = jar.balance * Math.pow(1 + dailyRate, diffDays);
+                    
+                    jarDataToSave = {
+                        balance: currentDynamicBalance + val,
+                        updatedAt: now.toISOString()
+                    };
+                }
+            } else {
+                // CREATE NEW JAR
+                jarDataToSave = {
+                    name: description,
+                    balance: val,
+                    cdiPercent: perc,
+                    type: reserveType,
+                    color: 'emerald',
+                    userId: currentUser.uid,
+                    createdAt: now.toISOString(),
+                    updatedAt: now.toISOString()
+                };
+            }
 
-            // VERIFICAÇÃO DE SALDO (Apenas para novos aportes)
+            // VERIFICAÇÃO DE SALDO
             if (!editingId && val > monthlyBalance) {
-                setPendingSave({ type: 'investment', transaction: transactionData, jar: jarData });
+                setPendingSave({ 
+                    type: 'investment', 
+                    transaction: transactionData, 
+                    jar: jarDataToSave,
+                    jarId: existingJarId 
+                });
                 setStep('warning');
                 return;
             }
@@ -211,14 +249,16 @@ export default function ExitsTab({ transactions }) {
                 });
                 resetForm();
             } else {
-                // Salvamento duplo otimista - disparar e não travar
+                // Salvamento duplo
                 const tRef = collection(db, 'transactions');
-                const jRef = collection(db, 'savings_jars');
+                await addDoc(tRef, transactionData);
                 
-                addDoc(tRef, transactionData).then(() => console.log("[Dev] Transação salva.")).catch(err => console.error(err));
-                addDoc(jRef, jarData).then(() => console.log("[Dev] Patrimônio atualizado.")).catch(err => console.error(err));
+                if (existingJarId) {
+                    await updateDoc(doc(db, 'savings_jars', existingJarId), jarDataToSave);
+                } else {
+                    await addDoc(collection(db, 'savings_jars'), jarDataToSave);
+                }
 
-                // Transição imediata de UI
                 setIsSaving(false);
                 setStep('success');
             }
@@ -236,9 +276,12 @@ export default function ExitsTab({ transactions }) {
         if (pendingSave.type === 'expense') {
             addDoc(collection(db, 'transactions'), pendingSave.data).catch(err => console.error(err));
         } else if (pendingSave.type === 'investment') {
-            // Garantir salvamento duplo no patrimônio após o aviso
             addDoc(collection(db, 'transactions'), pendingSave.transaction).catch(err => console.error(err));
-            addDoc(collection(db, 'savings_jars'), pendingSave.jar).catch(err => console.error(err));
+            if (pendingSave.jarId) {
+                updateDoc(doc(db, 'savings_jars', pendingSave.jarId), pendingSave.jar).catch(err => console.error(err));
+            } else {
+                addDoc(collection(db, 'savings_jars'), pendingSave.jar).catch(err => console.error(err));
+            }
         }
 
         setIsSaving(false);
@@ -475,14 +518,65 @@ export default function ExitsTab({ transactions }) {
                                 <div className="space-y-4">
                                     <div>
                                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Onde guardar?</label>
-                                        <input 
-                                            type="text" required value={description} onChange={e => setDescription(e.target.value)}
-                                            placeholder="Ex: Cofrinho, Tesouro SELIC, Reserva..."
-                                            className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                                theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500'
+                                        <select 
+                                            required
+                                            value={selectedJarId}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setSelectedJarId(val);
+                                                if (val === 'new') {
+                                                    setIsNewReserve(true);
+                                                    setDescription('');
+                                                    setCdiPercent('100');
+                                                } else if (val !== '') {
+                                                    const jar = savingsJars.find(j => j.id === val);
+                                                    setIsNewReserve(false);
+                                                    setDescription(jar.name);
+                                                    setCdiPercent(jar.cdiPercent.toString());
+                                                } else {
+                                                    setIsNewReserve(false);
+                                                    setDescription('');
+                                                }
+                                            }}
+                                            className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all appearance-none ${
+                                                theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
                                             }`}
-                                        />
+                                        >
+                                            <option value="">Selecione uma reserva...</option>
+                                            {savingsJars?.map(jar => (
+                                                <option key={jar.id} value={jar.id}>{jar.name}</option>
+                                            ))}
+                                            <option value="new" className="text-emerald-500 font-bold">+ Criar Nova Reserva...</option>
+                                        </select>
                                     </div>
+
+                                    {isNewReserve && (
+                                        <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Nome da Reserva</label>
+                                                <input 
+                                                    type="text" required value={description} onChange={e => setDescription(e.target.value)}
+                                                    placeholder="Ex: Reserva Emergência, Viagem..."
+                                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                        theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500'
+                                                    }`}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Tipo de Investimento</label>
+                                                <select 
+                                                    value={reserveType} onChange={e => setReserveType(e.target.value)}
+                                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all appearance-none ${
+                                                        theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
+                                                    }`}
+                                                >
+                                                    <option value="cofrinho">Cofrinho / Poupança</option>
+                                                    <option value="tesouro">Tesouro Selic</option>
+                                                    <option value="cdb">CDB Liquidez Diária</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
