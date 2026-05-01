@@ -543,9 +543,20 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                             }`}
                                         >
                                             <option value="">Selecione uma reserva...</option>
-                                            {savingsJars?.map(jar => (
-                                                <option key={jar.id} value={jar.id}>{jar.name}</option>
-                                            ))}
+                                            {savingsJars?.map(jar => {
+                                                const cdiAnual = (cdiRate || 10.65) / 100;
+                                                const percent = (jar.cdiPercent || 100) / 100;
+                                                const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
+                                                const lastUpdate = jar.updatedAt ? new Date(jar.updatedAt) : (jar.createdAt ? new Date(jar.createdAt) : new Date());
+                                                const diffDays = Math.max(0, new Date() - lastUpdate) / (1000 * 60 * 60 * 24);
+                                                const dynamicBalance = jar.balance * Math.pow(1 + dailyRate, diffDays);
+                                                
+                                                return (
+                                                    <option key={jar.id} value={jar.id}>
+                                                        {jar.name} (R$ {dynamicBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                                                    </option>
+                                                );
+                                            })}
                                             <option value="new" className="text-emerald-500 font-bold">+ Criar Nova Reserva...</option>
                                         </select>
                                     </div>

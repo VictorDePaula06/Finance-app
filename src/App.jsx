@@ -280,16 +280,17 @@ function Dashboard() {
   }, [transactions]);
 
   // INVESTMENT STATS FOR OVERVIEW
-  const investmentStats = useMemo(() => {
-    const totalGuarded = savingsJars.reduce((acc, curr) => {
+    const jarsWithBalance = savingsJars.map(curr => {
         const cdiAnual = cdiRate / 100;
         const percent = (curr.cdiPercent || 100) / 100;
         const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
         const lastUpdate = curr.updatedAt ? new Date(curr.updatedAt) : (curr.createdAt ? new Date(curr.createdAt) : new Date());
         const diffDays = Math.max(0, new Date() - lastUpdate) / (1000 * 60 * 60 * 24);
         const dynamicBalance = (parseFloat(curr.balance) || 0) * Math.pow(1 + dailyRate, diffDays);
-        return acc + dynamicBalance;
-    }, 0);
+        return { ...curr, dynamicBalance };
+    });
+
+    const totalGuarded = jarsWithBalance.reduce((acc, curr) => acc + curr.dynamicBalance, 0);
     
     const dailyYield = savingsJars.reduce((acc, curr) => {
         const cdiAnual = cdiRate / 100; 
@@ -299,7 +300,7 @@ function Dashboard() {
         return acc + (val * dailyRate);
     }, 0);
     
-    return { totalGuarded, dailyYield };
+    return { totalGuarded, dailyYield, jarsWithBalance };
   }, [savingsJars, cdiRate]);
 
   if (activeModule === 'hub') {
@@ -417,6 +418,24 @@ function Dashboard() {
                   <p className={`text-3xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                     R$ {investmentStats.totalGuarded.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </p>
+                  
+                  {investmentStats.jarsWithBalance?.length > 0 && (
+                    <div className="mt-6 pt-6 border-t border-slate-500/10 space-y-3">
+                      {investmentStats.jarsWithBalance.map(jar => (
+                        <div key={jar.id} className="flex justify-between items-center group/jar">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1 h-1 rounded-full bg-emerald-500 opacity-40 group-hover/jar:scale-150 transition-transform"></div>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                              {jar.name}
+                            </span>
+                          </div>
+                          <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
+                            R$ {jar.dynamicBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className={`p-8 rounded-[2.5rem] border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`}>
                   <div className="flex items-center gap-3 mb-4">
