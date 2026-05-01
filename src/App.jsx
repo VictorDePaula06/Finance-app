@@ -281,6 +281,7 @@ function Dashboard() {
   }, [transactions]);
 
   // INVESTMENT STATS FOR OVERVIEW
+  const investmentStats = useMemo(() => {
     const jarsWithBalance = savingsJars.map(curr => {
         const cdiAnual = cdiRate / 100;
         const percent = (curr.cdiPercent || 100) / 100;
