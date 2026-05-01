@@ -3,7 +3,7 @@ import TransactionSection from './components/TransactionSection';
 import GoalTracker from './components/GoalTracker';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown } from 'lucide-react';
+import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import InstallPrompt from './components/InstallPrompt';
 import logo from './assets/logo.png';
 import AdminPanel from './components/AdminPanel';
@@ -60,6 +60,8 @@ function Dashboard() {
   const [previousMonthStats, setPreviousMonthStats] = useState({ income: 0, expense: 0, balance: 0, topCategory: '' });
   const [previousMonthName, setPreviousMonthName] = useState('');
   const [cdiRate, setCdiRate] = useState(10.65);
+  const [editingJar, setEditingJar] = useState(null);
+  const [jarDeleteConfirm, setJarDeleteConfirm] = useState(null);
 
   const [manualConfig, setManualConfig] = useState({
     income: '',
@@ -82,6 +84,32 @@ function Dashboard() {
     setManualConfig(newConfig);
     localStorage.setItem('financialAdvisorSettings', JSON.stringify(newConfig));
     saveUserPreferences({ manualConfig: newConfig });
+  };
+
+  const handleDeleteJar = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'savings_jars', id));
+      setJarDeleteConfirm(null);
+    } catch (err) {
+      console.error("Erro ao excluir reserva:", err);
+    }
+  };
+
+  const handleUpdateJar = async (e) => {
+    e.preventDefault();
+    if (!editingJar) return;
+    try {
+      const { id, name, balance, cdiPercent } = editingJar;
+      await updateDoc(doc(db, 'savings_jars', id), {
+        name,
+        balance: parseFloat(balance),
+        cdiPercent: parseFloat(cdiPercent),
+        updatedAt: new Date().toISOString()
+      });
+      setEditingJar(null);
+    } catch (err) {
+      console.error("Erro ao atualizar reserva:", err);
+    }
   };
 
   useEffect(() => {
@@ -433,13 +461,30 @@ function Dashboard() {
                   {showReservesList && investmentStats.jarsWithBalance?.length > 0 && (
                     <div className="mt-6 pt-6 border-t border-slate-500/10 space-y-4 animate-in slide-in-from-top-4 duration-500">
                       {investmentStats.jarsWithBalance.map(jar => (
-                        <div key={jar.id} className="group/jar">
+                        <div key={jar.id} className="group/jar relative">
                           <div className="flex justify-between items-center mb-1">
                             <div className="flex items-center gap-2">
                               <div className="w-1 h-1 rounded-full bg-emerald-500 opacity-40 group-hover/jar:scale-150 transition-transform"></div>
                               <span className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
                                 {jar.name}
                               </span>
+                              
+                              <div className="flex gap-1 opacity-0 group-hover/jar:opacity-100 transition-opacity ml-1">
+                                <button 
+                                  onClick={() => setEditingJar({ ...jar, balance: jar.balance.toString(), cdiPercent: jar.cdiPercent.toString() })}
+                                  className="p-1 text-slate-400 hover:text-emerald-500 transition-colors"
+                                  title="Editar"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                                <button 
+                                  onClick={() => setJarDeleteConfirm(jar)}
+                                  className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
                             </div>
                             <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
                               R$ {jar.dynamicBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -662,7 +707,79 @@ function Dashboard() {
           </div>
         )}
       </main>
-    </div>
+        {/* MODALS PARA RESERVAS NA VISÃO GERAL */}
+        {editingJar && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
+            <div className={`w-full max-w-md rounded-[3rem] p-8 md:p-10 border animate-in zoom-in-95 duration-300 ${
+              theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+            }`}>
+              <h3 className={`text-2xl font-black mb-1 text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Editar Reserva</h3>
+              <p className="text-slate-500 text-[10px] font-black text-center mb-8 uppercase tracking-widest">Ajuste os detalhes da sua reserva</p>
+              <form onSubmit={handleUpdateJar} className="space-y-6">
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Nome da Reserva</label>
+                  <input 
+                    type="text" required
+                    value={editingJar.name}
+                    onChange={e => setEditingJar({...editingJar, name: e.target.value})}
+                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                      theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-white/5 border-white/10 text-white'
+                    }`}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Saldo Base (R$)</label>
+                    <input 
+                      type="number" step="0.01" required
+                      value={editingJar.balance}
+                      onChange={e => setEditingJar({...editingJar, balance: e.target.value})}
+                      className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-white/5 border-white/10 text-white'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">% do CDI</label>
+                    <input 
+                      type="number" step="0.1" required
+                      value={editingJar.cdiPercent}
+                      onChange={e => setEditingJar({...editingJar, cdiPercent: e.target.value})}
+                      className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-white/5 border-white/10 text-white'
+                      }`}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setEditingJar(null)} className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>Cancelar</button>
+                  <button type="submit" className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20">Salvar</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {jarDeleteConfirm && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
+            <div className={`w-full max-w-sm rounded-[3rem] p-8 border text-center animate-in zoom-in-95 duration-300 ${
+              theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+            }`}>
+              <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-8 h-8 text-rose-500" />
+              </div>
+              <h3 className={`text-xl font-black mb-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir Reserva?</h3>
+              <p className="text-slate-500 text-xs font-bold leading-relaxed mb-8">
+                Tem certeza que deseja excluir a reserva <span className="text-emerald-500">"{jarDeleteConfirm.name}"</span>? Esta ação não pode ser desfeita.
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setJarDeleteConfirm(null)} className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>Cancelar</button>
+                <button onClick={() => handleDeleteJar(jarDeleteConfirm.id)} className="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20">Excluir</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
   );
 }
 
