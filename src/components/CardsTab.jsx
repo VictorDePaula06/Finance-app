@@ -10,7 +10,8 @@ import {
   AlertCircle,
   CheckCircle2,
   MoreVertical,
-  Pencil
+  Pencil,
+  Hash
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -31,6 +32,7 @@ const CardsTab = () => {
   const [editingCardId, setEditingCardId] = useState(null);
   const [newSub, setNewSub] = useState({ name: '', value: '', day: 1, cardId: '' });
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, type, title }
+  const [payingInstallment, setPayingInstallment] = useState(null); // { sub object }
 
   useEffect(() => {
     if (!currentUser) return;
@@ -81,6 +83,7 @@ const CardsTab = () => {
     await addDoc(collection(db, 'subscriptions'), { 
       ...newSub, 
       value: parseFloat(newSub.value), 
+      type: 'recurring',
       userId: currentUser.uid 
     });
     setNewSub({ name: '', value: '', day: 1, cardId: '' });
@@ -90,6 +93,42 @@ const CardsTab = () => {
   const handleDeleteSub = async (id) => {
     await deleteDoc(doc(db, 'subscriptions', id));
     setDeleteConfirm(null);
+  };
+
+  const handlePayInstallment = async (sub) => {
+    if (!sub) return;
+    try {
+        const nextInstallment = (sub.currentInstallment || 1) + 1;
+        const total = sub.totalInstallments || 1;
+
+        // 1. Create Transaction in History
+        await addDoc(collection(db, 'transactions'), {
+            description: `Parcela ${sub.currentInstallment}/${total} - ${sub.name}`,
+            amount: parseFloat(sub.value),
+            type: 'expense',
+            category: 'other',
+            date: new Date().toISOString(),
+            userId: currentUser.uid,
+            month: new Date().toISOString().slice(0, 7),
+            createdAt: Date.now(),
+            paymentMethod: 'credito',
+            selectedCardId: sub.cardId || null,
+            isInstallmentPayment: true
+        });
+
+        // 2. Update or Delete Subscription
+        if (nextInstallment > total) {
+            await deleteDoc(doc(db, 'subscriptions', sub.id));
+        } else {
+            await updateDoc(doc(db, 'subscriptions', sub.id), {
+                currentInstallment: nextInstallment
+            });
+        }
+
+        setPayingInstallment(null);
+    } catch (err) {
+        console.error("Erro ao dar baixa na parcela:", err);
+    }
   };
 
   const getCardSubs = (cardId) => subscriptions.filter(s => s.cardId === cardId);
@@ -238,7 +277,7 @@ const CardsTab = () => {
         </div>
       </section>
 
-      {/* SECTION: ALL SUBSCRIPTIONS */}
+      {/* SECTION: ASSINATURAS AVULSAS */}
       <section className="space-y-6">
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-3">
@@ -256,7 +295,7 @@ const CardsTab = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {subscriptions.map(sub => {
+          {subscriptions.filter(s => s.type !== 'installment').map(sub => {
             const linkedCard = cards.find(c => c.id === sub.cardId);
             return (
               <div key={sub.id} className={`p-5 rounded-3xl border group relative transition-all hover:shadow-xl hover:-translate-y-1 ${
@@ -308,6 +347,128 @@ const CardsTab = () => {
               </div>
             );
           })}
+          {subscriptions.filter(s => s.type !== 'installment').length === 0 && (
+            <div className={`col-span-full py-12 text-center rounded-[2rem] border-2 border-dashed ${theme === 'light' ? 'border-slate-100 text-slate-400' : 'border-white/5 text-slate-600'}`}>
+              <p className="text-xs font-bold uppercase tracking-widest">Nenhuma assinatura avulsa cadastrada.</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* SECTION: PARCELAMENTOS */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-3 px-2">
+          <div className="p-2 bg-rose-500/10 rounded-xl">
+            <Hash className="w-6 h-6 text-rose-500" />
+          </div>
+          <h2 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Parcelamentos Ativos</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {subscriptions.filter(s => s.type === 'installment').map(sub => {
+            const linkedCard = cards.find(c => c.id === sub.cardId);
+            const remaining = (sub.totalInstallments || 0) - (sub.currentInstallment || 0) + 1;
+            const progress = ((sub.currentInstallment || 1) / (sub.totalInstallments || 1)) * 100;
+            
+            return (
+              <div key={sub.id} className={`p-5 rounded-3xl border group relative transition-all hover:shadow-xl hover:-translate-y-1 ${
+                theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'
+              }`}>
+                <div className="flex justify-between items-start mb-6">
+                  <div className="w-12 h-12 bg-rose-500/10 rounded-2xl flex items-center justify-center">
+                    <Hash className="w-6 h-6 text-rose-500" />
+                  </div>
+                  <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className="p-2 text-slate-500 hover:text-rose-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all bg-white/5 rounded-xl">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Delete overlay for Installment */}
+                {deleteConfirm?.id === sub.id && deleteConfirm?.type === 'sub' && (
+                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300">
+                        <div className="max-w-[200px] w-full">
+                            <Trash2 className="w-8 h-8 text-rose-500 mx-auto mb-3" />
+                            <p className="text-white font-black text-sm mb-6 leading-tight">Excluir {sub.name}?</p>
+                            <div className="flex gap-2">
+                                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl bg-white/10 text-white font-black text-[9px] uppercase tracking-widest">Não</button>
+                                <button onClick={() => handleDeleteSub(sub.id)} className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white font-black text-[9px] uppercase tracking-widest">Sim</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <div className="space-y-1">
+                  <h4 className={`font-black text-base ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{sub.name}</h4>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black">
+                      Parcela {sub.currentInstallment} de {sub.totalInstallments}
+                    </p>
+                    <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest bg-rose-500/10 px-2 py-0.5 rounded-full">
+                      Faltam {remaining}
+                    </span>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="w-full h-1.5 bg-slate-500/10 rounded-full mt-2 overflow-hidden">
+                    <div 
+                      className="h-full bg-rose-500 transition-all duration-1000" 
+                      style={{ width: `${progress}%` }}
+                    ></div>
+                  </div>
+
+                  <button 
+                    onClick={() => setPayingInstallment(sub)}
+                    className={`w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all ${
+                        theme === 'light' 
+                        ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white shadow-sm' 
+                        : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white shadow-xl'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Dar Baixa na Parcela
+                  </button>
+                </div>
+
+                {/* Confirmation Overlay for Payment */}
+                {payingInstallment?.id === sub.id && (
+                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300">
+                        <div className="max-w-[200px] w-full space-y-4">
+                            <div className="w-14 h-14 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                            </div>
+                            <h4 className="text-white font-black text-sm uppercase tracking-widest">Confirmar Pagamento?</h4>
+                            <p className="text-white/60 text-[10px] leading-relaxed">
+                                Dar baixa na parcela <span className="text-emerald-400 font-black">{sub.currentInstallment}/{sub.totalInstallments}</span> de <span className="text-white font-bold">{sub.name}</span>?
+                                <br />
+                                <span className="text-[9px] mt-2 block opacity-50 italic">Isso criará uma saída de R$ {sub.value.toLocaleString('pt-BR')} no seu histórico.</span>
+                            </p>
+                            <div className="flex gap-2 pt-2">
+                                <button onClick={() => setPayingInstallment(null)} className="flex-1 py-3 rounded-xl bg-white/10 text-white font-black text-[9px] uppercase tracking-widest hover:bg-white/20 transition-colors">Voltar</button>
+                                <button onClick={() => handlePayInstallment(sub)} className="flex-1 py-3 rounded-xl bg-emerald-500 text-white font-black text-[9px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors">Confirmar</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <div className="mt-6 pt-5 border-t border-white/5 flex justify-between items-end">
+                  <div className="space-y-1">
+                    <p className="text-[9px] uppercase font-black text-slate-500">Valor Parcela</p>
+                    <span className="text-lg font-black text-rose-500 tabular-nums">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  {linkedCard && (
+                    <span className={`text-[9px] font-black px-3 py-1.5 rounded-xl ${linkedCard.color} text-white shadow-lg shadow-black/20`}>
+                      {linkedCard.name}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {subscriptions.filter(s => s.type === 'installment').length === 0 && (
+            <div className={`col-span-full py-12 text-center rounded-[2rem] border-2 border-dashed ${theme === 'light' ? 'border-slate-100 text-slate-400' : 'border-white/5 text-slate-600'}`}>
+              <p className="text-xs font-bold uppercase tracking-widest">Nenhum parcelamento ativo.</p>
+            </div>
+          )}
         </div>
       </section>
 

@@ -627,7 +627,13 @@ function Dashboard() {
                 isHidden={hideBalance}
                 onToggle={toggleHideBalance}
               />
-              <ExitsTab transactions={transactions} savingsJars={investmentStats.jarsWithBalance} cdiRate={cdiRate} />
+              <ExitsTab 
+                transactions={transactions} 
+                savingsJars={investmentStats.jarsWithBalance} 
+                cdiRate={cdiRate} 
+                cards={cards}
+                subscriptions={subscriptions}
+              />
             </div>
           )}
           

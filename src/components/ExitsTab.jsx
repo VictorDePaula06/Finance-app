@@ -11,6 +11,7 @@ import {
     TrendingUp,
     Circle,
     ChevronRight,
+    ChevronDown,
     Clock,
     Trash2,
     Pencil
@@ -21,7 +22,7 @@ import { db } from '../services/firebase';
 import { collection, addDoc, deleteDoc, doc, updateDoc, query, where } from 'firebase/firestore';
 import { CATEGORIES } from '../constants/categories';
 
-export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.65 }) {
+export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.65, cards = [], subscriptions = [] }) {
     const { theme } = useTheme();
     const { currentUser } = useAuth();
     
@@ -30,6 +31,13 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const [step, setStep] = useState('choice'); // 'choice' | 'expense' | 'investment' | 'success' | 'warning'
     const [isSaving, setIsSaving] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    const [subTab, setSubTab] = useState('despesas'); // 'despesas' | 'reservas'
+    const [isInstallment, setIsInstallment] = useState(false);
+    const [installments, setInstallments] = useState('2');
+    const [isRecurring, setIsRecurring] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState('pix');
+    const [selectedCardId, setSelectedCardId] = useState('');
+    const [installmentMode, setInstallmentMode] = useState('total'); // 'total' | 'per_installment'
 
     // Form States
     const [description, setDescription] = useState('');
@@ -83,6 +91,11 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         setSelectedJarId('');
         setIsNewReserve(false);
         setReserveType('cofrinho');
+        setIsInstallment(false);
+        setInstallments('2');
+        setIsRecurring(false);
+        setPaymentMethod('pix');
+        setInstallmentMode('total');
     };
 
     const handleSaveGasto = async (e) => {
@@ -92,17 +105,44 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
         try {
             const val = parseFloat(amount);
+            const transactionValue = isInstallment && installmentMode === 'total' 
+                ? (val / parseInt(installments)) 
+                : val;
+
             const transactionData = {
                 description,
-                amount: val,
+                amount: transactionValue,
                 type: 'expense',
                 category,
                 date: new Date(date).toISOString(),
                 userId: currentUser.uid,
                 month: date.slice(0, 7),
                 createdAt: Date.now(),
-                isFixed: false
+                isFixed: isRecurring,
+                paymentMethod,
+                selectedCardId: paymentMethod === 'credito' ? selectedCardId : null,
+                isInstallment,
+                totalInstallments: isInstallment ? parseInt(installments) : null,
+                installmentMode
             };
+
+            // If it's recurring or installment, also create a subscription entry for the Cards Tab
+            if (isRecurring || isInstallment) {
+                const subData = {
+                    name: description,
+                    value: transactionValue,
+                    day: new Date(date).getDate(),
+                    cardId: selectedCardId || '',
+                    userId: currentUser.uid,
+                    isInstallment: isInstallment,
+                    totalInstallments: isInstallment ? parseInt(installments) : null,
+                    currentInstallment: 1,
+                    type: isRecurring ? 'recurring' : 'installment',
+                    createdAt: Date.now(),
+                    installmentMode
+                };
+                addDoc(collection(db, 'subscriptions'), subData).catch(err => console.error("Erro ao criar assinatura:", err));
+            }
 
             // VERIFICAÇÃO DE SALDO (Apenas para novos lançamentos, não para edições)
             if (!editingId && val > monthlyBalance) {
@@ -135,6 +175,12 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         setAmount(t.amount.toString());
         setDate(new Date(t.date).toLocaleDateString('en-CA'));
         setCategory(t.category);
+        setIsRecurring(t.isFixed || false);
+        setIsInstallment(t.isInstallment || false);
+        setInstallments(t.totalInstallments?.toString() || '2');
+        setPaymentMethod(t.paymentMethod || 'pix');
+        setSelectedCardId(t.selectedCardId || '');
+        setInstallmentMode(t.installmentMode || 'total');
         
         if (t.category === 'investment') {
             setStep('investment');
@@ -308,154 +354,211 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
     return (
         <div className="max-w-4xl mx-auto space-y-8 pb-20">
-            {/* Header & Main Button */}
+            {/* Header & Internal Tabs */}
             <div className="flex flex-col items-center gap-6 py-8">
                 <div className={`p-4 rounded-full ${theme === 'light' ? 'bg-rose-50' : 'bg-rose-500/10'}`}>
                     <TrendingDown className={`w-8 h-8 ${theme === 'light' ? 'text-rose-500' : 'text-rose-400'}`} />
                 </div>
                 <div className="text-center">
-                    <h2 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Histórico de Lançamentos</h2>
-                    <p className={`text-sm ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Visualize seus últimos lançamentos e registre novos gastos.</p>
+                    <h2 className={`text-2xl font-black flex items-center justify-center gap-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                        Histórico de Lançamentos
+                        <ChevronDown className="w-4 h-4 opacity-30" />
+                    </h2>
+                    <p className={`text-sm ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Gerencie seus gastos e investimentos de forma organizada.</p>
                 </div>
+
+                {/* Sub-Tabs Switcher */}
+                <div className={`p-1.5 rounded-2xl flex gap-1 ${theme === 'light' ? 'bg-slate-100' : 'bg-white/5 shadow-inner'}`}>
+                    <button 
+                        onClick={() => setSubTab('despesas')}
+                        className={`px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+                            subTab === 'despesas' 
+                            ? (theme === 'light' ? 'bg-white text-rose-500 shadow-sm' : 'bg-white/10 text-rose-400 shadow-xl')
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        <TrendingDown className="w-3 h-3" />
+                        Despesas e Consumo
+                    </button>
+                    <button 
+                        onClick={() => setSubTab('reservas')}
+                        className={`px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+                            subTab === 'reservas' 
+                            ? (theme === 'light' ? 'bg-white text-blue-500 shadow-sm' : 'bg-white/10 text-blue-400 shadow-xl')
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        <PiggyBank className="w-3 h-3" />
+                        Aportes em Reservas
+                    </button>
+                </div>
+
                 <button 
                     onClick={() => {
-                        setStep('choice');
+                        if (subTab === 'despesas') {
+                            setStep('expense');
+                        } else {
+                            setStep('investment');
+                        }
                         setShowModal(true);
                     }}
-                    className="group flex items-center gap-3 px-8 py-4 bg-rose-500 hover:bg-rose-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-rose-500/20 transition-all active:scale-95 hover:scale-105"
+                    className={`group flex items-center gap-3 px-8 py-4 text-white rounded-2xl font-black text-sm shadow-xl transition-all active:scale-95 hover:scale-105 ${
+                        subTab === 'despesas' 
+                        ? 'bg-rose-500 hover:bg-rose-400 shadow-rose-500/20' 
+                        : 'bg-blue-500 hover:bg-blue-400 shadow-blue-500/20'
+                    }`}
                 >
                     <Plus className="w-5 h-5 transition-transform group-hover:rotate-90" />
-                    Lançamento de Despesa
+                    {subTab === 'despesas' ? 'Registrar Nova Despesa' : 'Novo Lançamento de Reserva'}
                 </button>
             </div>
 
             {/* Transactions List */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* COLUNA: GASTOS */}
-                <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm h-fit ${
-                    theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'
-                }`}>
-                    <div className="flex items-center gap-2 mb-6 text-rose-500 uppercase tracking-widest text-[10px] font-black">
-                        <TrendingDown className="w-3 h-3" />
-                        Gastos e Despesas
-                    </div>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                {subTab === 'despesas' ? (
+                    /* COLUNA: GASTOS */
+                    <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm ${
+                        theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'
+                    }`}>
+                        <div className="flex items-center gap-2 mb-6 text-rose-500 uppercase tracking-widest text-[10px] font-black">
+                            <TrendingDown className="w-3 h-3" />
+                            Lista de Despesas e Consumo
+                        </div>
 
-                    <div className="space-y-3">
-                        {regularExpenses.length === 0 ? (
-                            <div className="text-center py-12">
-                                <p className="text-sm font-bold text-slate-400">Nenhum gasto registrado.</p>
-                            </div>
-                        ) : (
-                            regularExpenses.slice(0, 15).map(t => {
-                                const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
-                                const Icon = cat.icon;
-                                return (
-                                    <div key={t.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all hover:translate-x-1 ${
-                                        theme === 'light' ? 'bg-slate-50/50 border-slate-100 hover:bg-white' : 'bg-white/5 border-white/5 hover:bg-white/10'
-                                    }`}>
-                                        <div className="flex items-center gap-4">
-                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-inner ${
-                                                theme === 'light' ? 'bg-white' : 'bg-slate-900'
-                                            }`}>
-                                                <Icon className={`w-5 h-5 ${cat.color}`} />
+                        <div className="space-y-3">
+                            {regularExpenses.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <p className="text-sm font-bold text-slate-400">Nenhum gasto registrado.</p>
+                                </div>
+                            ) : (
+                                regularExpenses.slice(0, 15).map(t => {
+                                    const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
+                                    const Icon = cat.icon;
+                                    return (
+                                        <div key={t.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all hover:translate-x-1 ${
+                                            theme === 'light' ? 'bg-slate-50/50 border-slate-100 hover:bg-white' : 'bg-white/5 border-white/5 hover:bg-white/10'
+                                        }`}>
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-inner ${
+                                                    theme === 'light' ? 'bg-white' : 'bg-slate-900'
+                                                }`}>
+                                                    <Icon className={`w-5 h-5 ${cat.color}`} />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h4 className={`font-black text-sm truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{t.description}</h4>
+                                                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest opacity-60">
+                                                            {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                                        </span>
+                                                        <span className={`text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>
+                                                            {cat.label}
+                                                        </span>
+                                                        {t.paymentMethod && (
+                                                            <span className={`text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>
+                                                                {t.paymentMethod === 'pix' ? 'PIX' : t.paymentMethod === 'debito' ? 'Débito' : t.paymentMethod === 'credito' ? 'Crédito' : 'Dinheiro'}
+                                                            </span>
+                                                        )}
+                                                        {t.selectedCardId && (
+                                                            <span className={`text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${
+                                                                cards.find(c => c.id === t.selectedCardId)?.color || 'bg-rose-500/10 text-rose-400'
+                                                            } text-white shadow-sm`}>
+                                                                {cards.find(c => c.id === t.selectedCardId)?.name}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="min-w-0">
-                                                <h4 className={`font-bold text-sm truncate ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>{t.description}</h4>
-                                                <p className="text-[10px] font-bold text-slate-500 uppercase opacity-60">
-                                                    {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                                                </p>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`font-black text-rose-500 text-xs mr-2 whitespace-nowrap`}>
+                                                    - R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                </span>
+                                                <button 
+                                                    onClick={() => handleEdit(t)}
+                                                    className={`p-2 rounded-lg transition-colors ${
+                                                        theme === 'light' ? 'text-slate-300 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10'
+                                                    }`}
+                                                >
+                                                    <Pencil className="w-4 h-4" />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDelete(t)}
+                                                    className={`p-2 rounded-lg transition-colors ${
+                                                        theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
+                                                    }`}
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`font-black text-rose-500 text-xs mr-2 whitespace-nowrap`}>
-                                                - R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                            </span>
-                                            <button 
-                                                onClick={() => handleEdit(t)}
-                                                className={`p-2 rounded-lg transition-colors ${
-                                                    theme === 'light' ? 'text-slate-300 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10'
-                                                }`}
-                                            >
-                                                <Pencil className="w-4 h-4" />
-                                            </button>
-                                            <button 
-                                                onClick={() => handleDelete(t)}
-                                                className={`p-2 rounded-lg transition-colors ${
-                                                    theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
-                                                }`}
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        )}
+                                    );
+                                })
+                            )}
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    /* COLUNA: RESERVAS */
+                    <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm ${
+                        theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'
+                    }`}>
+                        <div className="flex items-center gap-2 mb-6 text-blue-400 uppercase tracking-widest text-[10px] font-black">
+                            <PiggyBank className="w-3 h-3" />
+                            Histórico de Aportes em Reservas
+                        </div>
 
-                {/* COLUNA: RESERVAS */}
-                <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm h-fit ${
-                    theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'
-                }`}>
-                    <div className="flex items-center gap-2 mb-6 text-blue-400 uppercase tracking-widest text-[10px] font-black">
-                        <PiggyBank className="w-3 h-3" />
-                        Aportes em Reservas
-                    </div>
-
-                    <div className="space-y-3">
-                        {investmentExits.length === 0 ? (
-                            <div className="text-center py-12">
-                                <p className="text-sm font-bold text-slate-400">Nenhum aporte registrado.</p>
-                            </div>
-                        ) : (
-                            investmentExits.slice(0, 15).map(t => {
-                                const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
-                                const Icon = cat.icon;
-                                return (
-                                    <div key={t.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all hover:translate-x-1 ${
-                                        theme === 'light' ? 'bg-slate-50/50 border-slate-100 hover:bg-white' : 'bg-white/5 border-white/5 hover:bg-white/10'
-                                    }`}>
-                                        <div className="flex items-center gap-4">
-                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-inner ${
-                                                theme === 'light' ? 'bg-white' : 'bg-slate-900'
-                                            }`}>
-                                                <Icon className={`w-5 h-5 ${cat.color}`} />
+                        <div className="space-y-3">
+                            {investmentExits.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <p className="text-sm font-bold text-slate-400">Nenhum aporte registrado.</p>
+                                </div>
+                            ) : (
+                                investmentExits.slice(0, 15).map(t => {
+                                    const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
+                                    const Icon = cat.icon;
+                                    return (
+                                        <div key={t.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all hover:translate-x-1 ${
+                                            theme === 'light' ? 'bg-slate-50/50 border-slate-100 hover:bg-white' : 'bg-white/5 border-white/5 hover:bg-white/10'
+                                        }`}>
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-inner ${
+                                                    theme === 'light' ? 'bg-white' : 'bg-slate-900'
+                                                }`}>
+                                                    <Icon className={`w-5 h-5 ${cat.color}`} />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h4 className={`font-bold text-sm truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{t.description}</h4>
+                                                    <p className="text-[10px] font-bold text-slate-500 uppercase opacity-60">
+                                                        {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div className="min-w-0">
-                                                <h4 className={`font-bold text-sm truncate ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>{t.description}</h4>
-                                                <p className="text-[10px] font-bold text-slate-500 uppercase opacity-60">
-                                                    {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                                                </p>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`font-black text-blue-400 text-xs mr-2 whitespace-nowrap`}>
+                                                    + R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                </span>
+                                                <button 
+                                                    onClick={() => handleEdit(t)}
+                                                    className={`p-2 rounded-lg transition-colors ${
+                                                        theme === 'light' ? 'text-slate-300 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10'
+                                                    }`}
+                                                >
+                                                    <Pencil className="w-4 h-4" />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDelete(t)}
+                                                    className={`p-2 rounded-lg transition-colors ${
+                                                        theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
+                                                    }`}
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`font-black text-blue-400 text-xs mr-2 whitespace-nowrap`}>
-                                                + R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                            </span>
-                                            <button 
-                                                onClick={() => handleEdit(t)}
-                                                className={`p-2 rounded-lg transition-colors ${
-                                                    theme === 'light' ? 'text-slate-300 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10'
-                                                }`}
-                                            >
-                                                <Pencil className="w-4 h-4" />
-                                            </button>
-                                            <button 
-                                                onClick={() => handleDelete(t)}
-                                                className={`p-2 rounded-lg transition-colors ${
-                                                    theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
-                                                }`}
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        )}
+                                    );
+                                })
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Modal Overlay */}
@@ -577,6 +680,115 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                             ))}
                                         </select>
                                     </div>
+
+                                    {/* Flags: Parcelada e Recorrente */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <label className={`flex items-center gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${
+                                            isInstallment ? (theme === 'light' ? 'bg-rose-50 border-rose-200' : 'bg-rose-500/10 border-rose-500/30') : (theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5')
+                                        }`}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={isInstallment} 
+                                                onChange={e => {
+                                                    setIsInstallment(e.target.checked);
+                                                    if (e.target.checked) setPaymentMethod('credito');
+                                                }}
+                                                className="w-4 h-4 rounded border-slate-300 text-rose-500 focus:ring-rose-500"
+                                            />
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>Esse gasto foi um parcelamento</span>
+                                        </label>
+
+                                        <label className={`flex items-center gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${
+                                            isRecurring ? (theme === 'light' ? 'bg-blue-50 border-blue-200' : 'bg-blue-500/10 border-blue-500/30') : (theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5')
+                                        }`}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={isRecurring} 
+                                                onChange={e => setIsRecurring(e.target.checked)}
+                                                className="w-4 h-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500"
+                                            />
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>Essa é uma venda recorrente</span>
+                                        </label>
+                                    </div>
+
+                                    {isInstallment && (
+                                        <div className={`p-1.5 rounded-2xl flex gap-1 animate-in slide-in-from-top-2 duration-500 ${theme === 'light' ? 'bg-slate-100' : 'bg-white/5'}`}>
+                                            <button 
+                                                type="button"
+                                                onClick={() => setInstallmentMode('total')}
+                                                className={`flex-1 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all ${
+                                                    installmentMode === 'total' 
+                                                    ? (theme === 'light' ? 'bg-white text-rose-500 shadow-sm' : 'bg-white/10 text-rose-400 shadow-xl')
+                                                    : 'text-slate-500'
+                                                }`}
+                                            >
+                                                Valor Total
+                                            </button>
+                                            <button 
+                                                type="button"
+                                                onClick={() => setInstallmentMode('per_installment')}
+                                                className={`flex-1 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all ${
+                                                    installmentMode === 'per_installment' 
+                                                    ? (theme === 'light' ? 'bg-white text-rose-500 shadow-sm' : 'bg-white/10 text-rose-400 shadow-xl')
+                                                    : 'text-slate-500'
+                                                }`}
+                                            >
+                                                Valor por Parcela
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Payment Method & Installments */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">F. Pagamento</label>
+                                            <select 
+                                                value={paymentMethod} 
+                                                onChange={e => setPaymentMethod(e.target.value)}
+                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all appearance-none ${
+                                                    theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
+                                                }`}
+                                            >
+                                                <option value="pix">PIX</option>
+                                                <option value="debito">Cartão de Débito</option>
+                                                <option value="credito">Cartão de Crédito</option>
+                                                <option value="dinheiro">Dinheiro</option>
+                                            </select>
+                                        </div>
+
+                                        {isInstallment && (
+                                            <div className="animate-in slide-in-from-right-4">
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Nº Parcelas</label>
+                                                <input 
+                                                    type="number" min="2" max="48"
+                                                    value={installments} 
+                                                    onChange={e => setInstallments(e.target.value)}
+                                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                        theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-rose-500' : 'bg-white/5 border-white/5 text-white focus:border-rose-500'
+                                                    }`}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Select Card if Credit Card is active */}
+                                    {paymentMethod === 'credito' && (
+                                        <div className="animate-in slide-in-from-top-4">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Vincular ao Cartão</label>
+                                            <select 
+                                                value={selectedCardId} 
+                                                onChange={e => setSelectedCardId(e.target.value)}
+                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all appearance-none ${
+                                                    theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
+                                                }`}
+                                            >
+                                                <option value="">Selecione um cartão</option>
+                                                {cards.map(card => (
+                                                    <option key={card.id} value={card.id}>{card.name} (•• {card.last4})</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <button 

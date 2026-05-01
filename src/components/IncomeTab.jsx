@@ -25,6 +25,10 @@ export default function IncomeTab({ transactions, savingsJars }) {
     const [selectedJarId, setSelectedJarId] = useState('');
     const [isRescuing, setIsRescuing] = useState(false);
     const [cdiRate, setCdiRate] = useState(10.65);
+    const [subTab, setSubTab] = useState('recebimentos'); // 'recebimentos' | 'resgates'
+    const [showIncomeModal, setShowIncomeModal] = useState(false);
+    const [incomeStep, setIncomeStep] = useState('form'); // 'form' | 'confirm'
+    const [isSaving, setIsSaving] = useState(false);
     
     // Fetch USD rate once
     useEffect(() => {
@@ -51,55 +55,82 @@ export default function IncomeTab({ transactions, savingsJars }) {
         fetchRate();
     }, []);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = (e) => {
+        if (e) e.preventDefault();
         if (!amount || !description || !currentUser) return;
+        setIncomeStep('confirm');
+    };
 
-        let finalAmount = parseFloat(amount);
-        if (isUSD && usdRate) {
-            finalAmount = finalAmount * usdRate;
+    const handleFinalSave = async () => {
+        if (isSaving) return;
+        
+        const val = parseFloat(amount);
+        if (!val || !description || !currentUser) {
+            alert("Preencha todos os campos!");
+            return;
         }
 
-        const [year, month, day] = date.split('-').map(Number);
-        const transactionDate = new Date(year, month - 1, day, 12, 0, 0);
-
-        // Try to match category based on description, otherwise 'other'
-        const lowerDesc = description.toLowerCase();
-        let catId = 'other';
-        if (lowerDesc.includes('salário') || lowerDesc.includes('salario') || lowerDesc.includes('pagamento')) catId = 'salary';
-        else if (lowerDesc.includes('freela') || lowerDesc.includes('serviço') || lowerDesc.includes('servico')) catId = 'freelance';
-        else if (lowerDesc.includes('rendimento') || lowerDesc.includes('dividendo')) catId = 'investment';
-        else if (lowerDesc.includes('presente') || lowerDesc.includes('doação')) catId = 'gift';
-
-        const transactionData = {
-            description: isUSD && !editingId ? `${description} (U$ ${parseFloat(amount).toFixed(2)})` : description,
-            amount: finalAmount,
-            type: 'income',
-            category: catId,
-            date: transactionDate.toISOString(),
-            userId: currentUser.uid,
-            month: transactionDate.toISOString().slice(0, 7),
-            updatedAt: Date.now(),
-            isFixed: false
-        };
+        setIsSaving(true);
 
         try {
+            let finalAmount = val;
+            if (isUSD && usdRate) {
+                finalAmount = finalAmount * usdRate;
+            }
+
+            let transactionDate = new Date();
+            if (date.includes('-')) {
+                const [y, m, d] = date.split('-').map(Number);
+                transactionDate = new Date(y, m - 1, d, 12, 0, 0);
+            }
+
+            const transactionData = {
+                description: isUSD && !editingId ? `${description} (U$ ${val.toFixed(2)})` : description,
+                amount: finalAmount,
+                type: 'income',
+                category: 'other', // Default simplificada
+                date: transactionDate.toISOString(),
+                userId: currentUser.uid,
+                month: transactionDate.toISOString().slice(0, 7),
+                updatedAt: Date.now(),
+                isFixed: false
+            };
+
+            // Categorização rápida
+            const low = description.toLowerCase();
+            if (low.includes('salário') || low.includes('salario')) transactionData.category = 'salary';
+            else if (low.includes('freela')) transactionData.category = 'freelance';
+
             if (editingId) {
-                const { createdAt, ...updateData } = transactionData;
-                await updateDoc(doc(db, 'transactions', editingId), updateData);
+                const { createdAt, ...upd } = transactionData;
+                await updateDoc(doc(db, 'transactions', editingId), upd);
             } else {
                 await addDoc(collection(db, 'transactions'), {
                     ...transactionData,
                     createdAt: Date.now()
                 });
             }
+
+            // AQUI É O PONTO CRÍTICO: Reset imediato
+            setShowIncomeModal(false);
             setAmount('');
             setDescription('');
-            setIsUSD(false);
             setEditingId(null);
+            setIncomeStep('form');
+            
+            console.log("Salvo com sucesso no Localhost");
         } catch (error) {
-            console.error("Error saving income:", error);
+            console.error("Erro no salvamento:", error);
+            alert("Erro ao salvar: " + error.message);
+        } finally {
+            setIsSaving(false);
         }
+    };
+
+    const handleEditInitiate = (inc) => {
+        handleEdit(inc);
+        setIncomeStep('form');
+        setShowIncomeModal(true);
     };
 
     const handleEdit = (inc) => {
@@ -109,7 +140,6 @@ export default function IncomeTab({ transactions, savingsJars }) {
         const d = new Date(inc.date);
         setDate(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
         setIsUSD(false); // Reset USD on edit for simplicity
-        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleDelete = async (id) => {
@@ -208,291 +238,400 @@ export default function IncomeTab({ transactions, savingsJars }) {
     const totalRedemptionMonth = recentRedemptions.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
     return (
-        <div className="space-y-6 max-w-4xl mx-auto">
-            {/* Input Form */}
-            <form onSubmit={handleSubmit} className={`p-6 md:p-8 rounded-3xl border shadow-2xl ${
-                theme === 'light' ? 'bg-white border-emerald-100/50' : 'bg-[#111827]/80 backdrop-blur-xl border-white/5'
-            }`}>
-                <div className="mb-6 flex items-center gap-3">
-                    <div className={`p-3 rounded-2xl ${theme === 'light' ? 'bg-emerald-100' : 'bg-emerald-500/20'}`}>
-                        <ArrowUpCircle className={`w-6 h-6 ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`} />
+        <div className="max-w-4xl mx-auto space-y-10 pb-20">
+            {/* Header & Sub-Tabs Switcher */}
+            <div className="flex flex-col items-center gap-6 py-8">
+                <div className={`p-4 rounded-full ${theme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/10'}`}>
+                    <ArrowUpCircle className={`w-8 h-8 ${theme === 'light' ? 'text-emerald-500' : 'text-emerald-400'}`} />
+                </div>
+                <div className="text-center">
+                    <h2 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Gestão de Recebimentos</h2>
+                    <p className={`text-sm ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Acompanhe suas entradas e resgates de investimentos.</p>
+                </div>
+
+                <div className={`p-1.5 rounded-2xl flex gap-1 ${theme === 'light' ? 'bg-slate-100' : 'bg-white/5 shadow-inner'}`}>
+                    <button 
+                        onClick={() => setSubTab('recebimentos')}
+                        className={`px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+                            subTab === 'recebimentos' 
+                            ? (theme === 'light' ? 'bg-white text-emerald-500 shadow-sm' : 'bg-white/10 text-emerald-400 shadow-xl')
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        <ArrowUpCircle className="w-3 h-3" />
+                        Recebimentos
+                    </button>
+                    <button 
+                        onClick={() => setSubTab('resgates')}
+                        className={`px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+                            subTab === 'resgates' 
+                            ? (theme === 'light' ? 'bg-white text-blue-500 shadow-sm' : 'bg-white/10 text-blue-400 shadow-xl')
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        <Landmark className="w-3 h-3" />
+                        Resgates
+                    </button>
+                </div>
+            </div>
+
+            {subTab === 'recebimentos' ? (
+                <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    {/* Quick Actions & Stats Card */}
+                    <div className={`p-8 rounded-[2.5rem] border shadow-2xl relative overflow-hidden ${
+                        theme === 'light' ? 'bg-white border-emerald-100/50' : 'bg-slate-900 border-white/5'
+                    }`}>
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -mr-16 -mt-16 blur-2xl" />
+                        
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
+                            <div className="flex items-center gap-6">
+                                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg ${
+                                    theme === 'light' ? 'bg-emerald-50 text-emerald-600' : 'bg-emerald-500/10 text-emerald-400'
+                                }`}>
+                                    <CircleDollarSign className="w-8 h-8" />
+                                </div>
+                                <div>
+                                    <p className={`text-xs font-black uppercase tracking-widest mb-1 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                        Total Recebido (Mês)
+                                    </p>
+                                    <h3 className={`text-3xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                        R$ {totalIncomeMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </h3>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    setEditingId(null);
+                                    setAmount('');
+                                    setDescription('');
+                                    setIncomeStep('form');
+                                    setShowIncomeModal(true);
+                                }}
+                                className={`flex items-center gap-3 px-8 py-5 rounded-[2rem] border font-black text-sm uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl ${
+                                    theme === 'light' 
+                                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/20' 
+                                    : 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/20'
+                                }`}
+                            >
+                                <ArrowUpCircle className="w-5 h-5" />
+                                Novo Recebimento
+                            </button>
+                        </div>
                     </div>
-                    <div className="flex-1">
-                        <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                            {editingId ? 'Editar Recebimento' : 'Novo Recebimento'}
-                        </h3>
-                        <p className={`text-xs ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Registre seus salários, serviços extras e rendimentos.</p>
+
+                    {/* List Section */}
+                    <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm ${
+                        theme === 'light' ? 'bg-white border-emerald-100/30' : 'bg-slate-900 border-emerald-500/10'
+                    }`}>
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="p-3 bg-emerald-500/10 rounded-2xl">
+                                <TrendingUp className="w-6 h-6 text-emerald-500" />
+                            </div>
+                            <div>
+                                <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                    Histórico de Recebimentos
+                                </h3>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Entradas registradas este mês</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            {recentIncomes.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <p className="text-sm font-bold text-slate-400 dark:text-slate-500">Nenhuma entrada registrada este mês.</p>
+                                </div>
+                            ) : (
+                                recentIncomes.map(inc => {
+                                    const cat = CATEGORIES.income.find(c => c.id === inc.category) || CATEGORIES.income.find(c => c.id === 'other');
+                                    const Icon = cat.icon;
+                                    return (
+                                        <div key={inc.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all hover:scale-[1.01] ${
+                                            theme === 'light' ? 'bg-[#f0fdfa]/50 border-emerald-100/50 hover:bg-emerald-50' : 'bg-slate-800/50 border-slate-700/50 hover:bg-slate-800'
+                                        }`}>
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-inner ${
+                                                    theme === 'light' ? 'bg-white' : 'bg-slate-900'
+                                                }`}>
+                                                    <Icon className={`w-5 h-5 ${cat.color}`} />
+                                                </div>
+                                                <div>
+                                                    <h4 className={`font-bold text-sm ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                                        {inc.description}
+                                                    </h4>
+                                                    <p className={`text-[10px] font-bold ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                        {new Date(inc.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-black text-emerald-500 mr-2">
+                                                    + R$ {parseFloat(inc.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                </span>
+                                                <button 
+                                                    onClick={() => handleEditInitiate(inc)}
+                                                    className={`p-2 rounded-lg transition-colors ${
+                                                        theme === 'light' ? 'text-slate-300 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10'
+                                                    }`}
+                                                >
+                                                    <Pencil className="w-4 h-4" />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDelete(inc.id)}
+                                                    className={`p-2 rounded-lg transition-colors ${
+                                                        theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
+                                                    }`}
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
                     </div>
-                    {editingId && (
+                </div>
+            ) : (
+                /* ABA 2: RESGATES */
+                <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="flex justify-center">
                         <button 
-                            type="button" 
-                            onClick={() => {
-                                setEditingId(null);
-                                setDescription('');
-                                setAmount('');
-                            }}
-                            className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                            onClick={() => setShowRescueModal(true)}
+                            className={`flex items-center gap-3 px-8 py-5 rounded-[2rem] border font-black text-sm uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl ${
+                                theme === 'light' 
+                                ? 'bg-blue-600 text-white border-blue-500 shadow-blue-500/20' 
+                                : 'bg-blue-600 text-white border-blue-500 shadow-blue-500/20'
+                            }`}
+                        >
+                            <Landmark className="w-5 h-5" />
+                            Realizar Resgate de Investimento
+                        </button>
+                    </div>
+
+                    <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm ${
+                        theme === 'light' ? 'bg-white border-blue-100/50 shadow-blue-500/5' : 'bg-slate-900 border-blue-500/10'
+                    }`}>
+                        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
+                            <div className="flex items-center gap-3">
+                                <div className="p-3 bg-blue-500/10 rounded-2xl">
+                                    <Landmark className="w-6 h-6 text-blue-500" />
+                                </div>
+                                <div>
+                                    <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                        Histórico de Resgates
+                                    </h3>
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Movimentações de Patrimônio → Carteira</p>
+                                </div>
+                            </div>
+                            <div className="text-right px-4 py-2 bg-blue-500/5 rounded-2xl border border-blue-500/10">
+                                <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Total Resgatado no Mês</span>
+                                <span className={`text-2xl font-black ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`}>
+                                    R$ {totalRedemptionMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            {recentRedemptions.length === 0 ? (
+                                <div className="text-center py-12 border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[2rem]">
+                                    <p className="text-sm font-bold text-slate-400 italic">Nenhum resgate de investimento este mês.</p>
+                                </div>
+                            ) : (
+                                recentRedemptions.map(inc => (
+                                    <div key={inc.id} className={`flex items-center justify-between p-5 rounded-2xl border transition-all hover:shadow-lg ${
+                                        theme === 'light' ? 'bg-blue-50/30 border-blue-100/50 hover:bg-blue-50 hover:border-blue-200' : 'bg-blue-500/5 border-blue-500/10 hover:bg-blue-500/10'
+                                    }`}>
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-inner ${
+                                                theme === 'light' ? 'bg-white' : 'bg-slate-900'
+                                            }`}>
+                                                <Landmark className={`w-6 h-6 text-blue-500`} />
+                                            </div>
+                                            <div>
+                                                <h4 className={`font-bold text-base ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                                    {inc.description}
+                                                </h4>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <p className={`text-[11px] font-bold ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                        {new Date(inc.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+                                                    </p>
+                                                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-500 text-white">Sucesso</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <span className="font-black text-xl text-blue-500">
+                                                + R$ {parseFloat(inc.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            </span>
+                                            <button 
+                                                onClick={() => handleDelete(inc.id)}
+                                                className={`p-2.5 rounded-xl transition-colors ${
+                                                    theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
+                                                }`}
+                                            >
+                                                <Trash2 className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Income Modal */}
+            {showIncomeModal && (
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className={`w-full max-w-xl rounded-[2.5rem] p-8 md:p-10 border relative animate-in zoom-in-95 duration-300 ${
+                        theme === 'light' ? 'bg-white border-emerald-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+                    }`}>
+                        <button 
+                            onClick={() => setShowIncomeModal(false)}
+                            className="absolute top-6 right-6 p-2 text-slate-400 hover:text-rose-500 transition-colors"
                         >
                             <X className="w-5 h-5" />
                         </button>
-                    )}
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                    <div className="md:col-span-5">
-                        <label className={`block text-xs font-bold mb-1 ml-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Nome do Recebimento</label>
-                        <input
-                            type="text"
-                            placeholder="Ex: Salário, Serviço extra..."
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 transition-all ${
-                                theme === 'light' 
-                                ? 'bg-[#f0fdfa]/50 border-emerald-100/50 text-slate-800 focus:ring-emerald-500/20 placeholder:text-slate-400' 
-                                : 'bg-slate-900 border-slate-700 text-slate-200 focus:ring-emerald-500/50 placeholder:text-slate-500'
-                            }`}
-                        />
-                    </div>
-                    
-                    <div className="md:col-span-4">
-                        <label className={`block text-xs font-bold mb-1 ml-1 flex justify-between ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                            <span>Valor {isUSD ? '(USD)' : '(R$)'}</span>
-                            {isUSD && usdRate && <span className="text-emerald-500 text-[10px]">Cotação: R$ {usdRate.toFixed(2)}</span>}
-                        </label>
-                        <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <span className={`font-bold ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
-                                    {isUSD ? 'U$' : 'R$'}
-                                </span>
+                        <div className="space-y-8">
+                            <div className="text-center space-y-2">
+                                <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${theme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/10'}`}>
+                                    <ArrowUpCircle className={`w-8 h-8 ${theme === 'light' ? 'text-emerald-500' : 'text-emerald-400'}`} />
+                                </div>
+                                <h3 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                    {incomeStep === 'form' ? (editingId ? 'Editar Recebimento' : 'Novo Recebimento') : 'Confirmar Dados'}
+                                </h3>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                    {incomeStep === 'form' ? 'Preencha os detalhes do seu recebimento' : 'Verifique se as informações estão corretas'}
+                                </p>
                             </div>
-                            <input
-                                type="number"
-                                step="0.01"
-                                placeholder="0.00"
-                                value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
-                                className={`w-full border rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 transition-all ${
-                                    theme === 'light' 
-                                    ? 'bg-[#f0fdfa]/50 border-emerald-100/50 text-slate-800 focus:ring-emerald-500/20 placeholder:text-slate-400' 
-                                    : 'bg-slate-900 border-slate-700 text-slate-200 focus:ring-emerald-500/50 placeholder:text-slate-500'
-                                }`}
-                            />
-                        </div>
-                    </div>
 
-                    <div className="md:col-span-3">
-                        <label className={`block text-xs font-bold mb-1 ml-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Data</label>
-                        <input
-                            type="date"
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                            className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 transition-all ${
-                                theme === 'light' 
-                                ? 'bg-[#f0fdfa]/50 border-emerald-100/50 text-slate-800 focus:ring-emerald-500/20 [color-scheme:light]' 
-                                : 'bg-slate-900 border-slate-700 text-slate-200 focus:ring-emerald-500/50 [color-scheme:dark]'
-                            }`}
-                        />
-                    </div>
-                </div>
-
-                <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <label className="inline-flex items-center cursor-pointer select-none group">
-                        <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            checked={isUSD}
-                            onChange={(e) => setIsUSD(e.target.checked)}
-                        />
-                        <div className={`relative w-11 h-6 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all transition-colors ${
-                            theme === 'light' 
-                            ? 'bg-slate-200 peer-checked:bg-emerald-500 shadow-inner' 
-                            : 'bg-slate-700 peer-checked:bg-emerald-500'
-                        }`}></div>
-                        <span className={`ms-3 text-sm font-bold flex items-center gap-1 transition-colors ${theme === 'light' ? 'text-slate-600 group-hover:text-slate-800' : 'text-slate-400 group-hover:text-slate-200'}`}>
-                            <CircleDollarSign className="w-4 h-4 text-emerald-500" />
-                            Recebido em Dólar
-                        </span>
-                        {isLoadingRate && <Loader2 className="w-3 h-3 ml-2 animate-spin text-emerald-500" />}
-                    </label>
-
-                    <button
-                        type="submit"
-                        disabled={!amount || !description}
-                        className={`w-full sm:w-auto px-8 py-3 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 ${
-                            theme === 'light' 
-                            ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-emerald-500/20' 
-                            : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                        }`}
-                    >
-                        <TrendingUp className="w-4 h-4" />
-                        {editingId ? 'Salvar Alterações' : 'Registrar Recebimento'}
-                    </button>
-                </div>
-                
-                {isUSD && amount && usdRate && (
-                    <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
-                        <span>Valor final a ser salvo no fluxo:</span>
-                        <span className="text-sm">R$ {(parseFloat(amount) * usdRate).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                )}
-            </form>
-
-            {/* Rescue Button */}
-            <div className="flex justify-center sm:justify-end">
-                <button 
-                    onClick={() => setShowRescueModal(true)}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-2xl border font-black text-xs uppercase tracking-widest transition-all hover:scale-105 active:scale-95 ${
-                        theme === 'light' 
-                        ? 'bg-blue-50 border-blue-100 text-blue-600 hover:bg-blue-100' 
-                        : 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20'
-                    }`}
-                >
-                    <Landmark className="w-4 h-4" />
-                    Resgatar de Investimento
-                </button>
-            </div>
-             {/* Section 1: Main Incomes */}
-            <div className={`p-6 rounded-[2.5rem] border shadow-sm ${
-                theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'
-            }`}>
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className={`text-sm font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                        Recebimentos deste Mês
-                    </h3>
-                    <div className="text-right">
-                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Total Recebido</span>
-                        <span className={`text-xl font-black ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`}>
-                            R$ {totalIncomeMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                    </div>
-                </div>
-
-                <div className="space-y-3">
-                    {recentIncomes.length === 0 ? (
-                        <div className="text-center py-8">
-                            <p className="text-sm font-bold text-slate-400 dark:text-slate-500">Nenhuma entrada registrada este mês.</p>
-                        </div>
-                    ) : (
-                        recentIncomes.map(inc => {
-                            const cat = CATEGORIES.income.find(c => c.id === inc.category) || CATEGORIES.income.find(c => c.id === 'other');
-                            const Icon = cat.icon;
-                            return (
-                                <div key={inc.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all hover:scale-[1.01] ${
-                                    theme === 'light' ? 'bg-[#f0fdfa]/50 border-emerald-100/50 hover:bg-emerald-50' : 'bg-slate-800/50 border-slate-700/50 hover:bg-slate-800'
-                                }`}>
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-inner ${
-                                            theme === 'light' ? 'bg-white' : 'bg-slate-900'
-                                        }`}>
-                                            <Icon className={`w-5 h-5 ${cat.color}`} />
-                                        </div>
+                            {incomeStep === 'form' ? (
+                                <form onSubmit={handleSubmit} className="space-y-6">
+                                    <div className="space-y-4">
                                         <div>
-                                            <h4 className={`font-bold text-sm ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
-                                                {inc.description}
-                                            </h4>
-                                            <p className={`text-[10px] font-bold ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
-                                                {new Date(inc.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                                            </p>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Nome do Recebimento</label>
+                                            <input
+                                                type="text"
+                                                required
+                                                placeholder="Ex: Salário, Freelance..."
+                                                value={description}
+                                                onChange={(e) => setDescription(e.target.value)}
+                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                    theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500'
+                                                }`}
+                                            />
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-black text-emerald-500 mr-2">
-                                            + R$ {parseFloat(inc.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                        </span>
-                                        <button 
-                                            onClick={() => handleEdit(inc)}
-                                            className={`p-2 rounded-lg transition-colors ${
-                                                theme === 'light' ? 'text-slate-300 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10'
-                                            }`}
-                                        >
-                                            <Pencil className="w-4 h-4" />
-                                        </button>
-                                        <button 
-                                            onClick={() => handleDelete(inc.id)}
-                                            className={`p-2 rounded-lg transition-colors ${
-                                                theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
-                                            }`}
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
-            </div>
 
-            {/* Section 2: Redemptions (DEDICATED SECTION) */}
-            <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm ${
-                theme === 'light' ? 'bg-white border-blue-100/50 shadow-blue-500/5' : 'bg-slate-900 border-blue-500/10'
-            }`}>
-                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-blue-500/10 rounded-2xl">
-                            <Landmark className="w-6 h-6 text-blue-500" />
-                        </div>
-                        <div>
-                            <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                Movimentações de Resgate
-                            </h3>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Patrimônio → Carteira</p>
-                        </div>
-                    </div>
-                    <div className="text-right px-4 py-2 bg-blue-500/5 rounded-2xl border border-blue-500/10">
-                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Total Resgatado</span>
-                        <span className={`text-2xl font-black ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`}>
-                            R$ {totalRedemptionMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    {recentRedemptions.length === 0 ? (
-                        <div className="text-center py-12 border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[2rem]">
-                            <p className="text-sm font-bold text-slate-400 italic">Nenhum resgate de investimento este mês.</p>
-                        </div>
-                    ) : (
-                        recentRedemptions.map(inc => (
-                            <div key={inc.id} className={`flex items-center justify-between p-5 rounded-2xl border transition-all hover:shadow-lg ${
-                                theme === 'light' ? 'bg-blue-50/30 border-blue-100/50 hover:bg-blue-50 hover:border-blue-200' : 'bg-blue-500/5 border-blue-500/10 hover:bg-blue-500/10'
-                            }`}>
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-inner ${
-                                        theme === 'light' ? 'bg-white' : 'bg-slate-900'
-                                    }`}>
-                                        <Landmark className={`w-6 h-6 text-blue-500`} />
-                                    </div>
-                                    <div>
-                                        <h4 className={`font-bold text-base ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
-                                            {inc.description}
-                                        </h4>
-                                        <div className="flex items-center gap-2 mt-0.5">
-                                            <p className={`text-[11px] font-bold ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
-                                                {new Date(inc.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
-                                            </p>
-                                            <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-500 text-white">Sucesso</span>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Valor</label>
+                                                <div className="relative">
+                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">{isUSD ? 'U$' : 'R$'}</span>
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        required
+                                                        value={amount}
+                                                        onChange={(e) => setAmount(e.target.value)}
+                                                        className={`w-full p-4 pl-12 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                            theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500'
+                                                        }`}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Data</label>
+                                                <input
+                                                    type="date"
+                                                    required
+                                                    value={date}
+                                                    onChange={(e) => setDate(e.target.value)}
+                                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                        theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500 [color-scheme:light]' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500 [color-scheme:dark]'
+                                                    }`}
+                                                />
+                                            </div>
                                         </div>
+
+                                        <div className="flex items-center justify-between p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10">
+                                            <div className="flex items-center gap-3">
+                                                <CircleDollarSign className="w-5 h-5 text-emerald-500" />
+                                                <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>Recebido em Dólar</span>
+                                            </div>
+                                            <label className="inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" className="sr-only peer" checked={isUSD} onChange={(e) => setIsUSD(e.target.checked)} />
+                                                <div className="relative w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                                            </label>
+                                        </div>
+
+                                        {isUSD && amount && usdRate && (
+                                            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center animate-in zoom-in-95">
+                                                <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1">Cotação Atual: R$ {usdRate.toFixed(2)}</p>
+                                                <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">R$ {(parseFloat(amount) * usdRate).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <span className="font-black text-xl text-blue-500">
-                                        + R$ {parseFloat(inc.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                    </span>
-                                    <button 
-                                        onClick={() => handleDelete(inc.id)}
-                                        className={`p-2.5 rounded-xl transition-colors ${
-                                            theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
-                                        }`}
+
+                                    <button
+                                        type="submit"
+                                        className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
                                     >
-                                        <Trash2 className="w-5 h-5" />
+                                        Próximo Passo
                                     </button>
+                                </form>
+                            ) : (
+                                <div className="space-y-6">
+                                    <div className={`p-6 rounded-3xl border space-y-4 ${theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/10'}`}>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Descrição</span>
+                                            <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{description}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center border-t border-slate-500/10 pt-4">
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Valor Final</span>
+                                            <span className="text-xl font-black text-emerald-500">
+                                                R$ {isUSD ? (parseFloat(amount) * usdRate).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : parseFloat(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center border-t border-slate-500/10 pt-4">
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data do Lançamento</span>
+                                            <span className={`text-sm font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                                {new Date(date.split('-').join('/')).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <button
+                                            onClick={() => setIncomeStep('form')}
+                                            className={`py-4 rounded-2xl font-black text-sm transition-all active:scale-95 border ${
+                                                theme === 'light' ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50' : 'bg-slate-800 border-white/10 text-white hover:bg-slate-700'
+                                            }`}
+                                        >
+                                            Voltar
+                                        </button>
+                                        <button
+                                            onClick={handleFinalSave}
+                                            disabled={isSaving}
+                                            className="py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            {isSaving ? (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    Salvando...
+                                                </>
+                                            ) : (
+                                                'Confirmar Recebimento'
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        ))
-                    )}
+                            )}
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Rescue Modal */}
             {showRescueModal && (
