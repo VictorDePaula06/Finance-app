@@ -62,6 +62,14 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         return income - expense;
     }, [transactions]);
 
+    const regularExpenses = useMemo(() => {
+        return exits.filter(t => t.category !== 'investment');
+    }, [exits]);
+
+    const investmentExits = useMemo(() => {
+        return exits.filter(t => t.category === 'investment');
+    }, [exits]);
+
     const resetForm = () => {
         setDescription('');
         setAmount('');
@@ -322,65 +330,131 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             </div>
 
             {/* Transactions List */}
-            <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm ${
-                theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'
-            }`}>
-                <div className="flex items-center gap-2 mb-6 text-slate-500 uppercase tracking-widest text-[10px] font-black">
-                    <Clock className="w-3 h-3" />
-                    Últimas Movimentações
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* COLUNA: GASTOS */}
+                <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm h-fit ${
+                    theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'
+                }`}>
+                    <div className="flex items-center gap-2 mb-6 text-rose-500 uppercase tracking-widest text-[10px] font-black">
+                        <TrendingDown className="w-3 h-3" />
+                        Gastos e Despesas
+                    </div>
+
+                    <div className="space-y-3">
+                        {regularExpenses.length === 0 ? (
+                            <div className="text-center py-12">
+                                <p className="text-sm font-bold text-slate-400">Nenhum gasto registrado.</p>
+                            </div>
+                        ) : (
+                            regularExpenses.slice(0, 15).map(t => {
+                                const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
+                                const Icon = cat.icon;
+                                return (
+                                    <div key={t.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all hover:translate-x-1 ${
+                                        theme === 'light' ? 'bg-slate-50/50 border-slate-100 hover:bg-white' : 'bg-white/5 border-white/5 hover:bg-white/10'
+                                    }`}>
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-inner ${
+                                                theme === 'light' ? 'bg-white' : 'bg-slate-900'
+                                            }`}>
+                                                <Icon className={`w-5 h-5 ${cat.color}`} />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h4 className={`font-bold text-sm truncate ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>{t.description}</h4>
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase opacity-60">
+                                                    {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`font-black text-rose-500 text-xs mr-2 whitespace-nowrap`}>
+                                                - R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            </span>
+                                            <button 
+                                                onClick={() => handleEdit(t)}
+                                                className={`p-2 rounded-lg transition-colors ${
+                                                    theme === 'light' ? 'text-slate-300 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10'
+                                                }`}
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDelete(t)}
+                                                className={`p-2 rounded-lg transition-colors ${
+                                                    theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
+                                                }`}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
                 </div>
 
-                <div className="space-y-3">
-                    {exits.length === 0 ? (
-                        <div className="text-center py-12">
-                            <p className="text-sm font-bold text-slate-400">Nenhuma saída registrada.</p>
-                        </div>
-                    ) : (
-                        exits.slice(0, 15).map(t => {
-                            const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
-                            const Icon = cat.icon;
-                            return (
-                                <div key={t.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all hover:translate-x-1 ${
-                                    theme === 'light' ? 'bg-slate-50/50 border-slate-100 hover:bg-white' : 'bg-white/5 border-white/5 hover:bg-white/10'
-                                }`}>
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-inner ${
-                                            theme === 'light' ? 'bg-white' : 'bg-slate-900'
-                                        }`}>
-                                            <Icon className={`w-5 h-5 ${cat.color}`} />
+                {/* COLUNA: RESERVAS */}
+                <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm h-fit ${
+                    theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'
+                }`}>
+                    <div className="flex items-center gap-2 mb-6 text-blue-400 uppercase tracking-widest text-[10px] font-black">
+                        <PiggyBank className="w-3 h-3" />
+                        Aportes em Reservas
+                    </div>
+
+                    <div className="space-y-3">
+                        {investmentExits.length === 0 ? (
+                            <div className="text-center py-12">
+                                <p className="text-sm font-bold text-slate-400">Nenhum aporte registrado.</p>
+                            </div>
+                        ) : (
+                            investmentExits.slice(0, 15).map(t => {
+                                const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
+                                const Icon = cat.icon;
+                                return (
+                                    <div key={t.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all hover:translate-x-1 ${
+                                        theme === 'light' ? 'bg-slate-50/50 border-slate-100 hover:bg-white' : 'bg-white/5 border-white/5 hover:bg-white/10'
+                                    }`}>
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-inner ${
+                                                theme === 'light' ? 'bg-white' : 'bg-slate-900'
+                                            }`}>
+                                                <Icon className={`w-5 h-5 ${cat.color}`} />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h4 className={`font-bold text-sm truncate ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>{t.description}</h4>
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase opacity-60">
+                                                    {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h4 className={`font-bold text-sm ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>{t.description}</h4>
-                                            <p className="text-[10px] font-bold text-slate-500 uppercase opacity-60">
-                                                {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} • {cat.label}
-                                            </p>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`font-black text-blue-400 text-xs mr-2 whitespace-nowrap`}>
+                                                + R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            </span>
+                                            <button 
+                                                onClick={() => handleEdit(t)}
+                                                className={`p-2 rounded-lg transition-colors ${
+                                                    theme === 'light' ? 'text-slate-300 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10'
+                                                }`}
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDelete(t)}
+                                                className={`p-2 rounded-lg transition-colors ${
+                                                    theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
+                                                }`}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className={`font-black ${t.category === 'investment' ? 'text-blue-400' : 'text-rose-500'} mr-2`}>
-                                            {t.category === 'investment' ? '+' : '-'} R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                        </span>
-                                        <button 
-                                            onClick={() => handleEdit(t)}
-                                            className={`p-2 rounded-lg transition-colors ${
-                                                theme === 'light' ? 'text-slate-300 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10'
-                                            }`}
-                                        >
-                                            <Pencil className="w-4 h-4" />
-                                        </button>
-                                        <button 
-                                            onClick={() => handleDelete(t)}
-                                            className={`p-2 rounded-lg transition-colors ${
-                                                theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
-                                            }`}
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            );
-                        })
-                    )}
+                                );
+                            })
+                        )}
+                    </div>
                 </div>
             </div>
 
