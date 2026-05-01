@@ -128,7 +128,7 @@ export default function AdminPanel({ onBack }) {
                     subStatus = stripeSubData.status;
                 }
 
-                const isPremium = (subStatus === 'active' || subStatus === 'lifetime');
+                const isPremium = (subStatus === 'active');
                 const isLifetime = (subStatus === 'lifetime');
                 const isStandard = (subStatus === 'standard');
                 const isFree = (subStatus === 'free');
@@ -215,7 +215,7 @@ export default function AdminPanel({ onBack }) {
     const filteredUsers = useMemo(() => {
         let list = users.filter(u => u.email.toLowerCase().includes(searchTerm.toLowerCase()));
         if (userSubTab === 'admins') return list.filter(u => u.isAdmin);
-        if (userSubTab === 'premium') return list.filter(u => u.isPremium && !u.isAdmin);
+        if (userSubTab === 'premium') return list.filter(u => (u.isPremium || u.isLifetime) && !u.isAdmin);
         if (userSubTab === 'standard') return list.filter(u => u.isStandard && !u.isAdmin);
         if (userSubTab === 'gratuito') return list.filter(u => u.isFree && !u.isAdmin);
         return list;
@@ -223,7 +223,7 @@ export default function AdminPanel({ onBack }) {
 
     const stats = useMemo(() => ({
         total: users.length,
-        premium: users.filter(u => u.isPremium && !u.isAdmin).length,
+        premium: users.filter(u => (u.isPremium || u.isLifetime) && !u.isAdmin).length,
         admins: users.filter(u => u.isAdmin).length,
         standard: users.filter(u => u.isStandard && !u.isAdmin).length,
         free: users.filter(u => u.isFree && !u.isAdmin).length
