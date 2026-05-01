@@ -948,7 +948,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                         onClick={() => {
                                             setDescription('');
                                             setAmount('');
-                                            setStep('choice');
+                                            setStep(subTab === 'despesas' ? 'expense' : 'investment');
                                         }}
                                         className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
                                     >
