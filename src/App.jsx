@@ -3,7 +3,7 @@ import TransactionSection from './components/TransactionSection';
 import GoalTracker from './components/GoalTracker';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark } from 'lucide-react';
+import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown } from 'lucide-react';
 import InstallPrompt from './components/InstallPrompt';
 import logo from './assets/logo.png';
 import AdminPanel from './components/AdminPanel';
@@ -52,6 +52,7 @@ function Dashboard() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [activeModule, setActiveModule] = useState('hub');
   const [activeTab, setActiveTab] = useState('visao');
+  const [showReservesList, setShowReservesList] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showMonthlyReview, setShowMonthlyReview] = useState(false);
   const [showInvestmentHistory, setShowInvestmentHistory] = useState(false);
@@ -287,7 +288,8 @@ function Dashboard() {
         const lastUpdate = curr.updatedAt ? new Date(curr.updatedAt) : (curr.createdAt ? new Date(curr.createdAt) : new Date());
         const diffDays = Math.max(0, new Date() - lastUpdate) / (1000 * 60 * 60 * 24);
         const dynamicBalance = (parseFloat(curr.balance) || 0) * Math.pow(1 + dailyRate, diffDays);
-        return { ...curr, dynamicBalance };
+        const dailyYield = dynamicBalance * dailyRate;
+        return { ...curr, dynamicBalance, dailyYield };
     });
 
     const totalGuarded = jarsWithBalance.reduce((acc, curr) => acc + curr.dynamicBalance, 0);
@@ -409,29 +411,44 @@ function Dashboard() {
               {/* Investment Summary in Overview - MOVED TO TOP */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className={`p-8 rounded-[2.5rem] border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-500">
-                      <Landmark className="w-5 h-5" />
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-500">
+                        <Landmark className="w-5 h-5" />
+                      </div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Reservas (Total)</p>
                     </div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Reservas (Total)</p>
+                    <button 
+                      onClick={() => setShowReservesList(!showReservesList)}
+                      className={`p-2 rounded-xl transition-all ${theme === 'light' ? 'hover:bg-slate-50 text-slate-400' : 'hover:bg-white/5 text-slate-500'}`}
+                    >
+                      <ChevronDown className={`w-5 h-5 transition-transform duration-500 ${showReservesList ? 'rotate-180' : ''}`} />
+                    </button>
                   </div>
                   <p className={`text-3xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                     R$ {investmentStats.totalGuarded.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </p>
                   
-                  {investmentStats.jarsWithBalance?.length > 0 && (
-                    <div className="mt-6 pt-6 border-t border-slate-500/10 space-y-3">
+                  {showReservesList && investmentStats.jarsWithBalance?.length > 0 && (
+                    <div className="mt-6 pt-6 border-t border-slate-500/10 space-y-4 animate-in slide-in-from-top-4 duration-500">
                       {investmentStats.jarsWithBalance.map(jar => (
-                        <div key={jar.id} className="flex justify-between items-center group/jar">
-                          <div className="flex items-center gap-2">
-                            <div className="w-1 h-1 rounded-full bg-emerald-500 opacity-40 group-hover/jar:scale-150 transition-transform"></div>
-                            <span className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                              {jar.name}
+                        <div key={jar.id} className="group/jar">
+                          <div className="flex justify-between items-center mb-1">
+                            <div className="flex items-center gap-2">
+                              <div className="w-1 h-1 rounded-full bg-emerald-500 opacity-40 group-hover/jar:scale-150 transition-transform"></div>
+                              <span className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                                {jar.name}
+                              </span>
+                            </div>
+                            <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
+                              R$ {jar.dynamicBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </span>
                           </div>
-                          <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
-                            R$ {jar.dynamicBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
+                          <div className="flex justify-end">
+                            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest opacity-80">
+                              + R$ {jar.dailyYield.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} /dia
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>
