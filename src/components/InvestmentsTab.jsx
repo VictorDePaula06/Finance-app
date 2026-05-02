@@ -127,21 +127,41 @@ export default function InvestmentsTab() {
 
                     // 2. Try Yahoo Finance via Proxy (Handles US and BR fallbacks)
                     try {
-                        // Detect if it's likely a Brazilian ticker (e.g. BBAS3, PETR4, etc)
                         const isProbablyBR = /\d/.test(ticker) || (ticker.length >= 5 && !ticker.includes('.'));
-                        const yahooTickers = isProbablyBR ? [`${ticker}.SA`, ticker] : [ticker];
+                        const yahooTicker = isProbablyBR ? `${ticker}.SA` : ticker;
+                        
+                        // Try both v7/quote and v8/chart for maximum compatibility
+                        const urls = [
+                            `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${yahooTicker}`,
+                            `https://query1.finance.yahoo.com/v8/finance/chart/${yahooTicker}`
+                        ];
 
-                        for (const yTicker of yahooTickers) {
-                            const yhRes = await fetch(`https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${yTicker}`);
-                            if (yhRes.ok) {
-                                const yhData = await yhRes.json();
-                                if (yhData.chart && yhData.chart.result && yhData.chart.result[0]) {
-                                    const price = yhData.chart.result[0].meta.regularMarketPrice;
+                        for (const url of urls) {
+                            try {
+                                // Try primary proxy
+                                const res = await fetch(`https://corsproxy.io/?${url}`);
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    const price = data.quoteResponse?.result?.[0]?.regularMarketPrice || data.chart?.result?.[0]?.meta?.regularMarketPrice;
                                     if (price) {
                                         newPrices[ticker] = parseFloat(price);
                                         return;
                                     }
                                 }
+                            } catch (e) {
+                                // Try secondary proxy if first fails
+                                try {
+                                    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+                                    if (res.ok) {
+                                        const json = await res.json();
+                                        const data = JSON.parse(json.contents);
+                                        const price = data.quoteResponse?.result?.[0]?.regularMarketPrice || data.chart?.result?.[0]?.meta?.regularMarketPrice;
+                                        if (price) {
+                                            newPrices[ticker] = parseFloat(price);
+                                            return;
+                                        }
+                                    }
+                                } catch (e2) {}
                             }
                         }
                     } catch (e) {
