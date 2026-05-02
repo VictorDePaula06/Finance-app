@@ -106,13 +106,29 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
       return a + (j.balance || 0) * rate;
     }, 0);
 
-    // 2. Yield from Fixed Income Investments (Renda Fixa with CDI %)
+    // 2. Yield from Fixed Income Investments (Renda Fixa)
     const fixedIncomeYield = investments.reduce((a, inv) => {
-      if (inv.type === 'renda_fixa' && inv.cdiPercent) {
-        const cdiP = parseFloat(String(inv.cdiPercent).replace(',', '.'));
-        const rate = Math.pow(1 + (cdiAnual / 100) * (cdiP / 100), 1 / 365) - 1;
+      if (inv.type === 'renda_fixa') {
+        let rate = 0;
         const currentVal = (inv.manualCurrentPrice || inv.purchasePrice) * inv.quantity;
-        return a + currentVal * rate;
+        
+        if (inv.yieldType === 'cdi' && inv.cdiPercent) {
+          const cdiP = parseFloat(String(inv.cdiPercent).replace(',', '.'));
+          rate = Math.pow(1 + (cdiAnual / 100) * (cdiP / 100), 1 / 365) - 1;
+        } else if (inv.yieldType === 'ipca' && inv.fixedRate) {
+          // IPCA approx fallback
+          const ipcaAnual = 4.5; 
+          const fixedP = parseFloat(String(inv.fixedRate).replace(',', '.'));
+          rate = Math.pow(1 + (ipcaAnual / 100) + (fixedP / 100), 1 / 365) - 1;
+        } else if (inv.yieldType === 'pre' && inv.fixedRate) {
+          const fixedP = parseFloat(String(inv.fixedRate).replace(',', '.'));
+          rate = Math.pow(1 + (fixedP / 100), 1 / 365) - 1;
+        } else if (inv.cdiPercent) { // fallback
+           const cdiP = parseFloat(String(inv.cdiPercent).replace(',', '.'));
+           rate = Math.pow(1 + (cdiAnual / 100) * (cdiP / 100), 1 / 365) - 1;
+        }
+        
+        return a + (currentVal * rate);
       }
       return a;
     }, 0);

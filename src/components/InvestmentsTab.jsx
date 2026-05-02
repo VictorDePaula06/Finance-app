@@ -695,22 +695,107 @@ export default function InvestmentsTab() {
                                     </>
                                 ) : newAsset.type === 'renda_fixa' ? (
                                     <>
-                                        <div>
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">% do CDI</label>
-                                            <div className="relative">
-                                                <input 
-                                                    type="text"
-                                                    inputMode="decimal"
-                                                    value={newAsset.cdiPercent}
-                                                    onChange={(e) => setNewAsset({...newAsset, cdiPercent: e.target.value})}
-                                                    className={`w-full p-4 pr-10 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
-                                                    }`}
-                                                    placeholder="Ex: 100"
-                                                />
-                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500">%</span>
+                                        <div className="col-span-2">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Subtipo de Renda Fixa</label>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {['CDB', 'Tesouro', 'LCI/LCA', 'Debêntures', 'Outros'].map(st => (
+                                                    <button
+                                                        key={st}
+                                                        type="button"
+                                                        onClick={() => setNewAsset({...newAsset, subType: st})}
+                                                        className={`p-2 rounded-xl border text-[10px] font-black transition-all ${
+                                                            newAsset.subType === st
+                                                            ? 'bg-blue-500 border-blue-500 text-white shadow-md'
+                                                            : (theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-500' : 'bg-white/5 border-white/5 text-slate-400')
+                                                        }`}
+                                                    >
+                                                        {st}
+                                                    </button>
+                                                ))}
                                             </div>
                                         </div>
+                                        
+                                        <div className="col-span-2">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Tipo de Rendimento</label>
+                                            <div className="flex gap-2">
+                                                {[
+                                                    { id: 'cdi', label: 'Pós (CDI)' },
+                                                    { id: 'ipca', label: 'Híbrido (IPCA+)' },
+                                                    { id: 'pre', label: 'Pré-fixado' }
+                                                ].map(yt => (
+                                                    <button
+                                                        key={yt.id}
+                                                        type="button"
+                                                        onClick={() => setNewAsset({...newAsset, yieldType: yt.id})}
+                                                        className={`flex-1 p-3 rounded-2xl border text-[10px] font-black transition-all ${
+                                                            newAsset.yieldType === yt.id
+                                                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-md'
+                                                            : (theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-500' : 'bg-white/5 border-white/5 text-slate-400')
+                                                        }`}
+                                                    >
+                                                        {yt.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {newAsset.yieldType === 'cdi' && (
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">% do CDI</label>
+                                                <div className="relative">
+                                                    <input 
+                                                        type="text"
+                                                        inputMode="decimal"
+                                                        value={newAsset.cdiPercent}
+                                                        onChange={(e) => setNewAsset({...newAsset, cdiPercent: e.target.value})}
+                                                        className={`w-full p-4 pr-10 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                                        }`}
+                                                        placeholder="Ex: 100"
+                                                    />
+                                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500">%</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {newAsset.yieldType === 'ipca' && (
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">IPCA + % ao ano</label>
+                                                <div className="relative">
+                                                    <input 
+                                                        type="text"
+                                                        inputMode="decimal"
+                                                        value={newAsset.fixedRate}
+                                                        onChange={(e) => setNewAsset({...newAsset, fixedRate: e.target.value})}
+                                                        className={`w-full p-4 pr-10 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                                        }`}
+                                                        placeholder="Ex: 6.5"
+                                                    />
+                                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500">%</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {newAsset.yieldType === 'pre' && (
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">% Fixa ao Ano</label>
+                                                <div className="relative">
+                                                    <input 
+                                                        type="text"
+                                                        inputMode="decimal"
+                                                        value={newAsset.fixedRate}
+                                                        onChange={(e) => setNewAsset({...newAsset, fixedRate: e.target.value})}
+                                                        className={`w-full p-4 pr-10 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                                        }`}
+                                                        placeholder="Ex: 12.5"
+                                                    />
+                                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500">%</span>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div>
                                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Vencimento</label>
                                             <input 
