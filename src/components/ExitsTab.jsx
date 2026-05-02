@@ -49,6 +49,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const [selectedJarId, setSelectedJarId] = useState('');
     const [isNewReserve, setIsNewReserve] = useState(false);
     const [reserveType, setReserveType] = useState('cofrinho');
+    const [isInstallmentSuccess, setIsInstallmentSuccess] = useState(false);
 
     // Filtered Transactions (Only Expenses/Exits)
     const exits = useMemo(() => {
@@ -84,6 +85,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         setDate(new Date().toLocaleDateString('en-CA'));
         setCategory('other');
         setCdiPercent('100');
+        setIsInstallmentSuccess(false);
         setStep('choice');
         setShowModal(false);
         setIsSaving(false);
@@ -141,7 +143,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     createdAt: Date.now(),
                     installmentMode
                 };
-                addDoc(collection(db, 'subscriptions'), subData).catch(err => console.error("Erro ao criar assinatura:", err));
+                await addDoc(collection(db, 'subscriptions'), subData);
             }
 
             // VERIFICAÇÃO DE SALDO (Apenas para novos lançamentos, não para edições)
@@ -156,10 +158,13 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 await updateDoc(doc(db, 'transactions', editingId), updateData);
                 resetForm();
             } else {
-                // Salvamento otimista: dispara o envio mas não trava a UI esperando o servidor
-                addDoc(collection(db, 'transactions'), transactionData).catch(err => console.error("Erro em background:", err));
+                // Se for parcelamento, NÃO adicionamos a transação direta para evitar duplicidade com a aba Cartões
+                if (!isInstallment) {
+                    await addDoc(collection(db, 'transactions'), transactionData);
+                } else {
+                    setIsInstallmentSuccess(true);
+                }
                 
-                // Mudança instantânea de estado
                 setIsSaving(false);
                 setStep('success');
             }
@@ -332,7 +337,12 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         
         try {
             if (pendingSave.type === 'expense') {
-                await addDoc(collection(db, 'transactions'), pendingSave.data);
+                // Se for parcelamento, NÃO adicionamos a transação direta para evitar duplicidade com a aba Cartões
+                if (!pendingSave.data.isInstallment) {
+                    await addDoc(collection(db, 'transactions'), pendingSave.data);
+                } else {
+                    setIsInstallmentSuccess(true);
+                }
             } else if (pendingSave.type === 'investment') {
                 await addDoc(collection(db, 'transactions'), pendingSave.transaction);
                 if (pendingSave.jarId) {
@@ -939,8 +949,14 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                 </div>
 
                                 <div className="space-y-2">
-                                    <h3 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Lançamento efetuado!</h3>
-                                    <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Sua saída foi registrada com sucesso no sistema.</p>
+                                    <h3 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                        {isInstallmentSuccess ? 'Parcelamento Agendado!' : 'Lançamento efetuado!'}
+                                    </h3>
+                                    <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                                        {isInstallmentSuccess 
+                                            ? 'Seu parcelamento foi criado. Agora, vá até a aba Cartões para dar baixa na primeira parcela e debitar do seu saldo.' 
+                                            : 'Sua saída foi registrada com sucesso no sistema.'}
+                                    </p>
                                 </div>
 
                                 <div className="flex flex-col gap-3">
