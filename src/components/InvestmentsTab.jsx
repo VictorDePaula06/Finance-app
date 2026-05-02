@@ -142,7 +142,9 @@ export default function InvestmentsTab() {
                                 const res = await fetch(`https://corsproxy.io/?${url}`);
                                 if (res.ok) {
                                     const data = await res.json();
-                                    const price = data.quoteResponse?.result?.[0]?.regularMarketPrice || data.chart?.result?.[0]?.meta?.regularMarketPrice;
+                                    const result = data.quoteResponse?.result?.[0] || data.chart?.result?.[0]?.meta;
+                                    const price = result?.regularMarketPrice || result?.previousClose || result?.chartPreviousClose;
+                                    
                                     if (price) {
                                         newPrices[ticker] = parseFloat(price);
                                         return;
@@ -155,7 +157,9 @@ export default function InvestmentsTab() {
                                     if (res.ok) {
                                         const json = await res.json();
                                         const data = JSON.parse(json.contents);
-                                        const price = data.quoteResponse?.result?.[0]?.regularMarketPrice || data.chart?.result?.[0]?.meta?.regularMarketPrice;
+                                        const result = data.quoteResponse?.result?.[0] || data.chart?.result?.[0]?.meta;
+                                        const price = result?.regularMarketPrice || result?.previousClose || result?.chartPreviousClose;
+                                        
                                         if (price) {
                                             newPrices[ticker] = parseFloat(price);
                                             return;
