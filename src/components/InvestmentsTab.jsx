@@ -612,65 +612,133 @@ export default function InvestmentsTab() {
                         <form onSubmit={handleSaveAsset} className="space-y-6">
                             <div>
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Tipo de Ativo</label>
-                                <select 
-                                    value={newAsset.type}
-                                    onChange={(e) => setNewAsset({...newAsset, type: e.target.value})}
-                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all appearance-none ${
-                                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-slate-800 border-white/10 text-white focus:border-emerald-500'
-                                    }`}
-                                >
+                                <div className="grid grid-cols-3 gap-2">
                                     {Object.entries(ASSET_TYPES).map(([key, config]) => (
-                                        <option key={key} value={key} className={theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}>
-                                            {config.label}
-                                        </option>
+                                        <button
+                                            key={key}
+                                            type="button"
+                                            onClick={() => setNewAsset({
+                                                type: key,
+                                                name: '',
+                                                symbol: '',
+                                                quantity: key === 'imoveis' || key === 'renda_fixa' ? '1' : '',
+                                                purchasePrice: '',
+                                                manualCurrentPrice: '',
+                                                isUSD: false,
+                                                yield: '',
+                                                expiryDate: ''
+                                            })}
+                                            className={`p-3 rounded-2xl border flex flex-col items-center gap-1 transition-all ${
+                                                newAsset.type === key
+                                                ? (theme === 'light' ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg' : 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-600/20')
+                                                : (theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100' : 'bg-white/5 border-white/5 text-slate-500 hover:bg-white/10')
+                                            }`}
+                                        >
+                                            <config.icon className="w-5 h-5" />
+                                            <span className="text-[8px] font-black uppercase tracking-widest">{config.label}</span>
+                                        </button>
                                     ))}
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Nome</label>
-                                    <input 
-                                        type="text"
-                                        value={newAsset.name}
-                                        onChange={(e) => setNewAsset({...newAsset, name: e.target.value})}
-                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
-                                        }`}
-                                        placeholder="Ex: Selic 2029, Vale3..."
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Símbolo/Ticker</label>
-                                    <input 
-                                        type="text"
-                                        value={newAsset.symbol}
-                                        onChange={(e) => setNewAsset({...newAsset, symbol: e.target.value.toUpperCase()})}
-                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
-                                        }`}
-                                        placeholder="Opcional (Ex: BTC, VALE3)"
-                                    />
                                 </div>
                             </div>
 
+                            {/* Common Name Field */}
+                            <div>
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+                                    {newAsset.type === 'imoveis' ? 'Nome do Imóvel' : (newAsset.type === 'renda_fixa' ? 'Nome do Título' : 'Nome do Ativo')}
+                                </label>
+                                <input 
+                                    type="text"
+                                    required
+                                    value={newAsset.name}
+                                    onChange={(e) => setNewAsset({...newAsset, name: e.target.value})}
+                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                    }`}
+                                    placeholder={newAsset.type === 'imoveis' ? 'Ex: Apartamento Centro' : (newAsset.type === 'renda_fixa' ? 'Ex: Tesouro Selic 2029' : 'Ex: Vale ON, Bitcoin...')}
+                                />
+                            </div>
+
+                            {/* Dynamic Fields Grid */}
                             <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Quantidade</label>
-                                    <input 
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={newAsset.quantity}
-                                        onChange={(e) => setNewAsset({...newAsset, quantity: e.target.value})}
-                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
-                                        }`}
-                                        placeholder="0.00"
-                                    />
-                                </div>
+                                {['acoes', 'etfs', 'fiis', 'crypto'].includes(newAsset.type) ? (
+                                    <>
+                                        <div>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Símbolo/Ticker</label>
+                                            <input 
+                                                type="text"
+                                                required={newAsset.type !== 'imoveis'}
+                                                value={newAsset.symbol}
+                                                onChange={(e) => setNewAsset({...newAsset, symbol: e.target.value.toUpperCase()})}
+                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                    theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                                }`}
+                                                placeholder="Ex: NVDA, BTC, BBAS3"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Quantidade</label>
+                                            <input 
+                                                type="text"
+                                                inputMode="decimal"
+                                                required
+                                                value={newAsset.quantity}
+                                                onChange={(e) => setNewAsset({...newAsset, quantity: e.target.value})}
+                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                    theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                                }`}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                    </>
+                                ) : newAsset.type === 'renda_fixa' ? (
+                                    <>
+                                        <div>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Rentabilidade</label>
+                                            <input 
+                                                type="text"
+                                                value={newAsset.yield}
+                                                onChange={(e) => setNewAsset({...newAsset, yield: e.target.value})}
+                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                    theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                                }`}
+                                                placeholder="Ex: 100% CDI, 12% a.a."
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Vencimento</label>
+                                            <input 
+                                                type="text"
+                                                value={newAsset.expiryDate}
+                                                onChange={(e) => setNewAsset({...newAsset, expiryDate: e.target.value})}
+                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                    theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                                }`}
+                                                placeholder="Ex: 2029, 15/02/26"
+                                            />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="col-span-2">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Localização / Detalhes</label>
+                                            <input 
+                                                type="text"
+                                                value={newAsset.symbol}
+                                                onChange={(e) => setNewAsset({...newAsset, symbol: e.target.value})}
+                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                    theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                                }`}
+                                                placeholder="Ex: Centro, Ed. Solar, 2 quartos..."
+                                            />
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block flex items-center gap-1">
-                                        Preço Médio ({newAsset.isUSD ? 'USD' : 'R$'})
+                                        {newAsset.type === 'imoveis' || newAsset.type === 'renda_fixa' ? 'Valor de Compra' : `Preço Médio (${newAsset.isUSD ? 'USD' : 'R$'})`}
                                     </label>
                                     <div className="relative">
                                         <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -679,6 +747,7 @@ export default function InvestmentsTab() {
                                         <input 
                                             type="text"
                                             inputMode="decimal"
+                                            required
                                             value={newAsset.purchasePrice}
                                             onChange={(e) => setNewAsset({...newAsset, purchasePrice: e.target.value})}
                                             className={`w-full p-4 pl-12 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
@@ -688,44 +757,50 @@ export default function InvestmentsTab() {
                                         />
                                     </div>
                                 </div>
-                            </div>
-
-                            <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-500/5 border border-slate-500/10">
-                                <input 
-                                    type="checkbox"
-                                    id="isUSD-add"
-                                    checked={newAsset.isUSD}
-                                    onChange={(e) => setNewAsset({...newAsset, isUSD: e.target.checked})}
-                                    className="w-5 h-5 rounded-lg border-slate-300 text-emerald-500 focus:ring-emerald-500/40 cursor-pointer"
-                                />
-                                <label htmlFor="isUSD-add" className={`text-xs font-bold cursor-pointer ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
-                                    Ativo dolarizado (Preço em USD)
-                                </label>
-                            </div>
-
-                            <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 animate-in slide-in-from-top-2">
-                                <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2 block">
-                                    Preço Atual ({newAsset.isUSD ? 'USD' : 'R$'})
-                                </label>
-                                <div className="relative">
-                                    <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 text-emerald-600/50`}>
-                                        {newAsset.isUSD ? '$' : 'R$'}
-                                    </span>
-                                    <input 
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={newAsset.manualCurrentPrice || ''}
-                                        onChange={(e) => setNewAsset({...newAsset, manualCurrentPrice: e.target.value})}
-                                        className={`w-full p-4 pl-12 rounded-xl border font-bold text-sm focus:outline-none transition-all ${
-                                            theme === 'light' ? 'bg-white border-emerald-100 text-slate-800 focus:border-emerald-500' : 'bg-slate-900 border-emerald-500/20 text-white focus:border-emerald-500'
-                                        }`}
-                                        placeholder="Valor unitário atual"
-                                    />
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+                                        {newAsset.type === 'imoveis' || newAsset.type === 'renda_fixa' ? 'Valor Atual' : `Preço Atual (${newAsset.isUSD ? 'USD' : 'R$'})`}
+                                    </label>
+                                    <div className="relative">
+                                        <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                            {newAsset.isUSD ? '$' : 'R$'}
+                                        </span>
+                                        <input 
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={newAsset.manualCurrentPrice || ''}
+                                            onChange={(e) => setNewAsset({...newAsset, manualCurrentPrice: e.target.value})}
+                                            className={`w-full p-4 pl-12 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                            }`}
+                                            placeholder="Opcional"
+                                        />
+                                    </div>
                                 </div>
-                                <p className="text-[9px] font-bold text-emerald-600/70 mt-2 italic">
-                                    * Se vazio, usará o preço médio de compra. Se for cripto, buscará valor automático caso haja ticker.
-                                </p>
                             </div>
+
+                            {['acoes', 'etfs', 'fiis', 'crypto'].includes(newAsset.type) && (
+                                <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 animate-in slide-in-from-top-2">
+                                    <p className="text-[9px] font-bold text-emerald-600/70 italic">
+                                        * Se o "Preço Atual" ficar vazio, a Alívia tentará buscar o valor de mercado automaticamente via ticker.
+                                    </p>
+                                </div>
+                            )}
+
+                            {['acoes', 'etfs', 'fiis', 'crypto'].includes(newAsset.type) && (
+                                <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-500/5 border border-slate-500/10">
+                                    <input 
+                                        type="checkbox"
+                                        id="isUSD-add"
+                                        checked={newAsset.isUSD}
+                                        onChange={(e) => setNewAsset({...newAsset, isUSD: e.target.checked})}
+                                        className="w-5 h-5 rounded-lg border-slate-300 text-emerald-500 focus:ring-emerald-500/40 cursor-pointer"
+                                    />
+                                    <label htmlFor="isUSD-add" className={`text-xs font-bold cursor-pointer ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
+                                        Ativo dolarizado (Preço em USD)
+                                    </label>
+                                </div>
+                            )}
 
                             <div className="flex gap-4 pt-4">
                                 <button 
