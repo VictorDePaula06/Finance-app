@@ -185,7 +185,17 @@ export default function InvestmentsTab() {
                 console.warn("Could not fetch CDI");
             }
 
-            // Fetch Tesouro Direto
+            // Fetch Tesouro Direto logic moved to separate useEffect
+            setPrices(newPrices);
+        } catch (error) {
+            console.error("Price fetch failed:", error);
+        } finally {
+            setIsLoadingPrices(false);
+        }
+    };
+
+    useEffect(() => {
+        const fetchTesouro = async () => {
             try {
                 const tesouroUrl = 'https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondpriceandsavings.json';
                 const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(tesouroUrl)}`;
@@ -196,30 +206,17 @@ export default function InvestmentsTab() {
                     if (data?.response?.TrsrBondPricLogList) {
                         const list = data.response.TrsrBondPricLogList.map(item => item.TrsrBond);
                         setTesouroData(list);
-                        
-                        // Update prices for existing Tesouro assets
-                        list.forEach(bond => {
-                            newPrices[bond.nm] = bond.untrPric;
-                            newPrices[`${bond.nm}_RATE`] = bond.anulRentPrcnt;
-                        });
                     }
                 }
             } catch (e) {
-                console.warn("Could not fetch Tesouro prices");
+                console.warn("Could not fetch Tesouro version 7.1.3", e);
             }
-
-            setPrices(newPrices);
-        } catch (error) {
-            console.error("Price fetch failed:", error);
-        } finally {
-            setIsLoadingPrices(false);
-        }
-    };
+        };
+        fetchTesouro();
+    }, []);
 
     useEffect(() => {
-        if (investments.length > 0) {
-            fetchLivePrices();
-        }
+        fetchLivePrices();
         // Update every 2 minutes
         const interval = setInterval(fetchLivePrices, 60000 * 2); 
         return () => clearInterval(interval);
