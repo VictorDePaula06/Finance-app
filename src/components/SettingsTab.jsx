@@ -5,7 +5,6 @@ import { useTheme } from '../contexts/ThemeContext';
 import { validateApiKey } from '../services/gemini';
 import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
 import Manual from './Manual';
-import AliviaConfigForm from './AliviaConfigForm';
 
 const SettingsTab = ({ manualConfig, updateManualConfig }) => {
   const { theme, toggleTheme } = useTheme();
@@ -18,7 +17,6 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
   const [validationStatus, setValidationStatus] = useState(null); // 'success' | 'error'
   const [showVideo, setShowVideo] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
-  const [showAliviaConfig, setShowAliviaConfig] = useState(false);
 
   const handleSaveApiKey = async () => {
     if (!apiKey) return;
@@ -64,20 +62,7 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
         </div>
       )}
 
-      {/* Alívia Config Modal */}
-      {showAliviaConfig && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-500">
-          <div className={`relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[3rem] shadow-2xl animate-in zoom-in-95 duration-500 custom-scrollbar ${
-            theme === 'light' ? 'bg-white' : 'bg-slate-900'
-          }`}>
-            <AliviaConfigForm 
-              manualConfig={manualConfig} 
-              onConfigChange={updateManualConfig} 
-              onClose={() => setShowAliviaConfig(false)} 
-            />
-          </div>
-        </div>
-      )}
+
 
       {/* Left Column */}
       <div className="space-y-8">
@@ -148,26 +133,6 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
               </button>
             </div>
           </div>
-        </section>
-
-        {/* Financial Configuration */}
-        <section className={`p-8 rounded-[2.5rem] border ${
-          theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'
-        }`}>
-          <h3 className={`text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
-            <Calculator className="w-4 h-4" /> Configuração Financeira
-          </h3>
-          <p className="text-[10px] text-slate-500 mb-6 leading-relaxed">
-            Ajuste sua renda, gastos fixos e metas de cada categoria para que a Alívia te oriente melhor.
-          </p>
-          <button
-            onClick={() => setShowAliviaConfig(true)}
-            className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 ${
-              theme === 'light' ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20' : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-lg shadow-emerald-600/30'
-            }`}
-          >
-            <Settings className="w-4 h-4" /> Configurar Alívia
-          </button>
         </section>
 
         {/* Appearance */}
