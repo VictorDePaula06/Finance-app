@@ -86,98 +86,83 @@ export default function InvestmentsTab() {
         setIsLoadingPrices(true);
         try {
             const newPrices = { ...prices };
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-            // Fetch USD-BRL from AwesomeAPI
-            try {
-                const usdRes = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL');
-                const usdData = await usdRes.json();
-                newPrices.USD = parseFloat(usdData.USDBRL.bid);
-            } catch (e) {
-                console.warn("Could not fetch USD rate");
-            }
-
-            // Fetch Crypto from Binance (Covers almost all pairs in USD and BRL)
+            // Fetch Crypto from Binance (no CORS issues anywhere)
             const cryptoTickers = [...new Set(investments.filter(a => a.type === 'crypto' && a.symbol).map(a => a.symbol.toUpperCase()))];
             if (cryptoTickers.length > 0) {
                 try {
                     const binanceRes = await fetch('https://api.binance.com/api/v3/ticker/price');
                     const binanceData = await binanceRes.json();
-                    
                     cryptoTickers.forEach(ticker => {
                         const usdtPair = binanceData.find(p => p.symbol === `${ticker}USDT`);
-                        const brlPair = binanceData.find(p => p.symbol === `${ticker}BRL`);
-                        
+                        const brlPair  = binanceData.find(p => p.symbol === `${ticker}BRL`);
                         if (usdtPair) newPrices[`${ticker}_USD`] = parseFloat(usdtPair.price);
-                        if (brlPair) newPrices[`${ticker}_BRL`] = parseFloat(brlPair.price);
+                        if (brlPair)  newPrices[`${ticker}_BRL`] = parseFloat(brlPair.price);
                     });
-                } catch (e) {
-                    console.warn("Could not fetch Binance prices");
-                }
+                } catch (e) { console.warn('Binance fetch failed', e); }
             }
 
             // Fetch Stocks, ETFs, FIIs
             const stockTickers = [...new Set(investments.filter(a => ['acoes', 'etfs', 'fiis'].includes(a.type) && a.symbol).map(a => a.symbol.toUpperCase()))];
+            const stockTypes   = stockTickers.map(t => {
+                const asset = investments.find(a => a.symbol?.toUpperCase() === t);
+                return asset?.type || 'acoes';
+            });
+
             if (stockTickers.length > 0) {
-                await Promise.all(stockTickers.map(async (ticker) => {
-                    // 1. Try Brapi (Best for BR stocks)
+                // In production: use Vercel serverless function (no CORS)
+                if (!isLocalhost) {
                     try {
-                        const brapiRes = await fetch(`https://brapi.dev/api/quote/${ticker}`);
-                        if (brapiRes.ok) {
-                            const brapiData = await brapiRes.json();
-                            if (brapiData.results && brapiData.results[0] && brapiData.results[0].regularMarketPrice) {
-                                newPrices[ticker] = parseFloat(brapiData.results[0].regularMarketPrice);
-                                return;
-                            }
-                        }
-                    } catch (e) {}
-
-                    // 2. Try Yahoo Finance via Proxy (Handles US and BR fallbacks)
-                    try {
-                        const isProbablyBR = /\d/.test(ticker) || (ticker.length >= 5 && !ticker.includes('.'));
-                        const yahooTicker = isProbablyBR ? `${ticker}.SA` : ticker;
-                        
-                        // Try both v7/quote and v8/chart for maximum compatibility
-                        const urls = [
-                            `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${yahooTicker}`,
-                            `https://query1.finance.yahoo.com/v8/finance/chart/${yahooTicker}`
-                        ];
-
-                        for (const url of urls) {
-                            try {
-                                // Try primary proxy
-                                const res = await fetch(`https://corsproxy.io/?${url}`);
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    const result = data.quoteResponse?.result?.[0] || data.chart?.result?.[0]?.meta;
-                                    const price = result?.regularMarketPrice || result?.previousClose || result?.chartPreviousClose;
-                                    
-                                    if (price) {
-                                        newPrices[ticker] = parseFloat(price);
-                                        return;
-                                    }
-                                }
-                            } catch (e) {
-                                // Try secondary proxy if first fails
-                                try {
-                                    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-                                    if (res.ok) {
-                                        const json = await res.json();
-                                        const data = JSON.parse(json.contents);
-                                        const result = data.quoteResponse?.result?.[0] || data.chart?.result?.[0]?.meta;
-                                        const price = result?.regularMarketPrice || result?.previousClose || result?.chartPreviousClose;
-                                        
-                                        if (price) {
-                                            newPrices[ticker] = parseFloat(price);
-                                            return;
-                                        }
-                                    }
-                                } catch (e2) {}
-                            }
+                        const apiUrl = `/api/prices?tickers=${stockTickers.join(',')}&types=${stockTypes.join(',')}`;
+                        const res = await fetch(apiUrl);
+                        if (res.ok) {
+                            const data = await res.json();
+                            Object.assign(newPrices, data.prices);
+                            console.log('[Prices] Loaded via /api/prices:', Object.keys(data.prices));
+                        } else {
+                            console.warn('[Prices] /api/prices returned', res.status);
                         }
                     } catch (e) {
-                        console.warn(`Could not fetch price for ${ticker}`, e);
+                        console.warn('[Prices] Serverless fetch failed', e);
                     }
-                }));
+                } else {
+                    // On localhost: direct calls (CORS not an issue in dev)
+                    await Promise.all(stockTickers.map(async (ticker) => {
+                        // 1. Try Brapi
+                        try {
+                            const brapiRes = await fetch(`https://brapi.dev/api/quote/${ticker}`);
+                            if (brapiRes.ok) {
+                                const brapiData = await brapiRes.json();
+                                const price = brapiData?.results?.[0]?.regularMarketPrice;
+                                if (price) { newPrices[ticker] = parseFloat(price); return; }
+                            }
+                        } catch (e) {}
+
+                        // 2. Yahoo via proxy
+                        try {
+                            const isProbablyBR = /\d/.test(ticker) || (ticker.length >= 5 && !ticker.includes('.'));
+                            const yahooTicker = isProbablyBR ? `${ticker}.SA` : ticker;
+                            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooTicker}`;
+                            const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+                            if (res.ok) {
+                                const data = await res.json();
+                                const meta  = data?.chart?.result?.[0]?.meta;
+                                const price = meta?.regularMarketPrice || meta?.previousClose;
+                                if (price) { newPrices[ticker] = parseFloat(price); return; }
+                            }
+                        } catch (e) {}
+                    }));
+                }
+            }
+
+            // Fetch USD/BRL
+            try {
+                const usdRes = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL');
+                const usdData = await usdRes.json();
+                newPrices.USD = parseFloat(usdData.USDBRL.bid);
+            } catch (e) {
+                if (!newPrices.USD) newPrices.USD = 5.0;
             }
 
             // Fetch CDI from BCB
