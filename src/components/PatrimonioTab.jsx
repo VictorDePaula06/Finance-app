@@ -99,13 +99,26 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   // ── calculations ───────────────────────────────────────────────────────────
   // Jars
   const jarsTotal = useMemo(() => jars.reduce((a, j) => a + (j.balance || 0), 0), [jars]);
-  const jarsDailyYield = useMemo(() =>
-    jars.reduce((a, j) => {
+  const totalDailyYield = useMemo(() => {
+    // 1. Yield from Jars (cofrinhos)
+    const jarsYield = jars.reduce((a, j) => {
       const rate = Math.pow(1 + (cdiAnual / 100) * (j.cdiPercent / 100), 1 / 365) - 1;
       return a + (j.balance || 0) * rate;
-    }, 0),
-    [jars, cdiAnual]
-  );
+    }, 0);
+
+    // 2. Yield from Fixed Income Investments (Renda Fixa with CDI %)
+    const fixedIncomeYield = investments.reduce((a, inv) => {
+      if (inv.type === 'renda_fixa' && inv.cdiPercent) {
+        const cdiP = parseFloat(String(inv.cdiPercent).replace(',', '.'));
+        const rate = Math.pow(1 + (cdiAnual / 100) * (cdiP / 100), 1 / 365) - 1;
+        const currentVal = (inv.manualCurrentPrice || inv.purchasePrice) * inv.quantity;
+        return a + currentVal * rate;
+      }
+      return a;
+    }, 0);
+
+    return jarsYield + fixedIncomeYield;
+  }, [jars, investments, cdiAnual]);
 
   // Investments — only from Firestore collection (matches InvestmentsTab)
   const investmentsTotal = useMemo(() => {
@@ -125,7 +138,6 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
 
   // Patrimônio = apenas ativos acumulados (cofrinhos + investimentos)
   const patrimonioTotal = jarsTotal + investmentsTotal;
-  const totalDailyYield = jarsDailyYield;
   const investmentsProfit = investmentsTotal - investmentsCost;
 
   const handleAnalyze = async () => {
@@ -214,7 +226,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
           icon={ArrowUpCircle}
           color={investmentsProfit >= 0 ? "text-emerald-400" : "text-rose-400"}
           isDark={isDark}
-          detail={`+R$ ${fmt(jarsDailyYield * 30)}/mês proj. nas reservas`}
+          detail={`+R$ ${fmt(totalDailyYield * 30)}/mês proj. rendimentos`}
         />
       </div>
 

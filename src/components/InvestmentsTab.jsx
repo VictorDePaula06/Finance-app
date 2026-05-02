@@ -38,7 +38,7 @@ export default function InvestmentsTab() {
     const [isEditing, setIsEditing] = useState(null);
     const [isAporting, setIsAporting] = useState(null);
     const [isLoadingPrices, setIsLoadingPrices] = useState(false);
-    const [prices, setPrices] = useState({ USD: 5.0 });
+    const [prices, setPrices] = useState({ USD: 5.0, CDI: 0.10 });
     const [filter, setFilter] = useState('all');
     const [showUSDAsBRL, setShowUSDAsBRL] = useState(false);
     
@@ -50,6 +50,7 @@ export default function InvestmentsTab() {
         purchasePrice: '',
         manualCurrentPrice: '',
         isUSD: false,
+        cdiPercent: '',
         aporteAmount: '',
         aporteQuantity: ''
     });
@@ -178,7 +179,7 @@ export default function InvestmentsTab() {
             try {
                 const cdiRes = await fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json');
                 const cdiData = await cdiRes.json();
-                newPrices.CDI = parseFloat(cdiData[0].valor) * 365;
+                newPrices.CDI = parseFloat(cdiData[0].valor) / 100;
             } catch (e) {
                 console.warn("Could not fetch CDI");
             }
@@ -195,7 +196,7 @@ export default function InvestmentsTab() {
         if (investments.length > 0) {
             fetchLivePrices();
         }
-        // Update every 2 minutes as requested
+        // Update every 2 minutes
         const interval = setInterval(fetchLivePrices, 60000 * 2); 
         return () => clearInterval(interval);
     }, [investments.length]);
@@ -217,12 +218,14 @@ export default function InvestmentsTab() {
             const quantity = parseBrazilianNumber(newAsset.quantity);
             const purchasePrice = parseBrazilianNumber(newAsset.purchasePrice);
             const manualPrice = newAsset.manualCurrentPrice ? parseBrazilianNumber(newAsset.manualCurrentPrice) : null;
+            const cdiPercent = newAsset.type === 'renda_fixa' ? parseBrazilianNumber(newAsset.cdiPercent) : null;
 
             const assetData = {
                 ...newAsset,
                 quantity,
                 purchasePrice,
                 manualCurrentPrice: manualPrice,
+                cdiPercent,
                 updatedAt: new Date().toISOString()
             };
 
@@ -240,7 +243,7 @@ export default function InvestmentsTab() {
             setIsAdding(false);
             setIsEditing(null);
             setIsAporting(null);
-            setNewAsset({ type: 'crypto', name: 'Bitcoin', symbol: 'BTC', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, aporteAmount: '', aporteQuantity: '' });
+            setNewAsset({ type: 'renda_fixa', name: '', symbol: '', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, cdiPercent: '', aporteAmount: '', aporteQuantity: '' });
         } catch (error) {
             console.error("Error saving asset:", error);
         }
@@ -268,7 +271,7 @@ export default function InvestmentsTab() {
             });
 
             setIsAporting(null);
-            setNewAsset({ type: 'crypto', name: 'Bitcoin', symbol: 'BTC', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, aporteAmount: '', aporteQuantity: '' });
+            setNewAsset({ type: 'renda_fixa', name: '', symbol: '', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, cdiPercent: '', aporteAmount: '', aporteQuantity: '' });
         } catch (error) {
             console.error("Error processing aporte:", error);
         }
@@ -296,13 +299,13 @@ export default function InvestmentsTab() {
                 } else if (!asset.isUSD && prices[`${sym}_BRL`]) {
                     currentPrice = prices[`${sym}_BRL`];
                 } else if (!asset.isUSD && prices[`${sym}_USD`] && prices.USD) {
-                    currentPrice = prices[`${sym}_USD`] * prices.USD; // fallback conversion
+                    currentPrice = prices[`${sym}_USD`] * prices.USD; 
                 }
             } else if (['acoes', 'etfs', 'fiis'].includes(asset.type) && asset.symbol) {
                 const sym = asset.symbol.toUpperCase();
                 if (prices[sym]) currentPrice = prices[sym];
-            } else if (!asset.manualCurrentPrice && (asset.type === 'tesouro' || asset.type === 'cdb')) {
-                currentPrice = asset.purchasePrice * 1.05; 
+            } else if (!asset.manualCurrentPrice && asset.type === 'renda_fixa') {
+                currentPrice = asset.purchasePrice; // Simple approximation
             }
             
             currentValue += (asset.quantity * currentPrice * usdMultiplier);
@@ -693,16 +696,20 @@ export default function InvestmentsTab() {
                                 ) : newAsset.type === 'renda_fixa' ? (
                                     <>
                                         <div>
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Rentabilidade</label>
-                                            <input 
-                                                type="text"
-                                                value={newAsset.yield}
-                                                onChange={(e) => setNewAsset({...newAsset, yield: e.target.value})}
-                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                                    theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
-                                                }`}
-                                                placeholder="Ex: 100% CDI, 12% a.a."
-                                            />
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">% do CDI</label>
+                                            <div className="relative">
+                                                <input 
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    value={newAsset.cdiPercent}
+                                                    onChange={(e) => setNewAsset({...newAsset, cdiPercent: e.target.value})}
+                                                    className={`w-full p-4 pr-10 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                                    }`}
+                                                    placeholder="Ex: 100"
+                                                />
+                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500">%</span>
+                                            </div>
                                         </div>
                                         <div>
                                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Vencimento</label>
@@ -713,7 +720,7 @@ export default function InvestmentsTab() {
                                                 className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
                                                     theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
                                                 }`}
-                                                placeholder="Ex: 2029, 15/02/26"
+                                                placeholder="Ex: 2029"
                                             />
                                         </div>
                                     </>
