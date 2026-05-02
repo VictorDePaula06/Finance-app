@@ -52,6 +52,10 @@ export default function InvestmentsTab() {
         manualCurrentPrice: '',
         isUSD: false,
         cdiPercent: '',
+        purchaseRate: '',
+        fixedRate: '',
+        yieldType: 'cdi',
+        subType: '',
         aporteAmount: '',
         aporteQuantity: ''
     });
@@ -345,10 +349,16 @@ export default function InvestmentsTab() {
         filteredInvestments.forEach(asset => {
             const usdMultiplier = asset.isUSD ? (prices.USD || 5.0) : 1;
 
-            // Renda Fixa: use totalApplied vs manualCurrentPrice (total value)
+            // Renda Fixa: use totalApplied vs calculated/manual current value
             if (asset.type === 'renda_fixa') {
                 const applied = asset.totalApplied || (asset.quantity * asset.purchasePrice) || 0;
-                const current = asset.manualCurrentPrice || applied;
+                let current = asset.manualCurrentPrice || applied;
+                // Mark-to-market: purchaseRate vs fixedRate (current market rate)
+                const pRate = parseFloat(asset.purchaseRate || asset.fixedRate || 0);
+                const cRate = parseFloat(asset.currentMarketRate || asset.fixedRate || 0);
+                if (pRate > 0 && cRate > 0 && pRate !== cRate && !asset.manualCurrentPrice) {
+                    current = applied * (pRate / cRate);
+                }
                 totalInvested += applied;
                 currentValue += current;
                 return;
@@ -538,7 +548,6 @@ export default function InvestmentsTab() {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {assets.map(asset => {
-                                        // For Renda Fixa: total applied vs total current value
                                         const isFixedIncome = asset.type === 'renda_fixa';
                                         const trueInvested = isFixedIncome
                                             ? (asset.totalApplied || asset.quantity * asset.purchasePrice)
@@ -555,9 +564,17 @@ export default function InvestmentsTab() {
                                                 if (prices[sym]) currentPrice = prices[sym];
                                             }
                                         }
-                                        const trueCurrent = isFixedIncome
+                                        // Fixed income mark-to-market calculation
+                                        let trueCurrent = isFixedIncome
                                             ? (asset.manualCurrentPrice || trueInvested)
                                             : (asset.quantity * currentPrice * (asset.isUSD ? prices.USD : 1));
+                                        if (isFixedIncome) {
+                                            const pRate = parseFloat(asset.purchaseRate || asset.fixedRate || 0);
+                                            const cRate = parseFloat(asset.currentMarketRate || asset.fixedRate || 0);
+                                            if (pRate > 0 && cRate > 0 && pRate !== cRate && !asset.manualCurrentPrice) {
+                                                trueCurrent = trueInvested * (pRate / cRate);
+                                            }
+                                        }
                                         const profitPct = trueInvested > 0 ? ((trueCurrent - trueInvested) / trueInvested) * 100 : 0;
                                         const profitVal = trueCurrent - trueInvested;
                                         
@@ -837,9 +854,12 @@ export default function InvestmentsTab() {
                                                                     name: selected.nm,
                                                                     symbol: selected.nm,
                                                                     yieldType: isIPCA ? 'ipca' : (selected.nm.includes('Selic') ? 'cdi' : 'pre'),
-                                                                    fixedRate: String(selected.anulRentPrcnt),
+                                                                    fixedRate: String(selected.anulRentPrcnt), // current market rate from API
+                                                                    currentMarketRate: String(selected.anulRentPrcnt),
+                                                                    purchaseRate: '', // user fills this
                                                                     cdiPercent: selected.nm.includes('Selic') ? '100' : '',
-                                                                    manualCurrentPrice: String(selected.untrPric)
+                                                                    manualCurrentPrice: '',
+                                                                    expiryDate: '' // already in title name
                                                                 });
                                                             }
                                                         }}
@@ -870,101 +890,74 @@ export default function InvestmentsTab() {
                                             )}
                                         </div>
                                         
-                                        {/* 3. Yield Configuration */}
-                                        <div className="col-span-2">
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 block">Tipo de Rendimento</label>
-                                            <div className="flex gap-2">
-                                                {[
-                                                    { id: 'cdi', label: 'Pós (CDI)' },
-                                                    { id: 'ipca', label: 'Híbrido (IPCA+)' },
-                                                    { id: 'pre', label: 'Pré-fixado' }
-                                                ].map(yt => (
-                                                    <button
-                                                        key={yt.id}
-                                                        type="button"
-                                                        onClick={() => setNewAsset({...newAsset, yieldType: yt.id})}
-                                                        className={`flex-1 p-3 rounded-2xl border text-[10px] font-black transition-all ${
-                                                            newAsset.yieldType === yt.id
-                                                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-md'
-                                                            : (theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-500' : 'bg-white/5 border-white/5 text-slate-400')
-                                                        }`}
-                                                    >
-                                                        {yt.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        {newAsset.yieldType === 'cdi' && (
-                                            <div>
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">% do CDI</label>
+                                        {/* Tesouro: show current rate badge + ask purchase rate only */}
+                                        {newAsset.subType === 'Tesouro' && newAsset.name && (
+                                            <div className="col-span-2">
+                                                {/* Current rate info badge */}
+                                                {newAsset.fixedRate && (
+                                                    <div className="mb-4 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-between">
+                                                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Taxa atual de mercado</span>
+                                                        <span className="text-sm font-black text-emerald-500">
+                                                            {newAsset.yieldType === 'ipca' ? `IPCA+ ${newAsset.fixedRate}%` : newAsset.yieldType === 'pre' ? `${newAsset.fixedRate}% a.a.` : `${newAsset.fixedRate}% CDI`}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {/* Purchase rate input */}
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+                                                    {newAsset.yieldType === 'ipca' ? 'Taxa na sua compra (IPCA+ %)' : newAsset.yieldType === 'pre' ? 'Taxa na sua compra (% a.a.)' : 'Taxa na sua compra (% CDI)'}
+                                                </label>
                                                 <div className="relative">
-                                                    <input 
+                                                    <input
                                                         type="text"
                                                         inputMode="decimal"
-                                                        value={newAsset.cdiPercent}
-                                                        onChange={(e) => setNewAsset({...newAsset, cdiPercent: e.target.value})}
+                                                        required
+                                                        value={newAsset.purchaseRate}
+                                                        onChange={(e) => setNewAsset({...newAsset, purchaseRate: e.target.value})}
                                                         className={`w-full p-4 pr-10 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
                                                             theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
                                                         }`}
-                                                        placeholder="Ex: 100"
+                                                        placeholder="Ex: 7.12"
                                                     />
                                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500">%</span>
                                                 </div>
+                                                <p className="text-[9px] text-slate-400 mt-1.5">Taxa que estava quando você comprou o título</p>
                                             </div>
                                         )}
 
-                                        {newAsset.yieldType === 'ipca' && (
-                                            <div>
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">IPCA + % ao ano</label>
-                                                <div className="relative">
-                                                    <input 
-                                                        type="text"
-                                                        inputMode="decimal"
-                                                        value={newAsset.fixedRate}
-                                                        onChange={(e) => setNewAsset({...newAsset, fixedRate: e.target.value})}
-                                                        className={`w-full p-4 pr-10 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
-                                                        }`}
-                                                        placeholder="Ex: 6.5"
-                                                    />
-                                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500">%</span>
+                                        {/* Non-Tesouro yield config */}
+                                        {newAsset.subType !== 'Tesouro' && (
+                                            <>
+                                                <div className="col-span-2">
+                                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 block">Tipo de Rendimento</label>
+                                                    <div className="flex gap-2">
+                                                        {[{id:'cdi',label:'Pós (CDI)'},{id:'ipca',label:'Híbrido (IPCA+)'},{id:'pre',label:'Pré-fixado'}].map(yt => (
+                                                            <button key={yt.id} type="button" onClick={() => setNewAsset({...newAsset, yieldType: yt.id})}
+                                                                className={`flex-1 p-3 rounded-2xl border text-[10px] font-black transition-all ${
+                                                                    newAsset.yieldType === yt.id ? 'bg-emerald-500 border-emerald-500 text-white shadow-md' : (theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-500' : 'bg-white/5 border-white/5 text-slate-400')
+                                                                }`}>{yt.label}</button>
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
-
-                                        {newAsset.yieldType === 'pre' && (
-                                            <div>
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">% Fixa ao Ano</label>
-                                                <div className="relative">
-                                                    <input 
-                                                        type="text"
-                                                        inputMode="decimal"
-                                                        value={newAsset.fixedRate}
-                                                        onChange={(e) => setNewAsset({...newAsset, fixedRate: e.target.value})}
-                                                        className={`w-full p-4 pr-10 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
-                                                        }`}
-                                                        placeholder="Ex: 12.5"
-                                                    />
-                                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500">%</span>
+                                                {newAsset.yieldType === 'cdi' && (
+                                                    <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">% do CDI</label>
+                                                        <div className="relative"><input type="text" inputMode="decimal" value={newAsset.cdiPercent} onChange={(e) => setNewAsset({...newAsset, cdiPercent: e.target.value})} className={`w-full p-4 pr-10 rounded-2xl border font-bold text-sm focus:outline-none ${theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-white/5 border-white/10 text-white'}`} placeholder="Ex: 100" /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500">%</span></div>
+                                                    </div>
+                                                )}
+                                                {newAsset.yieldType === 'ipca' && (
+                                                    <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">IPCA + % ao ano</label>
+                                                        <div className="relative"><input type="text" inputMode="decimal" value={newAsset.purchaseRate || newAsset.fixedRate} onChange={(e) => setNewAsset({...newAsset, purchaseRate: e.target.value, fixedRate: e.target.value})} className={`w-full p-4 pr-10 rounded-2xl border font-bold text-sm focus:outline-none ${theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-white/5 border-white/10 text-white'}`} placeholder="Ex: 6.5" /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500">%</span></div>
+                                                    </div>
+                                                )}
+                                                {newAsset.yieldType === 'pre' && (
+                                                    <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">% Fixa ao Ano</label>
+                                                        <div className="relative"><input type="text" inputMode="decimal" value={newAsset.purchaseRate || newAsset.fixedRate} onChange={(e) => setNewAsset({...newAsset, purchaseRate: e.target.value, fixedRate: e.target.value})} className={`w-full p-4 pr-10 rounded-2xl border font-bold text-sm focus:outline-none ${theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-white/5 border-white/10 text-white'}`} placeholder="Ex: 12.5" /><span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500">%</span></div>
+                                                    </div>
+                                                )}
+                                                <div><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Vencimento</label>
+                                                    <input type="text" value={newAsset.expiryDate} onChange={(e) => setNewAsset({...newAsset, expiryDate: e.target.value})} className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none ${theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-white/5 border-white/10 text-white'}`} placeholder="Ex: 2029" />
                                                 </div>
-                                            </div>
+                                            </>
                                         )}
-
-                                        <div>
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Vencimento</label>
-                                            <input 
-                                                type="text"
-                                                value={newAsset.expiryDate}
-                                                onChange={(e) => setNewAsset({...newAsset, expiryDate: e.target.value})}
-                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                                    theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
-                                                }`}
-                                                placeholder="Ex: 2029"
-                                            />
-                                        </div>
-                                    </>
                                 ) : (
                                     <>
                                         <div className="col-span-2">
