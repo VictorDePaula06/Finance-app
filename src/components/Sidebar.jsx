@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import logo from '../assets/logo.png';
+import { version } from '../../package.json';
 
 const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, setActiveModule }) => {
   const { currentUser, logout, isAdmin } = useAuth();
@@ -190,7 +191,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
             <p className={`text-[9px] font-black uppercase tracking-[0.3em] opacity-20 ${
               theme === 'light' ? 'text-slate-400' : 'text-slate-500'
             }`}>
-              Alívia • v7.1.1
+              Alívia • v{version}
             </p>
           </div>
         </div>
