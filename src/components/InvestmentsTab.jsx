@@ -195,23 +195,56 @@ export default function InvestmentsTab() {
     };
 
     useEffect(() => {
+        const FALLBACK_BONDS = [
+            { nm: 'Tesouro Selic 2027', anulRentPrcnt: 10.65, untrPric: 14500.00 },
+            { nm: 'Tesouro Selic 2029', anulRentPrcnt: 10.65, untrPric: 14800.00 },
+            { nm: 'Tesouro IPCA+ 2029', anulRentPrcnt: 6.32, untrPric: 4200.00 },
+            { nm: 'Tesouro IPCA+ 2035', anulRentPrcnt: 6.48, untrPric: 3800.00 },
+            { nm: 'Tesouro IPCA+ 2045', anulRentPrcnt: 6.51, untrPric: 1950.00 },
+            { nm: 'Tesouro IPCA+ 2055', anulRentPrcnt: 6.54, untrPric: 1100.00 },
+            { nm: 'Tesouro Renda+ 2030', anulRentPrcnt: 6.40, untrPric: 1050.00 },
+            { nm: 'Tesouro Renda+ 2035', anulRentPrcnt: 6.44, untrPric: 950.00 },
+            { nm: 'Tesouro Renda+ 2040', anulRentPrcnt: 6.47, untrPric: 850.00 },
+            { nm: 'Tesouro Renda+ 2045', anulRentPrcnt: 6.50, untrPric: 760.00 },
+            { nm: 'Tesouro Renda+ 2050', anulRentPrcnt: 6.52, untrPric: 680.00 },
+            { nm: 'Tesouro Renda+ 2055', anulRentPrcnt: 6.53, untrPric: 600.00 },
+            { nm: 'Tesouro Renda+ 2060', anulRentPrcnt: 6.55, untrPric: 540.00 },
+            { nm: 'Tesouro Renda+ 2065', anulRentPrcnt: 6.57, untrPric: 480.00 },
+            { nm: 'Tesouro Prefixado 2027', anulRentPrcnt: 13.50, untrPric: 820.00 },
+            { nm: 'Tesouro Prefixado 2029', anulRentPrcnt: 13.62, untrPric: 680.00 },
+            { nm: 'Tesouro Prefixado 2031', anulRentPrcnt: 13.70, untrPric: 560.00 },
+        ];
+
         const fetchTesouro = async () => {
-            try {
-                const tesouroUrl = 'https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondpriceandsavings.json';
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(tesouroUrl)}`;
-                const res = await fetch(proxyUrl);
-                if (res.ok) {
+            const tesouroUrl = 'https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondpriceandsavings.json';
+            const proxies = [
+                `https://api.allorigins.win/get?url=${encodeURIComponent(tesouroUrl)}`,
+                `https://corsproxy.io/?${encodeURIComponent(tesouroUrl)}`,
+            ];
+
+            for (const proxyUrl of proxies) {
+                try {
+                    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(6000) });
+                    if (!res.ok) continue;
                     const json = await res.json();
-                    const data = JSON.parse(json.contents);
+                    // allorigins wraps the content in { contents: "..." }
+                    const raw = json.contents ?? json;
+                    const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
                     if (data?.response?.TrsrBondPricLogList) {
                         const list = data.response.TrsrBondPricLogList.map(item => item.TrsrBond);
                         setTesouroData(list);
+                        return; // success
                     }
+                } catch (e) {
+                    console.warn(`Tesouro proxy failed (${proxyUrl}):`, e.message);
                 }
-            } catch (e) {
-                console.warn("Could not fetch Tesouro version 7.1.4", e);
             }
+
+            // All proxies failed — use fallback list so the dropdown is never empty
+            console.warn('Tesouro API unavailable — using fallback list');
+            setTesouroData(FALLBACK_BONDS);
         };
+
         fetchTesouro();
     }, []);
 
@@ -236,10 +269,11 @@ export default function InvestmentsTab() {
     const handleSaveAsset = async (e) => {
         e.preventDefault();
         try {
-            const quantity = parseBrazilianNumber(newAsset.quantity);
+            const quantity = parseBrazilianNumber(newAsset.quantity) || 1;
             const purchasePrice = parseBrazilianNumber(newAsset.purchasePrice);
             const manualPrice = newAsset.manualCurrentPrice ? parseBrazilianNumber(newAsset.manualCurrentPrice) : null;
             const cdiPercent = newAsset.type === 'renda_fixa' ? parseBrazilianNumber(newAsset.cdiPercent) : null;
+            const totalApplied = newAsset.type === 'renda_fixa' ? parseBrazilianNumber(newAsset.totalApplied || newAsset.purchasePrice) : null;
 
             const assetData = {
                 ...newAsset,
@@ -247,6 +281,7 @@ export default function InvestmentsTab() {
                 purchasePrice,
                 manualCurrentPrice: manualPrice,
                 cdiPercent,
+                totalApplied,
                 updatedAt: new Date().toISOString()
             };
 
@@ -309,32 +344,34 @@ export default function InvestmentsTab() {
 
         filteredInvestments.forEach(asset => {
             const usdMultiplier = asset.isUSD ? (prices.USD || 5.0) : 1;
+
+            // Renda Fixa: use totalApplied vs manualCurrentPrice (total value)
+            if (asset.type === 'renda_fixa') {
+                const applied = asset.totalApplied || (asset.quantity * asset.purchasePrice) || 0;
+                const current = asset.manualCurrentPrice || applied;
+                totalInvested += applied;
+                currentValue += current;
+                return;
+            }
+
             const invested = asset.quantity * asset.purchasePrice * usdMultiplier;
             totalInvested += invested;
 
             let currentPrice = asset.manualCurrentPrice || asset.purchasePrice;
             if (asset.type === 'crypto' && asset.symbol) {
                 const sym = asset.symbol.toUpperCase();
-                if (asset.isUSD && prices[`${sym}_USD`]) {
-                    currentPrice = prices[`${sym}_USD`];
-                } else if (!asset.isUSD && prices[`${sym}_BRL`]) {
-                    currentPrice = prices[`${sym}_BRL`];
-                } else if (!asset.isUSD && prices[`${sym}_USD`] && prices.USD) {
-                    currentPrice = prices[`${sym}_USD`] * prices.USD; 
-                }
+                if (asset.isUSD && prices[`${sym}_USD`]) currentPrice = prices[`${sym}_USD`];
+                else if (!asset.isUSD && prices[`${sym}_BRL`]) currentPrice = prices[`${sym}_BRL`];
+                else if (!asset.isUSD && prices[`${sym}_USD`] && prices.USD) currentPrice = prices[`${sym}_USD`] * prices.USD;
             } else if (['acoes', 'etfs', 'fiis'].includes(asset.type) && asset.symbol) {
                 const sym = asset.symbol.toUpperCase();
                 if (prices[sym]) currentPrice = prices[sym];
-            } else if (!asset.manualCurrentPrice && asset.type === 'renda_fixa') {
-                currentPrice = asset.purchasePrice; // Simple approximation
             }
-            
             currentValue += (asset.quantity * currentPrice * usdMultiplier);
         });
 
         const profit = currentValue - totalInvested;
         const profitPct = totalInvested > 0 ? (profit / totalInvested) * 100 : 0;
-
         return { totalInvested, currentValue, profit, profitPct };
     };
 
@@ -501,32 +538,36 @@ export default function InvestmentsTab() {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {assets.map(asset => {
+                                        // For Renda Fixa: total applied vs total current value
+                                        const isFixedIncome = asset.type === 'renda_fixa';
+                                        const trueInvested = isFixedIncome
+                                            ? (asset.totalApplied || asset.quantity * asset.purchasePrice)
+                                            : (asset.quantity * asset.purchasePrice * (asset.isUSD ? prices.USD : 1));
                                         let currentPrice = asset.manualCurrentPrice || asset.purchasePrice;
-                                        
-                                        if (asset.type === 'crypto' && asset.symbol) {
-                                            const sym = asset.symbol.toUpperCase();
-                                            if (asset.isUSD && prices[`${sym}_USD`]) currentPrice = prices[`${sym}_USD`];
-                                            else if (!asset.isUSD && prices[`${sym}_BRL`]) currentPrice = prices[`${sym}_BRL`];
-                                            else if (!asset.isUSD && prices[`${sym}_USD`] && prices.USD) currentPrice = prices[`${sym}_USD`] * prices.USD;
-                                        } else if (['acoes', 'etfs', 'fiis'].includes(asset.type) && asset.symbol) {
-                                            const sym = asset.symbol.toUpperCase();
-                                            if (prices[sym]) currentPrice = prices[sym];
+                                        if (!isFixedIncome) {
+                                            if (asset.type === 'crypto' && asset.symbol) {
+                                                const sym = asset.symbol.toUpperCase();
+                                                if (asset.isUSD && prices[`${sym}_USD`]) currentPrice = prices[`${sym}_USD`];
+                                                else if (!asset.isUSD && prices[`${sym}_BRL`]) currentPrice = prices[`${sym}_BRL`];
+                                                else if (!asset.isUSD && prices[`${sym}_USD`] && prices.USD) currentPrice = prices[`${sym}_USD`] * prices.USD;
+                                            } else if (['acoes', 'etfs', 'fiis'].includes(asset.type) && asset.symbol) {
+                                                const sym = asset.symbol.toUpperCase();
+                                                if (prices[sym]) currentPrice = prices[sym];
+                                            }
                                         }
-                                        
-                                        if (!asset.manualCurrentPrice && (asset.type === 'tesouro' || asset.type === 'cdb')) currentPrice = asset.purchasePrice * 1.05;
-
-                                        const trueInvested = asset.quantity * asset.purchasePrice * (asset.isUSD ? prices.USD : 1);
-                                        const trueCurrent = asset.quantity * currentPrice * (asset.isUSD ? prices.USD : 1);
+                                        const trueCurrent = isFixedIncome
+                                            ? (asset.manualCurrentPrice || trueInvested)
+                                            : (asset.quantity * currentPrice * (asset.isUSD ? prices.USD : 1));
                                         const profitPct = trueInvested > 0 ? ((trueCurrent - trueInvested) / trueInvested) * 100 : 0;
+                                        const profitVal = trueCurrent - trueInvested;
                                         
-                                        // Visual Toggle logic
-                                        const displayMultiplier = asset.isUSD && showUSDAsBRL ? (prices.USD || 5.0) : 1;
+                                        // Visual display
                                         const displayCurrency = asset.isUSD && !showUSDAsBRL ? '$' : 'R$';
-                                        
-                                        const displayPurchasePrice = asset.purchasePrice * displayMultiplier;
-                                        const displayCurrentPrice = currentPrice * displayMultiplier;
-                                        const displayCurrentVal = asset.quantity * displayCurrentPrice;
-                                        const profitVal = displayCurrentVal - (asset.quantity * displayPurchasePrice);
+                                        const displayMultiplier = asset.isUSD && showUSDAsBRL ? (prices.USD || 5.0) : 1;
+                                        const displayCurrentVal = isFixedIncome ? trueCurrent : (asset.quantity * currentPrice * displayMultiplier);
+                                        const displayPurchaseVal = isFixedIncome ? trueInvested : (asset.quantity * asset.purchasePrice * displayMultiplier);
+                                        const displayCurrentPrice = isFixedIncome ? null : (currentPrice * displayMultiplier);
+                                        const displayPurchasePrice = isFixedIncome ? null : (asset.purchasePrice * displayMultiplier);
 
                                         return (
                                             <div key={asset.id} className={`group relative p-8 rounded-[2.5rem] border transition-all hover:shadow-2xl ${
@@ -544,10 +585,22 @@ export default function InvestmentsTab() {
 
                                                     <div className="flex flex-col gap-6">
                                                         <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                                                            <p className="text-[11px] uppercase font-black text-slate-500 opacity-60 tracking-tighter">Médio / Atual</p>
+                                                            <p className="text-[11px] uppercase font-black text-slate-500 opacity-60 tracking-tighter">
+                                                                {isFixedIncome ? 'Aplicado / Atual' : 'Médio / Atual'}
+                                                            </p>
                                                             <div className="text-right">
-                                                                <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>{displayCurrency} {displayPurchasePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                                                <p className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{displayCurrency} {displayCurrentPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                                {isFixedIncome ? (
+                                                                    <>
+                                                                        <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>R$ {displayPurchaseVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                                        <p className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>R$ {displayCurrentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                                        {asset.fixedRate && <p className="text-[10px] text-blue-400 font-bold mt-0.5">{asset.yieldType === 'ipca' ? `IPCA+ ${asset.fixedRate}%` : asset.yieldType === 'cdi' ? `${asset.cdiPercent}% CDI` : `${asset.fixedRate}% a.a.`}</p>}
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>{displayCurrency} {displayPurchasePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                                        <p className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{displayCurrency} {displayCurrentPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         </div>
 
@@ -555,12 +608,15 @@ export default function InvestmentsTab() {
                                                             <div>
                                                                 <p className="text-[11px] uppercase font-black text-slate-500 opacity-60 tracking-tighter">Patrimônio</p>
                                                                 <p className={`text-2xl font-black ${profitVal >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                                                    {displayCurrency} {displayCurrentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                    R$ {displayCurrentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                                 </p>
                                                             </div>
                                                             <div className="text-right">
                                                                 <p className={`text-[11px] font-black px-3 py-1.5 rounded-xl ${profitPct >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                                                                    {profitPct >= 0 ? '+' : ''}{profitPct.toFixed(1)}%
+                                                                    {profitPct >= 0 ? '+' : ''}{profitPct.toFixed(2)}%
+                                                                </p>
+                                                                <p className={`text-xs font-bold mt-1 ${profitVal >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                                    {profitVal >= 0 ? '+' : ''}R$ {Math.abs(profitVal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -929,34 +985,31 @@ export default function InvestmentsTab() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block flex items-center gap-1">
-                                        {newAsset.type === 'imoveis' || newAsset.type === 'renda_fixa' ? 'Valor de Compra' : `Preço Médio (${newAsset.isUSD ? 'USD' : 'R$'})`}
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+                                        {newAsset.type === 'renda_fixa' ? 'Valor Total Aplicado (R$)' : (newAsset.type === 'imoveis' ? 'Valor de Compra' : `Preço Médio (${newAsset.isUSD ? 'USD' : 'R$'})`)}
                                     </label>
                                     <div className="relative">
-                                        <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
-                                            {newAsset.isUSD ? '$' : 'R$'}
-                                        </span>
+                                        <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>R$</span>
                                         <input 
                                             type="text"
                                             inputMode="decimal"
                                             required
-                                            value={newAsset.purchasePrice}
-                                            onChange={(e) => setNewAsset({...newAsset, purchasePrice: e.target.value})}
+                                            value={newAsset.type === 'renda_fixa' ? (newAsset.totalApplied || '') : newAsset.purchasePrice}
+                                            onChange={(e) => setNewAsset(newAsset.type === 'renda_fixa' ? {...newAsset, totalApplied: e.target.value, purchasePrice: e.target.value, quantity: '1'} : {...newAsset, purchasePrice: e.target.value})}
                                             className={`w-full p-4 pl-12 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
                                                 theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
                                             }`}
                                             placeholder="0.00"
                                         />
                                     </div>
+                                    {newAsset.type === 'renda_fixa' && <p className="text-[9px] text-slate-400 mt-1.5 font-medium">Quanto você investiu no total</p>}
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
-                                        {newAsset.type === 'imoveis' || newAsset.type === 'renda_fixa' ? 'Valor Atual' : `Preço Atual (${newAsset.isUSD ? 'USD' : 'R$'})`}
+                                        {newAsset.type === 'renda_fixa' ? 'Valor Atual Total (R$)' : (newAsset.type === 'imoveis' ? 'Valor Atual' : `Preço Atual (${newAsset.isUSD ? 'USD' : 'R$'})`)}
                                     </label>
                                     <div className="relative">
-                                        <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
-                                            {newAsset.isUSD ? '$' : 'R$'}
-                                        </span>
+                                        <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>R$</span>
                                         <input 
                                             type="text"
                                             inputMode="decimal"
@@ -965,9 +1018,10 @@ export default function InvestmentsTab() {
                                             className={`w-full p-4 pl-12 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
                                                 theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
                                             }`}
-                                            placeholder="Opcional"
+                                            placeholder={newAsset.type === 'renda_fixa' ? 'Consultar na corretora' : 'Opcional'}
                                         />
                                     </div>
+                                    {newAsset.type === 'renda_fixa' && <p className="text-[9px] text-slate-400 mt-1.5 font-medium">Saldo atual na corretora</p>}
                                 </div>
                             </div>
 
