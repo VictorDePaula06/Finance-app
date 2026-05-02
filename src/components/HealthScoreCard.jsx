@@ -97,29 +97,38 @@ export default function HealthScoreCard({ scoreData }) {
 
                     {/* Mini Widgets Grid to fill space */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className={`p-4 rounded-2xl border ${theme === 'light' ? 'bg-white/40 border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                        <div className={`p-4 rounded-2xl border flex flex-col justify-between ${theme === 'light' ? 'bg-white/40 border-slate-100' : 'bg-white/5 border-white/5'}`}>
                             <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
                                 <Wallet className="w-3 h-3" /> Sobra no Mês
                             </p>
-                            <p className={`text-sm font-black ${parseFloat(breakdown?.data?.monthlyBalance) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                {formatCurrency(breakdown?.data?.monthlyBalance || 0)}
-                            </p>
+                            <div>
+                                <p className={`text-sm font-black ${parseFloat(breakdown?.data?.monthlyBalance) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                    {formatCurrency(breakdown?.data?.monthlyBalance || 0)}
+                                </p>
+                                <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 opacity-60 mt-1">Meta: &gt; R$ 0,00</p>
+                            </div>
                         </div>
-                        <div className={`p-4 rounded-2xl border ${theme === 'light' ? 'bg-white/40 border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                        <div className={`p-4 rounded-2xl border flex flex-col justify-between ${theme === 'light' ? 'bg-white/40 border-slate-100' : 'bg-white/5 border-white/5'}`}>
                             <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
                                 <ShieldCheck className="w-3 h-3" /> Cobertura
                             </p>
-                            <p className={`text-sm font-black ${parseFloat(breakdown?.data?.monthsCovered) >= 6 ? 'text-emerald-500' : 'text-blue-400'}`}>
-                                {breakdown?.data?.monthsCovered || 0} Meses
-                            </p>
+                            <div>
+                                <p className={`text-sm font-black ${parseFloat(breakdown?.data?.monthsCovered) >= 6 ? 'text-emerald-500' : 'text-blue-400'}`}>
+                                    {breakdown?.data?.monthsCovered || 0} Meses
+                                </p>
+                                <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 opacity-60 mt-1">Meta: 6+ Meses</p>
+                            </div>
                         </div>
-                        <div className={`p-4 rounded-2xl border ${theme === 'light' ? 'bg-white/40 border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                        <div className={`p-4 rounded-2xl border flex flex-col justify-between ${theme === 'light' ? 'bg-white/40 border-slate-100' : 'bg-white/5 border-white/5'}`}>
                             <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
                                 <Target className="w-3 h-3" /> Alocação
                             </p>
-                            <p className={`text-sm font-black ${parseFloat(breakdown?.data?.necRatio) <= 55 ? 'text-emerald-500' : 'text-yellow-500'}`}>
-                                {breakdown?.data?.necRatio || 0}% Essencial
-                            </p>
+                            <div>
+                                <p className={`text-sm font-black ${parseFloat(breakdown?.data?.necRatio) <= 55 ? 'text-emerald-500' : 'text-yellow-500'}`}>
+                                    {breakdown?.data?.necRatio || 0}% Essencial
+                                </p>
+                                <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 opacity-60 mt-1">Meta: &lt; 55% Essencial</p>
+                            </div>
                         </div>
                     </div>
 

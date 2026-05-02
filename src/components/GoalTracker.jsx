@@ -31,7 +31,7 @@ function AssetPicker({ jars, investments, selectedJarIds, selectedInvIds, onTogg
                                 <PiggyBank className="w-3 h-3 shrink-0" />
                                 <span>{j.name}</span>
                                 <span className={`font-black ${sel ? '' : 'opacity-60'}`}>
-                                    R$ {(j.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    R$ {(j.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                             </button>
                         );
@@ -49,7 +49,7 @@ function AssetPicker({ jars, investments, selectedJarIds, selectedInvIds, onTogg
                                 <TrendingUp className="w-3 h-3 shrink-0" />
                                 <span>{inv.name}</span>
                                 <span className={`font-black ${sel ? '' : 'opacity-60'}`}>
-                                    R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                             </button>
                         );
@@ -206,11 +206,11 @@ export default function GoalTracker() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
                     <div className={`p-5 md:p-8 rounded-[2rem] border ${card}`}>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2"><Target className="w-3 h-3" /> Total Planejado</p>
-                        <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {stats.totalTarget.toLocaleString('pt-BR')}</p>
+                        <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {stats.totalTarget.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                     <div className={`p-5 md:p-8 rounded-[2rem] border ${card}`}>
                         <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-2 flex items-center gap-2"><TrendingUp className="w-3 h-3" /> Total Acumulado</p>
-                        <p className="text-2xl font-black text-emerald-500">R$ {stats.totalCurrent.toLocaleString('pt-BR')}</p>
+                        <p className="text-2xl font-black text-emerald-500">R$ {stats.totalCurrent.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                     <div className={`p-5 md:p-8 rounded-[2rem] border ${card}`}>
                         <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-2 flex items-center gap-2"><Activity className="w-3 h-3" /> Progresso Geral</p>
@@ -291,7 +291,7 @@ export default function GoalTracker() {
                                     <div className="mb-6">
                                         <h3 className={`font-black text-2xl ${isDark ? 'text-white' : 'text-slate-800'}`}>{goal.title}</h3>
                                         <div className="flex items-center gap-3 mt-2 flex-wrap">
-                                            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Alvo: R$ {goal.target.toLocaleString('pt-BR')}</span>
+                                            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Alvo: R$ {goal.target.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                             {goal.deadline && <span className="text-xs font-black text-blue-500 flex items-center gap-1">• <Calendar className="w-3 h-3" /> {new Date(goal.deadline + "T12:00:00").toLocaleDateString('pt-BR')}</span>}
                                         </div>
                                         
@@ -302,12 +302,17 @@ export default function GoalTracker() {
                                             const targetDate = new Date(y, m - 1, d);
                                             let months = (targetDate.getFullYear() - today.getFullYear()) * 12 + (targetDate.getMonth() - today.getMonth());
                                             if (months <= 0) months = targetDate >= today ? 1 : 0;
+                                            const isUrgent = months <= 1;
                                             const monthly = months > 0 ? (goal.target - current) / months : (goal.target - current);
                                             
                                             return monthly > 0 && (
                                                 <div className={`mt-3 p-3 rounded-2xl border ${isDark ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50 border-blue-100'}`}>
-                                                    <p className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Sugestão de Reserva</p>
-                                                    <p className={`text-lg font-black ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>R$ {monthly.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <span className="text-[10px] opacity-70">/mês</span></p>
+                                                    <p className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                                                        {isUrgent ? 'Falta para concluir' : 'Sugestão de Reserva'}
+                                                    </p>
+                                                    <p className={`text-lg font-black ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                                                        R$ {monthly.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {!isUrgent && <span className="text-[10px] opacity-70">/mês</span>}
+                                                    </p>
                                                 </div>
                                             );
                                         })()}
@@ -323,7 +328,7 @@ export default function GoalTracker() {
                                     <div className="mt-auto space-y-5">
                                         <div>
                                             <div className="flex justify-between text-xs font-black uppercase tracking-widest mb-3">
-                                                <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>R$ {current.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} acumulados</span>
+                                                <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>R$ {current.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} acumulados</span>
                                                 <span className="text-emerald-500">{pct}%</span>
                                             </div>
                                             <div className={`h-4 rounded-full overflow-hidden ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>

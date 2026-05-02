@@ -191,7 +191,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
             <p className={`text-[9px] font-black uppercase tracking-[0.3em] opacity-20 ${
               theme === 'light' ? 'text-slate-400' : 'text-slate-500'
             }`}>
-              Alívia • v{version}
+              Alívia v.{version}
             </p>
           </div>
         </div>

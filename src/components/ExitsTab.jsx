@@ -50,11 +50,12 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const [isNewReserve, setIsNewReserve] = useState(false);
     const [reserveType, setReserveType] = useState('cofrinho');
     const [isInstallmentSuccess, setIsInstallmentSuccess] = useState(false);
+    const [transactionToDelete, setTransactionToDelete] = useState(null);
 
     // Filtered Transactions (Only Expenses/Exits)
     const exits = useMemo(() => {
         return transactions
-            .filter(t => t.type === 'expense')
+            .filter(t => t.type === 'expense' && !(t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid'))
             .sort((a, b) => {
                 const dateDiff = new Date(b.date) - new Date(a.date);
                 if (dateDiff !== 0) return dateDiff;
@@ -62,12 +63,10 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             });
     }, [transactions]);
 
-    // Calcular saldo do mês para o aviso
-    const monthlyBalance = useMemo(() => {
-        const currentMonthKey = new Date().toISOString().slice(0, 7);
-        const filtered = transactions.filter(t => (t.date?.slice(0, 7) || t.month) === currentMonthKey);
-        const income = filtered.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-        const expense = filtered.filter(t => t.type === 'expense').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    // Calcular saldo total para o aviso
+    const availableBalance = useMemo(() => {
+        const income = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+        const expense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
         return income - expense;
     }, [transactions]);
 
@@ -123,6 +122,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 isFixed: isRecurring,
                 paymentMethod,
                 selectedCardId: paymentMethod === 'credito' ? selectedCardId : null,
+                invoiceStatus: paymentMethod === 'credito' ? 'unpaid' : null,
                 isInstallment,
                 totalInstallments: isInstallment ? parseInt(installments) : null,
                 installmentMode
@@ -147,7 +147,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             }
 
             // VERIFICAÇÃO DE SALDO (Apenas para novos lançamentos, não para edições)
-            if (!editingId && val > monthlyBalance) {
+            if (!editingId && val > availableBalance) {
                 setPendingSave({ type: 'expense', data: transactionData });
                 setStep('warning');
                 return;
@@ -195,32 +195,38 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         setShowModal(true);
     };
 
-    const handleDelete = async (transaction) => {
-        if (window.confirm("Deseja remover esta saída?")) {
-            try {
-                // 1. Delete the transaction
-                await deleteDoc(doc(db, 'transactions', transaction.id));
+    const handleDelete = (transaction) => {
+        setTransactionToDelete(transaction);
+    };
 
-                // 2. If it was an investment, try to find and delete the corresponding jar
-                if (transaction.category === 'investment') {
-                    const jarName = transaction.description.replace('Investimento: ', '');
-                    const qJars = query(
-                        collection(db, 'savings_jars'), 
-                        where('userId', '==', currentUser.uid),
-                        where('name', '==', jarName)
-                    );
-                    
-                    const { getDocs } = await import('firebase/firestore');
-                    const jarSnap = await getDocs(qJars);
-                    
-                    // Delete all jars with this name (usually just one, but safe)
-                    const deletePromises = jarSnap.docs.map(d => deleteDoc(doc(db, 'savings_jars', d.id)));
-                    await Promise.all(deletePromises);
-                    console.log("[Dev] Cofrinho associado removido.");
-                }
-            } catch (err) {
-                console.error("Erro ao deletar:", err);
+    const confirmDelete = async () => {
+        if (!transactionToDelete) return;
+        const transaction = transactionToDelete;
+        try {
+            // 1. Delete the transaction
+            await deleteDoc(doc(db, 'transactions', transaction.id));
+
+            // 2. If it was an investment, try to find and delete the corresponding jar
+            if (transaction.category === 'investment') {
+                const jarName = transaction.description.replace('Investimento: ', '');
+                const qJars = query(
+                    collection(db, 'savings_jars'), 
+                    where('userId', '==', currentUser.uid),
+                    where('name', '==', jarName)
+                );
+                
+                const { getDocs } = await import('firebase/firestore');
+                const jarSnap = await getDocs(qJars);
+                
+                // Delete all jars with this name (usually just one, but safe)
+                const deletePromises = jarSnap.docs.map(d => deleteDoc(doc(db, 'savings_jars', d.id)));
+                await Promise.all(deletePromises);
+                console.log("[Dev] Cofrinho associado removido.");
             }
+        } catch (err) {
+            console.error("Erro ao deletar:", err);
+        } finally {
+            setTransactionToDelete(null);
         }
     };
 
@@ -289,7 +295,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             }
 
             // VERIFICAÇÃO DE SALDO
-            if (!editingId && val > monthlyBalance) {
+            if (!editingId && val > availableBalance) {
                 setPendingSave({ 
                     type: 'investment', 
                     transaction: transactionData, 
@@ -363,7 +369,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8 pb-20">
+        <div className="max-w-5xl mx-auto space-y-8 pb-20 px-2 sm:px-4 md:px-0">
             {/* Header & Internal Tabs */}
             <div className="flex flex-col items-center gap-6 py-8">
                 <div className={`p-4 rounded-full ${theme === 'light' ? 'bg-rose-50' : 'bg-rose-500/10'}`}>
@@ -445,31 +451,31 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                     const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
                                     const Icon = cat.icon;
                                     return (
-                                        <div key={t.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all hover:translate-x-1 ${
+                                        <div key={t.id} className={`flex items-center justify-between p-5 md:p-6 rounded-[2rem] border transition-all hover:-translate-y-1 hover:shadow-xl ${
                                             theme === 'light' ? 'bg-slate-50/50 border-slate-100 hover:bg-white' : 'bg-white/5 border-white/5 hover:bg-white/10'
                                         }`}>
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-inner ${
+                                            <div className="flex items-center gap-5">
+                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner shrink-0 ${
                                                     theme === 'light' ? 'bg-white' : 'bg-slate-900'
                                                 }`}>
-                                                    <Icon className={`w-5 h-5 ${cat.color}`} />
+                                                    <Icon className={`w-7 h-7 ${cat.color}`} />
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <h4 className={`font-black text-sm truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{t.description}</h4>
-                                                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest opacity-60">
+                                                    <h4 className={`font-black text-base md:text-lg truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{t.description}</h4>
+                                                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                                                        <span className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-widest opacity-60">
                                                             {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                                                         </span>
-                                                        <span className={`text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>
+                                                        <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>
                                                             {cat.label}
                                                         </span>
                                                         {t.paymentMethod && (
-                                                            <span className={`text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>
+                                                            <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>
                                                                 {t.paymentMethod === 'pix' ? 'PIX' : t.paymentMethod === 'debito' ? 'Débito' : t.paymentMethod === 'credito' ? 'Crédito' : 'Dinheiro'}
                                                             </span>
                                                         )}
                                                         {t.selectedCardId && (
-                                                            <span className={`text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${
+                                                            <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
                                                                 cards.find(c => c.id === t.selectedCardId)?.color || 'bg-rose-500/10 text-rose-400'
                                                             } text-white shadow-sm`}>
                                                                 {cards.find(c => c.id === t.selectedCardId)?.name}
@@ -478,10 +484,15 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`font-black text-rose-500 text-xs mr-2 whitespace-nowrap`}>
-                                                    - R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                </span>
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-right flex flex-col items-end justify-center mr-2">
+                                                    <span className={`font-black text-rose-500 text-base md:text-xl whitespace-nowrap ${t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' ? 'opacity-50' : ''}`}>
+                                                        - R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    </span>
+                                                    {t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' && (
+                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Fatura Aberta</span>
+                                                    )}
+                                                </div>
                                                 <button 
                                                     onClick={() => handleEdit(t)}
                                                     className={`p-2 rounded-lg transition-colors ${
@@ -525,24 +536,26 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                     const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
                                     const Icon = cat.icon;
                                     return (
-                                        <div key={t.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all hover:translate-x-1 ${
+                                        <div key={t.id} className={`flex items-center justify-between p-5 md:p-6 rounded-[2rem] border transition-all hover:-translate-y-1 hover:shadow-xl ${
                                             theme === 'light' ? 'bg-slate-50/50 border-slate-100 hover:bg-white' : 'bg-white/5 border-white/5 hover:bg-white/10'
                                         }`}>
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-inner ${
+                                            <div className="flex items-center gap-5">
+                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner shrink-0 ${
                                                     theme === 'light' ? 'bg-white' : 'bg-slate-900'
                                                 }`}>
-                                                    <Icon className={`w-5 h-5 ${cat.color}`} />
+                                                    <Icon className={`w-7 h-7 ${cat.color}`} />
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <h4 className={`font-bold text-sm truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{t.description}</h4>
-                                                    <p className="text-[10px] font-bold text-slate-500 uppercase opacity-60">
-                                                        {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                                                    </p>
+                                                    <h4 className={`font-black text-base md:text-lg truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{t.description}</h4>
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <p className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-widest opacity-60">
+                                                            {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`font-black text-blue-400 text-xs mr-2 whitespace-nowrap`}>
+                                            <div className="flex items-center gap-3">
+                                                <span className={`font-black text-blue-400 text-base md:text-xl mr-2 whitespace-nowrap`}>
                                                     + R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </span>
                                                 <button 
@@ -720,6 +733,19 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                             <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>Essa é uma venda recorrente</span>
                                         </label>
                                     </div>
+
+                                    {isInstallment && (
+                                        <div className={`p-4 rounded-2xl border text-left animate-in slide-in-from-top-2 duration-500 ${
+                                            theme === 'light' ? 'bg-sky-50 border-sky-100' : 'bg-sky-500/10 border-sky-500/20'
+                                        }`}>
+                                            <p className={`text-[10px] font-bold leading-relaxed ${theme === 'light' ? 'text-sky-800' : 'text-sky-200'}`}>
+                                                <span className="font-black uppercase tracking-widest text-[9px] block mb-2 opacity-70">Entenda as opções:</span> 
+                                                <strong className="font-black">• Valor Total:</strong> Divide o valor digitado pelo nº de parcelas.<br/>
+                                                <strong className="font-black">• Valor por Parcela:</strong> O valor digitado será o valor de CADA parcela.<br/><br/>
+                                                Este gasto vai para a aba <strong className="font-black">Cartões</strong> e não sai do seu saldo hoje. Ao pagar a fatura, você poderá apenas avançar a parcela sem duplicar seus gastos.
+                                            </p>
+                                        </div>
+                                    )}
 
                                     {isInstallment && (
                                         <div className={`p-1.5 rounded-2xl flex gap-1 animate-in slide-in-from-top-2 duration-500 ${theme === 'light' ? 'bg-slate-100' : 'bg-white/5'}`}>
@@ -995,9 +1021,9 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                         theme === 'light' ? 'bg-rose-50 border-rose-100' : 'bg-rose-500/5 border-rose-500/10'
                                     }`}>
                                         <p className={`text-xs font-bold leading-relaxed ${theme === 'light' ? 'text-rose-700' : 'text-rose-400'}`}>
-                                            Você está prestes a lançar uma saída de <span className="font-black text-sm">R$ {parseFloat(amount).toLocaleString('pt-BR')}</span>, mas seu saldo disponível no mês é de apenas <span className="font-black text-sm text-emerald-500">R$ {monthlyBalance.toLocaleString('pt-BR')}</span>.
+                                            Você está prestes a lançar uma saída de <span className="font-black text-sm">R$ {parseFloat(amount).toLocaleString('pt-BR')}</span>, mas seu saldo total em carteira é de apenas <span className="font-black text-sm text-emerald-500">R$ {availableBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>.
                                             <br/><br/>
-                                            Lançar este valor fará com que suas saídas superem suas entradas, o que pode gerar <span className="underline">endividamento</span>. Deseja prosseguir mesmo assim?
+                                            Lançar este valor fará com que você gaste mais do que possui disponível, o que pode gerar <span className="underline">endividamento</span>. Deseja prosseguir mesmo assim?
                                         </p>
                                     </div>
                                 </div>
@@ -1023,6 +1049,40 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {transactionToDelete && (
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[250] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className={`w-full max-w-sm rounded-[2.5rem] p-8 border text-center relative overflow-hidden animate-in zoom-in-95 duration-300 ${
+                        theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+                    }`}>
+                        <div className="w-20 h-20 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <Trash2 className="w-10 h-10 text-rose-500" />
+                        </div>
+                        <h3 className={`text-2xl font-black mb-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir Lançamento?</h3>
+                        <p className={`text-sm font-bold mb-8 leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                            Tem certeza que deseja remover <strong className="text-rose-500">{transactionToDelete.description.replace('Investimento: ', '')}</strong>? Esta ação não pode ser desfeita.
+                        </p>
+                        
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={() => setTransactionToDelete(null)}
+                                className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                                    theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                                }`}
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={confirmDelete}
+                                className="flex-1 py-4 bg-rose-500 hover:bg-rose-400 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-rose-500/20 transition-all active:scale-95"
+                            >
+                                Sim, Excluir
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

@@ -207,6 +207,9 @@ function Dashboard() {
         month: dateStr.slice(0, 7),
         amount: parseFloat(data.amount) || 0
       };
+      if (transactionData.paymentMethod === 'credito') {
+          transactionData.invoiceStatus = 'unpaid';
+      }
       await addDoc(collection(db, 'transactions'), transactionData);
       return true;
     } catch (error) {
@@ -305,7 +308,7 @@ function Dashboard() {
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
     const expense = filtered
-        .filter(t => t.type === 'expense' && t.category !== 'investment')
+        .filter(t => t.type === 'expense' && t.category !== 'investment' && !(t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid'))
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
     // O Saldo Acumulado deve considerar o histórico total do usuário
@@ -580,7 +583,7 @@ function Dashboard() {
                           </div>
                           <span className={`text-sm font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>{sub.name}</span>
                         </div>
-                        <span className="text-sm font-black text-emerald-500">R$ {sub.value.toLocaleString('pt-BR')}</span>
+                        <span className="text-sm font-black text-emerald-500">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                     ))}
                     {subscriptions.length === 0 && (
@@ -641,7 +644,7 @@ function Dashboard() {
 
           { activeTab === 'metas' && <GoalTracker />}
 
-          { activeTab === 'cartoes' && <CardsTab /> }
+          { activeTab === 'cartoes' && <CardsTab transactions={transactions} /> }
           
           { activeTab === 'reserva' && <EmergencyReserveTab /> }
           

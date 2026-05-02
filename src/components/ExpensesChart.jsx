@@ -104,7 +104,7 @@ export default function ExpensesChart({ transactions, targetMonth }) {
         }
 
         return processedData;
-    }, [transactions]);
+    }, [transactions, targetMonth]);
 
     if (data.length === 0) {
         return (

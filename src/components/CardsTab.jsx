@@ -11,14 +11,15 @@ import {
   CheckCircle2,
   MoreVertical,
   Pencil,
-  Hash
+  Hash,
+  ShoppingBag
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 
-const CardsTab = () => {
+const CardsTab = ({ transactions = [] }) => {
   const { theme } = useTheme();
   const { currentUser } = useAuth();
   
@@ -33,6 +34,7 @@ const CardsTab = () => {
   const [newSub, setNewSub] = useState({ name: '', value: '', day: 1, cardId: '' });
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, type, title }
   const [payingInstallment, setPayingInstallment] = useState(null); // { sub object }
+  const [payingInvoice, setPayingInvoice] = useState(null); // { cardId, total, expenses }
 
   useEffect(() => {
     if (!currentUser) return;
@@ -77,6 +79,11 @@ const CardsTab = () => {
     setDeleteConfirm(null);
   };
 
+  const handleDeleteTransaction = async (id) => {
+    await deleteDoc(doc(db, 'transactions', id));
+    setDeleteConfirm(null);
+  };
+
   const handleAddSub = async (e) => {
     e.preventDefault();
     if (!newSub.name || !newSub.value) return;
@@ -95,26 +102,29 @@ const CardsTab = () => {
     setDeleteConfirm(null);
   };
 
-  const handlePayInstallment = async (sub) => {
+  const handlePayInstallment = async (sub, createTransaction = true) => {
     if (!sub) return;
     try {
         const nextInstallment = (sub.currentInstallment || 1) + 1;
         const total = sub.totalInstallments || 1;
 
-        // 1. Create Transaction in History
-        await addDoc(collection(db, 'transactions'), {
-            description: `Parcela ${sub.currentInstallment}/${total} - ${sub.name}`,
-            amount: parseFloat(sub.value),
-            type: 'expense',
-            category: 'other',
-            date: new Date().toISOString(),
-            userId: currentUser.uid,
-            month: new Date().toISOString().slice(0, 7),
-            createdAt: Date.now(),
-            paymentMethod: 'credito',
-            selectedCardId: sub.cardId || null,
-            isInstallmentPayment: true
-        });
+        if (createTransaction) {
+            // 1. Create Transaction in History
+            await addDoc(collection(db, 'transactions'), {
+                description: `Parcela ${sub.currentInstallment}/${total} - ${sub.name}`,
+                amount: parseFloat(sub.value),
+                type: 'expense',
+                category: 'other',
+                date: new Date().toISOString(),
+                userId: currentUser.uid,
+                month: new Date().toISOString().slice(0, 7),
+                createdAt: Date.now(),
+                paymentMethod: 'credito',
+                selectedCardId: sub.cardId || null,
+                invoiceStatus: sub.cardId ? 'unpaid' : null,
+                isInstallmentPayment: true
+            });
+        }
 
         // 2. Update or Delete Subscription
         if (nextInstallment > total) {
@@ -131,7 +141,52 @@ const CardsTab = () => {
     }
   };
 
+  const handlePayInvoice = async () => {
+    if (!payingInvoice || payingInvoice.expenses.length === 0) return;
+    
+    try {
+        // 1. Criar transação de pagamento de fatura na carteira (que vai deduzir o saldo)
+        await addDoc(collection(db, 'transactions'), {
+            description: `Pagamento de Fatura - ${cards.find(c => c.id === payingInvoice.cardId)?.name || 'Cartão'}`,
+            amount: payingInvoice.total,
+            type: 'expense',
+            category: 'credit_card_bill',
+            date: new Date().toISOString(),
+            userId: currentUser.uid,
+            month: new Date().toISOString().slice(0, 7),
+            createdAt: Date.now(),
+            paymentMethod: 'pix' // default para pagamento de fatura, deduz da conta corrente
+        });
+
+        // 2. Marcar todas as transações da fatura como pagas
+        const updatePromises = payingInvoice.expenses.map(exp => 
+            updateDoc(doc(db, 'transactions', exp.id), { invoiceStatus: 'paid' })
+        );
+        await Promise.all(updatePromises);
+        
+        // 3. Atualizar parcelamentos vinculados ao cartão (avançar parcela)
+        if (payingInvoice.subs && payingInvoice.subs.length > 0) {
+            const cardInstallments = payingInvoice.subs.filter(s => s.type === 'installment');
+            const subPromises = cardInstallments.map(sub => {
+                const nextInstallment = (sub.currentInstallment || 1) + 1;
+                const total = sub.totalInstallments || 1;
+                if (nextInstallment > total) {
+                    return deleteDoc(doc(db, 'subscriptions', sub.id));
+                } else {
+                    return updateDoc(doc(db, 'subscriptions', sub.id), { currentInstallment: nextInstallment });
+                }
+            });
+            await Promise.all(subPromises);
+        }
+        
+        setPayingInvoice(null);
+    } catch (err) {
+        console.error("Erro ao pagar fatura:", err);
+    }
+  };
+
   const getCardSubs = (cardId) => subscriptions.filter(s => s.cardId === cardId);
+  const getUnpaidExpenses = (cardId) => transactions.filter(t => t.selectedCardId === cardId && t.invoiceStatus === 'unpaid');
   const getUnlinkedSubs = () => subscriptions.filter(s => !s.cardId);
 
   return (
@@ -157,7 +212,10 @@ const CardsTab = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {cards.map(card => {
             const cardSubs = getCardSubs(card.id);
-            const totalOnCard = cardSubs.reduce((acc, s) => acc + s.value, 0);
+            const unpaidExpenses = getUnpaidExpenses(card.id);
+            const subsTotal = cardSubs.reduce((acc, s) => acc + s.value, 0);
+            const expensesTotal = unpaidExpenses.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+            const totalInvoice = expensesTotal + subsTotal;
             
             return (
               <div key={card.id} className={`group relative p-4 rounded-[2.5rem] border transition-all duration-500 ${
@@ -188,40 +246,77 @@ const CardsTab = () => {
                         </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-[9px] uppercase font-black opacity-60 mb-0.5">Total Fatura</p>
-                      <p className="text-xl font-black tabular-nums">R$ {totalOnCard.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                      <p className="text-[9px] uppercase font-black opacity-60 mb-0.5">Fatura Atual</p>
+                      <p className="text-xl font-black tabular-nums">R$ {totalInvoice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Subscriptions Linked to this Card */}
-                <div className="mt-6 px-2 pb-2 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Assinaturas do Cartão</p>
-                    <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded-full">{cardSubs.length} itens</span>
-                  </div>
-                  
-                  {cardSubs.length === 0 ? (
-                    <div className="py-8 text-center border-2 border-dashed rounded-2xl border-slate-500/10">
-                        <p className="text-xs text-slate-500 font-medium">Nenhuma assinatura vinculada</p>
+                {/* Fatura Actions */}
+                <div className="mt-4 px-2">
+                    <button 
+                        onClick={() => totalInvoice > 0 && setPayingInvoice({ cardId: card.id, total: totalInvoice, expenses: unpaidExpenses, subs: cardSubs })}
+                        disabled={totalInvoice === 0}
+                        className={`w-full py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                            totalInvoice > 0 
+                            ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20 hover:bg-rose-600' 
+                            : (theme === 'light' ? 'bg-slate-100 text-slate-400' : 'bg-white/5 text-slate-500')
+                        }`}
+                    >
+                        <CheckCircle2 className="w-4 h-4" />
+                        {totalInvoice > 0 ? 'Pagar Fatura' : 'Fatura Zerada'}
+                    </button>
+                </div>
+
+                {/* Itens da Fatura (Assinaturas + Gastos Avulsos) */}
+                <div className="mt-6 px-2">
+                    <div className="flex items-center justify-between mb-3">
+                        <p className="text-[9px] uppercase font-black text-slate-500 tracking-widest">Itens da Fatura</p>
+                        <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full">{cardSubs.length + unpaidExpenses.length} itens</span>
                     </div>
-                  ) : (
-                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1 scrollbar-hide">
-                      {cardSubs.map(sub => (
-                        <div key={sub.id} className={`flex items-center justify-between p-3.5 rounded-2xl transition-all hover:translate-x-1 ${
-                          theme === 'light' ? 'bg-slate-50 hover:bg-slate-100' : 'bg-white/5 hover:bg-white/10'
+                    <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1 scrollbar-hide">
+
+                    {/* Gastos Avulsos do Mês */}
+                    {unpaidExpenses.map(exp => (
+                        <div key={exp.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all group/item ${
+                            theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
                         }`}>
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
-                                <Tag className="w-3.5 h-3.5 text-blue-400" />
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-xl bg-rose-500/10 flex items-center justify-center">
+                                    <ShoppingBag className="w-4 h-4 text-rose-500" />
+                                </div>
+                                <div>
+                                    <p className={`text-[10px] font-black ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{exp.description}</p>
+                                    <p className="text-[8px] font-bold text-slate-500 uppercase">{new Date(exp.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
+                                </div>
                             </div>
-                            <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>{sub.name}</span>
-                          </div>
-                          <span className="text-xs font-black text-emerald-500 tabular-nums">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black text-rose-500">R$ {parseFloat(exp.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                <button 
+                                    onClick={() => setDeleteConfirm({ id: exp.id, type: 'transaction', title: exp.description, cardId: card.id })}
+                                    className="p-1.5 text-slate-500 hover:text-rose-500 opacity-100 md:opacity-0 md:group-hover/item:opacity-100 transition-all"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
                         </div>
-                      ))}
+                    ))}
+                    
+                    {/* Assinaturas Fixas */}
+                    {cardSubs.map(sub => (
+                        <div key={sub.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
+                            theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
+                        }`}>
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                                    <Tag className="w-4 h-4 text-blue-500" />
+                                </div>
+                                <p className={`text-[10px] font-black ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{sub.name}</p>
+                            </div>
+                            <span className="text-[10px] font-black text-emerald-500">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                    ))}
                     </div>
-                  )}
                 </div>
 
                 {/* Action Buttons (Repositioned to avoid overlap) */}
@@ -258,6 +353,44 @@ const CardsTab = () => {
                             <div className="flex gap-3 pt-4">
                                 <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3.5 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors">Voltar</button>
                                 <button onClick={() => handleDeleteCard(card.id)} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Invoice Payment Overlay */}
+                {payingInvoice?.cardId === card.id && (
+                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-center z-[100] animate-in fade-in duration-300">
+                        <div className="max-w-[280px] w-full space-y-4">
+                            <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <DollarSign className="w-8 h-8 text-rose-500" />
+                            </div>
+                            <h4 className="text-white font-black text-xl uppercase tracking-widest">Pagar Fatura</h4>
+                            <p className="text-white/60 text-xs leading-relaxed">
+                                Você vai debitar <span className="text-rose-400 font-bold">R$ {payingInvoice.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> do seu saldo principal para pagar a fatura deste cartão. Confirmar?
+                            </p>
+                            <div className="flex gap-3 pt-4">
+                                <button onClick={() => setPayingInvoice(null)} className="flex-1 py-3.5 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors">Voltar</button>
+                                <button onClick={handlePayInvoice} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Pagar</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete overlay for Transaction */}
+                {deleteConfirm?.id && deleteConfirm?.type === 'transaction' && deleteConfirm?.cardId === card.id && (
+                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-center z-[100] animate-in fade-in duration-300">
+                        <div className="max-w-[280px] w-full space-y-4">
+                            <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <Trash2 className="w-8 h-8 text-rose-500" />
+                            </div>
+                            <h4 className="text-white font-black text-xl">Excluir Gasto?</h4>
+                            <p className="text-white/60 text-xs leading-relaxed">
+                                Remover <span className="text-white font-bold">{deleteConfirm.title}</span> da fatura deste cartão?
+                            </p>
+                            <div className="flex gap-3 pt-4">
+                                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3.5 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors">Voltar</button>
+                                <button onClick={() => handleDeleteTransaction(deleteConfirm.id)} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
                             </div>
                         </div>
                     </div>
@@ -416,35 +549,40 @@ const CardsTab = () => {
                     ></div>
                   </div>
 
-                  <button 
-                    onClick={() => setPayingInstallment(sub)}
-                    className={`w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all ${
-                        theme === 'light' 
-                        ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white shadow-sm' 
-                        : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white shadow-xl'
-                    }`}
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Dar Baixa na Parcela
-                  </button>
+                  {!sub.cardId && (
+                    <button 
+                      onClick={() => setPayingInstallment(sub)}
+                      className={`w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all ${
+                          theme === 'light' 
+                          ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white shadow-sm' 
+                          : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white shadow-xl'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Dar Baixa na Parcela
+                    </button>
+                  )}
                 </div>
 
                 {/* Confirmation Overlay for Payment */}
                 {payingInstallment?.id === sub.id && (
                     <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300">
-                        <div className="max-w-[200px] w-full space-y-4">
-                            <div className="w-14 h-14 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                                <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                        <div className="max-w-[220px] w-full space-y-4">
+                            <div className="w-12 h-12 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <CheckCircle2 className="w-6 h-6 text-emerald-500" />
                             </div>
-                            <h4 className="text-white font-black text-sm uppercase tracking-widest">Confirmar Pagamento?</h4>
-                            <p className="text-white/60 text-[10px] leading-relaxed">
+                            <h4 className="text-white font-black text-sm uppercase tracking-widest">Confirmar Pagamento</h4>
+                            <p className="text-white/60 text-[10px] leading-relaxed mb-4">
                                 Dar baixa na parcela <span className="text-emerald-400 font-black">{sub.currentInstallment}/{sub.totalInstallments}</span> de <span className="text-white font-bold">{sub.name}</span>?
-                                <br />
-                                <span className="text-[9px] mt-2 block opacity-50 italic">Isso criará uma saída de R$ {sub.value.toLocaleString('pt-BR')} no seu histórico.</span>
                             </p>
-                            <div className="flex gap-2 pt-2">
-                                <button onClick={() => setPayingInstallment(null)} className="flex-1 py-3 rounded-xl bg-white/10 text-white font-black text-[9px] uppercase tracking-widest hover:bg-white/20 transition-colors">Voltar</button>
-                                <button onClick={() => handlePayInstallment(sub)} className="flex-1 py-3 rounded-xl bg-emerald-500 text-white font-black text-[9px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors">Confirmar</button>
+                            <div className="flex flex-col gap-2 pt-2">
+                                <button onClick={() => handlePayInstallment(sub, true)} className="w-full py-2.5 rounded-xl bg-emerald-500 text-white font-black text-[9px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors">
+                                    Sim, criar saída (R$ {sub.value.toLocaleString('pt-BR')})
+                                </button>
+                                <button onClick={() => handlePayInstallment(sub, false)} className="w-full py-2.5 rounded-xl bg-blue-500/20 text-blue-400 font-black text-[9px] uppercase tracking-widest hover:bg-blue-500/30 transition-colors">
+                                    Avançar parcela (Já lancei fatura)
+                                </button>
+                                <button onClick={() => setPayingInstallment(null)} className="w-full py-2.5 rounded-xl bg-white/10 text-white font-black text-[9px] uppercase tracking-widest hover:bg-white/20 transition-colors">Cancelar</button>
                             </div>
                         </div>
                     </div>

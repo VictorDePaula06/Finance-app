@@ -93,6 +93,9 @@ const AliviaConfigForm = ({ manualConfig, onConfigChange, onClose }) => {
                                 theme === 'light' ? 'bg-slate-50 border-slate-200 focus:bg-white' : 'bg-white/5 border-white/5 focus:bg-white/10 text-white'
                             }`}
                         />
+                        <p className={`text-[10px] mt-2 leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                            Valor médio que você ganha no mês. A Alívia usa isso para projetar sua capacidade de reserva financeira.
+                        </p>
                     </div>
                     <div>
                         <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">Gastos Fixos Mensais (R$)</label>
@@ -101,11 +104,14 @@ const AliviaConfigForm = ({ manualConfig, onConfigChange, onClose }) => {
                             value={tempManualConfig.fixedExpenses ?? ''}
                             onChange={e => setTempManualConfig({ ...tempManualConfig, fixedExpenses: e.target.value })}
                             onBlur={e => setTempManualConfig({ ...tempManualConfig, fixedExpenses: parseFloat(e.target.value) || 0 })}
-                            placeholder="Aluguel, Internet, etc."
+                            placeholder="Ex: 1500.00"
                             className={`w-full p-4 rounded-2xl border transition-all ${
                                 theme === 'light' ? 'bg-slate-50 border-slate-200 focus:bg-white' : 'bg-white/5 border-white/5 focus:bg-white/10 text-white'
                             }`}
                         />
+                        <p className={`text-[10px] mt-2 leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                            Despesas previsíveis e essenciais que não mudam muito (aluguel, contas de luz, internet, mensalidades).
+                        </p>
                     </div>
                 </div>
 
@@ -115,12 +121,15 @@ const AliviaConfigForm = ({ manualConfig, onConfigChange, onClose }) => {
                         type="number"
                         value={tempManualConfig.variableEstimate ?? ''}
                         onChange={e => setTempManualConfig({ ...tempManualConfig, variableEstimate: e.target.value })}
-                        placeholder="Média de fatura de cartão"
+                        placeholder="Ex: 2000.00"
                         className={`w-full p-4 rounded-2xl border transition-all ${
                             theme === 'light' ? 'bg-slate-50 border-slate-200 focus:bg-white' : 'bg-white/5 border-white/5 focus:bg-white/10 text-white'
                         }`}
                     />
-                    <p className="text-[10px] text-slate-500 mt-2">Se não preencher, usaremos a média do seu histórico.</p>
+                    <p className={`text-[10px] mt-2 leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                        Estimativa do seu custo de vida flexível (fatura do cartão de crédito, lazer, iFood, compras). 
+                        <br/><span className="text-emerald-500 font-bold">Dica da IA:</span> Se deixar em branco, a Alívia vai calcular automaticamente a média do seu histórico real de gastos.
+                    </p>
                 </div>
 
                 <div className="pt-4 border-t border-white/5">

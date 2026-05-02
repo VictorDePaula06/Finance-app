@@ -29,6 +29,7 @@ export default function IncomeTab({ transactions, savingsJars }) {
     const [showIncomeModal, setShowIncomeModal] = useState(false);
     const [incomeStep, setIncomeStep] = useState('form'); // 'form' | 'confirm'
     const [isSaving, setIsSaving] = useState(false);
+    const [transactionToDelete, setTransactionToDelete] = useState(null);
     
     // Fetch USD rate once
     useEffect(() => {
@@ -142,9 +143,18 @@ export default function IncomeTab({ transactions, savingsJars }) {
         setIsUSD(false); // Reset USD on edit for simplicity
     };
 
-    const handleDelete = async (id) => {
-        if (window.confirm("Deseja remover esta entrada?")) {
-            await deleteDoc(doc(db, 'transactions', id));
+    const handleDelete = (id) => {
+        setTransactionToDelete(id);
+    };
+
+    const confirmDelete = async () => {
+        if (!transactionToDelete) return;
+        try {
+            await deleteDoc(doc(db, 'transactions', transactionToDelete));
+        } catch (error) {
+            console.error("Erro ao deletar:", error);
+        } finally {
+            setTransactionToDelete(null);
         }
     };
 
@@ -725,6 +735,40 @@ export default function IncomeTab({ transactions, savingsJars }) {
                                     {isRescuing ? 'Processando...' : 'Confirmar Resgate'}
                                 </button>
                             </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {transactionToDelete && (
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[250] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className={`w-full max-w-sm rounded-[2.5rem] p-8 border text-center relative overflow-hidden animate-in zoom-in-95 duration-300 ${
+                        theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+                    }`}>
+                        <div className="w-20 h-20 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <Trash2 className="w-10 h-10 text-rose-500" />
+                        </div>
+                        <h3 className={`text-2xl font-black mb-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir Lançamento?</h3>
+                        <p className={`text-sm font-bold mb-8 leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                            Tem certeza que deseja remover esta entrada? Esta ação não pode ser desfeita.
+                        </p>
+                        
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={() => setTransactionToDelete(null)}
+                                className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                                    theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                                }`}
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={confirmDelete}
+                                className="flex-1 py-4 bg-rose-500 hover:bg-rose-400 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-rose-500/20 transition-all active:scale-95"
+                            >
+                                Sim, Excluir
+                            </button>
                         </div>
                     </div>
                 </div>

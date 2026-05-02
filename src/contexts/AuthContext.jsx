@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
     const expiryTimeoutRef = useRef(null);
 
     // MODO DEV: Bypass de autenticação para localhost
-    const IS_DEV = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const IS_DEV = import.meta.env.VITE_USE_MOCK_AUTH === 'true';
 
     function signup(email, password) {
         return createUserWithEmailAndPassword(auth, email, password);
