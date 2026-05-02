@@ -39,6 +39,7 @@ export default function InvestmentsTab() {
     const [isAporting, setIsAporting] = useState(null);
     const [isLoadingPrices, setIsLoadingPrices] = useState(false);
     const [prices, setPrices] = useState({ USD: 5.0, CDI: 0.10 });
+    const [tesouroData, setTesouroData] = useState([]);
     const [filter, setFilter] = useState('all');
     const [showUSDAsBRL, setShowUSDAsBRL] = useState(false);
     
@@ -182,6 +183,29 @@ export default function InvestmentsTab() {
                 newPrices.CDI = parseFloat(cdiData[0].valor) / 100;
             } catch (e) {
                 console.warn("Could not fetch CDI");
+            }
+
+            // Fetch Tesouro Direto
+            try {
+                const tesouroUrl = 'https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondpriceandsavings.json';
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(tesouroUrl)}`;
+                const res = await fetch(proxyUrl);
+                if (res.ok) {
+                    const json = await res.json();
+                    const data = JSON.parse(json.contents);
+                    if (data?.response?.TrsrBondPricLogList) {
+                        const list = data.response.TrsrBondPricLogList.map(item => item.TrsrBond);
+                        setTesouroData(list);
+                        
+                        // Update prices for existing Tesouro assets
+                        list.forEach(bond => {
+                            newPrices[bond.nm] = bond.untrPric;
+                            newPrices[`${bond.nm}_RATE`] = bond.anulRentPrcnt;
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn("Could not fetch Tesouro prices");
             }
 
             setPrices(newPrices);
@@ -649,16 +673,44 @@ export default function InvestmentsTab() {
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
                                     {newAsset.type === 'imoveis' ? 'Nome do Imóvel' : (newAsset.type === 'renda_fixa' ? 'Nome do Título' : 'Nome do Ativo')}
                                 </label>
-                                <input 
-                                    type="text"
-                                    required
-                                    value={newAsset.name}
-                                    onChange={(e) => setNewAsset({...newAsset, name: e.target.value})}
-                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
-                                    }`}
-                                    placeholder={newAsset.type === 'imoveis' ? 'Ex: Apartamento Centro' : (newAsset.type === 'renda_fixa' ? 'Ex: Tesouro Selic 2029' : 'Ex: Vale ON, Bitcoin...')}
-                                />
+                                {newAsset.type === 'renda_fixa' && newAsset.subType === 'Tesouro' && tesouroData.length > 0 ? (
+                                    <select
+                                        value={newAsset.name}
+                                        onChange={(e) => {
+                                            const selected = tesouroData.find(b => b.nm === e.target.value);
+                                            if (selected) {
+                                                const isIPCA = selected.nm.includes('IPCA') || selected.nm.includes('Renda+');
+                                                setNewAsset({
+                                                    ...newAsset,
+                                                    name: selected.nm,
+                                                    symbol: selected.nm,
+                                                    yieldType: isIPCA ? 'ipca' : 'pre',
+                                                    fixedRate: String(selected.anulRentPrcnt),
+                                                    manualCurrentPrice: String(selected.untrPric)
+                                                });
+                                            }
+                                        }}
+                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-slate-800 border-white/10 text-white focus:border-emerald-500'
+                                        }`}
+                                    >
+                                        <option value="">Selecione um título...</option>
+                                        {tesouroData.map(bond => (
+                                            <option key={bond.nm} value={bond.nm}>{bond.nm}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input 
+                                        type="text"
+                                        required
+                                        value={newAsset.name}
+                                        onChange={(e) => setNewAsset({...newAsset, name: e.target.value})}
+                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                        }`}
+                                        placeholder={newAsset.type === 'imoveis' ? 'Ex: Apartamento Centro' : (newAsset.type === 'renda_fixa' ? 'Ex: Tesouro Selic 2029' : 'Ex: Vale ON, Bitcoin...')}
+                                    />
+                                )}
                             </div>
 
                             {/* Dynamic Fields Grid */}
