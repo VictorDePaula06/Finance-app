@@ -113,40 +113,40 @@ export default function InvestmentsTab() {
             const stockTickers = [...new Set(investments.filter(a => ['acoes', 'etfs', 'fiis'].includes(a.type) && a.symbol).map(a => a.symbol.toUpperCase()))];
             if (stockTickers.length > 0) {
                 await Promise.all(stockTickers.map(async (ticker) => {
+                    // 1. Try Brapi (Best for BR stocks)
                     try {
-                        // 1. Try Brapi (Best for BR stocks)
                         const brapiRes = await fetch(`https://brapi.dev/api/quote/${ticker}`);
                         if (brapiRes.ok) {
                             const brapiData = await brapiRes.json();
-                            if (brapiData.results && brapiData.results[0]) {
+                            if (brapiData.results && brapiData.results[0] && brapiData.results[0].regularMarketPrice) {
                                 newPrices[ticker] = parseFloat(brapiData.results[0].regularMarketPrice);
                                 return;
                             }
                         }
                     } catch (e) {}
 
+                    // 2. Try Yahoo Finance via Proxy (Handles US and BR fallbacks)
                     try {
-                        // 2. Try Yahoo Finance directly (For US stocks like NVDA)
-                        const yhRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`);
-                        if (yhRes.ok) {
-                            const yhData = await yhRes.json();
-                            if (yhData.chart && yhData.chart.result && yhData.chart.result[0]) {
-                                newPrices[ticker] = parseFloat(yhData.chart.result[0].meta.regularMarketPrice);
-                                return;
-                            }
-                        }
-                    } catch (e) {}
+                        // Detect if it's likely a Brazilian ticker (e.g. BBAS3, PETR4, etc)
+                        const isProbablyBR = /\d/.test(ticker) || (ticker.length >= 5 && !ticker.includes('.'));
+                        const yahooTickers = isProbablyBR ? [`${ticker}.SA`, ticker] : [ticker];
 
-                    try {
-                        // 3. Fallback to Proxy for Yahoo Finance if CORS blocked
-                        const proxyRes = await fetch(`https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`);
-                        if (proxyRes.ok) {
-                            const proxyData = await proxyRes.json();
-                            if (proxyData.chart && proxyData.chart.result && proxyData.chart.result[0]) {
-                                newPrices[ticker] = parseFloat(proxyData.chart.result[0].meta.regularMarketPrice);
+                        for (const yTicker of yahooTickers) {
+                            const yhRes = await fetch(`https://corsproxy.io/?https://query1.finance.yahoo.com/v8/finance/chart/${yTicker}`);
+                            if (yhRes.ok) {
+                                const yhData = await yhRes.json();
+                                if (yhData.chart && yhData.chart.result && yhData.chart.result[0]) {
+                                    const price = yhData.chart.result[0].meta.regularMarketPrice;
+                                    if (price) {
+                                        newPrices[ticker] = parseFloat(price);
+                                        return;
+                                    }
+                                }
                             }
                         }
-                    } catch (e) {}
+                    } catch (e) {
+                        console.warn(`Could not fetch price for ${ticker}`, e);
+                    }
                 }));
             }
 
