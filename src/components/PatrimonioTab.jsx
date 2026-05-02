@@ -99,7 +99,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   // ── calculations ───────────────────────────────────────────────────────────
   // Jars
   const jarsTotal = useMemo(() => jars.reduce((a, j) => a + (j.balance || 0), 0), [jars]);
-  const totalDailyYield = useMemo(() => {
+  const { jarsDailyYield, totalDailyYield } = useMemo(() => {
     // 1. Yield from Jars (cofrinhos)
     const jarsYield = jars.reduce((a, j) => {
       const rate = Math.pow(1 + (cdiAnual / 100) * (j.cdiPercent / 100), 1 / 365) - 1;
@@ -117,7 +117,10 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
       return a;
     }, 0);
 
-    return jarsYield + fixedIncomeYield;
+    return { 
+      jarsDailyYield: jarsYield, 
+      totalDailyYield: jarsYield + fixedIncomeYield 
+    };
   }, [jars, investments, cdiAnual]);
 
   // Investments — only from Firestore collection (matches InvestmentsTab)
