@@ -209,7 +209,7 @@ export default function InvestmentsTab() {
                     }
                 }
             } catch (e) {
-                console.warn("Could not fetch Tesouro version 7.1.3", e);
+                console.warn("Could not fetch Tesouro version 7.1.4", e);
             }
         };
         fetchTesouro();
@@ -744,28 +744,79 @@ export default function InvestmentsTab() {
                                     </>
                                 ) : newAsset.type === 'renda_fixa' ? (
                                     <>
+                                        {/* 1. Subtype Selection FIRST */}
                                         <div className="col-span-2">
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Subtipo de Renda Fixa</label>
-                                            <div className="grid grid-cols-3 gap-2">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 block">1. Qual o tipo de Renda Fixa?</label>
+                                            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                                                 {['CDB', 'Tesouro', 'LCI/LCA', 'Debêntures', 'Outros'].map(st => (
                                                     <button
                                                         key={st}
                                                         type="button"
-                                                        onClick={() => setNewAsset({...newAsset, subType: st})}
-                                                        className={`p-2 rounded-xl border text-[10px] font-black transition-all ${
+                                                        onClick={() => setNewAsset({...newAsset, subType: st, name: '', yieldType: 'cdi', fixedRate: '', cdiPercent: ''})}
+                                                        className={`p-3 rounded-2xl border text-[10px] font-black transition-all flex flex-col items-center gap-1 ${
                                                             newAsset.subType === st
-                                                            ? 'bg-blue-500 border-blue-500 text-white shadow-md'
-                                                            : (theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-500' : 'bg-white/5 border-white/5 text-slate-400')
+                                                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg scale-[1.02]'
+                                                            : (theme === 'light' ? 'bg-white border-slate-200 text-slate-500 hover:border-emerald-200' : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10')
                                                         }`}
                                                     >
-                                                        {st}
+                                                        <span className="truncate w-full text-center">{st}</span>
                                                     </button>
                                                 ))}
                                             </div>
                                         </div>
+
+                                        {/* 2. Specific Selection for Tesouro OR Name for others */}
+                                        <div className="col-span-2 space-y-4">
+                                            {newAsset.subType === 'Tesouro' ? (
+                                                <div className="p-5 rounded-[2rem] bg-blue-500/5 border border-blue-500/10 animate-in zoom-in-95 duration-300">
+                                                    <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-3 block">Selecione o Título Oficial</label>
+                                                    <select
+                                                        value={newAsset.name}
+                                                        onChange={(e) => {
+                                                            const selected = tesouroData.find(b => b.nm === e.target.value);
+                                                            if (selected) {
+                                                                const isIPCA = selected.nm.includes('IPCA') || selected.nm.includes('Renda+');
+                                                                setNewAsset({
+                                                                    ...newAsset,
+                                                                    name: selected.nm,
+                                                                    symbol: selected.nm,
+                                                                    yieldType: isIPCA ? 'ipca' : (selected.nm.includes('Selic') ? 'cdi' : 'pre'),
+                                                                    fixedRate: String(selected.anulRentPrcnt),
+                                                                    cdiPercent: selected.nm.includes('Selic') ? '100' : '',
+                                                                    manualCurrentPrice: String(selected.untrPric)
+                                                                });
+                                                            }
+                                                        }}
+                                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                            theme === 'light' ? 'bg-white border-slate-200 text-slate-800 focus:border-blue-500' : 'bg-slate-900 border-white/10 text-white focus:border-blue-500'
+                                                        }`}
+                                                    >
+                                                        <option value="">{tesouroData.length > 0 ? '--- Lista de Títulos Disponíveis ---' : 'Carregando títulos...'}</option>
+                                                        {tesouroData.map(bond => (
+                                                            <option key={bond.nm} value={bond.nm}>{bond.nm}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Nome do Título</label>
+                                                    <input 
+                                                        type="text"
+                                                        required
+                                                        value={newAsset.name}
+                                                        onChange={(e) => setNewAsset({...newAsset, name: e.target.value})}
+                                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                                        }`}
+                                                        placeholder="Ex: CDB Banco X, LCI 90 dias..."
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
                                         
+                                        {/* 3. Yield Configuration */}
                                         <div className="col-span-2">
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Tipo de Rendimento</label>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 block">Tipo de Rendimento</label>
                                             <div className="flex gap-2">
                                                 {[
                                                     { id: 'cdi', label: 'Pós (CDI)' },
