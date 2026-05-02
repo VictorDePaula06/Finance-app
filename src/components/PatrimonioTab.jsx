@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Wallet, PiggyBank, TrendingUp, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles } from 'lucide-react';
+import { Wallet, PiggyBank, TrendingUp, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { generatePatrimonyAnalysis, isGeminiConfigured } from '../services/gemini';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import EvolucaoPatrimonialTab from './EvolucaoPatrimonialTab';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const fmt = (v) => Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -61,6 +62,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   const [userConfig, setUserConfig] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [activeTab, setActiveTab] = useState('visao');
 
   // ── listeners ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -177,12 +179,47 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
 
-      {/* Header */}
-      <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-500 mb-1">Patrimônio</p>
-        <h2 className={`text-3xl font-black ${h1}`}>Sua Riqueza</h2>
-        <p className={`text-sm ${sub}`}>Visão consolidada de todos os seus ativos.</p>
+      {/* ── TAB NAVIGATION ── */}
+      <div className="flex items-center gap-2 p-1.5 rounded-2xl border w-fit" style={{ background: isDark ? 'rgba(15,23,42,0.8)' : '#f8fafc', borderColor: isDark ? 'rgba(255,255,255,0.06)' : '#e2e8f0' }}>
+        <button
+          onClick={() => setActiveTab('visao')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+            activeTab === 'visao'
+              ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
+              : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <LayoutDashboard className="w-3.5 h-3.5" />
+          Visão Geral
+        </button>
+        <button
+          onClick={() => setActiveTab('evolucao')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+            activeTab === 'evolucao'
+              ? 'bg-[#5CCEEA] text-slate-950 shadow-md shadow-[#5CCEEA]/20'
+              : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <BarChart3 className="w-3.5 h-3.5" />
+          Evolução Patrimonial
+        </button>
       </div>
+
+      {/* ── EVOLUÇÃO TAB ── */}
+      {activeTab === 'evolucao' && (
+        <EvolucaoPatrimonialTab
+          investments={investments}
+          jarsTotal={jarsTotal}
+        />
+      )}
+
+      {/* ── VISÃO GERAL TAB ── */}
+      {activeTab === 'visao' && (<>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-500 mb-1">Patrimônio</p>
+          <h2 className={`text-3xl font-black ${h1}`}>Sua Riqueza</h2>
+          <p className={`text-sm ${sub}`}>Visão consolidada de todos os seus ativos.</p>
+        </div>
 
       {/* ── PATRIMÔNIO TOTAL ── */}
       <div className={`p-8 rounded-[2.5rem] border relative overflow-hidden ${isDark ? 'bg-gradient-to-br from-slate-900 to-slate-800 border-white/10' : 'bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700'}`}>
@@ -337,6 +374,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
               )}
           </div>
       </div>
+      </>)}
       
     </div>
   );
