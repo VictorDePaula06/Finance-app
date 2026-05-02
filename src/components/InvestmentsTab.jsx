@@ -202,50 +202,59 @@ export default function InvestmentsTab() {
         const FALLBACK_BONDS = [
             { nm: 'Tesouro Selic 2027', anulRentPrcnt: 10.65, untrPric: 14500.00 },
             { nm: 'Tesouro Selic 2029', anulRentPrcnt: 10.65, untrPric: 14800.00 },
-            { nm: 'Tesouro IPCA+ 2029', anulRentPrcnt: 6.32, untrPric: 4200.00 },
-            { nm: 'Tesouro IPCA+ 2035', anulRentPrcnt: 6.48, untrPric: 3800.00 },
-            { nm: 'Tesouro IPCA+ 2045', anulRentPrcnt: 6.51, untrPric: 1950.00 },
-            { nm: 'Tesouro IPCA+ 2055', anulRentPrcnt: 6.54, untrPric: 1100.00 },
-            { nm: 'Tesouro Renda+ 2030', anulRentPrcnt: 6.40, untrPric: 1050.00 },
-            { nm: 'Tesouro Renda+ 2035', anulRentPrcnt: 6.44, untrPric: 950.00 },
-            { nm: 'Tesouro Renda+ 2040', anulRentPrcnt: 6.47, untrPric: 850.00 },
-            { nm: 'Tesouro Renda+ 2045', anulRentPrcnt: 6.50, untrPric: 760.00 },
-            { nm: 'Tesouro Renda+ 2050', anulRentPrcnt: 6.52, untrPric: 680.00 },
-            { nm: 'Tesouro Renda+ 2055', anulRentPrcnt: 6.53, untrPric: 600.00 },
-            { nm: 'Tesouro Renda+ 2060', anulRentPrcnt: 6.55, untrPric: 540.00 },
-            { nm: 'Tesouro Renda+ 2065', anulRentPrcnt: 6.57, untrPric: 480.00 },
-            { nm: 'Tesouro Prefixado 2027', anulRentPrcnt: 13.50, untrPric: 820.00 },
-            { nm: 'Tesouro Prefixado 2029', anulRentPrcnt: 13.62, untrPric: 680.00 },
-            { nm: 'Tesouro Prefixado 2031', anulRentPrcnt: 13.70, untrPric: 560.00 },
+            { nm: 'Tesouro IPCA+ 2029', anulRentPrcnt: 6.89, untrPric: 4200.00 },
+            { nm: 'Tesouro IPCA+ 2035', anulRentPrcnt: 6.93, untrPric: 3800.00 },
+            { nm: 'Tesouro IPCA+ 2045', anulRentPrcnt: 6.95, untrPric: 1950.00 },
+            { nm: 'Tesouro IPCA+ 2055', anulRentPrcnt: 6.97, untrPric: 1100.00 },
+            { nm: 'Tesouro Renda+ 2030', anulRentPrcnt: 6.90, untrPric: 1050.00 },
+            { nm: 'Tesouro Renda+ 2035', anulRentPrcnt: 6.92, untrPric: 950.00 },
+            { nm: 'Tesouro Renda+ 2040', anulRentPrcnt: 6.94, untrPric: 850.00 },
+            { nm: 'Tesouro Renda+ 2045', anulRentPrcnt: 6.95, untrPric: 760.00 },
+            { nm: 'Tesouro Renda+ 2050', anulRentPrcnt: 6.96, untrPric: 680.00 },
+            { nm: 'Tesouro Renda+ 2055', anulRentPrcnt: 6.96, untrPric: 600.00 },
+            { nm: 'Tesouro Renda+ 2060', anulRentPrcnt: 6.97, untrPric: 540.00 },
+            { nm: 'Tesouro Renda+ 2065', anulRentPrcnt: 6.96, untrPric: 480.00 },
+            { nm: 'Tesouro Prefixado 2027', anulRentPrcnt: 13.68, untrPric: 820.00 },
+            { nm: 'Tesouro Prefixado 2029', anulRentPrcnt: 13.75, untrPric: 680.00 },
+            { nm: 'Tesouro Prefixado 2031', anulRentPrcnt: 13.80, untrPric: 560.00 },
         ];
+
+        const parseTesouroResponse = (json) => {
+            // allorigins wraps in { contents: "..." }
+            const raw = json.contents ?? json;
+            const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            if (data?.response?.TrsrBondPricLogList) {
+                return data.response.TrsrBondPricLogList.map(item => item.TrsrBond);
+            }
+            return null;
+        };
 
         const fetchTesouro = async () => {
             const tesouroUrl = 'https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondpriceandsavings.json';
             const proxies = [
                 `https://api.allorigins.win/get?url=${encodeURIComponent(tesouroUrl)}`,
                 `https://corsproxy.io/?${encodeURIComponent(tesouroUrl)}`,
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(tesouroUrl)}`,
+                `https://thingproxy.freeboard.io/fetch/${tesouroUrl}`,
             ];
 
             for (const proxyUrl of proxies) {
                 try {
-                    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(6000) });
+                    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
                     if (!res.ok) continue;
                     const json = await res.json();
-                    // allorigins wraps the content in { contents: "..." }
-                    const raw = json.contents ?? json;
-                    const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
-                    if (data?.response?.TrsrBondPricLogList) {
-                        const list = data.response.TrsrBondPricLogList.map(item => item.TrsrBond);
+                    const list = parseTesouroResponse(json);
+                    if (list && list.length > 0) {
+                        console.log(`[Tesouro] Loaded ${list.length} bonds via ${proxyUrl}`);
                         setTesouroData(list);
-                        return; // success
+                        return;
                     }
                 } catch (e) {
-                    console.warn(`Tesouro proxy failed (${proxyUrl}):`, e.message);
+                    console.warn(`[Tesouro] Proxy failed: ${proxyUrl}`, e.message);
                 }
             }
 
-            // All proxies failed — use fallback list so the dropdown is never empty
-            console.warn('Tesouro API unavailable — using fallback list');
+            console.warn('[Tesouro] All proxies failed — using approximate fallback rates');
             setTesouroData(FALLBACK_BONDS);
         };
 
@@ -958,6 +967,7 @@ export default function InvestmentsTab() {
                                                 </div>
                                             </>
                                         )}
+                                    </>
                                 ) : (
                                     <>
                                         <div className="col-span-2">

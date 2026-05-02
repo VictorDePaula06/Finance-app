@@ -246,16 +246,11 @@ export default function AdminPanel({ onBack }) {
                     const settingsRef = doc(db, 'users', uid, 'settings', 'general');
                     const batch = writeBatch(db);
 
-                    // Update Admin
-                    batch.update(userRef, { isAdmin: pendingUser.isAdmin });
-
-                    // Map Status
+                    // Determine plan status — blocked overrides plan, but plan is still stored
                     let finalStatus = 'free';
                     let finalType = 'monthly';
 
-                    if (pendingUser.isBlocked) {
-                        finalStatus = 'blocked';
-                    } else if (pendingUser.isLifetime) {
+                    if (pendingUser.isLifetime) {
                         finalStatus = 'lifetime';
                         finalType = 'lifetime';
                     } else if (pendingUser.isPremium) {
@@ -264,17 +259,24 @@ export default function AdminPanel({ onBack }) {
                     } else if (pendingUser.isStandard) {
                         finalStatus = 'standard';
                         finalType = 'monthly';
-                    } else if (pendingUser.isFree) {
+                    } else {
                         finalStatus = 'free';
                         finalType = 'monthly';
                     }
 
+                    // isBlocked is stored separately and takes precedence in auth check
+                    batch.update(userRef, {
+                        isAdmin: pendingUser.isAdmin,
+                        isBlocked: pendingUser.isBlocked || false
+                    });
+
                     batch.set(settingsRef, {
                         subscription: {
-                            status: finalStatus,
+                            status: pendingUser.isBlocked ? 'blocked' : finalStatus,
                             type: finalType,
                             updatedAt: new Date(),
-                            date: (pendingUser.isPremium || pendingUser.isLifetime || pendingUser.isStandard) ? new Date() : null
+                            date: new Date(),
+                            isBlocked: pendingUser.isBlocked || false
                         }
                     }, { merge: true });
 
@@ -293,27 +295,22 @@ export default function AdminPanel({ onBack }) {
         });
     };
 
-    const handleFlagToggle = (flagId) => {
+    const handlePlanSelect = (planId) => {
         if (!pendingUser) return;
-        
-        let newPending = { ...pendingUser };
-        const newVal = !newPending[flagId];
-        
-        if (flagId === 'isAdmin' || flagId === 'isBlocked') {
-            newPending[flagId] = newVal;
-        } else {
-            // Planos (Comportamento de Radio Button - Sempre um ativo)
-            if (newVal) {
-                newPending.isPremium = (flagId === 'isPremium');
-                newPending.isLifetime = (flagId === 'isLifetime');
-                newPending.isStandard = (flagId === 'isStandard');
-                newPending.isFree = (flagId === 'isFree');
-            } else {
-                // Se tentar desmarcar o que já está ativo, ignoramos para garantir que um plano esteja sempre selecionado
-                return;
-            }
-        }
-        setPendingUser(newPending);
+        // Plans are radio buttons — exactly one active at a time
+        setPendingUser(prev => ({
+            ...prev,
+            isPremium:  planId === 'isPremium',
+            isLifetime: planId === 'isLifetime',
+            isStandard: planId === 'isStandard',
+            isFree:     planId === 'isFree',
+        }));
+    };
+
+    const handleToggle = (flagId) => {
+        if (!pendingUser) return;
+        // isAdmin and isBlocked are independent toggles
+        setPendingUser(prev => ({ ...prev, [flagId]: !prev[flagId] }));
     };
 
     const sendPushToAll = async () => {
@@ -681,48 +678,89 @@ export default function AdminPanel({ onBack }) {
                             <p className="text-xs font-bold text-slate-500 truncate px-4">{editingUser.email}</p>
                         </div>
 
-                        <div className="space-y-4 max-h-[45vh] overflow-y-auto custom-scrollbar pr-2 mb-8">
+                        {/* PLANO — Radio Buttons (só 1 ativo) */}
+                        <div className="mb-6">
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2"><CreditCard className="w-3 h-3" /> Plano de Acesso</p>
+                            <div className="grid grid-cols-2 gap-2">
+                                {[
+                                    { id: 'isPremium',  label: 'Premium',  desc: 'Acesso completo',      color: 'emerald', ring: 'ring-emerald-500' },
+                                    { id: 'isLifetime', label: 'Vitalício', desc: 'Permanente ilimitado', color: 'blue',    ring: 'ring-blue-500' },
+                                    { id: 'isStandard', label: 'Standard', desc: 'Versão intermediária', color: 'amber',   ring: 'ring-amber-500' },
+                                    { id: 'isFree',     label: 'Gratuito', desc: 'Versão básica',        color: 'rose',    ring: 'ring-rose-400' },
+                                ].map(plan => {
+                                    const active = pendingUser[plan.id];
+                                    return (
+                                        <button
+                                            key={plan.id}
+                                            type="button"
+                                            disabled={isSaving}
+                                            onClick={() => handlePlanSelect(plan.id)}
+                                            className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                                                active
+                                                    ? `border-${plan.color}-500 bg-${plan.color}-500/10`
+                                                    : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className={`text-xs font-black ${active ? `text-${plan.color}-400` : 'text-white'}`}>{plan.label}</span>
+                                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                                                    active ? `bg-${plan.color}-500 border-${plan.color}-500` : 'border-white/20'
+                                                }`}>
+                                                    {active && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                </div>
+                                            </div>
+                                            <p className="text-[9px] text-slate-500 font-medium">{plan.desc}</p>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* TOGGLES INDEPENDENTES */}
+                        <div className="space-y-2 mb-6">
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2"><Shield className="w-3 h-3" /> Permissões Especiais</p>
                             {[
-                                { id: 'isAdmin', label: 'Administrador do Sistema', desc: 'Acesso total ao Painel Admin', color: 'bg-purple-500' },
-                                { id: 'isPremium', label: 'Plano Premium', desc: 'Acesso completo às ferramentas', color: 'bg-emerald-500' },
-                                { id: 'isLifetime', label: 'Plano Vitalício', desc: 'Acesso permanente ilimitado', color: 'bg-blue-500' },
-                                { id: 'isStandard', label: 'Plano Standard', desc: 'Versão intermediária', color: 'bg-slate-500' },
-                                { id: 'isFree', label: 'Plano Gratuito', desc: 'Versão básica inicial', color: 'bg-rose-400' },
-                                { id: 'isBlocked', label: 'Bloquear Usuário', desc: 'Suspender acesso imediatamente', color: 'bg-rose-600' }
+                                { id: 'isAdmin',   label: 'Administrador', desc: 'Acesso ao Painel Admin', activeClass: 'border-purple-500 bg-purple-500/10', iconClass: 'bg-purple-500' },
+                                { id: 'isBlocked', label: 'Bloquear Usuário', desc: 'Suspende acesso imediatamente', activeClass: 'border-rose-600 bg-rose-600/10', iconClass: 'bg-rose-600' },
                             ].map(flag => (
-                                <button 
+                                <button
                                     key={flag.id}
+                                    type="button"
                                     disabled={isSaving}
-                                    onClick={() => handleFlagToggle(flag.id)}
-                                    className={`w-full p-5 rounded-2xl border transition-all flex items-center gap-4 text-left relative overflow-hidden group ${pendingUser[flag.id] ? 'bg-white/5 border-[#5CCEEA]/50' : 'bg-transparent border-white/5 hover:border-white/10'}`}
+                                    onClick={() => handleToggle(flag.id)}
+                                    className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 text-left ${
+                                        pendingUser[flag.id] ? flag.activeClass : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                                    }`}
                                 >
-                                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${pendingUser[flag.id] ? `${flag.color} border-transparent` : 'border-white/20'}`}>
-                                        {pendingUser[flag.id] && <Check className="w-4 h-4 text-white" />}
+                                    <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                                        pendingUser[flag.id] ? `${flag.iconClass} border-transparent` : 'border-white/20'
+                                    }`}>
+                                        {pendingUser[flag.id] && <Check className="w-3 h-3 text-white" />}
                                     </div>
-                                    <div className="flex-1">
+                                    <div>
                                         <p className="text-xs font-black text-white">{flag.label}</p>
-                                        <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">{flag.desc}</p>
+                                        <p className="text-[9px] text-slate-500 font-medium">{flag.desc}</p>
                                     </div>
                                 </button>
                             ))}
                         </div>
 
                         <div className="flex flex-col gap-3">
-                            <button 
+                            <button
                                 onClick={saveUserChanges}
                                 disabled={isSaving}
                                 className="w-full py-5 bg-gradient-to-r from-[#5CCEEA] to-[#69C8B9] text-slate-950 text-xs font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-[#5CCEEA]/10 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
                             >
-                                <Save className="w-4 h-4" /> Salvar Alterações
+                                <Save className="w-4 h-4" /> {isSaving ? 'Salvando...' : 'Salvar Alterações'}
                             </button>
                             <div className="grid grid-cols-2 gap-3">
-                                <button 
+                                <button
                                     onClick={() => adminDeleteUser(editingUser)}
                                     className="py-4 rounded-2xl bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all"
                                 >
                                     Excluir Conta
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => { setEditingUser(null); setPendingUser(null); }}
                                     className="py-4 rounded-2xl bg-white/5 text-slate-300 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
                                 >
