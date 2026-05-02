@@ -133,17 +133,26 @@ export const simulatePurchase = (amount, installments, healthData) => {
 };
 
 export const calculateCumulativeBalance = (transactions, targetMonth) => {
+    if (!transactions || transactions.length === 0) return 0;
+
     const getRobustMonth = (t) => {
         if (t.month) return t.month;
-        if (!t.date) return "";
-        return t.date.slice(0, 7);
+        if (t.date && typeof t.date === 'string') return t.date.slice(0, 7);
+        return "";
     };
 
-    const allPrev = [...(transactions || [])]
-        .filter(t => getRobustMonth(t) <= targetMonth)
+    // Filtra todas as transações até o mês alvo (inclusive)
+    const allPrev = [...transactions]
+        .filter(t => {
+            const m = getRobustMonth(t);
+            return m !== "" && m <= targetMonth;
+        })
         .sort((a, b) => {
-            const dateDiff = new Date(a.date) - new Date(b.date);
-            if (dateDiff !== 0) return dateDiff;
+            // Ordenação por data e depois por categoria de reset
+            const dateA = new Date(a.date).getTime() || 0;
+            const dateB = new Date(b.date).getTime() || 0;
+            if (dateA !== dateB) return dateA - dateB;
+            
             const aIsReset = a.category === 'initial_balance' || a.category === 'carryover';
             const bIsReset = b.category === 'initial_balance' || b.category === 'carryover';
             if (aIsReset && !bIsReset) return -1;
@@ -153,6 +162,7 @@ export const calculateCumulativeBalance = (transactions, targetMonth) => {
 
     if (allPrev.length === 0) return 0;
 
+    // Encontra o ÚLTIMO ponto de reset (Saldo Inicial ou Carryover)
     let startIndex = 0;
     for (let i = allPrev.length - 1; i >= 0; i--) {
         if (allPrev[i].category === 'initial_balance' || allPrev[i].category === 'carryover') {
@@ -161,9 +171,15 @@ export const calculateCumulativeBalance = (transactions, targetMonth) => {
         }
     }
 
+    // Calcula a partir do reset (ou do início se não houver reset)
     return allPrev.slice(startIndex).reduce((acc, t) => {
         const val = parseFloat(t.amount) || 0;
-        return t.type === 'income' ? acc + val : acc - val;
+        if (t.type === 'income') {
+            return acc + val;
+        } else if (t.type === 'expense') {
+            return acc - val;
+        }
+        return acc;
     }, 0);
 };
 

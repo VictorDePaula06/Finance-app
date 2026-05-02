@@ -291,9 +291,12 @@ function Dashboard() {
 
   // GLOBAL WALLET STATS
   const walletStats = useMemo(() => {
-    console.log("[Dev] Dashboard carregado v1.0.2 - Labels de Reserva");
-    const currentMonthKey = new Date().toLocaleDateString('en-CA').slice(0, 7);
-    const filtered = transactions.filter(t => (t.date?.slice(0, 7) || t.month) === currentMonthKey);
+    // Usar ISO string para garantir compatibilidade entre navegadores (YYYY-MM-DD)
+    const currentMonthKey = new Date().toISOString().slice(0, 7);
+    const filtered = transactions.filter(t => {
+        const txMonth = t.month || (t.date ? t.date.slice(0, 7) : '');
+        return txMonth === currentMonthKey;
+    });
     
     const income = filtered
         .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
@@ -303,6 +306,7 @@ function Dashboard() {
         .filter(t => t.type === 'expense' && t.category !== 'investment')
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
+    // O Saldo Acumulado deve considerar o histórico total do usuário
     const balance = calculateCumulativeBalance(transactions, currentMonthKey);
     
     return { income, expense, balance };
