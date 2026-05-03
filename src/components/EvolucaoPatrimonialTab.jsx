@@ -13,14 +13,14 @@ import { TrendingUp, TrendingDown, RefreshCw, Info, BarChart3, Calendar } from '
 const fmt2 = (v) => v?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '–';
 const fmtPct = (v) => (v >= 0 ? '+' : '') + v?.toFixed(2) + '%';
 
-// Simulate CDI daily compounding for a given period
-function buildCDILine(cdiAnual, days, baseValue = 100) {
+// Simulate CDI daily compounding — returns % accumulated return starting at 0
+function buildCDILine(cdiAnual, days) {
     const dailyRate = Math.pow(1 + cdiAnual / 100, 1 / 252) - 1;
     const points = [];
-    let val = baseValue;
+    let cumulative = 1;
     for (let i = 0; i <= days; i++) {
-        points.push(parseFloat(val.toFixed(4)));
-        val *= (1 + dailyRate);
+        points.push(parseFloat(((cumulative - 1) * 100).toFixed(4)));
+        cumulative *= (1 + dailyRate);
     }
     return points;
 }
@@ -130,7 +130,7 @@ export default function EvolucaoPatrimonialTab({ investments = [], jarsTotal = 0
     // ── Build chart data ───────────────────────────────────────────────────────
     const chartData = useMemo(() => {
         const numPoints = benchmarkData.ibov?.length || benchmarkData.sp500?.length || Math.ceil(days / 7) + 1;
-        const cdiPoints = buildCDILine(cdiAnual, numPoints - 1, 0);
+        const cdiPoints = buildCDILine(cdiAnual, numPoints - 1);
 
         return Array.from({ length: numPoints }, (_, i) => {
             const entry = { idx: i };
