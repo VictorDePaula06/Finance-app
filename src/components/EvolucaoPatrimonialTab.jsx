@@ -164,13 +164,22 @@ export default function EvolucaoPatrimonialTab({ investments = [], jarsTotal = 0
     // ── Final returns for each benchmark ──────────────────────────────────────
     const finalReturns = useMemo(() => {
         const last = chartData[chartData.length - 1] ?? {};
+        // ibov/sp500 arrays may have different lengths from each other.
+        // Use the last non-null value so the top cards always show a number.
+        const lastOf = (key) => {
+            for (let i = chartData.length - 1; i >= 0; i--) {
+                if (chartData[i][key] != null) return chartData[i][key];
+            }
+            return null;
+        };
         return {
             portfolio: portfolioReturn,
-            cdi:       last.cdi   ?? 0,
-            ibov:      last.ibov  ?? null,
-            sp500:     last.sp500 ?? null,
+            cdi:       last.cdi ?? 0,
+            ibov:      lastOf('ibov'),
+            sp500:     lastOf('sp500'),
         };
     }, [chartData, portfolioReturn]);
+
 
     const toggleBenchmark = (id) => {
         setActiveBenchmarks(prev =>
