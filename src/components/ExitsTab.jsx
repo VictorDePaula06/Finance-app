@@ -11,10 +11,15 @@ import {
     TrendingUp,
     Circle,
     ChevronRight,
+    ChevronLeft,
     ChevronDown,
     Clock,
     Trash2,
-    Pencil
+    Pencil,
+    Filter,
+    Shield,
+    Sparkles,
+    Flame
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -52,6 +57,38 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const [isInstallmentSuccess, setIsInstallmentSuccess] = useState(false);
     const [transactionToDelete, setTransactionToDelete] = useState(null);
 
+    // Month Navigation
+    const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
+    // Category Filter
+    const [selectedCategory, setSelectedCategory] = useState(null);
+    // Priority
+    const [priority, setPriority] = useState('comfort');
+
+    const PRIORITY_OPTIONS = [
+        { id: 'essential', label: 'Essencial', icon: Shield, color: 'emerald', description: 'Necessidade básica' },
+        { id: 'comfort', label: 'Conforto', icon: Sparkles, color: 'amber', description: 'Qualidade de vida' },
+        { id: 'superfluous', label: 'Supérfluo', icon: Flame, color: 'rose', description: 'Dispensável' }
+    ];
+
+    const handlePrevMonth = () => {
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const prev = new Date(year, month - 2, 1);
+        setSelectedMonth(prev.toISOString().slice(0, 7));
+        setSelectedCategory(null);
+    };
+
+    const handleNextMonth = () => {
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const next = new Date(year, month, 1);
+        setSelectedMonth(next.toISOString().slice(0, 7));
+        setSelectedCategory(null);
+    };
+
+    const monthLabel = useMemo(() => {
+        const [year, month] = selectedMonth.split('-').map(Number);
+        return new Date(year, month - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    }, [selectedMonth]);
+
     // Filtered Transactions (Only Expenses/Exits)
     const exits = useMemo(() => {
         return transactions
@@ -66,17 +103,44 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     // Calcular saldo total para o aviso
     const availableBalance = useMemo(() => {
         const income = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-        const expense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+        const expense = transactions
+            .filter(t => t.type === 'expense' && !(t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid'))
+            .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
         return income - expense;
     }, [transactions]);
 
+    // Filter by selected month
+    const monthExits = useMemo(() => {
+        return exits.filter(t => {
+            const txMonth = t.month || (t.date ? t.date.slice(0, 7) : '');
+            return txMonth === selectedMonth;
+        });
+    }, [exits, selectedMonth]);
+
     const regularExpenses = useMemo(() => {
-        return exits.filter(t => t.category !== 'investment');
-    }, [exits]);
+        let filtered = monthExits.filter(t => t.category !== 'investment');
+        if (selectedCategory) {
+            filtered = filtered.filter(t => t.category === selectedCategory);
+        }
+        return filtered;
+    }, [monthExits, selectedCategory]);
 
     const investmentExits = useMemo(() => {
-        return exits.filter(t => t.category === 'investment');
-    }, [exits]);
+        return monthExits.filter(t => t.category === 'investment');
+    }, [monthExits]);
+
+    // Available categories for filter chips
+    const availableCategories = useMemo(() => {
+        const cats = {};
+        monthExits.filter(t => t.category !== 'investment').forEach(t => {
+            const cat = t.category || 'other';
+            cats[cat] = (cats[cat] || 0) + 1;
+        });
+        return Object.entries(cats).map(([id, count]) => {
+            const catDef = CATEGORIES.expense.find(c => c.id === id) || { label: 'Outro', icon: Circle, color: 'text-slate-400' };
+            return { id, count, ...catDef };
+        }).sort((a, b) => b.count - a.count);
+    }, [monthExits]);
 
     const resetForm = () => {
         setDescription('');
@@ -97,6 +161,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         setIsRecurring(false);
         setPaymentMethod('pix');
         setInstallmentMode('total');
+        setPriority('comfort');
     };
 
     const handleSaveGasto = async (e) => {
@@ -110,12 +175,18 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 ? (val / parseInt(installments)) 
                 : val;
 
+            let transactionDate = new Date();
+            if (date && date.includes('-')) {
+                const [y, m, d] = date.split('-').map(Number);
+                transactionDate = new Date(y, m - 1, d, 12, 0, 0);
+            }
+
             const transactionData = {
                 description,
                 amount: transactionValue,
                 type: 'expense',
                 category,
-                date: new Date(date).toISOString(),
+                date: transactionDate.toISOString(),
                 userId: currentUser.uid,
                 month: date.slice(0, 7),
                 createdAt: Date.now(),
@@ -125,6 +196,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 invoiceStatus: paymentMethod === 'credito' ? 'unpaid' : null,
                 isInstallment,
                 totalInstallments: isInstallment ? parseInt(installments) : null,
+                priority,
                 installmentMode
             };
 
@@ -186,6 +258,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         setPaymentMethod(t.paymentMethod || 'pix');
         setSelectedCardId(t.selectedCardId || '');
         setInstallmentMode(t.installmentMode || 'total');
+        setPriority(t.priority || CATEGORIES.expense.find(c => c.id === t.category)?.defaultPriority || 'comfort');
         
         if (t.category === 'investment') {
             setStep('investment');
@@ -429,6 +502,27 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 </button>
             </div>
 
+            {/* Month Selector */}
+            <div className="flex items-center justify-center">
+                <div className={`flex items-center gap-2 p-1.5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                    <button 
+                        onClick={handlePrevMonth}
+                        className={`p-2 rounded-xl transition-all ${theme === 'light' ? 'hover:bg-slate-50 text-slate-400' : 'hover:bg-white/5 text-slate-500'}`}
+                    >
+                        <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <span className={`px-4 text-xs font-black uppercase tracking-widest min-w-[160px] text-center ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
+                        {monthLabel}
+                    </span>
+                    <button 
+                        onClick={handleNextMonth}
+                        className={`p-2 rounded-xl transition-all ${theme === 'light' ? 'hover:bg-slate-50 text-slate-400' : 'hover:bg-white/5 text-slate-500'}`}
+                    >
+                        <ChevronRight className="w-5 h-5" />
+                    </button>
+                </div>
+            </div>
+
             {/* Transactions List */}
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                 {subTab === 'despesas' ? (
@@ -436,31 +530,64 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm ${
                         theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'
                     }`}>
-                        <div className="flex items-center gap-2 mb-6 text-rose-500 uppercase tracking-widest text-[10px] font-black">
+                        <div className="flex items-center gap-2 mb-4 text-rose-500 uppercase tracking-widest text-[10px] font-black">
                             <TrendingDown className="w-3 h-3" />
                             Lista de Despesas e Consumo
                         </div>
 
+                        {/* Category Filter Chips */}
+                        {availableCategories.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-6">
+                                <button
+                                    onClick={() => setSelectedCategory(null)}
+                                    className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                                        !selectedCategory 
+                                        ? (theme === 'light' ? 'bg-rose-500 text-white shadow-sm' : 'bg-rose-500 text-white shadow-xl')
+                                        : (theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10')
+                                    }`}
+                                >
+                                    Todas
+                                </button>
+                                {availableCategories.map(cat => {
+                                    const CatIcon = cat.icon;
+                                    return (
+                                        <button
+                                            key={cat.id}
+                                            onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
+                                            className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${
+                                                selectedCategory === cat.id
+                                                ? (theme === 'light' ? 'bg-rose-500 text-white shadow-sm' : 'bg-rose-500 text-white shadow-xl')
+                                                : (theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10')
+                                            }`}
+                                        >
+                                            <CatIcon className="w-3 h-3" />
+                                            {cat.label} ({cat.count})
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+
                         <div className="space-y-3">
                             {regularExpenses.length === 0 ? (
                                 <div className="text-center py-12">
-                                    <p className="text-sm font-bold text-slate-400">Nenhum gasto registrado.</p>
+                                    <p className="text-sm font-bold text-slate-400">{selectedCategory ? 'Nenhum gasto nesta categoria.' : 'Nenhum gasto registrado neste mês.'}</p>
                                 </div>
                             ) : (
-                                regularExpenses.slice(0, 15).map(t => {
+                                regularExpenses.map(t => {
                                     const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
                                     const Icon = cat.icon;
                                     return (
-                                        <div key={t.id} className={`flex items-center justify-between p-5 md:p-6 rounded-[2rem] border transition-all hover:-translate-y-1 hover:shadow-xl ${
+                                        <div key={t.id} className={`flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-0 p-5 md:p-6 rounded-[2rem] border transition-all hover:-translate-y-1 hover:shadow-xl ${
                                             theme === 'light' ? 'bg-slate-50/50 border-slate-100 hover:bg-white' : 'bg-white/5 border-white/5 hover:bg-white/10'
                                         }`}>
-                                            <div className="flex items-center gap-5">
+                                            <div className="flex items-center gap-5 flex-1 min-w-0">
                                                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner shrink-0 ${
                                                     theme === 'light' ? 'bg-white' : 'bg-slate-900'
                                                 }`}>
                                                     <Icon className={`w-7 h-7 ${cat.color}`} />
                                                 </div>
-                                                <div className="min-w-0">
+                                                <div className="min-w-0 flex-1">
                                                     <h4 className={`font-black text-base md:text-lg truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{t.description}</h4>
                                                     <div className="flex flex-wrap items-center gap-2 mt-2">
                                                         <span className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-widest opacity-60">
@@ -481,10 +608,19 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                                 {cards.find(c => c.id === t.selectedCardId)?.name}
                                                             </span>
                                                         )}
+                                                        {t.priority && (
+                                                            <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
+                                                                t.priority === 'essential' ? (theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/20 text-emerald-400')
+                                                                : t.priority === 'superfluous' ? (theme === 'light' ? 'bg-rose-100 text-rose-600' : 'bg-rose-500/20 text-rose-400')
+                                                                : (theme === 'light' ? 'bg-amber-100 text-amber-600' : 'bg-amber-500/20 text-amber-400')
+                                                            }`}>
+                                                                {t.priority === 'essential' ? 'Essencial' : t.priority === 'superfluous' ? 'Supérfluo' : 'Conforto'}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-3">
+                                            <div className="flex items-center justify-end gap-3 shrink-0 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-slate-200 dark:border-white/10">
                                                 <div className="text-right flex flex-col items-end justify-center mr-2">
                                                     <span className={`font-black text-rose-500 text-base md:text-xl whitespace-nowrap ${t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' ? 'opacity-50' : ''}`}>
                                                         - R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -587,7 +723,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             {/* Modal Overlay */}
             {showModal && (
                 <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className={`w-full max-w-lg rounded-[3rem] p-8 md:p-12 border relative overflow-hidden animate-in zoom-in-95 duration-300 ${
+                    <div className={`w-full max-w-lg max-h-[90vh] overflow-y-auto scrollbar-hide rounded-[3rem] p-8 md:p-12 border relative animate-in zoom-in-95 duration-300 ${
                         theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
                     }`}>
                         {/* Close button */}
@@ -693,7 +829,12 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                     <div>
                                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Categoria</label>
                                         <select 
-                                            value={category} onChange={e => setCategory(e.target.value)}
+                                            value={category} onChange={e => {
+                                                const newCat = e.target.value;
+                                                setCategory(newCat);
+                                                const catDef = CATEGORIES.expense.find(c => c.id === newCat);
+                                                if (catDef?.defaultPriority) setPriority(catDef.defaultPriority);
+                                            }}
                                             className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all appearance-none ${
                                                 theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
                                             }`}
@@ -702,6 +843,44 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                 <option key={cat.id} value={cat.id}>{cat.label}</option>
                                             ))}
                                         </select>
+                                    </div>
+
+                                    {/* Priority Selector */}
+                                    <div>
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Prioridade do Gasto</label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {PRIORITY_OPTIONS.map(opt => {
+                                                const PIcon = opt.icon;
+                                                const isSelected = priority === opt.id;
+                                                return (
+                                                    <button
+                                                        key={opt.id}
+                                                        type="button"
+                                                        onClick={() => setPriority(priority === opt.id ? '' : opt.id)}
+                                                        className={`p-3 rounded-2xl border-2 text-center transition-all ${
+                                                            isSelected
+                                                            ? (opt.color === 'emerald' 
+                                                                ? (theme === 'light' ? 'bg-emerald-50 border-emerald-400 shadow-sm' : 'bg-emerald-500/10 border-emerald-500/40')
+                                                                : opt.color === 'rose'
+                                                                ? (theme === 'light' ? 'bg-rose-50 border-rose-400 shadow-sm' : 'bg-rose-500/10 border-rose-500/40')
+                                                                : (theme === 'light' ? 'bg-amber-50 border-amber-400 shadow-sm' : 'bg-amber-500/10 border-amber-500/40'))
+                                                            : (theme === 'light' ? 'bg-slate-50 border-slate-100 hover:border-slate-200' : 'bg-white/5 border-white/5 hover:border-white/10')
+                                                        }`}
+                                                    >
+                                                        <PIcon className={`w-4 h-4 mx-auto mb-1 ${
+                                                            isSelected 
+                                                            ? (opt.color === 'emerald' ? 'text-emerald-500' : opt.color === 'rose' ? 'text-rose-500' : 'text-amber-500')
+                                                            : 'text-slate-400'
+                                                        }`} />
+                                                        <span className={`text-[9px] font-black uppercase tracking-widest block ${
+                                                            isSelected 
+                                                            ? (opt.color === 'emerald' ? 'text-emerald-600' : opt.color === 'rose' ? 'text-rose-600' : 'text-amber-600')
+                                                            : (theme === 'light' ? 'text-slate-500' : 'text-slate-400')
+                                                        }`}>{opt.label}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
 
                                     {/* Flags: Parcelada e Recorrente */}

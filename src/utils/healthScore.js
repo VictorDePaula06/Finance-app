@@ -37,8 +37,18 @@ export const calculateHealthScore = (transactions, manualConfig) => {
 
     // 2. Budget Allocation (30 points)
     // 50/30/20 Rule: 50% Necessities, 30% Desires, 20% Savings
-    const necessities = monthTx.filter(t => t.type === 'expense' && NECESSITY_CATEGORIES.includes(t.category)).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    const desires = monthTx.filter(t => t.type === 'expense' && DESIRE_CATEGORIES.includes(t.category)).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    // Uses manual priority when available, falls back to category-based classification
+    const classifyExpense = (t) => {
+        if (t.priority === 'essential') return 'necessity';
+        if (t.priority === 'superfluous') return 'desire';
+        if (t.priority === 'comfort') return 'desire';
+        // Fallback: classify by category (for older transactions without priority)
+        if (SAVINGS_CATEGORIES.includes(t.category)) return 'savings';
+        if (NECESSITY_CATEGORIES.includes(t.category)) return 'necessity';
+        return 'desire';
+    };
+    const necessities = monthTx.filter(t => t.type === 'expense' && classifyExpense(t) === 'necessity').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    const desires = monthTx.filter(t => t.type === 'expense' && classifyExpense(t) === 'desire').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
     let allocationScore = 0;
     if (income > 0) {

@@ -36,7 +36,7 @@ const CATEGORY_LABELS = {
     other: 'Outro'
 };
 
-export default function ExpensesChart({ transactions, targetMonth }) {
+export default function ExpensesChart({ transactions, targetMonth, mode = 'gastos', selectedCard = 'all', subscriptions = [] }) {
     const { theme } = useTheme();
     const getRobustMonth = (t) => {
         if (t.month) return t.month;
@@ -57,12 +57,28 @@ export default function ExpensesChart({ transactions, targetMonth }) {
         // It receives transactions. We should probably filter THEM by month if we want to be consistent with the 0 balance fix.
 
         const monthToFilter = targetMonth || new Date().toISOString().slice(0, 7);
-        const expenses = transactions.filter(t =>
-            t.type === 'expense' &&
-            t.category !== 'investment' &&
-            t.category !== 'vault' &&
-            (t.date?.slice(0, 7) === monthToFilter || t.month === monthToFilter)
-        );
+        let expenses;
+        let subsToInclude = [];
+        if (mode === 'cartoes') {
+            expenses = transactions.filter(t =>
+                t.type === 'expense' &&
+                t.paymentMethod === 'credito' &&
+                t.invoiceStatus === 'unpaid' &&
+                (t.date?.slice(0, 7) === monthToFilter || t.month === monthToFilter) &&
+                (selectedCard === 'all' || t.selectedCardId === selectedCard)
+            );
+            subsToInclude = subscriptions.filter(s => 
+                s.cardId && (selectedCard === 'all' || s.cardId === selectedCard)
+            );
+        } else {
+            expenses = transactions.filter(t =>
+                t.type === 'expense' &&
+                t.category !== 'investment' &&
+                t.category !== 'vault' &&
+                !(t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid') &&
+                (t.date?.slice(0, 7) === monthToFilter || t.month === monthToFilter)
+            );
+        }
         const grouped = expenses.reduce((acc, curr) => {
             const cat = curr.category || 'other';
             if (!acc[cat]) {
@@ -71,6 +87,10 @@ export default function ExpensesChart({ transactions, targetMonth }) {
             acc[cat] += (parseFloat(curr.amount) || 0);
             return acc;
         }, {});
+
+        subsToInclude.forEach(sub => {
+            grouped['subscriptions'] = (grouped['subscriptions'] || 0) + (parseFloat(sub.value) || 0);
+        });
 
         const totalExpense = Object.values(grouped).reduce((a, b) => a + (parseFloat(b) || 0), 0);
         let processedData = Object.keys(grouped).map(key => ({
@@ -104,7 +124,7 @@ export default function ExpensesChart({ transactions, targetMonth }) {
         }
 
         return processedData;
-    }, [transactions, targetMonth]);
+    }, [transactions, targetMonth, mode, selectedCard, subscriptions]);
 
     if (data.length === 0) {
         return (
@@ -118,7 +138,7 @@ export default function ExpensesChart({ transactions, targetMonth }) {
 
     return (
         <div key="chart-container" className="p-2 flex flex-col min-h-[440px]">
-            <h3 key="chart-title" className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 px-2">Despesas por Categoria</h3>
+            <h3 key="chart-title" className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 px-2">{mode === 'cartoes' ? 'Fatura por Categoria' : 'Despesas por Categoria'}</h3>
             <div key="chart-wrapper" className="h-72 w-full relative min-w-[300px]">
                 <ResponsiveContainer key="chart-resp" width="99%" height="100%">
                     <PieChart key="pie-root">
@@ -164,7 +184,7 @@ export default function ExpensesChart({ transactions, targetMonth }) {
                 ? 'bg-verde-respira/5 border-verde-respira/10 hover:bg-verde-respira/10' 
                 : 'bg-white/5 border-white/10 hover:bg-white/10'
             }`}>
-                <span key="total-label" className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Gasto Total no Período</span>
+                <span key="total-label" className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">{mode === 'cartoes' ? 'Total na Fatura' : 'Gasto Total no Período'}</span>
                 <span key="total-value" className={`text-4xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>
                     {`R$ ${totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 </span>

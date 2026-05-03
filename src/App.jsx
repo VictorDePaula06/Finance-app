@@ -651,7 +651,7 @@ function Dashboard() {
           { activeTab === 'investimentos' && <InvestmentsTab /> }
 
           {activeTab === 'analise' && (
-            <AnalysisTab transactions={transactions} />
+            <AnalysisTab transactions={transactions} cards={cards} subscriptions={subscriptions} />
           )}
 
           {activeTab === 'entradas' && (
