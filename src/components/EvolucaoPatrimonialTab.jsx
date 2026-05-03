@@ -76,94 +76,29 @@ export default function EvolucaoPatrimonialTab({ investments = [], jarsTotal = 0
 
     const days = PERIODS.find(p => p.id === period)?.days ?? 90;
 
-    // ── Fetch CDI from BCB (with corsproxy fallback for CORS in production) ──────
-    useEffect(() => {
-        const bcbUrl = 'https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json';
-        const urls = [
-            bcbUrl,
-            `https://corsproxy.io/?${encodeURIComponent(bcbUrl)}`,
-            `https://api.allorigins.win/get?url=${encodeURIComponent(bcbUrl)}`,
-        ];
-        (async () => {
-            for (const url of urls) {
-                try {
-                    const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
-                    if (!r.ok) continue;
-                    let json = await r.json();
-                    // allorigins wraps in { contents: '...' }
-                    if (json.contents) json = JSON.parse(json.contents);
-                    const val = parseFloat(json[0]?.valor);
-                    if (!isNaN(val) && val > 0) { setCdiAnual(val * 252); return; }
-                } catch { continue; }
-            }
-        })();
-    }, []);
-
-    // ── Fetch Benchmark Historical Data ────────────────────────────────────────
+    // ── Fetch all benchmark data from serverless endpoint (no CORS) ────────────
     const fetchBenchmarks = useCallback(async () => {
         setIsLoading(true);
         setError(null);
-        const isLocalhost = window.location.hostname === 'localhost';
 
         const range = period === '1m' ? '1mo' : period === '3m' ? '3mo' : period === '6m' ? '6mo' : '1y';
-        const results = {};
 
-        const fetchTicker = async (yahoo) => {
-            // Multiple proxy options for resilience
-            const proxyUrls = (baseUrl) => [
-                `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`,
-                `https://api.allorigins.win/get?url=${encodeURIComponent(baseUrl)}`,
-            ];
+        try {
+            const r = await fetch(`/api/benchmarks?range=${range}`, {
+                signal: AbortSignal.timeout(20000),
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
 
-            const yahooUrls = [
-                `https://query1.finance.yahoo.com/v8/finance/chart/${yahoo}?interval=1wk&range=${range}`,
-                `https://query2.finance.yahoo.com/v8/finance/chart/${yahoo}?interval=1wk&range=${range}`,
-            ];
-
-            for (const baseUrl of yahooUrls) {
-                for (const proxyUrl of proxyUrls(baseUrl)) {
-                    try {
-                        const r = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
-                        if (!r.ok) continue;
-                        let json = await r.json();
-                        // allorigins wraps response in { contents: '...' }
-                        if (json.contents) json = JSON.parse(json.contents);
-
-                        const result = json?.chart?.result?.[0];
-                        if (!result?.indicators?.quote?.[0]?.close) continue;
-
-                        const closes = result.indicators.quote[0].close;
-                        const timestamps = result.timestamp;
-                        if (!closes?.length) continue;
-
-                        // Convert to % return from first data point
-                        const base = closes.find(c => c != null);
-                        if (!base) continue;
-
-                        return closes.map((c, i) => ({
-                            date: new Date(timestamps[i] * 1000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-                            value: c != null ? parseFloat(((c / base - 1) * 100).toFixed(3)) : null,
-                        })).filter(p => p.value !== null);
-                    } catch { continue; }
-                }
-            }
-            return null;
-        };
-
-        // SPY (S&P 500 ETF) is used instead of ^GSPC because index tickers
-        // with ^ are frequently blocked by CORS proxies and Yahoo Finance rate limits.
-        // SPY has virtually identical performance to S&P 500 and works reliably.
-        const [ibovResult, sp500Result] = await Promise.allSettled([
-            fetchTicker('^BVSP'),
-            fetchTicker('SPY'),
-        ]);
-
-        results.ibov  = ibovResult.status  === 'fulfilled' ? ibovResult.value  : null;
-        results.sp500 = sp500Result.status === 'fulfilled' ? sp500Result.value : null;
-
-        setBenchmarkData(results);
-        setLastUpdated(new Date());
-        setIsLoading(false);
+            if (data.cdiAnual && data.cdiAnual > 0) setCdiAnual(data.cdiAnual);
+            setBenchmarkData({ ibov: data.ibov ?? null, sp500: data.sp500 ?? null });
+            setLastUpdated(new Date());
+        } catch (err) {
+            setError('Não foi possível buscar dados de mercado.');
+            console.warn('[EvolucaoPatrimonial] fetchBenchmarks error:', err);
+        } finally {
+            setIsLoading(false);
+        }
     }, [period]);
 
     useEffect(() => { fetchBenchmarks(); }, [fetchBenchmarks]);
