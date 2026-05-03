@@ -13,14 +13,19 @@ import { TrendingUp, TrendingDown, RefreshCw, Info, BarChart3, Calendar } from '
 const fmt2 = (v) => v?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '–';
 const fmtPct = (v) => (v >= 0 ? '+' : '') + v?.toFixed(2) + '%';
 
-// Simulate CDI daily compounding — returns % accumulated return starting at 0
-function buildCDILine(cdiAnual, days) {
+// Simulate CDI daily compounding.
+// totalTradingDays = real trading days in the period (e.g. 252 for 1 year).
+// numPoints        = number of chart data points (weekly Yahoo data = ~52 for 1y).
+// Each chart point i is mapped to its proportional trading day so the
+// accumulation is always correct regardless of Yahoo's data interval.
+function buildCDILine(cdiAnual, totalTradingDays, numPoints) {
     const dailyRate = Math.pow(1 + cdiAnual / 100, 1 / 252) - 1;
     const points = [];
-    let cumulative = 1;
-    for (let i = 0; i <= days; i++) {
+    for (let i = 0; i < numPoints; i++) {
+        // How many trading days does this point represent?
+        const dayIdx = Math.round((totalTradingDays * i) / Math.max(numPoints - 1, 1));
+        const cumulative = Math.pow(1 + dailyRate, dayIdx);
         points.push(parseFloat(((cumulative - 1) * 100).toFixed(4)));
-        cumulative *= (1 + dailyRate);
     }
     return points;
 }
@@ -130,7 +135,7 @@ export default function EvolucaoPatrimonialTab({ investments = [], jarsTotal = 0
     // ── Build chart data ───────────────────────────────────────────────────────
     const chartData = useMemo(() => {
         const numPoints = benchmarkData.ibov?.length || benchmarkData.sp500?.length || Math.ceil(days / 7) + 1;
-        const cdiPoints = buildCDILine(cdiAnual, numPoints - 1);
+        const cdiPoints = buildCDILine(cdiAnual, days, numPoints);
 
         return Array.from({ length: numPoints }, (_, i) => {
             const entry = { idx: i };
