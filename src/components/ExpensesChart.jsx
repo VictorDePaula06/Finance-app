@@ -75,7 +75,7 @@ export default function ExpensesChart({ transactions, targetMonth, mode = 'gasto
                 t.type === 'expense' &&
                 t.category !== 'investment' &&
                 t.category !== 'vault' &&
-                !(t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid') &&
+                t.category !== 'credit_card_bill' &&
                 (t.date?.slice(0, 7) === monthToFilter || t.month === monthToFilter)
             );
         }

@@ -35,12 +35,12 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
       .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
     const expense = filtered
-      .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && !(t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid'))
+      .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && t.category !== 'credit_card_bill')
       .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
     // Group by category to find top expense
     const byCategory = filtered
-      .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && !(t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid'))
+      .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && t.category !== 'credit_card_bill')
       .reduce((acc, t) => {
         const cat = t.category || 'other';
         acc[cat] = (acc[cat] || 0) + parseFloat(t.amount);
@@ -65,7 +65,7 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
       .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
     const expense = filtered
-      .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && !(t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid'))
+      .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && t.category !== 'credit_card_bill')
       .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
     return { income, expense };

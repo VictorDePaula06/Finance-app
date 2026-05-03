@@ -308,7 +308,7 @@ function Dashboard() {
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
     const expense = filtered
-        .filter(t => t.type === 'expense' && t.category !== 'investment' && !(t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid'))
+        .filter(t => t.type === 'expense' && t.category !== 'investment' && t.paymentMethod !== 'credito')
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
     // O Saldo Acumulado deve considerar o histórico total do usuário
@@ -575,19 +575,50 @@ function Dashboard() {
                     <Clock className="w-4 h-4 text-blue-500" /> Próximos Compromissos
                   </h3>
                   <div className="space-y-4">
-                    {subscriptions.sort((a, b) => a.day - b.day).slice(0, 4).map(sub => (
-                      <div key={sub.id} className={`flex items-center justify-between p-4 rounded-2xl ${theme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-[10px] font-black text-blue-500">
-                            {sub.day}
-                          </div>
-                          <span className={`text-sm font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>{sub.name}</span>
-                        </div>
-                        <span className="text-sm font-black text-emerald-500">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                      </div>
-                    ))}
-                    {subscriptions.length === 0 && (
-                      <p className="text-xs text-slate-500 italic text-center py-4">Nenhuma assinatura para este mês.</p>
+                    {(() => {
+                        const consolidated = [
+                            ...subscriptions.filter(s => !s.cardId).map(s => ({
+                                id: s.id,
+                                name: s.name,
+                                value: parseFloat(s.value) || 0,
+                                day: s.day,
+                                type: 'sub'
+                            })),
+                            ...cards.map(card => {
+                                const cardUnpaidExpenses = transactions.filter(t => 
+                                    t.selectedCardId === card.id && t.invoiceStatus === 'unpaid'
+                                ).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+                                
+                                const cardSubs = subscriptions.filter(s => s.cardId === card.id)
+                                    .reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0);
+                                
+                                const total = cardUnpaidExpenses + cardSubs;
+                                return total > 0 ? {
+                                    id: card.id,
+                                    name: `Fatura ${card.name || card.brand}`,
+                                    value: total,
+                                    day: card.dueDay || 10,
+                                    type: 'card'
+                                } : null;
+                            }).filter(Boolean)
+                        ].sort((a, b) => a.day - b.day).slice(0, 4);
+
+                        return consolidated.map(item => (
+                            <div key={item.id} className={`flex items-center justify-between p-4 rounded-2xl ${theme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
+                              <div className="flex items-center gap-4">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[10px] font-black ${
+                                    item.type === 'card' ? 'bg-violet-500/10 text-violet-500' : 'bg-blue-500/10 text-blue-500'
+                                }`}>
+                                  {item.day}
+                                </div>
+                                <span className={`text-sm font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>{item.name}</span>
+                              </div>
+                              <span className="text-sm font-black text-emerald-500">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                        ));
+                    })()}
+                    {subscriptions.length === 0 && cards.length === 0 && (
+                      <p className="text-xs text-slate-500 italic text-center py-4">Nenhum compromisso para este mês.</p>
                     )}
                   </div>
                 </div>

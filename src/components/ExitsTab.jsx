@@ -92,7 +92,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     // Filtered Transactions (Only Expenses/Exits)
     const exits = useMemo(() => {
         return transactions
-            .filter(t => t.type === 'expense' && !(t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid'))
+            .filter(t => t.type === 'expense' && t.paymentMethod !== 'credito')
             .sort((a, b) => {
                 const dateDiff = new Date(b.date) - new Date(a.date);
                 if (dateDiff !== 0) return dateDiff;
@@ -104,7 +104,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const availableBalance = useMemo(() => {
         const income = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
         const expense = transactions
-            .filter(t => t.type === 'expense' && !(t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid'))
+            .filter(t => t.type === 'expense' && t.paymentMethod !== 'credito')
             .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
         return income - expense;
     }, [transactions]);

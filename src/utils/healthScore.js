@@ -27,7 +27,7 @@ export const calculateHealthScore = (transactions, manualConfig) => {
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
     const expense = monthTx
-        .filter(t => t.type === 'expense')
+        .filter(t => t.type === 'expense' && t.paymentMethod !== 'credito')
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     // Treat investments as "savings" rather than typical expenses for performance purposes
     const savings = monthTx.filter(t => t.type === 'expense' && SAVINGS_CATEGORIES.includes(t.category)).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);

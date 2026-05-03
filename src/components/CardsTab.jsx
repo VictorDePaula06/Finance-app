@@ -142,7 +142,7 @@ const CardsTab = ({ transactions = [] }) => {
   };
 
   const handlePayInvoice = async () => {
-    if (!payingInvoice || payingInvoice.expenses.length === 0) return;
+    if (!payingInvoice || (payingInvoice.expenses.length === 0 && (!payingInvoice.subs || payingInvoice.subs.length === 0))) return;
     
     try {
         // 1. Criar transação de pagamento de fatura na carteira (que vai deduzir o saldo)
@@ -165,6 +165,7 @@ const CardsTab = ({ transactions = [] }) => {
         await Promise.all(updatePromises);
         
         // 3. Atualizar parcelamentos vinculados ao cartão (avançar parcela)
+        // Assinaturas recorrentes NÃO são alteradas - elas sempre aparecem na fatura do cartão
         if (payingInvoice.subs && payingInvoice.subs.length > 0) {
             const cardInstallments = payingInvoice.subs.filter(s => s.type === 'installment');
             const subPromises = cardInstallments.map(sub => {

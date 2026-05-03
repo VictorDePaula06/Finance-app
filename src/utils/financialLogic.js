@@ -173,8 +173,8 @@ export const calculateCumulativeBalance = (transactions, targetMonth) => {
 
     // Calcula a partir do reset (ou do início se não houver reset)
     return allPrev.slice(startIndex).reduce((acc, t) => {
-        // Ignora compras no crédito que ainda compõem faturas em aberto
-        if (t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid') {
+        // Ignora TODAS as compras no crédito - apenas o "Pagamento de Fatura" (pix) afeta o saldo
+        if (t.paymentMethod === 'credito') {
             return acc;
         }
         
