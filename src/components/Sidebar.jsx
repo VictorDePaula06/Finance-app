@@ -15,7 +15,8 @@ import {
   PiggyBank,
   ShieldCheck,
   TrendingDown,
-  ArrowUpCircle
+  ArrowUpCircle,
+  BarChart3
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -39,6 +40,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
     { id: 'reserva', label: 'Reserva Emergência', icon: ShieldCheck, module: 'patrimonio' },
     { id: 'investimentos', label: 'Investimentos', icon: PieChart, module: 'patrimonio' },
     { id: 'metas', label: 'Metas', icon: Target, module: 'patrimonio' },
+    { id: 'evolucao', label: 'Evolução Patrimonial', icon: BarChart3, module: 'patrimonio' },
 
     // Common
     { id: 'ajustes', label: 'Ajustes', icon: Settings, module: 'common' },

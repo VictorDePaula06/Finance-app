@@ -25,6 +25,7 @@ import { CATEGORIES } from './constants/categories';
 import Hub from './components/Hub';
 import Sidebar from './components/Sidebar';
 import PatrimonyWelcome from './components/PatrimonyWelcome';
+import EvolucaoPatrimonialTab from './components/EvolucaoPatrimonialTab';
 import SettingsTab from './components/SettingsTab';
 import AIChat from './components/AIChat';
 import PaceAlerts from './components/PaceAlerts';
@@ -674,6 +675,8 @@ function Dashboard() {
           )}
 
           { activeTab === 'metas' && <GoalTracker />}
+
+          { activeTab === 'evolucao' && <EvolucaoPatrimonialTab /> }
 
           { activeTab === 'cartoes' && <CardsTab transactions={transactions} /> }
           

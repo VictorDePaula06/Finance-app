@@ -6,8 +6,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import EvolucaoPatrimonialTab from './EvolucaoPatrimonialTab';
-
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const fmt = (v) => Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtSigned = (v) => (v < 0 ? '-' : '') + 'R$ ' + fmt(v);
@@ -192,26 +190,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
           <LayoutDashboard className="w-3.5 h-3.5" />
           Visão Geral
         </button>
-        <button
-          onClick={() => setActiveTab('evolucao')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-            activeTab === 'evolucao'
-              ? 'bg-[#5CCEEA] text-slate-950 shadow-md shadow-[#5CCEEA]/20'
-              : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <BarChart3 className="w-3.5 h-3.5" />
-          Evolução Patrimonial
-        </button>
       </div>
-
-      {/* ── EVOLUÇÃO TAB ── */}
-      {activeTab === 'evolucao' && (
-        <EvolucaoPatrimonialTab
-          investments={investments}
-          jarsTotal={jarsTotal}
-        />
-      )}
 
       {/* ── VISÃO GERAL TAB ── */}
       {activeTab === 'visao' && (<>

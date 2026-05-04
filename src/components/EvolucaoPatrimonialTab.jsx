@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     ResponsiveContainer, ReferenceLine
@@ -66,10 +66,13 @@ function CustomTooltip({ active, payload, label, isDark }) {
     );
 }
 
-export default function EvolucaoPatrimonialTab({ investments = [], jarsTotal = 0 }) {
+export default function EvolucaoPatrimonialTab() {
     const { theme } = useTheme();
     const { currentUser } = useAuth();
     const isDark = theme !== 'light';
+
+    const [investments, setInvestments] = useState([]);
+    const [jars, setJars] = useState([]);
 
     const [period, setPeriod] = useState('3m');
     const [activeBenchmarks, setActiveBenchmarks] = useState(['cdi', 'ibov', 'sp500']);
@@ -108,10 +111,21 @@ export default function EvolucaoPatrimonialTab({ investments = [], jarsTotal = 0
 
     useEffect(() => { fetchBenchmarks(); }, [fetchBenchmarks]);
 
-    // ── Portfolio Performance (from investment records) ────────────────────────
+    useEffect(() => {
+        if (!currentUser) return;
+        const unsubInv = onSnapshot(query(collection(db, 'investments'), where('userId', '==', currentUser.uid)), (snap) => {
+            setInvestments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+        const unsubJars = onSnapshot(query(collection(db, 'savings_jars'), where('userId', '==', currentUser.uid)), (snap) => {
+            setJars(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+        return () => { unsubInv(); unsubJars(); };
+    }, [currentUser]);
+
+    // ── Portfolio Performance (from investment records + savings jars) ───────────
     const portfolioReturn = useMemo(() => {
-        if (!investments.length) return 0;
         let totalInvested = 0, totalCurrent = 0;
+        
         investments.forEach(a => {
             if (a.type === 'renda_fixa') {
                 const applied = a.totalApplied || a.purchasePrice || 0;
@@ -129,8 +143,21 @@ export default function EvolucaoPatrimonialTab({ investments = [], jarsTotal = 0
                 totalCurrent  += val;
             }
         });
+
+        const cdiRate = cdiAnual / 100;
+        jars.forEach(curr => {
+            const percent = (parseFloat(curr.cdiPercent) || 100) / 100;
+            const dailyRate = Math.pow(1 + (cdiRate * percent), 1 / 365) - 1;
+            const lastUpdate = curr.updatedAt ? new Date(curr.updatedAt) : (curr.createdAt ? new Date(curr.createdAt) : new Date());
+            const diffDays = Math.max(0, new Date() - lastUpdate) / (1000 * 60 * 60 * 24);
+            const dynamicBalance = (parseFloat(curr.balance) || 0) * Math.pow(1 + dailyRate, diffDays);
+
+            totalInvested += parseFloat(curr.balance) || 0;
+            totalCurrent += dynamicBalance;
+        });
+
         return totalInvested > 0 ? ((totalCurrent - totalInvested) / totalInvested) * 100 : 0;
-    }, [investments]);
+    }, [investments, jars, cdiAnual]);
 
     // ── Build chart data ───────────────────────────────────────────────────────
     const chartData = useMemo(() => {
