@@ -122,42 +122,57 @@ export default function EvolucaoPatrimonialTab() {
         return () => { unsubInv(); unsubJars(); };
     }, [currentUser]);
 
-    // ── Portfolio Performance (from investment records + savings jars) ───────────
-    const portfolioReturn = useMemo(() => {
-        let totalInvested = 0, totalCurrent = 0;
-        
-        investments.forEach(a => {
-            if (a.type === 'renda_fixa') {
-                const applied = a.totalApplied || a.purchasePrice || 0;
-                const current = a.manualCurrentPrice || applied;
-                const pRate = parseFloat(a.purchaseRate || a.fixedRate || 0);
-                const cRate = parseFloat(a.currentMarketRate || a.fixedRate || 0);
-                const calc = (pRate > 0 && cRate > 0 && pRate !== cRate && !a.manualCurrentPrice)
-                    ? applied * (pRate / cRate) : current;
-                totalInvested += applied;
-                totalCurrent  += calc;
+    // ── Classify all assets for portfolio performance simulation ──────────────
+    const portfolioAssets = useMemo(() => {
+        const assets = [];
+
+        // Savings jars → they earn CDI * cdiPercent, we can simulate exact curve
+        jars.forEach(jar => {
+            const balance = parseFloat(jar.balance) || 0;
+            if (balance <= 0) return;
+            const pct = (parseFloat(jar.cdiPercent) || 100) / 100;
+            assets.push({ value: balance, type: 'cdi', cdiMultiplier: pct });
+        });
+
+        // Investments
+        investments.forEach(inv => {
+            if (inv.type === 'renda_fixa') {
+                const qty = inv.quantity || 1;
+                const applied = inv.totalApplied || (inv.purchasePrice * qty) || 0;
+                if (applied <= 0) return;
+
+                const yieldType = inv.yieldType || (inv.cdiPercent ? 'cdi' : 'pre');
+
+                if (yieldType === 'cdi') {
+                    const pct = (parseFloat(String(inv.cdiPercent || 100).replace(',', '.')) || 100) / 100;
+                    assets.push({ value: applied, type: 'cdi', cdiMultiplier: pct });
+                } else if (yieldType === 'ipca') {
+                    const ipcaApprox = 4.5; // approximate annual IPCA %
+                    const fixedPart = parseFloat(String(inv.fixedRate || 0).replace(',', '.'));
+                    assets.push({ value: applied, type: 'fixed', annualRate: (ipcaApprox + fixedPart) / 100 });
+                } else if (yieldType === 'pre') {
+                    const fixedPart = parseFloat(String(inv.fixedRate || 0).replace(',', '.'));
+                    assets.push({ value: applied, type: 'fixed', annualRate: fixedPart / 100 });
+                } else {
+                    // Default fallback: treat as 100% CDI
+                    assets.push({ value: applied, type: 'cdi', cdiMultiplier: 1 });
+                }
             } else {
-                const cost = (a.quantity || 1) * (a.purchasePrice || 0);
-                const val  = (a.quantity || 1) * (a.manualCurrentPrice || a.purchasePrice || 0);
-                totalInvested += cost;
-                totalCurrent  += val;
+                // Variable income (stocks, crypto, ETFs, FIIs, etc.)
+                const cost = (inv.quantity || 1) * (inv.purchasePrice || 0);
+                const current = (inv.quantity || 1) * (inv.manualCurrentPrice || inv.purchasePrice || 0);
+                if (cost <= 0) return;
+                const returnPct = ((current - cost) / cost) * 100;
+                assets.push({ value: current, type: 'variable', returnPct });
             }
         });
 
-        const cdiRate = cdiAnual / 100;
-        jars.forEach(curr => {
-            const percent = (parseFloat(curr.cdiPercent) || 100) / 100;
-            const dailyRate = Math.pow(1 + (cdiRate * percent), 1 / 365) - 1;
-            const lastUpdate = curr.updatedAt ? new Date(curr.updatedAt) : (curr.createdAt ? new Date(curr.createdAt) : new Date());
-            const diffDays = Math.max(0, new Date() - lastUpdate) / (1000 * 60 * 60 * 24);
-            const dynamicBalance = (parseFloat(curr.balance) || 0) * Math.pow(1 + dailyRate, diffDays);
+        return assets;
+    }, [jars, investments]);
 
-            totalInvested += parseFloat(curr.balance) || 0;
-            totalCurrent += dynamicBalance;
-        });
-
-        return totalInvested > 0 ? ((totalCurrent - totalInvested) / totalInvested) * 100 : 0;
-    }, [investments, jars, cdiAnual]);
+    const totalPortfolioValue = useMemo(() => {
+        return portfolioAssets.reduce((acc, a) => acc + a.value, 0);
+    }, [portfolioAssets]);
 
     // ── Build chart data ───────────────────────────────────────────────────────
     const chartData = useMemo(() => {
@@ -177,11 +192,38 @@ export default function EvolucaoPatrimonialTab() {
                 entry.date = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
             }
 
-            // CDI (simulated)
+            // CDI benchmark (simulated)
             entry.cdi = parseFloat(cdiPoints[i]?.toFixed(3) ?? 0);
 
-            // Portfolio: linearly interpolate from 0 to portfolioReturn
-            entry.portfolio = parseFloat(((portfolioReturn / (numPoints - 1)) * i).toFixed(3));
+            // Portfolio: weighted compound return based on asset composition
+            if (totalPortfolioValue > 0) {
+                const tradingDay = Math.round((days * i) / Math.max(numPoints - 1, 1));
+                let weightedReturn = 0;
+
+                portfolioAssets.forEach(asset => {
+                    const weight = asset.value / totalPortfolioValue;
+
+                    if (asset.type === 'cdi') {
+                        // Compound at CDI * multiplier over tradingDay working days
+                        const dailyRate = Math.pow(1 + (cdiAnual / 100) * asset.cdiMultiplier, 1 / 252) - 1;
+                        const cumReturn = (Math.pow(1 + dailyRate, tradingDay) - 1) * 100;
+                        weightedReturn += weight * cumReturn;
+                    } else if (asset.type === 'fixed') {
+                        // Compound at fixed annual rate over tradingDay working days
+                        const dailyRate = Math.pow(1 + asset.annualRate, 1 / 252) - 1;
+                        const cumReturn = (Math.pow(1 + dailyRate, tradingDay) - 1) * 100;
+                        weightedReturn += weight * cumReturn;
+                    } else if (asset.type === 'variable') {
+                        // Linear interpolation of actual gain (no historical data)
+                        const pointReturn = (asset.returnPct / Math.max(numPoints - 1, 1)) * i;
+                        weightedReturn += weight * pointReturn;
+                    }
+                });
+
+                entry.portfolio = parseFloat(weightedReturn.toFixed(3));
+            } else {
+                entry.portfolio = 0;
+            }
 
             // IBOV
             if (benchmarkData.ibov?.[i]) entry.ibov = benchmarkData.ibov[i].value;
@@ -191,13 +233,11 @@ export default function EvolucaoPatrimonialTab() {
 
             return entry;
         });
-    }, [benchmarkData, cdiAnual, days, portfolioReturn]);
+    }, [benchmarkData, cdiAnual, days, portfolioAssets, totalPortfolioValue]);
 
     // ── Final returns for each benchmark ──────────────────────────────────────
     const finalReturns = useMemo(() => {
         const last = chartData[chartData.length - 1] ?? {};
-        // ibov/sp500 arrays may have different lengths from each other.
-        // Use the last non-null value so the top cards always show a number.
         const lastOf = (key) => {
             for (let i = chartData.length - 1; i >= 0; i--) {
                 if (chartData[i][key] != null) return chartData[i][key];
@@ -205,12 +245,12 @@ export default function EvolucaoPatrimonialTab() {
             return null;
         };
         return {
-            portfolio: portfolioReturn,
+            portfolio: last.portfolio ?? 0,
             cdi:       last.cdi ?? 0,
             ibov:      lastOf('ibov'),
             sp500:     lastOf('sp500'),
         };
-    }, [chartData, portfolioReturn]);
+    }, [chartData]);
 
 
     const toggleBenchmark = (id) => {
