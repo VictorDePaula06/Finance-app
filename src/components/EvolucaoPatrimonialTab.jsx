@@ -122,20 +122,27 @@ export default function EvolucaoPatrimonialTab() {
         return () => { unsubInv(); unsubJars(); };
     }, [currentUser]);
 
-    // ── Classify all assets for portfolio performance simulation ──────────────
+    // ── Classify all assets with their purchase dates ──────────────────────────
     const portfolioAssets = useMemo(() => {
         const assets = [];
+        const today = new Date();
 
-        // Savings jars → they earn CDI * cdiPercent, we can simulate exact curve
+        // Savings jars → they earn CDI * cdiPercent
         jars.forEach(jar => {
             const balance = parseFloat(jar.balance) || 0;
             if (balance <= 0) return;
             const pct = (parseFloat(jar.cdiPercent) || 100) / 100;
-            assets.push({ value: balance, type: 'cdi', cdiMultiplier: pct });
+            // Use createdAt as the purchase date for jars
+            const pDate = jar.createdAt ? new Date(jar.createdAt) : today;
+            assets.push({ value: balance, type: 'cdi', cdiMultiplier: pct, purchaseDate: pDate });
         });
 
         // Investments
         investments.forEach(inv => {
+            // Determine purchase date: explicit purchaseDate > createdAt > today
+            const pDate = inv.purchaseDate ? new Date(inv.purchaseDate)
+                : inv.createdAt ? new Date(inv.createdAt) : today;
+
             if (inv.type === 'renda_fixa') {
                 const qty = inv.quantity || 1;
                 const applied = inv.totalApplied || (inv.purchasePrice * qty) || 0;
@@ -145,17 +152,16 @@ export default function EvolucaoPatrimonialTab() {
 
                 if (yieldType === 'cdi') {
                     const pct = (parseFloat(String(inv.cdiPercent || 100).replace(',', '.')) || 100) / 100;
-                    assets.push({ value: applied, type: 'cdi', cdiMultiplier: pct });
+                    assets.push({ value: applied, type: 'cdi', cdiMultiplier: pct, purchaseDate: pDate });
                 } else if (yieldType === 'ipca') {
-                    const ipcaApprox = 4.5; // approximate annual IPCA %
+                    const ipcaApprox = 4.5;
                     const fixedPart = parseFloat(String(inv.fixedRate || 0).replace(',', '.'));
-                    assets.push({ value: applied, type: 'fixed', annualRate: (ipcaApprox + fixedPart) / 100 });
+                    assets.push({ value: applied, type: 'fixed', annualRate: (ipcaApprox + fixedPart) / 100, purchaseDate: pDate });
                 } else if (yieldType === 'pre') {
                     const fixedPart = parseFloat(String(inv.fixedRate || 0).replace(',', '.'));
-                    assets.push({ value: applied, type: 'fixed', annualRate: fixedPart / 100 });
+                    assets.push({ value: applied, type: 'fixed', annualRate: fixedPart / 100, purchaseDate: pDate });
                 } else {
-                    // Default fallback: treat as 100% CDI
-                    assets.push({ value: applied, type: 'cdi', cdiMultiplier: 1 });
+                    assets.push({ value: applied, type: 'cdi', cdiMultiplier: 1, purchaseDate: pDate });
                 }
             } else {
                 // Variable income (stocks, crypto, ETFs, FIIs, etc.)
@@ -163,7 +169,7 @@ export default function EvolucaoPatrimonialTab() {
                 const current = (inv.quantity || 1) * (inv.manualCurrentPrice || inv.purchasePrice || 0);
                 if (cost <= 0) return;
                 const returnPct = ((current - cost) / cost) * 100;
-                assets.push({ value: current, type: 'variable', returnPct });
+                assets.push({ value: current, type: 'variable', returnPct, purchaseDate: pDate });
             }
         });
 
@@ -174,48 +180,62 @@ export default function EvolucaoPatrimonialTab() {
         return portfolioAssets.reduce((acc, a) => acc + a.value, 0);
     }, [portfolioAssets]);
 
-    // ── Build chart data ───────────────────────────────────────────────────────
+    // ── Build chart data with date-aware portfolio calculation ─────────────────
     const chartData = useMemo(() => {
         const numPoints = benchmarkData.ibov?.length || benchmarkData.sp500?.length || Math.ceil(days / 7) + 1;
         const cdiPoints = buildCDILine(cdiAnual, days, numPoints);
 
+        // Calculate the actual calendar date range for the chart
+        const today = new Date();
+        const calendarDaysInPeriod = Math.round(days * 365 / 252); // convert trading days to approx calendar days
+        const periodStart = new Date(today);
+        periodStart.setDate(today.getDate() - calendarDaysInPeriod);
+
         return Array.from({ length: numPoints }, (_, i) => {
             const entry = { idx: i };
 
-            // Date label
+            // Calculate the real calendar date for this chart point
+            const pointDate = new Date(periodStart);
+            pointDate.setDate(periodStart.getDate() + Math.round((calendarDaysInPeriod * i) / Math.max(numPoints - 1, 1)));
+
+            // Date label from benchmarks or generated
             const d = benchmarkData.ibov?.[i]?.date || benchmarkData.sp500?.[i]?.date;
-            if (d) {
-                entry.date = d;
-            } else {
-                const dt = new Date();
-                dt.setDate(dt.getDate() - (numPoints - 1 - i) * Math.ceil(days / numPoints));
-                entry.date = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-            }
+            entry.date = d || pointDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
             // CDI benchmark (simulated)
             entry.cdi = parseFloat(cdiPoints[i]?.toFixed(3) ?? 0);
 
-            // Portfolio: weighted compound return based on asset composition
+            // Portfolio: date-aware weighted compound return
             if (totalPortfolioValue > 0) {
-                const tradingDay = Math.round((days * i) / Math.max(numPoints - 1, 1));
                 let weightedReturn = 0;
 
                 portfolioAssets.forEach(asset => {
                     const weight = asset.value / totalPortfolioValue;
 
+                    // If the asset wasn't purchased yet at this point, it contributes 0
+                    if (asset.purchaseDate > pointDate) {
+                        // Asset didn't exist yet — no return contribution
+                        return;
+                    }
+
+                    // The asset's return starts from the later of: period start or purchase date
+                    const effectiveStart = asset.purchaseDate > periodStart ? asset.purchaseDate : periodStart;
+                    const calDaysHeld = Math.max(0, (pointDate - effectiveStart) / (1000 * 60 * 60 * 24));
+                    const tradingDaysHeld = Math.round(calDaysHeld * 252 / 365);
+
                     if (asset.type === 'cdi') {
-                        // Compound at CDI * multiplier over tradingDay working days
                         const dailyRate = Math.pow(1 + (cdiAnual / 100) * asset.cdiMultiplier, 1 / 252) - 1;
-                        const cumReturn = (Math.pow(1 + dailyRate, tradingDay) - 1) * 100;
+                        const cumReturn = (Math.pow(1 + dailyRate, tradingDaysHeld) - 1) * 100;
                         weightedReturn += weight * cumReturn;
                     } else if (asset.type === 'fixed') {
-                        // Compound at fixed annual rate over tradingDay working days
                         const dailyRate = Math.pow(1 + asset.annualRate, 1 / 252) - 1;
-                        const cumReturn = (Math.pow(1 + dailyRate, tradingDay) - 1) * 100;
+                        const cumReturn = (Math.pow(1 + dailyRate, tradingDaysHeld) - 1) * 100;
                         weightedReturn += weight * cumReturn;
                     } else if (asset.type === 'variable') {
-                        // Linear interpolation of actual gain (no historical data)
-                        const pointReturn = (asset.returnPct / Math.max(numPoints - 1, 1)) * i;
+                        // Interpolate actual gain from purchase to today, proportional to time elapsed
+                        const totalCalDays = Math.max(1, (today - effectiveStart) / (1000 * 60 * 60 * 24));
+                        const elapsed = Math.max(0, (pointDate - effectiveStart) / (1000 * 60 * 60 * 24));
+                        const pointReturn = (asset.returnPct * elapsed) / totalCalDays;
                         weightedReturn += weight * pointReturn;
                     }
                 });

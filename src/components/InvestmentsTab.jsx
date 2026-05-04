@@ -57,7 +57,8 @@ export default function InvestmentsTab() {
         yieldType: 'cdi',
         subType: '',
         aporteAmount: '',
-        aporteQuantity: ''
+        aporteQuantity: '',
+        purchaseDate: new Date().toISOString().split('T')[0]
     });
 
     // Asset Types Config
@@ -280,6 +281,7 @@ export default function InvestmentsTab() {
                 manualCurrentPrice: manualPrice,
                 cdiPercent,
                 totalApplied,
+                purchaseDate: newAsset.purchaseDate || new Date().toISOString().split('T')[0],
                 updatedAt: new Date().toISOString()
             };
 
@@ -297,7 +299,7 @@ export default function InvestmentsTab() {
             setIsAdding(false);
             setIsEditing(null);
             setIsAporting(null);
-            setNewAsset({ type: 'renda_fixa', name: '', symbol: '', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, cdiPercent: '', aporteAmount: '', aporteQuantity: '' });
+            setNewAsset({ type: 'renda_fixa', name: '', symbol: '', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, cdiPercent: '', aporteAmount: '', aporteQuantity: '', purchaseDate: new Date().toISOString().split('T')[0] });
         } catch (error) {
             console.error("Error saving asset:", error);
         }
@@ -325,7 +327,7 @@ export default function InvestmentsTab() {
             });
 
             setIsAporting(null);
-            setNewAsset({ type: 'renda_fixa', name: '', symbol: '', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, cdiPercent: '', aporteAmount: '', aporteQuantity: '' });
+            setNewAsset({ type: 'renda_fixa', name: '', symbol: '', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, cdiPercent: '', aporteAmount: '', aporteQuantity: '', purchaseDate: new Date().toISOString().split('T')[0] });
         } catch (error) {
             console.error("Error processing aporte:", error);
         }
@@ -1011,6 +1013,21 @@ export default function InvestmentsTab() {
                                     </div>
                                     {newAsset.type === 'renda_fixa' && <p className="text-[9px] text-slate-400 mt-1.5 font-medium">Saldo atual na corretora</p>}
                                 </div>
+                            </div>
+
+                            {/* Data de Compra */}
+                            <div>
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Data da Compra</label>
+                                <input 
+                                    type="date"
+                                    required
+                                    value={newAsset.purchaseDate || ''}
+                                    onChange={(e) => setNewAsset({...newAsset, purchaseDate: e.target.value})}
+                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                    }`}
+                                />
+                                <p className={`text-[9px] mt-1.5 font-medium ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>Quando você comprou/aplicou este ativo</p>
                             </div>
 
                             {['acoes', 'etfs', 'fiis', 'crypto'].includes(newAsset.type) && (
