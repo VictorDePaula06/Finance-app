@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Wallet, PiggyBank, TrendingUp, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart } from 'lucide-react';
+import { Wallet, PiggyBank, TrendingUp, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer } from 'recharts';
 import ReactMarkdown from 'react-markdown';
 import { generatePatrimonyAnalysis, isGeminiConfigured } from '../services/gemini';
 import { useAuth } from '../contexts/AuthContext';
@@ -61,6 +62,8 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeTab, setActiveTab] = useState('visao');
+  const [chartViewMode, setChartViewMode] = useState('category'); // 'category' | 'asset'
+  const [includeReserve, setIncludeReserve] = useState(true);
 
   // ── listeners ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -265,8 +268,177 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         />
       </div>
 
-      {/* spacer for floating button */}
-      <div className="h-2" />
+      {/* ── MEU PATRIMÔNIO: Allocation Chart + Breakdown ── */}
+      {(() => {
+        const CATEGORY_COLORS = {
+          'Reserva': '#10b981',
+          'Renda Fixa': '#6366f1',
+          'Ações': '#a855f7',
+          'ETFs': '#3b82f6',
+          'Fundos Imobiliários': '#14b8a6',
+          'Criptomoedas': '#f59e0b',
+          'Imóveis': '#f97316',
+          'Outros': '#64748b',
+        };
+        const ASSET_COLORS = ['#10b981','#6366f1','#a855f7','#3b82f6','#14b8a6','#f59e0b','#f97316','#ec4899','#8b5cf6','#06b6d4','#84cc16','#ef4444','#22d3ee','#e879f9'];
+        const CATEGORY_MAP = {
+          renda_fixa: 'Renda Fixa',
+          acoes: 'Ações',
+          etfs: 'ETFs',
+          fiis: 'Fundos Imobiliários',
+          crypto: 'Criptomoedas',
+          imoveis: 'Imóveis',
+        };
+
+        // Build items
+        const items = [];
+        if (includeReserve) {
+          jars.forEach(j => {
+            if ((j.balance || 0) > 0) items.push({ name: j.name, category: 'Reserva', value: j.balance });
+          });
+        }
+        investments.forEach(inv => {
+          const price = inv.manualCurrentPrice || inv.purchasePrice || 0;
+          const usdM = inv.isUSD ? usdRate : 1;
+          const val = (inv.quantity || 1) * price * usdM;
+          if (val > 0) items.push({ name: inv.name || inv.symbol || 'Ativo', category: CATEGORY_MAP[inv.type] || 'Outros', value: val });
+        });
+
+        const totalValue = items.reduce((a, i) => a + i.value, 0);
+
+        // Aggregate by mode
+        let chartItems;
+        if (chartViewMode === 'category') {
+          const catMap = {};
+          items.forEach(it => {
+            if (!catMap[it.category]) catMap[it.category] = 0;
+            catMap[it.category] += it.value;
+          });
+          chartItems = Object.entries(catMap).map(([name, value]) => ({ name, value, color: CATEGORY_COLORS[name] || '#64748b' })).sort((a, b) => b.value - a.value);
+        } else {
+          chartItems = items.map((it, idx) => ({ name: it.name, value: it.value, color: ASSET_COLORS[idx % ASSET_COLORS.length] })).sort((a, b) => b.value - a.value);
+        }
+
+        const CustomPieTooltip = ({ active, payload }) => {
+          if (!active || !payload?.length) return null;
+          const d = payload[0];
+          return (
+            <div className={`px-4 py-3 rounded-2xl border shadow-2xl text-xs ${isDark ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
+              <p className="font-black mb-1" style={{ color: d.payload.color }}>{d.name}</p>
+              <p className="font-bold">R$ {fmt(d.value)}</p>
+              <p className="text-slate-500 font-bold">{totalValue > 0 ? ((d.value / totalValue) * 100).toFixed(1) : 0}%</p>
+            </div>
+          );
+        };
+
+        return (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
+            <div className="flex items-center justify-between mb-4">
+              <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${sub}`}>Meu Patrimônio</p>
+              <div className="flex items-center gap-2">
+                {/* Include/exclude reserve */}
+                <button
+                  onClick={() => setIncludeReserve(!includeReserve)}
+                  className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                    includeReserve
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
+                      : isDark ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'
+                  }`}
+                >
+                  {includeReserve ? '✓ Com Reserva' : 'Sem Reserva'}
+                </button>
+                {/* Category / Asset toggle */}
+                <div className={`flex rounded-xl border overflow-hidden ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                  <button
+                    onClick={() => setChartViewMode('category')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${
+                      chartViewMode === 'category'
+                        ? 'bg-emerald-500 text-white'
+                        : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    <Layers className="w-3 h-3" /> Categoria
+                  </button>
+                  <button
+                    onClick={() => setChartViewMode('asset')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${
+                      chartViewMode === 'asset'
+                        ? 'bg-emerald-500 text-white'
+                        : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    <List className="w-3 h-3" /> Ativo
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className={`p-6 md:p-8 rounded-[2.5rem] border ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+              {totalValue <= 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-slate-500 text-sm font-bold">Nenhum ativo cadastrado para exibir.</p>
+                </div>
+              ) : (
+                <div className="flex flex-col lg:flex-row gap-8 items-center">
+                  {/* Donut Chart */}
+                  <div className="relative w-full lg:w-[340px] flex-shrink-0">
+                    <ResponsiveContainer width="100%" height={280}>
+                      <PieChart>
+                        <Pie
+                          data={chartItems}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={75}
+                          outerRadius={120}
+                          paddingAngle={2}
+                          dataKey="value"
+                          stroke="none"
+                          animationDuration={600}
+                        >
+                          {chartItems.map((entry, idx) => (
+                            <Cell key={idx} fill={entry.color} className="transition-all hover:opacity-80" />
+                          ))}
+                        </Pie>
+                        <ReTooltip content={<CustomPieTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    {/* Center label */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <p className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total</p>
+                      <p className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(totalValue)}</p>
+                    </div>
+                  </div>
+
+                  {/* Breakdown List */}
+                  <div className="flex-1 w-full">
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                      {chartItems.map((item, idx) => {
+                        const pct = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
+                        return (
+                          <div key={idx} className={`flex items-center gap-3 p-3 rounded-2xl transition-all hover:scale-[1.01] ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
+                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: item.color }} />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.name}</p>
+                              <p className={`text-[10px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>R$ {fmt(item.value)}</p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-sm font-black" style={{ color: item.color }}>{pct.toFixed(1)}%</p>
+                            </div>
+                            {/* Mini bar */}
+                            <div className={`w-20 h-1.5 rounded-full overflow-hidden flex-shrink-0 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: item.color }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── METAS E PERFIL ── */}
       {userConfig && (
