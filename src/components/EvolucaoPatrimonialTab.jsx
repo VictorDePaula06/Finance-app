@@ -121,6 +121,84 @@ export default function EvolucaoPatrimonialTab() {
         });
         return () => { unsubInv(); unsubJars(); };
     }, [currentUser]);
+    // ── Fetch live prices for variable assets ───────────────────────────────────
+    const [livePrices, setLivePrices] = useState({});
+
+    useEffect(() => {
+        if (investments.length === 0) return;
+
+        const fetchPrices = async () => {
+            const newPrices = {};
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+            // Crypto from Binance
+            const cryptoTickers = [...new Set(investments.filter(a => a.type === 'crypto' && a.symbol).map(a => a.symbol.toUpperCase()))];
+            if (cryptoTickers.length > 0) {
+                try {
+                    const res = await fetch('https://api.binance.com/api/v3/ticker/price');
+                    const data = await res.json();
+                    cryptoTickers.forEach(ticker => {
+                        const usdtPair = data.find(p => p.symbol === `${ticker}USDT`);
+                        const brlPair = data.find(p => p.symbol === `${ticker}BRL`);
+                        if (usdtPair) newPrices[`${ticker}_USD`] = parseFloat(usdtPair.price);
+                        if (brlPair) newPrices[`${ticker}_BRL`] = parseFloat(brlPair.price);
+                    });
+                } catch (e) { console.warn('[EvolucaoPatrimonial] Binance fetch failed', e); }
+            }
+
+            // Stocks/ETFs/FIIs
+            const stockTickers = [...new Set(investments.filter(a => ['acoes', 'etfs', 'fiis'].includes(a.type) && a.symbol).map(a => a.symbol.toUpperCase()))];
+            if (stockTickers.length > 0) {
+                const stockTypes = stockTickers.map(t => {
+                    const asset = investments.find(a => a.symbol?.toUpperCase() === t);
+                    return asset?.type || 'acoes';
+                });
+                if (!isLocalhost) {
+                    try {
+                        const res = await fetch(`/api/prices?tickers=${stockTickers.join(',')}&types=${stockTypes.join(',')}`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            Object.assign(newPrices, data.prices);
+                        }
+                    } catch (e) { console.warn('[EvolucaoPatrimonial] /api/prices failed', e); }
+                } else {
+                    await Promise.all(stockTickers.map(async (ticker) => {
+                        try {
+                            const brapiRes = await fetch(`https://brapi.dev/api/quote/${ticker}`);
+                            if (brapiRes.ok) {
+                                const brapiData = await brapiRes.json();
+                                const price = brapiData?.results?.[0]?.regularMarketPrice;
+                                if (price) { newPrices[ticker] = parseFloat(price); return; }
+                            }
+                        } catch (e) {}
+                        try {
+                            const isProbablyBR = /\d/.test(ticker) || (ticker.length >= 5 && !ticker.includes('.'));
+                            const yahooTicker = isProbablyBR ? `${ticker}.SA` : ticker;
+                            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooTicker}`;
+                            const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+                            if (res.ok) {
+                                const data = await res.json();
+                                const meta = data?.chart?.result?.[0]?.meta;
+                                const price = meta?.regularMarketPrice || meta?.previousClose;
+                                if (price) { newPrices[ticker] = parseFloat(price); }
+                            }
+                        } catch (e) {}
+                    }));
+                }
+            }
+
+            // USD/BRL
+            try {
+                const usdRes = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL');
+                const usdData = await usdRes.json();
+                newPrices.USD = parseFloat(usdData.USDBRL.bid);
+            } catch (e) { newPrices.USD = 5.0; }
+
+            setLivePrices(newPrices);
+        };
+
+        fetchPrices();
+    }, [investments.length]);
 
     // ── Classify all assets with their purchase dates ──────────────────────────
     const portfolioAssets = useMemo(() => {
@@ -166,15 +244,32 @@ export default function EvolucaoPatrimonialTab() {
             } else {
                 // Variable income (stocks, crypto, ETFs, FIIs, etc.)
                 const cost = (inv.quantity || 1) * (inv.purchasePrice || 0);
-                const current = (inv.quantity || 1) * (inv.manualCurrentPrice || inv.purchasePrice || 0);
-                if (cost <= 0) return;
-                const returnPct = ((current - cost) / cost) * 100;
+
+                // Resolve current price: manualCurrentPrice > live price > purchase price
+                let currentPrice = inv.manualCurrentPrice || inv.purchasePrice || 0;
+                if (!inv.manualCurrentPrice && inv.symbol) {
+                    const sym = inv.symbol.toUpperCase();
+                    if (inv.type === 'crypto') {
+                        if (inv.isUSD && livePrices[`${sym}_USD`]) currentPrice = livePrices[`${sym}_USD`];
+                        else if (!inv.isUSD && livePrices[`${sym}_BRL`]) currentPrice = livePrices[`${sym}_BRL`];
+                        else if (!inv.isUSD && livePrices[`${sym}_USD`] && livePrices.USD) currentPrice = livePrices[`${sym}_USD`] * livePrices.USD;
+                    } else if (['acoes', 'etfs', 'fiis'].includes(inv.type)) {
+                        if (livePrices[sym]) currentPrice = livePrices[sym];
+                    }
+                }
+
+                const usdMultiplier = inv.isUSD ? (livePrices.USD || 5.0) : 1;
+                const current = (inv.quantity || 1) * currentPrice * usdMultiplier;
+                const totalCost = cost * usdMultiplier;
+
+                if (totalCost <= 0) return;
+                const returnPct = ((current - totalCost) / totalCost) * 100;
                 assets.push({ value: current, type: 'variable', returnPct, purchaseDate: pDate });
             }
         });
 
         return assets;
-    }, [jars, investments]);
+    }, [jars, investments, livePrices]);
 
     const totalPortfolioValue = useMemo(() => {
         return portfolioAssets.reduce((acc, a) => acc + a.value, 0);
