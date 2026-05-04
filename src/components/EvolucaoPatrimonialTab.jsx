@@ -426,10 +426,10 @@ export default function EvolucaoPatrimonialTab() {
 
     // ── Lines to render ────────────────────────────────────────────────────────
     const lines = [
-        { key: 'portfolio', name: 'Meu Portfólio', color: '#5CCEEA', strokeWidth: 3 },
-        { key: 'cdi',       name: 'CDI',            color: BENCHMARKS.cdi.color,   strokeWidth: 2, strokeDasharray: '4 2' },
-        { key: 'ibov',      name: 'IBOVESPA',       color: BENCHMARKS.ibov.color,  strokeWidth: 2, strokeDasharray: '4 2' },
-        { key: 'sp500',     name: 'S&P 500',        color: BENCHMARKS.sp500.color, strokeWidth: 2, strokeDasharray: '4 2' },
+        { key: 'portfolio', name: 'Meu Portfólio', color: '#00E5A0', strokeWidth: 3.5, isPortfolio: true },
+        { key: 'cdi',       name: 'CDI',            color: BENCHMARKS.cdi.color,   strokeWidth: 1.5, strokeDasharray: '6 3' },
+        { key: 'ibov',      name: 'IBOVESPA',       color: BENCHMARKS.ibov.color,  strokeWidth: 1.5, strokeDasharray: '6 3' },
+        { key: 'sp500',     name: 'S&P 500',        color: BENCHMARKS.sp500.color, strokeWidth: 1.5, strokeDasharray: '6 3' },
     ];
 
     const visibleLines = lines.filter(l => l.key === 'portfolio' || activeBenchmarks.includes(l.key));
@@ -459,7 +459,7 @@ export default function EvolucaoPatrimonialTab() {
             {/* ── PERFORMANCE CARDS ── */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                    { label: 'Meu Portfólio',  value: finalReturns.portfolio, color: '#5CCEEA',                   always: true },
+                    { label: 'Meu Portfólio',  value: finalReturns.portfolio, color: '#00E5A0',                   always: true },
                     { label: 'CDI',            value: finalReturns.cdi,       color: BENCHMARKS.cdi.color,        always: true },
                     { label: 'IBOVESPA',       value: finalReturns.ibov,      color: BENCHMARKS.ibov.color,       always: false },
                     { label: 'S&P 500',        value: finalReturns.sp500,     color: BENCHMARKS.sp500.color,      always: false },
@@ -556,6 +556,19 @@ export default function EvolucaoPatrimonialTab() {
                 ) : (
                     <ResponsiveContainer width="100%" height={340}>
                         <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                            <defs>
+                                <filter id="portfolioGlow" x="-20%" y="-20%" width="140%" height="140%">
+                                    <feGaussianBlur stdDeviation="3" result="glow" />
+                                    <feMerge>
+                                        <feMergeNode in="glow" />
+                                        <feMergeNode in="SourceGraphic" />
+                                    </feMerge>
+                                </filter>
+                                <linearGradient id="portfolioGradient" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor="#00E5A0" />
+                                    <stop offset="100%" stopColor="#00D4FF" />
+                                </linearGradient>
+                            </defs>
                             <CartesianGrid
                                 strokeDasharray="3 3"
                                 stroke={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'}
@@ -580,7 +593,8 @@ export default function EvolucaoPatrimonialTab() {
                                 formatter={(value) => <span style={{ color: isDark ? '#94a3b8' : '#64748b' }}>{value}</span>}
                             />
                             <ReferenceLine y={0} stroke={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'} strokeDasharray="4 4" />
-                            {visibleLines.map(line => (
+                            {/* Benchmark lines (thinner, dashed) */}
+                            {visibleLines.filter(l => !l.isPortfolio).map(line => (
                                 <Line
                                     key={line.key}
                                     type="monotone"
@@ -590,8 +604,24 @@ export default function EvolucaoPatrimonialTab() {
                                     strokeWidth={line.strokeWidth}
                                     strokeDasharray={line.strokeDasharray}
                                     dot={false}
-                                    activeDot={{ r: 5, strokeWidth: 0 }}
+                                    activeDot={{ r: 4, strokeWidth: 0 }}
                                     connectNulls
+                                    strokeOpacity={0.7}
+                                />
+                            ))}
+                            {/* Portfolio line (thick, solid, glowing) */}
+                            {visibleLines.filter(l => l.isPortfolio).map(line => (
+                                <Line
+                                    key={line.key}
+                                    type="monotone"
+                                    dataKey={line.key}
+                                    name={line.name}
+                                    stroke="url(#portfolioGradient)"
+                                    strokeWidth={line.strokeWidth}
+                                    dot={false}
+                                    activeDot={{ r: 6, strokeWidth: 3, stroke: '#00E5A0', fill: isDark ? '#0f172a' : '#ffffff' }}
+                                    connectNulls
+                                    filter="url(#portfolioGlow)"
                                 />
                             ))}
                         </LineChart>
