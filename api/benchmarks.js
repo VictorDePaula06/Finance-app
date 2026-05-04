@@ -5,6 +5,7 @@
  *
  * Query params:
  *   range=1mo|3mo|6mo|1y   (Yahoo Finance range string)
+ *   tickers=NVDA,BTC-USD   (optional, comma-separated extra tickers for portfolio history)
  */
 
 export default async function handler(req, res) {
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'OPTIONS') return res.status(200).end();
 
-    const { range = '3mo' } = req.query;
+    const { range = '3mo', tickers = '' } = req.query;
     const validRanges = ['1mo', '3mo', '6mo', '1y'];
     const safeRange = validRanges.includes(range) ? range : '3mo';
 
@@ -73,17 +74,36 @@ export default async function handler(req, res) {
         } catch (_) { return null; }
     }
 
+    // ── Parse user tickers for portfolio history ─────────────────────────────
+    const userTickers = tickers
+        ? tickers.split(',').map(t => t.trim()).filter(Boolean).slice(0, 10) // max 10 tickers
+        : [];
+
     // ── Run all fetches in parallel ──────────────────────────────────────────
-    const [cdiAnual, ibovData, sp500Data] = await Promise.all([
+    const fetchPromises = [
         fetchCDI(),
         fetchYahooHistory('^BVSP'),
         fetchYahooHistory('SPY'),
-    ]);
+        ...userTickers.map(t => fetchYahooHistory(t)),
+    ];
+
+    const results = await Promise.all(fetchPromises);
+
+    const [cdiAnual, ibovData, sp500Data, ...tickerResults] = results;
+
+    // Build tickerHistory map: { "NVDA": [...], "BTC-USD": [...] }
+    const tickerHistory = {};
+    userTickers.forEach((ticker, i) => {
+        if (tickerResults[i]) {
+            tickerHistory[ticker] = tickerResults[i];
+        }
+    });
 
     return res.status(200).json({
         cdiAnual: cdiAnual ?? 10.75,   // fallback se BCB falhar
         ibov:     ibovData  ?? null,
         sp500:    sp500Data ?? null,
+        tickerHistory,
         fetchedAt: new Date().toISOString(),
     });
 }

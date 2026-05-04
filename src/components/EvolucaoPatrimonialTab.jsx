@@ -77,12 +77,33 @@ export default function EvolucaoPatrimonialTab() {
     const [period, setPeriod] = useState('3m');
     const [activeBenchmarks, setActiveBenchmarks] = useState(['cdi', 'ibov', 'sp500']);
     const [cdiAnual, setCdiAnual] = useState(10.75);
-    const [benchmarkData, setBenchmarkData] = useState({ ibov: null, sp500: null });
+    const [benchmarkData, setBenchmarkData] = useState({ ibov: null, sp500: null, tickerHistory: {} });
     const [isLoading, setIsLoading] = useState(false);
     const [lastUpdated, setLastUpdated] = useState(null);
     const [error, setError] = useState(null);
 
     const days = PERIODS.find(p => p.id === period)?.days ?? 90;
+
+    // ── Build Yahoo ticker list from variable investments ──────────────────────
+    const variableTickers = useMemo(() => {
+        const tickers = [];
+        investments.forEach(inv => {
+            if (['acoes', 'etfs', 'fiis', 'crypto'].includes(inv.type) && inv.symbol) {
+                const sym = inv.symbol.toUpperCase();
+                let yahooTicker;
+                if (inv.type === 'crypto') {
+                    yahooTicker = `${sym}-USD`;
+                } else {
+                    const isProbablyBR = /\d/.test(sym) || (sym.length >= 5 && !sym.includes('.'));
+                    yahooTicker = isProbablyBR ? `${sym}.SA` : sym;
+                }
+                if (!tickers.find(t => t.yahoo === yahooTicker)) {
+                    tickers.push({ symbol: sym, yahoo: yahooTicker, type: inv.type });
+                }
+            }
+        });
+        return tickers;
+    }, [investments]);
 
     // ── Fetch all benchmark data from serverless endpoint (no CORS) ────────────
     const fetchBenchmarks = useCallback(async () => {
@@ -91,15 +112,23 @@ export default function EvolucaoPatrimonialTab() {
 
         const range = period === '1m' ? '1mo' : period === '3m' ? '3mo' : period === '6m' ? '6mo' : '1y';
 
+        // Include user portfolio tickers for historical data
+        const tickerParam = variableTickers.map(t => t.yahoo).join(',');
+        const tickerQuery = tickerParam ? `&tickers=${encodeURIComponent(tickerParam)}` : '';
+
         try {
-            const r = await fetch(`/api/benchmarks?range=${range}`, {
-                signal: AbortSignal.timeout(20000),
+            const r = await fetch(`/api/benchmarks?range=${range}${tickerQuery}`, {
+                signal: AbortSignal.timeout(30000),
             });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const data = await r.json();
 
             if (data.cdiAnual && data.cdiAnual > 0) setCdiAnual(data.cdiAnual);
-            setBenchmarkData({ ibov: data.ibov ?? null, sp500: data.sp500 ?? null });
+            setBenchmarkData({
+                ibov: data.ibov ?? null,
+                sp500: data.sp500 ?? null,
+                tickerHistory: data.tickerHistory ?? {},
+            });
             setLastUpdated(new Date());
         } catch (err) {
             setError('Não foi possível buscar dados de mercado.');
@@ -107,7 +136,7 @@ export default function EvolucaoPatrimonialTab() {
         } finally {
             setIsLoading(false);
         }
-    }, [period]);
+    }, [period, variableTickers]);
 
     useEffect(() => { fetchBenchmarks(); }, [fetchBenchmarks]);
 
@@ -264,7 +293,20 @@ export default function EvolucaoPatrimonialTab() {
 
                 if (totalCost <= 0) return;
                 const returnPct = ((current - totalCost) / totalCost) * 100;
-                assets.push({ value: current, type: 'variable', returnPct, purchaseDate: pDate });
+
+                // Resolve Yahoo ticker for historical data lookup
+                const sym = (inv.symbol || '').toUpperCase();
+                let yahooTicker = null;
+                if (sym) {
+                    if (inv.type === 'crypto') {
+                        yahooTicker = `${sym}-USD`;
+                    } else {
+                        const isProbablyBR = /\d/.test(sym) || (sym.length >= 5 && !sym.includes('.'));
+                        yahooTicker = isProbablyBR ? `${sym}.SA` : sym;
+                    }
+                }
+
+                assets.push({ value: current, type: 'variable', returnPct, purchaseDate: pDate, yahooTicker });
             }
         });
 
@@ -327,11 +369,19 @@ export default function EvolucaoPatrimonialTab() {
                         const cumReturn = (Math.pow(1 + dailyRate, tradingDaysHeld) - 1) * 100;
                         weightedReturn += weight * cumReturn;
                     } else if (asset.type === 'variable') {
-                        // Interpolate actual gain from purchase to today, proportional to time elapsed
-                        const totalCalDays = Math.max(1, (today - effectiveStart) / (1000 * 60 * 60 * 24));
-                        const elapsed = Math.max(0, (pointDate - effectiveStart) / (1000 * 60 * 60 * 24));
-                        const pointReturn = (asset.returnPct * elapsed) / totalCalDays;
-                        weightedReturn += weight * pointReturn;
+                        // Use real historical data if available, otherwise linear interpolation
+                        const history = asset.yahooTicker ? benchmarkData.tickerHistory?.[asset.yahooTicker] : null;
+                        if (history && history.length > 0) {
+                            // Map chart point index to the closest history point
+                            const histIdx = Math.min(Math.round((i / Math.max(numPoints - 1, 1)) * (history.length - 1)), history.length - 1);
+                            weightedReturn += weight * (history[histIdx]?.value ?? 0);
+                        } else {
+                            // Fallback: linear interpolation
+                            const totalCalDays = Math.max(1, (today - effectiveStart) / (1000 * 60 * 60 * 24));
+                            const elapsed = Math.max(0, (pointDate - effectiveStart) / (1000 * 60 * 60 * 24));
+                            const pointReturn = (asset.returnPct * elapsed) / totalCalDays;
+                            weightedReturn += weight * pointReturn;
+                        }
                     }
                 });
 
@@ -348,7 +398,7 @@ export default function EvolucaoPatrimonialTab() {
 
             return entry;
         });
-    }, [benchmarkData, cdiAnual, days, portfolioAssets, totalPortfolioValue]);
+    }, [benchmarkData, cdiAnual, days, portfolioAssets, totalPortfolioValue, benchmarkData.tickerHistory]);
 
     // ── Final returns for each benchmark ──────────────────────────────────────
     const finalReturns = useMemo(() => {
