@@ -16,6 +16,7 @@ const COLORS = {
     taxes: '#64748B', // slate-500
     leisure: '#818CF8', // indigo-400
     shopping: '#F472B6', // pink-400
+    credit_card_bill: '#8B5CF6', // violet-500
     other: '#94A3B8' // slate-400
 };
 
@@ -33,6 +34,7 @@ const CATEGORY_LABELS = {
     taxes: 'Taxas',
     leisure: 'Lazer',
     shopping: 'Compras',
+    credit_card_bill: 'Fatura Cartão',
     other: 'Outro'
 };
 
@@ -75,7 +77,7 @@ export default function ExpensesChart({ transactions, targetMonth, mode = 'gasto
                 t.type === 'expense' &&
                 t.category !== 'investment' &&
                 t.category !== 'vault' &&
-                t.category !== 'credit_card_bill' &&
+                t.paymentMethod !== 'credito' &&
                 (t.date?.slice(0, 7) === monthToFilter || t.month === monthToFilter)
             );
         }

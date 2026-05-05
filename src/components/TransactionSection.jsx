@@ -329,6 +329,18 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                 await Promise.all(deletePromises);
             }
 
+            // Undo invoice payment
+            if (deleteData && deleteData.category === 'credit_card_bill' && deleteData.selectedCardId) {
+                const paidTransactions = transactions.filter(t => 
+                    t.selectedCardId === deleteData.selectedCardId && 
+                    t.invoiceStatus === 'paid'
+                );
+                const updatePromises = paidTransactions.map(t => 
+                    updateDoc(doc(db, 'transactions', t.id), { invoiceStatus: 'unpaid' })
+                );
+                await Promise.all(updatePromises);
+            }
+
             setDeleteId(null);
             setDeleteData(null);
         } catch (error) {

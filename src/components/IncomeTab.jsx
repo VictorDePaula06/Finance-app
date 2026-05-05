@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../services/firebase';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { TrendingUp, Trash2, ArrowUpCircle, CircleDollarSign, Loader2, Pencil, X, Landmark, ArrowDownCircle } from 'lucide-react';
+import { TrendingUp, Trash2, ArrowUpCircle, CircleDollarSign, Loader2, Pencil, X, Landmark, ArrowDownCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
 
 export default function IncomeTab({ transactions, savingsJars }) {
@@ -26,6 +26,7 @@ export default function IncomeTab({ transactions, savingsJars }) {
     const [isRescuing, setIsRescuing] = useState(false);
     const [cdiRate, setCdiRate] = useState(10.65);
     const [subTab, setSubTab] = useState('recebimentos'); // 'recebimentos' | 'resgates'
+    const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
     const [showIncomeModal, setShowIncomeModal] = useState(false);
     const [incomeStep, setIncomeStep] = useState('form'); // 'form' | 'confirm'
     const [isSaving, setIsSaving] = useState(false);
@@ -225,27 +226,49 @@ export default function IncomeTab({ transactions, savingsJars }) {
         }
     };
 
-    // Logic to filter transactions for the current month
-    const currentMonthKey = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+    // Navigation Logic
+    const handlePrevMonth = () => {
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const prev = new Date(year, month - 2, 1);
+        setSelectedMonth(prev.toISOString().slice(0, 7));
+    };
+
+    const handleNextMonth = () => {
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const next = new Date(year, month, 1);
+        setSelectedMonth(next.toISOString().slice(0, 7));
+    };
+
+    const monthLabel = useMemo(() => {
+        const [year, month] = selectedMonth.split('-').map(Number);
+        return new Date(year, month - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    }, [selectedMonth]);
+
+    // Logic to filter transactions for the selected month
+    const currentMonthKey = selectedMonth;
 
     // 1. Regular Incomes (Salary, Freelance, etc)
-    const recentIncomes = transactions.filter(t => {
-        const isIncome = t.type === 'income';
-        const isNotSpecial = !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category);
-        const matchesMonth = t.month === currentMonthKey || (t.date && t.date.startsWith(currentMonthKey));
-        return isIncome && isNotSpecial && matchesMonth;
-    }).sort((a, b) => new Date(b.date) - new Date(a.date));
+    const recentIncomes = useMemo(() => {
+        return transactions.filter(t => {
+            const isIncome = t.type === 'income';
+            const isNotSpecial = !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category);
+            const matchesMonth = t.month === currentMonthKey || (t.date && t.date.startsWith(currentMonthKey));
+            return isIncome && isNotSpecial && matchesMonth;
+        }).sort((a, b) => new Date(b.date) - new Date(a.date));
+    }, [transactions, currentMonthKey]);
 
     // 2. Redemptions (Moving from Patrimony to Wallet)
-    const recentRedemptions = transactions.filter(t => {
-        const isIncome = t.type === 'income';
-        const isRedemption = t.category === 'vault_redemption' || (t.description && t.description.includes('Resgate:'));
-        const matchesMonth = t.month === currentMonthKey || (t.date && t.date.slice(0, 7) === currentMonthKey);
-        return isIncome && isRedemption && matchesMonth;
-    }).sort((a, b) => new Date(b.date) - new Date(a.date));
+    const recentRedemptions = useMemo(() => {
+        return transactions.filter(t => {
+            const isIncome = t.type === 'income';
+            const isRedemption = t.category === 'vault_redemption' || (t.description && t.description.includes('Resgate:'));
+            const matchesMonth = t.month === currentMonthKey || (t.date && t.date.slice(0, 7) === currentMonthKey);
+            return isIncome && isRedemption && matchesMonth;
+        }).sort((a, b) => new Date(b.date) - new Date(a.date));
+    }, [transactions, currentMonthKey]);
 
-    const totalIncomeMonth = recentIncomes.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    const totalRedemptionMonth = recentRedemptions.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    const totalIncomeMonth = useMemo(() => recentIncomes.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0), [recentIncomes]);
+    const totalRedemptionMonth = useMemo(() => recentRedemptions.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0), [recentRedemptions]);
 
     return (
         <div className="max-w-4xl mx-auto space-y-10 pb-20">
@@ -257,6 +280,25 @@ export default function IncomeTab({ transactions, savingsJars }) {
                 <div className="text-center">
                     <h2 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Gestão de Recebimentos</h2>
                     <p className={`text-sm ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Acompanhe suas entradas e resgates de investimentos.</p>
+                </div>
+
+                {/* Month Navigator */}
+                <div className={`flex items-center gap-2 p-1.5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                    <button 
+                        onClick={handlePrevMonth}
+                        className={`p-2 rounded-xl transition-all ${theme === 'light' ? 'hover:bg-slate-50 text-slate-400' : 'hover:bg-white/5 text-slate-500'}`}
+                    >
+                        <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <span className={`px-4 text-[10px] font-black uppercase tracking-widest min-w-[140px] text-center ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
+                        {monthLabel}
+                    </span>
+                    <button 
+                        onClick={handleNextMonth}
+                        className={`p-2 rounded-xl transition-all ${theme === 'light' ? 'hover:bg-slate-50 text-slate-400' : 'hover:bg-white/5 text-slate-500'}`}
+                    >
+                        <ChevronRight className="w-5 h-5" />
+                    </button>
                 </div>
 
                 <div className={`p-1.5 rounded-2xl flex gap-1 ${theme === 'light' ? 'bg-slate-100' : 'bg-white/5 shadow-inner'}`}>
@@ -302,7 +344,7 @@ export default function IncomeTab({ transactions, savingsJars }) {
                                 </div>
                                 <div>
                                     <p className={`text-xs font-black uppercase tracking-widest mb-1 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
-                                        Total Recebido (Mês)
+                                        Total Recebido ({monthLabel.split(' ')[0]})
                                     </p>
                                     <h3 className={`text-3xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                                         R$ {totalIncomeMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -435,7 +477,7 @@ export default function IncomeTab({ transactions, savingsJars }) {
                                 </div>
                             </div>
                             <div className="text-right px-4 py-2 bg-blue-500/5 rounded-2xl border border-blue-500/10">
-                                <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Total Resgatado no Mês</span>
+                                <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Total Resgatado ({monthLabel.split(' ')[0]})</span>
                                 <span className={`text-2xl font-black ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`}>
                                     R$ {totalRedemptionMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </span>

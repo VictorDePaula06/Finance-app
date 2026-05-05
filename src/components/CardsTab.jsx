@@ -155,7 +155,8 @@ const CardsTab = ({ transactions = [] }) => {
             userId: currentUser.uid,
             month: new Date().toISOString().slice(0, 7),
             createdAt: Date.now(),
-            paymentMethod: 'pix' // default para pagamento de fatura, deduz da conta corrente
+            paymentMethod: 'pix', // default para pagamento de fatura, deduz da conta corrente
+            selectedCardId: payingInvoice.cardId
         });
 
         // 2. Marcar todas as transações da fatura como pagas
@@ -218,6 +219,12 @@ const CardsTab = ({ transactions = [] }) => {
             const expensesTotal = unpaidExpenses.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
             const totalInvoice = expensesTotal + subsTotal;
             
+            const lastPayment = transactions
+              .filter(t => t.category === 'credit_card_bill' && t.description.includes(card.name))
+              .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+            const currentMonthName = new Date().toLocaleDateString('pt-BR', { month: 'long' });
+            
             return (
               <div key={card.id} className={`group relative p-4 rounded-[2.5rem] border transition-all duration-500 ${
                 theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5 shadow-2xl'
@@ -241,13 +248,21 @@ const CardsTab = ({ transactions = [] }) => {
                   <div className="relative z-10 flex justify-between items-end">
                     <div className="space-y-1.5">
                         <p className="font-mono text-sm tracking-[0.25em] drop-shadow-sm">•••• {card.last4 || '0000'}</p>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[8px] font-black uppercase opacity-60 bg-black/20 px-2 py-0.5 rounded-full">Vencimento</span>
-                            <span className="text-xs font-bold">Dia {card.dueDay}</span>
+                        <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[8px] font-black uppercase opacity-60 bg-black/20 px-2 py-0.5 rounded-full">Vencimento</span>
+                                <span className="text-xs font-bold">Dia {card.dueDay}</span>
+                            </div>
+                            {lastPayment && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[8px] font-black uppercase opacity-60 bg-emerald-500/20 px-2 py-0.5 rounded-full text-emerald-200">Último Pago</span>
+                                    <span className="text-[10px] font-bold">{new Date(lastPayment.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-[9px] uppercase font-black opacity-60 mb-0.5">Fatura Atual</p>
+                      <p className="text-[9px] uppercase font-black opacity-60 mb-0.5">Fatura de {currentMonthName}</p>
                       <p className="text-xl font-black tabular-nums">R$ {totalInvoice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>
                   </div>
