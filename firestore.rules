@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Função para checar se o usuário logado é um dos 4 administradores master
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email in [
+        'financealivia@gmail.com', 
+        'j.17jvictor@gmail.com', 
+        'matheusphelipe7@gmail.com', 
+        'felipedb.clopes@gmail.com'
+      ];
+    }
+
+    // 1. DADOS FINANCEIROS (Transações, Metas, Cartões, Investimentos)
+    // Regra: O usuário só pode ler/escrever se for o dono do dado (userId) ou se for Admin.
+    match /{collectionName}/{docId} {
+       allow read, write: if isAdmin() || (request.auth != null && (
+         // Para novos documentos ou atualizações, o userId deve ser o do usuário logado
+         (request.resource != null && request.resource.data.userId == request.auth.uid) ||
+         // Para leitura ou exclusão de documentos existentes, o userId deve bater
+         (resource != null && resource.data.userId == request.auth.uid)
+       ));
+    }
+    
+    // 2. PERFIL DE USUÁRIO (users)
+    // Regra: O usuário só acessa o seu próprio documento de perfil pelo ID.
+    match /users/{userId} {
+      allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == userId);
+    }
+
+    // 3. CONFIGURAÇÕES GLOBAIS (admin_configs)
+    // Regra: Proteção total. Somente os e-mails da lista isAdmin() podem acessar.
+    match /admin_configs/{docId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // 4. INTEGRAÇÃO STRIPE (customers)
+    // Regra: O usuário acessa seus próprios dados de pagamento e assinaturas Stripe.
+    match /customers/{uid} {
+      allow read: if request.auth.uid == uid || isAdmin();
+      
+      match /checkout_sessions/{id} {
+        allow read, write: if request.auth.uid == uid || isAdmin();
+      }
+      match /subscriptions/{id} {
+        allow read: if request.auth.uid == uid || isAdmin();
+      }
+    }
+  }
+}
