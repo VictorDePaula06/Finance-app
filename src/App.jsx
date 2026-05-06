@@ -20,6 +20,7 @@ import PushSetup from './components/PushSetup';
 import MonthlyReviewModal from './components/MonthlyReviewModal';
 import { generateMonthlyReview } from './services/gemini';
 import { CATEGORIES } from './constants/categories';
+import aliviaFinal from './assets/alivia/alivia-final.png';
 
 // NEW COMPONENTS
 import Hub from './components/Hub';
@@ -640,8 +641,13 @@ function Dashboard() {
                         theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'
                       }`}>
                         <div className="flex flex-col items-center text-center gap-4">
-                          <div className="p-4 bg-emerald-500/10 rounded-full">
-                            <TrendingUp className="w-10 h-10 text-emerald-500" />
+                          <div className="relative">
+                            <div className="absolute -inset-1 bg-gradient-to-tr from-emerald-500 to-blue-500 rounded-full blur opacity-30 animate-pulse"></div>
+                            <img 
+                              src={aliviaFinal} 
+                              alt="Alívia" 
+                              className="relative w-20 h-20 object-cover rounded-full border-4 border-white/10 shadow-2xl" 
+                            />
                           </div>
                           <div>
                             <h4 className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-2">Insight Semanal</h4>
@@ -651,12 +657,16 @@ function Dashboard() {
                           </div>
                         </div>
                         <button
-                          onClick={() => setShowInvestmentHistory(true)}
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent('open-ai-chat', { 
+                              detail: 'Alívia, baseado na minha semana, qual é o seu melhor conselho para eu manter o equilíbrio financeiro?' 
+                            }));
+                          }}
                           className={`w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all group ${
                             theme === 'light' ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg' : 'bg-emerald-600 text-white hover:bg-emerald-500'
                           }`}
                         >
-                          <History className="w-4 h-4" /> Ver Histórico de Reservas
+                          <Sparkles className="w-4 h-4" /> Pedir Conselho à Alívia
                         </button>
                       </div>
                     );

@@ -309,8 +309,20 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
             }, 300);
         };
 
+        const handleOpenChat = (e) => {
+            const msg = e.detail || "Olá Alívia!";
+            setIsOpen(true);
+            setTimeout(() => {
+                processMessage(msg, false);
+            }, 300);
+        };
+
         window.addEventListener('ai-panic', handlePanic);
-        return () => window.removeEventListener('ai-panic', handlePanic);
+        window.addEventListener('open-ai-chat', handleOpenChat);
+        return () => {
+            window.removeEventListener('ai-panic', handlePanic);
+            window.removeEventListener('open-ai-chat', handleOpenChat);
+        };
     }, [transactions, manualConfig]);
 
     const chatContent = isOpen ? (
