@@ -45,7 +45,7 @@ import AliviaConfigForm from './components/AliviaConfigForm';
 const MASTER_EMAIL = 'financealivia@gmail.com';
 
 function Dashboard() {
-  const { currentUser, saveUserPreferences, getUserPreferences, userPrefs } = useAuth();
+  const { currentUser, saveUserPreferences, getUserPreferences, userPrefs, planLevel } = useAuth();
   const { theme } = useTheme();
   const [transactions, setTransactions] = useState([]);
   const [savingsJars, setSavingsJars] = useState([]);
@@ -349,6 +349,10 @@ function Dashboard() {
     return (
       <Hub 
         onSelectModule={(mod) => {
+          if (mod === 'patrimonio' && planLevel === 'standard') {
+            alert('O módulo de Patrimônio é exclusivo para assinantes Premium.');
+            return;
+          }
           setActiveModule(mod);
           if (mod === 'gastos') setActiveTab('visao');
           else if (mod === 'patrimonio') setActiveTab('patrimonio');
@@ -677,22 +681,24 @@ function Dashboard() {
           )}
 
           { activeTab === 'patrimonio' && (
-            <PatrimonioTab
-              transactions={transactions}
-              manualConfig={manualConfig}
-              updateManualConfig={updateManualConfig}
-            />
+            planLevel === 'premium' || isAdmin ? (
+              <PatrimonioTab
+                transactions={transactions}
+                manualConfig={manualConfig}
+                updateManualConfig={updateManualConfig}
+              />
+            ) : <div className="p-12 text-center font-bold text-slate-500">Este módulo requer o plano Premium.</div>
           )}
 
-          { activeTab === 'metas' && <GoalTracker />}
+          { activeTab === 'metas' && (planLevel === 'premium' || isAdmin ? <GoalTracker /> : null)}
 
-          { activeTab === 'evolucao' && <EvolucaoPatrimonialTab /> }
+          { activeTab === 'evolucao' && (planLevel === 'premium' || isAdmin ? <EvolucaoPatrimonialTab /> : null) }
 
           { activeTab === 'cartoes' && <CardsTab transactions={transactions} /> }
           
-          { activeTab === 'reserva' && <EmergencyReserveTab /> }
+          { activeTab === 'reserva' && (planLevel === 'premium' || isAdmin ? <EmergencyReserveTab /> : null) }
           
-          { activeTab === 'investimentos' && <InvestmentsTab /> }
+          { activeTab === 'investimentos' && (planLevel === 'premium' || isAdmin ? <InvestmentsTab /> : null) }
 
           {activeTab === 'analise' && (
             <AnalysisTab transactions={transactions} cards={cards} subscriptions={subscriptions} />

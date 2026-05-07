@@ -23,6 +23,7 @@ export function AuthProvider({ children }) {
     const [isPremium, setIsPremium] = useState(false);
     const [isTrial, setIsTrial] = useState(false);
     const [daysRemaining, setDaysRemaining] = useState(0);
+    const [planLevel, setPlanLevel] = useState('free'); // 'free' | 'standard' | 'premium'
     const [userPrefs, setUserPrefs] = useState(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const expiryTimeoutRef = useRef(null);
@@ -148,6 +149,39 @@ export function AuthProvider({ children }) {
             const isManualLifetime = subStatus === 'lifetime' || manualSub?.status === 'lifetime';
             const isBlocked = manualSub?.status === 'blocked';
 
+            const STANDARD_PRICES = [
+                import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_MONTHLY,
+                import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_YEARLY,
+                'price_1TSMc3KAwb86obAG4jW02DAq', // Hardcoded fallback
+                'price_1TSMctKAwb86obAGj4BZqYtl'
+            ];
+
+            const PREMIUM_PRICES = [
+                import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY,
+                import.meta.env.VITE_STRIPE_PRICE_ID_YEARLY,
+                'price_1T89UOKAwb86obAGotiiOngV',
+                'price_1T89UMKAwb86obAGbk0dSm4Z'
+            ];
+
+            const stripePriceId = stripeSub?.items?.[0]?.plan?.id;
+            let currentPlanLevel = 'free';
+
+            if (isBlocked) {
+                currentPlanLevel = 'free';
+            } else if (isManualLifetime) {
+                currentPlanLevel = 'premium';
+            } else if (stripeSub?.status === 'active' || stripeSub?.status === 'trialing') {
+                if (PREMIUM_PRICES.includes(stripePriceId)) {
+                    currentPlanLevel = 'premium';
+                } else if (STANDARD_PRICES.includes(stripePriceId)) {
+                    currentPlanLevel = 'standard';
+                } else {
+                    currentPlanLevel = 'premium'; // Default to premium for existing subs if unknown
+                }
+            } else if (isManualActive) {
+                currentPlanLevel = manualSub?.level || 'premium';
+            }
+
             const subType = (stripeSub?.items?.[0]?.plan?.interval === 'year' || manualSub?.type === 'annual') ? 'annual' : (manualSub?.type || 'monthly');
             const subDate = stripeSub?.current_period_start ? new Date(stripeSub.current_period_start.seconds * 1000) : (manualSub?.date?.toDate ? manualSub.date.toDate() : (manualSub?.date ? new Date(manualSub.date) : null));
 
@@ -178,6 +212,7 @@ export function AuthProvider({ children }) {
                 hasValidAccess = true;
                 remaining = 7 - diffDaysTrial;
                 setIsTrial(true);
+                currentPlanLevel = 'premium'; // Trial allows full access
             }
 
             const isExpired = !hasValidAccess && (dataRef.current.subsLoaded || dataRef.current.prefsLoaded);
@@ -191,7 +226,8 @@ export function AuthProvider({ children }) {
                 daysRemaining: Math.max(0, remaining),
                 isExpired,
                 isTrial: isWithinTrial && !stripeSub && !isManualActive && !isManualLifetime,
-                hasValidAccess
+                hasValidAccess,
+                planLevel: currentPlanLevel
             };
 
             const subInfoString = JSON.stringify(newSubInfo);
@@ -203,6 +239,7 @@ export function AuthProvider({ children }) {
                 setIsPremium(hasValidAccess);
                 setDaysRemaining(Math.max(0, remaining));
                 setIsTrial(newSubInfo.isTrial);
+                setPlanLevel(currentPlanLevel);
 
                 setCurrentUser(prev => prev ? ({
                     ...prev,
@@ -467,6 +504,7 @@ export function AuthProvider({ children }) {
         isPremium,
         isTrial,
         daysRemaining,
+        planLevel,
         login,
         signup,
         loginWithGoogle,

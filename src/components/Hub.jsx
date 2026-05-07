@@ -6,8 +6,9 @@ import logo from '../assets/logo.png';
 
 export default function Hub({ onSelectModule }) {
   const { theme, toggleTheme } = useTheme();
-  const { currentUser } = useAuth();
+  const { currentUser, planLevel } = useAuth();
   const isDark = theme !== 'light';
+  const isStandard = planLevel === 'standard';
 
   const firstName = currentUser?.displayName?.split(' ')[0] || 'você';
 
@@ -34,7 +35,8 @@ export default function Hub({ onSelectModule }) {
       border: isDark ? 'border-emerald-500/30' : 'border-emerald-200',
       bgHover: isDark ? 'hover:bg-emerald-500/10' : 'hover:bg-emerald-50',
       iconColor: 'text-emerald-500',
-      iconBg: isDark ? 'bg-emerald-500/20' : 'bg-emerald-100'
+      iconBg: isDark ? 'bg-emerald-500/20' : 'bg-emerald-100',
+      isLocked: isStandard
     }
   ];
 
@@ -81,10 +83,16 @@ export default function Hub({ onSelectModule }) {
             return (
               <button
                 key={mod.id}
-                onClick={() => onSelectModule(mod.id)}
+                onClick={() => {
+                  if (mod.isLocked) {
+                    alert('Este módulo é exclusivo para assinantes Premium. Faça o upgrade para ter acesso completo ao seu patrimônio!');
+                    return;
+                  }
+                  onSelectModule(mod.id);
+                }}
                 className={`group relative text-left p-8 rounded-[2.5rem] border backdrop-blur-md transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-1 shadow-xl hover:shadow-2xl ${
                   isDark ? 'bg-slate-900/80 border-white/10 shadow-black/50' : 'bg-white/80 border-slate-200 shadow-slate-200/50'
-                } ${mod.border} ${mod.bgHover}`}
+                } ${mod.border} ${mod.bgHover} ${mod.isLocked ? 'opacity-80 grayscale-[0.5]' : ''}`}
               >
                 {/* Subtle Inner Glow on Hover */}
                 <div className={`absolute inset-0 rounded-[2.5rem] bg-gradient-to-br ${mod.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`} />
@@ -92,17 +100,24 @@ export default function Hub({ onSelectModule }) {
                 <div className="relative z-10 flex flex-col h-full">
                   <div className="flex items-center justify-between mb-6">
                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner transition-transform group-hover:scale-110 duration-300 ${mod.iconBg}`}>
-                      <Icon className={`w-8 h-8 ${mod.iconColor}`} />
+                      {mod.isLocked ? <Lock className={`w-8 h-8 ${mod.iconColor}`} /> : <Icon className={`w-8 h-8 ${mod.iconColor}`} />}
                     </div>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
-                      isDark ? 'bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-slate-100 group-hover:text-slate-900'
-                    }`}>
-                      <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                    </div>
+                    {mod.isLocked ? (
+                      <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isDark ? 'bg-amber-500/10 text-amber-500' : 'bg-amber-50 text-amber-600'}`}>
+                        Premium
+                      </div>
+                    ) : (
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+                        isDark ? 'bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-slate-100 group-hover:text-slate-900'
+                      }`}>
+                        <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    )}
                   </div>
                   
-                  <h3 className="text-2xl font-black mb-3">
+                  <h3 className="text-2xl font-black mb-3 flex items-center gap-2">
                     {mod.title}
+                    {mod.isLocked && <Lock className="w-5 h-5 opacity-40" />}
                   </h3>
                   <p className={`text-sm leading-relaxed flex-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     {mod.description}

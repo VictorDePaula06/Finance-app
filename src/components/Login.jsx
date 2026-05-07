@@ -33,7 +33,7 @@ export default function Login() {
                     <img 
                         src={logo} 
                         alt="Alívia Logo" 
-                        className="w-48 h-auto object-contain mb-8 drop-shadow-sm brightness-0" 
+                        className="w-48 h-auto object-contain mb-8 drop-shadow-sm" 
                     />
                     
                     <div className="relative group">
