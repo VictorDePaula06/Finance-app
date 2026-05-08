@@ -197,68 +197,18 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   const sub = isDark ? 'text-slate-400' : 'text-slate-500';
 
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-8">
-
-      {/* ── TAB NAVIGATION ── */}
-      <div className="flex items-center gap-2 p-1.5 rounded-2xl border w-fit" style={{ background: isDark ? 'rgba(15,23,42,0.8)' : '#f8fafc', borderColor: isDark ? 'rgba(255,255,255,0.06)' : '#e2e8f0' }}>
-        <button
-          onClick={() => setActiveTab('visao')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-            activeTab === 'visao'
-              ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
-              : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <LayoutDashboard className="w-3.5 h-3.5" />
-          Visão Geral
+    <div className="animate-in fade-in duration-700 pb-4">
+      {/* Top bar */}
+      <div className="flex items-center justify-end mb-4">
+        <button onClick={() => setShowPatrimonioConfig(true)} className={`px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 border ${isDark ? 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+          <Pencil className="w-3 h-3" /> Editar Configuração
         </button>
       </div>
 
-      {/* ── VISÃO GERAL TAB ── */}
       {activeTab === 'visao' && (<>
-        {/* ── PATRIMÔNIO CONFIG BAR ── */}
-        {(() => {
-          const onboarding = userPrefs?.onboarding || {};
-          const hasObjectives = onboarding.objectives?.length > 0;
-          const hasProfile = !!onboarding.riskProfile;
-          const isConfigured = hasObjectives && hasProfile;
-          return (
-            <div className={`p-5 md:p-6 rounded-[2rem] border animate-in fade-in slide-in-from-top-4 duration-500 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
-              isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'
-            }`}>
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${
-                  isConfigured ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'
-                }`}>
-                  {isConfigured ? <ShieldCheck className="w-4 h-4" /> : <HelpCircle className="w-4 h-4" />}
-                </div>
-                <div>
-                  <p className={`text-[10px] font-black uppercase tracking-widest ${
-                    isConfigured ? 'text-emerald-500' : 'text-amber-500'
-                  }`}>
-                    {isConfigured ? 'Patrimônio Configurado' : 'Configuração Pendente'}
-                  </p>
-                  <p className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {isConfigured
-                      ? 'Seu perfil de investidor e objetivos estão definidos.'
-                      : 'Defina seu perfil e objetivos para personalizar o módulo.'}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowPatrimonioConfig(true)}
-                className={`px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 shrink-0 ${
-                  isConfigured
-                    ? (isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')
-                    : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                {isConfigured ? 'Editar Configuração' : 'Configurar Patrimônio'}
-              </button>
-            </div>
-          );
-        })()}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        {/* ═══ LEFT COLUMN (3/5) ═══ */}
+        <div className="lg:col-span-3 space-y-4">
 
       {/* ── HERO: PATRIMÔNIO TOTAL ── */}
       <div className={`p-5 md:p-7 rounded-[2rem] border relative overflow-hidden ${isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/30 border-white/[0.06]' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900/40 border-slate-700'}`}>
@@ -336,6 +286,159 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
           </div>
         </div>
       </div>
+
+      {/* ── MEU PATRIMÔNIO: Allocation Chart + Breakdown ── */}
+      {(() => {
+        const CATEGORY_COLORS = {
+          'Reserva': '#10b981',
+          'Renda Fixa': '#6366f1',
+          'Ações': '#a855f7',
+          'ETFs': '#3b82f6',
+          'Fundos Imobiliários': '#14b8a6',
+          'Criptomoedas': '#f59e0b',
+          'Imóveis': '#f97316',
+          'Outros': '#64748b',
+        };
+        const ASSET_COLORS = ['#10b981','#6366f1','#a855f7','#3b82f6','#14b8a6','#f59e0b','#f97316','#ec4899','#8b5cf6','#06b6d4','#84cc16','#ef4444','#22d3ee','#e879f9'];
+        const CATEGORY_MAP = {
+          renda_fixa: 'Renda Fixa',
+          acoes: 'Ações',
+          etfs: 'ETFs',
+          fiis: 'Fundos Imobiliários',
+          crypto: 'Criptomoedas',
+          imoveis: 'Imóveis',
+        };
+
+        // Build items
+        const items = [];
+        if (includeReserve) {
+          jars.forEach(j => {
+            if ((j.balance || 0) > 0) items.push({ name: j.name, category: 'Reserva', value: j.balance });
+          });
+        }
+        investments.forEach(inv => {
+          const price = inv.manualCurrentPrice || inv.purchasePrice || 0;
+          const usdM = inv.isUSD ? usdRate : 1;
+          const val = (inv.quantity || 1) * price * usdM;
+          if (val > 0) items.push({ name: inv.name || inv.symbol || 'Ativo', category: CATEGORY_MAP[inv.type] || 'Outros', value: val });
+        });
+
+        const totalValue = items.reduce((a, i) => a + i.value, 0);
+
+        // Aggregate by mode
+        let chartItems;
+        if (chartViewMode === 'category') {
+          const catMap = {};
+          items.forEach(it => {
+            if (!catMap[it.category]) catMap[it.category] = 0;
+            catMap[it.category] += it.value;
+          });
+          chartItems = Object.entries(catMap).map(([name, value]) => ({ name, value, color: CATEGORY_COLORS[name] || '#64748b' })).sort((a, b) => b.value - a.value);
+        } else {
+          chartItems = items.map((it, idx) => ({ name: it.name, value: it.value, color: ASSET_COLORS[idx % ASSET_COLORS.length] })).sort((a, b) => b.value - a.value);
+        }
+
+        const CustomPieTooltip = ({ active, payload }) => {
+          if (!active || !payload?.length) return null;
+          const d = payload[0];
+          return (
+            <div className={`px-4 py-3 rounded-2xl border shadow-2xl text-xs ${isDark ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
+              <p className="font-black mb-1" style={{ color: d.payload.color }}>{d.name}</p>
+              <p className="font-bold">R$ {fmt(d.value)}</p>
+              <p className="text-slate-500 font-bold">{totalValue > 0 ? ((d.value / totalValue) * 100).toFixed(1) : 0}%</p>
+            </div>
+          );
+        };
+
+        return (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
+            <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
+              <button onClick={() => setExpandAllocation(!expandAllocation)} className={`w-full flex items-center justify-between p-4 transition-all ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
+                    <BarChart3 className={`w-4 h-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
+                  </div>
+                  <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Alocação do Patrimônio</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {expandAllocation && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setIncludeReserve(!includeReserve); }}
+                        className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border ${
+                          includeReserve ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : isDark ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'
+                        }`}
+                      >
+                        {includeReserve ? '✓ Reserva' : 'Sem Reserva'}
+                      </button>
+                      <div className={`flex rounded-lg border overflow-hidden ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                        <button onClick={(e) => { e.stopPropagation(); setChartViewMode('category'); }} className={`flex items-center gap-1 px-2 py-1 text-[8px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'category' ? 'bg-emerald-500 text-white' : isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          <Layers className="w-2.5 h-2.5" /> Cat.
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); setChartViewMode('asset'); }} className={`flex items-center gap-1 px-2 py-1 text-[8px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'asset' ? 'bg-emerald-500 text-white' : isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          <List className="w-2.5 h-2.5" /> Ativo
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isDark ? 'text-slate-500' : 'text-slate-400'} ${expandAllocation ? 'rotate-180' : ''}`} />
+                </div>
+              </button>
+              {expandAllocation && (
+              <div className="px-4 pb-4">
+              {totalValue <= 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-slate-500 text-xs font-bold">Nenhum ativo cadastrado.</p>
+                </div>
+              ) : (
+                <div className="flex flex-col lg:flex-row gap-6 items-center">
+                  <div className="relative w-full lg:w-[280px] flex-shrink-0">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie data={chartItems} cx="50%" cy="50%" innerRadius={60} outerRadius={95} paddingAngle={2} dataKey="value" stroke="none" animationDuration={600}>
+                          {chartItems.map((entry, idx) => (<Cell key={idx} fill={entry.color} className="transition-all hover:opacity-80" />))}
+                        </Pie>
+                        <ReTooltip content={<CustomPieTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <p className={`text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total</p>
+                      <p className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(totalValue)}</p>
+                    </div>
+                  </div>
+                  <div className="flex-1 w-full">
+                    <div className="space-y-1 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                      {chartItems.map((item, idx) => {
+                        const pct = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
+                        return (
+                          <div key={idx} className={`flex items-center gap-2.5 p-2 rounded-xl transition-all hover:scale-[1.01] ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
+                            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: item.color }} />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-[10px] font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.name}</p>
+                              <p className={`text-[9px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>R$ {fmt(item.value)}</p>
+                            </div>
+                            <p className="text-xs font-black flex-shrink-0" style={{ color: item.color }}>{pct.toFixed(1)}%</p>
+                            <div className={`w-14 h-1 rounded-full overflow-hidden flex-shrink-0 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: item.color }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+              </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+        </div>{/* end left col */}
+
+        {/* ═══ RIGHT COLUMN (2/5) ═══ */}
+        <div className="lg:col-span-2 space-y-4">
 
       {/* ── PATRIMONY GOAL PROGRESS CARD ── */}
       {patrimonyGoals.length > 0 && (() => {
@@ -507,154 +610,6 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         );
       })()}
 
-      {/* ── MEU PATRIMÔNIO: Allocation Chart + Breakdown ── */}
-      {(() => {
-        const CATEGORY_COLORS = {
-          'Reserva': '#10b981',
-          'Renda Fixa': '#6366f1',
-          'Ações': '#a855f7',
-          'ETFs': '#3b82f6',
-          'Fundos Imobiliários': '#14b8a6',
-          'Criptomoedas': '#f59e0b',
-          'Imóveis': '#f97316',
-          'Outros': '#64748b',
-        };
-        const ASSET_COLORS = ['#10b981','#6366f1','#a855f7','#3b82f6','#14b8a6','#f59e0b','#f97316','#ec4899','#8b5cf6','#06b6d4','#84cc16','#ef4444','#22d3ee','#e879f9'];
-        const CATEGORY_MAP = {
-          renda_fixa: 'Renda Fixa',
-          acoes: 'Ações',
-          etfs: 'ETFs',
-          fiis: 'Fundos Imobiliários',
-          crypto: 'Criptomoedas',
-          imoveis: 'Imóveis',
-        };
-
-        // Build items
-        const items = [];
-        if (includeReserve) {
-          jars.forEach(j => {
-            if ((j.balance || 0) > 0) items.push({ name: j.name, category: 'Reserva', value: j.balance });
-          });
-        }
-        investments.forEach(inv => {
-          const price = inv.manualCurrentPrice || inv.purchasePrice || 0;
-          const usdM = inv.isUSD ? usdRate : 1;
-          const val = (inv.quantity || 1) * price * usdM;
-          if (val > 0) items.push({ name: inv.name || inv.symbol || 'Ativo', category: CATEGORY_MAP[inv.type] || 'Outros', value: val });
-        });
-
-        const totalValue = items.reduce((a, i) => a + i.value, 0);
-
-        // Aggregate by mode
-        let chartItems;
-        if (chartViewMode === 'category') {
-          const catMap = {};
-          items.forEach(it => {
-            if (!catMap[it.category]) catMap[it.category] = 0;
-            catMap[it.category] += it.value;
-          });
-          chartItems = Object.entries(catMap).map(([name, value]) => ({ name, value, color: CATEGORY_COLORS[name] || '#64748b' })).sort((a, b) => b.value - a.value);
-        } else {
-          chartItems = items.map((it, idx) => ({ name: it.name, value: it.value, color: ASSET_COLORS[idx % ASSET_COLORS.length] })).sort((a, b) => b.value - a.value);
-        }
-
-        const CustomPieTooltip = ({ active, payload }) => {
-          if (!active || !payload?.length) return null;
-          const d = payload[0];
-          return (
-            <div className={`px-4 py-3 rounded-2xl border shadow-2xl text-xs ${isDark ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
-              <p className="font-black mb-1" style={{ color: d.payload.color }}>{d.name}</p>
-              <p className="font-bold">R$ {fmt(d.value)}</p>
-              <p className="text-slate-500 font-bold">{totalValue > 0 ? ((d.value / totalValue) * 100).toFixed(1) : 0}%</p>
-            </div>
-          );
-        };
-
-        return (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
-            <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
-              <button onClick={() => setExpandAllocation(!expandAllocation)} className={`w-full flex items-center justify-between p-4 transition-all ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
-                <div className="flex items-center gap-2.5">
-                  <div className={`p-2 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
-                    <BarChart3 className={`w-4 h-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
-                  </div>
-                  <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Alocação do Patrimônio</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {expandAllocation && (
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setIncludeReserve(!includeReserve); }}
-                        className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border ${
-                          includeReserve ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : isDark ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'
-                        }`}
-                      >
-                        {includeReserve ? '✓ Reserva' : 'Sem Reserva'}
-                      </button>
-                      <div className={`flex rounded-lg border overflow-hidden ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-                        <button onClick={(e) => { e.stopPropagation(); setChartViewMode('category'); }} className={`flex items-center gap-1 px-2 py-1 text-[8px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'category' ? 'bg-emerald-500 text-white' : isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                          <Layers className="w-2.5 h-2.5" /> Cat.
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); setChartViewMode('asset'); }} className={`flex items-center gap-1 px-2 py-1 text-[8px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'asset' ? 'bg-emerald-500 text-white' : isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                          <List className="w-2.5 h-2.5" /> Ativo
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isDark ? 'text-slate-500' : 'text-slate-400'} ${expandAllocation ? 'rotate-180' : ''}`} />
-                </div>
-              </button>
-              {expandAllocation && (
-              <div className="px-4 pb-4">
-              {totalValue <= 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-slate-500 text-xs font-bold">Nenhum ativo cadastrado.</p>
-                </div>
-              ) : (
-                <div className="flex flex-col lg:flex-row gap-6 items-center">
-                  <div className="relative w-full lg:w-[280px] flex-shrink-0">
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart>
-                        <Pie data={chartItems} cx="50%" cy="50%" innerRadius={60} outerRadius={95} paddingAngle={2} dataKey="value" stroke="none" animationDuration={600}>
-                          {chartItems.map((entry, idx) => (<Cell key={idx} fill={entry.color} className="transition-all hover:opacity-80" />))}
-                        </Pie>
-                        <ReTooltip content={<CustomPieTooltip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <p className={`text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total</p>
-                      <p className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(totalValue)}</p>
-                    </div>
-                  </div>
-                  <div className="flex-1 w-full">
-                    <div className="space-y-1 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                      {chartItems.map((item, idx) => {
-                        const pct = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
-                        return (
-                          <div key={idx} className={`flex items-center gap-2.5 p-2 rounded-xl transition-all hover:scale-[1.01] ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
-                            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: item.color }} />
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-[10px] font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.name}</p>
-                              <p className={`text-[9px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>R$ {fmt(item.value)}</p>
-                            </div>
-                            <p className="text-xs font-black flex-shrink-0" style={{ color: item.color }}>{pct.toFixed(1)}%</p>
-                            <div className={`w-14 h-1 rounded-full overflow-hidden flex-shrink-0 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
-                              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: item.color }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-              </div>
-              )}
-            </div>
-          </div>
-        );
-      })()}
-
       {/* ── SEU PLANO ── */}
       {(() => {
         const onboarding = userPrefs?.onboarding || {};
@@ -752,6 +707,9 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
           </div>
           )}
       </div>
+
+        </div>{/* end right col */}
+      </div>{/* end grid */}
       </>)}
 
       {/* ── PATRIMÔNIO CONFIG MODAL ── */}
@@ -896,4 +854,4 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
       
     </div>
   );
-}
+}
