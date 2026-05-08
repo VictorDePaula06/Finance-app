@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Target, Plus, Pencil, Check, Trophy, History, Trash2, TrendingUp, Calendar, DollarSign, Activity, PiggyBank } from 'lucide-react';
+import { Target, Plus, Pencil, Check, Trophy, History, Trash2, TrendingUp, Calendar, DollarSign, Activity, PiggyBank, Home, Gem } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -275,10 +275,12 @@ export default function GoalTracker() {
                             const isLinked = linked.length > 0 || linkedInv.length > 0;
 
                             return (
-                                <div key={goal.id} className={`p-5 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border transition-all group relative flex flex-col ${isDark ? 'bg-slate-900 border-white/5 hover:bg-white/10' : 'bg-white border-slate-100 hover:border-emerald-200 shadow-sm'}`}>
+                                <div key={goal.id} className={`p-5 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border transition-all group relative flex flex-col ${goal.isPatrimonyGoal ? (isDark ? 'bg-gradient-to-br from-slate-900 to-blue-950/30 border-blue-500/20 hover:border-blue-500/40' : 'bg-gradient-to-br from-white to-blue-50 border-blue-200 hover:border-blue-300 shadow-sm') : (isDark ? 'bg-slate-900 border-white/5 hover:bg-white/10' : 'bg-white border-slate-100 hover:border-emerald-200 shadow-sm')}`}>
                                     <div className="flex justify-between items-start mb-8">
-                                        <div className="w-16 h-16 bg-emerald-500/10 rounded-3xl flex items-center justify-center shrink-0">
-                                            <Trophy className={`w-8 h-8 ${done ? 'text-emerald-500' : 'text-slate-400'}`} />
+                                        <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shrink-0 ${goal.isPatrimonyGoal ? 'bg-blue-500/10' : 'bg-emerald-500/10'}`}>
+                                            {goal.isPatrimonyGoal
+                                              ? (goal.patrimonyGoalType === 'imovel' ? <Home className={`w-8 h-8 ${done ? 'text-emerald-500' : 'text-blue-400'}`} /> : <Gem className={`w-8 h-8 ${done ? 'text-emerald-500' : 'text-blue-400'}`} />)
+                                              : <Trophy className={`w-8 h-8 ${done ? 'text-emerald-500' : 'text-slate-400'}`} />}
                                         </div>
                                         <div className="flex gap-1 md:gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                             <button onClick={() => { setEditingId(goal.id); setEditTitle(goal.title); setEditTarget(goal.target); setEditDeadline(goal.deadline || ''); setEditJarIds(jarIds); setEditInvIds(invIds); }}
@@ -289,6 +291,11 @@ export default function GoalTracker() {
                                     </div>
 
                                     <div className="mb-6">
+                                        {goal.isPatrimonyGoal && (
+                                          <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mb-2 ${isDark ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
+                                            {goal.patrimonyGoalType === 'imovel' ? '🏠 Meta Imóvel' : '💎 Meta Patrimônio'}
+                                          </span>
+                                        )}
                                         <h3 className={`font-black text-2xl ${isDark ? 'text-white' : 'text-slate-800'}`}>{goal.title}</h3>
                                         <div className="flex items-center gap-3 mt-2 flex-wrap">
                                             <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Alvo: R$ {goal.target.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>

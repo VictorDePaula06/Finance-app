@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Landmark, ArrowRight, ShieldCheck, TrendingUp, CheckCircle2, Target, Plus, Trash2 } from 'lucide-react';
+import { Landmark, ArrowRight, ShieldCheck, TrendingUp, CheckCircle2, Target, Plus, Trash2, Home, Gem } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -27,6 +27,8 @@ export default function PatrimonyWelcome({ onComplete }) {
   
   const [objectives, setObjectives] = useState([]);
   const [riskProfile, setRiskProfile] = useState('');
+  const [patrimonyGoalType, setPatrimonyGoalType] = useState('');
+  const [patrimonyGoalValue, setPatrimonyGoalValue] = useState('');
   
   const [reserves, setReserves] = useState([{ id: 1, name: '', value: '', cdi: '100' }]);
   const [investments, setInvestments] = useState([{ id: 1, type: 'acoes', ticker: '', name: '', quantity: '', purchasePrice: '', isUSD: false }]);
@@ -38,7 +40,7 @@ export default function PatrimonyWelcome({ onComplete }) {
   const inputCls = `w-full p-4 rounded-2xl border text-sm font-semibold transition-all outline-none focus:ring-2 focus:ring-emerald-500/40 ${isDark ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-800 focus:bg-white'}`;
 
   const firstName = currentUser?.displayName?.split(' ')[0] || 'você';
-  const totalSteps = 5;
+  const totalSteps = 6;
 
   const handleComplete = async () => {
     setIsSaving(true);
@@ -90,14 +92,38 @@ export default function PatrimonyWelcome({ onComplete }) {
 
     const onboarding = userPrefs?.onboarding || {};
 
+    // Create patrimony goal as a Firebase goal document
+    if (patrimonyGoalType && parseFloat(patrimonyGoalValue) > 0) {
+      try {
+        const { addDoc: addGoalDoc } = await import('firebase/firestore');
+        const goalTitle = patrimonyGoalType === 'imovel' ? 'Imóvel' : 'Meta de Patrimônio';
+        await addGoalDoc(collection(db, 'goals'), {
+          userId: currentUser.uid,
+          title: goalTitle,
+          target: parseFloat(patrimonyGoalValue),
+          current: 0,
+          status: 'active',
+          isPatrimonyGoal: true,
+          patrimonyGoalType: patrimonyGoalType,
+          linkedJarIds: [],
+          linkedInvIds: [],
+          createdAt: new Date().toISOString()
+        });
+      } catch (e) {
+        console.error('Erro ao criar meta de patrimônio:', e);
+      }
+    }
+
     await saveUserPreferences({
       hasSeenPatrimonyWelcome: true,
-      hasSeenWelcome: true, // Ensures main WelcomeJourney doesn't interrupt after this
+      hasSeenWelcome: true,
       manualConfig: updatedManualConfig,
       onboarding: {
         ...onboarding,
         objectives: objectives.length > 0 ? objectives : (onboarding.objectives || []),
         riskProfile: riskProfile || onboarding.riskProfile || '',
+        patrimonyGoalType: patrimonyGoalType || onboarding.patrimonyGoalType || '',
+        patrimonyGoalValue: patrimonyGoalValue ? parseFloat(patrimonyGoalValue) : (onboarding.patrimonyGoalValue || 0),
       }
     });
     
@@ -119,6 +145,7 @@ export default function PatrimonyWelcome({ onComplete }) {
   const canProceed = () => {
     if (step === 1) return objectives.length > 0;
     if (step === 2) return riskProfile !== '';
+    // step 3 (meta) is optional
     return true;
   };
 
@@ -212,11 +239,70 @@ export default function PatrimonyWelcome({ onComplete }) {
             </div>
           )}
 
-          {/* STEP 3: Reserve Values */}
+          {/* STEP 3: Patrimony Goal */}
           {step === 3 && (
+            <div className="flex flex-col gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">03 — META</p>
+                <h2 className={`text-2xl font-black ${text}`}>Sua Meta de Patrimônio</h2>
+                <p className={`text-sm mt-1 ${sub}`}>Qual é o grande objetivo financeiro que você quer alcançar?</p>
+              </div>
+              <div className="flex flex-col gap-3">
+                {[
+                  { id: 'patrimonio_total', label: 'Total de Patrimônio', desc: 'Quero atingir um valor consolidado de patrimônio', icon: Gem, emoji: '💎' },
+                  { id: 'imovel', label: 'Imóvel', desc: 'Quero juntar para comprar uma casa ou apartamento', icon: Home, emoji: '🏠' },
+                ].map(goalType => {
+                  const active = patrimonyGoalType === goalType.id;
+                  return (
+                    <button
+                      type="button"
+                      key={goalType.id}
+                      onClick={() => setPatrimonyGoalType(active ? '' : goalType.id)}
+                      className={`flex items-center gap-4 p-5 rounded-2xl border text-left transition-all duration-300 ${
+                        active
+                          ? 'border-emerald-500 bg-emerald-500/10 scale-[1.01]'
+                          : isDark ? 'border-white/10 bg-white/5 hover:border-white/20' : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                      }`}
+                    >
+                      <span className="text-2xl">{goalType.emoji}</span>
+                      <div>
+                        <p className={`font-black text-sm ${active ? 'text-emerald-500' : text}`}>{goalType.label}</p>
+                        <p className={`text-xs ${sub}`}>{goalType.desc}</p>
+                      </div>
+                      {active && <CheckCircle2 className="w-5 h-5 text-emerald-500 ml-auto shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {patrimonyGoalType && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <span className={`text-[10px] font-bold uppercase ${sub} mb-1 block`}>Valor da Meta (R$)</span>
+                  <input
+                    type="number"
+                    step="any"
+                    value={patrimonyGoalValue}
+                    onChange={e => setPatrimonyGoalValue(e.target.value)}
+                    placeholder={patrimonyGoalType === 'imovel' ? 'Ex: 350000' : 'Ex: 100000'}
+                    className={inputCls}
+                  />
+                  <p className={`text-[10px] mt-2 ${sub}`}>
+                    {patrimonyGoalType === 'imovel'
+                      ? 'Valor estimado do imóvel que deseja conquistar.'
+                      : 'Quanto você quer acumular no total em patrimônio.'}
+                  </p>
+                </div>
+              )}
+
+              <p className={`text-[10px] italic ${sub}`}>Esta etapa é opcional. Você pode pular e definir depois.</p>
+            </div>
+          )}
+
+          {/* STEP 4: Reserve Values */}
+          {step === 4 && (
             <div className="flex flex-col gap-6">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">03 — RESERVAS DE EMERGÊNCIA</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">04 — RESERVAS DE EMERGÊNCIA</p>
                 <h2 className={`text-2xl font-black ${text}`}>Suas Reservas</h2>
                 <p className={`text-sm mt-1 ${sub}`}>Valores seguros e de alta liquidez.</p>
               </div>
@@ -258,11 +344,11 @@ export default function PatrimonyWelcome({ onComplete }) {
             </div>
           )}
 
-          {/* STEP 4: Investments Values */}
-          {step === 4 && (
+          {/* STEP 5: Investments Values */}
+          {step === 5 && (
             <div className="flex flex-col gap-6">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">04 — INVESTIMENTOS</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">05 — INVESTIMENTOS</p>
                 <h2 className={`text-2xl font-black ${text}`}>Seus Investimentos</h2>
                 <p className={`text-sm mt-1 ${sub}`}>Ações, FIIs, Cripto ou CDBs.</p>
               </div>

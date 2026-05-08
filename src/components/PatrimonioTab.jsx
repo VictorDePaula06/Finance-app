@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Wallet, PiggyBank, TrendingUp, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List, HelpCircle, ShieldCheck } from 'lucide-react';
+import { Wallet, PiggyBank, TrendingUp, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List, HelpCircle, ShieldCheck, Target, Home, Gem } from 'lucide-react';
 import PatrimonioConfigForm from './PatrimonioConfigForm';
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer } from 'recharts';
 import ReactMarkdown from 'react-markdown';
@@ -64,8 +64,9 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeTab, setActiveTab] = useState('visao');
-  const [chartViewMode, setChartViewMode] = useState('category'); // 'category' | 'asset'
+  const [chartViewMode, setChartViewMode] = useState('category');
   const [includeReserve, setIncludeReserve] = useState(true);
+  const [patrimonyGoals, setPatrimonyGoals] = useState([]);
 
   // ── listeners ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -78,6 +79,15 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
     if (!currentUser) return;
     const q = query(collection(db, 'investments'), where('userId', '==', currentUser.uid));
     return onSnapshot(q, snap => setInvestments(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = query(collection(db, 'goals'), where('userId', '==', currentUser.uid));
+    return onSnapshot(q, snap => {
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setPatrimonyGoals(all.filter(g => g.isPatrimonyGoal && g.status === 'active'));
+    });
   }, [currentUser]);
 
   useEffect(() => {
@@ -313,6 +323,118 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
           detail={`+R$ ${fmt(totalDailyYield * 30)}/mês proj. rendimentos`}
         />
       </div>
+
+      {/* ── PATRIMONY GOAL PROGRESS CARD ── */}
+      {patrimonyGoals.length > 0 && (() => {
+        const goal = patrimonyGoals[0];
+        const goalTarget = goal.target || 0;
+        const currentValue = patrimonioTotal;
+        const remaining = Math.max(0, goalTarget - currentValue);
+        const progressPct = goalTarget > 0 ? Math.min((currentValue / goalTarget) * 100, 100) : 0;
+        const isOnTrack = currentValue > 0 && totalDailyYield > 0;
+        const monthlyGrowth = totalDailyYield * 30;
+        const monthsToGoal = monthlyGrowth > 0 ? Math.ceil(remaining / monthlyGrowth) : null;
+        const isGoalReached = currentValue >= goalTarget;
+        const GoalIcon = goal.patrimonyGoalType === 'imovel' ? Home : Gem;
+        const goalLabel = goal.patrimonyGoalType === 'imovel' ? 'Meta: Imóvel' : 'Meta de Patrimônio';
+
+        return (
+          <div className={`p-6 md:p-8 rounded-[2.5rem] border relative overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700 ${
+            isGoalReached
+              ? 'bg-gradient-to-br from-emerald-900/50 to-teal-900/50 border-emerald-500/30'
+              : isDark ? 'bg-gradient-to-br from-slate-900 to-blue-950/50 border-white/10' : 'bg-gradient-to-br from-white to-blue-50 border-slate-200 shadow-sm'
+          }`}>
+            {/* Glow */}
+            <div className={`absolute top-[-40%] right-[-15%] w-[50%] h-[100%] rounded-full blur-[100px] pointer-events-none opacity-15 ${
+              isGoalReached ? 'bg-emerald-400' : 'bg-blue-500'
+            }`} />
+
+            <div className="relative">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className={`p-3 rounded-2xl shadow-inner ${
+                    isGoalReached ? 'bg-emerald-500/20' : isDark ? 'bg-blue-500/20' : 'bg-blue-100'
+                  }`}>
+                    <GoalIcon className={`w-6 h-6 ${isGoalReached ? 'text-emerald-400' : isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+                  </div>
+                  <div>
+                    <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${
+                      isGoalReached ? 'text-emerald-400' : isDark ? 'text-blue-400' : 'text-blue-500'
+                    }`}>{goalLabel}</p>
+                    <p className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{goal.title}</p>
+                  </div>
+                </div>
+                {isGoalReached && (
+                  <div className="px-4 py-2 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest animate-pulse">
+                    ✨ Meta Alcançada!
+                  </div>
+                )}
+              </div>
+
+              {/* Values Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div>
+                  <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Alvo</p>
+                  <p className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(goalTarget)}</p>
+                </div>
+                <div>
+                  <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Acumulado</p>
+                  <p className="text-xl font-black text-emerald-400">R$ {fmt(currentValue)}</p>
+                </div>
+                <div>
+                  <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Faltam</p>
+                  <p className={`text-xl font-black ${remaining > 0 ? (isDark ? 'text-amber-400' : 'text-amber-500') : 'text-emerald-400'}`}>
+                    {remaining > 0 ? `R$ ${fmt(remaining)}` : '✔ Completo'}
+                  </p>
+                </div>
+                <div>
+                  <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Progresso</p>
+                  <p className={`text-xl font-black ${isGoalReached ? 'text-emerald-400' : isDark ? 'text-blue-400' : 'text-blue-500'}`}>
+                    {progressPct.toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className={`h-3 rounded-full overflow-hidden mb-4 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                <div
+                  className={`h-full rounded-full transition-all duration-1000 ${isGoalReached ? 'bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]' : 'bg-gradient-to-r from-blue-500 to-emerald-500 shadow-[0_0_15px_rgba(59,130,246,0.3)]'}`}
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+
+              {/* Insights */}
+              {!isGoalReached && (
+                <div className={`flex flex-col sm:flex-row gap-3 mt-4`}>
+                  {monthlyGrowth > 0 && (
+                    <div className={`flex-1 p-4 rounded-2xl border ${isDark ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
+                      <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Crescimento Mensal Estimado</p>
+                      <p className={`text-lg font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>+R$ {fmt(monthlyGrowth)} <span className="text-[10px] opacity-70">/mês</span></p>
+                    </div>
+                  )}
+                  {monthsToGoal && monthsToGoal < 600 && (
+                    <div className={`flex-1 p-4 rounded-2xl border ${isDark ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50 border-blue-100'}`}>
+                      <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Tempo Estimado (só rendimentos)</p>
+                      <p className={`text-lg font-black ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                        {monthsToGoal < 12 ? `${monthsToGoal} meses` : `${Math.floor(monthsToGoal / 12)} anos e ${monthsToGoal % 12} meses`}
+                      </p>
+                    </div>
+                  )}
+                  {isOnTrack && monthlyGrowth > 0 && (
+                    <div className={`flex-1 p-4 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-100'}`}>
+                      <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Status</p>
+                      <p className={`text-sm font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                        ✓ Patrimônio crescendo com rendimentos
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── MEU PATRIMÔNIO: Allocation Chart + Breakdown ── */}
       {(() => {
