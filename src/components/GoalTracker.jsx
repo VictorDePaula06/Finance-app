@@ -279,8 +279,8 @@ export default function GoalTracker() {
                                     <div className="flex justify-between items-start mb-8">
                                         <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shrink-0 ${goal.isPatrimonyGoal ? 'bg-blue-500/10' : 'bg-emerald-500/10'}`}>
                                             {goal.isPatrimonyGoal
-                                              ? (goal.patrimonyGoalType === 'imovel' ? <Home className={`w-8 h-8 ${done ? 'text-emerald-500' : 'text-blue-400'}`} /> : <Gem className={`w-8 h-8 ${done ? 'text-emerald-500' : 'text-blue-400'}`} />)
-                                              : <Trophy className={`w-8 h-8 ${done ? 'text-emerald-500' : 'text-slate-400'}`} />}
+                                                ? (goal.patrimonyGoalType === 'imovel' ? <Home className={`w-8 h-8 ${done ? 'text-emerald-500' : 'text-blue-400'}`} /> : <Gem className={`w-8 h-8 ${done ? 'text-emerald-500' : 'text-blue-400'}`} />)
+                                                : <Trophy className={`w-8 h-8 ${done ? 'text-emerald-500' : 'text-slate-400'}`} />}
                                         </div>
                                         <div className="flex gap-1 md:gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                             <button onClick={() => { setEditingId(goal.id); setEditTitle(goal.title); setEditTarget(goal.target); setEditDeadline(goal.deadline || ''); setEditJarIds(jarIds); setEditInvIds(invIds); }}
@@ -292,16 +292,16 @@ export default function GoalTracker() {
 
                                     <div className="mb-6">
                                         {goal.isPatrimonyGoal && (
-                                          <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mb-2 ${isDark ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
-                                            {goal.patrimonyGoalType === 'imovel' ? '🏠 Meta Imóvel' : '💎 Meta Patrimônio'}
-                                          </span>
+                                            <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mb-2 ${isDark ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
+                                                {goal.patrimonyGoalType === 'imovel' ? '🏠 Meta Imóvel' : '💎 Meta Patrimônio'}
+                                            </span>
                                         )}
                                         <h3 className={`font-black text-2xl ${isDark ? 'text-white' : 'text-slate-800'}`}>{goal.title}</h3>
                                         <div className="flex items-center gap-3 mt-2 flex-wrap">
                                             <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Alvo: R$ {goal.target.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                             {goal.deadline && <span className="text-xs font-black text-blue-500 flex items-center gap-1">• <Calendar className="w-3 h-3" /> {new Date(goal.deadline + "T12:00:00").toLocaleDateString('pt-BR')}</span>}
                                         </div>
-                                        
+
                                         {/* Sugestão de Economia Mensal */}
                                         {activeTab === 'active' && goal.deadline && current < goal.target && (() => {
                                             const today = new Date();
@@ -311,7 +311,7 @@ export default function GoalTracker() {
                                             if (months <= 0) months = targetDate >= today ? 1 : 0;
                                             const isUrgent = months <= 1;
                                             const monthly = months > 0 ? (goal.target - current) / months : (goal.target - current);
-                                            
+
                                             return monthly > 0 && (
                                                 <div className={`mt-3 p-3 rounded-2xl border ${isDark ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50 border-blue-100'}`}>
                                                     <p className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
