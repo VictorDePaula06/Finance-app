@@ -45,7 +45,7 @@ import AliviaConfigForm from './components/AliviaConfigForm';
 const MASTER_EMAIL = 'financealivia@gmail.com';
 
 function Dashboard() {
-  const { currentUser, saveUserPreferences, getUserPreferences, userPrefs, planLevel } = useAuth();
+  const { currentUser, saveUserPreferences, getUserPreferences, userPrefs, planLevel, isAdmin } = useAuth();
   const { theme } = useTheme();
   const [transactions, setTransactions] = useState([]);
   const [savingsJars, setSavingsJars] = useState([]);
