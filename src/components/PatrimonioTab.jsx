@@ -253,75 +253,83 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
           );
         })()}
 
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-500 mb-1">Patrimônio</p>
-          <h2 className={`text-3xl font-black ${h1}`}>Sua Riqueza</h2>
-          <p className={`text-sm ${sub}`}>Visão consolidada de todos os seus ativos.</p>
-        </div>
+      {/* ── HERO: PATRIMÔNIO TOTAL ── */}
+      <div className={`p-6 md:p-10 rounded-[2.5rem] border relative overflow-hidden ${isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/30 border-white/[0.06]' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900/40 border-slate-700'}`}>
+        <div className="absolute top-[-50%] right-[-15%] w-[60%] h-[140%] rounded-full blur-[120px] pointer-events-none opacity-[0.12] bg-emerald-400" />
+        <div className="absolute bottom-[-40%] left-[-10%] w-[40%] h-[100%] rounded-full blur-[100px] pointer-events-none opacity-[0.06] bg-purple-500" />
 
-      {/* ── PATRIMÔNIO TOTAL ── */}
-      <div className={`p-8 rounded-[2.5rem] border relative overflow-hidden ${isDark ? 'bg-gradient-to-br from-slate-900 to-slate-800 border-white/10' : 'bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700'}`}>
-        <div className="absolute top-[-30%] right-[-10%] w-[50%] h-[100%] rounded-full blur-[80px] pointer-events-none opacity-20 bg-emerald-500" />
         <div className="relative">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 mb-4">Patrimônio Total Consolidado</p>
-          <p className={`text-5xl font-black tracking-tight ${patrimonioTotal >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {fmtSigned(patrimonioTotal)}
-          </p>
-          {totalDailyYield > 0 && (
-            <p className="text-emerald-400 text-sm font-bold mt-2">
-              ↑ R$ {fmt(totalDailyYield)}/dia em rendimentos estimados
-            </p>
-          )}
-          {/* Breakdown bar */}
-          {patrimonioTotal > 0 && (
-            <div className="mt-6 space-y-2">
-              <div className="flex rounded-full overflow-hidden h-2 bg-white/10">
-                <div style={{ width: `${jarsTotal / patrimonioTotal * 100}%` }} className="bg-emerald-500 transition-all" />
-                <div style={{ width: `${investmentsTotal / patrimonioTotal * 100}%` }} className="bg-purple-500 transition-all" />
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400/80 mb-2">Patrimônio Total Consolidado</p>
+              <p className={`text-4xl md:text-5xl font-black tracking-tight leading-none ${patrimonioTotal >= 0 ? 'text-white' : 'text-rose-400'}`}>
+                {fmtSigned(patrimonioTotal)}
+              </p>
+            </div>
+            {totalDailyYield > 0 && (
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black">
+                  <TrendingUp className="w-3 h-3" /> +R$ {fmt(totalDailyYield)}/dia
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black">
+                  ≈ R$ {fmt(totalDailyYield * 30)}/mês
+                </span>
               </div>
-              <div className="flex gap-4 text-[10px] font-black text-slate-400">
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Reserva</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />Investimentos</span>
+            )}
+          </div>
+
+          {patrimonioTotal > 0 && (
+            <div className="space-y-3 pt-5 border-t border-white/[0.06]">
+              <div className="flex rounded-full overflow-hidden h-2.5 bg-white/[0.06]">
+                <div style={{ width: `${jarsTotal / patrimonioTotal * 100}%` }} className="bg-emerald-500 transition-all duration-700 rounded-l-full" />
+                <div style={{ width: `${investmentsTotal / patrimonioTotal * 100}%` }} className="bg-purple-500 transition-all duration-700 rounded-r-full" />
+              </div>
+              <div className="flex justify-between text-[10px] font-black text-slate-400">
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Reserva — R$ {fmt(jarsTotal)} ({patrimonioTotal > 0 ? (jarsTotal/patrimonioTotal*100).toFixed(0) : 0}%)</span>
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />Investimentos — R$ {fmt(investmentsTotal)} ({patrimonioTotal > 0 ? (investmentsTotal/patrimonioTotal*100).toFixed(0) : 0}%)</span>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── 3 pillar cards ── */}
+      {/* ── 3 PILLAR CARDS ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Reserva de Emergência */}
-        <MiniCard
-          label="Reserva"
-          value={jarsTotal}
-          icon={PiggyBank}
-          color="text-emerald-400"
-          isDark={isDark}
-          detail={jars.length > 0 ? `${jars.length} ativo${jars.length > 1 ? 's' : ''} na reserva • +R$ ${fmt(jarsDailyYield)}/dia` : 'Comece sua reserva de emergência'}
-        />
+        <div className={`group p-5 md:p-6 rounded-[2rem] border flex items-center gap-4 transition-all hover:scale-[1.015] ${isDark ? 'bg-slate-900/80 border-white/[0.06] hover:border-emerald-500/30' : 'bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-emerald-200'}`}>
+          <div className={`p-3.5 rounded-2xl shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
+            <PiggyBank className="w-6 h-6 text-emerald-500" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className={`text-[10px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Reserva</p>
+            <p className={`text-xl font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{fmtSigned(jarsTotal)}</p>
+            <p className={`text-[10px] font-bold mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{jars.length > 0 ? `${jars.length} cofre${jars.length > 1 ? 's' : ''} • +R$ ${fmt(jarsDailyYield)}/dia` : 'Comece sua reserva'}</p>
+          </div>
+        </div>
 
-        {/* Investimentos */}
-        <MiniCard
-          label="Investimentos"
-          value={investmentsTotal}
-          icon={TrendingUp}
-          color="text-purple-400"
-          isDark={isDark}
-          isHidable
-          isHidden={hidePatrimonio}
-          onToggle={() => { const v = !hidePatrimonio; setHidePatrimonio(v); localStorage.setItem('hidePatrimonio', String(v)); }}
-          detail="Tesouro, Cripto, CDB, Ações e mais"
-        />
+        <div className={`group p-5 md:p-6 rounded-[2rem] border flex items-center gap-4 transition-all hover:scale-[1.015] relative ${isDark ? 'bg-slate-900/80 border-white/[0.06] hover:border-purple-500/30' : 'bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-purple-200'}`}>
+          <div className={`p-3.5 rounded-2xl shrink-0 ${isDark ? 'bg-purple-500/10' : 'bg-purple-50'}`}>
+            <TrendingUp className="w-6 h-6 text-purple-500" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className={`text-[10px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Investimentos</p>
+            <p className={`text-xl font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{hidePatrimonio ? '••••••' : fmtSigned(investmentsTotal)}</p>
+            <p className={`text-[10px] font-bold mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{investments.length > 0 ? `${investments.length} ativo${investments.length > 1 ? 's' : ''}` : 'Nenhum investimento'}</p>
+          </div>
+          <button onClick={() => { const v = !hidePatrimonio; setHidePatrimonio(v); localStorage.setItem('hidePatrimonio', String(v)); }} className={`absolute top-3 right-3 p-1.5 rounded-lg transition-all ${isDark ? 'text-slate-600 hover:bg-white/5 hover:text-slate-400' : 'text-slate-300 hover:bg-slate-50 hover:text-slate-500'}`}>
+            {hidePatrimonio ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </button>
+        </div>
 
-        {/* Rentabilidade (Lucro Investimentos + Projeção Reservas) */}
-        <MiniCard
-          label="Lucro (Investimentos)"
-          value={investmentsProfit}
-          icon={ArrowUpCircle}
-          color={investmentsProfit >= 0 ? "text-emerald-400" : "text-rose-400"}
-          isDark={isDark}
-          detail={`+R$ ${fmt(totalDailyYield * 30)}/mês proj. rendimentos`}
-        />
+        <div className={`group p-5 md:p-6 rounded-[2rem] border flex items-center gap-4 transition-all hover:scale-[1.015] ${isDark ? 'bg-slate-900/80 border-white/[0.06] hover:border-blue-500/30' : 'bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200'}`}>
+          <div className={`p-3.5 rounded-2xl shrink-0 ${investmentsProfit >= 0 ? (isDark ? 'bg-emerald-500/10' : 'bg-emerald-50') : (isDark ? 'bg-rose-500/10' : 'bg-rose-50')}`}>
+            <ArrowUpCircle className={`w-6 h-6 ${investmentsProfit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className={`text-[10px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Rentabilidade</p>
+            <p className={`text-xl font-black truncate ${investmentsProfit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtSigned(investmentsProfit)}</p>
+            <p className={`text-[10px] font-bold mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Lucro acumulado dos investimentos</p>
+          </div>
+        </div>
       </div>
 
       {/* ── PATRIMONY GOAL PROGRESS CARD ── */}
@@ -501,47 +509,49 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
 
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
-            <div className="flex items-center justify-between mb-4">
-              <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${sub}`}>Meu Patrimônio</p>
-              <div className="flex items-center gap-2">
-                {/* Include/exclude reserve */}
-                <button
-                  onClick={() => setIncludeReserve(!includeReserve)}
-                  className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
-                    includeReserve
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
-                      : isDark ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'
-                  }`}
-                >
-                  {includeReserve ? '✓ Com Reserva' : 'Sem Reserva'}
-                </button>
-                {/* Category / Asset toggle */}
-                <div className={`flex rounded-xl border overflow-hidden ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+            <div className={`p-6 md:p-8 rounded-[2.5rem] border ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-5 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.04)' : '#f1f5f9' }}>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-2xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
+                    <BarChart3 className={`w-5 h-5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
+                  </div>
+                  <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Alocação do Patrimônio</p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
-                    onClick={() => setChartViewMode('category')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${
-                      chartViewMode === 'category'
-                        ? 'bg-emerald-500 text-white'
-                        : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-700'
+                    onClick={() => setIncludeReserve(!includeReserve)}
+                    className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                      includeReserve
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
+                        : isDark ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'
                     }`}
                   >
-                    <Layers className="w-3 h-3" /> Categoria
+                    {includeReserve ? '✓ Com Reserva' : 'Sem Reserva'}
                   </button>
-                  <button
-                    onClick={() => setChartViewMode('asset')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${
-                      chartViewMode === 'asset'
-                        ? 'bg-emerald-500 text-white'
-                        : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    <List className="w-3 h-3" /> Ativo
-                  </button>
+                  <div className={`flex rounded-xl border overflow-hidden ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                    <button
+                      onClick={() => setChartViewMode('category')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${
+                        chartViewMode === 'category'
+                          ? 'bg-emerald-500 text-white'
+                          : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      <Layers className="w-3 h-3" /> Categoria
+                    </button>
+                    <button
+                      onClick={() => setChartViewMode('asset')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${
+                        chartViewMode === 'asset'
+                          ? 'bg-emerald-500 text-white'
+                          : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      <List className="w-3 h-3" /> Ativo
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <div className={`p-6 md:p-8 rounded-[2.5rem] border ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
               {totalValue <= 0 ? (
                 <div className="text-center py-12">
                   <p className="text-slate-500 text-sm font-bold">Nenhum ativo cadastrado para exibir.</p>
@@ -608,7 +618,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         );
       })()}
 
-      {/* ── METAS E PERFIL ── */}
+      {/* ── SEU PLANO ── */}
       {(() => {
         const onboarding = userPrefs?.onboarding || {};
         const OBJECTIVE_LABELS = {
@@ -618,31 +628,35 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
           goal: '🏠 Conquistar um Bem',
           control: '🧘 Controle Total',
         };
-        const PROFILE_LABELS = {
-          conservative: 'Conservador',
-          moderate: 'Moderado',
-          aggressive: 'Arrojado',
+        const PROFILE_MAP = {
+          conservative: { label: 'Conservador', emoji: '🛡️', color: isDark ? 'from-blue-600/20 to-blue-500/10 border-blue-500/30 text-blue-400' : 'from-blue-50 to-blue-100 border-blue-200 text-blue-700' },
+          moderate:     { label: 'Moderado',     emoji: '⚖️', color: isDark ? 'from-emerald-600/20 to-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700' },
+          aggressive:   { label: 'Arrojado',     emoji: '🚀', color: isDark ? 'from-purple-600/20 to-purple-500/10 border-purple-500/30 text-purple-400' : 'from-purple-50 to-purple-100 border-purple-200 text-purple-700' },
         };
         const hasData = onboarding.objectives?.length > 0 || onboarding.riskProfile;
         if (!hasData) return null;
+        const profileData = PROFILE_MAP[onboarding.riskProfile];
         return (
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
         <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 ${sub}`}>Seu Plano de Construção</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className={`p-6 rounded-3xl border flex flex-col justify-center ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100 shadow-sm'}`}>
-            <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Objetivos</h3>
+          <div className={`p-6 rounded-[2rem] border ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
+            <h3 className={`text-[10px] font-black uppercase tracking-widest mb-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Objetivos</h3>
             <div className="flex flex-wrap gap-2">
                {onboarding.objectives?.map(obj => (
-                  <span key={obj} className="px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-bold">{OBJECTIVE_LABELS[obj] || obj}</span>
+                  <span key={obj} className={`px-3.5 py-2 rounded-2xl text-xs font-bold border transition-all ${isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-700'}`}>{OBJECTIVE_LABELS[obj] || obj}</span>
                ))}
-               {(!onboarding.objectives || onboarding.objectives.length === 0) && <span className="text-xs text-slate-500">Nenhuma meta definida.</span>}
+               {(!onboarding.objectives || onboarding.objectives.length === 0) && <span className={`text-xs ${sub}`}>Nenhuma meta definida.</span>}
             </div>
           </div>
-          <div className={`p-6 rounded-3xl border flex flex-col justify-center ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100 shadow-sm'}`}>
-            <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Perfil de Investidor</h3>
-            <p className={`text-3xl font-black capitalize tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                {PROFILE_LABELS[onboarding.riskProfile] || onboarding.riskProfile || 'Não definido'}
-            </p>
+          <div className={`p-6 rounded-[2rem] border bg-gradient-to-br ${profileData ? profileData.color : (isDark ? 'from-slate-900 to-slate-900 border-white/10 text-white' : 'from-white to-white border-slate-100 text-slate-800')}`}>
+            <h3 className="text-[10px] font-black uppercase tracking-widest mb-3 opacity-60">Perfil de Investidor</h3>
+            <div className="flex items-center gap-3">
+              {profileData && <span className="text-3xl">{profileData.emoji}</span>}
+              <p className="text-2xl font-black capitalize tracking-tight">
+                {profileData ? profileData.label : (onboarding.riskProfile || 'Não definido')}
+              </p>
+            </div>
           </div>
         </div>
       </div>
