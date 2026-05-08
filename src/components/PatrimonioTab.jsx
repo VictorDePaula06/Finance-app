@@ -70,6 +70,9 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   const [expandAllocation, setExpandAllocation] = useState(false);
   const [expandAlivia, setExpandAlivia] = useState(false);
   const [expandPlan, setExpandPlan] = useState(false);
+  const [showGoalSim, setShowGoalSim] = useState(false);
+  const [simYears, setSimYears] = useState('');
+  const [simAporte, setSimAporte] = useState('');
 
   // ── listeners ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -347,27 +350,6 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         // CDI médio últimos 10 anos ≈ 11.15% a.a. (fonte: BCB 2014-2024)
         const CDI_MEDIO_10A = 11.15;
         const monthlyRate = Math.pow(1 + CDI_MEDIO_10A / 100, 1 / 12) - 1;
-
-        // PMT: quanto precisa aportar/mês para atingir meta com CDI (considerando patrimônio atual)
-        // FV = PV*(1+r)^n + PMT*((1+r)^n - 1)/r → PMT = (FV - PV*(1+r)^n) / (((1+r)^n - 1)/r)
-        const calcMonths = (rate, months) => {
-          const fvCurrent = currentValue * Math.pow(1 + rate, months);
-          const fvFactor = (Math.pow(1 + rate, months) - 1) / rate;
-          return (goalTarget - fvCurrent) / fvFactor;
-        };
-
-        // Find months where PMT > 0 for different horizons
-        const horizons = [12, 24, 36, 60, 120];
-        let bestHorizon = null;
-        for (const m of horizons) {
-          const pmt = calcMonths(monthlyRate, m);
-          if (pmt > 0 && pmt < goalTarget) { bestHorizon = { months: m, pmt }; break; }
-        }
-        // Also calc: months needed with NO aportes (just CDI on current)
-        const monthsJustCDI = currentValue > 0 && remaining > 0
-          ? Math.ceil(Math.log(goalTarget / currentValue) / Math.log(1 + monthlyRate))
-          : null;
-
         const fmtTime = (m) => m < 12 ? `${m} meses` : `${Math.floor(m/12)}a ${m%12}m`;
 
         return (
@@ -420,29 +402,134 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
                 <div className={`h-full rounded-full transition-all duration-1000 ${isGoalReached ? 'bg-emerald-500' : 'bg-gradient-to-r from-blue-500 to-emerald-500'}`} style={{ width: `${progressPct}%` }} />
               </div>
 
-              {/* Insights Row — CDI projection */}
-              {!isGoalReached && remaining > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {bestHorizon && (
-                    <div className={`p-3 rounded-xl border ${isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-100'}`}>
-                      <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Aporte Mensal Sugerido</p>
-                      <p className={`text-base font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>R$ {fmt(bestHorizon.pmt)}<span className="text-[9px] opacity-60">/mês</span></p>
-                      <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>para atingir em {fmtTime(bestHorizon.months)} (CDI {CDI_MEDIO_10A}% a.a.)</p>
-                    </div>
-                  )}
-                  {monthsJustCDI && monthsJustCDI < 600 && (
-                    <div className={`p-3 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/15' : 'bg-blue-50 border-blue-100'}`}>
-                      <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Sem Aportes (só CDI)</p>
-                      <p className={`text-base font-black ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>{fmtTime(monthsJustCDI)}</p>
-                      <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Média CDI últimos 10 anos</p>
-                    </div>
-                  )}
-                  <div className={`p-3 rounded-xl border ${isDark ? 'bg-purple-500/5 border-purple-500/15' : 'bg-purple-50 border-purple-100'}`}>
-                    <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Ativos de Maior Risco</p>
-                    <p className={`text-[10px] font-bold leading-snug ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>Com ações, FIIs ou cripto, essa meta pode ser atingida em menos tempo — porém com maior volatilidade.</p>
-                  </div>
-                </div>
-              )}
+              {/* Interactive Goal Simulator */}
+              {!isGoalReached && remaining > 0 && (() => {
+                const simMonths = simYears ? Math.round(parseFloat(simYears) * 12) : 0;
+                const simAporteVal = simAporte ? parseFloat(simAporte.replace(/\D/g, '')) / 100 : 0;
+                const hasSimData = simMonths > 0 && simAporteVal > 0;
+
+                // FV = PV*(1+r)^n + PMT*((1+r)^n - 1)/r
+                const projectedValue = hasSimData
+                  ? currentValue * Math.pow(1 + monthlyRate, simMonths) + simAporteVal * ((Math.pow(1 + monthlyRate, simMonths) - 1) / monthlyRate)
+                  : 0;
+                const willReach = projectedValue >= goalTarget;
+
+                // Months needed to reach goal with given aporte + CDI
+                // Solve: PV*(1+r)^n + PMT*((1+r)^n-1)/r = FV
+                let monthsNeeded = null;
+                if (simAporteVal > 0) {
+                  for (let n = 1; n <= 600; n++) {
+                    const fv = currentValue * Math.pow(1 + monthlyRate, n) + simAporteVal * ((Math.pow(1 + monthlyRate, n) - 1) / monthlyRate);
+                    if (fv >= goalTarget) { monthsNeeded = n; break; }
+                  }
+                }
+
+                // Months needed with NO aportes (just CDI)
+                const monthsJustCDI = currentValue > 0
+                  ? Math.ceil(Math.log(goalTarget / currentValue) / Math.log(1 + monthlyRate))
+                  : null;
+
+                return (
+                  <>
+                    {!showGoalSim ? (
+                      <button
+                        onClick={() => setShowGoalSim(true)}
+                        className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black transition-all border ${
+                          isDark ? 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 border-blue-100 text-blue-600 hover:bg-blue-100'
+                        }`}
+                      >
+                        <LineChart className="w-3.5 h-3.5" />
+                        Simular minha meta
+                      </button>
+                    ) : (
+                      <div className={`p-4 rounded-xl border ${isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-100'}`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <p className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Simulador de Meta</p>
+                          <button onClick={() => setShowGoalSim(false)} className={`text-[9px] font-bold ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}>✕ fechar</button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                          <div>
+                            <label className={`text-[8px] font-black uppercase tracking-widest block mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Prazo (anos)</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="50"
+                              step="0.5"
+                              value={simYears}
+                              onChange={(e) => setSimYears(e.target.value)}
+                              placeholder="Ex: 5"
+                              className={`w-full px-3 py-2.5 rounded-xl text-sm font-bold border outline-none transition-all focus:ring-2 ${
+                                isDark ? 'bg-slate-900 border-white/10 text-white focus:ring-blue-500/30 placeholder:text-slate-600' : 'bg-white border-slate-200 text-slate-800 focus:ring-blue-500/20 placeholder:text-slate-300'
+                              }`}
+                            />
+                          </div>
+                          <div>
+                            <label className={`text-[8px] font-black uppercase tracking-widest block mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Aporte mensal (R$)</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={simAporte}
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(/\D/g, '');
+                                if (!raw) { setSimAporte(''); return; }
+                                const num = (parseInt(raw) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                                setSimAporte(num);
+                              }}
+                              placeholder="Ex: 500,00"
+                              className={`w-full px-3 py-2.5 rounded-xl text-sm font-bold border outline-none transition-all focus:ring-2 ${
+                                isDark ? 'bg-slate-900 border-white/10 text-white focus:ring-blue-500/30 placeholder:text-slate-600' : 'bg-white border-slate-200 text-slate-800 focus:ring-blue-500/20 placeholder:text-slate-300'
+                              }`}
+                            />
+                          </div>
+                        </div>
+
+                        {hasSimData && (
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+                            {/* Result 1: projected value */}
+                            <div className={`p-3 rounded-xl border ${willReach ? (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-100') : (isDark ? 'bg-amber-500/5 border-amber-500/15' : 'bg-amber-50 border-amber-100')}`}>
+                              <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${willReach ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>
+                                Em {simYears} ano{parseFloat(simYears) !== 1 ? 's' : ''} você terá
+                              </p>
+                              <p className={`text-base font-black ${willReach ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>
+                                R$ {fmt(projectedValue)}
+                              </p>
+                              <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                {willReach ? '✓ Meta atingida com aportes + CDI' : `Faltarão R$ ${fmt(goalTarget - projectedValue)}`}
+                              </p>
+                            </div>
+
+                            {/* Result 2: time to reach with these aportes */}
+                            <div className={`p-3 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/15' : 'bg-blue-50 border-blue-100'}`}>
+                              <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                                {monthsNeeded ? 'Tempo com seus aportes + CDI' : 'Sem aportes (só CDI)'}
+                              </p>
+                              <p className={`text-base font-black ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                                {monthsNeeded ? fmtTime(monthsNeeded) : (monthsJustCDI ? fmtTime(monthsJustCDI) : '–')}
+                              </p>
+                              <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                CDI médio {CDI_MEDIO_10A}% a.a. (10 anos)
+                              </p>
+                            </div>
+
+                            {/* Result 3: risk note */}
+                            <div className={`p-3 rounded-xl border ${isDark ? 'bg-purple-500/5 border-purple-500/15' : 'bg-purple-50 border-purple-100'}`}>
+                              <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Ativos de Maior Risco</p>
+                              <p className={`text-[10px] font-bold leading-snug ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>Com ações, FIIs ou cripto, essa meta pode ser atingida em menos tempo — porém com maior volatilidade.</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {!hasSimData && (
+                          <p className={`text-[9px] text-center py-2 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
+                            Preencha o prazo e o aporte mensal para ver a projeção
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
         );
