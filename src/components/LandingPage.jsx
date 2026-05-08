@@ -18,7 +18,7 @@ import {
     ArrowDownCircle,
     Activity,
     Bot,
-    Lock,
+    Lock as LockIcon,
     Globe,
     BarChart3,
     Smartphone,
@@ -332,7 +332,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 <div className="font-black text-xs uppercase tracking-widest">Seguro</div>
                             </div>
                             <div className="aspect-square bg-white rounded-[2.5rem] flex flex-col items-center justify-center text-[#5CCEEA] p-6 text-center gap-2 shadow-lg border border-slate-50 mt-8">
-                                <Lock className="w-10 h-10" />
+                                <LockIcon className="w-10 h-10" />
                                 <div className="font-black text-xs uppercase tracking-widest">Privado</div>
                             </div>
                         </div>

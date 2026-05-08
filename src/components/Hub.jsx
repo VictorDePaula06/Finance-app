@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Wallet, TrendingUp, ChevronRight, LayoutDashboard, Landmark, Sun, Moon } from 'lucide-react';
+import { Wallet, TrendingUp, ChevronRight, LayoutDashboard, Landmark, Sun, Moon, Lock as LockIcon, ShieldCheck } from 'lucide-react';
 import logo from '../assets/logo.png';
+import UpgradeModal from './UpgradeModal';
 
 export default function Hub({ onSelectModule }) {
   const { theme, toggleTheme } = useTheme();
-  const { currentUser, planLevel } = useAuth();
+  const { currentUser, planLevel, isAdmin } = useAuth();
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const isDark = theme !== 'light';
   const isStandard = planLevel === 'standard';
 
@@ -85,7 +87,7 @@ export default function Hub({ onSelectModule }) {
                 key={mod.id}
                 onClick={() => {
                   if (mod.isLocked) {
-                    alert('Este módulo é exclusivo para assinantes Premium. Faça o upgrade para ter acesso completo ao seu patrimônio!');
+                    setShowUpgrade(true);
                     return;
                   }
                   onSelectModule(mod.id);
@@ -100,7 +102,7 @@ export default function Hub({ onSelectModule }) {
                 <div className="relative z-10 flex flex-col h-full">
                   <div className="flex items-center justify-between mb-6">
                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner transition-transform group-hover:scale-110 duration-300 ${mod.iconBg}`}>
-                      {mod.isLocked ? <Lock className={`w-8 h-8 ${mod.iconColor}`} /> : <Icon className={`w-8 h-8 ${mod.iconColor}`} />}
+                      {mod.isLocked ? <LockIcon className={`w-8 h-8 ${mod.iconColor}`} /> : <Icon className={`w-8 h-8 ${mod.iconColor}`} />}
                     </div>
                     {mod.isLocked ? (
                       <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isDark ? 'bg-amber-500/10 text-amber-500' : 'bg-amber-50 text-amber-600'}`}>
@@ -117,7 +119,7 @@ export default function Hub({ onSelectModule }) {
                   
                   <h3 className="text-2xl font-black mb-3 flex items-center gap-2">
                     {mod.title}
-                    {mod.isLocked && <Lock className="w-5 h-5 opacity-40" />}
+                    {mod.isLocked && <LockIcon className="w-5 h-5 opacity-40" />}
                   </h3>
                   <p className={`text-sm leading-relaxed flex-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     {mod.description}
@@ -128,7 +130,25 @@ export default function Hub({ onSelectModule }) {
           })}
         </div>
 
+        {isAdmin && (
+          <div className="flex justify-center mt-12">
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('change-view', { detail: 'admin' }))}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all duration-300 border ${
+                isDark 
+                  ? 'bg-amber-500/5 border-amber-500/20 text-amber-400 hover:bg-amber-500/10'
+                  : 'bg-amber-50 border-amber-100 text-amber-600 hover:bg-amber-100'
+              }`}
+            >
+              <ShieldCheck className="w-5 h-5" />
+              <span className="text-sm font-black uppercase tracking-wider">Painel Admin</span>
+            </button>
+          </div>
+        )}
+
       </div>
+
+      <UpgradeModal isOpen={showUpgrade} onClose={() => setShowUpgrade(false)} />
     </div>
   );
 }

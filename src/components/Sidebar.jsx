@@ -24,7 +24,7 @@ import logo from '../assets/logo.png';
 import { version } from '../../package.json';
 
 const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, setActiveModule }) => {
-  const { currentUser, logout, isAdmin } = useAuth();
+  const { currentUser, logout, isAdmin, isPremium, isTrial, isLifetime, subType, planLevel } = useAuth();
   const { theme } = useTheme();
 
   const menuItems = [
@@ -143,20 +143,6 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
               </button>
             );
           })}
-
-          {isAdmin && (
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('change-view', { detail: 'admin' }))}
-              className={`w-full flex items-center gap-3 p-3 mt-8 rounded-xl transition-all duration-300 group border ${
-                theme === 'light' 
-                  ? 'bg-amber-50 border-amber-100 text-amber-600 hover:bg-amber-100' 
-                  : 'bg-amber-500/5 border-amber-500/20 text-amber-400 hover:bg-amber-500/10'
-              }`}
-            >
-              <ShieldCheck className="w-5 h-5" />
-              <span className="text-sm font-black uppercase tracking-wider">Painel Admin</span>
-            </button>
-          )}
         </nav>
 
         {/* User Profile Section */}
@@ -170,9 +156,37 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
               {currentUser?.displayName?.charAt(0) || currentUser?.email?.charAt(0) || 'U'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className={`text-sm font-black truncate leading-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                {currentUser?.displayName?.split(' ')[0] || 'Usuário'}
-              </p>
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <p className={`text-sm font-black truncate leading-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                  {currentUser?.displayName?.split(' ')[0] || 'Usuário'}
+                </p>
+                {/* Badge de Plano com Cores Diferenciadas */}
+                {(isLifetime || currentUser?.email?.toLowerCase() === 'j.17jvictor@gmail.com' || currentUser?.email?.toLowerCase() === 'financealivia@gmail.com') ? (
+                  <div className="px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter shrink-0 bg-purple-500/20 text-purple-400 border border-purple-500/20">
+                    Vitalício
+                  </div>
+                ) : isTrial ? (
+                  <div className="px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter shrink-0 bg-sky-500/20 text-sky-400 border border-sky-500/20">
+                    Teste
+                  </div>
+                ) : planLevel === 'premium' ? (
+                  <div className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter shrink-0 border ${
+                    subType === 'annual' 
+                      ? 'bg-amber-500/20 text-amber-400 border-amber-500/20' // Dourado para Anual
+                      : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20' // Verde para Mensal
+                  }`}>
+                    Premium {subType === 'annual' ? 'Anual' : ''}
+                  </div>
+                ) : planLevel === 'standard' ? (
+                  <div className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter shrink-0 border ${
+                    subType === 'annual' 
+                      ? 'bg-amber-500/20 text-amber-400 border-amber-500/20' 
+                      : 'bg-slate-500/20 text-slate-400 border-slate-500/20'
+                  }`}>
+                    Standard {subType === 'annual' ? 'Anual' : ''}
+                  </div>
+                ) : null}
+              </div>
               <p className="text-[10px] text-slate-500 truncate font-mono opacity-70">
                 {currentUser?.email}
               </p>

@@ -12,10 +12,15 @@ service cloud.firestore {
       ];
     }
 
+    // REGRA MESTRE: Admins têm acesso total a qualquer documento em qualquer coleção
+    match /{path=**} {
+      allow read, write: if isAdmin();
+    }
+
     // 1. DADOS FINANCEIROS (Transações, Metas, Cartões, Investimentos)
-    // Regra: O usuário só pode ler/escrever se for o dono do dado (userId) ou se for Admin.
+    // Regra: O usuário só pode ler/escrever se for o dono do dado (userId).
     match /{collectionName}/{docId} {
-       allow read, write: if isAdmin() || (request.auth != null && (
+       allow read, write: if (request.auth != null && (
          // Para novos documentos ou atualizações, o userId deve ser o do usuário logado
          (request.resource != null && request.resource.data.userId == request.auth.uid) ||
          // Para leitura ou exclusão de documentos existentes, o userId deve bater
@@ -26,11 +31,20 @@ service cloud.firestore {
     // 2. PERFIL DE USUÁRIO (users)
     // Regra: O usuário só acessa o seu próprio documento de perfil pelo ID.
     match /users/{userId} {
-      allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == userId);
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Permitir acesso às subcoleções de configurações e chat do próprio usuário
+      match /settings/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /chat/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     // 3. CONFIGURAÇÕES GLOBAIS (admin_configs)
     // Regra: Proteção total. Somente os e-mails da lista isAdmin() podem acessar.
+    // (Já coberto pela regra mestre, mas mantido para clareza)
     match /admin_configs/{docId} {
       allow read, write: if isAdmin();
     }
@@ -38,14 +52,20 @@ service cloud.firestore {
     // 4. INTEGRAÇÃO STRIPE (customers)
     // Regra: O usuário acessa seus próprios dados de pagamento e assinaturas Stripe.
     match /customers/{uid} {
-      allow read: if request.auth.uid == uid || isAdmin();
+      allow read: if request.auth.uid == uid;
       
       match /checkout_sessions/{id} {
-        allow read, write: if request.auth.uid == uid || isAdmin();
+        allow read, write: if request.auth.uid == uid;
       }
       match /subscriptions/{id} {
-        allow read: if request.auth.uid == uid || isAdmin();
+        allow read: if request.auth.uid == uid;
       }
+    }
+
+    // 5. CONFIGURAÇÕES DE USUÁRIO (settings)
+    // Regra: O usuário acessa suas próprias configurações (planos, bloqueios, etc).
+    match /settings/{uid} {
+      allow read, write: if request.auth != null && (request.auth.uid == uid || isAdmin());
     }
   }
 }

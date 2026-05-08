@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Zap, CheckCircle2, MessageSquare, LogOut, ArrowRight, Calendar, Star, Wallet, Sparkles, Activity, ShieldCheck, TrendingUp, BarChart3, Landmark, Bot, FileText, Cloud, Globe } from 'lucide-react';
+import { Lock as LockIcon, Zap, CheckCircle2, MessageSquare, LogOut, ArrowRight, Calendar, Star, Wallet, Sparkles, Activity, ShieldCheck, TrendingUp, BarChart3, Landmark, Bot, FileText, Cloud, Globe, CreditCard } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { createCheckoutSession } from '../services/stripe';
 import logo from '../assets/logo.png';
@@ -74,7 +74,7 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                         <img src={logo} alt="Logo" className="w-40 h-auto mx-auto drop-shadow-2xl" />
                     </div>
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-500/10 text-rose-600 border border-rose-200 text-xs font-black tracking-widest mb-6">
-                        <Lock className="w-3.5 h-3.5" />
+                        <LockIcon className="w-3.5 h-3.5" />
                         TRIAL FINALIZADO
                     </div>
                     <h1 className="text-5xl font-black mb-4 text-slate-900 tracking-tight leading-tight">
@@ -109,8 +109,12 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                 <div className="grid md:grid-cols-2 gap-6 mb-10">
                     {/* STANDARD */}
                     <button
-                        onClick={() => setPlan('standard')}
-                        className={`p-8 rounded-[3rem] border-2 text-left transition-all relative overflow-hidden group ${
+                        onClick={() => {
+                            if (plan === 'standard') handleSubscribe();
+                            else setPlan('standard');
+                        }}
+                        disabled={isRedirecting}
+                        className={`p-8 rounded-[3rem] border-2 text-left transition-all relative overflow-hidden group active:scale-95 ${
                             plan === 'standard' 
                             ? 'border-blue-500 bg-white shadow-2xl scale-105 z-10' 
                             : 'border-white bg-white/50 opacity-60 hover:opacity-100 hover:border-slate-200 grayscale'
@@ -139,8 +143,12 @@ export default function SubscriptionBlock({ onAdminAccess }) {
 
                     {/* PREMIUM */}
                     <button
-                        onClick={() => setPlan('premium')}
-                        className={`p-8 rounded-[3rem] border-2 text-left transition-all relative overflow-hidden group ${
+                        onClick={() => {
+                            if (plan === 'premium') handleSubscribe();
+                            else setPlan('premium');
+                        }}
+                        disabled={isRedirecting}
+                        className={`p-8 rounded-[3rem] border-2 text-left transition-all relative overflow-hidden group active:scale-95 ${
                             plan === 'premium' 
                             ? 'border-emerald-500 bg-white shadow-2xl scale-105 z-10' 
                             : 'border-white bg-white/50 opacity-60 hover:opacity-100 hover:border-slate-200 grayscale'
@@ -218,7 +226,7 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                         )}
                     </button>
                     <div className="flex items-center justify-center gap-2 mt-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        <Lock className="w-3 h-3" /> Pagamento seguro via Stripe • Cancele quando quiser
+                        <LockIcon className="w-3 h-3" /> Pagamento seguro via Stripe • Cancele quando quiser
                     </div>
                 </div>
 

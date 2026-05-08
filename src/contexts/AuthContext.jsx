@@ -17,15 +17,20 @@ export function useAuth() {
     return useContext(AuthContext);
 }
 
+let globalMaxAccess = false;
+
 export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isPremium, setIsPremium] = useState(false);
     const [isTrial, setIsTrial] = useState(false);
+    const [isLifetime, setIsLifetime] = useState(false);
+    const [subType, setSubType] = useState('monthly');
     const [daysRemaining, setDaysRemaining] = useState(0);
     const [planLevel, setPlanLevel] = useState('free'); // 'free' | 'standard' | 'premium'
     const [userPrefs, setUserPrefs] = useState(null);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [isDataLoaded, setIsDataLoaded] = useState(false);
     const expiryTimeoutRef = useRef(null);
 
     // MODO DEV: Bypass de autenticação para localhost
@@ -44,6 +49,9 @@ export function AuthProvider({ children }) {
     }
 
     function logout() {
+        if (currentUser) {
+            localStorage.removeItem(`isPremium_${currentUser.uid}`);
+        }
         return signOut(auth);
     }
 
@@ -71,6 +79,10 @@ export function AuthProvider({ children }) {
                 setLoading(false);
                 setIsAdmin(false);
             } else {
+                // Carrega o status Premium do LocalStorage para evitar trancar a tela no F5
+                const wasPremium = localStorage.getItem(`isPremium_${user.uid}`) === 'true';
+                setIsPremium(wasPremium);
+
                 // Ensure top-level user doc for Admin Panel
                 const userRef = doc(db, 'users', user.uid);
                 const userSnap = await getDoc(userRef);
@@ -98,9 +110,10 @@ export function AuthProvider({ children }) {
         return () => unsubscribeAuth();
     }, []);
 
-    const dataRef = useRef({ prefs: {}, user: {}, subs: [], prefsLoaded: false, userLoaded: false, subsLoaded: false });
+    const dataRef = useRef({ prefs: {}, user: {}, subs: [], prefsLoaded: false, userLoaded: false, subsLoaded: false, isInitialized: false });
 
     const lastSubInfoRef = useRef("");
+    const maxAccessRef = useRef(false);
 
     // Stable Subscription & Prefs Listener
     useEffect(() => {
@@ -137,6 +150,9 @@ export function AuthProvider({ children }) {
             // 1. Data Consolidation
             const currentData = { ...dataRef.current.user, ...dataRef.current.prefs };
             const currentSubs = dataRef.current.subs;
+            
+            console.log("[Auth Sync Check] currentData:", currentData);
+            console.log("[Auth Sync Check] currentSubs:", currentSubs);
 
             const stripeSub = currentSubs[0];
             const manualSub = currentData.subscription || (currentData.isPremium ? { status: 'active' } : {});
@@ -146,8 +162,14 @@ export function AuthProvider({ children }) {
                 : (manualSub?.status || stripeSub?.status || 'free');
 
             const isManualActive = ['active', 'monthly', 'annual', 'pro', 'premium'].includes(subStatus?.toLowerCase());
-            const isManualLifetime = subStatus === 'lifetime' || manualSub?.status === 'lifetime';
-            const isBlocked = manualSub?.status === 'blocked';
+            const userEmail = currentUser.email?.toLowerCase();
+            const isManualLifetime = dataRef.current.prefs.subscription?.status === 'lifetime' || 
+                                     dataRef.current.user.subscription?.status === 'lifetime' || 
+                                     userEmail === 'financealivia@gmail.com' || 
+                                     userEmail === 'j17victor@gmail.com' ||
+                                     userEmail === 'j.17jvictor@gmail.com';
+            const hasActiveStripe = stripeSub?.status === 'active' || stripeSub?.status === 'trialing';
+            const isBlocked = (dataRef.current.prefs.isBlocked === true || dataRef.current.user.isBlocked === true || manualSub?.status === 'blocked') && !hasActiveStripe;
 
             const STANDARD_PRICES = [
                 import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_MONTHLY,
@@ -169,7 +191,7 @@ export function AuthProvider({ children }) {
             if (isBlocked) {
                 currentPlanLevel = 'free';
             } else if (isManualLifetime) {
-                currentPlanLevel = 'premium';
+                currentPlanLevel = 'lifetime';
             } else if (stripeSub?.status === 'active' || stripeSub?.status === 'trialing') {
                 if (PREMIUM_PRICES.includes(stripePriceId)) {
                     currentPlanLevel = 'premium';
@@ -191,10 +213,12 @@ export function AuthProvider({ children }) {
             const diffDaysTrial = Math.ceil((now - createdAtDate) / msInDay);
             const isWithinTrial = diffDaysTrial <= 7;
 
+            console.log("[Auth Sync Check] isWithinTrial:", isWithinTrial, "diffDaysTrial:", diffDaysTrial, "isBlocked:", isBlocked);
+
             let hasValidAccess = false;
             let remaining = 0;
             let isUnderTolerance = false;
-            const toleranceDays = 5;
+            const toleranceDays = 0;
 
             if (isManualLifetime && !isBlocked) {
                 hasValidAccess = true;
@@ -233,12 +257,19 @@ export function AuthProvider({ children }) {
             const subInfoString = JSON.stringify(newSubInfo);
 
             // ONLY UPDATE IF LOADED OR ACCESS GRANTED OR STATE CHANGED
-            if (subInfoString !== lastSubInfoRef.current) {
+            if (subInfoString !== lastSubInfoRef.current || !dataRef.current.isInitialized) {
                 lastSubInfoRef.current = subInfoString;
+                dataRef.current.isInitialized = true;
                 
-                setIsPremium(hasValidAccess);
+                if (hasValidAccess) {
+                    globalMaxAccess = true;
+                    localStorage.setItem(`isPremium_${currentUser.uid}`, 'true');
+                }
+                setIsPremium(globalMaxAccess);
                 setDaysRemaining(Math.max(0, remaining));
                 setIsTrial(newSubInfo.isTrial);
+                setIsLifetime(newSubInfo.isManualLifetime);
+                setSubType(newSubInfo.subType);
                 setPlanLevel(currentPlanLevel);
 
                 setCurrentUser(prev => prev ? ({
@@ -272,11 +303,38 @@ export function AuthProvider({ children }) {
             }
         };
 
-        const prefsRef = doc(db, 'users', currentUser.uid, 'settings', 'general');
+        const prefsRef = doc(db, 'settings', currentUser.uid);
         const userRef = doc(db, 'users', currentUser.uid);
         const subsRef = collection(db, 'customers', currentUser.uid, 'subscriptions');
-        const subsQuery = query(subsRef, where('status', 'in', ['active', 'trialing']));
+        const subsQuery = query(subsRef); // Traz todas as assinaturas para investigar o status real
 
+        let prefsDone = false;
+        let userDone = false;
+        let subsDone = false;
+
+        // Fallback: Se em 3 segundos não vier resposta do servidor, libera com o que tiver
+        const fallbackTimeout = setTimeout(() => {
+            console.log("[Auth] Fallback timeout disparado - Liberando com dados locais/cache");
+            prefsDone = true;
+            userDone = true;
+            subsDone = true;
+            syncLoading();
+        }, 3000);
+
+        const syncLoading = () => {
+            const currentData = { ...dataRef.current.user, ...dataRef.current.prefs };
+            const isManualActive = currentData.isPremium === true || currentData.subscription?.status === 'active';
+
+            if (prefsDone && userDone && (subsDone || isManualActive) && dataRef.current.isInitialized) {
+                clearTimeout(fallbackTimeout); // Cancela o fallback se deu tudo certo antes
+                // Adicionado um delay de 500ms para garantir que o estado de isPremium 
+                // se propague antes de avisarmos que os dados estão carregados.
+                setTimeout(() => setIsDataLoaded(true), 500);
+                
+                // Aumentado para 1000ms para o loading geral
+                setTimeout(() => setLoading(false), 1000);
+            }
+        };
         const unsubPrefs = onSnapshot(prefsRef, (snap) => {
             if (snap.exists()) {
                 const data = snap.data();
@@ -284,31 +342,47 @@ export function AuthProvider({ children }) {
                 setUserPrefs(data);
             }
             dataRef.current.prefsLoaded = true;
+            if (!snap.metadata.fromCache) {
+                prefsDone = true;
+            }
             checkStatus();
-            setLoading(false);
+            syncLoading();
         }, (err) => {
             console.error("Erro no Firebase Prefs:", err);
             dataRef.current.prefsLoaded = true;
+            prefsDone = true; // Em caso de erro, liberamos para não travar o app
             checkStatus();
-            setLoading(false);
+            syncLoading();
         });
 
         const unsubUser = onSnapshot(userRef, (snap) => {
             if (snap.exists()) dataRef.current.user = snap.data();
             dataRef.current.userLoaded = true;
+            if (!snap.metadata.fromCache) {
+                userDone = true;
+            }
             checkStatus();
+            syncLoading();
         }, () => {
             dataRef.current.userLoaded = true;
+            userDone = true;
             checkStatus();
+            syncLoading();
         });
 
         const unsubSubs = onSnapshot(subsQuery, (snap) => {
             dataRef.current.subs = snap.docs.map(d => d.data());
             dataRef.current.subsLoaded = true;
+            if (!snap.metadata.fromCache) {
+                subsDone = true;
+            }
             checkStatus();
+            syncLoading();
         }, () => {
             dataRef.current.subsLoaded = true;
+            subsDone = true;
             checkStatus();
+            syncLoading();
         });
 
         const handleVisibilityChange = () => {
@@ -503,6 +577,9 @@ export function AuthProvider({ children }) {
         currentUser,
         isPremium,
         isTrial,
+        isLifetime,
+        isDataLoaded,
+        subType,
         daysRemaining,
         planLevel,
         login,

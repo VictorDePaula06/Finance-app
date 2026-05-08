@@ -911,9 +911,14 @@ import Contact from './components/Contact';
 import PatrimonioTab from './components/PatrimonioTab';
 
 function AppContent() {
-  const { currentUser, isPremium, getUserPreferences, saveUserPreferences } = useAuth();
+  const { currentUser, isPremium, getUserPreferences, saveUserPreferences, isDataLoaded } = useAuth();
   const { theme } = useTheme();
   const [view, setView] = useState('landing');
+  const [renderTrigger, setRenderTrigger] = useState(0);
+
+  useEffect(() => {
+    setRenderTrigger(prev => prev + 1);
+  }, [isPremium]);
 
   useEffect(() => {
     if (currentUser && (view === 'landing' || view === 'login')) {
@@ -958,10 +963,25 @@ function AppContent() {
   if (view === 'contact') return <Contact onBack={() => setView(currentUser ? 'dashboard' : 'landing')} />;
 
   if (currentUser) {
+    // Evita a piscada da tela de bloqueio enquanto os dados estão sendo buscados
+    if (!isDataLoaded) {
+      return (
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
+          <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-slate-400 text-sm font-medium">Carregando sua área financeira...</p>
+        </div>
+      );
+    }
+
+    const isNewAccount = currentUser?.metadata?.creationTime && 
+                         (new Date() - new Date(currentUser.metadata.creationTime)) < 10000;
+
     if (isAdmin && view === 'admin') {
       return <AdminPanel onBack={() => setView('dashboard')} />;
     }
-    return isPremium || isAdmin ? (
+
+    console.log("[App Content] Final Decision - isPremium:", isPremium, "isAdmin:", isAdmin, "isNewAccount:", isNewAccount);
+    return isPremium || isAdmin || isNewAccount ? (
       <>
         <Dashboard />
       </>

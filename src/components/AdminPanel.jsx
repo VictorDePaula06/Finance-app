@@ -47,6 +47,14 @@ export default function AdminPanel({ onBack }) {
     const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' or 'users'
     const [userSubTab, setUserSubTab] = useState('admins'); // 'admins', 'premium', 'standard', 'gratuito'
     
+    // Lista de E-mails Administrativos (Sincronizado com firestore.rules)
+    const ADMIN_EMAILS = [
+        'financealivia@gmail.com',
+        'suporte.soualivia@gmail.com',
+        'matheusphp.carvalho@gmail.com',
+        'finance.alivia@gmail.com'
+    ];
+    
     // Modal State
     const [editingUser, setEditingUser] = useState(null); // Original user
     const [pendingUser, setPendingUser] = useState(null); // Draft of changes
@@ -73,15 +81,10 @@ export default function AdminPanel({ onBack }) {
         try {
             const usersSnap = await getDocs(collection(db, 'users'));
             const customersSnap = await getDocs(collection(db, 'customers'));
-            const settingsSnap = await getDocs(collectionGroup(db, 'settings'));
 
             const allUids = new Set();
             usersSnap.docs.forEach(d => allUids.add(d.id));
             customersSnap.docs.forEach(d => allUids.add(d.id));
-            settingsSnap.docs.forEach(d => {
-                const pathParts = d.ref.path.split('/');
-                if (pathParts[1]) allUids.add(pathParts[1]);
-            });
 
             const userList = [];
 
@@ -100,14 +103,29 @@ export default function AdminPanel({ onBack }) {
 
                 const subsRef = collection(db, 'customers', uid, 'subscriptions');
                 const subsSnap = await getDocs(subsRef);
-                const stripeSubData = subsSnap.docs[0]?.data();
-
-                const hasActiveSubscription = subsSnap.docs.some(d =>
+                
+                // Busca por uma assinatura ativa ou trialing na lista
+                const activeSubDoc = subsSnap.docs.find(d => 
                     ['active', 'trialing'].includes(d.data().status)
                 );
+                
+                // Se achar a ativa, usa ela. Se não, pega a primeira (pode ser expirada)
+                const stripeSubData = activeSubDoc ? activeSubDoc.data() : subsSnap.docs[0]?.data();
 
                 const manualStatus = settingsData.subscription?.status || userData.subscription?.status;
                 const stripeActive = (stripeSubData?.status === 'active' || stripeSubData?.status === 'trialing');
+
+                const STANDARD_PRICES = [
+                    'price_1TSMc3KAwb86obAG4jW02DAq',
+                    'price_1TSMctKAwb86obAGj4BZqYtl'
+                ];
+
+                const PREMIUM_PRICES = [
+                    'price_1T89UOKAwb86obAGotiiOngV',
+                    'price_1T89UMKAwb86obAGbk0dSm4Z'
+                ];
+
+                const stripePriceId = stripeSubData?.items?.[0]?.plan?.id;
 
                 let subStatus = 'free'; // Default Gratuito
                 
@@ -123,7 +141,13 @@ export default function AdminPanel({ onBack }) {
                 } else if (manualStatus === 'free') {
                     subStatus = 'free';
                 } else if (stripeActive) {
-                    subStatus = 'active';
+                    if (STANDARD_PRICES.includes(stripePriceId)) {
+                        subStatus = 'standard';
+                    } else if (PREMIUM_PRICES.includes(stripePriceId)) {
+                        subStatus = 'active'; // 'active' is interpreted as premium in this file
+                    } else {
+                        subStatus = 'active'; // Default fallback
+                    }
                 } else if (stripeSubData?.status) {
                     subStatus = stripeSubData.status;
                 }
@@ -143,6 +167,7 @@ export default function AdminPanel({ onBack }) {
                 const getTimestamp = (d) => {
                     if (d.toDate) return d.toDate().getTime();
                     if (d instanceof Date) return d.getTime();
+                    if (typeof d === 'number' && d < 10000000000) return d * 1000; // Likely seconds
                     return new Date(d).getTime();
                 };
 
@@ -153,52 +178,83 @@ export default function AdminPanel({ onBack }) {
                 const subDate = subDateRaw?.toDate ? subDateRaw.toDate() : (subDateRaw ? new Date(subDateRaw) : null);
 
                 const isAnnual = settingsData.subscription?.type === 'annual' || stripeSubData?.items?.[0]?.plan?.interval === 'year';
+                const subType = isAnnual ? 'annual' : 'monthly';
+                const createdAt = userData.createdAt ? (userData.createdAt.toDate ? userData.createdAt.toDate() : new Date(userData.createdAt)) : null;
+                const trialStartDate = userData.trialStartDate ? (userData.trialStartDate.toDate ? userData.trialStartDate.toDate() : new Date(userData.trialStartDate)) : null;
+                const baseDate = trialStartDate || createdAt;
 
                 let daysLeft = 0;
                 let isBlocked = subStatus === 'blocked';
                 let isExpired = subStatus === 'expired';
                 let isTrial = false;
 
-                const subType = isAnnual ? 'annual' : 'monthly';
-                const createdAt = userData.createdAt ? (userData.createdAt.toDate ? userData.createdAt.toDate() : new Date(userData.createdAt)) : null;
-                const trialStartDate = userData.trialStartDate ? (userData.trialStartDate.toDate ? userData.trialStartDate.toDate() : new Date(userData.trialStartDate)) : null;
-                const baseDate = trialStartDate || createdAt;
-
-                if (subStatus === 'active' && subDate) {
+                if ((subStatus === 'active' || subStatus === 'standard') && subDate) {
                     const now = new Date();
                     const cycle = subType === 'annual' ? 365 : 30;
                     const diff = Math.floor((now - subDate) / (1000 * 60 * 60 * 24));
-                    if (diff <= cycle) daysLeft = cycle - diff;
-                    else isExpired = true;
-                } else if (isLifetime) daysLeft = 9999;
-                else if (baseDate) {
+                    if (diff <= cycle) {
+                        daysLeft = cycle - diff;
+                    } else {
+                        isExpired = true;
+                        subStatus = 'expired'; // Força a mudança de status se passou do prazo!
+                    }
+                } else if (isLifetime) {
+                    daysLeft = 9999;
+                } else if (baseDate) {
                     const now = new Date();
                     const diffDays = Math.ceil((now - baseDate) / (1000 * 60 * 60 * 24));
                     if (diffDays <= 7) {
                         isTrial = true;
                         daysLeft = 7 - diffDays;
-                    } else isExpired = true;
-                } else isExpired = true;
+                    } else {
+                        isExpired = true;
+                    }
+                } else {
+                    isExpired = true;
+                }
+
+                // EXCLUSIVIDADE DE PLANOS (Visão de Negócio)
+                // Premium/Standard = Apenas Assinantes Reais
+                // Gratuito = Teste (Trial), Expirados ou Free
+                let finalIsPremium = false;
+                let finalIsStandard = false;
+                let finalIsFree = false;
+
+                if (!isBlocked) {
+                    if (subStatus === 'active' || subStatus === 'lifetime') {
+                        finalIsPremium = true;
+                    } else if (subStatus === 'standard') {
+                        finalIsStandard = true;
+                    } else {
+                        // Trial e Expirados caem aqui
+                        finalIsFree = true;
+                    }
+                } else {
+                    finalIsFree = true;
+                }
+
+                const userEmail = settingsData.email || userData.email || customerData.email || 'N/A';
 
                 userList.push({
                     uid,
-                    email: settingsData.email || userData.email || customerData.email || 'N/A',
-                    isPremium: (isPremium || isTrial) && !isExpired && !isBlocked,
+                    email: userEmail,
+                    isPremium: finalIsPremium,
+                    isStandard: finalIsStandard,
+                    isFree: finalIsFree,
                     subType,
                     subStatus,
                     isTrial,
                     subDate: subDate ? subDate.toLocaleDateString('pt-BR') : 'N/A',
                     daysLeft,
-                    isExpired: isExpired && !isLifetime && !isTrial,
+                    isExpired,
                     isLifetime,
                     isBlocked,
-                    isStandard,
-                    isFree,
-                    isAdmin: userData.isAdmin || false,
+                    isAdmin: userData.isAdmin === true || ADMIN_EMAILS.includes(userEmail),
                     pushSubscriptions: userData.pushSubscriptions || [],
                     createdAt: baseDate ? baseDate.toLocaleDateString('pt-BR') : 'N/A',
                     lastSync: (settingsData.subscription?.updatedAt || userData.subscription?.updatedAt)?.toDate?.().toLocaleDateString() || 'N/A',
-                    isDeleted: userData.status === 'deleted' || !userSnap.exists()
+                    isDeleted: userData.status === 'deleted' || !userSnap.exists(),
+                    deletedAt: userData.deletedAt ? (userData.deletedAt.toDate ? userData.deletedAt.toDate().toLocaleDateString('pt-BR') : new Date(userData.deletedAt).toLocaleDateString('pt-BR')) : null
                 });
             }
             setUsers(userList);
@@ -215,19 +271,34 @@ export default function AdminPanel({ onBack }) {
     const filteredUsers = useMemo(() => {
         let list = users.filter(u => u.email.toLowerCase().includes(searchTerm.toLowerCase()));
         if (userSubTab === 'admins') return list.filter(u => u.isAdmin);
-        if (userSubTab === 'premium') return list.filter(u => (u.isPremium || u.isLifetime) && !u.isAdmin);
-        if (userSubTab === 'standard') return list.filter(u => u.isStandard && !u.isAdmin);
-        if (userSubTab === 'gratuito') return list.filter(u => u.isFree && !u.isAdmin);
+        if (userSubTab === 'premium_monthly') return list.filter(u => u.isPremium && u.subType === 'monthly' && !u.isAdmin && !u.isDeleted);
+        if (userSubTab === 'premium_annual') return list.filter(u => (u.isPremium && u.subType === 'annual' || u.isLifetime) && !u.isAdmin && !u.isDeleted);
+        if (userSubTab === 'standard_monthly') return list.filter(u => u.isStandard && u.subType === 'monthly' && !u.isAdmin && !u.isDeleted);
+        if (userSubTab === 'standard_annual') return list.filter(u => u.isStandard && u.subType === 'annual' && !u.isAdmin && !u.isDeleted);
+        if (userSubTab === 'gratuito') return list.filter(u => u.isFree && !u.isAdmin && !u.isDeleted);
+        if (userSubTab === 'excluidos') return list.filter(u => u.isDeleted);
         return list;
     }, [users, searchTerm, userSubTab]);
 
-    const stats = useMemo(() => ({
-        total: users.length,
-        premium: users.filter(u => (u.isPremium || u.isLifetime) && !u.isAdmin).length,
-        admins: users.filter(u => u.isAdmin).length,
-        standard: users.filter(u => u.isStandard && !u.isAdmin).length,
-        free: users.filter(u => u.isFree && !u.isAdmin).length
-    }), [users]);
+    const stats = useMemo(() => {
+        const pM = users.filter(u => u.isPremium && u.subType === 'monthly' && !u.isAdmin && !u.isDeleted).length;
+        const pA = users.filter(u => (u.isPremium && u.subType === 'annual' || u.isLifetime) && !u.isAdmin && !u.isDeleted).length;
+        const sM = users.filter(u => u.isStandard && u.subType === 'monthly' && !u.isAdmin && !u.isDeleted).length;
+        const sA = users.filter(u => u.isStandard && u.subType === 'annual' && !u.isAdmin && !u.isDeleted).length;
+        
+        return {
+            total: users.length,
+            admins: users.filter(u => u.isAdmin && !u.isDeleted).length,
+            premiumMonthly: pM,
+            premiumAnnual: pA,
+            standardMonthly: sM,
+            standardAnnual: sA,
+            premium: pM + pA,
+            standard: sM + sA,
+            free: users.filter(u => u.isFree && !u.isAdmin && !u.isDeleted).length,
+            deleted: users.filter(u => u.isDeleted).length
+        };
+    }, [users]);
 
     // Handle Edit Actions
     const saveUserChanges = async () => {
@@ -484,13 +555,14 @@ export default function AdminPanel({ onBack }) {
                 {activeTab === 'dashboard' && (
                     <div className="space-y-8">
                         {/* Summary Metrics */}
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-6">
                             {[
                                 { label: 'Total Usuários', val: stats.total, icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
                                 { label: 'Premium Ativos', val: stats.premium, icon: Zap, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
                                 { label: 'Admins', val: stats.admins, icon: Shield, color: 'text-purple-400', bg: 'bg-purple-400/10' },
                                 { label: 'Standard', val: stats.standard, icon: CreditCard, color: 'text-slate-400', bg: 'bg-slate-400/10' },
-                                { label: 'Gratuito', val: stats.free, icon: Gift, color: 'text-rose-400', bg: 'bg-rose-400/10' }
+                                { label: 'Gratuito', val: stats.free, icon: Gift, color: 'text-rose-400', bg: 'bg-rose-400/10' },
+                                { label: 'Excluídos', val: stats.deleted, icon: Trash2, color: 'text-slate-500', bg: 'bg-slate-500/10' }
                             ].map(item => (
                                 <div key={item.label} className="p-8 rounded-[2.5rem] border border-white/5 bg-slate-900/50 backdrop-blur-xl hover:border-[#5CCEEA]/30 transition-all group">
                                     <div className={`p-3 rounded-2xl ${item.bg} ${item.color} w-fit mb-6 transition-transform group-hover:scale-110`}>
@@ -547,17 +619,20 @@ export default function AdminPanel({ onBack }) {
                     <div className="space-y-8">
                         {/* Sub Tabs */}
                         <div className="flex flex-wrap items-center justify-between gap-6">
-                            <div className="flex items-center gap-2 p-1.5 bg-slate-900 rounded-2xl border border-white/5 overflow-x-auto custom-scrollbar">
+                            <div className="flex items-center gap-2 p-1.5 bg-slate-900 rounded-2xl border border-white/5 overflow-x-auto custom-scrollbar no-scrollbar">
                                 {[
                                     { id: 'admins', label: 'Admins', count: stats.admins },
-                                    { id: 'premium', label: 'Premium', count: stats.premium },
-                                    { id: 'standard', label: 'Standard', count: stats.standard },
-                                    { id: 'gratuito', label: 'Gratuito', count: stats.free }
+                                    { id: 'standard_monthly', label: 'Std Mensal', count: stats.standardMonthly },
+                                    { id: 'standard_annual', label: 'Std Anual', count: stats.standardAnnual },
+                                    { id: 'premium_monthly', label: 'Prem Mensal', count: stats.premiumMonthly },
+                                    { id: 'premium_annual', label: 'Prem Anual', count: stats.premiumAnnual },
+                                    { id: 'gratuito', label: 'Gratuito', count: stats.free },
+                                    { id: 'excluidos', label: 'Excluídos', count: stats.deleted }
                                 ].map(tab => (
                                     <button 
                                         key={tab.id}
                                         onClick={() => setUserSubTab(tab.id)}
-                                        className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${userSubTab === tab.id ? 'bg-slate-800 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                                        className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${userSubTab === tab.id ? 'bg-[#5CCEEA] text-slate-950 shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                                     >
                                         {tab.label} ({tab.count})
                                     </button>
@@ -622,19 +697,54 @@ export default function AdminPanel({ onBack }) {
                                                     )}
                                                 </td>
                                                 <td className="p-8">
-                                                    <div className="flex items-center gap-3">
-                                                        {user.isBlocked ? (
-                                                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-400 text-[10px] font-black border border-rose-500/20">
-                                                                <Ban className="w-3 h-3" /> BLOQUEADO
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-400 text-[10px] font-black border border-emerald-500/20">
-                                                                <Check className="w-3 h-3" /> ATIVO
-                                                            </div>
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className="flex items-center gap-3">
+                                                            {user.isDeleted ? (
+                                                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-500/10 text-slate-400 text-[10px] font-black border border-slate-500/20">
+                                                                    <Trash2 className="w-3 h-3" /> EXCLUÍDO
+                                                                </div>
+                                                            ) : user.isBlocked ? (
+                                                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-400 text-[10px] font-black border border-rose-500/20">
+                                                                    <Ban className="w-3 h-3" /> BLOQUEADO
+                                                                </div>
+                                                            ) : user.isExpired ? (
+                                                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-400 text-[10px] font-black border border-amber-500/20">
+                                                                    <Clock className="w-3 h-3" /> EXPIRADO
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-400 text-[10px] font-black border border-emerald-500/20">
+                                                                    <Check className="w-3 h-3" /> ATIVO
+                                                                </div>
+                                                            )}
+                                                            {user.daysLeft > 0 && user.daysLeft < 365 && !user.isDeleted && (
+                                                                <span className="text-[10px] font-bold text-slate-500">EXPIRA EM {user.daysLeft} DIAS</span>
+                                                            )}
+                                                        </div>
+                                                        {user.isDeleted && user.deletedAt && (
+                                                            <p className="text-[9px] font-bold text-rose-500/60 uppercase tracking-widest ml-1">Saiu em {user.deletedAt}</p>
                                                         )}
-                                                        {user.daysLeft > 0 && user.daysLeft < 365 && (
-                                                            <span className="text-[10px] font-bold text-slate-500">EXPIRA EM {user.daysLeft} DIAS</span>
-                                                        )}
+
+                                                        {/* INFORMAÇÃO DE PAGAMENTO / TRIAL */}
+                                                        <div className="mt-1 ml-1 flex flex-col gap-0.5">
+                                                            {(user.isPremium || user.isStandard) && !user.isTrial && !user.isLifetime && (
+                                                                <p className="text-[9px] font-medium text-slate-500 flex items-center gap-1.5 uppercase tracking-tighter">
+                                                                    <CreditCard className="w-2.5 h-2.5 text-slate-600" />
+                                                                    Pago em: <span className="text-slate-300">{user.subDate}</span>
+                                                                </p>
+                                                            )}
+                                                            {user.isTrial && !user.isDeleted && (
+                                                                <p className="text-[9px] font-medium text-sky-500/80 flex items-center gap-1.5 uppercase tracking-tighter">
+                                                                    <Zap className="w-2.5 h-2.5" />
+                                                                    Período de Teste
+                                                                </p>
+                                                            )}
+                                                            {user.isLifetime && !user.isDeleted && (
+                                                                <p className="text-[9px] font-medium text-purple-500/80 flex items-center gap-1.5 uppercase tracking-tighter">
+                                                                    <Shield className="w-2.5 h-2.5" />
+                                                                    Acesso Vitalício
+                                                                </p>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td className="p-8 text-right">
@@ -686,7 +796,7 @@ export default function AdminPanel({ onBack }) {
                                     { id: 'isPremium',  label: 'Premium',  desc: 'Acesso completo',      color: 'emerald', ring: 'ring-emerald-500' },
                                     { id: 'isLifetime', label: 'Vitalício', desc: 'Permanente ilimitado', color: 'blue',    ring: 'ring-blue-500' },
                                     { id: 'isStandard', label: 'Standard', desc: 'Versão intermediária', color: 'amber',   ring: 'ring-amber-500' },
-                                    { id: 'isFree',     label: 'Gratuito', desc: 'Versão básica',        color: 'rose',    ring: 'ring-rose-400' },
+                                    { id: 'isFree',     label: 'Gratuito', desc: 'Teste ou Sem Plano',        color: 'rose',    ring: 'ring-rose-400' },
                                 ].map(plan => {
                                     const active = pendingUser[plan.id];
                                     return (
@@ -755,6 +865,42 @@ export default function AdminPanel({ onBack }) {
                             </button>
                             <div className="grid grid-cols-2 gap-3">
                                 <button
+                                    onClick={async () => {
+                                        if (!window.confirm('Resetar teste desta conta (dar +7 dias)?')) return;
+                                        setIsSaving(true);
+                                        try {
+                                            const userRef = doc(db, 'users', editingUser.uid);
+                                            await updateDoc(userRef, { trialStartDate: new Date() });
+                                            alert('Teste resetado!');
+                                            setEditingUser(null);
+                                            fetchUsers();
+                                        } catch (e) { alert('Erro ao resetar'); }
+                                        finally { setIsSaving(false); }
+                                    }}
+                                    className="py-4 rounded-2xl bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all"
+                                >
+                                    Resetar Teste
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        if (!window.confirm('Expirar teste desta conta?')) return;
+                                        setIsSaving(true);
+                                        try {
+                                            const tenDaysAgo = new Date();
+                                            tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+                                            const userRef = doc(db, 'users', editingUser.uid);
+                                            await updateDoc(userRef, { trialStartDate: tenDaysAgo });
+                                            alert('Teste expirado!');
+                                            setEditingUser(null);
+                                            fetchUsers();
+                                        } catch (e) { alert('Erro ao expirar'); }
+                                        finally { setIsSaving(false); }
+                                    }}
+                                    className="py-4 rounded-2xl bg-amber-500/10 text-amber-500 text-[10px] font-black uppercase tracking-widest border border-amber-500/20 hover:bg-amber-500 hover:text-white transition-all"
+                                >
+                                    Expirar Teste
+                                </button>
+                                <button
                                     onClick={() => adminDeleteUser(editingUser)}
                                     className="py-4 rounded-2xl bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all"
                                 >
@@ -762,7 +908,7 @@ export default function AdminPanel({ onBack }) {
                                 </button>
                                 <button
                                     onClick={() => { setEditingUser(null); setPendingUser(null); }}
-                                    className="py-4 rounded-2xl bg-white/5 text-slate-300 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                                    className="py-4 rounded-2xl bg-white/5 text-slate-300 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all col-span-2"
                                 >
                                     Cancelar
                                 </button>

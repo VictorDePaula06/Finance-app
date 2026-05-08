@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Shield, Lock, Eye, FileText } from 'lucide-react';
+import { ArrowLeft, Shield, Lock as LockIcon, Eye, FileText } from 'lucide-react';
 
 export default function PrivacyPolicy({ onBack }) {
     return (
@@ -26,7 +26,7 @@ export default function PrivacyPolicy({ onBack }) {
                 <div className="space-y-12 leading-relaxed">
                     <section>
                         <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                            <Lock className="w-5 h-5 text-emerald-500" />
+                            <LockIcon className="w-5 h-5 text-emerald-500" />
                             1. Coleta e Uso de Dados
                         </h2>
                         <p className="mb-4">

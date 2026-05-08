@@ -5,10 +5,13 @@ import { useTheme } from '../contexts/ThemeContext';
 import { validateApiKey } from '../services/gemini';
 import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
 import Manual from './Manual';
+import UpgradeModal from './UpgradeModal';
+import { Sparkles as SparklesIcon } from 'lucide-react';
 
 const SettingsTab = ({ manualConfig, updateManualConfig }) => {
   const { theme, toggleTheme } = useTheme();
-  const { currentUser, deleteAccount, logout } = useAuth();
+  const { currentUser, deleteAccount, logout, planLevel, subType } = useAuth();
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deleteError, setDeleteError] = useState('');
@@ -82,6 +85,58 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
               <p className="text-sm text-slate-500">{currentUser?.email}</p>
             </div>
           </div>
+        </section>
+
+        {/* Subscription Section */}
+        <section className={`p-8 rounded-[2.5rem] border ${
+          theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'
+        }`}>
+          <h3 className={`text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+            <CreditCard className="w-4 h-4" /> Sua Assinatura
+          </h3>
+          
+          <div className={`p-6 rounded-[2rem] border-2 transition-all flex items-center justify-between ${
+            planLevel === 'lifetime'
+              ? 'border-purple-500 bg-purple-500/5'
+              : (planLevel === 'premium' 
+                ? 'border-emerald-500 bg-emerald-500/5' 
+                : 'border-blue-500 bg-blue-500/5')
+          }`}>
+            <div>
+              <p className={`text-[10px] font-black uppercase tracking-widest ${
+                planLevel === 'lifetime'
+                  ? 'text-purple-500'
+                  : (planLevel === 'premium' ? 'text-emerald-500' : 'text-blue-500')
+              }`}>
+                Plano Atual
+              </p>
+              <h4 className={`text-xl font-black capitalize ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                {planLevel === 'lifetime' ? 'Premium' : planLevel} <span className="text-xs opacity-50 font-medium">({planLevel === 'lifetime' ? 'Vitalício' : (subType === 'annual' ? 'Anual' : 'Mensal')})</span>
+              </h4>
+            </div>
+
+            {planLevel === 'standard' ? (
+              <button 
+                onClick={() => setShowUpgrade(true)}
+                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-600/20 active:scale-95 flex items-center gap-2"
+              >
+                <SparklesIcon className="w-3 h-3" /> Fazer Upgrade
+              </button>
+            ) : (
+              <button 
+                onClick={() => {
+                   window.open('https://billing.stripe.com/p/login/00waEY8WW5ZK0V95TJ7kc00', '_blank');
+                }}
+                className="px-6 py-3 bg-white/5 border border-white/10 text-slate-400 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2"
+              >
+                <CreditCard className="w-3 h-3" /> Gerenciar
+              </button>
+            )}
+          </div>
+          
+          <p className="mt-6 text-[10px] text-slate-500 leading-relaxed text-center italic">
+            Gerencie seu plano, faturas e cancelamentos através do seu e-mail ou fale com nosso suporte.
+          </p>
         </section>
 
         {/* AI Settings Section */}
@@ -288,6 +343,8 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
       <div className="col-span-full text-center">
         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Alívia Finance • Feito com ❤️ para você</p>
       </div>
+
+      <UpgradeModal isOpen={showUpgrade} onClose={() => setShowUpgrade(false)} />
     </div>
   );
 };
