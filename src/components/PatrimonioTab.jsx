@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Wallet, PiggyBank, TrendingUp, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List } from 'lucide-react';
+import { Wallet, PiggyBank, TrendingUp, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List, HelpCircle, ShieldCheck } from 'lucide-react';
+import PatrimonioConfigForm from './PatrimonioConfigForm';
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer } from 'recharts';
 import ReactMarkdown from 'react-markdown';
 import { generatePatrimonyAnalysis, isGeminiConfigured } from '../services/gemini';
@@ -49,8 +50,9 @@ function MiniCard({ label, value, icon: Icon, color, isDark, isHidable, isHidden
 // ─── main ──────────────────────────────────────────────────────────────────────
 export default function PatrimonioTab({ transactions, manualConfig }) {
   const { theme } = useTheme();
-  const { currentUser } = useAuth();
+  const { currentUser, userPrefs } = useAuth();
   const isDark = theme !== 'light';
+  const [showPatrimonioConfig, setShowPatrimonioConfig] = useState(false);
 
   // ── state ──────────────────────────────────────────────────────────────────
   const [jars, setJars] = useState([]);
@@ -197,6 +199,50 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
 
       {/* ── VISÃO GERAL TAB ── */}
       {activeTab === 'visao' && (<>
+        {/* ── PATRIMÔNIO CONFIG BAR ── */}
+        {(() => {
+          const onboarding = userPrefs?.onboarding || {};
+          const hasObjectives = onboarding.objectives?.length > 0;
+          const hasProfile = !!onboarding.riskProfile;
+          const isConfigured = hasObjectives && hasProfile;
+          return (
+            <div className={`p-5 md:p-6 rounded-[2rem] border animate-in fade-in slide-in-from-top-4 duration-500 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+              isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${
+                  isConfigured ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'
+                }`}>
+                  {isConfigured ? <ShieldCheck className="w-4 h-4" /> : <HelpCircle className="w-4 h-4" />}
+                </div>
+                <div>
+                  <p className={`text-[10px] font-black uppercase tracking-widest ${
+                    isConfigured ? 'text-emerald-500' : 'text-amber-500'
+                  }`}>
+                    {isConfigured ? 'Patrimônio Configurado' : 'Configuração Pendente'}
+                  </p>
+                  <p className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {isConfigured
+                      ? 'Seu perfil de investidor e objetivos estão definidos.'
+                      : 'Defina seu perfil e objetivos para personalizar o módulo.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPatrimonioConfig(true)}
+                className={`px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 shrink-0 ${
+                  isConfigured
+                    ? (isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')
+                    : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                {isConfigured ? 'Editar Configuração' : 'Configurar Patrimônio'}
+              </button>
+            </div>
+          );
+        })()}
+
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-500 mb-1">Patrimônio</p>
           <h2 className={`text-3xl font-black ${h1}`}>Sua Riqueza</h2>
@@ -441,28 +487,45 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
       })()}
 
       {/* ── METAS E PERFIL ── */}
-      {userConfig && (
+      {(() => {
+        const onboarding = userPrefs?.onboarding || {};
+        const OBJECTIVE_LABELS = {
+          independence: '🏝️ Viver de Renda',
+          start: '🌱 Começar a Investir',
+          debt: '🔓 Sair das Dívidas',
+          goal: '🏠 Conquistar um Bem',
+          control: '🧘 Controle Total',
+        };
+        const PROFILE_LABELS = {
+          conservative: 'Conservador',
+          moderate: 'Moderado',
+          aggressive: 'Arrojado',
+        };
+        const hasData = onboarding.objectives?.length > 0 || onboarding.riskProfile;
+        if (!hasData) return null;
+        return (
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
         <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 ${sub}`}>Seu Plano de Construção</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className={`p-6 rounded-3xl border flex flex-col justify-center ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100 shadow-sm'}`}>
             <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Objetivos</h3>
             <div className="flex flex-wrap gap-2">
-               {userConfig.objectives?.map(obj => (
-                  <span key={obj} className="px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-bold">{obj}</span>
+               {onboarding.objectives?.map(obj => (
+                  <span key={obj} className="px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-bold">{OBJECTIVE_LABELS[obj] || obj}</span>
                ))}
-               {(!userConfig.objectives || userConfig.objectives.length === 0) && <span className="text-xs text-slate-500">Nenhuma meta definida.</span>}
+               {(!onboarding.objectives || onboarding.objectives.length === 0) && <span className="text-xs text-slate-500">Nenhuma meta definida.</span>}
             </div>
           </div>
           <div className={`p-6 rounded-3xl border flex flex-col justify-center ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100 shadow-sm'}`}>
             <h3 className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Perfil de Investidor</h3>
             <p className={`text-3xl font-black capitalize tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                {userConfig.riskProfile || 'Não definido'}
+                {PROFILE_LABELS[onboarding.riskProfile] || onboarding.riskProfile || 'Não definido'}
             </p>
           </div>
         </div>
       </div>
-      )}
+        );
+      })()}
 
       {/* ── ALÍVIA ANALYSIS ── */}
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
@@ -526,6 +589,19 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
           </div>
       </div>
       </>)}
+
+      {/* ── PATRIMÔNIO CONFIG MODAL ── */}
+      {showPatrimonioConfig && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-500">
+          <div className={`relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[3rem] shadow-2xl animate-in zoom-in-95 duration-500 custom-scrollbar ${
+            isDark ? 'bg-slate-900' : 'bg-white'
+          }`}>
+            <PatrimonioConfigForm
+              onClose={() => setShowPatrimonioConfig(false)}
+            />
+          </div>
+        </div>
+      )}
       
     </div>
   );
