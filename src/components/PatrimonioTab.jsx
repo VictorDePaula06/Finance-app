@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Wallet, PiggyBank, TrendingUp, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List, HelpCircle, ShieldCheck, Target, Home, Gem, ChevronDown } from 'lucide-react';
+import { Wallet, PiggyBank, TrendingUp, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List, HelpCircle, ShieldCheck, Target, Home, Gem, ChevronDown, Pencil, Trash2, Save } from 'lucide-react';
 import PatrimonioConfigForm from './PatrimonioConfigForm';
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer } from 'recharts';
 import ReactMarkdown from 'react-markdown';
@@ -7,7 +7,7 @@ import { generatePatrimonyAnalysis, isGeminiConfigured } from '../services/gemin
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const fmt = (v) => Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtSigned = (v) => (v < 0 ? '-' : '') + 'R$ ' + fmt(v);
@@ -70,9 +70,10 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   const [expandAllocation, setExpandAllocation] = useState(false);
   const [expandAlivia, setExpandAlivia] = useState(false);
   const [expandPlan, setExpandPlan] = useState(false);
-  const [showGoalSim, setShowGoalSim] = useState(false);
-  const [simYears, setSimYears] = useState('');
-  const [simAporte, setSimAporte] = useState('');
+  const [showSimModal, setShowSimModal] = useState(false);
+  const [simModalYears, setSimModalYears] = useState('');
+  const [simModalAporte, setSimModalAporte] = useState('');
+  const [simSaving, setSimSaving] = useState(false);
 
   // ── listeners ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -402,20 +403,21 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
                 <div className={`h-full rounded-full transition-all duration-1000 ${isGoalReached ? 'bg-emerald-500' : 'bg-gradient-to-r from-blue-500 to-emerald-500'}`} style={{ width: `${progressPct}%` }} />
               </div>
 
-              {/* Interactive Goal Simulator */}
+              {/* Goal Simulation — saved or CTA */}
               {!isGoalReached && remaining > 0 && (() => {
-                const simMonths = simYears ? Math.round(parseFloat(simYears) * 12) : 0;
-                const simAporteVal = simAporte ? parseFloat(simAporte.replace(/\D/g, '')) / 100 : 0;
-                const hasSimData = simMonths > 0 && simAporteVal > 0;
+                const savedYears = goal.simYears ? parseFloat(goal.simYears) : null;
+                const savedAporte = goal.simAporte || null;
+                const hasSavedSim = savedYears && savedAporte;
+
+                const simMonths = savedYears ? Math.round(savedYears * 12) : 0;
+                const simAporteVal = savedAporte ? parseFloat(String(savedAporte).replace(/\D/g, '')) / 100 : 0;
 
                 // FV = PV*(1+r)^n + PMT*((1+r)^n - 1)/r
-                const projectedValue = hasSimData
+                const projectedValue = hasSavedSim
                   ? currentValue * Math.pow(1 + monthlyRate, simMonths) + simAporteVal * ((Math.pow(1 + monthlyRate, simMonths) - 1) / monthlyRate)
                   : 0;
                 const willReach = projectedValue >= goalTarget;
 
-                // Months needed to reach goal with given aporte + CDI
-                // Solve: PV*(1+r)^n + PMT*((1+r)^n-1)/r = FV
                 let monthsNeeded = null;
                 if (simAporteVal > 0) {
                   for (let n = 1; n <= 600; n++) {
@@ -424,107 +426,77 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
                   }
                 }
 
-                // Months needed with NO aportes (just CDI)
-                const monthsJustCDI = currentValue > 0
-                  ? Math.ceil(Math.log(goalTarget / currentValue) / Math.log(1 + monthlyRate))
-                  : null;
+                const handleOpenModal = (isEdit = false) => {
+                  if (isEdit && hasSavedSim) {
+                    setSimModalYears(String(savedYears));
+                    const v = (parseFloat(String(savedAporte).replace(/\D/g, '')) / 100);
+                    setSimModalAporte(v.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
+                  } else {
+                    setSimModalYears('');
+                    setSimModalAporte('');
+                  }
+                  setShowSimModal(true);
+                };
+
+                const handleDeleteSim = async () => {
+                  try {
+                    const { deleteField } = await import('firebase/firestore');
+                    await updateDoc(doc(db, 'goals', goal.id), {
+                      simYears: deleteField(),
+                      simAporte: deleteField(),
+                    });
+                  } catch (e) { console.error(e); }
+                };
 
                 return (
                   <>
-                    {!showGoalSim ? (
+                    {!hasSavedSim ? (
                       <button
-                        onClick={() => setShowGoalSim(true)}
+                        onClick={() => handleOpenModal(false)}
                         className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black transition-all border ${
                           isDark ? 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 border-blue-100 text-blue-600 hover:bg-blue-100'
                         }`}
                       >
                         <LineChart className="w-3.5 h-3.5" />
-                        Simular minha meta
+                        Planejar minha meta
                       </button>
                     ) : (
-                      <div className={`p-4 rounded-xl border ${isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-100'}`}>
-                        <div className="flex items-center justify-between mb-3">
-                          <p className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Simulador de Meta</p>
-                          <button onClick={() => setShowGoalSim(false)} className={`text-[9px] font-bold ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}>✕ fechar</button>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 mb-3">
-                          <div>
-                            <label className={`text-[8px] font-black uppercase tracking-widest block mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Prazo (anos)</label>
-                            <input
-                              type="number"
-                              min="1"
-                              max="50"
-                              step="0.5"
-                              value={simYears}
-                              onChange={(e) => setSimYears(e.target.value)}
-                              placeholder="Ex: 5"
-                              className={`w-full px-3 py-2.5 rounded-xl text-sm font-bold border outline-none transition-all focus:ring-2 ${
-                                isDark ? 'bg-slate-900 border-white/10 text-white focus:ring-blue-500/30 placeholder:text-slate-600' : 'bg-white border-slate-200 text-slate-800 focus:ring-blue-500/20 placeholder:text-slate-300'
-                              }`}
-                            />
-                          </div>
-                          <div>
-                            <label className={`text-[8px] font-black uppercase tracking-widest block mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Aporte mensal (R$)</label>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={simAporte}
-                              onChange={(e) => {
-                                const raw = e.target.value.replace(/\D/g, '');
-                                if (!raw) { setSimAporte(''); return; }
-                                const num = (parseInt(raw) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-                                setSimAporte(num);
-                              }}
-                              placeholder="Ex: 500,00"
-                              className={`w-full px-3 py-2.5 rounded-xl text-sm font-bold border outline-none transition-all focus:ring-2 ${
-                                isDark ? 'bg-slate-900 border-white/10 text-white focus:ring-blue-500/30 placeholder:text-slate-600' : 'bg-white border-slate-200 text-slate-800 focus:ring-blue-500/20 placeholder:text-slate-300'
-                              }`}
-                            />
-                          </div>
-                        </div>
-
-                        {hasSimData && (
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
-                            {/* Result 1: projected value */}
-                            <div className={`p-3 rounded-xl border ${willReach ? (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-100') : (isDark ? 'bg-amber-500/5 border-amber-500/15' : 'bg-amber-50 border-amber-100')}`}>
-                              <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${willReach ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>
-                                Em {simYears} ano{parseFloat(simYears) !== 1 ? 's' : ''} você terá
-                              </p>
-                              <p className={`text-base font-black ${willReach ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>
-                                R$ {fmt(projectedValue)}
-                              </p>
-                              <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                                {willReach ? '✓ Meta atingida com aportes + CDI' : `Faltarão R$ ${fmt(goalTarget - projectedValue)}`}
-                              </p>
-                            </div>
-
-                            {/* Result 2: time to reach with these aportes */}
-                            <div className={`p-3 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/15' : 'bg-blue-50 border-blue-100'}`}>
-                              <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                                {monthsNeeded ? 'Tempo com seus aportes + CDI' : 'Sem aportes (só CDI)'}
-                              </p>
-                              <p className={`text-base font-black ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                                {monthsNeeded ? fmtTime(monthsNeeded) : (monthsJustCDI ? fmtTime(monthsJustCDI) : '–')}
-                              </p>
-                              <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                                CDI médio {CDI_MEDIO_10A}% a.a. (10 anos)
-                              </p>
-                            </div>
-
-                            {/* Result 3: risk note */}
-                            <div className={`p-3 rounded-xl border ${isDark ? 'bg-purple-500/5 border-purple-500/15' : 'bg-purple-50 border-purple-100'}`}>
-                              <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Ativos de Maior Risco</p>
-                              <p className={`text-[10px] font-bold leading-snug ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>Com ações, FIIs ou cripto, essa meta pode ser atingida em menos tempo — porém com maior volatilidade.</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {!hasSimData && (
-                          <p className={`text-[9px] text-center py-2 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
-                            Preencha o prazo e o aporte mensal para ver a projeção
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className={`text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                            Seu Plano: R$ {fmt(simAporteVal)}/mês por {savedYears} ano{savedYears !== 1 ? 's' : ''} + CDI {CDI_MEDIO_10A}%
                           </p>
-                        )}
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => handleOpenModal(true)} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-blue-400' : 'hover:bg-slate-100 text-slate-400 hover:text-blue-500'}`}>
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                            <button onClick={handleDeleteSim} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-rose-400' : 'hover:bg-slate-100 text-slate-400 hover:text-rose-500'}`}>
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div className={`p-3 rounded-xl border ${willReach ? (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-100') : (isDark ? 'bg-amber-500/5 border-amber-500/15' : 'bg-amber-50 border-amber-100')}`}>
+                            <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${willReach ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>
+                              Em {savedYears} ano{savedYears !== 1 ? 's' : ''} você terá
+                            </p>
+                            <p className={`text-base font-black ${willReach ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>
+                              R$ {fmt(projectedValue)}
+                            </p>
+                            <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                              {willReach ? '✓ Meta atingida com aportes + CDI' : `Faltarão R$ ${fmt(goalTarget - projectedValue)}`}
+                            </p>
+                          </div>
+                          <div className={`p-3 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/15' : 'bg-blue-50 border-blue-100'}`}>
+                            <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Tempo com aportes + CDI</p>
+                            <p className={`text-base font-black ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>{monthsNeeded ? fmtTime(monthsNeeded) : '–'}</p>
+                            <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>CDI médio {CDI_MEDIO_10A}% a.a.</p>
+                          </div>
+                          <div className={`p-3 rounded-xl border ${isDark ? 'bg-purple-500/5 border-purple-500/15' : 'bg-purple-50 border-purple-100'}`}>
+                            <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Ativos de Maior Risco</p>
+                            <p className={`text-[10px] font-bold leading-snug ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>Com ações, FIIs ou cripto, essa meta pode ser atingida em menos tempo — porém com maior volatilidade.</p>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </>
@@ -791,6 +763,133 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
             <PatrimonioConfigForm
               onClose={() => setShowPatrimonioConfig(false)}
             />
+          </div>
+        </div>
+      )}
+
+      {/* ── GOAL SIMULATOR MODAL ── */}
+      {showSimModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-500" onClick={() => setShowSimModal(false)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className={`relative w-full max-w-md rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-500 overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-white'}`}
+          >
+            {/* Modal Header */}
+            <div className={`p-6 pb-4 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+              <div className="flex items-center gap-3 mb-1">
+                <div className={`p-2.5 rounded-xl ${isDark ? 'bg-blue-500/15' : 'bg-blue-100'}`}>
+                  <LineChart className={`w-5 h-5 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+                </div>
+                <div>
+                  <h3 className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Planejar Meta</h3>
+                  <p className={`text-[10px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {patrimonyGoals[0]?.title || 'Meta de Patrimônio'} — R$ {fmt(patrimonyGoals[0]?.target || 0)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              <div className="space-y-4">
+                <div>
+                  <label className={`text-[9px] font-black uppercase tracking-widest block mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Em quantos anos quer atingir?</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    step="0.5"
+                    value={simModalYears}
+                    onChange={(e) => setSimModalYears(e.target.value)}
+                    placeholder="Ex: 5"
+                    className={`w-full px-4 py-3.5 rounded-2xl text-lg font-black border-2 outline-none transition-all focus:ring-2 ${
+                      isDark ? 'bg-slate-800 border-white/10 text-white focus:border-blue-500 focus:ring-blue-500/20 placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500 focus:ring-blue-500/10 placeholder:text-slate-300'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className={`text-[9px] font-black uppercase tracking-widest block mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Quanto pode investir por mês? (R$)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={simModalAporte}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, '');
+                      if (!raw) { setSimModalAporte(''); return; }
+                      const num = (parseInt(raw) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                      setSimModalAporte(num);
+                    }}
+                    placeholder="Ex: 500,00"
+                    className={`w-full px-4 py-3.5 rounded-2xl text-lg font-black border-2 outline-none transition-all focus:ring-2 ${
+                      isDark ? 'bg-slate-800 border-white/10 text-white focus:border-blue-500 focus:ring-blue-500/20 placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500 focus:ring-blue-500/10 placeholder:text-slate-300'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {/* Live Preview */}
+              {simModalYears && simModalAporte && (() => {
+                const previewMonths = Math.round(parseFloat(simModalYears) * 12);
+                const previewAporte = parseFloat(simModalAporte.replace(/\D/g, '')) / 100;
+                const CDI_R = Math.pow(1 + 11.15 / 100, 1 / 12) - 1;
+                const previewFV = patrimonioTotal * Math.pow(1 + CDI_R, previewMonths) + previewAporte * ((Math.pow(1 + CDI_R, previewMonths) - 1) / CDI_R);
+                const previewTarget = patrimonyGoals[0]?.target || 0;
+                const previewWill = previewFV >= previewTarget;
+                let previewTime = null;
+                for (let n = 1; n <= 600; n++) {
+                  const fv = patrimonioTotal * Math.pow(1 + CDI_R, n) + previewAporte * ((Math.pow(1 + CDI_R, n) - 1) / CDI_R);
+                  if (fv >= previewTarget) { previewTime = n; break; }
+                }
+                const ft = (m) => m < 12 ? `${m} meses` : `${Math.floor(m/12)}a ${m%12}m`;
+                return (
+                  <div className={`p-4 rounded-2xl border ${previewWill ? (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-100') : (isDark ? 'bg-amber-500/5 border-amber-500/15' : 'bg-amber-50 border-amber-100')}`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className={`text-[9px] font-black uppercase tracking-widest ${previewWill ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>Projeção</p>
+                      {previewTime && <p className={`text-[9px] font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Meta em {ft(previewTime)}</p>}
+                    </div>
+                    <p className={`text-2xl font-black ${previewWill ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>
+                      R$ {fmt(previewFV)}
+                    </p>
+                    <p className={`text-[9px] mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                      {previewWill ? `✓ Você ultrapassa a meta de R$ ${fmt(previewTarget)}` : `Faltarão R$ ${fmt(previewTarget - previewFV)} — aumente prazo ou aporte`}
+                    </p>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className={`p-6 pt-4 border-t flex gap-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+              <button
+                onClick={() => setShowSimModal(false)}
+                className={`flex-1 py-3 rounded-2xl text-sm font-black transition-all ${isDark ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'}`}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (!simModalYears || !simModalAporte || !patrimonyGoals[0]) return;
+                  setSimSaving(true);
+                  try {
+                    await updateDoc(doc(db, 'goals', patrimonyGoals[0].id), {
+                      simYears: simModalYears,
+                      simAporte: simModalAporte,
+                    });
+                    setShowSimModal(false);
+                  } catch (e) { console.error(e); }
+                  setSimSaving(false);
+                }}
+                disabled={!simModalYears || !simModalAporte || simSaving}
+                className={`flex-1 py-3 rounded-2xl text-sm font-black flex items-center justify-center gap-2 transition-all ${
+                  simModalYears && simModalAporte && !simSaving
+                    ? 'bg-blue-500 hover:bg-blue-400 text-white shadow-lg shadow-blue-500/20'
+                    : isDark ? 'bg-white/5 text-slate-600 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                {simSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {simSaving ? 'Salvando...' : 'Salvar Plano'}
+              </button>
+            </div>
           </div>
         </div>
       )}
