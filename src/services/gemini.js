@@ -327,7 +327,7 @@ export const generatePatrimonyAnalysis = async (jarsTotal, investmentsTotal, use
     const riskProfile = userConfig?.riskProfile || 'Não definido';
 
     const prompt = `
-Você é a **Alívia**, especialista financeira do usuário.
+Você é a **Alívia**, especialista financeira.
 
 DADOS DO PATRIMÔNIO ATUAL:
 - Total em Reserva de Emergência: R$ ${jarsTotal.toFixed(2)}
@@ -339,13 +339,20 @@ DADOS DO USUÁRIO:
 - Gastos Fixos: R$ ${fixedExpenses}
 - Perfil de Investidor: ${riskProfile}
 
-TAREFA:
-Faça uma análise curta, encorajadora e profunda sobre a saúde do patrimônio do usuário.
-1. Avalie a Reserva de Emergência (em meses de gastos fixos, se houver dado numérico, ou de forma geral).
-2. Comente sobre o volume investido vs. perfil do investidor.
-3. Diga se o patrimônio está bom para a média brasileira ou se ele já está se destacando por poupar.
-4. Mantenha em no máximo 2 ou 3 parágrafos curtos.
-5. Use tom direto, mas extremamente acolhedor e profissional. NUNCA use diminutivos. Use formatação markdown para destacar os pontos fortes.
+DADOS DE REFERÊNCIA BRASIL (IBGE/BCB 2024):
+- Apenas 36% dos brasileiros conseguem poupar algum valor por mês
+- Mediana de patrimônio financeiro do brasileiro: ~R$ 5.000
+- Top 25% possui acima de R$ 50.000 em patrimônio
+- Top 10% possui acima de R$ 250.000
+- Apenas 4% dos brasileiros investem em renda variável
+- 76% não possuem reserva de emergência
+
+TAREFA (máximo 3 parágrafos curtos):
+1. **Maturidade Financeira**: Classifique o nível (Iniciante / Em Construção / Intermediário / Avançado / Consolidado) com base no patrimônio, diversificação e reserva.
+2. **Posição vs. Brasil**: Diga em que percentil aproximado o usuário se encontra comparado à população brasileira. Ex: "Você já está à frente de X% dos brasileiros."
+3. **Saúde da Reserva**: Avalie quantos meses de gastos fixos a reserva cobre (se possível calcular).
+4. Tom direto, profissional, encorajador. Use markdown para negritar pontos-chave. NUNCA use diminutivos.
+5. Seja BREVE — máximo 3 parágrafos.
 
 Responda apenas com o texto do feedback.
 `;

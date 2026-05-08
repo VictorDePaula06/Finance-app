@@ -138,7 +138,14 @@ export default function EmergencyReserveTab() {
         setDeleteConfirm(null);
     };
 
-    const totalReserve = reserves.reduce((acc, curr) => acc + (curr.balance || 0), 0);
+    const totalReserve = reserves.reduce((acc, curr) => {
+        const cdiAnual = cdiRate / 100;
+        const percent = (curr.cdiPercent || 100) / 100;
+        const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
+        const lastUpdate = curr.updatedAt ? new Date(curr.updatedAt) : (curr.createdAt ? new Date(curr.createdAt) : new Date());
+        const diffDays = Math.max(0, (new Date() - lastUpdate) / (1000 * 60 * 60 * 24));
+        return acc + (curr.balance || 0) * Math.pow(1 + dailyRate, diffDays);
+    }, 0);
     const totalDailyYield = reserves.reduce((acc, curr) => {
         const cdiAnual = cdiRate / 100;
         const percent = (curr.cdiPercent || 100) / 100;

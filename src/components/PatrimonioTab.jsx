@@ -119,49 +119,56 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   }, []);
 
   // ── calculations ───────────────────────────────────────────────────────────
-  // Jars
-  const jarsTotal = useMemo(() => jars.reduce((a, j) => a + (j.balance || 0), 0), [jars]);
+  // Jars — dynamic balance with CDI accrual since last update
+  const { jarsTotal, jarsDynamic } = useMemo(() => {
+    const now = new Date();
+    let total = 0;
+    const dynamic = jars.map(j => {
+      const cdiP = (j.cdiPercent || 100) / 100;
+      const dailyRate = Math.pow(1 + (cdiAnual / 100) * cdiP, 1 / 365) - 1;
+      const lastUpdate = j.updatedAt ? new Date(j.updatedAt) : (j.createdAt ? new Date(j.createdAt) : now);
+      const diffDays = Math.max(0, (now - lastUpdate) / (1000 * 60 * 60 * 24));
+      const dynBal = (j.balance || 0) * Math.pow(1 + dailyRate, diffDays);
+      total += dynBal;
+      return { ...j, dynamicBalance: dynBal };
+    });
+    return { jarsTotal: total, jarsDynamic: dynamic };
+  }, [jars, cdiAnual]);
+
   const { jarsDailyYield, totalDailyYield } = useMemo(() => {
-    // 1. Yield from Jars (cofrinhos)
-    const jarsYield = jars.reduce((a, j) => {
-      const rate = Math.pow(1 + (cdiAnual / 100) * (j.cdiPercent / 100), 1 / 365) - 1;
-      return a + (j.balance || 0) * rate;
+    const jarsYield = jarsDynamic.reduce((a, j) => {
+      const cdiP = (j.cdiPercent || 100) / 100;
+      const rate = Math.pow(1 + (cdiAnual / 100) * cdiP, 1 / 365) - 1;
+      return a + j.dynamicBalance * rate;
     }, 0);
 
-    // 2. Yield from Fixed Income Investments (Renda Fixa)
     const fixedIncomeYield = investments.reduce((a, inv) => {
       if (inv.type === 'renda_fixa') {
         let rate = 0;
         const currentVal = (inv.manualCurrentPrice || inv.purchasePrice) * inv.quantity;
-        
         if (inv.yieldType === 'cdi' && inv.cdiPercent) {
           const cdiP = parseFloat(String(inv.cdiPercent).replace(',', '.'));
           rate = Math.pow(1 + (cdiAnual / 100) * (cdiP / 100), 1 / 365) - 1;
         } else if (inv.yieldType === 'ipca' && inv.fixedRate) {
-          // IPCA approx fallback
-          const ipcaAnual = 4.5; 
+          const ipcaAnual = 4.5;
           const fixedP = parseFloat(String(inv.fixedRate).replace(',', '.'));
           rate = Math.pow(1 + (ipcaAnual / 100) + (fixedP / 100), 1 / 365) - 1;
         } else if (inv.yieldType === 'pre' && inv.fixedRate) {
           const fixedP = parseFloat(String(inv.fixedRate).replace(',', '.'));
           rate = Math.pow(1 + (fixedP / 100), 1 / 365) - 1;
-        } else if (inv.cdiPercent) { // fallback
-           const cdiP = parseFloat(String(inv.cdiPercent).replace(',', '.'));
-           rate = Math.pow(1 + (cdiAnual / 100) * (cdiP / 100), 1 / 365) - 1;
+        } else if (inv.cdiPercent) {
+          const cdiP = parseFloat(String(inv.cdiPercent).replace(',', '.'));
+          rate = Math.pow(1 + (cdiAnual / 100) * (cdiP / 100), 1 / 365) - 1;
         }
-        
         return a + (currentVal * rate);
       }
       return a;
     }, 0);
 
-    return { 
-      jarsDailyYield: jarsYield, 
-      totalDailyYield: jarsYield + fixedIncomeYield 
-    };
-  }, [jars, investments, cdiAnual]);
+    return { jarsDailyYield: jarsYield, totalDailyYield: jarsYield + fixedIncomeYield };
+  }, [jarsDynamic, investments, cdiAnual]);
 
-  // Investments — only from Firestore collection (matches InvestmentsTab)
+  // Investments
   const investmentsTotal = useMemo(() => {
     return investments.reduce((acc, a) => {
       const price = a.manualCurrentPrice || a.purchasePrice;
@@ -177,20 +184,38 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
     }, 0);
   }, [investments, usdRate]);
 
-  // Patrimônio = apenas ativos acumulados (cofrinhos + investimentos)
   const patrimonioTotal = jarsTotal + investmentsTotal;
   const investmentsProfit = investmentsTotal - investmentsCost;
 
-  const handleAnalyze = async () => {
-    if (!isGeminiConfigured()) {
-        alert("Você precisa configurar sua chave da Alívia (Menu Inferior Direito) para usar esta função.");
+  const handleAnalyze = async (force = false) => {
+    if (!isGeminiConfigured()) return;
+    // Cache: only run every 12h unless forced
+    const cacheKey = `alivia_patrimony_${currentUser?.uid}`;
+    const cacheTimeKey = `${cacheKey}_time`;
+    if (!force) {
+      const cached = localStorage.getItem(cacheKey);
+      const cachedTime = localStorage.getItem(cacheTimeKey);
+      if (cached && cachedTime && (Date.now() - parseInt(cachedTime)) < 12 * 60 * 60 * 1000) {
+        setAiAnalysis(cached);
         return;
+      }
     }
     setIsAnalyzing(true);
-    const analysis = await generatePatrimonyAnalysis(jarsTotal, investmentsTotal, userConfig);
-    setAiAnalysis(analysis);
+    try {
+      const analysis = await generatePatrimonyAnalysis(jarsTotal, investmentsTotal, userConfig);
+      setAiAnalysis(analysis);
+      localStorage.setItem(cacheKey, analysis);
+      localStorage.setItem(cacheTimeKey, String(Date.now()));
+    } catch (e) { console.error(e); }
     setIsAnalyzing(false);
   };
+
+  // Auto-generate analysis on mount
+  useEffect(() => {
+    if (currentUser && jarsTotal + investmentsTotal > 0 && !aiAnalysis && !isAnalyzing) {
+      handleAnalyze();
+    }
+  }, [currentUser, jarsTotal, investmentsTotal]);
 
   // ── render ─────────────────────────────────────────────────────────────────
   const h1 = isDark ? 'text-white' : 'text-slate-900';
@@ -610,102 +635,46 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         );
       })()}
 
-      {/* ── SEU PLANO ── */}
-      {(() => {
-        const onboarding = userPrefs?.onboarding || {};
-        const OBJECTIVE_LABELS = {
-          independence: '🏝️ Viver de Renda',
-          start: '🌱 Começar a Investir',
-          debt: '🔓 Sair das Dívidas',
-          goal: '🏠 Conquistar um Bem',
-          control: '🧘 Controle Total',
-        };
-        const PROFILE_MAP = {
-          conservative: { label: 'Conservador', emoji: '🛡️', color: isDark ? 'from-blue-600/20 to-blue-500/10 border-blue-500/30 text-blue-400' : 'from-blue-50 to-blue-100 border-blue-200 text-blue-700' },
-          moderate:     { label: 'Moderado',     emoji: '⚖️', color: isDark ? 'from-emerald-600/20 to-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700' },
-          aggressive:   { label: 'Arrojado',     emoji: '🚀', color: isDark ? 'from-purple-600/20 to-purple-500/10 border-purple-500/30 text-purple-400' : 'from-purple-50 to-purple-100 border-purple-200 text-purple-700' },
-        };
-        const hasData = onboarding.objectives?.length > 0 || onboarding.riskProfile;
-        if (!hasData) return null;
-        const profileData = PROFILE_MAP[onboarding.riskProfile];
-        return (
-      <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
-        <button onClick={() => setExpandPlan(!expandPlan)} className={`w-full flex items-center justify-between p-4 transition-all ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
-          <div className="flex items-center gap-2.5">
-            <div className={`p-2 rounded-xl ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
-              <Target className={`w-4 h-4 text-emerald-500`} />
-            </div>
-            <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Seu Plano de Construção</p>
-          </div>
-          <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isDark ? 'text-slate-500' : 'text-slate-400'} ${expandPlan ? 'rotate-180' : ''}`} />
-        </button>
-        {expandPlan && (
-        <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className={`p-4 rounded-xl border ${isDark ? 'bg-white/[0.02] border-white/[0.04]' : 'bg-slate-50 border-slate-100'}`}>
-            <h3 className={`text-[9px] font-black uppercase tracking-widest mb-3 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Objetivos</h3>
-            <div className="flex flex-wrap gap-1.5">
-               {onboarding.objectives?.map(obj => (
-                  <span key={obj} className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold border ${isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-700'}`}>{OBJECTIVE_LABELS[obj] || obj}</span>
-               ))}
-               {(!onboarding.objectives || onboarding.objectives.length === 0) && <span className={`text-[10px] ${sub}`}>Nenhuma meta definida.</span>}
-            </div>
-          </div>
-          <div className={`p-4 rounded-xl border bg-gradient-to-br ${profileData ? profileData.color : (isDark ? 'from-slate-900 to-slate-900 border-white/10 text-white' : 'from-white to-white border-slate-100 text-slate-800')}`}>
-            <h3 className="text-[9px] font-black uppercase tracking-widest mb-2 opacity-60">Perfil de Investidor</h3>
-            <div className="flex items-center gap-2">
-              {profileData && <span className="text-2xl">{profileData.emoji}</span>}
-              <p className="text-xl font-black capitalize tracking-tight">
-                {profileData ? profileData.label : (onboarding.riskProfile || 'Não definido')}
-              </p>
-            </div>
-          </div>
-        </div>
-        )}
-      </div>
-        );
-      })()}
 
-      {/* ── ALÍVIA ANALYSIS ── */}
+
+      {/* ── SAÚDE DO PATRIMÔNIO — always visible ── */}
       <div className={`rounded-2xl border overflow-hidden relative ${isDark ? 'bg-slate-900/80 border-emerald-500/15' : 'bg-[#f0fdfa] border-emerald-500/15 shadow-sm'}`}>
           <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
-          <button onClick={() => setExpandAlivia(!expandAlivia)} className={`w-full flex items-center justify-between p-4 relative transition-all ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-emerald-50/50'}`}>
-            <div className="flex items-center gap-2.5">
-              <div className={`p-2 rounded-xl ${isDark ? 'bg-emerald-500/15' : 'bg-emerald-100'}`}>
-                <Bot className={`w-4 h-4 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
+          <div className="p-4 relative">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className={`p-2 rounded-xl ${isDark ? 'bg-emerald-500/15' : 'bg-emerald-100'}`}>
+                  <Bot className={`w-4 h-4 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                </div>
+                <div>
+                  <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Saúde do Patrimônio</p>
+                  <p className={`text-[9px] font-bold uppercase tracking-widest ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Alívia AI</p>
+                </div>
               </div>
-              <div className="text-left">
-                <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Saúde do Patrimônio</p>
-                <p className={`text-[9px] font-bold uppercase tracking-widest ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Alívia AI</p>
-              </div>
-            </div>
-            <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isDark ? 'text-slate-500' : 'text-slate-400'} ${expandAlivia ? 'rotate-180' : ''}`} />
-          </button>
-          {expandAlivia && (
-          <div className="px-4 pb-4 relative">
-              {!aiAnalysis && !isAnalyzing && (
-                  <button onClick={handleAnalyze} className="w-full md:w-auto px-5 py-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20">
-                      <Sparkles className="w-3.5 h-3.5" /> Gerar Análise Personalizada
-                  </button>
-              )}
-              {isAnalyzing && (
-                  <div className="flex items-center gap-2 text-emerald-500 font-bold text-sm p-3">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="animate-pulse">Analisando...</span>
-                  </div>
-              )}
               {aiAnalysis && !isAnalyzing && (
-                  <div className={`text-xs leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                      <ReactMarkdown components={{
-                          p: ({ ...props }) => <p className="mb-3 last:mb-0" {...props} />,
-                          strong: ({ ...props }) => <strong className={`font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} {...props} />
-                      }}>{aiAnalysis}</ReactMarkdown>
-                      <button onClick={handleAnalyze} className={`mt-4 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${isDark ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'}`}>
-                          Atualizar Análise
-                      </button>
-                  </div>
+                <button onClick={() => handleAnalyze(true)} className={`px-3 py-1.5 rounded-lg text-[9px] font-bold transition-all flex items-center gap-1 ${isDark ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'}`}>
+                  <Sparkles className="w-3 h-3" /> Atualizar
+                </button>
               )}
+            </div>
+            {isAnalyzing && (
+              <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs py-4">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="animate-pulse">Analisando seu patrimônio...</span>
+              </div>
+            )}
+            {aiAnalysis && !isAnalyzing && (
+              <div className={`text-xs leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                <ReactMarkdown components={{
+                  p: ({ ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                  strong: ({ ...props }) => <strong className={`font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} {...props} />
+                }}>{aiAnalysis}</ReactMarkdown>
+              </div>
+            )}
+            {!aiAnalysis && !isAnalyzing && (
+              <p className={`text-[10px] py-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Configure sua chave da Alívia para ver a análise automática.</p>
+            )}
           </div>
-          )}
       </div>
 
         </div>{/* end right col */}
