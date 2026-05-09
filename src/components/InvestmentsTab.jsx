@@ -578,9 +578,19 @@ export default function InvestmentsTab() {
                 </div>
             </div>
 
-            {/* Allocation Chart */}
-            {investments.length > 0 && (
-                <div className={`rounded-3xl border overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/80 border-white/[0.06]'}`}>
+            {/* Content Layout */}
+            {investments.length === 0 ? (
+                <div className={`p-16 rounded-[3rem] border border-dashed text-center space-y-4 ${theme === 'light' ? 'border-slate-200' : 'border-white/5'}`}>
+                    <div className="w-20 h-20 bg-slate-500/10 rounded-3xl flex items-center justify-center mx-auto">
+                        <Search className="w-10 h-10 text-slate-500" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-500">Nenhum investimento cadastrado ainda.</p>
+                </div>
+            ) : (
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
+                {/* Left Column: Chart */}
+                <div className="xl:col-span-1 sticky top-6">
+                    <div className={`rounded-3xl border overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/80 border-white/[0.06]'}`}>
                     <div className={`w-full flex items-center justify-between p-6`}>
                         <div className="flex items-center gap-3">
                             <div className={`p-2.5 rounded-xl ${theme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
@@ -606,8 +616,8 @@ export default function InvestmentsTab() {
                                 <p className="text-slate-500 text-xs font-bold">Nenhum valor para exibir.</p>
                             </div>
                         ) : (
-                            <div className="flex flex-col lg:flex-row gap-8 items-center">
-                                <div className="relative w-full lg:w-[320px] flex-shrink-0">
+                            <div className="flex flex-col gap-8 items-center">
+                                <div className="relative w-full max-w-[280px] flex-shrink-0 mx-auto">
                                     <ResponsiveContainer width="100%" height={260}>
                                         <RechartsPieChart>
                                             <Pie data={chartItems} cx="50%" cy="50%" innerRadius={70} outerRadius={115} paddingAngle={2} dataKey="value" stroke="none" animationDuration={600}>
@@ -621,8 +631,8 @@ export default function InvestmentsTab() {
                                         <p className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{viewInUSD ? '$' : 'R$'} {(totalChartValue * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                     </div>
                                 </div>
-                                <div className="flex-1 w-full max-w-xl">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 max-h-[260px] overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="w-full">
+                                    <div className="grid grid-cols-1 gap-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                                         {chartItems.map((item, idx) => {
                                             const pct = totalChartValue > 0 ? (item.value / totalChartValue) * 100 : 0;
                                             return (
@@ -643,21 +653,14 @@ export default function InvestmentsTab() {
                             </div>
                         )}
                     </div>
-                </div>
-            )}
-
-            {/* Asset Sections */}
-            <div className="space-y-12">
-                {investments.length === 0 ? (
-                    <div className={`p-16 rounded-[3rem] border border-dashed text-center space-y-4 ${theme === 'light' ? 'border-slate-200' : 'border-white/5'}`}>
-                        <div className="w-20 h-20 bg-slate-500/10 rounded-3xl flex items-center justify-center mx-auto">
-                            <Search className="w-10 h-10 text-slate-500" />
-                        </div>
-                        <p className="text-sm font-bold text-slate-500">Nenhum investimento cadastrado ainda.</p>
                     </div>
-                ) : (
-                    Object.entries(groupedInvestments).map(([type, assets]) => {
-                        const Config = ASSET_TYPES[type] || ASSET_TYPES.crypto;
+                </div>
+
+                {/* Right Column: Asset List */}
+                <div className="xl:col-span-2">
+                    <div className="space-y-12">
+                        {Object.entries(groupedInvestments).map(([type, assets]) => {
+                            const Config = ASSET_TYPES[type] || ASSET_TYPES.crypto;
                         const typeTotal = assets.reduce((sum, a) => {
                             const usdMultiplier = a.isUSD ? (prices.USD || 5.0) : 1;
                             let price = a.manualCurrentPrice || a.purchasePrice;
@@ -695,7 +698,7 @@ export default function InvestmentsTab() {
                                     </p>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                     {assets.map(asset => {
                                         const isFixedIncome = asset.type === 'renda_fixa';
                                         const trueInvested = isFixedIncome
@@ -843,9 +846,11 @@ export default function InvestmentsTab() {
                                 </div>
                             </div>
                         );
-                    })
-                )}
+                    })}
+                    </div>
+                </div>
             </div>
+            )}
 
             {/* Modal: Adicionar/Editar Ativo */}
             {isAdding && (
