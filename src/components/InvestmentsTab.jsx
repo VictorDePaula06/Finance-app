@@ -20,7 +20,9 @@ import {
     PiggyBank,
     Pencil,
     X,
-    Check
+    Check,
+    ChevronDown,
+    ChevronUp
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -45,6 +47,7 @@ export default function InvestmentsTab() {
     const [filter, setFilter] = useState('all');
     const [viewInUSD, setViewInUSD] = useState(false);
     const [chartViewMode, setChartViewMode] = useState('category');
+    const [collapsedCategories, setCollapsedCategories] = useState({});
     
     const [newAsset, setNewAsset] = useState({
         type: 'renda_fixa',
@@ -679,26 +682,43 @@ export default function InvestmentsTab() {
                             return sum + (a.quantity * price * usdMultiplier);
                         }, 0);
 
+                        const isCollapsed = collapsedCategories[type];
+
                         return (
                             <div key={type} className="space-y-6">
-                                <div className="flex items-center justify-between px-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-lg ${Config.bg}`}>
-                                            <Config.icon className={`w-4 h-4 ${Config.color}`} />
+                                <button 
+                                    onClick={() => setCollapsedCategories(prev => ({ ...prev, [type]: !prev[type] }))}
+                                    className={`w-full flex items-center justify-between px-6 py-5 rounded-[2.5rem] border transition-all ${
+                                        theme === 'light' 
+                                            ? 'bg-white border-slate-100 shadow-sm hover:border-slate-300 hover:shadow-md' 
+                                            : 'bg-slate-900/50 border-white/[0.06] hover:bg-white/5 hover:border-white/10'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={`p-3 rounded-2xl ${Config.bg} shadow-inner`}>
+                                            <Config.icon className={`w-5 h-5 ${Config.color}`} />
                                         </div>
-                                        <h3 className={`text-sm font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                            {Config.label}
-                                        </h3>
-                                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-500">
-                                            {assets.length}
-                                        </span>
+                                        <div className="text-left">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h3 className={`text-sm font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                                    {Config.label}
+                                                </h3>
+                                                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-slate-500/10 text-slate-500">
+                                                    {assets.length}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                                Total: {viewInUSD ? '$' : 'R$'} {(typeTotal * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                                        Total: {viewInUSD ? '$' : 'R$'} {(typeTotal * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                    </p>
-                                </div>
+                                    <div className={`p-2 rounded-xl transition-all ${theme === 'light' ? 'bg-slate-50 text-slate-400' : 'bg-white/5 text-slate-500'}`}>
+                                        {isCollapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+                                    </div>
+                                </button>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                {!isCollapsed && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-in slide-in-from-top-4 fade-in duration-300">
                                     {assets.map(asset => {
                                         const isFixedIncome = asset.type === 'renda_fixa';
                                         const trueInvested = isFixedIncome
@@ -844,6 +864,7 @@ export default function InvestmentsTab() {
                                         );
                                     })}
                                 </div>
+                                )}
                             </div>
                         );
                     })}
