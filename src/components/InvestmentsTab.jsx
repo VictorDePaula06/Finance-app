@@ -26,6 +26,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Tooltip as ReTooltip } from 'recharts';
+import { BarChart3, Layers, List } from 'lucide-react';
 
 
 
@@ -42,6 +44,7 @@ export default function InvestmentsTab() {
     const [tesouroData, setTesouroData] = useState([]);
     const [filter, setFilter] = useState('all');
     const [showUSDAsBRL, setShowUSDAsBRL] = useState(false);
+    const [chartViewMode, setChartViewMode] = useState('category');
     
     const [newAsset, setNewAsset] = useState({
         type: 'renda_fixa',
@@ -396,6 +399,87 @@ export default function InvestmentsTab() {
 
     const availableFilters = ['all', ...new Set(investments.map(a => a.type || 'crypto'))];
 
+    // Chart logic
+    const CATEGORY_COLORS = {
+        'Renda Fixa': '#6366f1',
+        'Ações': '#a855f7',
+        'ETFs': '#3b82f6',
+        'Fundos Imobiliários': '#14b8a6',
+        'Criptomoedas': '#f59e0b',
+        'Imóveis': '#f97316',
+        'Outros': '#64748b',
+    };
+    const ASSET_COLORS = ['#10b981','#6366f1','#a855f7','#3b82f6','#14b8a6','#f59e0b','#f97316','#ec4899','#8b5cf6','#06b6d4','#84cc16','#ef4444','#22d3ee','#e879f9'];
+    const CATEGORY_MAP = {
+        renda_fixa: 'Renda Fixa',
+        acoes: 'Ações',
+        etfs: 'ETFs',
+        fiis: 'Fundos Imobiliários',
+        crypto: 'Criptomoedas',
+        imoveis: 'Imóveis',
+    };
+
+    const items = investments.map(inv => {
+        const isFixedIncome = inv.type === 'renda_fixa';
+        const usdMultiplier = inv.isUSD ? (prices.USD || 5.0) : 1;
+        
+        let currentPrice = inv.manualCurrentPrice || inv.purchasePrice;
+        if (!isFixedIncome) {
+            if (inv.type === 'crypto' && inv.symbol) {
+                const sym = inv.symbol.toUpperCase();
+                if (inv.isUSD && prices[`${sym}_USD`]) currentPrice = prices[`${sym}_USD`];
+                else if (!inv.isUSD && prices[`${sym}_BRL`]) currentPrice = prices[`${sym}_BRL`];
+                else if (!inv.isUSD && prices[`${sym}_USD`] && prices.USD) currentPrice = prices[`${sym}_USD`] * prices.USD;
+            } else if (['acoes', 'etfs', 'fiis'].includes(inv.type) && inv.symbol) {
+                const sym = inv.symbol.toUpperCase();
+                if (prices[sym]) currentPrice = prices[sym];
+            }
+        }
+        
+        const trueInvested = isFixedIncome ? (inv.totalApplied || inv.quantity * inv.purchasePrice) : (inv.quantity * inv.purchasePrice * usdMultiplier);
+        let trueCurrent = isFixedIncome ? (inv.manualCurrentPrice || trueInvested) : (inv.quantity * currentPrice * usdMultiplier);
+        
+        if (isFixedIncome) {
+            const pRate = parseFloat(inv.purchaseRate || inv.fixedRate || 0);
+            const cRate = parseFloat(inv.currentMarketRate || inv.fixedRate || 0);
+            if (pRate > 0 && cRate > 0 && pRate !== cRate && !inv.manualCurrentPrice) {
+                trueCurrent = trueInvested * (pRate / cRate);
+            }
+        }
+        
+        return { 
+            name: inv.name || inv.symbol || 'Ativo', 
+            category: CATEGORY_MAP[inv.type] || 'Outros', 
+            value: trueCurrent 
+        };
+    }).filter(i => i.value > 0);
+
+    const totalChartValue = items.reduce((a, i) => a + i.value, 0);
+
+    let chartItems;
+    if (chartViewMode === 'category') {
+        const catMap = {};
+        items.forEach(it => {
+            if (!catMap[it.category]) catMap[it.category] = 0;
+            catMap[it.category] += it.value;
+        });
+        chartItems = Object.entries(catMap).map(([name, value]) => ({ name, value, color: CATEGORY_COLORS[name] || '#64748b' })).sort((a, b) => b.value - a.value);
+    } else {
+        chartItems = items.map((it, idx) => ({ name: it.name, value: it.value, color: ASSET_COLORS[idx % ASSET_COLORS.length] })).sort((a, b) => b.value - a.value);
+    }
+
+    const CustomPieTooltip = ({ active, payload }) => {
+        if (!active || !payload?.length) return null;
+        const d = payload[0];
+        return (
+            <div className={`px-4 py-3 rounded-2xl border shadow-2xl text-xs ${theme === 'light' ? 'bg-white border-slate-200 text-slate-800' : 'bg-slate-900 border-white/10 text-white'}`}>
+                <p className="font-black mb-1" style={{ color: d.payload.color }}>{d.name}</p>
+                <p className="font-bold">R$ {d.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className="text-slate-500 font-bold">{totalChartValue > 0 ? ((d.value / totalChartValue) * 100).toFixed(1) : 0}%</p>
+            </div>
+        );
+    };
+
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
             {/* Header Area */}
@@ -492,6 +576,74 @@ export default function InvestmentsTab() {
                     </p>
                 </div>
             </div>
+
+            {/* Allocation Chart */}
+            {investments.length > 0 && (
+                <div className={`rounded-3xl border overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/80 border-white/[0.06]'}`}>
+                    <div className={`w-full flex items-center justify-between p-6`}>
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2.5 rounded-xl ${theme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
+                                <BarChart3 className={`w-5 h-5 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`} />
+                            </div>
+                            <p className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Alocação de Ativos</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <div className={`flex rounded-lg border overflow-hidden ${theme === 'light' ? 'border-slate-200' : 'border-white/10'}`}>
+                                <button onClick={() => setChartViewMode('category')} className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'category' ? 'bg-emerald-500 text-white' : (theme === 'light' ? 'text-slate-500 bg-white hover:bg-slate-50' : 'text-slate-400 bg-slate-900 hover:bg-white/5')}`}>
+                                    <Layers className="w-3 h-3" /> Categorias
+                                </button>
+                                <button onClick={() => setChartViewMode('asset')} className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all border-l ${theme === 'light' ? 'border-slate-200' : 'border-white/10'} ${chartViewMode === 'asset' ? 'bg-emerald-500 text-white' : (theme === 'light' ? 'text-slate-500 bg-white hover:bg-slate-50' : 'text-slate-400 bg-slate-900 hover:bg-white/5')}`}>
+                                    <List className="w-3 h-3" /> Ativos
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="px-6 pb-6">
+                        {totalChartValue <= 0 ? (
+                            <div className="text-center py-8">
+                                <p className="text-slate-500 text-xs font-bold">Nenhum valor para exibir.</p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col lg:flex-row gap-8 items-center">
+                                <div className="relative w-full lg:w-[320px] flex-shrink-0">
+                                    <ResponsiveContainer width="100%" height={260}>
+                                        <RechartsPieChart>
+                                            <Pie data={chartItems} cx="50%" cy="50%" innerRadius={70} outerRadius={115} paddingAngle={2} dataKey="value" stroke="none" animationDuration={600}>
+                                                {chartItems.map((entry, idx) => (<Cell key={idx} fill={entry.color} className="transition-all hover:opacity-80 outline-none" />))}
+                                            </Pie>
+                                            <ReTooltip content={<CustomPieTooltip />} />
+                                        </RechartsPieChart>
+                                    </ResponsiveContainer>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                        <p className={`text-[9px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>Total</p>
+                                        <p className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>R$ {totalChartValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                    </div>
+                                </div>
+                                <div className="flex-1 w-full max-w-xl">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 max-h-[260px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {chartItems.map((item, idx) => {
+                                            const pct = totalChartValue > 0 ? (item.value / totalChartValue) * 100 : 0;
+                                            return (
+                                                <div key={idx} className={`flex items-center gap-3 p-3 rounded-2xl transition-all hover:scale-[1.01] ${theme === 'light' ? 'hover:bg-slate-50' : 'hover:bg-white/5'}`}>
+                                                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: item.color }} />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className={`text-xs font-black truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{item.name}</p>
+                                                        <p className={`text-[10px] font-bold ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                                    </div>
+                                                    <div className="text-right flex-shrink-0">
+                                                        <p className="text-sm font-black" style={{ color: item.color }}>{pct.toFixed(1)}%</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Asset Sections */}
             <div className="space-y-12">
