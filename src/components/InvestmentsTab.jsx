@@ -43,7 +43,7 @@ export default function InvestmentsTab() {
     const [prices, setPrices] = useState({ USD: 5.0, CDI: 0.10 });
     const [tesouroData, setTesouroData] = useState([]);
     const [filter, setFilter] = useState('all');
-    const [showUSDAsBRL, setShowUSDAsBRL] = useState(false);
+    const [viewInUSD, setViewInUSD] = useState(false);
     const [chartViewMode, setChartViewMode] = useState('category');
     
     const [newAsset, setNewAsset] = useState({
@@ -389,6 +389,7 @@ export default function InvestmentsTab() {
         : investments.filter(a => a.type === filter);
 
     const stats = calculateStats(activeInvestments);
+    const displayMultiplier = viewInUSD ? (1 / (prices.USD || 5.0)) : 1;
 
     const groupedInvestments = activeInvestments.reduce((acc, asset) => {
         const type = asset.type || 'crypto';
@@ -474,7 +475,7 @@ export default function InvestmentsTab() {
         return (
             <div className={`px-4 py-3 rounded-2xl border shadow-2xl text-xs ${theme === 'light' ? 'bg-white border-slate-200 text-slate-800' : 'bg-slate-900 border-white/10 text-white'}`}>
                 <p className="font-black mb-1" style={{ color: d.payload.color }}>{d.name}</p>
-                <p className="font-bold">R$ {d.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className="font-bold">{viewInUSD ? '$' : 'R$'} {(d.value * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 <p className="text-slate-500 font-bold">{totalChartValue > 0 ? ((d.value / totalChartValue) * 100).toFixed(1) : 0}%</p>
             </div>
         );
@@ -501,15 +502,15 @@ export default function InvestmentsTab() {
                         <RefreshCw className={`w-5 h-5 ${isLoadingPrices ? 'animate-spin' : ''}`} />
                     </button>
                     <button 
-                        onClick={() => setShowUSDAsBRL(!showUSDAsBRL)}
+                        onClick={() => setViewInUSD(!viewInUSD)}
                         className={`px-4 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${
-                            showUSDAsBRL 
+                            viewInUSD 
                             ? (theme === 'light' ? 'bg-blue-100 text-blue-600' : 'bg-blue-500/20 text-blue-400') 
                             : (theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-slate-800 text-slate-400 hover:bg-slate-700')
                         }`}
-                        title="Converter valores estrangeiros para BRL na visualização"
+                        title="Alternar moeda de exibição"
                     >
-                        {showUSDAsBRL ? 'Mostrando em R$' : 'Mostrar em R$'}
+                        {viewInUSD ? 'Mostrando em Dólar' : 'Mostrar em Dólar'}
                     </button>
                     <button  
                         onClick={() => {
@@ -549,7 +550,7 @@ export default function InvestmentsTab() {
                     </p>
                     <div className="flex items-end gap-3">
                         <p className={`text-3xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                            R$ {stats.currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {viewInUSD ? '$' : 'R$'} {(stats.currentValue * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                         <div className={`mb-1 px-2 py-0.5 rounded-full text-[10px] font-black flex items-center gap-1 ${stats.profit >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
                             {stats.profit >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
@@ -563,7 +564,7 @@ export default function InvestmentsTab() {
                         <TrendingUp className="w-3 h-3" /> Total Investido
                     </p>
                     <p className={`text-3xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                        R$ {stats.totalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {viewInUSD ? '$' : 'R$'} {(stats.totalInvested * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                 </div>
 
@@ -572,7 +573,7 @@ export default function InvestmentsTab() {
                         <LineChart className="w-3 h-3" /> Lucro Bruto
                     </p>
                     <p className={`text-3xl font-black ${stats.profit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        R$ {stats.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {viewInUSD ? '$' : 'R$'} {(stats.profit * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                 </div>
             </div>
@@ -617,7 +618,7 @@ export default function InvestmentsTab() {
                                     </ResponsiveContainer>
                                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                         <p className={`text-[9px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>Total</p>
-                                        <p className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>R$ {totalChartValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                        <p className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{viewInUSD ? '$' : 'R$'} {(totalChartValue * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                     </div>
                                 </div>
                                 <div className="flex-1 w-full max-w-xl">
@@ -629,7 +630,7 @@ export default function InvestmentsTab() {
                                                     <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: item.color }} />
                                                     <div className="flex-1 min-w-0">
                                                         <p className={`text-xs font-black truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{item.name}</p>
-                                                        <p className={`text-[10px] font-bold ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                                        <p className={`text-[10px] font-bold ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>{viewInUSD ? '$' : 'R$'} {(item.value * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                                     </div>
                                                     <div className="text-right flex-shrink-0">
                                                         <p className="text-sm font-black" style={{ color: item.color }}>{pct.toFixed(1)}%</p>
@@ -690,7 +691,7 @@ export default function InvestmentsTab() {
                                         </span>
                                     </div>
                                     <p className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                                        Total: R$ {typeTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        Total: {viewInUSD ? '$' : 'R$'} {(typeTotal * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                     </p>
                                 </div>
 
@@ -727,12 +728,17 @@ export default function InvestmentsTab() {
                                         const profitVal = trueCurrent - trueInvested;
                                         
                                         // Visual display
-                                        const displayCurrency = asset.isUSD && !showUSDAsBRL ? '$' : 'R$';
-                                        const displayMultiplier = asset.isUSD && showUSDAsBRL ? (prices.USD || 5.0) : 1;
-                                        const displayCurrentVal = isFixedIncome ? trueCurrent : (asset.quantity * currentPrice * displayMultiplier);
-                                        const displayPurchaseVal = isFixedIncome ? trueInvested : (asset.quantity * asset.purchasePrice * displayMultiplier);
-                                        const displayCurrentPrice = isFixedIncome ? null : (currentPrice * displayMultiplier);
-                                        const displayPurchasePrice = isFixedIncome ? null : (asset.purchasePrice * displayMultiplier);
+                                        const displayCurrency = viewInUSD ? '$' : 'R$';
+                                        
+                                        // trueCurrent and trueInvested are ALWAYS in BRL internally
+                                        const displayCurrentVal = trueCurrent * displayMultiplier;
+                                        const displayPurchaseVal = trueInvested * displayMultiplier;
+                                        
+                                        const brlPurchasePrice = asset.isUSD ? asset.purchasePrice * (prices.USD || 5.0) : asset.purchasePrice;
+                                        const brlCurrentPrice = currentPrice * (asset.isUSD ? (prices.USD || 5.0) : 1);
+                                        
+                                        const displayCurrentPrice = isFixedIncome ? null : (brlCurrentPrice * displayMultiplier);
+                                        const displayPurchasePrice = isFixedIncome ? null : (brlPurchasePrice * displayMultiplier);
 
                                         return (
                                             <div key={asset.id} className={`group relative p-8 rounded-[2.5rem] border transition-all hover:shadow-2xl ${
@@ -756,8 +762,8 @@ export default function InvestmentsTab() {
                                                             <div className="text-right">
                                                                 {isFixedIncome ? (
                                                                     <>
-                                                                        <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>R$ {displayPurchaseVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                                                        <p className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>R$ {displayCurrentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                                        <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>{displayCurrency} {displayPurchaseVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                                        <p className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{displayCurrency} {displayCurrentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                                                         {asset.fixedRate && <p className="text-[10px] text-blue-400 font-bold mt-0.5">{asset.yieldType === 'ipca' ? `IPCA+ ${asset.fixedRate}%` : asset.yieldType === 'cdi' ? `${asset.cdiPercent}% CDI` : `${asset.fixedRate}% a.a.`}</p>}
                                                                     </>
                                                                 ) : (
@@ -773,7 +779,7 @@ export default function InvestmentsTab() {
                                                             <div>
                                                                 <p className="text-[11px] uppercase font-black text-slate-500 opacity-60 tracking-tighter">Patrimônio</p>
                                                                 <p className={`text-2xl font-black ${profitVal >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                                                    R$ {displayCurrentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                    {displayCurrency} {displayCurrentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                                 </p>
                                                             </div>
                                                             <div className="text-right">
@@ -781,7 +787,7 @@ export default function InvestmentsTab() {
                                                                     {profitPct >= 0 ? '+' : ''}{profitPct.toFixed(2)}%
                                                                 </p>
                                                                 <p className={`text-xs font-bold mt-1 ${profitVal >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                                                    {profitVal >= 0 ? '+' : ''}R$ {Math.abs(profitVal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                    {profitVal >= 0 ? '+' : ''}{displayCurrency} {Math.abs(profitVal * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                                 </p>
                                                             </div>
                                                         </div>
