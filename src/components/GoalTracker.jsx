@@ -107,6 +107,8 @@ export default function GoalTracker() {
     // New goal type (patrimony or general)
     const [newIsPatrimony, setNewIsPatrimony] = useState(false);
     const [newPatrimonyType, setNewPatrimonyType] = useState('patrimonio_total');
+    const [cdiAnual, setCdiAnual] = useState(10.65);
+    const [usdRate, setUsdRate] = useState(5.0);
 
     useEffect(() => {
         if (!currentUser) return;
@@ -128,15 +130,33 @@ export default function GoalTracker() {
 
     const toggle = (arr, id) => arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id];
 
-    // Patrimony total (for patrimony goals)
-    const patrimonioTotal = useMemo(() => {
-        const jarsTotal = jars.reduce((a, j) => a + (j.balance || 0), 0);
-        const invTotal = investments.reduce((a, inv) => {
-            const price = inv.manualCurrentPrice || inv.purchasePrice;
-            return a + (inv.quantity * price);
+    useEffect(() => {
+        fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json')
+            .then(r => r.json()).then(d => setCdiAnual(parseFloat(d[0].valor) * 365)).catch(() => {});
+        fetch('https://economia.awesomeapi.com.br/last/USD-BRL')
+            .then(r => r.json()).then(d => setUsdRate(parseFloat(d.USDBRL.bid))).catch(() => {});
+    }, []);
+
+    // Patrimony total — exact same calculation as PatrimonioTab
+    const { patrimonioTotal, jarsDynamic } = useMemo(() => {
+        const now = new Date();
+        let jarsTotal = 0;
+        const dynamic = jars.map(j => {
+            const cdiP = (j.cdiPercent || 100) / 100;
+            const dailyRate = Math.pow(1 + (cdiAnual / 100) * cdiP, 1 / 365) - 1;
+            const lastUpdate = j.updatedAt ? new Date(j.updatedAt) : (j.createdAt ? new Date(j.createdAt) : now);
+            const diffDays = Math.max(0, (now - lastUpdate) / (1000 * 60 * 60 * 24));
+            const dynBal = (j.balance || 0) * Math.pow(1 + dailyRate, diffDays);
+            jarsTotal += dynBal;
+            return { ...j, dynamicBalance: dynBal };
+        });
+        const invTotal = investments.reduce((acc, a) => {
+            const price = a.manualCurrentPrice || a.purchasePrice;
+            const usdMultiplier = a.isUSD ? usdRate : 1;
+            return acc + (a.quantity * price * usdMultiplier);
         }, 0);
-        return jarsTotal + invTotal;
-    }, [jars, investments]);
+        return { patrimonioTotal: jarsTotal + invTotal, jarsDynamic: dynamic };
+    }, [jars, investments, cdiAnual, usdRate]);
 
     // Resolve acumulado: patrimony goals use total patrimony, others use linked assets or manual
     const resolveGoalCurrent = (goal) => {
@@ -145,13 +165,14 @@ export default function GoalTracker() {
         const invIds = goal.linkedInvIds || [];
         if (jarIds.length === 0 && invIds.length === 0) return goal.current;
         const jarSum = jarIds.reduce((s, id) => {
-            const j = jars.find(x => x.id === id);
-            return s + (j?.balance || 0);
+            const j = jarsDynamic.find(x => x.id === id);
+            return s + (j?.dynamicBalance || 0);
         }, 0);
         const invSum = invIds.reduce((s, id) => {
             const inv = investments.find(x => x.id === id);
             if (!inv) return s;
-            return s + inv.quantity * (inv.manualCurrentPrice || inv.purchasePrice);
+            const usdMultiplier = inv.isUSD ? usdRate : 1;
+            return s + inv.quantity * (inv.manualCurrentPrice || inv.purchasePrice) * usdMultiplier;
         }, 0);
         return jarSum + invSum;
     };
@@ -372,6 +393,7 @@ export default function GoalTracker() {
                             </div>
                         ) : filteredGoals.map(goal => {
                             const current = resolveGoalCurrent(goal);
+                            const remaining = Math.max(0, goal.target - current);
                             const pct = Math.min((current / goal.target) * 100, 100).toFixed(1);
                             const done = current >= goal.target;
                             const jarIds = goal.linkedJarIds || (goal.linkedJarId ? [goal.linkedJarId] : []);
@@ -379,79 +401,73 @@ export default function GoalTracker() {
                             const linked = jars.filter(j => jarIds.includes(j.id));
                             const linkedInv = investments.filter(i => invIds.includes(i.id));
                             const isLinked = linked.length > 0 || linkedInv.length > 0;
+                            const GoalIcon = goal.isPatrimonyGoal ? (goal.patrimonyGoalType === 'imovel' ? Home : Gem) : Trophy;
+                            const goalLabel = goal.isPatrimonyGoal ? (goal.patrimonyGoalType === 'imovel' ? 'Meta: Imóvel' : 'Meta de Patrimônio') : null;
 
                             return (
-                                <div key={goal.id} className={`p-5 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border transition-all group relative flex flex-col ${goal.isPatrimonyGoal ? (isDark ? 'bg-gradient-to-br from-slate-900 to-blue-950/30 border-blue-500/20 hover:border-blue-500/40' : 'bg-gradient-to-br from-white to-blue-50 border-blue-200 hover:border-blue-300 shadow-sm') : (isDark ? 'bg-slate-900 border-white/5 hover:bg-white/10' : 'bg-white border-slate-100 hover:border-emerald-200 shadow-sm')}`}>
-                                    <div className="flex justify-between items-start mb-8">
-                                        <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shrink-0 ${goal.isPatrimonyGoal ? 'bg-blue-500/10' : 'bg-emerald-500/10'}`}>
-                                            {goal.isPatrimonyGoal
-                                                ? (goal.patrimonyGoalType === 'imovel' ? <Home className={`w-8 h-8 ${done ? 'text-emerald-500' : 'text-blue-400'}`} /> : <Gem className={`w-8 h-8 ${done ? 'text-emerald-500' : 'text-blue-400'}`} />)
-                                                : <Trophy className={`w-8 h-8 ${done ? 'text-emerald-500' : 'text-slate-400'}`} />}
-                                        </div>
-                                        <div className="flex gap-1 md:gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => { setEditingId(goal.id); setEditTitle(goal.title); setEditTarget(goal.target); setEditDeadline(goal.deadline || ''); setEditJarIds(jarIds); setEditInvIds(invIds); }}
-                                                className="p-2 md:p-3 bg-white/5 hover:bg-blue-500/20 text-slate-500 hover:text-blue-400 rounded-xl"><Pencil className="w-4 h-4 md:w-5 md:h-5" /></button>
-                                            <button onClick={() => toggleStatus(goal)} className="p-2 md:p-3 bg-white/5 hover:bg-emerald-500/20 text-slate-500 hover:text-emerald-400 rounded-xl"><Check className="w-4 h-4 md:w-5 md:h-5" /></button>
-                                            <button onClick={() => setDeleteConfirmId(goal.id)} className="p-2 md:p-3 bg-white/5 hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 rounded-xl"><Trash2 className="w-4 h-4 md:w-5 md:h-5" /></button>
-                                        </div>
-                                    </div>
+                                <div key={goal.id} className={`p-4 md:p-5 rounded-2xl border transition-all group relative flex flex-col overflow-hidden ${
+                                    done ? 'bg-gradient-to-r from-emerald-900/40 to-teal-900/30 border-emerald-500/30'
+                                    : goal.isPatrimonyGoal ? (isDark ? 'bg-gradient-to-r from-slate-900 to-blue-950/40 border-white/[0.06]' : 'bg-gradient-to-r from-white to-blue-50/50 border-slate-200 shadow-sm')
+                                    : (isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm')
+                                }`}>
+                                    {/* Glow effect */}
+                                    <div className={`absolute top-[-50%] right-[-15%] w-[40%] h-[120%] rounded-full blur-[80px] pointer-events-none opacity-10 ${done ? 'bg-emerald-400' : goal.isPatrimonyGoal ? 'bg-blue-500' : 'bg-emerald-500'}`} />
 
-                                    <div className="mb-6">
-                                        {goal.isPatrimonyGoal && (
-                                            <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest mb-2 ${isDark ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
-                                                {goal.patrimonyGoalType === 'imovel' ? '🏠 Meta Imóvel' : '💎 Meta Patrimônio'}
-                                            </span>
-                                        )}
-                                        <h3 className={`font-black text-2xl ${isDark ? 'text-white' : 'text-slate-800'}`}>{goal.title}</h3>
-                                        <div className="flex items-center gap-3 mt-2 flex-wrap">
-                                            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Alvo: R$ {goal.target.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                            {goal.deadline && <span className="text-xs font-black text-blue-500 flex items-center gap-1">• <Calendar className="w-3 h-3" /> {new Date(goal.deadline + "T12:00:00").toLocaleDateString('pt-BR')}</span>}
-                                        </div>
-
-                                        {/* Sugestão de Economia Mensal */}
-                                        {activeTab === 'active' && goal.deadline && current < goal.target && (() => {
-                                            const today = new Date();
-                                            const [y, m, d] = goal.deadline.split('-').map(Number);
-                                            const targetDate = new Date(y, m - 1, d);
-                                            let months = (targetDate.getFullYear() - today.getFullYear()) * 12 + (targetDate.getMonth() - today.getMonth());
-                                            if (months <= 0) months = targetDate >= today ? 1 : 0;
-                                            const isUrgent = months <= 1;
-                                            const monthly = months > 0 ? (goal.target - current) / months : (goal.target - current);
-
-                                            return monthly > 0 && (
-                                                <div className={`mt-3 p-3 rounded-2xl border ${isDark ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50 border-blue-100'}`}>
-                                                    <p className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                                                        {isUrgent ? 'Falta para concluir' : 'Sugestão de Reserva'}
-                                                    </p>
-                                                    <p className={`text-lg font-black ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                                                        R$ {monthly.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {!isUrgent && <span className="text-[10px] opacity-70">/mês</span>}
-                                                    </p>
+                                        {/* Header */}
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2.5">
+                                                <div className={`p-2 rounded-xl ${done ? 'bg-emerald-500/20' : goal.isPatrimonyGoal ? (isDark ? 'bg-blue-500/15' : 'bg-blue-100') : 'bg-emerald-500/10'}`}>
+                                                    <GoalIcon className={`w-4 h-4 ${done ? 'text-emerald-400' : goal.isPatrimonyGoal ? (isDark ? 'text-blue-400' : 'text-blue-500') : (isDark ? 'text-emerald-400' : 'text-emerald-500')}`} />
                                                 </div>
-                                            );
-                                        })()}
-
-                                        {isLinked && (
-                                            <div className="flex flex-wrap gap-1 mt-3">
-                                                {linked.map(j => <span key={j.id} className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full flex items-center gap-1"><PiggyBank className="w-3 h-3" />{j.name}</span>)}
-                                                {linkedInv.map(i => <span key={i.id} className="text-[10px] font-bold bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full flex items-center gap-1"><TrendingUp className="w-3 h-3" />{i.name}</span>)}
+                                                <div>
+                                                    {goalLabel && <p className={`text-[9px] font-black uppercase tracking-[0.15em] ${done ? 'text-emerald-400' : isDark ? 'text-blue-400' : 'text-blue-500'}`}>{goalLabel}</p>}
+                                                    <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{goal.title}</p>
+                                                </div>
                                             </div>
-                                        )}
-                                    </div>
-
-                                    <div className="mt-auto space-y-5">
-                                        <div>
-                                            <div className="flex justify-between text-xs font-black uppercase tracking-widest mb-3">
-                                                <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>R$ {current.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} acumulados</span>
-                                                <span className="text-emerald-500">{pct}%</span>
-                                            </div>
-                                            <div className={`h-4 rounded-full overflow-hidden ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
-                                                <div className={`h-full transition-all duration-1000 shadow-[0_0_20px_rgba(16,185,129,0.3)] ${done ? 'bg-emerald-500' : 'bg-emerald-400'}`} style={{ width: `${pct}%` }} />
+                                            <div className="flex items-center gap-1">
+                                                {done && <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-widest animate-pulse">✨ Alcançada!</span>}
+                                                <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => { setEditingId(goal.id); setEditTitle(goal.title); setEditTarget(goal.target); setEditDeadline(goal.deadline || ''); setEditJarIds(jarIds); setEditInvIds(invIds); }}
+                                                        className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-blue-400' : 'hover:bg-slate-100 text-slate-400 hover:text-blue-500'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                                                    <button onClick={() => toggleStatus(goal)} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-emerald-400' : 'hover:bg-slate-100 text-slate-400 hover:text-emerald-500'}`}><Check className="w-3.5 h-3.5" /></button>
+                                                    <button onClick={() => setDeleteConfirmId(goal.id)} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-rose-400' : 'hover:bg-slate-100 text-slate-400 hover:text-rose-500'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        {/* Simulation / Planning Section */}
+                                        {/* Values Row — matching PatrimonioTab */}
+                                        <div className="grid grid-cols-4 gap-3 mb-3">
+                                            <div>
+                                                <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Alvo</p>
+                                                <p className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(goal.target)}</p>
+                                            </div>
+                                            <div>
+                                                <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Acumulado</p>
+                                                <p className="text-base font-black text-emerald-400">R$ {fmt(current)}</p>
+                                            </div>
+                                            <div>
+                                                <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Faltam</p>
+                                                <p className={`text-base font-black ${remaining > 0 ? (isDark ? 'text-amber-400' : 'text-amber-500') : 'text-emerald-400'}`}>{remaining > 0 ? `R$ ${fmt(remaining)}` : '✔'}</p>
+                                            </div>
+                                            <div>
+                                                <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Progresso</p>
+                                                <p className={`text-base font-black ${done ? 'text-emerald-400' : goal.isPatrimonyGoal ? (isDark ? 'text-blue-400' : 'text-blue-500') : 'text-emerald-500'}`}>{pct}%</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Deadline */}
+                                        {goal.deadline && (
+                                            <p className={`text-[9px] font-bold flex items-center gap-1 mb-3 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                                <Calendar className="w-3 h-3" /> Prazo: {new Date(goal.deadline + "T12:00:00").toLocaleDateString('pt-BR')}
+                                            </p>
+                                        )}
+
+                                        {/* Progress Bar */}
+                                        <div className={`h-2 rounded-full overflow-hidden mb-3 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                                            <div className={`h-full rounded-full transition-all duration-1000 ${done ? 'bg-emerald-500' : goal.isPatrimonyGoal ? 'bg-gradient-to-r from-blue-500 to-emerald-500' : 'bg-emerald-400'}`} style={{ width: `${pct}%` }} />
+                                        </div>
+
                                         {activeTab === 'active' && !done && current < goal.target && (() => {
-                                            const remaining = goal.target - current;
                                             const savedYears = goal.simYears ? parseFloat(goal.simYears) : null;
                                             const savedAporte = goal.simAporte || null;
                                             const hasSavedSim = savedYears && savedAporte;
@@ -527,11 +543,10 @@ export default function GoalTracker() {
                                                 ✓ {goal.isPatrimonyGoal ? 'Acumulado = patrimônio total em tempo real' : 'Acumulado sincronizado automaticamente'}
                                             </p>
                                         )}
-                                    </div>
 
-                                    {/* Delete overlay */}
+
                                     {deleteConfirmId === goal.id && (
-                                        <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-center z-10 animate-in fade-in duration-300">
+                                        <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-8 text-center z-10 animate-in fade-in duration-300">
                                             <div className="max-w-[240px] w-full">
                                                 <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                                                     <Trash2 className="w-8 h-8 text-rose-500" />
@@ -546,9 +561,8 @@ export default function GoalTracker() {
                                         </div>
                                     )}
 
-                                    {/* Edit overlay */}
                                     {editingId === goal.id && (
-                                        <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] p-6 z-20 animate-in zoom-in-95 overflow-y-auto">
+                                        <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-2xl p-6 z-20 animate-in zoom-in-95 overflow-y-auto">
                                             <h4 className="text-white font-black text-xl mb-5 flex items-center gap-2"><Pencil className="w-5 h-5 text-blue-400" /> Editar Meta</h4>
                                             <form onSubmit={handleUpdateGoal} className="space-y-4">
                                                 <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Título" className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white text-sm focus:border-blue-500 outline-none" />
