@@ -303,7 +303,7 @@ export function AuthProvider({ children }) {
             }
         };
 
-        const prefsRef = doc(db, 'settings', currentUser.uid);
+        const prefsRef = doc(db, 'users', currentUser.uid, 'settings', 'general');
         const userRef = doc(db, 'users', currentUser.uid);
         const subsRef = collection(db, 'customers', currentUser.uid, 'subscriptions');
         const subsQuery = query(subsRef); // Traz todas as assinaturas para investigar o status real

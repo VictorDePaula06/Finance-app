@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Wallet, PiggyBank, TrendingUp, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List, HelpCircle, ShieldCheck, Target, Home, Gem, ChevronDown, Pencil, Trash2, Save } from 'lucide-react';
+import { Wallet, PiggyBank, TrendingUp, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List, HelpCircle, ShieldCheck, Target, Home, Gem, Pencil, Trash2, Save } from 'lucide-react';
 import PatrimonioConfigForm from './PatrimonioConfigForm';
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer } from 'recharts';
 import ReactMarkdown from 'react-markdown';
@@ -67,7 +67,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   const [chartViewMode, setChartViewMode] = useState('category');
   const [includeReserve, setIncludeReserve] = useState(true);
   const [patrimonyGoals, setPatrimonyGoals] = useState([]);
-  const [expandAllocation, setExpandAllocation] = useState(false);
+
   const [expandAlivia, setExpandAlivia] = useState(false);
   const [expandPlan, setExpandPlan] = useState(false);
   const [showSimModal, setShowSimModal] = useState(false);
@@ -378,38 +378,32 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
             <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
-              <button onClick={() => setExpandAllocation(!expandAllocation)} className={`w-full flex items-center justify-between p-4 transition-all ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
+              <div className={`w-full flex items-center justify-between p-4`}>
                 <div className="flex items-center gap-2.5">
                   <div className={`p-2 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
                     <BarChart3 className={`w-4 h-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
                   </div>
                   <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Alocação do Patrimônio</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {expandAllocation && (
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setIncludeReserve(!includeReserve); }}
-                        className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border ${
-                          includeReserve ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : isDark ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'
-                        }`}
-                      >
-                        {includeReserve ? '✓ Reserva' : 'Sem Reserva'}
-                      </button>
-                      <div className={`flex rounded-lg border overflow-hidden ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-                        <button onClick={(e) => { e.stopPropagation(); setChartViewMode('category'); }} className={`flex items-center gap-1 px-2 py-1 text-[8px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'category' ? 'bg-emerald-500 text-white' : isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                          <Layers className="w-2.5 h-2.5" /> Cat.
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); setChartViewMode('asset'); }} className={`flex items-center gap-1 px-2 py-1 text-[8px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'asset' ? 'bg-emerald-500 text-white' : isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                          <List className="w-2.5 h-2.5" /> Ativo
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isDark ? 'text-slate-500' : 'text-slate-400'} ${expandAllocation ? 'rotate-180' : ''}`} />
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => setIncludeReserve(!includeReserve)}
+                    className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border ${
+                      includeReserve ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : isDark ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'
+                    }`}
+                  >
+                    {includeReserve ? '✓ Reserva' : 'Sem Reserva'}
+                  </button>
+                  <div className={`flex rounded-lg border overflow-hidden ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                    <button onClick={() => setChartViewMode('category')} className={`flex items-center gap-1 px-2 py-1 text-[8px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'category' ? 'bg-emerald-500 text-white' : isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <Layers className="w-2.5 h-2.5" /> Cat.
+                    </button>
+                    <button onClick={() => setChartViewMode('asset')} className={`flex items-center gap-1 px-2 py-1 text-[8px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'asset' ? 'bg-emerald-500 text-white' : isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <List className="w-2.5 h-2.5" /> Ativo
+                    </button>
+                  </div>
                 </div>
-              </button>
-              {expandAllocation && (
+              </div>
               <div className="px-4 pb-4">
               {totalValue <= 0 ? (
                 <div className="text-center py-8">
@@ -454,7 +448,6 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
                 </div>
               )}
               </div>
-              )}
             </div>
           </div>
         );
