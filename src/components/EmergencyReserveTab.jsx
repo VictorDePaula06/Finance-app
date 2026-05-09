@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
-import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 
 const RESERVE_TYPES = {
@@ -27,7 +27,9 @@ export default function EmergencyReserveTab() {
     const [isEditing, setIsEditing] = useState(null);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [cdiRate, setCdiRate] = useState(10.65); // Taxa Selic/CDI base atual
-    
+    const [reserveGoal, setReserveGoal] = useState(null);
+    const [isSettingGoal, setIsSettingGoal] = useState(false);
+    const [goalInput, setGoalInput] = useState('');
     const [formData, setFormData] = useState({
         type: 'tesouro',
         name: '',
@@ -53,6 +55,18 @@ export default function EmergencyReserveTab() {
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setReserves(items);
+        });
+        return () => unsubscribe();
+    }, [currentUser]);
+
+    useEffect(() => {
+        if (!currentUser) return;
+        const unsubscribe = onSnapshot(doc(db, 'users', currentUser.uid), (d) => {
+            if (d.exists() && d.data().reserveGoal) {
+                setReserveGoal(d.data().reserveGoal);
+            } else {
+                setReserveGoal(null);
+            }
         });
         return () => unsubscribe();
     }, [currentUser]);
@@ -138,6 +152,16 @@ export default function EmergencyReserveTab() {
         setDeleteConfirm(null);
     };
 
+    const handleSaveGoal = async (e) => {
+        e.preventDefault();
+        const num = parseNumber(goalInput);
+        if (num > 0) {
+            await setDoc(doc(db, 'users', currentUser.uid), { reserveGoal: num }, { merge: true });
+            setIsSettingGoal(false);
+            setGoalInput('');
+        }
+    };
+
     const totalReserve = reserves.reduce((acc, curr) => {
         const cdiAnual = cdiRate / 100;
         const percent = (curr.cdiPercent || 100) / 100;
@@ -173,28 +197,69 @@ export default function EmergencyReserveTab() {
                     }}
                     className="px-6 py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3 transition-all active:scale-95"
                 >
-                    <Plus className="w-5 h-5" /> Adicionar à Reserva
+                    <Plus className="w-5 h-5" /> Adicionar Fundos
                 </button>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className={`p-6 md:p-8 rounded-[2.5rem] border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`}>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
-                        <PiggyBank className="w-3 h-3" /> Total da Reserva
-                    </p>
-                    <p className={`text-3xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                        R$ {totalReserve.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
-                </div>
+            <div className={`p-6 md:p-8 rounded-[2rem] border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`}>
+                <h3 className={`text-sm font-black mb-6 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Resumo da Reserva</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 divide-y md:divide-y-0 md:divide-x divide-slate-200 dark:divide-white/5">
+                    
+                    {/* Total Consolidado */}
+                    <div className="pt-4 md:pt-0">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Total Consolidado</p>
+                        <p className={`text-3xl font-black ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-500'}`}>
+                            R$ {totalReserve.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                    </div>
 
-                <div className={`p-6 md:p-8 rounded-[2.5rem] border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`}>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
-                        <TrendingUp className="w-3 h-3" /> Rendimento Projetado
-                    </p>
-                    <p className="text-3xl font-black text-emerald-500">
-                        + R$ {totalDailyYield.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-bold opacity-70">/dia útil</span>
-                    </p>
+                    {/* Desempenho da Reserva */}
+                    <div className="pt-4 md:pt-0 md:pl-8">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
+                            Desempenho da Reserva <TrendingUp className="w-3 h-3" />
+                        </p>
+                        <p className="text-xl font-black text-emerald-500">
+                            + R$ {totalDailyYield.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-bold opacity-70">/dia útil</span>
+                        </p>
+                        {totalDailyYield > 0 && <p className="text-xs font-bold text-slate-500 mt-1">Acumulação mensal ~R$ {(totalDailyYield * 21).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>}
+                    </div>
+
+                    {/* Status da Meta */}
+                    <div className="pt-4 md:pt-0 md:pl-8 flex flex-col justify-center">
+                        <div className="flex items-center justify-between mb-2">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Status da Meta</p>
+                            <button onClick={() => { setGoalInput(reserveGoal ? reserveGoal.toString() : ''); setIsSettingGoal(true); }} className="text-slate-400 hover:text-emerald-500 transition-colors">
+                                <Edit2 className="w-3 h-3" />
+                            </button>
+                        </div>
+                        {reserveGoal ? (
+                            <>
+                                <div className={`h-2 rounded-full overflow-hidden my-3 ${theme === 'light' ? 'bg-slate-100' : 'bg-white/5'} relative`}>
+                                    <div 
+                                        className="h-full rounded-full transition-all duration-1000 bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.3)] relative" 
+                                        style={{ width: `${Math.min((totalReserve / reserveGoal) * 100, 100)}%` }} 
+                                    >
+                                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full border-[3px] border-emerald-500 shadow-md transform translate-x-1/2" />
+                                    </div>
+                                </div>
+                                <p className="text-xs font-bold text-slate-400">
+                                    <span className={theme === 'light' ? 'text-slate-800 font-black' : 'text-white font-black'}>
+                                        {Math.min((totalReserve / reserveGoal) * 100, 100).toFixed(0)}% da Meta
+                                    </span> (Meta de R$ {reserveGoal.toLocaleString('pt-BR', { minimumFractionDigits: 0 })})
+                                </p>
+                            </>
+                        ) : (
+                            <button 
+                                onClick={() => setIsSettingGoal(true)}
+                                className={`w-full py-3 mt-1 rounded-xl border border-dashed font-bold text-xs transition-colors ${
+                                    theme === 'light' ? 'border-slate-300 text-slate-500 hover:bg-slate-50' : 'border-white/10 text-slate-400 hover:bg-white/5'
+                                }`}
+                            >
+                                Configurar Meta
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -298,6 +363,60 @@ export default function EmergencyReserveTab() {
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {/* Modal Setting Goal */}
+            {isSettingGoal && (
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+                    <div className={`w-full max-w-sm rounded-[2rem] p-8 md:p-10 border animate-in zoom-in-95 duration-300 ${
+                        theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+                    }`}>
+                        <h3 className={`text-xl font-black mb-1 text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                            Meta da Reserva
+                        </h3>
+                        <p className="text-slate-500 text-xs font-bold text-center mb-6 uppercase tracking-widest">
+                            Defina seu alvo de segurança
+                        </p>
+
+                        <form onSubmit={handleSaveGoal} className="space-y-6">
+                            <div>
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Valor da Meta (R$)</label>
+                                <input 
+                                    type="text"
+                                    inputMode="decimal"
+                                    required
+                                    value={goalInput}
+                                    onChange={(e) => setGoalInput(e.target.value)}
+                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                    }`}
+                                    placeholder="Ex: 50000.00"
+                                />
+                            </div>
+
+                            <div className="flex gap-4 pt-2">
+                                <button 
+                                    type="button"
+                                    onClick={() => {
+                                        setIsSettingGoal(false);
+                                        setGoalInput('');
+                                    }}
+                                    className={`flex-1 py-4 rounded-2xl font-black text-sm transition-all ${
+                                        theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                    }`}
+                                >
+                                    Cancelar
+                                </button>
+                                <button 
+                                    type="submit"
+                                    className="flex-1 py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
+                                >
+                                    Salvar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
 
