@@ -47,7 +47,7 @@ export default function InvestmentsTab() {
     const [filter, setFilter] = useState('all');
     const [viewInUSD, setViewInUSD] = useState(false);
     const [chartViewMode, setChartViewMode] = useState('category');
-    const [collapsedCategories, setCollapsedCategories] = useState({});
+    const [expandedCategories, setExpandedCategories] = useState({});
     
     const [newAsset, setNewAsset] = useState({
         type: 'renda_fixa',
@@ -682,12 +682,12 @@ export default function InvestmentsTab() {
                             return sum + (a.quantity * price * usdMultiplier);
                         }, 0);
 
-                        const isCollapsed = collapsedCategories[type];
+                        const isExpanded = expandedCategories[type];
 
                         return (
                             <div key={type} className="space-y-6">
                                 <button 
-                                    onClick={() => setCollapsedCategories(prev => ({ ...prev, [type]: !prev[type] }))}
+                                    onClick={() => setExpandedCategories(prev => ({ ...prev, [type]: !prev[type] }))}
                                     className={`w-full flex items-center justify-between px-6 py-5 rounded-[2.5rem] border transition-all ${
                                         theme === 'light' 
                                             ? 'bg-white border-slate-100 shadow-sm hover:border-slate-300 hover:shadow-md' 
@@ -713,11 +713,11 @@ export default function InvestmentsTab() {
                                         </div>
                                     </div>
                                     <div className={`p-2 rounded-xl transition-all ${theme === 'light' ? 'bg-slate-50 text-slate-400' : 'bg-white/5 text-slate-500'}`}>
-                                        {isCollapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+                                        {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                                     </div>
                                 </button>
 
-                                {!isCollapsed && (
+                                {isExpanded && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-in slide-in-from-top-4 fade-in duration-300">
                                     {assets.map(asset => {
                                         const isFixedIncome = asset.type === 'renda_fixa';
