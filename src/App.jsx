@@ -293,7 +293,6 @@ function Dashboard() {
     await saveUserPreferences({ lastMonthlyReviewSeen: currentMonthKey });
   };
 
-  const healthScore = calculateHealthScore(transactions, manualConfig);
   const paceAlerts = useMemo(() => calculateSpendingPace(transactions, manualConfig), [transactions, manualConfig]);
 
   // GLOBAL WALLET STATS
@@ -344,6 +343,8 @@ function Dashboard() {
     
     return { totalGuarded, dailyYield, jarsWithBalance };
   }, [savingsJars, cdiRate]);
+
+  const healthScore = calculateHealthScore(transactions, manualConfig, investmentStats.jarsWithBalance);
 
   if (activeModule === 'hub') {
     return (

@@ -49,7 +49,16 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
 
     const topCategory = Object.keys(byCategory).sort((a, b) => byCategory[b] - byCategory[a])[0];
 
-    return { income, expense, balance: income - expense, topCategory, topCategoryValue: byCategory[topCategory] || 0 };
+    // Group by priority
+    const byPriority = filtered
+      .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && t.paymentMethod !== 'credito')
+      .reduce((acc, t) => {
+        const priority = t.priority || 'other';
+        acc[priority] = (acc[priority] || 0) + parseFloat(t.amount);
+        return acc;
+      }, {});
+
+    return { income, expense, balance: income - expense, topCategory, topCategoryValue: byCategory[topCategory] || 0, byPriority };
   }, [transactions, selectedMonth]);
 
   // Previous Month Comparison
@@ -330,6 +339,8 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
                     </div>
                 </div>
               )}
+
+
             </>
           ) : (
             <>

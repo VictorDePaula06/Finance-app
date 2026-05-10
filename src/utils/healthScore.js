@@ -2,7 +2,7 @@ export const NECESSITY_CATEGORIES = ['housing', 'food', 'transport', 'health', '
 export const DESIRE_CATEGORIES = ['leisure', 'shopping', 'personal_care', 'subscriptions', 'pets', 'other'];
 export const SAVINGS_CATEGORIES = ['investment', 'vault'];
 
-export const calculateHealthScore = (transactions, manualConfig) => {
+export const calculateHealthScore = (transactions, manualConfig, savingsJars = []) => {
     const today = new Date();
     const currentMonth = today.toLocaleDateString('en-CA').slice(0, 7); // YYYY-MM (Local)
 
@@ -91,7 +91,12 @@ export const calculateHealthScore = (transactions, manualConfig) => {
             return acc;
         }, 0);
 
-    const totalPatrimonio = investedManual + investmentTransactionsSum;
+    const jarsSum = savingsJars.reduce((acc, jar) => acc + (parseFloat(jar.dynamicBalance || jar.balance) || 0), 0);
+    
+    // Se temos cofrinhos/reservas, usamos a soma deles. Caso contrário, usamos a soma das transações.
+    const reserveTotal = jarsSum > 0 ? jarsSum : investmentTransactionsSum;
+
+    const totalPatrimonio = investedManual + reserveTotal;
 
     // Liquidez Total = Fluxo de Caixa Líquido + Patrimônio Total
     const totalLiquidity = netCashFlow + totalPatrimonio;

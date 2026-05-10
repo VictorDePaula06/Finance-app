@@ -14,6 +14,7 @@ export const CATEGORIES = {
     expense: [
         { id: 'housing', label: 'Casa', icon: Home, color: 'text-rose-400', defaultPriority: 'essential' },
         { id: 'food', label: 'Alimentação', icon: Utensils, color: 'text-orange-400', defaultPriority: 'essential' },
+        { id: 'fast_food', label: 'Fast Food', icon: Utensils, color: 'text-amber-500', defaultPriority: 'superfluous' },
         { id: 'transport', label: 'Transporte', icon: Car, color: 'text-yellow-400', defaultPriority: 'essential' },
         { id: 'health', label: 'Saúde', icon: Heart, color: 'text-red-400', defaultPriority: 'essential' },
         { id: 'education', label: 'Educação', icon: BookOpen, color: 'text-blue-400', defaultPriority: 'essential' },

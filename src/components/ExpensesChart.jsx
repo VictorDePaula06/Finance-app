@@ -1,10 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import { useTheme } from '../contexts/ThemeContext';
+import { Utensils, Circle, CreditCard } from 'lucide-react';
 
 const COLORS = {
     housing: '#FB7185', // rose-400
     food: '#FB923C', // orange-400
+    fast_food: '#F59E0B', // amber-500
     transport: '#FACC15', // yellow-400
     health: '#F87171', // red-400
     education: '#60A5FA', // blue-400
@@ -23,6 +25,7 @@ const COLORS = {
 const CATEGORY_LABELS = {
     housing: 'Casa',
     food: 'Alimentação',
+    fast_food: 'Fast Food',
     transport: 'Transporte',
     health: 'Saúde',
     education: 'Educação',
@@ -40,24 +43,10 @@ const CATEGORY_LABELS = {
 
 export default function ExpensesChart({ transactions, targetMonth, mode = 'gastos', selectedCard = 'all', subscriptions = [] }) {
     const { theme } = useTheme();
-    const getRobustMonth = (t) => {
-        if (t.month) return t.month;
-        if (!t.date) return "";
-        let dStr = "";
-        try {
-            if (typeof t.date === 'string') dStr = t.date;
-            else if (t.date.toDate) dStr = t.date.toDate().toISOString();
-            else if (t.date.seconds) dStr = new Date(t.date.seconds * 1000).toISOString();
-        } catch (e) { return ""; }
-        return dStr.slice(0, 7);
-    };
+    const [selectedPriority, setSelectedPriority] = useState(null);
+    const [selectedCategory, setSelectedCategory] = useState(null);
 
-    const data = useMemo(() => {
-        // Get current selected month from context or props? 
-        // ExpensesChart in repository version doesn't receive selectedMonth but usually filters by "now" or "selected"
-        // Wait, repository version of ExpensesChart.jsx line 38: export default function ExpensesChart({ transactions })
-        // It receives transactions. We should probably filter THEM by month if we want to be consistent with the 0 balance fix.
-
+    const filteredExpenses = useMemo(() => {
         const monthToFilter = targetMonth || new Date().toISOString().slice(0, 7);
         let expenses;
         let subsToInclude = [];
@@ -81,6 +70,11 @@ export default function ExpensesChart({ transactions, targetMonth, mode = 'gasto
                 (t.date?.slice(0, 7) === monthToFilter || t.month === monthToFilter)
             );
         }
+        return { expenses, subsToInclude };
+    }, [transactions, targetMonth, mode, selectedCard, subscriptions]);
+
+    const data = useMemo(() => {
+        const { expenses, subsToInclude } = filteredExpenses;
         const grouped = expenses.reduce((acc, curr) => {
             const cat = curr.category || 'other';
             if (!acc[cat]) {
@@ -126,7 +120,17 @@ export default function ExpensesChart({ transactions, targetMonth, mode = 'gasto
         }
 
         return processedData;
-    }, [transactions, targetMonth, mode, selectedCard, subscriptions]);
+    }, [filteredExpenses]);
+
+    const byPriority = useMemo(() => {
+        const { expenses } = filteredExpenses;
+        return expenses.reduce((acc, curr) => {
+            const priority = curr.priority || 'other';
+            if (!acc[priority]) acc[priority] = 0;
+            acc[priority] += (parseFloat(curr.amount) || 0);
+            return acc;
+        }, {});
+    }, [filteredExpenses]);
 
     if (data.length === 0) {
         return (
@@ -154,6 +158,8 @@ export default function ExpensesChart({ transactions, targetMonth, mode = 'gasto
                             paddingAngle={5}
                             dataKey="value"
                             stroke="none"
+                            onClick={(node) => setSelectedCategory(selectedCategory === node.id ? null : node.id)}
+                            style={{ cursor: 'pointer' }}
                         >
                             {data.map((entry, index) => (
                                 <Cell key={`cell-${entry.id}-${index}`} fill={entry.color} />
@@ -191,6 +197,164 @@ export default function ExpensesChart({ transactions, targetMonth, mode = 'gasto
                     {`R$ ${totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 </span>
             </div>
+
+            {Object.keys(byPriority).length > 0 && (
+              <div className={`mt-6 p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3">Distribuição por Prioridade</p>
+                  <div className="space-y-1">
+                      {Object.entries(byPriority).sort(([,a],[,b]) => b - a).map(([priorityId, value]) => {
+                          const priorityLabels = {
+                              essential: 'Essencial',
+                              comfort: 'Conforto',
+                              superfluous: 'Supérfluo',
+                              other: 'Outros'
+                          };
+                          const label = priorityLabels[priorityId] || priorityId;
+                          const pct = totalExpense > 0 ? ((value / totalExpense) * 100).toFixed(0) : 0;
+                          return (
+                              <button 
+                                  key={priorityId} 
+                                  onClick={() => setSelectedPriority(selectedPriority === priorityId ? null : priorityId)}
+                                  className={`w-full flex items-center justify-between p-2 rounded-xl transition-all ${
+                                      selectedPriority === priorityId 
+                                      ? (theme === 'light' ? 'bg-white shadow-sm border border-slate-100' : 'bg-white/10')
+                                      : 'hover:bg-black/5'
+                                  }`}
+                              >
+                                  <div className="flex items-center gap-2">
+                                      <div className={`w-2 h-2 rounded-full ${
+                                          priorityId === 'essential' ? 'bg-emerald-500' :
+                                          priorityId === 'comfort' ? 'bg-blue-500' :
+                                          priorityId === 'superfluous' ? 'bg-rose-500' : 'bg-slate-400'
+                                      }`} />
+                                      <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>{label}</span>
+                                  </div>
+                                  <div className="text-right">
+                                      <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                          R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                      </span>
+                                      <span className="text-[9px] font-bold text-slate-400 ml-2">{pct}%</span>
+                                  </div>
+                              </button>
+                          );
+                      })}
+                  </div>
+              </div>
+            )}
+
+            {/* Drill-down Transaction List */}
+            {selectedPriority && (
+                <div className={`mt-4 p-4 rounded-2xl border ${theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3">
+                        Lançamentos - {selectedPriority === 'essential' ? 'Essencial' : selectedPriority === 'comfort' ? 'Conforto' : selectedPriority === 'superfluous' ? 'Supérfluo' : 'Outros'}
+                    </p>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                        {filteredExpenses.expenses
+                            .filter(t => t.priority === selectedPriority || (selectedPriority === 'other' && !t.priority))
+                            .sort((a, b) => new Date(b.date) - new Date(a.date))
+                            .map(t => (
+                                <div key={t.id} className={`flex items-center justify-between p-2 rounded-lg transition-colors ${theme === 'light' ? 'bg-white hover:bg-slate-100' : 'bg-white/5 hover:bg-white/10'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${theme === 'light' ? 'bg-slate-100' : 'bg-white/10'}`}>
+                                            <Utensils className="w-4 h-4 text-slate-500" />
+                                        </div>
+                                        <div>
+                                            <p className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>{t.description || 'Sem descrição'}</p>
+                                            <p className="text-[10px] text-slate-500">{new Date(t.date).toLocaleDateString('pt-BR')}</p>
+                                        </div>
+                                    </div>
+                                    <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                        - R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            ))}
+                        {filteredExpenses.expenses.filter(t => t.priority === selectedPriority || (selectedPriority === 'other' && !t.priority)).length === 0 && (
+                            <p className="text-xs font-bold text-slate-400 text-center py-2">Nenhuma transação encontrada.</p>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Drill-down Category List for Cards */}
+            {mode === 'cartoes' && selectedCategory && (
+                <div className={`mt-4 p-4 rounded-2xl border ${theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3">
+                        Lançamentos - {CATEGORY_LABELS[selectedCategory] || selectedCategory}
+                    </p>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                        {selectedCategory === 'subscriptions' ? (
+                            <>
+                                {/* Assinaturas fixas */}
+                                {filteredExpenses.subsToInclude.map(sub => (
+                                    <div key={`sub-${sub.id}`} className={`flex items-center justify-between p-2 rounded-lg transition-colors ${theme === 'light' ? 'bg-white hover:bg-slate-100' : 'bg-white/5 hover:bg-white/10'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${theme === 'light' ? 'bg-slate-100' : 'bg-white/10'}`}>
+                                                <CreditCard className="w-4 h-4 text-slate-500" />
+                                            </div>
+                                            <div>
+                                                <p className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>{sub.name || 'Sem nome'}</p>
+                                                <p className="text-[10px] text-slate-500">Assinatura Mensal</p>
+                                            </div>
+                                        </div>
+                                        <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                            - R$ {parseFloat(sub.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+                                ))}
+                                {/* Lançamentos manuais categorizados como assinatura */}
+                                {filteredExpenses.expenses
+                                    .filter(t => t.category === 'subscriptions')
+                                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                                    .map(t => (
+                                        <div key={t.id} className={`flex items-center justify-between p-2 rounded-lg transition-colors ${theme === 'light' ? 'bg-white hover:bg-slate-100' : 'bg-white/5 hover:bg-white/10'}`}>
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${theme === 'light' ? 'bg-slate-100' : 'bg-white/10'}`}>
+                                                    <Utensils className="w-4 h-4 text-slate-500" />
+                                                </div>
+                                                <div>
+                                                    <p className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>{t.description || 'Sem descrição'}</p>
+                                                    <p className="text-[10px] text-slate-500">{new Date(t.date).toLocaleDateString('pt-BR')}</p>
+                                                </div>
+                                            </div>
+                                            <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                                - R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                    ))}
+                                {filteredExpenses.subsToInclude.length === 0 && filteredExpenses.expenses.filter(t => t.category === 'subscriptions').length === 0 && (
+                                    <p className="text-xs font-bold text-slate-400 text-center py-2">Nenhuma assinatura encontrada.</p>
+                                )}
+                            </>
+                        ) : (
+                            /* Outras categorias */
+                            <>
+                                {filteredExpenses.expenses
+                                    .filter(t => t.category === selectedCategory)
+                                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                                    .map(t => (
+                                        <div key={t.id} className={`flex items-center justify-between p-2 rounded-lg transition-colors ${theme === 'light' ? 'bg-white hover:bg-slate-100' : 'bg-white/5 hover:bg-white/10'}`}>
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${theme === 'light' ? 'bg-slate-100' : 'bg-white/10'}`}>
+                                                    <Utensils className="w-4 h-4 text-slate-500" />
+                                                </div>
+                                                <div>
+                                                    <p className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>{t.description || 'Sem descrição'}</p>
+                                                    <p className="text-[10px] text-slate-500">{new Date(t.date).toLocaleDateString('pt-BR')}</p>
+                                                </div>
+                                            </div>
+                                            <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                                - R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                    ))}
+                                {filteredExpenses.expenses.filter(t => t.category === selectedCategory).length === 0 && (
+                                    <p className="text-xs font-bold text-slate-400 text-center py-2">Nenhuma transação encontrada.</p>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
