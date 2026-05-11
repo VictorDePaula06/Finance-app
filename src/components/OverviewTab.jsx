@@ -59,20 +59,24 @@ export default function OverviewTab({
 
     const reservesData = useMemo(() => {
         if (!savingsJars || savingsJars.length === 0) {
-            return [{ name: 'Sem reservas', value: 1, color: '#475569' }];
+            return [{ name: 'Sem reservas', value: 1, color: '#475569', percentage: '0' }];
         }
         const colors = ['#F97316', '#3B82F6', '#10B981', '#8B5CF6'];
-        return savingsJars.map((jar, idx) => ({
+        const data = savingsJars.map((jar, idx) => ({
             name: jar.name,
             value: parseFloat(jar.balance) || 0,
             color: colors[idx % colors.length]
         })).filter(j => j.value > 0);
+        
+        if (data.length > 0) {
+            const total = data.reduce((acc, curr) => acc + curr.value, 0);
+            data.forEach(r => r.percentage = total > 0 ? ((r.value / total) * 100).toFixed(0) : 0);
+        } else {
+            return [{ name: 'Sem reservas', value: 1, color: '#475569', percentage: '0' }];
+        }
+        
+        return data;
     }, [savingsJars]);
-
-    if (reservesData.length > 0 && reservesData[0].name !== 'Sem reservas') {
-        const total = reservesData.reduce((acc, curr) => acc + curr.value, 0);
-        reservesData.forEach(r => r.percentage = total > 0 ? ((r.value / total) * 100).toFixed(0) : 0);
-    }
 
     // Prepare data for "Visão Geral do Fluxo de Caixa"
     const cashFlowData = useMemo(() => {
