@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { RefreshCw, TrendingUp, TrendingDown, Sparkles } from 'lucide-react';
+import aliviaFinal from '../assets/alivia-final.png';
 
 export default function AliviaMiniInsight({ transactions = [], theme }) {
     const [insight, setInsight] = useState(null);
@@ -98,14 +99,21 @@ export default function AliviaMiniInsight({ transactions = [], theme }) {
     };
 
     return (
-        <div className={`hidden lg:flex items-center justify-between flex-1 mx-8 p-3 rounded-2xl border ${bgColors[insight.status]} transition-all duration-300`}>
+        <div className={`hidden lg:flex items-center justify-between flex-1 mx-8 p-3 rounded-2xl border ${bgColors[insight.status]} transition-all duration-300 shadow-inner`}>
             <div className="flex items-center gap-3">
-                <div className={`p-1.5 rounded-full bg-white/20 shadow-sm ${textColors[insight.status]}`}>
-                    {icons[insight.status]}
+                <div className="relative shrink-0">
+                    <img 
+                        src={aliviaFinal} 
+                        alt="Alívia" 
+                        className="w-10 h-10 object-cover rounded-full border-2 border-white/20 shadow-md" 
+                    />
+                    <div className={`absolute -bottom-1 -right-1 p-0.5 rounded-full bg-[#131621] border border-white/10 ${textColors[insight.status]}`}>
+                        {icons[insight.status]}
+                    </div>
                 </div>
                 <div className="flex flex-col">
-                    <span className={`text-[9px] font-black uppercase tracking-widest ${textColors[insight.status]} opacity-80`}>Insight da Alívia</span>
-                    <span className={`text-[11px] font-medium leading-tight ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'} max-w-[400px] truncate`} title={insight.message}>
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${textColors[insight.status]} opacity-90`}>Alívia</span>
+                    <span className={`text-[12px] font-medium leading-tight ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'} max-w-[500px] line-clamp-2`} title={insight.message}>
                         {insight.message}
                     </span>
                 </div>
