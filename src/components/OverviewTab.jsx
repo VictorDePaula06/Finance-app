@@ -16,6 +16,20 @@ export default function OverviewTab({
     setJarDeleteConfirm
 }) {
     const [cashFlowPeriod, setCashFlowPeriod] = useState('30d');
+    const [incomesPeriod, setIncomesPeriod] = useState(() => localStorage.getItem('alivia_incomes_period') || 'month');
+    const [showIncomesConfig, setShowIncomesConfig] = useState(false);
+
+    const handleIncomesPeriodChange = (period) => {
+        setIncomesPeriod(period);
+        localStorage.setItem('alivia_incomes_period', period);
+        setShowIncomesConfig(false);
+    };
+
+    const incomesPeriodLabel = {
+        'month': '(Mês)',
+        '15d': '(15d)',
+        '30d': '(30d)'
+    }[incomesPeriod];
 
     const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 
@@ -85,12 +99,34 @@ export default function OverviewTab({
     }, [transactions, cashFlowPeriod]);
 
     // Prepare data for "Últimos Recebimentos"
+    const filteredIncomes = useMemo(() => {
+        const today = new Date();
+        const currentMonthStr = today.toISOString().slice(0, 7);
+        
+        return transactions.filter(t => {
+            if (t.type !== 'income' || ['initial_balance', 'carryover', 'vault_redemption'].includes(t.category)) {
+                return false;
+            }
+            if (incomesPeriod === 'month') {
+                return (t.date?.slice(0, 7) === currentMonthStr || t.month === currentMonthStr);
+            }
+            const txDate = new Date(t.date);
+            const diffDays = (today - txDate) / (1000 * 60 * 60 * 24);
+            if (incomesPeriod === '15d') return diffDays <= 15;
+            if (incomesPeriod === '30d') return diffDays <= 30;
+            return true;
+        });
+    }, [transactions, incomesPeriod]);
+
     const recentIncomes = useMemo(() => {
-        return transactions
-            .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
+        return [...filteredIncomes]
             .sort((a, b) => new Date(b.date) - new Date(a.date))
             .slice(0, 5);
-    }, [transactions]);
+    }, [filteredIncomes]);
+
+    const totalIncomesFiltered = useMemo(() => {
+        return filteredIncomes.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    }, [filteredIncomes]);
 
     const cardBg = theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/50 border-white/5';
     const textColor = theme === 'light' ? 'text-slate-800' : 'text-white';
@@ -264,9 +300,38 @@ export default function OverviewTab({
                     <h3 className={`text-base font-bold mb-4 ${textColor}`}>Últimos Recebimentos</h3>
                     <div className={`p-6 rounded-[2rem] border flex flex-col justify-between ${cardBg}`} style={{ height: '340px' }}>
                         <div>
-                            <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center justify-between mb-6 relative">
                                 <span className={`text-sm font-semibold ${textColor}`}>Atividade de Recebimentos</span>
-                                <Settings className={`w-4 h-4 ${subTextColor}`} />
+                                <button 
+                                    onClick={() => setShowIncomesConfig(!showIncomesConfig)}
+                                    className={`p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'hover:bg-slate-100' : 'hover:bg-white/10'}`}
+                                >
+                                    <Settings className={`w-4 h-4 ${subTextColor}`} />
+                                </button>
+                                
+                                {showIncomesConfig && (
+                                    <div className={`absolute top-full right-0 mt-2 w-48 rounded-xl border shadow-xl z-10 overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-800 border-slate-700'}`}>
+                                        <div className="p-2 space-y-1">
+                                            {[
+                                                { id: 'month', label: 'Somente este mês' },
+                                                { id: '15d', label: 'Últimos 15 dias' },
+                                                { id: '30d', label: 'Últimos 30 dias' }
+                                            ].map(opt => (
+                                                <button
+                                                    key={opt.id}
+                                                    onClick={() => handleIncomesPeriodChange(opt.id)}
+                                                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                                                        incomesPeriod === opt.id 
+                                                            ? 'bg-emerald-500/10 text-emerald-500' 
+                                                            : (theme === 'light' ? 'text-slate-600 hover:bg-slate-50' : 'text-slate-300 hover:bg-white/5')
+                                                    }`}
+                                                >
+                                                    {opt.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <div className="space-y-4">
                                 {recentIncomes.length > 0 ? recentIncomes.map(t => (
@@ -298,7 +363,7 @@ export default function OverviewTab({
                         </div>
                         <div className="mt-4 pt-4 border-t border-slate-500/10 text-right">
                             <span className={`text-xs font-semibold ${subTextColor}`}>
-                                Total Recebido (Mês): <span className={textColor}>{formatCurrency(walletStats.income)}</span>
+                                Total Recebido {incomesPeriodLabel}: <span className={textColor}>{formatCurrency(totalIncomesFiltered)}</span>
                             </span>
                         </div>
                     </div>
