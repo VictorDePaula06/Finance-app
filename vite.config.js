@@ -11,6 +11,9 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.js',
       registerType: 'prompt',
+      injectManifest: {
+        maximumFileSizeToCacheInBytes: 5000000 // 5MB
+      },
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: 'Alívia',
