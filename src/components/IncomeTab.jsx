@@ -3,10 +3,10 @@ import { db } from '../services/firebase';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { TrendingUp, Trash2, ArrowUpCircle, CircleDollarSign, Loader2, Pencil, X, Landmark, ArrowDownCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TrendingUp, Trash2, ArrowUpCircle, CircleDollarSign, Loader2, Pencil, X, Landmark, ArrowDownCircle, ChevronLeft, ChevronRight, Settings, Eye, EyeOff } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
 
-export default function IncomeTab({ transactions, savingsJars }) {
+export default function IncomeTab({ transactions, savingsJars, walletStats, hideBalance, toggleHideBalance }) {
     const { theme } = useTheme();
     const { currentUser } = useAuth();
     
@@ -31,6 +31,20 @@ export default function IncomeTab({ transactions, savingsJars }) {
     const [incomeStep, setIncomeStep] = useState('form'); // 'form' | 'confirm'
     const [isSaving, setIsSaving] = useState(false);
     const [transactionToDelete, setTransactionToDelete] = useState(null);
+    const [incomesPeriod, setIncomesPeriod] = useState(() => localStorage.getItem('alivia_incomes_period_tab') || 'month');
+    const [showIncomesConfig, setShowIncomesConfig] = useState(false);
+
+    const handleIncomesPeriodChange = (period) => {
+        setIncomesPeriod(period);
+        localStorage.setItem('alivia_incomes_period_tab', period);
+        setShowIncomesConfig(false);
+    };
+
+    const incomesPeriodLabel = {
+        'month': '(Mês)',
+        '15d': '(15d)',
+        '30d': '(30d)'
+    }[incomesPeriod];
     
     // Fetch USD rate once
     useEffect(() => {
@@ -248,14 +262,34 @@ export default function IncomeTab({ transactions, savingsJars }) {
     const currentMonthKey = selectedMonth;
 
     // 1. Regular Incomes (Salary, Freelance, etc)
-    const recentIncomes = useMemo(() => {
+    const filteredIncomes = useMemo(() => {
+        const today = new Date();
+        const currentMonthStr = today.toISOString().slice(0, 7);
+        
         return transactions.filter(t => {
             const isIncome = t.type === 'income';
             const isNotSpecial = !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category);
-            const matchesMonth = t.month === currentMonthKey || (t.date && t.date.startsWith(currentMonthKey));
-            return isIncome && isNotSpecial && matchesMonth;
-        }).sort((a, b) => new Date(b.date) - new Date(a.date));
-    }, [transactions, currentMonthKey]);
+            
+            if (!isIncome || !isNotSpecial) return false;
+            
+            if (incomesPeriod === 'month') {
+                return t.month === currentMonthStr || (t.date && t.date.startsWith(currentMonthStr));
+            }
+            const txDate = new Date(t.date);
+            const diffDays = (today - txDate) / (1000 * 60 * 60 * 24);
+            if (incomesPeriod === '15d') return diffDays <= 15;
+            if (incomesPeriod === '30d') return diffDays <= 30;
+            return true;
+        });
+    }, [transactions, incomesPeriod]);
+
+    const recentIncomes = useMemo(() => {
+        return [...filteredIncomes].sort((a, b) => new Date(b.date) - new Date(a.date));
+    }, [filteredIncomes]);
+
+    const totalIncomeFiltered = useMemo(() => {
+        return filteredIncomes.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    }, [filteredIncomes]);
 
     // 2. Redemptions (Moving from Patrimony to Wallet)
     const recentRedemptions = useMemo(() => {
@@ -267,8 +301,12 @@ export default function IncomeTab({ transactions, savingsJars }) {
         }).sort((a, b) => new Date(b.date) - new Date(a.date));
     }, [transactions, currentMonthKey]);
 
-    const totalIncomeMonth = useMemo(() => recentIncomes.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0), [recentIncomes]);
     const totalRedemptionMonth = useMemo(() => recentRedemptions.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0), [recentRedemptions]);
+
+    const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+    const cardBg = theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/50 border-white/5';
+    const textColor = theme === 'light' ? 'text-slate-800' : 'text-white';
+    const subTextColor = theme === 'light' ? 'text-slate-500' : 'text-slate-400';
 
     return (
         <div className="max-w-4xl mx-auto space-y-10 pb-20">
@@ -328,119 +366,133 @@ export default function IncomeTab({ transactions, savingsJars }) {
             </div>
 
             {subTab === 'recebimentos' ? (
-                <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    {/* Quick Actions & Stats Card */}
-                    <div className={`p-8 rounded-[2.5rem] border shadow-2xl relative overflow-hidden ${
-                        theme === 'light' ? 'bg-white border-emerald-100/50' : 'bg-slate-900 border-white/5'
-                    }`}>
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -mr-16 -mt-16 blur-2xl" />
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                         
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
-                            <div className="flex items-center gap-6">
-                                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg ${
-                                    theme === 'light' ? 'bg-emerald-50 text-emerald-600' : 'bg-emerald-500/10 text-emerald-400'
-                                }`}>
-                                    <CircleDollarSign className="w-8 h-8" />
-                                </div>
-                                <div>
-                                    <p className={`text-xs font-black uppercase tracking-widest mb-1 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
-                                        Total Recebido ({monthLabel.split(' ')[0]})
-                                    </p>
-                                    <h3 className={`text-3xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                        R$ {totalIncomeMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                    </h3>
-                                </div>
-                            </div>
-
-                            <button
-                                onClick={() => {
-                                    setEditingId(null);
-                                    setAmount('');
-                                    setDescription('');
-                                    setIncomeStep('form');
-                                    setShowIncomeModal(true);
-                                }}
-                                className={`flex items-center gap-3 px-8 py-5 rounded-[2rem] border font-black text-sm uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl ${
-                                    theme === 'light' 
-                                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/20' 
-                                    : 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/20'
-                                }`}
-                            >
-                                <ArrowUpCircle className="w-5 h-5" />
-                                Novo Recebimento
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* List Section */}
-                    <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm ${
-                        theme === 'light' ? 'bg-white border-emerald-100/30' : 'bg-slate-900 border-emerald-500/10'
-                    }`}>
-                        <div className="flex items-center gap-3 mb-8">
-                            <div className="p-3 bg-emerald-500/10 rounded-2xl">
-                                <TrendingUp className="w-6 h-6 text-emerald-500" />
-                            </div>
-                            <div>
-                                <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                    Histórico de Recebimentos
-                                </h3>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Entradas registradas este mês</p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-3">
-                            {recentIncomes.length === 0 ? (
-                                <div className="text-center py-8">
-                                    <p className="text-sm font-bold text-slate-400 dark:text-slate-500">Nenhuma entrada registrada este mês.</p>
-                                </div>
-                            ) : (
-                                recentIncomes.map(inc => {
-                                    const cat = CATEGORIES.income.find(c => c.id === inc.category) || CATEGORIES.income.find(c => c.id === 'other');
-                                    const Icon = cat.icon;
-                                    return (
-                                        <div key={inc.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all hover:scale-[1.01] ${
-                                            theme === 'light' ? 'bg-[#f0fdfa]/50 border-emerald-100/50 hover:bg-emerald-50' : 'bg-slate-800/50 border-slate-700/50 hover:bg-slate-800'
-                                        }`}>
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-inner ${
-                                                    theme === 'light' ? 'bg-white' : 'bg-slate-900'
-                                                }`}>
-                                                    <Icon className={`w-5 h-5 ${cat.color}`} />
-                                                </div>
-                                                <div>
-                                                    <h4 className={`font-bold text-sm ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                                        {inc.description}
-                                                    </h4>
-                                                    <p className={`text-[10px] font-bold ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
-                                                        {new Date(inc.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-black text-emerald-500 mr-2">
-                                                    + R$ {parseFloat(inc.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                </span>
-                                                <button 
-                                                    onClick={() => handleEditInitiate(inc)}
-                                                    className={`p-2 rounded-lg transition-colors ${
-                                                        theme === 'light' ? 'text-slate-300 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10'
-                                                    }`}
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleDelete(inc.id)}
-                                                    className={`p-2 rounded-lg transition-colors ${
-                                                        theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
-                                                    }`}
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
+                        {/* Ativos e Saldos */}
+                        <div className="xl:col-span-2">
+                            <h3 className={`text-base font-bold mb-4 ${textColor}`}>Ativos e Saldos</h3>
+                            <div className={`p-6 rounded-[2rem] border flex flex-col justify-center h-40 ${cardBg}`}>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className={`text-sm font-semibold ${subTextColor}`}>Saldo Total em Carteira</span>
+                                            <button onClick={toggleHideBalance} className="text-slate-400 hover:text-emerald-500 transition-colors">
+                                                {hideBalance ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </button>
                                         </div>
-                                    );
-                                })
-                            )}
+                                        <div className={`text-4xl font-black ${hideBalance ? 'blur-md select-none' : textColor}`}>
+                                            {hideBalance ? 'R$ 0.000,00' : formatCurrency(walletStats?.balance)}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setEditingId(null);
+                                            setAmount('');
+                                            setDescription('');
+                                            setIncomeStep('form');
+                                            setShowIncomeModal(true);
+                                        }}
+                                        className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] border font-black text-sm uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl ${
+                                            theme === 'light' 
+                                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/20' 
+                                            : 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/20'
+                                        }`}
+                                    >
+                                        <ArrowUpCircle className="w-5 h-5" />
+                                        Novo Recebimento
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Últimos Recebimentos */}
+                        <div className="xl:col-span-1">
+                            <h3 className={`text-base font-bold mb-4 ${textColor}`}>Últimos Recebimentos</h3>
+                            <div className={`p-6 rounded-[2rem] border flex flex-col justify-between ${cardBg}`} style={{ minHeight: '340px' }}>
+                                <div>
+                                    <div className="flex items-center justify-between mb-6 relative">
+                                        <span className={`text-sm font-semibold ${textColor}`}>Atividade de Recebimentos</span>
+                                        <button 
+                                            onClick={() => setShowIncomesConfig(!showIncomesConfig)}
+                                            className={`p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'hover:bg-slate-100' : 'hover:bg-white/10'}`}
+                                        >
+                                            <Settings className={`w-4 h-4 ${subTextColor}`} />
+                                        </button>
+                                        
+                                        {showIncomesConfig && (
+                                            <div className={`absolute top-full right-0 mt-2 w-48 rounded-xl border shadow-xl z-10 overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-800 border-slate-700'}`}>
+                                                <div className="p-2 space-y-1">
+                                                    {[
+                                                        { id: 'month', label: 'Somente este mês' },
+                                                        { id: '15d', label: 'Últimos 15 dias' },
+                                                        { id: '30d', label: 'Últimos 30 dias' }
+                                                    ].map(opt => (
+                                                        <button
+                                                            key={opt.id}
+                                                            onClick={() => handleIncomesPeriodChange(opt.id)}
+                                                            className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                                                                incomesPeriod === opt.id 
+                                                                    ? 'bg-emerald-500/10 text-emerald-500' 
+                                                                    : (theme === 'light' ? 'text-slate-600 hover:bg-slate-50' : 'text-slate-300 hover:bg-white/5')
+                                                            }`}
+                                                        >
+                                                            {opt.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="space-y-4">
+                                        {recentIncomes.length > 0 ? recentIncomes.map(t => (
+                                            <div key={t.id} className="flex items-center justify-between group">
+                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${theme === 'light' ? 'bg-emerald-50 text-emerald-600' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                                                        <span className="text-xs font-black">
+                                                            {t.description ? t.description.charAt(0).toUpperCase() : 'R'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className={`text-sm font-bold truncate ${textColor}`}>{t.description || 'Recebimento'}</p>
+                                                        <p className={`text-[10px] truncate ${subTextColor}`}>
+                                                            {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <div className="text-right">
+                                                        <p className="text-xs font-bold text-emerald-500">
+                                                            + {formatCurrency(parseFloat(t.amount))}
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button 
+                                                            onClick={() => handleEditInitiate(t)}
+                                                            className={`p-1.5 rounded-md transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10'}`}
+                                                        >
+                                                            <Pencil className="w-3 h-3" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleDelete(t.id)}
+                                                            className={`p-1.5 rounded-md transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-500 hover:text-rose-400 hover:bg-rose-500/10'}`}
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )) : (
+                                            <p className={`text-xs text-center ${subTextColor}`}>Nenhum recebimento recente.</p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="mt-4 pt-4 border-t border-slate-500/10 text-right">
+                                    <span className={`text-xs font-semibold ${subTextColor}`}>
+                                        Total Recebido {incomesPeriodLabel}: <span className={textColor}>{formatCurrency(totalIncomeFiltered)}</span>
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -642,7 +642,13 @@ function Dashboard() {
                 isHidden={hideBalance}
                 onToggle={toggleHideBalance}
               />
-              <IncomeTab transactions={transactions} savingsJars={savingsJars} />
+              <IncomeTab 
+                transactions={transactions} 
+                savingsJars={savingsJars} 
+                walletStats={walletStats}
+                hideBalance={hideBalance}
+                toggleHideBalance={toggleHideBalance}
+              />
             </div>
           )}
 
