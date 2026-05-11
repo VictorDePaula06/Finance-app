@@ -139,6 +139,7 @@ export function AuthProvider({ children }) {
             setDaysRemaining(9999);
             setIsTrial(false);
             setLoading(false);
+            setIsDataLoaded(true);
             return;
         }
 
