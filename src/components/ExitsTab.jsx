@@ -610,9 +610,11 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
                         <div className="w-full">
                             {/* Table Header */}
-                            <div className="grid grid-cols-[1fr_1fr_1fr] pb-4 border-b border-slate-700 mb-2 px-2">
+                            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] pb-4 border-b border-slate-700 mb-2 px-2 gap-4">
                                 <span className="text-[10px] font-medium text-slate-400 uppercase">Descrição</span>
                                 <span className="text-[10px] font-medium text-slate-400 uppercase">Data</span>
+                                <span className="text-[10px] font-medium text-slate-400 uppercase">Pagamento</span>
+                                <span className="text-[10px] font-medium text-slate-400 uppercase">Prioridade</span>
                                 <span className="text-[10px] font-medium text-slate-400 uppercase text-right">Valor</span>
                             </div>
 
@@ -624,17 +626,50 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                     regularExpenses.map(t => {
                                         const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
                                         const Icon = cat.icon;
+                                        
+                                        const paymentLabel = t.paymentMethod === 'pix' ? 'PIX' : t.paymentMethod === 'debito' ? 'Débito' : t.paymentMethod === 'credito' ? 'Crédito' : 'Dinheiro';
+                                        
+                                        const priorityLabel = t.priority === 'essential' ? 'Essencial' : t.priority === 'superfluous' ? 'Supérfluo' : 'Conforto';
+                                        const priorityColor = t.priority === 'essential' ? 'bg-emerald-500/20 text-emerald-400' : t.priority === 'superfluous' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400';
+
                                         return (
-                                            <div key={t.id} className="grid grid-cols-[1fr_1fr_1fr] items-center py-4 px-2 hover:bg-white/5 rounded-xl transition-colors group">
-                                                <div className="flex items-center gap-4">
+                                            <div key={t.id} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] items-center py-4 px-2 hover:bg-white/5 rounded-xl transition-colors group gap-4">
+                                                {/* Description */}
+                                                <div className="flex items-center gap-4 min-w-0">
                                                     <div className="w-8 h-8 rounded-full flex items-center justify-center bg-rose-500/20 text-rose-400 shrink-0">
                                                         <Icon className="w-4 h-4" />
                                                     </div>
-                                                    <span className="text-[13px] text-slate-200 truncate">{t.description}</span>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="text-[13px] text-slate-200 truncate">{t.description}</span>
+                                                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{cat.label}</span>
+                                                    </div>
                                                 </div>
+
+                                                {/* Date */}
                                                 <div className="text-[13px] text-slate-300">
                                                     {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}.
                                                 </div>
+
+                                                {/* Payment */}
+                                                <div className="flex flex-col items-start justify-center">
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-300">
+                                                        {paymentLabel}
+                                                    </span>
+                                                    {t.selectedCardId && (
+                                                        <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1 ml-1 truncate max-w-full">
+                                                            {cards?.find(c => c.id === t.selectedCardId)?.name || 'Cartão'}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Priority */}
+                                                <div className="flex items-center justify-start">
+                                                    <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-md ${priorityColor}`}>
+                                                        {priorityLabel}
+                                                    </span>
+                                                </div>
+
+                                                {/* Value & Actions */}
                                                 <div className="flex items-center justify-end gap-3 relative">
                                                     <div className="text-right flex flex-col items-end">
                                                         <span className={`text-[13px] font-medium text-rose-400 ${t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' ? 'opacity-70' : ''}`}>
