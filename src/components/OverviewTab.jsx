@@ -108,7 +108,7 @@ export default function OverviewTab({
                         <div>
                             <div className="flex items-center gap-2 mb-2">
                                 <span className={`text-sm font-semibold ${subTextColor}`}>Saldo Total em Carteira</span>
-                                <button onClick={onToggle} className="text-slate-400 hover:text-blue-500 transition-colors">
+                                <button onClick={toggleHideBalance} className="text-slate-400 hover:text-blue-500 transition-colors">
                                     {hideBalance ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
