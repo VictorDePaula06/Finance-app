@@ -144,8 +144,7 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
   return (
     <div className="max-w-full overflow-x-hidden px-5 md:px-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       
-      {/* Month Selector */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-center justify-center gap-4">
         <div className="flex items-center gap-3">
             <div className="p-3 bg-blue-500/10 rounded-2xl">
                 <PieChart className="w-6 h-6 text-blue-500" />

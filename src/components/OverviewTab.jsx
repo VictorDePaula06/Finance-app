@@ -184,7 +184,7 @@ export default function OverviewTab({
                 {/* Lançamentos e Reservas */}
                 <div>
                     <h3 className={`text-base font-bold mb-4 ${textColor}`}>Lançamentos e Reservas</h3>
-                    <div className="grid grid-cols-2 gap-4 h-40">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Total Lançado */}
                         <div className={`p-6 rounded-[2rem] border flex flex-col justify-center ${cardBg}`}>
                             <span className={`text-sm font-semibold mb-2 ${subTextColor}`}>Total Lançado (Mês)</span>

@@ -463,23 +463,12 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         <div className="max-w-5xl mx-auto space-y-6 pb-20 px-2 sm:px-4 md:px-0">
             {/* Header */}
             <div className="flex items-center justify-center pt-8 pb-4">
-                <h2 className="text-xl font-medium tracking-wide uppercase text-white">Gestão de Lançamentos</h2>
+                <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Gestão de Lançamentos</h2>
             </div>
 
             {/* Navigation Row */}
-            <div className="flex justify-center items-center gap-8 mb-8">
-                <div className="flex items-center rounded-lg border bg-[#1e2330] border-slate-700/50">
-                    <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
-                        <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <span className="px-4 text-[10px] font-bold uppercase text-slate-200 min-w-[140px] text-center">
-                        {monthLabel}
-                    </span>
-                    <button onClick={handleNextMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
-                        <ChevronRight className="w-4 h-4" />
-                    </button>
-                </div>
-
+            <div className="flex flex-col items-center gap-4 mb-8">
+                {/* Tabs on top */}
                 <div className="flex gap-6 border-b border-slate-700/50">
                     <button 
                         onClick={() => setSubTab('despesas')}
@@ -502,12 +491,25 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                         Aportes
                     </button>
                 </div>
+
+                {/* Month Selector below */}
+                <div className={`flex items-center rounded-lg border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
+                    <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
+                        <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className={`px-4 text-[10px] font-bold uppercase min-w-[140px] text-center ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
+                        {monthLabel}
+                    </span>
+                    <button onClick={handleNextMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
+                        <ChevronRight className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
 
             {/* Cards Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {/* Saldo em Carteira */}
-                <div className="p-5 rounded-xl flex flex-col justify-center gap-3 bg-[#1e2330]">
+                <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <div className="text-blue-400">
@@ -515,17 +517,17 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                             </div>
                             <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Saldo em Carteira</span>
                         </div>
-                        <button onClick={toggleHideBalance} className="text-slate-500 hover:text-white transition-colors">
+                        <button onClick={toggleHideBalance} className={`text-slate-500 hover:text-white transition-colors ${theme === 'light' ? 'hover:text-slate-800' : ''}`}>
                             {hideBalance ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                     </div>
-                    <div className={`text-2xl font-bold ${hideBalance ? 'blur-md text-white' : 'text-white'}`}>
+                    <div className={`text-2xl font-bold ${hideBalance ? 'blur-md' : ''} ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                         {hideBalance ? 'R$ 0,00' : formatCurrency(walletStats?.balance)}
                     </div>
                 </div>
 
                 {/* Recebimentos no Mês */}
-                <div className="p-5 rounded-xl flex flex-col justify-center gap-3 bg-[#1e2330]">
+                <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
                     <div className="flex items-center gap-2">
                         <div className="text-emerald-400">
                             <TrendingUp className="w-4 h-4" />
@@ -545,7 +547,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 </div>
 
                 {/* Lançamentos no Mês */}
-                <div className="p-5 rounded-xl flex flex-col justify-center gap-3 bg-[#1e2330]">
+                <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
                     <div className="flex items-center gap-2">
                         <div className="text-rose-400">
                             <TrendingDown className="w-4 h-4" />
@@ -561,9 +563,9 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             {/* Transactions List */}
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                 {subTab === 'despesas' ? (
-                    <div className="p-8 rounded-2xl bg-[#1e2330]">
-                        <div className="flex items-center justify-between mb-8">
-                            <h3 className="text-base font-medium text-slate-200 uppercase tracking-wider">Últimos Lançamentos</h3>
+                    <div className={`p-8 rounded-2xl ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+                            <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Últimos Lançamentos</h3>
                             <button
                                 onClick={() => {
                                     setStep('expense');
@@ -577,13 +579,13 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
                         {/* Category Filter Chips */}
                         {availableCategories.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-700 pb-4 px-2">
+                            <div className={`flex flex-wrap gap-2 mb-6 border-b pb-4 px-2 ${theme === 'light' ? 'border-slate-100' : 'border-slate-700'}`}>
                                 <button
                                     onClick={() => setSelectedCategory(null)}
                                     className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all ${
                                         !selectedCategory 
                                         ? 'bg-rose-500/20 text-rose-400'
-                                        : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                        : (theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10')
                                     }`}
                                 >
                                     Todas
@@ -597,7 +599,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                             className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${
                                                 selectedCategory === cat.id
                                                 ? 'bg-rose-500/20 text-rose-400'
-                                                : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                                : (theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10')
                                             }`}
                                         >
                                             <CatIcon className="w-3 h-3" />
@@ -609,8 +611,8 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                         )}
 
                         <div className="w-full">
-                            {/* Table Header */}
-                            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] pb-4 border-b border-slate-700 mb-2 px-2 gap-4">
+                            {/* Table Header - Hidden on Mobile */}
+                            <div className={`hidden sm:grid grid-cols-[2fr_1fr_1fr_1fr_1fr] pb-4 border-b mb-2 px-2 gap-4 ${theme === 'light' ? 'border-slate-200' : 'border-slate-700'}`}>
                                 <span className="text-[10px] font-medium text-slate-400 uppercase">Descrição</span>
                                 <span className="text-[10px] font-medium text-slate-400 uppercase">Data</span>
                                 <span className="text-[10px] font-medium text-slate-400 uppercase">Pagamento</span>
@@ -633,25 +635,43 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                         const priorityColor = t.priority === 'essential' ? 'bg-emerald-500/20 text-emerald-400' : t.priority === 'superfluous' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400';
 
                                         return (
-                                            <div key={t.id} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] items-center py-4 px-2 hover:bg-white/5 rounded-xl transition-colors group gap-4">
-                                                {/* Description */}
+                                            <div key={t.id} className={`grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_1fr_1fr_1fr_1fr] items-center py-4 px-2 hover:bg-white/5 rounded-xl transition-colors group gap-2 sm:gap-4 border-b sm:border-b-0 ${theme === 'light' ? 'border-slate-100' : 'border-slate-700/30'}`}>
+                                                {/* Description & Mobile Info */}
                                                 <div className="flex items-center gap-4 min-w-0">
                                                     <div className="w-8 h-8 rounded-full flex items-center justify-center bg-rose-500/20 text-rose-400 shrink-0">
                                                         <Icon className="w-4 h-4" />
                                                     </div>
                                                     <div className="flex flex-col min-w-0">
-                                                        <span className="text-[13px] text-slate-200 truncate">{t.description}</span>
-                                                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{cat.label}</span>
+                                                        <span className={`text-[13px] truncate ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>{t.description}</span>
+                                                        
+                                                        {/* Mobile Info Row */}
+                                                        <div className="flex flex-wrap items-center gap-1.5 mt-1 sm:hidden">
+                                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{cat.label}</span>
+                                                            <span className="text-slate-400 text-[10px]">•</span>
+                                                            <span className="text-[11px] text-slate-400">
+                                                                {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}
+                                                            </span>
+                                                            <span className="text-slate-400 text-[10px]">•</span>
+                                                            <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-slate-700/50 text-slate-300">
+                                                                {paymentLabel}
+                                                            </span>
+                                                            <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md ${priorityColor}`}>
+                                                                {priorityLabel}
+                                                            </span>
+                                                        </div>
+                                                        
+                                                        {/* Desktop Category */}
+                                                        <span className="hidden sm:block text-[9px] font-bold text-slate-500 uppercase tracking-widest">{cat.label}</span>
                                                     </div>
                                                 </div>
 
-                                                {/* Date */}
-                                                <div className="text-[13px] text-slate-300">
+                                                {/* Date - Hidden on Mobile */}
+                                                <div className={`text-[13px] hidden sm:block ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
                                                     {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}.
                                                 </div>
 
-                                                {/* Payment */}
-                                                <div className="flex flex-col items-start justify-center">
+                                                {/* Payment - Hidden on Mobile */}
+                                                <div className="flex flex-col items-start justify-center hidden sm:flex">
                                                     <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-300">
                                                         {paymentLabel}
                                                     </span>
@@ -662,8 +682,8 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                     )}
                                                 </div>
 
-                                                {/* Priority */}
-                                                <div className="flex items-center justify-start">
+                                                {/* Priority - Hidden on Mobile */}
+                                                <div className="flex items-center justify-start hidden sm:flex">
                                                     <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-md ${priorityColor}`}>
                                                         {priorityLabel}
                                                     </span>
@@ -680,9 +700,9 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                         )}
                                                     </div>
                                                     {/* Actions visible on hover */}
-                                                    <div className="absolute right-0 translate-x-16 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all flex gap-1 bg-[#1e2330] pl-2">
-                                                        <button onClick={() => handleEdit(t)} className="p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md"><Pencil className="w-3 h-3" /></button>
-                                                        <button onClick={() => handleDelete(t)} className="p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md"><Trash2 className="w-3 h-3" /></button>
+                                                    <div className={`absolute right-0 translate-x-16 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all flex gap-1 pl-2 ${theme === 'light' ? 'bg-white' : 'bg-[#1e2330]'}`}>
+                                                        <button onClick={() => handleEdit(t)} className={`p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Pencil className="w-3 h-3" /></button>
+                                                        <button onClick={() => handleDelete(t)} className={`p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Trash2 className="w-3 h-3" /></button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -692,18 +712,18 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                             </div>
 
                             {/* Total Footer */}
-                            <div className="mt-6 p-4 rounded-lg bg-slate-700/30 flex justify-end">
-                                <div className="text-xs text-slate-300 uppercase tracking-wider">
-                                    Total Lançado (Mês): <span className="font-bold text-white text-sm ml-1">{formatCurrency(totalExpensesMonthVal)}</span>
+                            <div className={`mt-6 p-4 rounded-lg flex justify-end ${theme === 'light' ? 'bg-slate-100' : 'bg-slate-700/30'}`}>
+                                <div className={`text-xs uppercase tracking-wider ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
+                                    Total Lançado (Mês): <span className={`font-bold text-sm ml-1 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{formatCurrency(totalExpensesMonthVal)}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                 ) : (
                     /* COLUNA: RESERVAS */
-                    <div className="p-8 rounded-2xl bg-[#1e2330]">
+                    <div className={`p-8 rounded-2xl ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
                         <div className="flex items-center justify-between mb-8">
-                            <h3 className="text-base font-medium text-slate-200 uppercase tracking-wider">Histórico de Aportes</h3>
+                            <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Histórico de Aportes</h3>
                             <button
                                 onClick={() => {
                                     setStep('investment');
@@ -716,8 +736,8 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                         </div>
 
                         <div className="w-full">
-                            {/* Table Header */}
-                            <div className="grid grid-cols-[1fr_1fr_1fr] pb-4 border-b border-slate-700 mb-2 px-2">
+                            {/* Table Header - Hidden on Mobile */}
+                            <div className={`hidden sm:grid grid-cols-[1fr_1fr_1fr] pb-4 border-b mb-2 px-2 ${theme === 'light' ? 'border-slate-200' : 'border-slate-700'}`}>
                                 <span className="text-[10px] font-medium text-slate-400 uppercase">Reserva</span>
                                 <span className="text-[10px] font-medium text-slate-400 uppercase">Data</span>
                                 <span className="text-[10px] font-medium text-slate-400 uppercase text-right">Valor</span>
@@ -731,14 +751,19 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                         const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
                                         const Icon = cat.icon;
                                         return (
-                                            <div key={t.id} className="grid grid-cols-[1fr_1fr_1fr] items-center py-4 px-2 hover:bg-white/5 rounded-xl transition-colors group">
+                                            <div key={t.id} className={`grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_1fr_1fr] items-center py-4 px-2 hover:bg-white/5 rounded-xl transition-colors group gap-2 sm:gap-4 border-b sm:border-b-0 ${theme === 'light' ? 'border-slate-100' : 'border-slate-700/30'}`}>
                                                 <div className="flex items-center gap-4">
                                                     <div className="w-8 h-8 rounded-full flex items-center justify-center bg-blue-500/20 text-blue-400 shrink-0">
                                                         <Icon className="w-4 h-4" />
                                                     </div>
-                                                    <span className="text-[13px] text-slate-200 truncate">{t.description}</span>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className={`text-[13px] truncate ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>{t.description}</span>
+                                                        <span className="text-[11px] text-slate-400 sm:hidden">
+                                                            {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <div className="text-[13px] text-slate-300">
+                                                <div className={`text-[13px] hidden sm:block ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
                                                     {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}.
                                                 </div>
                                                 <div className="flex items-center justify-end gap-3 relative">
@@ -746,9 +771,9 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                         + {formatCurrency(parseFloat(t.amount))}
                                                     </span>
                                                     {/* Actions visible on hover */}
-                                                    <div className="absolute right-0 translate-x-16 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all flex gap-1 bg-[#1e2330] pl-2">
-                                                        <button onClick={() => handleEdit(t)} className="p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md"><Pencil className="w-3 h-3" /></button>
-                                                        <button onClick={() => handleDelete(t)} className="p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md"><Trash2 className="w-3 h-3" /></button>
+                                                    <div className={`absolute right-0 translate-x-16 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all flex gap-1 pl-2 ${theme === 'light' ? 'bg-white' : 'bg-[#1e2330]'}`}>
+                                                        <button onClick={() => handleEdit(t)} className={`p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Pencil className="w-3 h-3" /></button>
+                                                        <button onClick={() => handleDelete(t)} className={`p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Trash2 className="w-3 h-3" /></button>
                                                     </div>
                                                 </div>
                                             </div>

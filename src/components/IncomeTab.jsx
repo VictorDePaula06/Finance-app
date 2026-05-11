@@ -3,7 +3,7 @@ import { db } from '../services/firebase';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { TrendingUp, TrendingDown, Wallet, Trash2, ArrowUpCircle, CircleDollarSign, Loader2, Pencil, X, Landmark, ArrowDownCircle, ChevronLeft, ChevronRight, Settings, Eye, EyeOff } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, Trash2, ArrowUpCircle, CircleDollarSign, Loader2, Pencil, X, Landmark, ArrowDownCircle, ChevronLeft, ChevronRight, Settings, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
 
 export default function IncomeTab({ transactions, savingsJars, walletStats, hideBalance, toggleHideBalance }) {
@@ -185,7 +185,6 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
 
         const targetJar = savingsJars?.find(j => j.id === selectedJarId);
         if (!targetJar || val > (parseFloat(targetJar.balance) || 0)) {
-            alert('Valor superior ao saldo desta reserva!');
             return;
         }
 
@@ -329,23 +328,12 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
         <div className="max-w-5xl mx-auto space-y-6 pb-20">
             {/* Header */}
             <div className="flex items-center justify-center pt-8 pb-4">
-                <h2 className="text-xl font-medium tracking-wide uppercase text-white">Gestão de Recebimentos</h2>
+                <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Gestão de Recebimentos</h2>
             </div>
 
             {/* Navigation Row */}
-            <div className="flex justify-center items-center gap-8 mb-8">
-                <div className="flex items-center rounded-lg border bg-[#1e2330] border-slate-700/50">
-                    <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
-                        <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <span className="px-4 text-[10px] font-bold uppercase text-slate-200 min-w-[140px] text-center">
-                        {monthLabel}
-                    </span>
-                    <button onClick={handleNextMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
-                        <ChevronRight className="w-4 h-4" />
-                    </button>
-                </div>
-
+            <div className="flex flex-col items-center gap-4 mb-8">
+                {/* Tabs on top */}
                 <div className="flex gap-6 border-b border-slate-700/50">
                     <button 
                         onClick={() => setSubTab('recebimentos')}
@@ -368,6 +356,19 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                         Resgates
                     </button>
                 </div>
+
+                {/* Month Selector below */}
+                <div className={`flex items-center rounded-lg border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
+                    <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
+                        <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className={`px-4 text-[10px] font-bold uppercase min-w-[140px] text-center ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
+                        {monthLabel}
+                    </span>
+                    <button onClick={handleNextMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
+                        <ChevronRight className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
 
             {subTab === 'recebimentos' ? (
@@ -375,7 +376,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                     {/* Cards Row */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {/* Saldo em Carteira */}
-                        <div className="p-5 rounded-xl flex flex-col justify-center gap-3 bg-[#1e2330]">
+                        <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <div className="text-blue-400">
@@ -383,17 +384,17 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                     </div>
                                     <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Saldo em Carteira</span>
                                 </div>
-                                <button onClick={toggleHideBalance} className="text-slate-500 hover:text-white transition-colors">
+                                <button onClick={toggleHideBalance} className={`text-slate-500 hover:text-white transition-colors ${theme === 'light' ? 'hover:text-slate-800' : ''}`}>
                                     {hideBalance ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
-                            <div className={`text-2xl font-bold ${hideBalance ? 'blur-md text-white' : 'text-white'}`}>
+                            <div className={`text-2xl font-bold ${hideBalance ? 'blur-md' : ''} ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                                 {hideBalance ? 'R$ 0,00' : formatCurrency(walletStats?.balance)}
                             </div>
                         </div>
 
                         {/* Recebimentos no Mês */}
-                        <div className="p-5 rounded-xl flex flex-col justify-center gap-3 bg-[#1e2330]">
+                        <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
                             <div className="flex items-center gap-2">
                                 <div className="text-emerald-400">
                                     <TrendingUp className="w-4 h-4" />
@@ -413,7 +414,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                         </div>
 
                         {/* Lançamentos no Mês */}
-                        <div className="p-5 rounded-xl flex flex-col justify-center gap-3 bg-[#1e2330]">
+                        <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
                             <div className="flex items-center gap-2">
                                 <div className="text-rose-400">
                                     <TrendingDown className="w-4 h-4" />
@@ -427,9 +428,9 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                     </div>
 
                     {/* Table Row */}
-                    <div className="p-8 rounded-2xl bg-[#1e2330]">
-                        <div className="flex items-center justify-between mb-8">
-                            <h3 className="text-base font-medium text-slate-200 uppercase tracking-wider">Últimos Recebimentos</h3>
+                    <div className={`p-8 rounded-2xl ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+                            <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Últimos Recebimentos</h3>
                             <button
                                 onClick={() => {
                                     setEditingId(null);
@@ -445,8 +446,8 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                         </div>
 
                         <div className="w-full">
-                            {/* Table Header */}
-                            <div className="grid grid-cols-[1fr_1fr_1fr] pb-4 border-b border-slate-700 mb-2 px-2">
+                            {/* Table Header - Hidden on Mobile */}
+                            <div className={`hidden sm:grid grid-cols-[1fr_1fr_1fr] pb-4 border-b mb-2 px-2 ${theme === 'light' ? 'border-slate-200' : 'border-slate-700'}`}>
                                 <span className="text-[10px] font-medium text-slate-400 uppercase">Origem</span>
                                 <span className="text-[10px] font-medium text-slate-400 uppercase">Data</span>
                                 <span className="text-[10px] font-medium text-slate-400 uppercase text-right">Valor</span>
@@ -455,16 +456,21 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                             {/* Table Body */}
                             <div className="space-y-1">
                                 {recentIncomes.length > 0 ? recentIncomes.map(t => (
-                                    <div key={t.id} className="grid grid-cols-[1fr_1fr_1fr] items-center py-4 px-2 hover:bg-white/5 rounded-xl transition-colors group">
+                                    <div key={t.id} className={`grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_1fr_1fr] items-center py-4 px-2 hover:bg-white/5 rounded-xl transition-colors group gap-2 sm:gap-4 border-b sm:border-b-0 ${theme === 'light' ? 'border-slate-100' : 'border-slate-700/30'}`}>
                                         <div className="flex items-center gap-4">
                                             <div className="w-8 h-8 rounded-full flex items-center justify-center bg-emerald-500/20 text-emerald-400 shrink-0">
                                                 <span className="text-xs font-black">
                                                     {t.description ? t.description.charAt(0).toUpperCase() : 'R'}
                                                 </span>
                                             </div>
-                                            <span className="text-[13px] text-slate-200 truncate">{t.description || 'Recebimento'}</span>
+                                            <div className="flex flex-col min-w-0">
+                                                <span className={`text-[13px] truncate ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>{t.description || 'Recebimento'}</span>
+                                                <span className="text-[11px] text-slate-400 sm:hidden">
+                                                    {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className="text-[13px] text-slate-300">
+                                        <div className={`text-[13px] hidden sm:block ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
                                             {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}.
                                         </div>
                                         <div className="flex items-center justify-end gap-3 relative">
@@ -472,9 +478,9 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                                 + {formatCurrency(parseFloat(t.amount))}
                                             </span>
                                             {/* Actions visible on hover */}
-                                            <div className="absolute right-0 translate-x-16 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all flex gap-1 bg-[#1e2330] pl-2">
-                                                <button onClick={() => handleEditInitiate(t)} className="p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md"><Pencil className="w-3 h-3" /></button>
-                                                <button onClick={() => handleDelete(t.id)} className="p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md"><Trash2 className="w-3 h-3" /></button>
+                                            <div className={`absolute right-0 translate-x-16 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all flex gap-1 pl-2 ${theme === 'light' ? 'bg-white' : 'bg-[#1e2330]'}`}>
+                                                <button onClick={() => handleEditInitiate(t)} className={`p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Pencil className="w-3 h-3" /></button>
+                                                <button onClick={() => handleDelete(t.id)} className={`p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Trash2 className="w-3 h-3" /></button>
                                             </div>
                                         </div>
                                     </div>
@@ -484,9 +490,9 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                             </div>
 
                             {/* Total Footer */}
-                            <div className="mt-6 p-4 rounded-lg bg-slate-700/30 flex justify-end">
-                                <div className="text-xs text-slate-300 uppercase tracking-wider">
-                                    Total Recebido (Mês): <span className="font-bold text-white text-sm ml-1">{formatCurrency(totalIncomeMonth)}</span>
+                            <div className={`mt-6 p-4 rounded-lg flex justify-end ${theme === 'light' ? 'bg-slate-100' : 'bg-slate-700/30'}`}>
+                                <div className={`text-xs uppercase tracking-wider ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
+                                    Total Recebido (Mês): <span className={`font-bold text-sm ml-1 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{formatCurrency(totalIncomeMonth)}</span>
                                 </div>
                             </div>
                         </div>
@@ -813,7 +819,10 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                         }`}
                                     />
                                     {selectedJarId && parseFloat(rescueAmount) > (parseFloat(savingsJars.find(j => j.id === selectedJarId)?.balance) || 0) && (
-                                        <p className="text-[10px] text-rose-500 font-bold mt-2 ml-1">Valor superior ao saldo desta reserva!</p>
+                                        <div className="mt-3 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2 text-rose-500">
+                                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                                            <p className="text-xs font-bold">Valor superior ao saldo desta reserva!</p>
+                                        </div>
                                     )}
                                 </div>
 

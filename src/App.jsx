@@ -417,7 +417,9 @@ function Dashboard() {
                 </div>
               </div>
 
-              <AliviaMiniInsight transactions={transactions} theme={theme} />
+              <div className="hidden lg:flex flex-1">
+                <AliviaMiniInsight transactions={transactions} theme={theme} />
+              </div>
 
               <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
                 <button 
@@ -448,6 +450,12 @@ function Dashboard() {
                 </div>
               </div>
             </div>
+            
+            {activeTab === 'visao' && (
+              <div className="block lg:hidden w-full mt-2">
+                <AliviaMiniInsight transactions={transactions} theme={theme} />
+              </div>
+            )}
 
             {activeTab === 'visao' && (
               <div className={`pt-6 border-t flex flex-col md:flex-row items-center justify-between gap-4 ${

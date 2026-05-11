@@ -99,7 +99,7 @@ export default function AliviaMiniInsight({ transactions = [], theme }) {
     };
 
     return (
-        <div className={`hidden lg:flex items-center justify-between flex-1 mx-8 p-3 rounded-2xl border ${bgColors[insight.status]} transition-all duration-300 shadow-inner`}>
+        <div className={`flex items-center justify-between flex-1 mx-0 lg:mx-8 p-3 rounded-2xl border ${bgColors[insight.status]} transition-all duration-300 shadow-inner`}>
             <div className="flex items-center gap-3">
                 <div className="relative shrink-0">
                     <img 
