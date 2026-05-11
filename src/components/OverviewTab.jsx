@@ -87,11 +87,20 @@ export default function OverviewTab({
         for (let i = days - 1; i >= 0; i--) {
             const d = new Date();
             d.setDate(today.getDate() - i);
-            const dateStr = d.toISOString().slice(0, 10);
+            const targetYear = d.getFullYear();
+            const targetMonth = d.getMonth();
+            const targetDate = d.getDate();
             const displayDate = d.toLocaleDateString('pt-BR', { day: '2-digit' });
 
-            const dayIncomes = transactions.filter(t => t.type === 'income' && t.date === dateStr).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-            const dayExpenses = transactions.filter(t => t.type === 'expense' && t.category !== 'investment' && t.date === dateStr).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+            const isSameDate = (txDate) => {
+                if (!txDate) return false;
+                const txD = new Date(txDate);
+                if (isNaN(txD.getTime())) return false;
+                return txD.getFullYear() === targetYear && txD.getMonth() === targetMonth && txD.getDate() === targetDate;
+            };
+
+            const dayIncomes = transactions.filter(t => t.type === 'income' && isSameDate(t.date)).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+            const dayExpenses = transactions.filter(t => t.type === 'expense' && t.category !== 'investment' && isSameDate(t.date)).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
             data.push({
                 name: displayDate,
