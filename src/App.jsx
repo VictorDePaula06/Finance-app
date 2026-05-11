@@ -603,13 +603,6 @@ function Dashboard() {
 
           {activeTab === 'gastos' && (
             <div className="space-y-10">
-               <WalletSummary 
-                income={walletStats.income} 
-                expense={walletStats.expense} 
-                balance={walletStats.balance}
-                isHidden={hideBalance}
-                onToggle={toggleHideBalance}
-              />
               <ExitsTab 
                 transactions={transactions} 
                 savingsJars={investmentStats.jarsWithBalance} 
