@@ -40,6 +40,7 @@ import WalletSummary from './components/WalletSummary';
 import ExitsTab from './components/ExitsTab';
 import { calculateCumulativeBalance } from './utils/financialLogic';
 import AliviaConfigForm from './components/AliviaConfigForm';
+import OverviewTab from './components/OverviewTab';
 
 // CONFIGURAÇÃO MASTER
 const MASTER_EMAIL = 'financealivia@gmail.com';
@@ -485,91 +486,18 @@ function Dashboard() {
 
           {activeTab === 'visao' && (
             <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <WalletSummary 
-                income={walletStats.income} 
-                expense={walletStats.expense} 
-                balance={walletStats.balance}
-                isHidden={hideBalance}
-                onToggle={toggleHideBalance}
+              <OverviewTab 
+                transactions={transactions}
+                savingsJars={savingsJars}
+                walletStats={walletStats}
+                investmentStats={investmentStats}
+                healthScore={healthScore}
+                theme={theme}
+                hideBalance={hideBalance}
+                toggleHideBalance={toggleHideBalance}
+                setEditingJar={setEditingJar}
+                setJarDeleteConfirm={setJarDeleteConfirm}
               />
-
-              {/* Investment Summary in Overview - MOVED TO TOP */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className={`p-8 rounded-[2.5rem] border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`}>
-                  <div className="flex items-center justify-between gap-3 mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-500">
-                        <Landmark className="w-5 h-5" />
-                      </div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Reservas (Total)</p>
-                    </div>
-                    <button 
-                      onClick={() => setShowReservesList(!showReservesList)}
-                      className={`p-2 rounded-xl transition-all ${theme === 'light' ? 'hover:bg-slate-50 text-slate-400' : 'hover:bg-white/5 text-slate-500'}`}
-                    >
-                      <ChevronDown className={`w-5 h-5 transition-transform duration-500 ${showReservesList ? 'rotate-180' : ''}`} />
-                    </button>
-                  </div>
-                  <p className={`text-3xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                    R$ {investmentStats.totalGuarded.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                  
-                  {showReservesList && investmentStats.jarsWithBalance?.length > 0 && (
-                    <div className="mt-6 pt-6 border-t border-slate-500/10 space-y-4 animate-in slide-in-from-top-4 duration-500">
-                      {investmentStats.jarsWithBalance.map(jar => (
-                        <div key={jar.id} className="group/jar relative">
-                          <div className="flex justify-between items-center mb-1">
-                            <div className="flex items-center gap-2">
-                              <div className="w-1 h-1 rounded-full bg-emerald-500 opacity-40 group-hover/jar:scale-150 transition-transform"></div>
-                              <span className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                                {jar.name}
-                              </span>
-                              
-                              <div className="flex gap-1 opacity-0 group-hover/jar:opacity-100 transition-opacity ml-1">
-                                <button 
-                                  onClick={() => setEditingJar({ ...jar, balance: jar.balance.toString(), cdiPercent: jar.cdiPercent.toString() })}
-                                  className="p-1 text-slate-400 hover:text-emerald-500 transition-colors"
-                                  title="Editar"
-                                >
-                                  <Pencil className="w-3 h-3" />
-                                </button>
-                                <button 
-                                  onClick={() => setJarDeleteConfirm(jar)}
-                                  className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
-                                  title="Excluir"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-                            <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
-                              R$ {jar.dynamicBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </span>
-                          </div>
-                          <div className="flex justify-end">
-                            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest opacity-80">
-                              + R$ {jar.dailyYield.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} /dia
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className={`p-8 rounded-[2.5rem] border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-blue-500/10 rounded-xl text-blue-500">
-                      <TrendingUp className="w-5 h-5" />
-                    </div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Ganho Diário</p>
-                  </div>
-                  <p className="text-3xl font-black text-emerald-500">
-                    + R$ {investmentStats.dailyYield.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <span className="text-sm font-bold opacity-60">/dia</span>
-                  </p>
-                </div>
-              </div>
-
-              <HealthScoreCard scoreData={healthScore} />
               
               {paceAlerts.length > 0 && <PaceAlerts paceAlerts={paceAlerts} />}
 
