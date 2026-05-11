@@ -29,6 +29,7 @@ import PatrimonyWelcome from './components/PatrimonyWelcome';
 import EvolucaoPatrimonialTab from './components/EvolucaoPatrimonialTab';
 import SettingsTab from './components/SettingsTab';
 import AIChat from './components/AIChat';
+import AliviaMiniInsight from './components/AliviaMiniInsight';
 import PaceAlerts from './components/PaceAlerts';
 import { calculateSpendingPace } from './utils/financialLogic';
 import AnalysisTab from './components/AnalysisTab';
@@ -416,6 +417,8 @@ function Dashboard() {
                 </div>
               </div>
 
+              <AliviaMiniInsight transactions={transactions} theme={theme} />
+
               <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
                 <button 
                   onClick={() => {
@@ -501,7 +504,7 @@ function Dashboard() {
               
               {paceAlerts.length > 0 && <PaceAlerts paceAlerts={paceAlerts} />}
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 gap-8">
                 {/* UPCOMING BILLS WIDGET */}
                 <div className={`p-8 rounded-[2.5rem] border ${
                   theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'
@@ -556,54 +559,6 @@ function Dashboard() {
                       <p className="text-xs text-slate-500 italic text-center py-4">Nenhum compromisso para este mês.</p>
                     )}
                   </div>
-                </div>
-
-                {/* SUNDAY BREATH / HIGHLIGHTS */}
-                <div className="space-y-6">
-                  {(() => {
-                    const breath = generateSundayBreath(transactions, manualConfig);
-                    if (!breath.hasActivity) return (
-                      <div className={`p-8 rounded-[2.5rem] border flex items-center justify-center text-center opacity-40 ${
-                        theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'
-                      }`}>
-                        <p className="text-xs font-bold uppercase tracking-widest">Sem atividades relevantes esta semana</p>
-                      </div>
-                    );
-                    return (
-                      <div className={`p-8 rounded-[2.5rem] border flex flex-col items-center justify-between gap-6 h-full ${
-                        theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'
-                      }`}>
-                        <div className="flex flex-col items-center text-center gap-4">
-                          <div className="relative">
-                            <div className="absolute -inset-1 bg-gradient-to-tr from-emerald-500 to-blue-500 rounded-full blur opacity-30 animate-pulse"></div>
-                            <img 
-                              src={aliviaFinal} 
-                              alt="Alívia" 
-                              className="relative w-20 h-20 object-cover rounded-full border-4 border-white/10 shadow-2xl" 
-                            />
-                          </div>
-                          <div>
-                            <h4 className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-2">Insight Semanal</h4>
-                            <p className={`text-sm leading-relaxed ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
-                              {breath.message}
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            window.dispatchEvent(new CustomEvent('open-ai-chat', { 
-                              detail: 'Alívia, baseado na minha semana, qual é o seu melhor conselho para eu manter o equilíbrio financeiro?' 
-                            }));
-                          }}
-                          className={`w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all group ${
-                            theme === 'light' ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg' : 'bg-emerald-600 text-white hover:bg-emerald-500'
-                          }`}
-                        >
-                          <Sparkles className="w-4 h-4" /> Pedir Conselho à Alívia
-                        </button>
-                      </div>
-                    );
-                  })()}
                 </div>
               </div>
             </div>
