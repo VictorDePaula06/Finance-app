@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { RefreshCw, TrendingUp, TrendingDown, Sparkles } from 'lucide-react';
-import aliviaFinal from '../assets/alivia-final.png';
+import aliviaFinal from '../assets/alivia/alivia-final.png';
 
 export default function AliviaMiniInsight({ transactions = [], theme }) {
     const [insight, setInsight] = useState(null);
