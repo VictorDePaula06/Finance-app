@@ -661,6 +661,9 @@ function Dashboard() {
                 cdiRate={cdiRate} 
                 cards={cards}
                 subscriptions={subscriptions}
+                walletStats={walletStats}
+                hideBalance={hideBalance}
+                toggleHideBalance={toggleHideBalance}
               />
             </div>
           )}

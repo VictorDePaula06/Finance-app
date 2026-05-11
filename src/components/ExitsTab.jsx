@@ -19,7 +19,10 @@ import {
     Filter,
     Shield,
     Sparkles,
-    Flame
+    Flame,
+    Wallet,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,7 +30,7 @@ import { db } from '../services/firebase';
 import { collection, addDoc, deleteDoc, doc, updateDoc, query, where } from 'firebase/firestore';
 import { CATEGORIES } from '../constants/categories';
 
-export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.65, cards = [], subscriptions = [] }) {
+export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.65, cards = [], subscriptions = [], walletStats, hideBalance, toggleHideBalance }) {
     const { theme } = useTheme();
     const { currentUser } = useAuth();
     
@@ -441,109 +444,146 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         }
     };
 
+    const totalExpensesMonthVal = useMemo(() => {
+        return monthExits.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    }, [monthExits]);
+
+    const totalIncomeMonthVal = useMemo(() => {
+        return transactions.filter(t => {
+            const isIncome = t.type === 'income';
+            const isNotSpecial = !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category);
+            const matchesMonth = t.month === selectedMonth || (t.date && t.date.startsWith(selectedMonth));
+            return isIncome && isNotSpecial && matchesMonth;
+        }).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    }, [transactions, selectedMonth]);
+
+    const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+
     return (
-        <div className="max-w-5xl mx-auto space-y-8 pb-20 px-2 sm:px-4 md:px-0">
-            {/* Header & Internal Tabs */}
-            <div className="flex flex-col items-center gap-6 py-8">
-                <div className={`p-4 rounded-full ${theme === 'light' ? 'bg-rose-50' : 'bg-rose-500/10'}`}>
-                    <TrendingDown className={`w-8 h-8 ${theme === 'light' ? 'text-rose-500' : 'text-rose-400'}`} />
-                </div>
-                <div className="text-center">
-                    <h2 className={`text-2xl font-black flex items-center justify-center gap-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                        Histórico de Lançamentos
-                        <ChevronDown className="w-4 h-4 opacity-30" />
-                    </h2>
-                    <p className={`text-sm ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Gerencie seus gastos e investimentos de forma organizada.</p>
+        <div className="max-w-5xl mx-auto space-y-6 pb-20 px-2 sm:px-4 md:px-0">
+            {/* Header */}
+            <div className="flex items-center justify-center pt-8 pb-4">
+                <h2 className="text-xl font-medium tracking-wide uppercase text-white">Gestão de Lançamentos</h2>
+            </div>
+
+            {/* Navigation Row */}
+            <div className="flex justify-center items-center gap-8 mb-8">
+                <div className="flex items-center rounded-lg border bg-[#1e2330] border-slate-700/50">
+                    <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
+                        <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="px-4 text-[10px] font-bold uppercase text-slate-200 min-w-[140px] text-center">
+                        {monthLabel}
+                    </span>
+                    <button onClick={handleNextMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
+                        <ChevronRight className="w-4 h-4" />
+                    </button>
                 </div>
 
-                {/* Sub-Tabs Switcher */}
-                <div className={`p-1.5 rounded-2xl flex gap-1 ${theme === 'light' ? 'bg-slate-100' : 'bg-white/5 shadow-inner'}`}>
+                <div className="flex gap-6 border-b border-slate-700/50">
                     <button 
                         onClick={() => setSubTab('despesas')}
-                        className={`px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+                        className={`pb-3 px-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
                             subTab === 'despesas' 
-                            ? (theme === 'light' ? 'bg-white text-rose-500 shadow-sm' : 'bg-white/10 text-rose-400 shadow-xl')
-                            : 'text-slate-500 hover:text-slate-700'
+                            ? 'border-rose-400 text-rose-400' 
+                            : 'border-transparent text-slate-500 hover:text-slate-300'
                         }`}
                     >
-                        <TrendingDown className="w-3 h-3" />
-                        Despesas e Consumo
+                        Despesas
                     </button>
                     <button 
                         onClick={() => setSubTab('reservas')}
-                        className={`px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+                        className={`pb-3 px-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
                             subTab === 'reservas' 
-                            ? (theme === 'light' ? 'bg-white text-blue-500 shadow-sm' : 'bg-white/10 text-blue-400 shadow-xl')
-                            : 'text-slate-500 hover:text-slate-700'
+                            ? 'border-rose-400 text-rose-400' 
+                            : 'border-transparent text-slate-500 hover:text-slate-300'
                         }`}
                     >
-                        <PiggyBank className="w-3 h-3" />
-                        Aportes em Reservas
+                        Aportes
                     </button>
                 </div>
-
-                <button 
-                    onClick={() => {
-                        if (subTab === 'despesas') {
-                            setStep('expense');
-                        } else {
-                            setStep('investment');
-                        }
-                        setShowModal(true);
-                    }}
-                    className={`group flex items-center gap-3 px-8 py-4 text-white rounded-2xl font-black text-sm shadow-xl transition-all active:scale-95 hover:scale-105 ${
-                        subTab === 'despesas' 
-                        ? 'bg-rose-500 hover:bg-rose-400 shadow-rose-500/20' 
-                        : 'bg-blue-500 hover:bg-blue-400 shadow-blue-500/20'
-                    }`}
-                >
-                    <Plus className="w-5 h-5 transition-transform group-hover:rotate-90" />
-                    {subTab === 'despesas' ? 'Registrar Nova Despesa' : 'Novo Lançamento de Reserva'}
-                </button>
             </div>
 
-            {/* Month Selector */}
-            <div className="flex items-center justify-center">
-                <div className={`flex items-center gap-2 p-1.5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-white/5 border-white/5'}`}>
-                    <button 
-                        onClick={handlePrevMonth}
-                        className={`p-2 rounded-xl transition-all ${theme === 'light' ? 'hover:bg-slate-50 text-slate-400' : 'hover:bg-white/5 text-slate-500'}`}
-                    >
-                        <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <span className={`px-4 text-xs font-black uppercase tracking-widest min-w-[160px] text-center ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
-                        {monthLabel}
-                    </span>
-                    <button 
-                        onClick={handleNextMonth}
-                        className={`p-2 rounded-xl transition-all ${theme === 'light' ? 'hover:bg-slate-50 text-slate-400' : 'hover:bg-white/5 text-slate-500'}`}
-                    >
-                        <ChevronRight className="w-5 h-5" />
-                    </button>
+            {/* Cards Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* Saldo em Carteira */}
+                <div className="p-5 rounded-xl flex flex-col justify-center gap-3 bg-[#1e2330]">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="text-blue-400">
+                                <Wallet className="w-4 h-4" />
+                            </div>
+                            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Saldo em Carteira</span>
+                        </div>
+                        <button onClick={toggleHideBalance} className="text-slate-500 hover:text-white transition-colors">
+                            {hideBalance ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                    </div>
+                    <div className={`text-2xl font-bold ${hideBalance ? 'blur-md text-white' : 'text-white'}`}>
+                        {hideBalance ? 'R$ 0,00' : formatCurrency(walletStats?.balance)}
+                    </div>
+                </div>
+
+                {/* Recebimentos no Mês */}
+                <div className="p-5 rounded-xl flex flex-col justify-center gap-3 bg-[#1e2330]">
+                    <div className="flex items-center gap-2">
+                        <div className="text-emerald-400">
+                            <TrendingUp className="w-4 h-4" />
+                        </div>
+                        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Recebimentos no Mês</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="flex gap-0.5 items-end text-emerald-500 pb-1">
+                            <div className="w-1 h-2 bg-emerald-500 rounded-sm"></div>
+                            <div className="w-1 h-3 bg-emerald-500 rounded-sm"></div>
+                            <div className="w-1 h-4 bg-emerald-500 rounded-sm"></div>
+                        </div>
+                        <div className="text-2xl font-bold text-emerald-400">
+                            {formatCurrency(totalIncomeMonthVal)}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Lançamentos no Mês */}
+                <div className="p-5 rounded-xl flex flex-col justify-center gap-3 bg-[#1e2330]">
+                    <div className="flex items-center gap-2">
+                        <div className="text-rose-400">
+                            <TrendingDown className="w-4 h-4" />
+                        </div>
+                        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Lançamentos no Mês</span>
+                    </div>
+                    <div className="text-2xl font-bold text-rose-400">
+                        {formatCurrency(totalExpensesMonthVal)}
+                    </div>
                 </div>
             </div>
 
             {/* Transactions List */}
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                 {subTab === 'despesas' ? (
-                    /* COLUNA: GASTOS */
-                    <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm ${
-                        theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'
-                    }`}>
-                        <div className="flex items-center gap-2 mb-4 text-rose-500 uppercase tracking-widest text-[10px] font-black">
-                            <TrendingDown className="w-3 h-3" />
-                            Lista de Despesas e Consumo
+                    <div className="p-8 rounded-2xl bg-[#1e2330]">
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-base font-medium text-slate-200 uppercase tracking-wider">Últimos Lançamentos</h3>
+                            <button
+                                onClick={() => {
+                                    setStep('expense');
+                                    setShowModal(true);
+                                }}
+                                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-rose-500/90 hover:bg-rose-500 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(244,63,94,0.15)]"
+                            >
+                                <span className="text-lg leading-none">+</span> Nova Despesa
+                            </button>
                         </div>
 
                         {/* Category Filter Chips */}
                         {availableCategories.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mb-6">
+                            <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-700 pb-4 px-2">
                                 <button
                                     onClick={() => setSelectedCategory(null)}
-                                    className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                                    className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all ${
                                         !selectedCategory 
-                                        ? (theme === 'light' ? 'bg-rose-500 text-white shadow-sm' : 'bg-rose-500 text-white shadow-xl')
-                                        : (theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10')
+                                        ? 'bg-rose-500/20 text-rose-400'
+                                        : 'bg-white/5 text-slate-400 hover:bg-white/10'
                                     }`}
                                 >
                                     Todas
@@ -554,10 +594,10 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                         <button
                                             key={cat.id}
                                             onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
-                                            className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${
+                                            className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${
                                                 selectedCategory === cat.id
-                                                ? (theme === 'light' ? 'bg-rose-500 text-white shadow-sm' : 'bg-rose-500 text-white shadow-xl')
-                                                : (theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10')
+                                                ? 'bg-rose-500/20 text-rose-400'
+                                                : 'bg-white/5 text-slate-400 hover:bg-white/10'
                                             }`}
                                         >
                                             <CatIcon className="w-3 h-3" />
@@ -568,153 +608,119 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                             </div>
                         )}
 
-                        <div className="space-y-3">
-                            {regularExpenses.length === 0 ? (
-                                <div className="text-center py-12">
-                                    <p className="text-sm font-bold text-slate-400">{selectedCategory ? 'Nenhum gasto nesta categoria.' : 'Nenhum gasto registrado neste mês.'}</p>
-                                </div>
-                            ) : (
-                                regularExpenses.map(t => {
-                                    const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
-                                    const Icon = cat.icon;
-                                    return (
-                                        <div key={t.id} className={`flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-0 p-5 md:p-6 rounded-[2rem] border transition-all hover:-translate-y-1 hover:shadow-xl ${
-                                            theme === 'light' ? 'bg-slate-50/50 border-slate-100 hover:bg-white' : 'bg-white/5 border-white/5 hover:bg-white/10'
-                                        }`}>
-                                            <div className="flex items-center gap-5 flex-1 min-w-0">
-                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner shrink-0 ${
-                                                    theme === 'light' ? 'bg-white' : 'bg-slate-900'
-                                                }`}>
-                                                    <Icon className={`w-7 h-7 ${cat.color}`} />
+                        <div className="w-full">
+                            {/* Table Header */}
+                            <div className="grid grid-cols-[1fr_1fr_1fr] pb-4 border-b border-slate-700 mb-2 px-2">
+                                <span className="text-[10px] font-medium text-slate-400 uppercase">Descrição</span>
+                                <span className="text-[10px] font-medium text-slate-400 uppercase">Data</span>
+                                <span className="text-[10px] font-medium text-slate-400 uppercase text-right">Valor</span>
+                            </div>
+
+                            {/* Table Body */}
+                            <div className="space-y-1">
+                                {regularExpenses.length === 0 ? (
+                                    <div className="py-8 text-center text-sm text-slate-500">{selectedCategory ? 'Nenhuma despesa nesta categoria.' : 'Nenhuma despesa recente encontrada.'}</div>
+                                ) : (
+                                    regularExpenses.map(t => {
+                                        const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
+                                        const Icon = cat.icon;
+                                        return (
+                                            <div key={t.id} className="grid grid-cols-[1fr_1fr_1fr] items-center py-4 px-2 hover:bg-white/5 rounded-xl transition-colors group">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-rose-500/20 text-rose-400 shrink-0">
+                                                        <Icon className="w-4 h-4" />
+                                                    </div>
+                                                    <span className="text-[13px] text-slate-200 truncate">{t.description}</span>
                                                 </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <h4 className={`font-black text-base md:text-lg truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{t.description}</h4>
-                                                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                                                        <span className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-widest opacity-60">
-                                                            {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                                <div className="text-[13px] text-slate-300">
+                                                    {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}.
+                                                </div>
+                                                <div className="flex items-center justify-end gap-3 relative">
+                                                    <div className="text-right flex flex-col items-end">
+                                                        <span className={`text-[13px] font-medium text-rose-400 ${t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' ? 'opacity-70' : ''}`}>
+                                                            - {formatCurrency(parseFloat(t.amount))}
                                                         </span>
-                                                        <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>
-                                                            {cat.label}
-                                                        </span>
-                                                        {t.paymentMethod && (
-                                                            <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>
-                                                                {t.paymentMethod === 'pix' ? 'PIX' : t.paymentMethod === 'debito' ? 'Débito' : t.paymentMethod === 'credito' ? 'Crédito' : 'Dinheiro'}
-                                                            </span>
+                                                        {t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' && (
+                                                            <span className="text-[9px] font-black text-slate-500 uppercase mt-0.5">Fatura Aberta</span>
                                                         )}
-                                                        {t.selectedCardId && (
-                                                            <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
-                                                                cards.find(c => c.id === t.selectedCardId)?.color || 'bg-rose-500/10 text-rose-400'
-                                                            } text-white shadow-sm`}>
-                                                                {cards.find(c => c.id === t.selectedCardId)?.name}
-                                                            </span>
-                                                        )}
-                                                        {t.priority && (
-                                                            <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
-                                                                t.priority === 'essential' ? (theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/20 text-emerald-400')
-                                                                : t.priority === 'superfluous' ? (theme === 'light' ? 'bg-rose-100 text-rose-600' : 'bg-rose-500/20 text-rose-400')
-                                                                : (theme === 'light' ? 'bg-amber-100 text-amber-600' : 'bg-amber-500/20 text-amber-400')
-                                                            }`}>
-                                                                {t.priority === 'essential' ? 'Essencial' : t.priority === 'superfluous' ? 'Supérfluo' : 'Conforto'}
-                                                            </span>
-                                                        )}
+                                                    </div>
+                                                    {/* Actions visible on hover */}
+                                                    <div className="absolute right-0 translate-x-16 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all flex gap-1 bg-[#1e2330] pl-2">
+                                                        <button onClick={() => handleEdit(t)} className="p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md"><Pencil className="w-3 h-3" /></button>
+                                                        <button onClick={() => handleDelete(t)} className="p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md"><Trash2 className="w-3 h-3" /></button>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center justify-end gap-3 shrink-0 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-slate-200 dark:border-white/10">
-                                                <div className="text-right flex flex-col items-end justify-center mr-2">
-                                                    <span className={`font-black text-rose-500 text-base md:text-xl whitespace-nowrap ${t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' ? 'opacity-50' : ''}`}>
-                                                        - R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                    </span>
-                                                    {t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' && (
-                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Fatura Aberta</span>
-                                                    )}
-                                                </div>
-                                                <button 
-                                                    onClick={() => handleEdit(t)}
-                                                    className={`p-2 rounded-lg transition-colors ${
-                                                        theme === 'light' ? 'text-slate-300 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10'
-                                                    }`}
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleDelete(t)}
-                                                    className={`p-2 rounded-lg transition-colors ${
-                                                        theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
-                                                    }`}
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
+                                        );
+                                    })
+                                )}
+                            </div>
+
+                            {/* Total Footer */}
+                            <div className="mt-6 p-4 rounded-lg bg-slate-700/30 flex justify-end">
+                                <div className="text-xs text-slate-300 uppercase tracking-wider">
+                                    Total Lançado (Mês): <span className="font-bold text-white text-sm ml-1">{formatCurrency(totalExpensesMonthVal)}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 ) : (
                     /* COLUNA: RESERVAS */
-                    <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm ${
-                        theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'
-                    }`}>
-                        <div className="flex items-center gap-2 mb-6 text-blue-400 uppercase tracking-widest text-[10px] font-black">
-                            <PiggyBank className="w-3 h-3" />
-                            Histórico de Aportes em Reservas
+                    <div className="p-8 rounded-2xl bg-[#1e2330]">
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-base font-medium text-slate-200 uppercase tracking-wider">Histórico de Aportes</h3>
+                            <button
+                                onClick={() => {
+                                    setStep('investment');
+                                    setShowModal(true);
+                                }}
+                                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-500/90 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(59,130,246,0.15)]"
+                            >
+                                <span className="text-lg leading-none">+</span> Novo Aporte
+                            </button>
                         </div>
 
-                        <div className="space-y-3">
-                            {investmentExits.length === 0 ? (
-                                <div className="text-center py-12">
-                                    <p className="text-sm font-bold text-slate-400">Nenhum aporte registrado.</p>
-                                </div>
-                            ) : (
-                                investmentExits.slice(0, 15).map(t => {
-                                    const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
-                                    const Icon = cat.icon;
-                                    return (
-                                        <div key={t.id} className={`flex items-center justify-between p-5 md:p-6 rounded-[2rem] border transition-all hover:-translate-y-1 hover:shadow-xl ${
-                                            theme === 'light' ? 'bg-slate-50/50 border-slate-100 hover:bg-white' : 'bg-white/5 border-white/5 hover:bg-white/10'
-                                        }`}>
-                                            <div className="flex items-center gap-5">
-                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner shrink-0 ${
-                                                    theme === 'light' ? 'bg-white' : 'bg-slate-900'
-                                                }`}>
-                                                    <Icon className={`w-7 h-7 ${cat.color}`} />
+                        <div className="w-full">
+                            {/* Table Header */}
+                            <div className="grid grid-cols-[1fr_1fr_1fr] pb-4 border-b border-slate-700 mb-2 px-2">
+                                <span className="text-[10px] font-medium text-slate-400 uppercase">Reserva</span>
+                                <span className="text-[10px] font-medium text-slate-400 uppercase">Data</span>
+                                <span className="text-[10px] font-medium text-slate-400 uppercase text-right">Valor</span>
+                            </div>
+
+                            <div className="space-y-1">
+                                {investmentExits.length === 0 ? (
+                                    <div className="py-8 text-center text-sm text-slate-500">Nenhum aporte recente encontrado.</div>
+                                ) : (
+                                    investmentExits.slice(0, 15).map(t => {
+                                        const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
+                                        const Icon = cat.icon;
+                                        return (
+                                            <div key={t.id} className="grid grid-cols-[1fr_1fr_1fr] items-center py-4 px-2 hover:bg-white/5 rounded-xl transition-colors group">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-blue-500/20 text-blue-400 shrink-0">
+                                                        <Icon className="w-4 h-4" />
+                                                    </div>
+                                                    <span className="text-[13px] text-slate-200 truncate">{t.description}</span>
                                                 </div>
-                                                <div className="min-w-0">
-                                                    <h4 className={`font-black text-base md:text-lg truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{t.description}</h4>
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <p className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-widest opacity-60">
-                                                            {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                                                        </p>
+                                                <div className="text-[13px] text-slate-300">
+                                                    {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}.
+                                                </div>
+                                                <div className="flex items-center justify-end gap-3 relative">
+                                                    <span className="text-[13px] font-medium text-blue-400">
+                                                        + {formatCurrency(parseFloat(t.amount))}
+                                                    </span>
+                                                    {/* Actions visible on hover */}
+                                                    <div className="absolute right-0 translate-x-16 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all flex gap-1 bg-[#1e2330] pl-2">
+                                                        <button onClick={() => handleEdit(t)} className="p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md"><Pencil className="w-3 h-3" /></button>
+                                                        <button onClick={() => handleDelete(t)} className="p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md"><Trash2 className="w-3 h-3" /></button>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className={`font-black text-blue-400 text-base md:text-xl mr-2 whitespace-nowrap`}>
-                                                    + R$ {parseFloat(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                </span>
-                                                <button 
-                                                    onClick={() => handleEdit(t)}
-                                                    className={`p-2 rounded-lg transition-colors ${
-                                                        theme === 'light' ? 'text-slate-300 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10'
-                                                    }`}
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleDelete(t)}
-                                                    className={`p-2 rounded-lg transition-colors ${
-                                                        theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
-                                                    }`}
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
+                                        );
+                                    })
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
