@@ -3,7 +3,7 @@ import { db } from '../services/firebase';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { TrendingUp, Trash2, ArrowUpCircle, CircleDollarSign, Loader2, Pencil, X, Landmark, ArrowDownCircle, ChevronLeft, ChevronRight, Settings, Eye, EyeOff } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, Trash2, ArrowUpCircle, CircleDollarSign, Loader2, Pencil, X, Landmark, ArrowDownCircle, ChevronLeft, ChevronRight, Settings, Eye, EyeOff } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
 
 export default function IncomeTab({ transactions, savingsJars, walletStats, hideBalance, toggleHideBalance }) {
@@ -303,194 +303,190 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
 
     const totalRedemptionMonth = useMemo(() => recentRedemptions.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0), [recentRedemptions]);
 
+    const totalExpensesMonth = useMemo(() => {
+        return transactions.filter(t => {
+            const isExpense = t.type === 'expense';
+            const matchesMonth = t.month === currentMonthKey || (t.date && t.date.startsWith(currentMonthKey));
+            return isExpense && matchesMonth;
+        }).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    }, [transactions, currentMonthKey]);
+
+    const totalIncomeMonth = useMemo(() => {
+        return transactions.filter(t => {
+            const isIncome = t.type === 'income';
+            const isNotSpecial = !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category);
+            const matchesMonth = t.month === currentMonthKey || (t.date && t.date.startsWith(currentMonthKey));
+            return isIncome && isNotSpecial && matchesMonth;
+        }).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    }, [transactions, currentMonthKey]);
+
     const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
     const cardBg = theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/50 border-white/5';
     const textColor = theme === 'light' ? 'text-slate-800' : 'text-white';
     const subTextColor = theme === 'light' ? 'text-slate-500' : 'text-slate-400';
 
     return (
-        <div className="max-w-4xl mx-auto space-y-10 pb-20">
-            {/* Header & Sub-Tabs Switcher */}
-            <div className="flex flex-col items-center gap-6 py-8">
-                <div className={`p-4 rounded-full ${theme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/10'}`}>
-                    <ArrowUpCircle className={`w-8 h-8 ${theme === 'light' ? 'text-emerald-500' : 'text-emerald-400'}`} />
-                </div>
-                <div className="text-center">
-                    <h2 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Gestão de Recebimentos</h2>
-                    <p className={`text-sm ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Acompanhe suas entradas e resgates de investimentos.</p>
-                </div>
+        <div className="max-w-5xl mx-auto space-y-6 pb-20">
+            {/* Header */}
+            <div className="flex items-center justify-center pt-8 pb-4">
+                <h2 className="text-xl font-medium tracking-wide uppercase text-white">Gestão de Recebimentos</h2>
+            </div>
 
-                {/* Month Navigator */}
-                <div className={`flex items-center gap-2 p-1.5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-white/5 border-white/5'}`}>
-                    <button 
-                        onClick={handlePrevMonth}
-                        className={`p-2 rounded-xl transition-all ${theme === 'light' ? 'hover:bg-slate-50 text-slate-400' : 'hover:bg-white/5 text-slate-500'}`}
-                    >
-                        <ChevronLeft className="w-5 h-5" />
+            {/* Navigation Row */}
+            <div className="flex justify-center items-center gap-8 mb-8">
+                <div className="flex items-center rounded-lg border bg-[#1e2330] border-slate-700/50">
+                    <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
+                        <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <span className={`px-4 text-[10px] font-black uppercase tracking-widest min-w-[140px] text-center ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
+                    <span className="px-4 text-[10px] font-bold uppercase text-slate-200 min-w-[140px] text-center">
                         {monthLabel}
                     </span>
-                    <button 
-                        onClick={handleNextMonth}
-                        className={`p-2 rounded-xl transition-all ${theme === 'light' ? 'hover:bg-slate-50 text-slate-400' : 'hover:bg-white/5 text-slate-500'}`}
-                    >
-                        <ChevronRight className="w-5 h-5" />
+                    <button onClick={handleNextMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
+                        <ChevronRight className="w-4 h-4" />
                     </button>
                 </div>
 
-                <div className={`p-1.5 rounded-2xl flex gap-1 ${theme === 'light' ? 'bg-slate-100' : 'bg-white/5 shadow-inner'}`}>
+                <div className="flex gap-6 border-b border-slate-700/50">
                     <button 
                         onClick={() => setSubTab('recebimentos')}
-                        className={`px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+                        className={`pb-3 px-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
                             subTab === 'recebimentos' 
-                            ? (theme === 'light' ? 'bg-white text-emerald-500 shadow-sm' : 'bg-white/10 text-emerald-400 shadow-xl')
-                            : 'text-slate-500 hover:text-slate-700'
+                            ? 'border-emerald-400 text-emerald-400' 
+                            : 'border-transparent text-slate-500 hover:text-slate-300'
                         }`}
                     >
-                        <ArrowUpCircle className="w-3 h-3" />
                         Recebimentos
                     </button>
                     <button 
                         onClick={() => setSubTab('resgates')}
-                        className={`px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+                        className={`pb-3 px-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
                             subTab === 'resgates' 
-                            ? (theme === 'light' ? 'bg-white text-blue-500 shadow-sm' : 'bg-white/10 text-blue-400 shadow-xl')
-                            : 'text-slate-500 hover:text-slate-700'
+                            ? 'border-emerald-400 text-emerald-400' 
+                            : 'border-transparent text-slate-500 hover:text-slate-300'
                         }`}
                     >
-                        <Landmark className="w-3 h-3" />
                         Resgates
                     </button>
                 </div>
             </div>
 
             {subTab === 'recebimentos' ? (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                        
-                        {/* Ativos e Saldos */}
-                        <div className="xl:col-span-2">
-                            <h3 className={`text-base font-bold mb-4 ${textColor}`}>Ativos e Saldos</h3>
-                            <div className={`p-6 rounded-[2rem] border flex flex-col justify-center h-40 ${cardBg}`}>
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span className={`text-sm font-semibold ${subTextColor}`}>Saldo Total em Carteira</span>
-                                            <button onClick={toggleHideBalance} className="text-slate-400 hover:text-emerald-500 transition-colors">
-                                                {hideBalance ? <EyeOff size={16} /> : <Eye size={16} />}
-                                            </button>
-                                        </div>
-                                        <div className={`text-4xl font-black ${hideBalance ? 'blur-md select-none' : textColor}`}>
-                                            {hideBalance ? 'R$ 0.000,00' : formatCurrency(walletStats?.balance)}
-                                        </div>
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    {/* Cards Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Saldo em Carteira */}
+                        <div className="p-5 rounded-xl flex flex-col justify-center gap-3 bg-[#1e2330]">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="text-blue-400">
+                                        <Wallet className="w-4 h-4" />
                                     </div>
-                                    <button
-                                        onClick={() => {
-                                            setEditingId(null);
-                                            setAmount('');
-                                            setDescription('');
-                                            setIncomeStep('form');
-                                            setShowIncomeModal(true);
-                                        }}
-                                        className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] border font-black text-sm uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl ${
-                                            theme === 'light' 
-                                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/20' 
-                                            : 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/20'
-                                        }`}
-                                    >
-                                        <ArrowUpCircle className="w-5 h-5" />
-                                        Novo Recebimento
-                                    </button>
+                                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Saldo em Carteira</span>
+                                </div>
+                                <button onClick={toggleHideBalance} className="text-slate-500 hover:text-white transition-colors">
+                                    {hideBalance ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                            </div>
+                            <div className={`text-2xl font-bold ${hideBalance ? 'blur-md text-white' : 'text-white'}`}>
+                                {hideBalance ? 'R$ 0,00' : formatCurrency(walletStats?.balance)}
+                            </div>
+                        </div>
+
+                        {/* Recebimentos no Mês */}
+                        <div className="p-5 rounded-xl flex flex-col justify-center gap-3 bg-[#1e2330]">
+                            <div className="flex items-center gap-2">
+                                <div className="text-emerald-400">
+                                    <TrendingUp className="w-4 h-4" />
+                                </div>
+                                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Recebimentos no Mês</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="flex gap-0.5 items-end text-emerald-500 pb-1">
+                                    <div className="w-1 h-2 bg-emerald-500 rounded-sm"></div>
+                                    <div className="w-1 h-3 bg-emerald-500 rounded-sm"></div>
+                                    <div className="w-1 h-4 bg-emerald-500 rounded-sm"></div>
+                                </div>
+                                <div className="text-2xl font-bold text-emerald-400">
+                                    {formatCurrency(totalIncomeMonth)}
                                 </div>
                             </div>
                         </div>
 
-                        {/* Últimos Recebimentos */}
-                        <div className="xl:col-span-1">
-                            <h3 className={`text-base font-bold mb-4 ${textColor}`}>Últimos Recebimentos</h3>
-                            <div className={`p-6 rounded-[2rem] border flex flex-col justify-between ${cardBg}`} style={{ minHeight: '340px' }}>
-                                <div>
-                                    <div className="flex items-center justify-between mb-6 relative">
-                                        <span className={`text-sm font-semibold ${textColor}`}>Atividade de Recebimentos</span>
-                                        <button 
-                                            onClick={() => setShowIncomesConfig(!showIncomesConfig)}
-                                            className={`p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'hover:bg-slate-100' : 'hover:bg-white/10'}`}
-                                        >
-                                            <Settings className={`w-4 h-4 ${subTextColor}`} />
-                                        </button>
-                                        
-                                        {showIncomesConfig && (
-                                            <div className={`absolute top-full right-0 mt-2 w-48 rounded-xl border shadow-xl z-10 overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-800 border-slate-700'}`}>
-                                                <div className="p-2 space-y-1">
-                                                    {[
-                                                        { id: 'month', label: 'Somente este mês' },
-                                                        { id: '15d', label: 'Últimos 15 dias' },
-                                                        { id: '30d', label: 'Últimos 30 dias' }
-                                                    ].map(opt => (
-                                                        <button
-                                                            key={opt.id}
-                                                            onClick={() => handleIncomesPeriodChange(opt.id)}
-                                                            className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                                                                incomesPeriod === opt.id 
-                                                                    ? 'bg-emerald-500/10 text-emerald-500' 
-                                                                    : (theme === 'light' ? 'text-slate-600 hover:bg-slate-50' : 'text-slate-300 hover:bg-white/5')
-                                                            }`}
-                                                        >
-                                                            {opt.label}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="space-y-4">
-                                        {recentIncomes.length > 0 ? recentIncomes.map(t => (
-                                            <div key={t.id} className="flex items-center justify-between group">
-                                                <div className="flex items-center gap-3 overflow-hidden">
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${theme === 'light' ? 'bg-emerald-50 text-emerald-600' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                                                        <span className="text-xs font-black">
-                                                            {t.description ? t.description.charAt(0).toUpperCase() : 'R'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className={`text-sm font-bold truncate ${textColor}`}>{t.description || 'Recebimento'}</p>
-                                                        <p className={`text-[10px] truncate ${subTextColor}`}>
-                                                            {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    <div className="text-right">
-                                                        <p className="text-xs font-bold text-emerald-500">
-                                                            + {formatCurrency(parseFloat(t.amount))}
-                                                        </p>
-                                                    </div>
-                                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button 
-                                                            onClick={() => handleEditInitiate(t)}
-                                                            className={`p-1.5 rounded-md transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10'}`}
-                                                        >
-                                                            <Pencil className="w-3 h-3" />
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => handleDelete(t.id)}
-                                                            className={`p-1.5 rounded-md transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-500 hover:text-rose-400 hover:bg-rose-500/10'}`}
-                                                        >
-                                                            <Trash2 className="w-3 h-3" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )) : (
-                                            <p className={`text-xs text-center ${subTextColor}`}>Nenhum recebimento recente.</p>
-                                        )}
-                                    </div>
+                        {/* Lançamentos no Mês */}
+                        <div className="p-5 rounded-xl flex flex-col justify-center gap-3 bg-[#1e2330]">
+                            <div className="flex items-center gap-2">
+                                <div className="text-rose-400">
+                                    <TrendingDown className="w-4 h-4" />
                                 </div>
-                                <div className="mt-4 pt-4 border-t border-slate-500/10 text-right">
-                                    <span className={`text-xs font-semibold ${subTextColor}`}>
-                                        Total Recebido {incomesPeriodLabel}: <span className={textColor}>{formatCurrency(totalIncomeFiltered)}</span>
-                                    </span>
+                                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Lançamentos no Mês</span>
+                            </div>
+                            <div className="text-2xl font-bold text-rose-400">
+                                {formatCurrency(totalExpensesMonth)}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Table Row */}
+                    <div className="p-8 rounded-2xl bg-[#1e2330]">
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-base font-medium text-slate-200 uppercase tracking-wider">Últimos Recebimentos</h3>
+                            <button
+                                onClick={() => {
+                                    setEditingId(null);
+                                    setAmount('');
+                                    setDescription('');
+                                    setIncomeStep('form');
+                                    setShowIncomeModal(true);
+                                }}
+                                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-400/90 hover:bg-emerald-400 text-slate-900 font-bold text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(52,211,153,0.15)]"
+                            >
+                                <span className="text-lg leading-none">+</span> Novo Recebimento
+                            </button>
+                        </div>
+
+                        <div className="w-full">
+                            {/* Table Header */}
+                            <div className="grid grid-cols-[1fr_1fr_1fr] pb-4 border-b border-slate-700 mb-2 px-2">
+                                <span className="text-[10px] font-medium text-slate-400 uppercase">Origem</span>
+                                <span className="text-[10px] font-medium text-slate-400 uppercase">Data</span>
+                                <span className="text-[10px] font-medium text-slate-400 uppercase text-right">Valor</span>
+                            </div>
+
+                            {/* Table Body */}
+                            <div className="space-y-1">
+                                {recentIncomes.length > 0 ? recentIncomes.map(t => (
+                                    <div key={t.id} className="grid grid-cols-[1fr_1fr_1fr] items-center py-4 px-2 hover:bg-white/5 rounded-xl transition-colors group">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-emerald-500/20 text-emerald-400 shrink-0">
+                                                <span className="text-xs font-black">
+                                                    {t.description ? t.description.charAt(0).toUpperCase() : 'R'}
+                                                </span>
+                                            </div>
+                                            <span className="text-[13px] text-slate-200 truncate">{t.description || 'Recebimento'}</span>
+                                        </div>
+                                        <div className="text-[13px] text-slate-300">
+                                            {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}.
+                                        </div>
+                                        <div className="flex items-center justify-end gap-3 relative">
+                                            <span className="text-[13px] font-medium text-emerald-400">
+                                                + {formatCurrency(parseFloat(t.amount))}
+                                            </span>
+                                            {/* Actions visible on hover */}
+                                            <div className="absolute right-0 translate-x-16 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all flex gap-1 bg-[#1e2330] pl-2">
+                                                <button onClick={() => handleEditInitiate(t)} className="p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md"><Pencil className="w-3 h-3" /></button>
+                                                <button onClick={() => handleDelete(t.id)} className="p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md"><Trash2 className="w-3 h-3" /></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )) : (
+                                    <div className="py-8 text-center text-sm text-slate-500">Nenhum recebimento recente encontrado.</div>
+                                )}
+                            </div>
+
+                            {/* Total Footer */}
+                            <div className="mt-6 p-4 rounded-lg bg-slate-700/30 flex justify-end">
+                                <div className="text-xs text-slate-300 uppercase tracking-wider">
+                                    Total Recebido (Mês): <span className="font-bold text-white text-sm ml-1">{formatCurrency(totalIncomeMonth)}</span>
                                 </div>
                             </div>
                         </div>
