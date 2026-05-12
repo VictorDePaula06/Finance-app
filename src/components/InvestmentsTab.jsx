@@ -191,10 +191,8 @@ export default function InvestmentsTab() {
     };
 
     const fetchTesouro = async () => {
-        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
         // Strategy 1: Use our Vercel serverless function (production)
-        if (!isLocalhost) {
+        {
             try {
                 const res = await fetch('/api/tesouro', { signal: AbortSignal.timeout(10000) });
                 if (res.ok) {
@@ -244,43 +242,307 @@ export default function InvestmentsTab() {
 
     // Fallback bonds with official names from tesourodireto.com.br
     const FALLBACK_TESOURO_BONDS = [
-        // Tesouro Selic
-        { nm: 'Tesouro Selic 2027', anulRentPrcnt: 0.0618, untrPric: 16293.87 },
-        { nm: 'Tesouro Selic 2029', anulRentPrcnt: 0.1142, untrPric: 16345.12 },
-        { nm: 'Tesouro Selic 2031', anulRentPrcnt: 0.1258, untrPric: 16120.45 },
-        // Tesouro IPCA+
-        { nm: 'Tesouro IPCA+ 2029', anulRentPrcnt: 7.68, untrPric: 3485.20 },
-        { nm: 'Tesouro IPCA+ 2035', anulRentPrcnt: 7.48, untrPric: 2205.30 },
-        { nm: 'Tesouro IPCA+ 2040', anulRentPrcnt: 7.30, untrPric: 1520.60 },
-        { nm: 'Tesouro IPCA+ 2045', anulRentPrcnt: 7.25, untrPric: 1065.40 },
-        { nm: 'Tesouro IPCA+ 2055', anulRentPrcnt: 7.15, untrPric: 520.80 },
-        // Tesouro IPCA+ com Juros Semestrais
-        { nm: 'Tesouro IPCA+ com Juros Semestrais 2032', anulRentPrcnt: 7.52, untrPric: 4520.30 },
-        { nm: 'Tesouro IPCA+ com Juros Semestrais 2040', anulRentPrcnt: 7.35, untrPric: 4380.10 },
-        { nm: 'Tesouro IPCA+ com Juros Semestrais 2055', anulRentPrcnt: 7.18, untrPric: 4250.50 },
-        // Tesouro Prefixado
-        { nm: 'Tesouro Prefixado 2027', anulRentPrcnt: 14.82, untrPric: 830.25 },
-        { nm: 'Tesouro Prefixado 2029', anulRentPrcnt: 14.58, untrPric: 620.30 },
-        { nm: 'Tesouro Prefixado 2032', anulRentPrcnt: 14.45, untrPric: 420.80 },
-        // Tesouro Prefixado com Juros Semestrais
-        { nm: 'Tesouro Prefixado com Juros Semestrais 2029', anulRentPrcnt: 14.55, untrPric: 960.40 },
-        { nm: 'Tesouro Prefixado com Juros Semestrais 2035', anulRentPrcnt: 14.40, untrPric: 880.20 },
-        // Tesouro RendA+
-        { nm: 'Tesouro RendA+ 2030', anulRentPrcnt: 7.45, untrPric: 1150.30 },
-        { nm: 'Tesouro RendA+ 2035', anulRentPrcnt: 7.40, untrPric: 860.20 },
-        { nm: 'Tesouro RendA+ 2040', anulRentPrcnt: 7.35, untrPric: 640.50 },
-        { nm: 'Tesouro RendA+ 2045', anulRentPrcnt: 7.30, untrPric: 475.40 },
-        { nm: 'Tesouro RendA+ 2050', anulRentPrcnt: 7.25, untrPric: 355.60 },
-        { nm: 'Tesouro RendA+ 2055', anulRentPrcnt: 7.20, untrPric: 265.30 },
-        { nm: 'Tesouro RendA+ 2060', anulRentPrcnt: 7.15, untrPric: 198.40 },
-        { nm: 'Tesouro RendA+ 2065', anulRentPrcnt: 7.10, untrPric: 148.20 },
-        // Tesouro Educa+
-        { nm: 'Tesouro Educa+ 2030', anulRentPrcnt: 7.42, untrPric: 1120.50 },
-        { nm: 'Tesouro Educa+ 2033', anulRentPrcnt: 7.38, untrPric: 920.30 },
-        { nm: 'Tesouro Educa+ 2036', anulRentPrcnt: 7.35, untrPric: 750.60 },
-        { nm: 'Tesouro Educa+ 2039', anulRentPrcnt: 7.30, untrPric: 615.40 },
-        { nm: 'Tesouro Educa+ 2042', anulRentPrcnt: 7.28, untrPric: 500.20 },
-    ];
+  {
+    "nm": "Tesouro Selic 2029",
+    "anulRentPrcnt": 0.05,
+    "untrPric": 18892.85
+  },
+  {
+    "nm": "Tesouro Selic 2028",
+    "anulRentPrcnt": 0.02,
+    "untrPric": 18910.93
+  },
+  {
+    "nm": "Tesouro Selic 2027",
+    "anulRentPrcnt": 0,
+    "untrPric": 18916.44
+  },
+  {
+    "nm": "Tesouro Selic 2031",
+    "anulRentPrcnt": 0.08,
+    "untrPric": 18842.4
+  },
+  {
+    "nm": "Tesouro Prefixado 2031",
+    "anulRentPrcnt": 13.78,
+    "untrPric": 549.71
+  },
+  {
+    "nm": "Tesouro Prefixado 2029",
+    "anulRentPrcnt": 13.74,
+    "untrPric": 711.22
+  },
+  {
+    "nm": "Tesouro Prefixado 2032",
+    "anulRentPrcnt": 13.84,
+    "untrPric": 481.7
+  },
+  {
+    "nm": "Tesouro Prefixado 2028",
+    "anulRentPrcnt": 13.74,
+    "untrPric": 807.29
+  },
+  {
+    "nm": "Tesouro Prefixado 2027",
+    "anulRentPrcnt": 13.88,
+    "untrPric": 916.99
+  },
+  {
+    "nm": "Tesouro IPCA+ com Juros Semestrais 2035",
+    "anulRentPrcnt": 7.47,
+    "untrPric": 4399.98
+  },
+  {
+    "nm": "Tesouro IPCA+ com Juros Semestrais 2030",
+    "anulRentPrcnt": 7.82,
+    "untrPric": 4463.94
+  },
+  {
+    "nm": "Tesouro IPCA+ com Juros Semestrais 2040",
+    "anulRentPrcnt": 7.23,
+    "untrPric": 4270.2
+  },
+  {
+    "nm": "Tesouro IPCA+ com Juros Semestrais 2050",
+    "anulRentPrcnt": 7.1,
+    "untrPric": 4190.97
+  },
+  {
+    "nm": "Tesouro IPCA+ com Juros Semestrais 2026",
+    "anulRentPrcnt": 9.09,
+    "untrPric": 4709.91
+  },
+  {
+    "nm": "Tesouro IPCA+ com Juros Semestrais 2060",
+    "anulRentPrcnt": 7.1,
+    "untrPric": 4125.43
+  },
+  {
+    "nm": "Tesouro IPCA+ com Juros Semestrais 2045",
+    "anulRentPrcnt": 7.14,
+    "untrPric": 4300.99
+  },
+  {
+    "nm": "Tesouro IPCA+ com Juros Semestrais 2055",
+    "anulRentPrcnt": 7.09,
+    "untrPric": 4230.13
+  },
+  {
+    "nm": "Tesouro IPCA+ com Juros Semestrais 2037",
+    "anulRentPrcnt": 7.39,
+    "untrPric": 4363.11
+  },
+  {
+    "nm": "Tesouro IPCA+ com Juros Semestrais 2032",
+    "anulRentPrcnt": 7.67,
+    "untrPric": 4386.28
+  },
+  {
+    "nm": "Tesouro IPCA+ 2029",
+    "anulRentPrcnt": 7.81,
+    "untrPric": 3742.99
+  },
+  {
+    "nm": "Tesouro IPCA+ 2035",
+    "anulRentPrcnt": 7.4,
+    "untrPric": 2472.6
+  },
+  {
+    "nm": "Tesouro IPCA+ 2026",
+    "anulRentPrcnt": 9.09,
+    "untrPric": 4574.67
+  },
+  {
+    "nm": "Tesouro IPCA+ 2050",
+    "anulRentPrcnt": 6.93,
+    "untrPric": 931.15
+  },
+  {
+    "nm": "Tesouro IPCA+ 2032",
+    "anulRentPrcnt": 7.64,
+    "untrPric": 2961.37
+  },
+  {
+    "nm": "Tesouro IPCA+ 2040",
+    "anulRentPrcnt": 7.09,
+    "untrPric": 1773.01
+  },
+  {
+    "nm": "Tesouro IPCA+ 2045",
+    "anulRentPrcnt": 6.98,
+    "untrPric": 1309.27
+  },
+  {
+    "nm": "Tesouro IGPM+ com Juros Semestrais 2031",
+    "anulRentPrcnt": 8,
+    "untrPric": 7889.75
+  },
+  {
+    "nm": "Tesouro Prefixado com Juros Semestrais 2035",
+    "anulRentPrcnt": 13.89,
+    "untrPric": 851
+  },
+  {
+    "nm": "Tesouro Prefixado com Juros Semestrais 2031",
+    "anulRentPrcnt": 13.87,
+    "untrPric": 911.3
+  },
+  {
+    "nm": "Tesouro Prefixado com Juros Semestrais 2029",
+    "anulRentPrcnt": 13.75,
+    "untrPric": 956.79
+  },
+  {
+    "nm": "Tesouro Prefixado com Juros Semestrais 2033",
+    "anulRentPrcnt": 13.91,
+    "untrPric": 875.78
+  },
+  {
+    "nm": "Tesouro Prefixado com Juros Semestrais 2027",
+    "anulRentPrcnt": 13.95,
+    "untrPric": 1009.14
+  },
+  {
+    "nm": "Tesouro Prefixado com Juros Semestrais 2037",
+    "anulRentPrcnt": 13.89,
+    "untrPric": 830.91
+  },
+  {
+    "nm": "Tesouro RendA+ 2035",
+    "anulRentPrcnt": 7.05,
+    "untrPric": 1429.94
+  },
+  {
+    "nm": "Tesouro RendA+ 2060",
+    "anulRentPrcnt": 6.97,
+    "untrPric": 271.33
+  },
+  {
+    "nm": "Tesouro RendA+ 2045",
+    "anulRentPrcnt": 6.95,
+    "untrPric": 744.67
+  },
+  {
+    "nm": "Tesouro RendA+ 2050",
+    "anulRentPrcnt": 6.95,
+    "untrPric": 533.27
+  },
+  {
+    "nm": "Tesouro RendA+ 2055",
+    "anulRentPrcnt": 6.96,
+    "untrPric": 380.57
+  },
+  {
+    "nm": "Tesouro RendA+ 2030",
+    "anulRentPrcnt": 7.2,
+    "untrPric": 1974.41
+  },
+  {
+    "nm": "Tesouro RendA+ 2040",
+    "anulRentPrcnt": 6.97,
+    "untrPric": 1035.59
+  },
+  {
+    "nm": "Tesouro RendA+ 2065",
+    "anulRentPrcnt": 6.97,
+    "untrPric": 194.12
+  },
+  {
+    "nm": "Tesouro Educa+ 2030",
+    "anulRentPrcnt": 7.88,
+    "untrPric": 3694.18
+  },
+  {
+    "nm": "Tesouro Educa+ 2033",
+    "anulRentPrcnt": 7.7,
+    "untrPric": 3226.16
+  },
+  {
+    "nm": "Tesouro Educa+ 2047",
+    "anulRentPrcnt": 6.98,
+    "untrPric": 1303.99
+  },
+  {
+    "nm": "Tesouro Educa+ 2037",
+    "anulRentPrcnt": 7.42,
+    "untrPric": 2457.91
+  },
+  {
+    "nm": "Tesouro Educa+ 2040",
+    "anulRentPrcnt": 7.22,
+    "untrPric": 2030.78
+  },
+  {
+    "nm": "Tesouro Educa+ 2036",
+    "anulRentPrcnt": 7.49,
+    "untrPric": 2625.46
+  },
+  {
+    "nm": "Tesouro Educa+ 2039",
+    "anulRentPrcnt": 7.28,
+    "untrPric": 2163.33
+  },
+  {
+    "nm": "Tesouro Educa+ 2041",
+    "anulRentPrcnt": 7.16,
+    "untrPric": 1908.41
+  },
+  {
+    "nm": "Tesouro Educa+ 2042",
+    "anulRentPrcnt": 7.11,
+    "untrPric": 1793.11
+  },
+  {
+    "nm": "Tesouro Educa+ 2045",
+    "anulRentPrcnt": 7.02,
+    "untrPric": 1481.53
+  },
+  {
+    "nm": "Tesouro Educa+ 2048",
+    "anulRentPrcnt": 6.97,
+    "untrPric": 1221.83
+  },
+  {
+    "nm": "Tesouro Educa+ 2032",
+    "anulRentPrcnt": 7.76,
+    "untrPric": 3465.32
+  },
+  {
+    "nm": "Tesouro Educa+ 2038",
+    "anulRentPrcnt": 7.34,
+    "untrPric": 2306.58
+  },
+  {
+    "nm": "Tesouro Educa+ 2031",
+    "anulRentPrcnt": 7.82,
+    "untrPric": 3726.42
+  },
+  {
+    "nm": "Tesouro Educa+ 2043",
+    "anulRentPrcnt": 7.07,
+    "untrPric": 1683.86
+  },
+  {
+    "nm": "Tesouro Educa+ 2034",
+    "anulRentPrcnt": 7.64,
+    "untrPric": 3006.28
+  },
+  {
+    "nm": "Tesouro Educa+ 2044",
+    "anulRentPrcnt": 7.04,
+    "untrPric": 1580.2
+  },
+  {
+    "nm": "Tesouro Educa+ 2046",
+    "anulRentPrcnt": 7,
+    "untrPric": 1389.61
+  },
+  {
+    "nm": "Tesouro Educa+ 2035",
+    "anulRentPrcnt": 7.56,
+    "untrPric": 2808.27
+  }
+];
 
     useEffect(() => {
         fetchTesouro();
