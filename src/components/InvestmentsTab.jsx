@@ -190,73 +190,110 @@ export default function InvestmentsTab() {
         }
     };
 
-    useEffect(() => {
-        const FALLBACK_BONDS = [
-            { nm: 'Tesouro Selic 2027', anulRentPrcnt: 10.65, untrPric: 14500.00 },
-            { nm: 'Tesouro Selic 2029', anulRentPrcnt: 10.65, untrPric: 14800.00 },
-            { nm: 'Tesouro IPCA+ 2029', anulRentPrcnt: 6.89, untrPric: 4200.00 },
-            { nm: 'Tesouro IPCA+ 2035', anulRentPrcnt: 6.93, untrPric: 3800.00 },
-            { nm: 'Tesouro IPCA+ 2045', anulRentPrcnt: 6.95, untrPric: 1950.00 },
-            { nm: 'Tesouro IPCA+ 2055', anulRentPrcnt: 6.97, untrPric: 1100.00 },
-            { nm: 'Tesouro Renda+ 2030', anulRentPrcnt: 6.90, untrPric: 1050.00 },
-            { nm: 'Tesouro Renda+ 2035', anulRentPrcnt: 6.92, untrPric: 950.00 },
-            { nm: 'Tesouro Renda+ 2040', anulRentPrcnt: 6.94, untrPric: 850.00 },
-            { nm: 'Tesouro Renda+ 2045', anulRentPrcnt: 6.95, untrPric: 760.00 },
-            { nm: 'Tesouro Renda+ 2050', anulRentPrcnt: 6.96, untrPric: 680.00 },
-            { nm: 'Tesouro Renda+ 2055', anulRentPrcnt: 6.96, untrPric: 600.00 },
-            { nm: 'Tesouro Renda+ 2060', anulRentPrcnt: 6.97, untrPric: 540.00 },
-            { nm: 'Tesouro Renda+ 2065', anulRentPrcnt: 6.96, untrPric: 480.00 },
-            { nm: 'Tesouro Prefixado 2027', anulRentPrcnt: 13.68, untrPric: 820.00 },
-            { nm: 'Tesouro Prefixado 2029', anulRentPrcnt: 13.75, untrPric: 680.00 },
-            { nm: 'Tesouro Prefixado 2031', anulRentPrcnt: 13.80, untrPric: 560.00 },
+    const fetchTesouro = async () => {
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+        // Strategy 1: Use our Vercel serverless function (production)
+        if (!isLocalhost) {
+            try {
+                const res = await fetch('/api/tesouro', { signal: AbortSignal.timeout(10000) });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.bonds && data.bonds.length > 0) {
+                        console.log(`[Tesouro] Loaded ${data.bonds.length} bonds via /api/tesouro (${data.source})`);
+                        setTesouroData(data.bonds);
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('[Tesouro] /api/tesouro failed:', e.message);
+            }
+        }
+
+        // Strategy 2: Client-side proxies (localhost fallback)
+        const tesouroUrl = 'https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondpriceandsavings.json';
+        const proxies = [
+            `https://api.allorigins.win/get?url=${encodeURIComponent(tesouroUrl)}`,
+            `https://corsproxy.io/?${encodeURIComponent(tesouroUrl)}`,
         ];
 
-        const parseTesouroResponse = (json) => {
-            // allorigins wraps in { contents: "..." }
-            const raw = json.contents ?? json;
-            const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
-            if (data?.response?.TrsrBondPricLogList) {
-                return data.response.TrsrBondPricLogList.map(item => item.TrsrBond);
-            }
-            return null;
-        };
-
-        const fetchTesouro = async () => {
-            const tesouroUrl = 'https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondpriceandsavings.json';
-            const proxies = [
-                `https://api.allorigins.win/get?url=${encodeURIComponent(tesouroUrl)}`,
-                `https://corsproxy.io/?${encodeURIComponent(tesouroUrl)}`,
-                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(tesouroUrl)}`,
-                `https://thingproxy.freeboard.io/fetch/${tesouroUrl}`,
-            ];
-
-            for (const proxyUrl of proxies) {
-                try {
-                    const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
-                    if (!res.ok) continue;
-                    const json = await res.json();
-                    const list = parseTesouroResponse(json);
-                    if (list && list.length > 0) {
-                        console.log(`[Tesouro] Loaded ${list.length} bonds via ${proxyUrl}`);
+        for (const proxyUrl of proxies) {
+            try {
+                const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+                if (!res.ok) continue;
+                const json = await res.json();
+                const raw = json.contents ?? json;
+                const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                if (data?.response?.TrsrBondPricLogList) {
+                    const list = data.response.TrsrBondPricLogList.map(item => item.TrsrBond);
+                    if (list.length > 0) {
+                        console.log(`[Tesouro] Loaded ${list.length} bonds via proxy`);
                         setTesouroData(list);
                         return;
                     }
-                } catch (e) {
-                    console.warn(`[Tesouro] Proxy failed: ${proxyUrl}`, e.message);
                 }
+            } catch (e) {
+                console.warn(`[Tesouro] Proxy failed: ${proxyUrl}`, e.message);
             }
+        }
 
-            console.warn('[Tesouro] All proxies failed — using approximate fallback rates');
-            setTesouroData(FALLBACK_BONDS);
-        };
+        // Strategy 3: Fallback with official names
+        console.warn('[Tesouro] All sources failed — using fallback data');
+        setTesouroData(FALLBACK_TESOURO_BONDS);
+    };
 
+    // Fallback bonds with official names from tesourodireto.com.br
+    const FALLBACK_TESOURO_BONDS = [
+        // Tesouro Selic
+        { nm: 'Tesouro Selic 2027', anulRentPrcnt: 0.0618, untrPric: 16293.87 },
+        { nm: 'Tesouro Selic 2029', anulRentPrcnt: 0.1142, untrPric: 16345.12 },
+        { nm: 'Tesouro Selic 2031', anulRentPrcnt: 0.1258, untrPric: 16120.45 },
+        // Tesouro IPCA+
+        { nm: 'Tesouro IPCA+ 2029', anulRentPrcnt: 7.68, untrPric: 3485.20 },
+        { nm: 'Tesouro IPCA+ 2035', anulRentPrcnt: 7.48, untrPric: 2205.30 },
+        { nm: 'Tesouro IPCA+ 2040', anulRentPrcnt: 7.30, untrPric: 1520.60 },
+        { nm: 'Tesouro IPCA+ 2045', anulRentPrcnt: 7.25, untrPric: 1065.40 },
+        { nm: 'Tesouro IPCA+ 2055', anulRentPrcnt: 7.15, untrPric: 520.80 },
+        // Tesouro IPCA+ com Juros Semestrais
+        { nm: 'Tesouro IPCA+ com Juros Semestrais 2032', anulRentPrcnt: 7.52, untrPric: 4520.30 },
+        { nm: 'Tesouro IPCA+ com Juros Semestrais 2040', anulRentPrcnt: 7.35, untrPric: 4380.10 },
+        { nm: 'Tesouro IPCA+ com Juros Semestrais 2055', anulRentPrcnt: 7.18, untrPric: 4250.50 },
+        // Tesouro Prefixado
+        { nm: 'Tesouro Prefixado 2027', anulRentPrcnt: 14.82, untrPric: 830.25 },
+        { nm: 'Tesouro Prefixado 2029', anulRentPrcnt: 14.58, untrPric: 620.30 },
+        { nm: 'Tesouro Prefixado 2032', anulRentPrcnt: 14.45, untrPric: 420.80 },
+        // Tesouro Prefixado com Juros Semestrais
+        { nm: 'Tesouro Prefixado com Juros Semestrais 2029', anulRentPrcnt: 14.55, untrPric: 960.40 },
+        { nm: 'Tesouro Prefixado com Juros Semestrais 2035', anulRentPrcnt: 14.40, untrPric: 880.20 },
+        // Tesouro RendA+
+        { nm: 'Tesouro RendA+ 2030', anulRentPrcnt: 7.45, untrPric: 1150.30 },
+        { nm: 'Tesouro RendA+ 2035', anulRentPrcnt: 7.40, untrPric: 860.20 },
+        { nm: 'Tesouro RendA+ 2040', anulRentPrcnt: 7.35, untrPric: 640.50 },
+        { nm: 'Tesouro RendA+ 2045', anulRentPrcnt: 7.30, untrPric: 475.40 },
+        { nm: 'Tesouro RendA+ 2050', anulRentPrcnt: 7.25, untrPric: 355.60 },
+        { nm: 'Tesouro RendA+ 2055', anulRentPrcnt: 7.20, untrPric: 265.30 },
+        { nm: 'Tesouro RendA+ 2060', anulRentPrcnt: 7.15, untrPric: 198.40 },
+        { nm: 'Tesouro RendA+ 2065', anulRentPrcnt: 7.10, untrPric: 148.20 },
+        // Tesouro Educa+
+        { nm: 'Tesouro Educa+ 2030', anulRentPrcnt: 7.42, untrPric: 1120.50 },
+        { nm: 'Tesouro Educa+ 2033', anulRentPrcnt: 7.38, untrPric: 920.30 },
+        { nm: 'Tesouro Educa+ 2036', anulRentPrcnt: 7.35, untrPric: 750.60 },
+        { nm: 'Tesouro Educa+ 2039', anulRentPrcnt: 7.30, untrPric: 615.40 },
+        { nm: 'Tesouro Educa+ 2042', anulRentPrcnt: 7.28, untrPric: 500.20 },
+    ];
+
+    useEffect(() => {
         fetchTesouro();
     }, []);
 
     useEffect(() => {
         fetchLivePrices();
+        fetchTesouro(); // Also refresh Tesouro data
         // Update every 2 minutes
-        const interval = setInterval(fetchLivePrices, 60000 * 2); 
+        const interval = setInterval(() => {
+            fetchLivePrices();
+            fetchTesouro(); // Keep Tesouro prices fresh
+        }, 60000 * 2); 
         return () => clearInterval(interval);
     }, [investments.length]);
 
@@ -344,6 +381,21 @@ export default function InvestmentsTab() {
         setDeleteConfirm(null);
     };
 
+    // Helper: get live Tesouro rate for a bond name
+    const getLiveTesouroRate = (bondName) => {
+        if (!bondName || tesouroData.length === 0) return null;
+        const normalizedName = bondName.trim().toLowerCase();
+        const match = tesouroData.find(b => b.nm && b.nm.trim().toLowerCase() === normalizedName);
+        if (match) return { rate: parseFloat(match.anulRentPrcnt), unitPrice: parseFloat(match.untrPric) };
+        // Fuzzy match: try finding by partial name match
+        const fuzzy = tesouroData.find(b => b.nm && (
+            normalizedName.includes(b.nm.trim().toLowerCase()) || 
+            b.nm.trim().toLowerCase().includes(normalizedName)
+        ));
+        if (fuzzy) return { rate: parseFloat(fuzzy.anulRentPrcnt), unitPrice: parseFloat(fuzzy.untrPric) };
+        return null;
+    };
+
     const calculateStats = (filteredInvestments) => {
         let totalInvested = 0;
         let currentValue = 0;
@@ -355,9 +407,12 @@ export default function InvestmentsTab() {
             if (asset.type === 'renda_fixa') {
                 const applied = asset.totalApplied || (asset.quantity * asset.purchasePrice) || 0;
                 let current = asset.manualCurrentPrice || applied;
-                // Mark-to-market: purchaseRate vs fixedRate (current market rate)
+
+                // Try to get live rate from Tesouro API for mark-to-market
+                const liveData = getLiveTesouroRate(asset.name);
                 const pRate = parseFloat(asset.purchaseRate || asset.fixedRate || 0);
-                const cRate = parseFloat(asset.currentMarketRate || asset.fixedRate || 0);
+                let cRate = liveData ? liveData.rate : parseFloat(asset.currentMarketRate || asset.fixedRate || 0);
+
                 if (pRate > 0 && cRate > 0 && pRate !== cRate && !asset.manualCurrentPrice) {
                     current = applied * (pRate / cRate);
                 }
@@ -444,8 +499,9 @@ export default function InvestmentsTab() {
         let trueCurrent = isFixedIncome ? (inv.manualCurrentPrice || trueInvested) : (inv.quantity * currentPrice * usdMultiplier);
         
         if (isFixedIncome) {
+            const liveData = getLiveTesouroRate(inv.name);
             const pRate = parseFloat(inv.purchaseRate || inv.fixedRate || 0);
-            const cRate = parseFloat(inv.currentMarketRate || inv.fixedRate || 0);
+            let cRate = liveData ? liveData.rate : parseFloat(inv.currentMarketRate || inv.fixedRate || 0);
             if (pRate > 0 && cRate > 0 && pRate !== cRate && !inv.manualCurrentPrice) {
                 trueCurrent = trueInvested * (pRate / cRate);
             }
@@ -736,13 +792,14 @@ export default function InvestmentsTab() {
                                                 if (prices[sym]) currentPrice = prices[sym];
                                             }
                                         }
-                                        // Fixed income mark-to-market calculation
+                                        // Fixed income mark-to-market calculation with live Tesouro rates
                                         let trueCurrent = isFixedIncome
                                             ? (asset.manualCurrentPrice || trueInvested)
                                             : (asset.quantity * currentPrice * (asset.isUSD ? prices.USD : 1));
                                         if (isFixedIncome) {
+                                            const liveData = getLiveTesouroRate(asset.name);
                                             const pRate = parseFloat(asset.purchaseRate || asset.fixedRate || 0);
-                                            const cRate = parseFloat(asset.currentMarketRate || asset.fixedRate || 0);
+                                            let cRate = liveData ? liveData.rate : parseFloat(asset.currentMarketRate || asset.fixedRate || 0);
                                             if (pRate > 0 && cRate > 0 && pRate !== cRate && !asset.manualCurrentPrice) {
                                                 trueCurrent = trueInvested * (pRate / cRate);
                                             }
@@ -787,7 +844,23 @@ export default function InvestmentsTab() {
                                                                     <>
                                                                         <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>{displayCurrency} {displayPurchaseVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                                                         <p className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{displayCurrency} {displayCurrentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                                                        {asset.fixedRate && <p className="text-[10px] text-blue-400 font-bold mt-0.5">{asset.yieldType === 'ipca' ? `IPCA+ ${asset.fixedRate}%` : asset.yieldType === 'cdi' ? `${asset.cdiPercent}% CDI` : `${asset.fixedRate}% a.a.`}</p>}
+                                                                        {asset.fixedRate && (() => {
+                                                                            const liveData = getLiveTesouroRate(asset.name);
+                                                                            const liveRate = liveData ? liveData.rate : null;
+                                                                            return (
+                                                                                <div className="flex flex-col gap-0.5">
+                                                                                    <p className="text-[10px] text-blue-400 font-bold">
+                                                                                        {asset.yieldType === 'ipca' ? `IPCA+ ${asset.fixedRate}%` : asset.yieldType === 'cdi' ? `${asset.cdiPercent}% CDI` : `${asset.fixedRate}% a.a.`}
+                                                                                        {' (compra)'}
+                                                                                    </p>
+                                                                                    {liveRate && liveRate !== parseFloat(asset.fixedRate) && (
+                                                                                        <p className={`text-[9px] font-bold ${liveRate < parseFloat(asset.fixedRate) ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                                                                            Mercado: {asset.yieldType === 'ipca' ? `IPCA+ ${liveRate}%` : `${liveRate}% a.a.`}
+                                                                                        </p>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
                                                                     </>
                                                                 ) : (
                                                                     <>
