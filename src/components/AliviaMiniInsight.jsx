@@ -17,7 +17,7 @@ export default function AliviaMiniInsight({ transactions = [], theme }) {
         });
 
         const incomeTxs = monthTxs.filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category));
-        const expenseTxs = monthTxs.filter(t => t.type === 'expense' && t.category !== 'investment');
+        const expenseTxs = monthTxs.filter(t => t.type === 'expense' && t.category !== 'investment' && t.paymentMethod !== 'credito');
         const investmentTxs = monthTxs.filter(t => t.type === 'expense' && t.category === 'investment');
 
         const totalIncome = incomeTxs.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);

@@ -52,6 +52,7 @@ export function AuthProvider({ children }) {
         if (currentUser) {
             localStorage.removeItem(`isPremium_${currentUser.uid}`);
         }
+        globalMaxAccess = false;
         return signOut(auth);
     }
 
@@ -78,6 +79,7 @@ export function AuthProvider({ children }) {
                 setIsTrial(false);
                 setLoading(false);
                 setIsAdmin(false);
+                globalMaxAccess = false;
             } else {
                 // Carrega o status Premium do LocalStorage para evitar trancar a tela no F5
                 const wasPremium = localStorage.getItem(`isPremium_${user.uid}`) === 'true';
@@ -117,7 +119,11 @@ export function AuthProvider({ children }) {
 
     // Stable Subscription & Prefs Listener
     useEffect(() => {
-        if (!currentUser) return;
+        if (!currentUser) {
+            dataRef.current = { prefs: {}, user: {}, subs: [], prefsLoaded: false, userLoaded: false, subsLoaded: false, isInitialized: false };
+            lastSubInfoRef.current = "";
+            return;
+        }
 
         if (IS_DEV) {
             console.log("[Dev Mode] Simulando preferências e status premium...");
