@@ -768,7 +768,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         );
       })()}
 
-      {/* ── PATRIMÔNIO vs CDI — Últimos 3 meses ── */}
+      {/* ── RETORNO ACUMULADO (%) vs CDI — Últimos 3 meses ── */}
       {(() => {
         if (patrimonioTotal <= 0) return null;
 
@@ -814,70 +814,116 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
           return { month: label, key: monthKey, patrimonio: Math.max(0, pastTotal) };
         });
 
-        // CDI line: start from the first month's patrimony value and grow at CDI rate
-        const baseValue = monthData[0].patrimonio;
+        // Convert absolute values to accumulated percentage return (Base 0% at month 0)
+        const baseValue = monthData[0].patrimonio > 0 ? monthData[0].patrimonio : 1; // avoid div by 0
         const cdiMonthlyRate = Math.pow(1 + cdiAnual / 100, 1 / 12) - 1;
 
-        const chartData = monthData.map((item, idx) => ({
-          name: item.month.charAt(0).toUpperCase() + item.month.slice(1),
-          'Patrimônio': Math.round(item.patrimonio * 100) / 100,
-          'CDI': Math.round(baseValue * Math.pow(1 + cdiMonthlyRate, idx) * 100) / 100,
-        }));
+        const chartData = monthData.map((item, idx) => {
+          const portPct = ((item.patrimonio - baseValue) / baseValue) * 100;
+          const cdiPct = ((Math.pow(1 + cdiMonthlyRate, idx) - 1)) * 100;
+          return {
+            name: item.month.charAt(0).toUpperCase() + item.month.slice(1),
+            'Meu Portfólio': Math.round(portPct * 100) / 100,
+            'CDI': Math.round(cdiPct * 100) / 100,
+          };
+        });
 
         const CustomTooltip = ({ active, payload, label }) => {
           if (!active || !payload?.length) return null;
           return (
-            <div className={`px-3 py-2 rounded-xl border shadow-xl text-[10px] ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}>
-              <p className={`font-black mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{label}</p>
+            <div className={`px-4 py-3 rounded-2xl border shadow-2xl text-[10px] ${isDark ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
+              <p className="font-black text-slate-500 uppercase tracking-widest mb-2">{label}</p>
               {payload.map((p, i) => (
-                <p key={i} className="font-bold" style={{ color: p.color }}>
-                  {p.name}: R$ {fmt(p.value)}
-                </p>
+                <div key={i} className="flex items-center justify-between gap-4 mb-1">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: p.color }} />
+                    {p.name}
+                  </span>
+                  <span className="font-black" style={{ color: p.color }}>
+                    {p.value >= 0 ? '+' : ''}{p.value.toFixed(2)}%
+                  </span>
+                </div>
               ))}
             </div>
           );
         };
 
         return (
-          <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
-            <div className="px-4 pt-3 pb-0 flex items-center justify-between">
+          <div className={`rounded-[2rem] border overflow-hidden p-6 ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <BarChart3 className="w-5 h-5 text-[#00E5A0]" />
+                <h3 className={`font-black text-base ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                  Retorno Acumulado (%)
+                </h3>
+              </div>
+              <div className={`flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-xl self-start md:self-auto ${isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                <Info className="w-3 h-3" />
+                Base 0% no início do período
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-center gap-6 pb-4">
               <div className="flex items-center gap-2">
-                <div className={`p-1.5 rounded-lg ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
-                  <TrendingUp className={`w-3.5 h-3.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
-                </div>
-                <p className={`text-[10px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Patrimônio vs CDI</p>
+                <div className="w-4 h-1 rounded-full bg-[#6366f1] opacity-70" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 2px, #6366f1 2px, #6366f1 4px)' }} />
+                <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>CDI</span>
               </div>
-              <p className={`text-[9px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Últimos 3 meses</p>
-            </div>
-            <div className="flex items-center justify-center gap-4 py-1.5">
-              <div className="flex items-center gap-1.5">
-                <div className="w-5 h-[3px] bg-emerald-500 rounded-full" />
-                <span className={`text-[9px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Patrimônio</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-5 h-[3px] bg-blue-500 rounded-full opacity-60" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 2px, #3b82f6 2px, #3b82f6 4px)' }} />
-                <span className={`text-[9px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>CDI</span>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-1 rounded-full bg-[#00E5A0]" />
+                <span className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Meu Portfólio</span>
               </div>
             </div>
-            <div style={{ height: 150 }}>
+
+            <div style={{ height: 180 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <RLineChart data={chartData} margin={{ top: 4, right: 16, left: -10, bottom: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#1e293b' : '#f1f5f9'} />
+                <RLineChart data={chartData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                  <defs>
+                    <filter id="miniPortfolioGlow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feGaussianBlur stdDeviation="2" result="glow" />
+                      <feMerge>
+                        <feMergeNode in="glow" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                    <linearGradient id="miniPortfolioGradient" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#00E5A0" />
+                      <stop offset="100%" stopColor="#00D4FF" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'} />
                   <XAxis
                     dataKey="name"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8', fontWeight: 700 }}
+                    tick={{ fontSize: 10, fill: isDark ? '#64748b' : '#94a3b8', fontWeight: 700 }}
+                    dy={10}
                   />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 8, fill: isDark ? '#475569' : '#cbd5e1' }}
-                    tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}
+                    tick={{ fontSize: 9, fill: isDark ? '#475569' : '#cbd5e1', fontWeight: 600 }}
+                    tickFormatter={v => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}
+                    width={50}
                   />
                   <RTooltip content={<CustomTooltip />} />
-                  <Line type="monotone" dataKey="Patrimônio" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3, fill: '#10b981', strokeWidth: 0 }} activeDot={{ r: 5 }} />
-                  <Line type="monotone" dataKey="CDI" stroke="#3b82f6" strokeWidth={2} strokeDasharray="6 3" dot={{ r: 2.5, fill: '#3b82f6', strokeWidth: 0 }} activeDot={{ r: 4 }} />
+                  <Line 
+                    type="monotone" 
+                    dataKey="CDI" 
+                    stroke="#6366f1" 
+                    strokeWidth={1.5} 
+                    strokeDasharray="4 4" 
+                    dot={false} 
+                    activeDot={{ r: 4, strokeWidth: 0, fill: '#6366f1' }} 
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="Meu Portfólio" 
+                    stroke="url(#miniPortfolioGradient)" 
+                    strokeWidth={3} 
+                    dot={false} 
+                    activeDot={{ r: 5, strokeWidth: 2, stroke: '#00E5A0', fill: isDark ? '#0f172a' : '#ffffff' }} 
+                    filter="url(#miniPortfolioGlow)"
+                  />
                 </RLineChart>
               </ResponsiveContainer>
             </div>
