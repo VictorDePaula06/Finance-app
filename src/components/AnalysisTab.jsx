@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import ExpensesChart from './ExpensesChart';
-import { TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Sparkles, Target, AlertTriangle, ArrowUpRight, ArrowDownRight, PieChart, CreditCard } from 'lucide-react';
+import { TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Sparkles, Target, AlertTriangle, ArrowUpRight, ArrowDownRight, PieChart, CreditCard, RefreshCw } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { CATEGORIES } from '../constants/categories';
 import MonthlyReviewModal from './MonthlyReviewModal';
 import { generateMonthlyReview } from '../services/gemini';
 import { Loader2 } from 'lucide-react';
+import aliviaFinal from '../assets/alivia/alivia-final.png';
 
 const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
   const { theme } = useTheme();
@@ -390,7 +391,104 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
             </>
           )}
 
-          {/* AI Analysis Button */}
+          {/* Alívia Insight Card */}
+          {(() => {
+            // Build detailed insight for the selected month
+            const filtered = transactions.filter(t => (t.date?.slice(0, 7) || t.month) === selectedMonth);
+            const incomeTxs = filtered.filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category));
+            const expenseTxs = filtered.filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && t.paymentMethod !== 'credito');
+            const investmentTxs = filtered.filter(t => t.type === 'expense' && t.category === 'investment');
+
+            const totalIncome = incomeTxs.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+            const totalExpense = expenseTxs.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+            const totalInvestment = investmentTxs.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+            const balance = totalIncome - totalExpense;
+
+            const superfluous = expenseTxs.filter(t => t.priority === 'superfluous').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+            const essential = expenseTxs.filter(t => t.priority === 'essential').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+
+            // Top category
+            const byCategory = expenseTxs.reduce((acc, t) => {
+              const cat = t.category || 'other';
+              acc[cat] = (acc[cat] || 0) + (parseFloat(t.amount) || 0);
+              return acc;
+            }, {});
+            const topCatId = Object.keys(byCategory).sort((a, b) => byCategory[b] - byCategory[a])[0];
+            const topCatLabel = CATEGORIES.expense.find(c => c.id === topCatId)?.label || 'Outros';
+            const topCatValue = byCategory[topCatId] || 0;
+
+            // Top individual expense
+            const topExpense = [...expenseTxs].sort((a, b) => (parseFloat(b.amount) || 0) - (parseFloat(a.amount) || 0))[0];
+
+            let insightStatus = 'neutral';
+            let insightMessage = 'Analisando seu mês...';
+
+            if (totalIncome === 0 && totalExpense === 0) {
+              insightStatus = 'neutral';
+              insightMessage = 'Ainda não há movimentações suficientes neste mês para uma análise.';
+            } else if (totalExpense > totalIncome && totalIncome > 0) {
+              insightStatus = 'negative';
+              insightMessage = `Atenção: Seus gastos (R$ ${totalExpense.toLocaleString('pt-BR')}) superaram suas entradas (R$ ${totalIncome.toLocaleString('pt-BR')}).`;
+              if (topCatId) insightMessage += ` Maior gasto foi em ${topCatLabel} (R$ ${topCatValue.toLocaleString('pt-BR')}).`;
+              if (superfluous > essential) insightMessage += ' Gastos supérfluos superaram os essenciais — reveja suas prioridades.';
+            } else {
+              if (totalExpense < totalIncome * 0.5 && totalInvestment > 0) {
+                insightStatus = 'positive';
+                insightMessage = `Excelente! Você gastou menos da metade das entradas e investiu R$ ${totalInvestment.toLocaleString('pt-BR')}.`;
+              } else if (totalInvestment === 0 && totalIncome > 0) {
+                insightStatus = 'warning';
+                insightMessage = `Gastos controlados, mas você não separou nada para reservas neste mês.`;
+              } else {
+                insightStatus = 'positive';
+                insightMessage = `Mês positivo! Sobrou R$ ${balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`;
+              }
+              if (superfluous > essential && essential > 0) {
+                insightStatus = insightStatus === 'positive' ? 'warning' : insightStatus;
+                insightMessage += ` Porém, os gastos supérfluos (R$ ${superfluous.toLocaleString('pt-BR')}) superaram os essenciais (R$ ${essential.toLocaleString('pt-BR')}).`;
+              }
+              if (topExpense) {
+                insightMessage += ` Maior gasto individual: "${topExpense.description || 'Sem descrição'}" (R$ ${parseFloat(topExpense.amount).toLocaleString('pt-BR')}).`;
+              }
+            }
+
+            const bgColors = {
+              positive: theme === 'light' ? 'bg-emerald-50 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/20',
+              negative: theme === 'light' ? 'bg-rose-50 border-rose-200' : 'bg-rose-500/10 border-rose-500/20',
+              warning: theme === 'light' ? 'bg-amber-50 border-amber-200' : 'bg-amber-500/10 border-amber-500/20',
+              neutral: theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-500/10 border-slate-500/20',
+            };
+            const textColors = {
+              positive: theme === 'light' ? 'text-emerald-700' : 'text-emerald-400',
+              negative: theme === 'light' ? 'text-rose-700' : 'text-rose-400',
+              warning: theme === 'light' ? 'text-amber-700' : 'text-amber-400',
+              neutral: theme === 'light' ? 'text-slate-700' : 'text-slate-400',
+            };
+            const icons = {
+              positive: <TrendingUp className="w-3.5 h-3.5" />,
+              negative: <TrendingDown className="w-3.5 h-3.5" />,
+              warning: <Sparkles className="w-3.5 h-3.5" />,
+              neutral: <Sparkles className="w-3.5 h-3.5" />,
+            };
+
+            return (
+              <div className={`flex items-start gap-3 p-4 rounded-2xl border ${bgColors[insightStatus]} transition-all duration-300 shadow-inner`}>
+                <div className="relative shrink-0 mt-0.5">
+                  <img src={aliviaFinal} alt="Alívia" className="w-10 h-10 object-cover rounded-full border-2 border-white/20 shadow-md" />
+                  <div className={`absolute -bottom-1 -right-1 p-0.5 rounded-full ${theme === 'light' ? 'bg-white' : 'bg-[#131621]'} border border-white/10 ${textColors[insightStatus]}`}>
+                    {icons[insightStatus]}
+                  </div>
+                </div>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${textColors[insightStatus]} opacity-90`}>Alívia</span>
+                  <span className={`text-[12px] font-medium leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
+                    {insightMessage}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* AI Deep Analysis Button */}
           <button 
             onClick={handleAIAnalysis}
             disabled={isAnalyzing}
@@ -403,8 +501,8 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
                 {isAnalyzing ? <Loader2 className="w-5 h-5 text-blue-500 animate-spin" /> : <Sparkles className="w-5 h-5 text-blue-500" />}
             </div>
             <div className="text-left">
-                <p className="text-xs font-black uppercase tracking-widest">{isAnalyzing ? 'Analisando...' : 'Resumo da Alívia'}</p>
-                <p className="text-[9px] font-medium opacity-60">Analisar tendências deste mês</p>
+                <p className="text-xs font-black uppercase tracking-widest">{isAnalyzing ? 'Analisando...' : 'Análise Profunda com IA'}</p>
+                <p className="text-[9px] font-medium opacity-60">Gerar relatório detalhado com a Alívia</p>
             </div>
           </button>
 
