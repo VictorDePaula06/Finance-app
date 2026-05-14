@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Wallet, PiggyBank, TrendingUp, TrendingDown, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List, HelpCircle, ShieldCheck, Target, Home, Gem, Pencil, Trash2, Save, RefreshCw } from 'lucide-react';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
 import PatrimonioConfigForm from './PatrimonioConfigForm';
-import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import ReactMarkdown from 'react-markdown';
 import { generatePatrimonyAnalysis, isGeminiConfigured } from '../services/gemini';
 import { useAuth } from '../contexts/AuthContext';
@@ -715,11 +715,6 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
             }
           }
 
-          // Daily yield
-          if (totalDailyYield > 0) {
-            parts.push(`Rendendo ≈R$ ${fmt(totalDailyYield)}/dia.`);
-          }
-
           // Over-concentration in reserve
           if (reservesPct > 80 && hasInvestments) {
             pStatus = 'warning';
@@ -773,38 +768,94 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         );
       })()}
 
-      {/* ── AI Deep Analysis Button ── */}
-      <button
-        onClick={() => handleAnalyze(true)}
-        disabled={isAnalyzing}
-        className={`w-full p-3.5 rounded-2xl border-2 border-dashed transition-all flex items-center justify-center gap-3 group ${
-          isDark
-            ? 'border-white/10 text-emerald-400 hover:bg-emerald-500/5 hover:border-emerald-500/50'
-            : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-400'
-        } ${isAnalyzing ? 'opacity-70 cursor-not-allowed' : ''}`}
-      >
-        <div className="p-2 bg-emerald-500/10 rounded-xl group-hover:scale-110 transition-transform">
-          {isAnalyzing ? <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" /> : <Sparkles className="w-4 h-4 text-emerald-500" />}
-        </div>
-        <div className="text-left">
-          <p className="text-[10px] font-black uppercase tracking-widest">{isAnalyzing ? 'Analisando...' : 'Análise Profunda com IA'}</p>
-          <p className="text-[8px] font-medium opacity-60">Relatório detalhado do seu patrimônio</p>
-        </div>
-      </button>
+      {/* ── MINI EVOLUÇÃO PATRIMONIAL ── */}
+      {(() => {
+        // Build patrimony evolution data from investment purchase dates + jars
+        const dataMap = {};
+        const now = new Date();
+        const nowKey = now.toISOString().slice(0, 7);
 
-      {/* AI Analysis Result */}
-      {aiAnalysis && !isAnalyzing && (
-        <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
-          <div className="p-4">
-            <div className={`text-xs leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-              <ReactMarkdown components={{
-                p: ({ ...props }) => <p className="mb-2 last:mb-0" {...props} />,
-                strong: ({ ...props }) => <strong className={`font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} {...props} />
-              }}>{aiAnalysis}</ReactMarkdown>
+        // Seed with jar creation dates
+        jars.forEach(j => {
+          const d = j.createdAt ? new Date(j.createdAt) : now;
+          const key = d.toISOString().slice(0, 7);
+          dataMap[key] = (dataMap[key] || 0) + (parseFloat(j.balance) || 0);
+        });
+
+        // Accumulate investments by purchase date
+        investments.forEach(inv => {
+          const d = inv.purchaseDate ? new Date(inv.purchaseDate) : (inv.createdAt ? new Date(inv.createdAt) : now);
+          const key = d.toISOString().slice(0, 7);
+          const price = inv.purchasePrice || 0;
+          const usdM = inv.isUSD ? usdRate : 1;
+          dataMap[key] = (dataMap[key] || 0) + ((inv.quantity || 1) * price * usdM);
+        });
+
+        // Always include current month with current total
+        dataMap[nowKey] = patrimonioTotal;
+
+        // Sort and build cumulative
+        const sortedKeys = Object.keys(dataMap).sort();
+
+        // If less than 2 data points, pad with a zero start
+        if (sortedKeys.length < 2) {
+          const firstDate = new Date(sortedKeys[0] || nowKey);
+          firstDate.setMonth(firstDate.getMonth() - 1);
+          const padKey = firstDate.toISOString().slice(0, 7);
+          if (!dataMap[padKey]) {
+            sortedKeys.unshift(padKey);
+            dataMap[padKey] = 0;
+          }
+        }
+
+        // Build cumulative evolution
+        let cumulative = 0;
+        const chartData = sortedKeys.map(key => {
+          // For the current month, use actual total
+          if (key === nowKey) {
+            cumulative = patrimonioTotal;
+          } else {
+            cumulative += dataMap[key] || 0;
+          }
+          const [y, m] = key.split('-');
+          const label = new Date(parseInt(y), parseInt(m) - 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+          return { name: label, value: cumulative };
+        });
+
+        // Limit to last 12 points max
+        const displayData = chartData.slice(-12);
+
+        if (displayData.length < 2 || patrimonioTotal <= 0) return null;
+
+        return (
+          <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
+            <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-lg ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
+                  <TrendingUp className={`w-3 h-3 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                </div>
+                <p className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Evolução</p>
+              </div>
+              <p className={`text-[9px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                {displayData.length > 1 ? `${displayData[0].name} → ${displayData[displayData.length-1].name}` : ''}
+              </p>
+            </div>
+            <div style={{ height: 80 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={displayData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="patrimonioGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#patrimonioGrad)" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
         </div>{/* end right col */}
       </div>{/* end grid */}
