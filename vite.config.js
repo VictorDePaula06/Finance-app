@@ -10,7 +10,7 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.js',
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       injectManifest: {
         maximumFileSizeToCacheInBytes: 5000000 // 5MB
       },

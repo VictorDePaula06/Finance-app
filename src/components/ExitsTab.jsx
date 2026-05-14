@@ -224,6 +224,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             // VERIFICAÇÃO DE SALDO (Apenas para novos lançamentos, não para edições)
             if (!editingId && val > availableBalance) {
                 setPendingSave({ type: 'expense', data: transactionData });
+                setIsSaving(false); // Destrava o botão para o aviso
                 setStep('warning');
                 return;
             }
