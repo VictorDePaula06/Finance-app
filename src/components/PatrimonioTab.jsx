@@ -840,7 +840,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
                     {p.name}
                   </span>
                   <span className="font-black" style={{ color: p.color }}>
-                    {p.value >= 0 ? '+' : ''}{p.value.toFixed(2)}%
+                    {p.value >= 0 ? '+' : ''}{typeof p.value === 'number' ? p.value.toFixed(2) : p.value}%
                   </span>
                 </div>
               ))}
@@ -902,7 +902,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 9, fill: isDark ? '#475569' : '#cbd5e1', fontWeight: 600 }}
-                    tickFormatter={v => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}
+                    tickFormatter={v => typeof v === 'number' ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : v}
                     width={50}
                   />
                   <RTooltip content={<CustomTooltip />} />
