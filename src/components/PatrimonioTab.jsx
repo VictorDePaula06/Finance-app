@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Wallet, PiggyBank, TrendingUp, TrendingDown, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List, HelpCircle, ShieldCheck, Target, Home, Gem, Pencil, Trash2, Save, RefreshCw } from 'lucide-react';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
 import PatrimonioConfigForm from './PatrimonioConfigForm';
-import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer, AreaChart, Area, LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from 'recharts';
 import ReactMarkdown from 'react-markdown';
 import { generatePatrimonyAnalysis, isGeminiConfigured } from '../services/gemini';
 import { useAuth } from '../contexts/AuthContext';
@@ -768,89 +768,117 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         );
       })()}
 
-      {/* ── MINI EVOLUÇÃO PATRIMONIAL ── */}
+      {/* ── PATRIMÔNIO vs CDI — Últimos 3 meses ── */}
       {(() => {
-        // Build patrimony evolution data from investment purchase dates + jars
-        const dataMap = {};
+        if (patrimonioTotal <= 0) return null;
+
+        // Build 3-month comparison: Patrimônio actual vs CDI equivalent
         const now = new Date();
-        const nowKey = now.toISOString().slice(0, 7);
-
-        // Seed with jar creation dates
-        jars.forEach(j => {
-          const d = j.createdAt ? new Date(j.createdAt) : now;
-          const key = d.toISOString().slice(0, 7);
-          dataMap[key] = (dataMap[key] || 0) + (parseFloat(j.balance) || 0);
-        });
-
-        // Accumulate investments by purchase date
-        investments.forEach(inv => {
-          const d = inv.purchaseDate ? new Date(inv.purchaseDate) : (inv.createdAt ? new Date(inv.createdAt) : now);
-          const key = d.toISOString().slice(0, 7);
-          const price = inv.purchasePrice || 0;
-          const usdM = inv.isUSD ? usdRate : 1;
-          dataMap[key] = (dataMap[key] || 0) + ((inv.quantity || 1) * price * usdM);
-        });
-
-        // Always include current month with current total
-        dataMap[nowKey] = patrimonioTotal;
-
-        // Sort and build cumulative
-        const sortedKeys = Object.keys(dataMap).sort();
-
-        // If less than 2 data points, pad with a zero start
-        if (sortedKeys.length < 2) {
-          const firstDate = new Date(sortedKeys[0] || nowKey);
-          firstDate.setMonth(firstDate.getMonth() - 1);
-          const padKey = firstDate.toISOString().slice(0, 7);
-          if (!dataMap[padKey]) {
-            sortedKeys.unshift(padKey);
-            dataMap[padKey] = 0;
-          }
+        const months = [];
+        for (let i = 3; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          months.push(d);
         }
 
-        // Build cumulative evolution
-        let cumulative = 0;
-        const chartData = sortedKeys.map(key => {
-          // For the current month, use actual total
-          if (key === nowKey) {
-            cumulative = patrimonioTotal;
-          } else {
-            cumulative += dataMap[key] || 0;
+        // Calculate what the patrimony was at each point
+        // We reconstruct backwards: current total minus investments added after each date
+        const monthData = months.map((monthDate, idx) => {
+          const monthKey = monthDate.toISOString().slice(0, 7);
+          const label = monthDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+
+          if (idx === months.length - 1) {
+            // Current month = actual total
+            return { month: label, key: monthKey, patrimonio: patrimonioTotal };
           }
-          const [y, m] = key.split('-');
-          const label = new Date(parseInt(y), parseInt(m) - 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
-          return { name: label, value: cumulative };
+
+          // Estimate past patrimony: subtract investments purchased AFTER this month
+          let pastTotal = patrimonioTotal;
+          investments.forEach(inv => {
+            const purchaseDate = inv.purchaseDate || inv.createdAt;
+            if (purchaseDate) {
+              const pKey = new Date(purchaseDate).toISOString().slice(0, 7);
+              if (pKey > monthKey) {
+                const price = inv.purchasePrice || 0;
+                const usdM = inv.isUSD ? usdRate : 1;
+                pastTotal -= (inv.quantity || 1) * price * usdM;
+              }
+            }
+          });
+          jars.forEach(j => {
+            const createdKey = j.createdAt ? new Date(j.createdAt).toISOString().slice(0, 7) : '';
+            if (createdKey > monthKey) {
+              pastTotal -= parseFloat(j.balance) || 0;
+            }
+          });
+
+          return { month: label, key: monthKey, patrimonio: Math.max(0, pastTotal) };
         });
 
-        // Limit to last 12 points max
-        const displayData = chartData.slice(-12);
+        // CDI line: start from the first month's patrimony value and grow at CDI rate
+        const baseValue = monthData[0].patrimonio;
+        const cdiMonthlyRate = Math.pow(1 + cdiAnual / 100, 1 / 12) - 1;
 
-        if (displayData.length < 2 || patrimonioTotal <= 0) return null;
+        const chartData = monthData.map((item, idx) => ({
+          name: item.month.charAt(0).toUpperCase() + item.month.slice(1),
+          'Patrimônio': Math.round(item.patrimonio * 100) / 100,
+          'CDI': Math.round(baseValue * Math.pow(1 + cdiMonthlyRate, idx) * 100) / 100,
+        }));
+
+        const CustomTooltip = ({ active, payload, label }) => {
+          if (!active || !payload?.length) return null;
+          return (
+            <div className={`px-3 py-2 rounded-xl border shadow-xl text-[10px] ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-200'}`}>
+              <p className={`font-black mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{label}</p>
+              {payload.map((p, i) => (
+                <p key={i} className="font-bold" style={{ color: p.color }}>
+                  {p.name}: R$ {fmt(p.value)}
+                </p>
+              ))}
+            </div>
+          );
+        };
 
         return (
           <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
-            <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+            <div className="px-4 pt-3 pb-0 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className={`p-1.5 rounded-lg ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
-                  <TrendingUp className={`w-3 h-3 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                  <TrendingUp className={`w-3.5 h-3.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 </div>
-                <p className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Evolução</p>
+                <p className={`text-[10px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Patrimônio vs CDI</p>
               </div>
-              <p className={`text-[9px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                {displayData.length > 1 ? `${displayData[0].name} → ${displayData[displayData.length-1].name}` : ''}
-              </p>
+              <p className={`text-[9px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Últimos 3 meses</p>
             </div>
-            <div style={{ height: 80 }}>
+            <div className="flex items-center justify-center gap-4 py-1.5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-5 h-[3px] bg-emerald-500 rounded-full" />
+                <span className={`text-[9px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Patrimônio</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-5 h-[3px] bg-blue-500 rounded-full opacity-60" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 2px, #3b82f6 2px, #3b82f6 4px)' }} />
+                <span className={`text-[9px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>CDI</span>
+              </div>
+            </div>
+            <div style={{ height: 150 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={displayData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="patrimonioGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#patrimonioGrad)" dot={false} />
-                </AreaChart>
+                <RLineChart data={chartData} margin={{ top: 4, right: 16, left: -10, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#1e293b' : '#f1f5f9'} />
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8', fontWeight: 700 }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 8, fill: isDark ? '#475569' : '#cbd5e1' }}
+                    tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}
+                  />
+                  <RTooltip content={<CustomTooltip />} />
+                  <Line type="monotone" dataKey="Patrimônio" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3, fill: '#10b981', strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="CDI" stroke="#3b82f6" strokeWidth={2} strokeDasharray="6 3" dot={{ r: 2.5, fill: '#3b82f6', strokeWidth: 0 }} activeDot={{ r: 4 }} />
+                </RLineChart>
               </ResponsiveContainer>
             </div>
           </div>
