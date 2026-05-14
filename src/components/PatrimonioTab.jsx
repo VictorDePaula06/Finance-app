@@ -637,9 +637,35 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         const reservesPct = patrimonioTotal > 0 ? (jarsTotal / patrimonioTotal * 100) : 0;
         const investPct = patrimonioTotal > 0 ? (investmentsTotal / patrimonioTotal * 100) : 0;
 
-        // Average Brazilian patrimony reference (IBGE/BCB 2024 ~R$250k median household net worth)
-        const AVG_BR_PATRIMONY = 250000;
-        const pctVsAvg = AVG_BR_PATRIMONY > 0 ? ((patrimonioTotal / AVG_BR_PATRIMONY) * 100) : 0;
+        // Category breakdown
+        const CATEGORY_LABELS = {
+          renda_fixa: 'Renda Fixa', acoes: 'Ações', etfs: 'ETFs',
+          fiis: 'Fundos Imobiliários', crypto: 'Criptomoedas', imoveis: 'Imóveis',
+        };
+        const catCount = {};
+        const catValue = {};
+        investments.forEach(inv => {
+          const cat = inv.type || 'outros';
+          catCount[cat] = (catCount[cat] || 0) + 1;
+          const price = inv.manualCurrentPrice || inv.purchasePrice || 0;
+          const usdM = inv.isUSD ? usdRate : 1;
+          catValue[cat] = (catValue[cat] || 0) + ((inv.quantity || 1) * price * usdM);
+        });
+        const uniqueCategories = Object.keys(catCount);
+
+        // Detect tech/innovation focus by names
+        const TECH_KEYWORDS = ['nvda','nvidia','aapl','apple','msft','microsoft','goog','google','meta','amzn','amazon','tsla','tesla','amd','intc','intel','qcom','qualcomm','tsmc','asml','avgo','broadcom','crm','salesforce','adbe','adobe','snow','pltr','palantir','coin','coinbase','sq','block','shop','shopify','net','cloudflare','ddog','datadog','ai','c3ai','smci','ivvb','qqqm','qqq','nasd','spy','voo','arkk','arkg','soxx','btc','bitcoin','eth','ethereum','sol','solana'];
+        const techAssets = investments.filter(inv => {
+          const n = (inv.name || '').toLowerCase();
+          const s = (inv.symbol || '').toLowerCase();
+          return TECH_KEYWORDS.some(kw => n.includes(kw) || s.includes(kw));
+        });
+        const hasTechFocus = techAssets.length > 0;
+        const techPct = investmentsTotal > 0 ? techAssets.reduce((acc, inv) => {
+          const price = inv.manualCurrentPrice || inv.purchasePrice || 0;
+          const usdM = inv.isUSD ? usdRate : 1;
+          return acc + ((inv.quantity || 1) * price * usdM);
+        }, 0) / investmentsTotal * 100 : 0;
 
         let pStatus = 'neutral';
         let pMessage = 'Analisando seu patrimônio...';
@@ -650,29 +676,37 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         } else {
           const parts = [];
 
-          // Patrimony vs average
-          if (pctVsAvg >= 100) {
+          // Consolidation check
+          const hasReserve = jars.length > 0 && jarsTotal > 0;
+          const hasInvestments = investments.length > 0;
+          const isConsolidated = hasReserve && hasInvestments && uniqueCategories.length >= 2;
+
+          if (isConsolidated) {
             pStatus = 'positive';
-            parts.push(`Seu patrimônio de R$ ${fmt(patrimonioTotal)} está acima da média brasileira (≈R$ ${fmt(AVG_BR_PATRIMONY)}).`);
-          } else if (pctVsAvg >= 50) {
-            pStatus = 'positive';
-            parts.push(`Seu patrimônio já representa ${pctVsAvg.toFixed(0)}% da média brasileira. Bom caminho!`);
-          } else if (patrimonioTotal > 0) {
+            parts.push(`Patrimônio consolidado com reserva e ${investments.length} ativo${investments.length > 1 ? 's' : ''} em ${uniqueCategories.length} categoria${uniqueCategories.length > 1 ? 's' : ''}.`);
+          } else if (hasReserve && !hasInvestments) {
             pStatus = 'warning';
-            parts.push(`Seu patrimônio está em ${pctVsAvg.toFixed(0)}% da média brasileira — continue construindo.`);
+            parts.push(`Reserva ativa com ${jars.length} cofre${jars.length > 1 ? 's' : ''}, mas ainda sem investimentos — considere diversificar.`);
+          } else if (!hasReserve && hasInvestments) {
+            pStatus = 'warning';
+            parts.push(`${investments.length} ativo${investments.length > 1 ? 's' : ''} em carteira, mas sem reserva de emergência — priorize criar uma.`);
+          } else if (hasReserve && hasInvestments && uniqueCategories.length < 2) {
+            pStatus = 'warning';
+            parts.push(`Reserva ativa e ${investments.length} ativo${investments.length > 1 ? 's' : ''}, mas concentrados em ${CATEGORY_LABELS[uniqueCategories[0]] || 'uma categoria'}.`);
           }
 
-          // Reserve status
-          if (jars.length > 0 && jarsTotal > 0) {
-            parts.push(`Reserva: ${jars.length} cofre${jars.length > 1 ? 's' : ''} (${reservesPct.toFixed(0)}% do patrimônio).`);
-          } else {
-            pStatus = 'warning';
-            parts.push('Sem reserva de emergência — considere criar uma.');
+          // Tech/innovation profile
+          if (hasTechFocus) {
+            const techNames = techAssets.slice(0, 3).map(a => a.name || a.symbol).join(', ');
+            if (techPct >= 50) {
+              parts.push(`Perfil focado em tecnologia e inovação (${techPct.toFixed(0)}% da carteira: ${techNames}).`);
+            } else {
+              parts.push(`Exposição a tech/inovação com ${techNames} (${techPct.toFixed(0)}%).`);
+            }
           }
 
-          // Investments
-          if (investments.length > 0) {
-            parts.push(`${investments.length} ativo${investments.length > 1 ? 's' : ''} em carteira (${investPct.toFixed(0)}%).`);
+          // Profit/loss
+          if (hasInvestments) {
             if (investmentsProfit > 0) {
               parts.push(`Lucro acumulado de R$ ${fmt(investmentsProfit)}.`);
             } else if (investmentsProfit < 0) {
@@ -686,10 +720,10 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
             parts.push(`Rendendo ≈R$ ${fmt(totalDailyYield)}/dia.`);
           }
 
-          // Balance check
-          if (reservesPct > 80 && investments.length > 0) {
+          // Over-concentration in reserve
+          if (reservesPct > 80 && hasInvestments) {
             pStatus = 'warning';
-            parts.push('Considere diversificar mais — muita concentração em reserva.');
+            parts.push('Muita concentração em reserva — considere alocar mais em ativos.');
           }
 
           pMessage = parts.join(' ');
