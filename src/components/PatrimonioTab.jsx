@@ -772,59 +772,98 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
       {(() => {
         if (patrimonioTotal <= 0) return null;
 
-        // Build 3-month comparison: Patrimônio actual vs CDI equivalent
         const now = new Date();
-        const months = [];
-        for (let i = 3; i >= 0; i--) {
-          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          months.push(d);
-        }
-
-        // Calculate what the patrimony was at each point
-        // We reconstruct backwards: current total minus investments added after each date
-        const monthData = months.map((monthDate, idx) => {
-          const monthKey = monthDate.toISOString().slice(0, 7);
-          const label = monthDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
-
-          if (idx === months.length - 1) {
-            // Current month = actual total
-            return { month: label, key: monthKey, patrimonio: patrimonioTotal };
+        const periodStart = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+        
+        // 1. Build list of all assets with their parameters and purchase dates
+        const assets = [];
+        jars.forEach(jar => {
+          const balance = parseFloat(jar.balance) || 0;
+          if (balance > 0) {
+            assets.push({
+              value: balance,
+              type: 'cdi',
+              cdiMultiplier: (parseFloat(jar.cdiPercent) || 100) / 100,
+              purchaseDate: jar.createdAt ? new Date(jar.createdAt) : now
+            });
           }
-
-          // Estimate past patrimony: subtract investments purchased AFTER this month
-          let pastTotal = patrimonioTotal;
-          investments.forEach(inv => {
-            const purchaseDate = inv.purchaseDate || inv.createdAt;
-            if (purchaseDate) {
-              const pKey = new Date(purchaseDate).toISOString().slice(0, 7);
-              if (pKey > monthKey) {
-                const price = inv.purchasePrice || 0;
-                const usdM = inv.isUSD ? usdRate : 1;
-                pastTotal -= (inv.quantity || 1) * price * usdM;
+        });
+        
+        investments.forEach(inv => {
+          const pDate = inv.purchaseDate ? new Date(inv.purchaseDate) : (inv.createdAt ? new Date(inv.createdAt) : now);
+          if (inv.type === 'renda_fixa') {
+            const applied = inv.totalApplied || (inv.purchasePrice * (inv.quantity || 1)) || 0;
+            if (applied > 0) {
+              const yieldType = inv.yieldType || (inv.cdiPercent ? 'cdi' : 'pre');
+              if (yieldType === 'cdi') {
+                const pct = (parseFloat(String(inv.cdiPercent || 100).replace(',', '.')) || 100) / 100;
+                assets.push({ value: applied, type: 'cdi', cdiMultiplier: pct, purchaseDate: pDate });
+              } else if (yieldType === 'ipca') {
+                const fixedPart = parseFloat(String(inv.fixedRate || 0).replace(',', '.'));
+                assets.push({ value: applied, type: 'fixed', annualRate: (4.5 + fixedPart) / 100, purchaseDate: pDate });
+              } else {
+                const fixedPart = parseFloat(String(inv.fixedRate || 0).replace(',', '.'));
+                assets.push({ value: applied, type: 'fixed', annualRate: fixedPart / 100, purchaseDate: pDate });
               }
             }
-          });
-          jars.forEach(j => {
-            const createdKey = j.createdAt ? new Date(j.createdAt).toISOString().slice(0, 7) : '';
-            if (createdKey > monthKey) {
-              pastTotal -= parseFloat(j.balance) || 0;
+          } else {
+            // Variable
+            const cost = (inv.quantity || 1) * (inv.purchasePrice || 0);
+            const currentPrice = inv.manualCurrentPrice || inv.purchasePrice || 0; // Using manual/purchase since we don't have live prices here
+            const usdM = inv.isUSD ? usdRate : 1;
+            const current = (inv.quantity || 1) * currentPrice * usdM;
+            const totalCost = cost * usdM;
+            if (totalCost > 0) {
+              const returnPct = ((current - totalCost) / totalCost) * 100;
+              assets.push({ value: current, type: 'variable', returnPct, purchaseDate: pDate });
             }
-          });
-
-          return { month: label, key: monthKey, patrimonio: Math.max(0, pastTotal) };
+          }
         });
 
-        // Convert absolute values to accumulated percentage return (Base 0% at month 0)
-        const baseValue = monthData[0].patrimonio > 0 ? monthData[0].patrimonio : 1; // avoid div by 0
-        const cdiMonthlyRate = Math.pow(1 + cdiAnual / 100, 1 / 12) - 1;
+        // 2. Generate 4 monthly points
+        const numPoints = 4;
+        const totalPortfolioValue = assets.reduce((acc, a) => acc + a.value, 0);
+        const calendarDaysInPeriod = Math.max(1, (now - periodStart) / (1000 * 60 * 60 * 24));
+        
+        const chartData = Array.from({ length: numPoints }, (_, i) => {
+          const pointDate = new Date(periodStart);
+          pointDate.setDate(periodStart.getDate() + Math.round((calendarDaysInPeriod * i) / (numPoints - 1)));
+          const label = pointDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+          
+          let weightedReturn = 0;
+          if (totalPortfolioValue > 0) {
+            assets.forEach(asset => {
+              const weight = asset.value / totalPortfolioValue;
+              if (asset.purchaseDate > pointDate) return; // Not purchased yet
+              
+              const effectiveStart = asset.purchaseDate > periodStart ? asset.purchaseDate : periodStart;
+              const calDaysHeld = Math.max(0, (pointDate - effectiveStart) / (1000 * 60 * 60 * 24));
+              const tradingDaysHeld = Math.round(calDaysHeld * 252 / 365);
+              
+              if (asset.type === 'cdi') {
+                const dailyRate = Math.pow(1 + (cdiAnual / 100) * asset.cdiMultiplier, 1 / 252) - 1;
+                weightedReturn += weight * ((Math.pow(1 + dailyRate, tradingDaysHeld) - 1) * 100);
+              } else if (asset.type === 'fixed') {
+                const dailyRate = Math.pow(1 + asset.annualRate, 1 / 252) - 1;
+                weightedReturn += weight * ((Math.pow(1 + dailyRate, tradingDaysHeld) - 1) * 100);
+              } else if (asset.type === 'variable') {
+                const totalAssetCalDays = Math.max(1, (now - effectiveStart) / (1000 * 60 * 60 * 24));
+                const pointReturn = (asset.returnPct * calDaysHeld) / totalAssetCalDays;
+                weightedReturn += weight * pointReturn;
+              }
+            });
+          }
 
-        const chartData = monthData.map((item, idx) => {
-          const portPct = ((item.patrimonio - baseValue) / baseValue) * 100;
-          const cdiPct = ((Math.pow(1 + cdiMonthlyRate, idx) - 1)) * 100;
+          // Benchmark CDI (from periodStart to pointDate)
+          const cdiCalDaysHeld = Math.max(0, (pointDate - periodStart) / (1000 * 60 * 60 * 24));
+          const cdiTradingDaysHeld = Math.round(cdiCalDaysHeld * 252 / 365);
+          const baseDailyRate = Math.pow(1 + cdiAnual / 100, 1 / 252) - 1;
+          const cdiReturn = (Math.pow(1 + baseDailyRate, cdiTradingDaysHeld) - 1) * 100;
+
           return {
-            name: item.month.charAt(0).toUpperCase() + item.month.slice(1),
-            'Meu Portfólio': Math.round(portPct * 100) / 100,
-            'CDI': Math.round(cdiPct * 100) / 100,
+            name: label.charAt(0).toUpperCase() + label.slice(1),
+            'Meu Portfólio': Math.round(weightedReturn * 100) / 100,
+            'CDI': Math.round(cdiReturn * 100) / 100,
           };
         });
 
