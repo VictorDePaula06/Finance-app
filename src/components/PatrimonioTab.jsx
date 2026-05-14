@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Wallet, PiggyBank, TrendingUp, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List, HelpCircle, ShieldCheck, Target, Home, Gem, Pencil, Trash2, Save } from 'lucide-react';
+import { Wallet, PiggyBank, TrendingUp, TrendingDown, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List, HelpCircle, ShieldCheck, Target, Home, Gem, Pencil, Trash2, Save, RefreshCw } from 'lucide-react';
+import aliviaFinal from '../assets/alivia/alivia-final.png';
 import PatrimonioConfigForm from './PatrimonioConfigForm';
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer } from 'recharts';
 import ReactMarkdown from 'react-markdown';
@@ -630,45 +631,146 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
 
 
 
-      {/* ── SAÚDE DO PATRIMÔNIO — always visible ── */}
-      <div className={`rounded-2xl border overflow-hidden relative ${isDark ? 'bg-slate-900/80 border-emerald-500/15' : 'bg-[#f0fdfa] border-emerald-500/15 shadow-sm'}`}>
-          <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
-          <div className="p-4 relative">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2.5">
-                <div className={`p-2 rounded-xl ${isDark ? 'bg-emerald-500/15' : 'bg-emerald-100'}`}>
-                  <Bot className={`w-4 h-4 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
-                </div>
-                <div>
-                  <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Saúde do Patrimônio</p>
-                  <p className={`text-[9px] font-bold uppercase tracking-widest ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Alívia AI</p>
-                </div>
+      {/* ── ALÍVIA PATRIMÔNIO INSIGHT ── */}
+      {(() => {
+        // --- Local patrimony insight generation ---
+        const reservesPct = patrimonioTotal > 0 ? (jarsTotal / patrimonioTotal * 100) : 0;
+        const investPct = patrimonioTotal > 0 ? (investmentsTotal / patrimonioTotal * 100) : 0;
+
+        // Average Brazilian patrimony reference (IBGE/BCB 2024 ~R$250k median household net worth)
+        const AVG_BR_PATRIMONY = 250000;
+        const pctVsAvg = AVG_BR_PATRIMONY > 0 ? ((patrimonioTotal / AVG_BR_PATRIMONY) * 100) : 0;
+
+        let pStatus = 'neutral';
+        let pMessage = 'Analisando seu patrimônio...';
+
+        if (patrimonioTotal <= 0 && jars.length === 0 && investments.length === 0) {
+          pStatus = 'neutral';
+          pMessage = 'Ainda não há ativos cadastrados. Comece adicionando suas reservas e investimentos.';
+        } else {
+          const parts = [];
+
+          // Patrimony vs average
+          if (pctVsAvg >= 100) {
+            pStatus = 'positive';
+            parts.push(`Seu patrimônio de R$ ${fmt(patrimonioTotal)} está acima da média brasileira (≈R$ ${fmt(AVG_BR_PATRIMONY)}).`);
+          } else if (pctVsAvg >= 50) {
+            pStatus = 'positive';
+            parts.push(`Seu patrimônio já representa ${pctVsAvg.toFixed(0)}% da média brasileira. Bom caminho!`);
+          } else if (patrimonioTotal > 0) {
+            pStatus = 'warning';
+            parts.push(`Seu patrimônio está em ${pctVsAvg.toFixed(0)}% da média brasileira — continue construindo.`);
+          }
+
+          // Reserve status
+          if (jars.length > 0 && jarsTotal > 0) {
+            parts.push(`Reserva: ${jars.length} cofre${jars.length > 1 ? 's' : ''} (${reservesPct.toFixed(0)}% do patrimônio).`);
+          } else {
+            pStatus = 'warning';
+            parts.push('Sem reserva de emergência — considere criar uma.');
+          }
+
+          // Investments
+          if (investments.length > 0) {
+            parts.push(`${investments.length} ativo${investments.length > 1 ? 's' : ''} em carteira (${investPct.toFixed(0)}%).`);
+            if (investmentsProfit > 0) {
+              parts.push(`Lucro acumulado de R$ ${fmt(investmentsProfit)}.`);
+            } else if (investmentsProfit < 0) {
+              pStatus = pStatus === 'positive' ? 'warning' : pStatus;
+              parts.push(`Prejuízo de R$ ${fmt(Math.abs(investmentsProfit))} nos investimentos.`);
+            }
+          }
+
+          // Daily yield
+          if (totalDailyYield > 0) {
+            parts.push(`Rendendo ≈R$ ${fmt(totalDailyYield)}/dia.`);
+          }
+
+          // Balance check
+          if (reservesPct > 80 && investments.length > 0) {
+            pStatus = 'warning';
+            parts.push('Considere diversificar mais — muita concentração em reserva.');
+          }
+
+          pMessage = parts.join(' ');
+        }
+
+        const bgColors = {
+          positive: isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200',
+          negative: isDark ? 'bg-rose-500/10 border-rose-500/20' : 'bg-rose-50 border-rose-200',
+          warning: isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-200',
+          neutral: isDark ? 'bg-slate-500/10 border-slate-500/20' : 'bg-slate-50 border-slate-200',
+        };
+        const textColors = {
+          positive: isDark ? 'text-emerald-400' : 'text-emerald-700',
+          negative: isDark ? 'text-rose-400' : 'text-rose-700',
+          warning: isDark ? 'text-amber-400' : 'text-amber-700',
+          neutral: isDark ? 'text-slate-400' : 'text-slate-700',
+        };
+        const statusIcons = {
+          positive: <TrendingUp className="w-3.5 h-3.5" />,
+          negative: <TrendingDown className="w-3.5 h-3.5" />,
+          warning: <Sparkles className="w-3.5 h-3.5" />,
+          neutral: <Sparkles className="w-3.5 h-3.5" />,
+        };
+
+        return (
+          <div className={`flex items-start gap-3 p-4 rounded-2xl border ${bgColors[pStatus]} transition-all duration-300 shadow-inner`}>
+            <div className="relative shrink-0 mt-0.5">
+              <img src={aliviaFinal} alt="Alívia" className="w-10 h-10 object-cover rounded-full border-2 border-white/20 shadow-md" />
+              <div className={`absolute -bottom-1 -right-1 p-0.5 rounded-full ${isDark ? 'bg-[#131621]' : 'bg-white'} border border-white/10 ${textColors[pStatus]}`}>
+                {statusIcons[pStatus]}
               </div>
-              {aiAnalysis && !isAnalyzing && (
-                <button onClick={() => handleAnalyze(true)} className={`px-3 py-1.5 rounded-lg text-[9px] font-bold transition-all flex items-center gap-1 ${isDark ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'}`}>
-                  <Sparkles className="w-3 h-3" /> Atualizar
-                </button>
-              )}
             </div>
-            {isAnalyzing && (
-              <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs py-4">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="animate-pulse">Analisando seu patrimônio...</span>
-              </div>
-            )}
-            {aiAnalysis && !isAnalyzing && (
-              <div className={`text-xs leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                <ReactMarkdown components={{
-                  p: ({ ...props }) => <p className="mb-2 last:mb-0" {...props} />,
-                  strong: ({ ...props }) => <strong className={`font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} {...props} />
-                }}>{aiAnalysis}</ReactMarkdown>
-              </div>
-            )}
-            {!aiAnalysis && !isAnalyzing && (
-              <p className={`text-[10px] py-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Configure sua chave da Alívia para ver a análise automática.</p>
-            )}
+            <div className="flex flex-col flex-1 min-w-0">
+              <span className={`text-[10px] font-black uppercase tracking-widest ${textColors[pStatus]} opacity-90`}>Alívia</span>
+              <span className={`text-[12px] font-medium leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                {pMessage}
+              </span>
+            </div>
+            <button
+              onClick={() => handleAnalyze(true)}
+              title="Atualizar Insight"
+              className={`p-2 rounded-lg transition-all shrink-0 ${isDark ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-black/5 text-slate-400'}`}
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
           </div>
-      </div>
+        );
+      })()}
+
+      {/* ── AI Deep Analysis Button ── */}
+      <button
+        onClick={() => handleAnalyze(true)}
+        disabled={isAnalyzing}
+        className={`w-full p-3.5 rounded-2xl border-2 border-dashed transition-all flex items-center justify-center gap-3 group ${
+          isDark
+            ? 'border-white/10 text-emerald-400 hover:bg-emerald-500/5 hover:border-emerald-500/50'
+            : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-400'
+        } ${isAnalyzing ? 'opacity-70 cursor-not-allowed' : ''}`}
+      >
+        <div className="p-2 bg-emerald-500/10 rounded-xl group-hover:scale-110 transition-transform">
+          {isAnalyzing ? <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" /> : <Sparkles className="w-4 h-4 text-emerald-500" />}
+        </div>
+        <div className="text-left">
+          <p className="text-[10px] font-black uppercase tracking-widest">{isAnalyzing ? 'Analisando...' : 'Análise Profunda com IA'}</p>
+          <p className="text-[8px] font-medium opacity-60">Relatório detalhado do seu patrimônio</p>
+        </div>
+      </button>
+
+      {/* AI Analysis Result */}
+      {aiAnalysis && !isAnalyzing && (
+        <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
+          <div className="p-4">
+            <div className={`text-xs leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+              <ReactMarkdown components={{
+                p: ({ ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                strong: ({ ...props }) => <strong className={`font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} {...props} />
+              }}>{aiAnalysis}</ReactMarkdown>
+            </div>
+          </div>
+        </div>
+      )}
 
         </div>{/* end right col */}
       </div>{/* end grid */}
