@@ -66,7 +66,7 @@ function CustomTooltip({ active, payload, label, isDark }) {
     );
 }
 
-export default function EvolucaoPatrimonialTab() {
+export default function EvolucaoPatrimonialTab({ hideHeader = false }) {
     const { theme } = useTheme();
     const { currentUser } = useAuth();
     const isDark = theme !== 'light';
@@ -438,6 +438,7 @@ export default function EvolucaoPatrimonialTab() {
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
             {/* ── HEADER ── */}
+            {!hideHeader && (
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-500 mb-1">Análise Comparativa</p>
@@ -455,6 +456,7 @@ export default function EvolucaoPatrimonialTab() {
                     {lastUpdated ? `Atualizado ${lastUpdated.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'Atualizar'}
                 </button>
             </div>
+            )}
 
             {/* ── PERFORMANCE CARDS ── */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
