@@ -198,7 +198,7 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                                 { icon: FileText, text: 'PDFs Automáticos' },
                                 { icon: Cloud, text: 'Sincronização Nuvem' },
                                 { icon: Globe, text: 'Acesso Web & Mobile' },
-                                { icon: Lock, text: 'Segurança Bancária' }
+                                { icon: LockIcon, text: 'Segurança Bancária' }
                             ]
                         ).map((item, i) => (
                             <div key={i} className="flex items-center gap-3">

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Eye, EyeOff, Settings } from 'lucide-react';
 import HealthScoreCard from './HealthScoreCard';
+import { CATEGORIES } from '../constants/categories';
 
 export default function OverviewTab({ 
     transactions, 
@@ -141,6 +142,11 @@ export default function OverviewTab({
         return filteredIncomes.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     }, [filteredIncomes]);
 
+    const getCategoryLabel = (categoryId) => {
+        const cat = CATEGORIES.income.find(c => c.id === categoryId) || CATEGORIES.expense.find(c => c.id === categoryId);
+        return cat ? cat.label : categoryId;
+    };
+
     const cardBg = theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/50 border-white/5';
     const textColor = theme === 'light' ? 'text-slate-800' : 'text-white';
     const subTextColor = theme === 'light' ? 'text-slate-500' : 'text-slate-400';
@@ -191,7 +197,7 @@ export default function OverviewTab({
                             <div className={`text-2xl font-black mb-1 ${hideBalance ? 'blur-md select-none' : textColor}`}>
                                 {hideBalance ? 'R$ 0.000,00' : formatCurrency(walletStats.expense)}
                             </div>
-                            <span className={`text-xs ${subTextColor}`}>{expenseTransactions.length} entries</span>
+                            <span className={`text-xs ${subTextColor}`}>{expenseTransactions.length} lançamentos</span>
                         </div>
                         
                         {/* Reservas */}
@@ -357,7 +363,7 @@ export default function OverviewTab({
                                             </div>
                                             <div className="min-w-0">
                                                 <p className={`text-sm font-bold truncate ${textColor}`}>{t.description || 'Recebimento'}</p>
-                                                <p className={`text-[10px] truncate ${subTextColor}`}>{t.category || 'Entrada'}</p>
+                                                <p className={`text-[10px] truncate ${subTextColor}`}>{getCategoryLabel(t.category) || 'Entrada'}</p>
                                             </div>
                                         </div>
                                         <div className="text-right shrink-0">

@@ -254,7 +254,8 @@ export default function AdminPanel({ onBack }) {
                     createdAt: baseDate ? baseDate.toLocaleDateString('pt-BR') : 'N/A',
                     lastSync: (settingsData.subscription?.updatedAt || userData.subscription?.updatedAt)?.toDate?.().toLocaleDateString() || 'N/A',
                     isDeleted: userData.status === 'deleted' || !userSnap.exists(),
-                    deletedAt: userData.deletedAt ? (userData.deletedAt.toDate ? userData.deletedAt.toDate().toLocaleDateString('pt-BR') : new Date(userData.deletedAt).toLocaleDateString('pt-BR')) : null
+                    deletedAt: userData.deletedAt ? (userData.deletedAt.toDate ? userData.deletedAt.toDate().toLocaleDateString('pt-BR') : new Date(userData.deletedAt).toLocaleDateString('pt-BR')) : null,
+                    hasAcceptedTerms: settingsData.hasAcceptedTerms || false
                 });
             }
             setUsers(userList);
@@ -681,6 +682,7 @@ export default function AdminPanel({ onBack }) {
                                                             <p className="font-black text-white truncate text-base mb-1">{user.email}</p>
                                                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                                                                 <Fingerprint className="w-3 h-3" /> {user.uid.slice(0, 8)}... • Criado em {user.createdAt}
+                                                                {user.hasAcceptedTerms ? <span className="text-emerald-500 ml-1">✓ Termos</span> : <span className="text-amber-500 ml-1">! Termos</span>}
                                                             </p>
                                                         </div>
                                                     </div>

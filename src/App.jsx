@@ -42,6 +42,8 @@ import ExitsTab from './components/ExitsTab';
 import { calculateCumulativeBalance } from './utils/financialLogic';
 import AliviaConfigForm from './components/AliviaConfigForm';
 import OverviewTab from './components/OverviewTab';
+import TermsAcceptanceModal from './components/TermsAcceptanceModal';
+import CookieConsent from './components/CookieConsent';
 
 // CONFIGURAÇÃO MASTER
 const MASTER_EMAIL = 'financealivia@gmail.com';
@@ -68,6 +70,18 @@ function Dashboard() {
   const [editingJar, setEditingJar] = useState(null);
   const [jarDeleteConfirm, setJarDeleteConfirm] = useState(null);
   const [showAliviaConfig, setShowAliviaConfig] = useState(false);
+  const [isAcceptingTerms, setIsAcceptingTerms] = useState(false);
+
+  const needsToAcceptTerms = userPrefs && userPrefs.hasAcceptedTerms !== true;
+
+  const handleAcceptTerms = async () => {
+    setIsAcceptingTerms(true);
+    try {
+      await saveUserPreferences({ hasAcceptedTerms: true });
+    } finally {
+      setIsAcceptingTerms(false);
+    }
+  };
 
   const [manualConfig, setManualConfig] = useState({
     income: '',
@@ -787,6 +801,15 @@ function Dashboard() {
             </div>
           </div>
         )}
+
+        {/* Terms Acceptance Modal */}
+        {needsToAcceptTerms && (
+          <TermsAcceptanceModal 
+            theme={theme} 
+            onAccept={handleAcceptTerms} 
+            isAccepting={isAcceptingTerms} 
+          />
+        )}
       </div>
   );
 }
@@ -894,6 +917,7 @@ export default function App() {
     <AuthProvider>
       <ThemeProvider>
         <AppContent />
+        <CookieConsent />
       </ThemeProvider>
     </AuthProvider>
   );

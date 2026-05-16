@@ -91,9 +91,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
           <img 
             src={logo} 
             alt="Alívia Logo" 
-            className={`w-48 h-48 object-contain drop-shadow-[0_0_40px_rgba(16,185,129,0.15)] transition-all hover:scale-105 duration-700 ${
-              theme === 'dark' ? 'brightness-0 invert' : ''
-            }`} 
+            className={`w-48 h-48 object-contain drop-shadow-[0_0_40px_rgba(16,185,129,0.15)] transition-all hover:scale-105 duration-700`} 
           />
         </div>
 
