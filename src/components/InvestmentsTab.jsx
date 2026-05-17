@@ -860,8 +860,8 @@ export default function InvestmentsTab() {
                 ))}
             </div>
 
-            {/* Stats + Chart Row */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Stats Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className={`p-5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/80 border-white/[0.06]'}`}>
                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
                         <Wallet className="w-3 h-3" /> Patrimônio Total
@@ -869,7 +869,7 @@ export default function InvestmentsTab() {
                     <p className={`text-xl md:text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                         {viewInUSD ? '$' : 'R$'} {(stats.currentValue * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
-                    <div className={`mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black ${stats.profit >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                    <div className={`mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black ${stats.profit >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
                         {stats.profit >= 0 ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
                         {stats.profit >= 0 ? '+' : ''}{stats.profitPct.toFixed(1)}%
                     </div>
@@ -898,37 +898,77 @@ export default function InvestmentsTab() {
                         </div>
                     )}
                 </div>
+            </div>
 
-                {/* Compact Pie Chart */}
-                <div className={`p-4 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/80 border-white/[0.06]'}`}>
-                    {totalChartValue > 0 ? (
-                        <div className="flex items-center gap-3">
-                            <div className="relative w-[90px] h-[90px] flex-shrink-0">
-                                <ResponsiveContainer width="100%" height="100%">
+            {/* Alocação de Patrimônio - Full Width Chart */}
+            <div className={`rounded-2xl border overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/80 border-white/[0.06]'}`}>
+                <div className="flex items-center justify-between p-5 pb-0">
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl ${theme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
+                            <BarChart3 className={`w-4 h-4 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`} />
+                        </div>
+                        <div>
+                            <p className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Alocação de Patrimônio</p>
+                            <p className="text-[9px] text-slate-500 font-medium">Distribuição por {chartViewMode === 'category' ? 'categoria' : 'ativo'}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className={`flex rounded-lg border overflow-hidden ${theme === 'light' ? 'border-slate-200' : 'border-white/10'}`}>
+                            <button onClick={() => setChartViewMode('category')} className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'category' ? 'bg-emerald-500 text-white' : (theme === 'light' ? 'text-slate-500 bg-white hover:bg-slate-50' : 'text-slate-400 bg-slate-900 hover:bg-white/5')}`}>
+                                <Layers className="w-3 h-3" /> Cat
+                            </button>
+                            <button onClick={() => setChartViewMode('asset')} className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all border-l ${theme === 'light' ? 'border-slate-200' : 'border-white/10'} ${chartViewMode === 'asset' ? 'bg-emerald-500 text-white' : (theme === 'light' ? 'text-slate-500 bg-white hover:bg-slate-50' : 'text-slate-400 bg-slate-900 hover:bg-white/5')}`}>
+                                <List className="w-3 h-3" /> Ativos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-5">
+                    {totalChartValue <= 0 ? (
+                        <div className="text-center py-10">
+                            <p className="text-slate-500 text-xs font-bold">Nenhum valor para exibir no gráfico.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
+                            {/* Donut Chart */}
+                            <div className="md:col-span-2 relative mx-auto w-full max-w-[260px]">
+                                <ResponsiveContainer width="100%" height={240}>
                                     <RechartsPieChart>
-                                        <Pie data={chartItems} cx="50%" cy="50%" innerRadius={28} outerRadius={42} paddingAngle={2} dataKey="value" stroke="none" animationDuration={600}>
-                                            {chartItems.map((entry, idx) => (<Cell key={idx} fill={entry.color} className="outline-none" />))}
+                                        <Pie data={chartItems} cx="50%" cy="50%" innerRadius={68} outerRadius={108} paddingAngle={2} dataKey="value" stroke="none" animationDuration={800} animationEasing="ease-out">
+                                            {chartItems.map((entry, idx) => (<Cell key={idx} fill={entry.color} className="transition-all hover:opacity-80 outline-none cursor-pointer" />))}
                                         </Pie>
                                         <ReTooltip content={<CustomPieTooltip />} />
                                     </RechartsPieChart>
                                 </ResponsiveContainer>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                    <p className={`text-[8px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-400' : 'text-slate-600'}`}>Total</p>
+                                    <p className={`text-lg font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{viewInUSD ? '$' : 'R$'} {(totalChartValue * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                </div>
                             </div>
-                            <div className="flex-1 space-y-1 min-w-0">
-                                {chartItems.slice(0, 4).map((item, idx) => {
-                                    const pct = totalChartValue > 0 ? (item.value / totalChartValue) * 100 : 0;
-                                    return (
-                                        <div key={idx} className="flex items-center gap-1.5">
-                                            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: item.color }} />
-                                            <span className={`text-[9px] font-bold truncate flex-1 ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>{item.name}</span>
-                                            <span className="text-[10px] font-black flex-shrink-0" style={{ color: item.color }}>{pct.toFixed(1)}%</span>
-                                        </div>
-                                    );
-                                })}
+
+                            {/* Legend */}
+                            <div className="md:col-span-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {chartItems.map((item, idx) => {
+                                        const pct = totalChartValue > 0 ? (item.value / totalChartValue) * 100 : 0;
+                                        return (
+                                            <div key={idx} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${theme === 'light' ? 'hover:bg-slate-50' : 'hover:bg-white/[0.03]'}`}>
+                                                <div className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm" style={{ background: item.color }} />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className={`text-xs font-black truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{item.name}</p>
+                                                    <p className={`text-[10px] font-bold ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                                                        {viewInUSD ? '$' : 'R$'} {(item.value * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </p>
+                                                </div>
+                                                <div className="flex-shrink-0 text-right">
+                                                    <p className="text-sm font-black" style={{ color: item.color }}>{pct.toFixed(1)}%</p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    ) : (
-                        <div className="flex items-center justify-center h-full">
-                            <p className="text-slate-500 text-[10px] font-bold">Sem dados</p>
                         </div>
                     )}
                 </div>
