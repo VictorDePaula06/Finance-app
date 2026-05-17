@@ -632,7 +632,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
             </div>
 
             {/* ── BENCHMARK LEGEND ── */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {!compact && <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {Object.entries(BENCHMARKS).map(([id, bm]) => (
                     <div key={id} className={`p-5 rounded-[2rem] border flex items-center gap-4 ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
                         <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: bm.color + '20' }}>
@@ -649,7 +649,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
                         ) : null}
                     </div>
                 ))}
-            </div>
+            </div>}
 
             {/* ── DISCLAIMER ── */}
             <div className={`flex items-start gap-3 p-5 rounded-2xl border ${isDark ? 'bg-slate-900/50 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
