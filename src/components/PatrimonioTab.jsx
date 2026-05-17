@@ -455,6 +455,143 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         );
       })()}
 
+      {/* ── ALÍVIA PATRIMÔNIO INSIGHT ── */}
+      {(() => {
+        // --- Local patrimony insight generation ---
+        const reservesPct = patrimonioTotal > 0 ? (jarsTotal / patrimonioTotal * 100) : 0;
+        const investPct = patrimonioTotal > 0 ? (investmentsTotal / patrimonioTotal * 100) : 0;
+
+        // Category breakdown
+        const CATEGORY_LABELS = {
+          renda_fixa: 'Renda Fixa', acoes: 'Ações', etfs: 'ETFs',
+          fiis: 'Fundos Imobiliários', crypto: 'Criptomoedas', imoveis: 'Imóveis',
+        };
+        const catCount = {};
+        const catValue = {};
+        investments.forEach(inv => {
+          const cat = inv.type || 'outros';
+          catCount[cat] = (catCount[cat] || 0) + 1;
+          const price = inv.manualCurrentPrice || inv.purchasePrice || 0;
+          const usdM = inv.isUSD ? usdRate : 1;
+          catValue[cat] = (catValue[cat] || 0) + ((inv.quantity || 1) * price * usdM);
+        });
+        const uniqueCategories = Object.keys(catCount);
+
+        // Detect tech/innovation focus by names
+        const TECH_KEYWORDS = ['nvda','nvidia','aapl','apple','msft','microsoft','goog','google','meta','amzn','amazon','tsla','tesla','amd','intc','intel','qcom','qualcomm','tsmc','asml','avgo','broadcom','crm','salesforce','adbe','adobe','snow','pltr','palantir','coin','coinbase','sq','block','shop','shopify','net','cloudflare','ddog','datadog','ai','c3ai','smci','ivvb','qqqm','qqq','nasd','spy','voo','arkk','arkg','soxx','btc','bitcoin','eth','ethereum','sol','solana'];
+        const techAssets = investments.filter(inv => {
+          const n = (inv.name || '').toLowerCase();
+          const s = (inv.symbol || '').toLowerCase();
+          return TECH_KEYWORDS.some(kw => n.includes(kw) || s.includes(kw));
+        });
+        const hasTechFocus = techAssets.length > 0;
+        const techPct = investmentsTotal > 0 ? techAssets.reduce((acc, inv) => {
+          const price = inv.manualCurrentPrice || inv.purchasePrice || 0;
+          const usdM = inv.isUSD ? usdRate : 1;
+          return acc + ((inv.quantity || 1) * price * usdM);
+        }, 0) / investmentsTotal * 100 : 0;
+
+        let pStatus = 'neutral';
+        let pMessage = 'Analisando seu patrimônio...';
+
+        if (patrimonioTotal <= 0 && jars.length === 0 && investments.length === 0) {
+          pStatus = 'neutral';
+          pMessage = 'Ainda não há ativos cadastrados. Comece adicionando suas reservas e investimentos.';
+        } else {
+          const parts = [];
+
+          // Consolidation check
+          const hasReserve = jars.length > 0 && jarsTotal > 0;
+          const hasInvestments = investments.length > 0;
+          const isConsolidated = hasReserve && hasInvestments && uniqueCategories.length >= 2;
+
+          if (isConsolidated) {
+            pStatus = 'positive';
+            parts.push(`Patrimônio consolidado com reserva e ${investments.length} ativo${investments.length > 1 ? 's' : ''} em ${uniqueCategories.length} categoria${uniqueCategories.length > 1 ? 's' : ''}.`);
+          } else if (hasReserve && !hasInvestments) {
+            pStatus = 'warning';
+            parts.push(`Reserva ativa com ${jars.length} cofre${jars.length > 1 ? 's' : ''}, mas ainda sem investimentos — considere diversificar.`);
+          } else if (!hasReserve && hasInvestments) {
+            pStatus = 'warning';
+            parts.push(`${investments.length} ativo${investments.length > 1 ? 's' : ''} em carteira, mas sem reserva de emergência — priorize criar uma.`);
+          } else if (hasReserve && hasInvestments && uniqueCategories.length < 2) {
+            pStatus = 'warning';
+            parts.push(`Reserva ativa e ${investments.length} ativo${investments.length > 1 ? 's' : ''}, mas concentrados em ${CATEGORY_LABELS[uniqueCategories[0]] || 'uma categoria'}.`);
+          }
+
+          // Tech/innovation profile
+          if (hasTechFocus) {
+            const techNames = techAssets.slice(0, 3).map(a => a.name || a.symbol).join(', ');
+            if (techPct >= 50) {
+              parts.push(`Perfil focado em tecnologia e inovação (${techPct.toFixed(0)}% da carteira: ${techNames}).`);
+            } else {
+              parts.push(`Exposição a tech/inovação com ${techNames} (${techPct.toFixed(0)}%).`);
+            }
+          }
+
+          // Profit/loss
+          if (hasInvestments) {
+            if (investmentsProfit > 0) {
+              parts.push(`Lucro acumulado de R$ ${fmt(investmentsProfit)}.`);
+            } else if (investmentsProfit < 0) {
+              pStatus = pStatus === 'positive' ? 'warning' : pStatus;
+              parts.push(`Prejuízo de R$ ${fmt(Math.abs(investmentsProfit))} nos investimentos.`);
+            }
+          }
+
+          // Over-concentration in reserve
+          if (reservesPct > 80 && hasInvestments) {
+            pStatus = 'warning';
+            parts.push('Muita concentração em reserva — considere alocar mais em ativos.');
+          }
+
+          pMessage = parts.join(' ');
+        }
+
+        const bgColors = {
+          positive: isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200',
+          negative: isDark ? 'bg-rose-500/10 border-rose-500/20' : 'bg-rose-50 border-rose-200',
+          warning: isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-200',
+          neutral: isDark ? 'bg-slate-500/10 border-slate-500/20' : 'bg-slate-50 border-slate-200',
+        };
+        const textColors = {
+          positive: isDark ? 'text-emerald-400' : 'text-emerald-700',
+          negative: isDark ? 'text-rose-400' : 'text-rose-700',
+          warning: isDark ? 'text-amber-400' : 'text-amber-700',
+          neutral: isDark ? 'text-slate-400' : 'text-slate-700',
+        };
+        const statusIcons = {
+          positive: <TrendingUp className="w-3.5 h-3.5" />,
+          negative: <TrendingDown className="w-3.5 h-3.5" />,
+          warning: <Sparkles className="w-3.5 h-3.5" />,
+          neutral: <Sparkles className="w-3.5 h-3.5" />,
+        };
+
+        return (
+          <div className={`flex items-start gap-3 p-4 rounded-2xl border ${bgColors[pStatus]} transition-all duration-300 shadow-inner`}>
+            <div className="relative shrink-0 mt-0.5">
+              <img src={aliviaFinal} alt="Alívia" className="w-10 h-10 object-cover rounded-full border-2 border-white/20 shadow-md" />
+              <div className={`absolute -bottom-1 -right-1 p-0.5 rounded-full ${isDark ? 'bg-[#131621]' : 'bg-white'} border border-white/10 ${textColors[pStatus]}`}>
+                {statusIcons[pStatus]}
+              </div>
+            </div>
+            <div className="flex flex-col flex-1 min-w-0">
+              <span className={`text-[10px] font-black uppercase tracking-widest ${textColors[pStatus]} opacity-90`}>Alívia</span>
+              <span className={`text-[12px] font-medium leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                {pMessage}
+              </span>
+            </div>
+            <button
+              onClick={() => handleAnalyze(true)}
+              title="Atualizar Insight"
+              className={`p-2 rounded-lg transition-all shrink-0 ${isDark ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-black/5 text-slate-400'}`}
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
+        );
+      })()}
+
         </div>{/* end left col */}
 
         {/* ═══ RIGHT COLUMN (2/5) ═══ */}
@@ -626,145 +763,6 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
                 );
               })()}
             </div>
-          </div>
-        );
-      })()}
-
-
-
-      {/* ── ALÍVIA PATRIMÔNIO INSIGHT ── */}
-      {(() => {
-        // --- Local patrimony insight generation ---
-        const reservesPct = patrimonioTotal > 0 ? (jarsTotal / patrimonioTotal * 100) : 0;
-        const investPct = patrimonioTotal > 0 ? (investmentsTotal / patrimonioTotal * 100) : 0;
-
-        // Category breakdown
-        const CATEGORY_LABELS = {
-          renda_fixa: 'Renda Fixa', acoes: 'Ações', etfs: 'ETFs',
-          fiis: 'Fundos Imobiliários', crypto: 'Criptomoedas', imoveis: 'Imóveis',
-        };
-        const catCount = {};
-        const catValue = {};
-        investments.forEach(inv => {
-          const cat = inv.type || 'outros';
-          catCount[cat] = (catCount[cat] || 0) + 1;
-          const price = inv.manualCurrentPrice || inv.purchasePrice || 0;
-          const usdM = inv.isUSD ? usdRate : 1;
-          catValue[cat] = (catValue[cat] || 0) + ((inv.quantity || 1) * price * usdM);
-        });
-        const uniqueCategories = Object.keys(catCount);
-
-        // Detect tech/innovation focus by names
-        const TECH_KEYWORDS = ['nvda','nvidia','aapl','apple','msft','microsoft','goog','google','meta','amzn','amazon','tsla','tesla','amd','intc','intel','qcom','qualcomm','tsmc','asml','avgo','broadcom','crm','salesforce','adbe','adobe','snow','pltr','palantir','coin','coinbase','sq','block','shop','shopify','net','cloudflare','ddog','datadog','ai','c3ai','smci','ivvb','qqqm','qqq','nasd','spy','voo','arkk','arkg','soxx','btc','bitcoin','eth','ethereum','sol','solana'];
-        const techAssets = investments.filter(inv => {
-          const n = (inv.name || '').toLowerCase();
-          const s = (inv.symbol || '').toLowerCase();
-          return TECH_KEYWORDS.some(kw => n.includes(kw) || s.includes(kw));
-        });
-        const hasTechFocus = techAssets.length > 0;
-        const techPct = investmentsTotal > 0 ? techAssets.reduce((acc, inv) => {
-          const price = inv.manualCurrentPrice || inv.purchasePrice || 0;
-          const usdM = inv.isUSD ? usdRate : 1;
-          return acc + ((inv.quantity || 1) * price * usdM);
-        }, 0) / investmentsTotal * 100 : 0;
-
-        let pStatus = 'neutral';
-        let pMessage = 'Analisando seu patrimônio...';
-
-        if (patrimonioTotal <= 0 && jars.length === 0 && investments.length === 0) {
-          pStatus = 'neutral';
-          pMessage = 'Ainda não há ativos cadastrados. Comece adicionando suas reservas e investimentos.';
-        } else {
-          const parts = [];
-
-          // Consolidation check
-          const hasReserve = jars.length > 0 && jarsTotal > 0;
-          const hasInvestments = investments.length > 0;
-          const isConsolidated = hasReserve && hasInvestments && uniqueCategories.length >= 2;
-
-          if (isConsolidated) {
-            pStatus = 'positive';
-            parts.push(`Patrimônio consolidado com reserva e ${investments.length} ativo${investments.length > 1 ? 's' : ''} em ${uniqueCategories.length} categoria${uniqueCategories.length > 1 ? 's' : ''}.`);
-          } else if (hasReserve && !hasInvestments) {
-            pStatus = 'warning';
-            parts.push(`Reserva ativa com ${jars.length} cofre${jars.length > 1 ? 's' : ''}, mas ainda sem investimentos — considere diversificar.`);
-          } else if (!hasReserve && hasInvestments) {
-            pStatus = 'warning';
-            parts.push(`${investments.length} ativo${investments.length > 1 ? 's' : ''} em carteira, mas sem reserva de emergência — priorize criar uma.`);
-          } else if (hasReserve && hasInvestments && uniqueCategories.length < 2) {
-            pStatus = 'warning';
-            parts.push(`Reserva ativa e ${investments.length} ativo${investments.length > 1 ? 's' : ''}, mas concentrados em ${CATEGORY_LABELS[uniqueCategories[0]] || 'uma categoria'}.`);
-          }
-
-          // Tech/innovation profile
-          if (hasTechFocus) {
-            const techNames = techAssets.slice(0, 3).map(a => a.name || a.symbol).join(', ');
-            if (techPct >= 50) {
-              parts.push(`Perfil focado em tecnologia e inovação (${techPct.toFixed(0)}% da carteira: ${techNames}).`);
-            } else {
-              parts.push(`Exposição a tech/inovação com ${techNames} (${techPct.toFixed(0)}%).`);
-            }
-          }
-
-          // Profit/loss
-          if (hasInvestments) {
-            if (investmentsProfit > 0) {
-              parts.push(`Lucro acumulado de R$ ${fmt(investmentsProfit)}.`);
-            } else if (investmentsProfit < 0) {
-              pStatus = pStatus === 'positive' ? 'warning' : pStatus;
-              parts.push(`Prejuízo de R$ ${fmt(Math.abs(investmentsProfit))} nos investimentos.`);
-            }
-          }
-
-          // Over-concentration in reserve
-          if (reservesPct > 80 && hasInvestments) {
-            pStatus = 'warning';
-            parts.push('Muita concentração em reserva — considere alocar mais em ativos.');
-          }
-
-          pMessage = parts.join(' ');
-        }
-
-        const bgColors = {
-          positive: isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200',
-          negative: isDark ? 'bg-rose-500/10 border-rose-500/20' : 'bg-rose-50 border-rose-200',
-          warning: isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-200',
-          neutral: isDark ? 'bg-slate-500/10 border-slate-500/20' : 'bg-slate-50 border-slate-200',
-        };
-        const textColors = {
-          positive: isDark ? 'text-emerald-400' : 'text-emerald-700',
-          negative: isDark ? 'text-rose-400' : 'text-rose-700',
-          warning: isDark ? 'text-amber-400' : 'text-amber-700',
-          neutral: isDark ? 'text-slate-400' : 'text-slate-700',
-        };
-        const statusIcons = {
-          positive: <TrendingUp className="w-3.5 h-3.5" />,
-          negative: <TrendingDown className="w-3.5 h-3.5" />,
-          warning: <Sparkles className="w-3.5 h-3.5" />,
-          neutral: <Sparkles className="w-3.5 h-3.5" />,
-        };
-
-        return (
-          <div className={`flex items-start gap-3 p-4 rounded-2xl border ${bgColors[pStatus]} transition-all duration-300 shadow-inner`}>
-            <div className="relative shrink-0 mt-0.5">
-              <img src={aliviaFinal} alt="Alívia" className="w-10 h-10 object-cover rounded-full border-2 border-white/20 shadow-md" />
-              <div className={`absolute -bottom-1 -right-1 p-0.5 rounded-full ${isDark ? 'bg-[#131621]' : 'bg-white'} border border-white/10 ${textColors[pStatus]}`}>
-                {statusIcons[pStatus]}
-              </div>
-            </div>
-            <div className="flex flex-col flex-1 min-w-0">
-              <span className={`text-[10px] font-black uppercase tracking-widest ${textColors[pStatus]} opacity-90`}>Alívia</span>
-              <span className={`text-[12px] font-medium leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                {pMessage}
-              </span>
-            </div>
-            <button
-              onClick={() => handleAnalyze(true)}
-              title="Atualizar Insight"
-              className={`p-2 rounded-lg transition-all shrink-0 ${isDark ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-black/5 text-slate-400'}`}
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
           </div>
         );
       })()}
