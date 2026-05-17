@@ -770,7 +770,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
       })()}
 
       {/* ── RETORNO ACUMULADO — Estilo Evolução Patrimonial ── */}
-      <EvolucaoPatrimonialTab hideHeader />
+      <EvolucaoPatrimonialTab hideHeader compact />
 
         </div>{/* end right col */}
       </div>{/* end grid */}

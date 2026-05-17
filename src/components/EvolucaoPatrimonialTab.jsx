@@ -66,7 +66,7 @@ function CustomTooltip({ active, payload, label, isDark }) {
     );
 }
 
-export default function EvolucaoPatrimonialTab({ hideHeader = false }) {
+export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = false }) {
     const { theme } = useTheme();
     const { currentUser } = useAuth();
     const isDark = theme !== 'light';
@@ -459,7 +459,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false }) {
             )}
 
             {/* ── PERFORMANCE CARDS ── */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {!compact && <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
                     { label: 'Meu Portfólio',  value: finalReturns.portfolio, color: '#00E5A0',                   always: true },
                     { label: 'CDI',            value: finalReturns.cdi,       color: BENCHMARKS.cdi.color,        always: true },
@@ -487,10 +487,10 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false }) {
                         </div>
                     );
                 })}
-            </div>
+            </div>}
 
             {/* ── CONTROLS ── */}
-            <div className={`p-5 rounded-[2rem] border flex flex-wrap gap-6 items-center justify-between ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+            {!compact && <div className={`p-5 rounded-[2rem] border flex flex-wrap gap-6 items-center justify-between ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
 
                 {/* Period selector */}
                 <div className="flex items-center gap-2">
@@ -531,7 +531,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false }) {
                         </button>
                     ))}
                 </div>
-            </div>
+            </div>}
 
             {/* ── CHART ── */}
             <div className={`p-6 md:p-8 rounded-[2.5rem] border ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
