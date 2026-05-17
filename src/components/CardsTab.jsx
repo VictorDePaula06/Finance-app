@@ -35,6 +35,10 @@ const CardsTab = ({ transactions = [] }) => {
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, type, title }
   const [payingInstallment, setPayingInstallment] = useState(null); // { sub object }
   const [payingInvoice, setPayingInvoice] = useState(null); // { cardId, total, expenses }
+  
+  // Edit Transaction State
+  const [editingTransaction, setEditingTransaction] = useState(null); // { id, description, amount, date }
+  const [editingSub, setEditingSub] = useState(null); // { id, name, value, day }
 
   useEffect(() => {
     if (!currentUser) return;
@@ -82,6 +86,37 @@ const CardsTab = ({ transactions = [] }) => {
   const handleDeleteTransaction = async (id) => {
     await deleteDoc(doc(db, 'transactions', id));
     setDeleteConfirm(null);
+  };
+
+  const handleUpdateTransaction = async (e) => {
+    e.preventDefault();
+    if (!editingTransaction?.description || !editingTransaction?.amount) return;
+    
+    let formattedDate = editingTransaction.date;
+    if (formattedDate && formattedDate.includes('-')) {
+        const [y, m, d] = formattedDate.split('-').map(Number);
+        const transactionDate = new Date(y, m - 1, d, 12, 0, 0);
+        formattedDate = transactionDate.toISOString();
+    }
+
+    await updateDoc(doc(db, 'transactions', editingTransaction.id), {
+        description: editingTransaction.description,
+        amount: parseFloat(editingTransaction.amount),
+        date: formattedDate
+    });
+    setEditingTransaction(null);
+  };
+
+  const handleUpdateSub = async (e) => {
+    e.preventDefault();
+    if (!editingSub?.name || !editingSub?.value) return;
+    
+    await updateDoc(doc(db, 'subscriptions', editingSub.id), {
+        name: editingSub.name,
+        value: parseFloat(editingSub.value),
+        day: parseInt(editingSub.day) || 1
+    });
+    setEditingSub(null);
   };
 
   const handleAddSub = async (e) => {
@@ -308,12 +343,29 @@ const CardsTab = ({ transactions = [] }) => {
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-black text-rose-500">R$ {parseFloat(exp.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                <button 
-                                    onClick={() => setDeleteConfirm({ id: exp.id, type: 'transaction', title: exp.description, cardId: card.id })}
-                                    className="p-1.5 text-slate-500 hover:text-rose-500 opacity-100 md:opacity-0 md:group-hover/item:opacity-100 transition-all"
-                                >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                <div className="flex opacity-100 md:opacity-0 md:group-hover/item:opacity-100 transition-all">
+                                    <button 
+                                        onClick={() => {
+                                            const d = new Date(exp.date);
+                                            const formattedDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                                            setEditingTransaction({
+                                                id: exp.id,
+                                                description: exp.description,
+                                                amount: exp.amount,
+                                                date: formattedDate
+                                            });
+                                        }}
+                                        className="p-1.5 text-slate-500 hover:text-emerald-500"
+                                    >
+                                        <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button 
+                                        onClick={() => setDeleteConfirm({ id: exp.id, type: 'transaction', title: exp.description, cardId: card.id })}
+                                        className="p-1.5 text-slate-500 hover:text-rose-500"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     ))}
@@ -454,9 +506,14 @@ const CardsTab = ({ transactions = [] }) => {
                   <div className="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center">
                     <Tag className="w-6 h-6 text-purple-500" />
                   </div>
-                  <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className="p-2 text-slate-500 hover:text-rose-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all bg-white/5 rounded-xl">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
+                    <button onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day })} className="p-2 text-slate-500 hover:text-emerald-500 bg-white/5 rounded-xl mr-1">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className="p-2 text-slate-500 hover:text-rose-500 bg-white/5 rounded-xl">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Delete overlay for Subscription */}
@@ -527,9 +584,14 @@ const CardsTab = ({ transactions = [] }) => {
                   <div className="w-12 h-12 bg-rose-500/10 rounded-2xl flex items-center justify-center">
                     <Hash className="w-6 h-6 text-rose-500" />
                   </div>
-                  <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className="p-2 text-slate-500 hover:text-rose-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all bg-white/5 rounded-xl">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
+                    <button onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day })} className="p-2 text-slate-500 hover:text-emerald-500 bg-white/5 rounded-xl mr-1">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className="p-2 text-slate-500 hover:text-rose-500 bg-white/5 rounded-xl">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Delete overlay for Installment */}
@@ -766,6 +828,107 @@ const CardsTab = ({ transactions = [] }) => {
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setIsAddingSub(false)} className={`flex-1 py-4 rounded-2xl font-bold text-xs ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>Cancelar</button>
               <button type="submit" className="flex-1 py-4 rounded-2xl font-bold text-xs bg-purple-500 text-white shadow-lg shadow-purple-500/20">Salvar</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* MODAL: EDIT TRANSACTION */}
+      {editingTransaction && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <form onSubmit={handleUpdateTransaction} className={`border rounded-[2.5rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
+            theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/5 shadow-2xl shadow-emerald-500/10'
+          }`}>
+            <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Editar Gasto</h3>
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Descrição"
+                required
+                value={editingTransaction.description}
+                onChange={(e) => setEditingTransaction({...editingTransaction, description: e.target.value})}
+                className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
+                  theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+                }`}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Valor R$"
+                  required
+                  value={editingTransaction.amount}
+                  onChange={(e) => setEditingTransaction({...editingTransaction, amount: e.target.value})}
+                  className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+                  }`}
+                />
+                <input
+                  type="date"
+                  required
+                  value={editingTransaction.date}
+                  onChange={(e) => setEditingTransaction({...editingTransaction, date: e.target.value})}
+                  className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 [color-scheme:light]' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white [color-scheme:dark]'
+                  }`}
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setEditingTransaction(null)} className={`flex-1 py-4 rounded-2xl font-bold text-xs ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>Cancelar</button>
+              <button type="submit" className="flex-1 py-4 rounded-2xl font-bold text-xs bg-emerald-500 text-white shadow-lg shadow-emerald-500/20">Salvar Alterações</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* MODAL: EDIT SUB */}
+      {editingSub && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <form onSubmit={handleUpdateSub} className={`border rounded-[2.5rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
+            theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/5 shadow-2xl shadow-purple-500/10'
+          }`}>
+            <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Editar Assinatura</h3>
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Nome da assinatura"
+                required
+                value={editingSub.name}
+                onChange={(e) => setEditingSub({...editingSub, name: e.target.value})}
+                className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
+                  theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+                }`}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Valor R$"
+                  required
+                  value={editingSub.value}
+                  onChange={(e) => setEditingSub({...editingSub, value: e.target.value})}
+                  className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+                  }`}
+                />
+                <input
+                  type="number"
+                  placeholder="Dia Venc."
+                  min="1"
+                  max="31"
+                  required
+                  value={editingSub.day}
+                  onChange={(e) => setEditingSub({...editingSub, day: e.target.value})}
+                  className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+                  }`}
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setEditingSub(null)} className={`flex-1 py-4 rounded-2xl font-bold text-xs ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>Cancelar</button>
+              <button type="submit" className="flex-1 py-4 rounded-2xl font-bold text-xs bg-purple-500 text-white shadow-lg shadow-purple-500/20">Salvar Alterações</button>
             </div>
           </form>
         </div>

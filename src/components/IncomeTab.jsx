@@ -306,7 +306,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
         return transactions.filter(t => {
             const isExpense = t.type === 'expense';
             const matchesMonth = t.month === currentMonthKey || (t.date && t.date.startsWith(currentMonthKey));
-            return isExpense && matchesMonth;
+            return isExpense && matchesMonth && t.paymentMethod !== 'credito';
         }).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     }, [transactions, currentMonthKey]);
 

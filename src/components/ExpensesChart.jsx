@@ -41,7 +41,7 @@ const CATEGORY_LABELS = {
     other: 'Outro'
 };
 
-export default function ExpensesChart({ transactions, targetMonth, mode = 'gastos', selectedCard = 'all', subscriptions = [] }) {
+export default function ExpensesChart({ transactions, targetMonth, mode = 'gastos', selectedCard = 'all', subscriptions = [], includeCredit = false }) {
     const { theme } = useTheme();
     const [selectedPriority, setSelectedPriority] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState(null);
@@ -66,12 +66,12 @@ export default function ExpensesChart({ transactions, targetMonth, mode = 'gasto
                 t.type === 'expense' &&
                 t.category !== 'investment' &&
                 t.category !== 'vault' &&
-                t.paymentMethod !== 'credito' &&
+                (includeCredit || t.paymentMethod !== 'credito') &&
                 (t.date?.slice(0, 7) === monthToFilter || t.month === monthToFilter)
             );
         }
         return { expenses, subsToInclude };
-    }, [transactions, targetMonth, mode, selectedCard, subscriptions]);
+    }, [transactions, targetMonth, mode, selectedCard, subscriptions, includeCredit]);
 
     const data = useMemo(() => {
         const { expenses, subsToInclude } = filteredExpenses;

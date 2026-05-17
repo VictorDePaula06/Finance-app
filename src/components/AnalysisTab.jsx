@@ -11,6 +11,7 @@ import aliviaFinal from '../assets/alivia/alivia-final.png';
 const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
   const { theme } = useTheme();
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [includeCredit, setIncludeCredit] = useState(false);
   const [chartMode, setChartMode] = useState('gastos'); // 'gastos' | 'cartoes'
   const [selectedCard, setSelectedCard] = useState('all');
 
@@ -36,12 +37,12 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
       .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
     const expense = filtered
-      .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && t.paymentMethod !== 'credito')
+      .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && (includeCredit || t.paymentMethod !== 'credito'))
       .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
     // Group by category to find top expense
     const byCategory = filtered
-      .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && t.paymentMethod !== 'credito')
+      .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && (includeCredit || t.paymentMethod !== 'credito'))
       .reduce((acc, t) => {
         const cat = t.category || 'other';
         acc[cat] = (acc[cat] || 0) + parseFloat(t.amount);
@@ -52,7 +53,7 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
 
     // Group by priority
     const byPriority = filtered
-      .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && t.paymentMethod !== 'credito')
+      .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && (includeCredit || t.paymentMethod !== 'credito'))
       .reduce((acc, t) => {
         const priority = t.priority || 'other';
         acc[priority] = (acc[priority] || 0) + parseFloat(t.amount);
@@ -60,7 +61,7 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
       }, {});
 
     return { income, expense, balance: income - expense, topCategory, topCategoryValue: byCategory[topCategory] || 0, byPriority };
-  }, [transactions, selectedMonth]);
+  }, [transactions, selectedMonth, includeCredit]);
 
   // Previous Month Comparison
   const prevStats = useMemo(() => {
@@ -75,11 +76,11 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
       .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
     const expense = filtered
-      .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && t.paymentMethod !== 'credito')
+      .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && (includeCredit || t.paymentMethod !== 'credito'))
       .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
     return { income, expense };
-  }, [transactions, selectedMonth]);
+  }, [transactions, selectedMonth, includeCredit]);
 
   // Credit Card Stats
   const cardStats = useMemo(() => {
@@ -145,33 +146,33 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
   return (
     <div className="max-w-full overflow-x-hidden px-5 md:px-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       
-      <div className="flex flex-col items-center justify-center gap-4">
-        <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-500/10 rounded-2xl">
-                <PieChart className="w-6 h-6 text-blue-500" />
-            </div>
-            <div>
-                <h2 className={`text-xl font-black tracking-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Análise de Gastos</h2>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Acompanhe seu ritmo financeiro</p>
-            </div>
-        </div>
+      {/* Header */}
+      <div className="flex items-center justify-center pt-8 pb-4">
+          <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Análise de Gastos</h2>
+      </div>
 
-        <div className={`flex items-center gap-2 p-1.5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-white/5 border-white/5'}`}>
-          <button 
-            onClick={handlePrevMonth}
-            className={`p-2 rounded-xl transition-all ${theme === 'light' ? 'hover:bg-slate-50 text-slate-400' : 'hover:bg-white/5 text-slate-500'}`}
-          >
-            <ChevronLeft className="w-5 h-5" />
+      <div className="flex flex-col items-center gap-4 mb-8">
+        <div className={`flex items-center rounded-lg border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
+          <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
+            <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className={`px-4 text-xs font-black uppercase tracking-widest min-w-[140px] text-center ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
+          <span className={`px-4 text-[10px] font-bold uppercase min-w-[140px] text-center ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
             {monthLabel}
           </span>
-          <button 
-            onClick={handleNextMonth}
-            className={`p-2 rounded-xl transition-all ${theme === 'light' ? 'hover:bg-slate-50 text-slate-400' : 'hover:bg-white/5 text-slate-500'}`}
-          >
-            <ChevronRight className="w-5 h-5" />
+          <button onClick={handleNextMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
+            <ChevronRight className="w-4 h-4" />
           </button>
+        </div>
+
+        {/* Toggle Credit Card Expenses */}
+        <div className={`flex items-center gap-3 px-4 py-2 rounded-full border ${theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest cursor-pointer select-none">
+                Incluir Cartão
+            </label>
+            <label className="inline-flex items-center cursor-pointer">
+                <input type="checkbox" className="sr-only peer" checked={includeCredit} onChange={(e) => setIncludeCredit(e.target.checked)} />
+                <div className="relative w-9 h-5 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+            </label>
         </div>
       </div>
 
@@ -235,9 +236,9 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
         
         {/* Comparative Section - Spans 2 columns on large screens */}
         <div className={`lg:col-span-2 p-5 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border ${
-          theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'
+          theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-700/50'
         }`}>
-          <ExpensesChart transactions={transactions} targetMonth={selectedMonth} mode={chartMode} selectedCard={selectedCard} subscriptions={subscriptions} />
+          <ExpensesChart transactions={transactions} targetMonth={selectedMonth} mode={chartMode} selectedCard={selectedCard} subscriptions={subscriptions} includeCredit={includeCredit} />
         </div>
 
         {/* Side Panels */}
@@ -251,12 +252,14 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
                 ? (theme === 'light' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-emerald-500/10 border-emerald-500/20')
                 : (theme === 'light' ? 'bg-rose-50/50 border-rose-100' : 'bg-rose-500/10 border-rose-500/20')
               }`}>
-                <div className="relative z-10">
-                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-2">Resultado do Período</p>
-                    <p className={`text-4xl font-black ${stats.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                <div className="relative z-10 flex flex-col justify-center gap-3">
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Resultado do Período</span>
+                    </div>
+                    <p className={`text-2xl font-bold ${stats.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                     R$ {stats.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
-                    <p className="text-[10px] mt-2 font-bold uppercase tracking-tight text-slate-400">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
                     {stats.balance >= 0 ? 'Mês fechando no azul' : 'Mês fechando no vermelho'}
                     </p>
                 </div>
@@ -273,8 +276,8 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
                             <TrendingUp className="w-5 h-5 text-emerald-500" />
                         </div>
                         <div>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Ganhos</p>
-                            <p className={`text-lg font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Ganhos</p>
+                            <p className={`text-2xl font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                                 R$ {stats.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </p>
                         </div>
@@ -295,8 +298,8 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
                             <TrendingDown className="w-5 h-5 text-rose-500" />
                         </div>
                         <div>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Gastos</p>
-                            <p className={`text-lg font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Gastos</p>
+                            <p className={`text-2xl font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                                 R$ {stats.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </p>
                         </div>
@@ -312,8 +315,8 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
 
               {/* Category Highlight */}
               {stats.topCategory && (
-                <div className={`p-6 rounded-3xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-white/5 border-white/5'}`}>
-                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-4">Vilão do Mês</p>
+                <div className={`p-6 rounded-3xl border flex flex-col gap-3 ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Vilão do Mês</p>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className={`p-3 rounded-2xl ${theme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
@@ -325,15 +328,15 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
                                 })()}
                             </div>
                             <div>
-                                <p className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                <p className={`text-sm font-bold uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                                     {CATEGORIES.expense.find(c => c.id === stats.topCategory)?.label || 'Outro'}
                                 </p>
-                                <p className="text-[10px] text-slate-500 font-medium">
+                                <p className="text-[10px] text-slate-400 font-medium">
                                     {((stats.topCategoryValue / stats.expense) * 100).toFixed(0)}% do total gasto
                                 </p>
                             </div>
                         </div>
-                        <p className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                        <p className={`text-2xl font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                             R$ {stats.topCategoryValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </p>
                     </div>
@@ -348,12 +351,12 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
               <div className={`p-5 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border relative overflow-hidden group ${
                 theme === 'light' ? 'bg-violet-50/50 border-violet-100' : 'bg-violet-500/10 border-violet-500/20'
               }`}>
-                <div className="relative z-10">
-                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-2">Fatura em Aberto</p>
-                    <p className="text-4xl font-black text-violet-500">
+                <div className="relative z-10 flex flex-col gap-3">
+                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Fatura em Aberto</p>
+                    <p className="text-2xl font-bold text-violet-500">
                     R$ {cardStats.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
-                    <p className="text-[10px] mt-2 font-bold uppercase tracking-tight text-slate-400">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
                     {cardStats.count} {cardStats.count === 1 ? 'lançamento' : 'lançamentos'} no cartão
                     </p>
                 </div>
@@ -361,8 +364,8 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
               </div>
 
               {/* Card breakdown by category */}
-              <div className={`p-6 rounded-3xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-white/5 border-white/5'}`}>
-                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-4">Detalhamento</p>
+              <div className={`p-6 rounded-3xl border flex flex-col gap-3 ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                  <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Detalhamento</p>
                   <div className="space-y-3">
                       {Object.entries(cardStats.byCategory).sort(([,a],[,b]) => b - a).map(([catId, value]) => {
                           const catDef = CATEGORIES.expense.find(c => c.id === catId) || { label: 'Outro', icon: AlertTriangle, color: 'text-slate-400' };
@@ -372,10 +375,10 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
                               <div key={catId} className="flex items-center justify-between">
                                   <div className="flex items-center gap-3">
                                       <CatIcon className={`w-4 h-4 ${catDef.color}`} />
-                                      <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>{catDef.label}</span>
+                                      <span className={`text-xs font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>{catDef.label}</span>
                                   </div>
                                   <div className="text-right">
-                                      <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                      <span className={`text-sm font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                                           R$ {value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                       </span>
                                       <span className="text-[9px] font-bold text-slate-400 ml-2">{pct}%</span>
@@ -396,7 +399,7 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
             // Build detailed insight for the selected month
             const filtered = transactions.filter(t => (t.date?.slice(0, 7) || t.month) === selectedMonth);
             const incomeTxs = filtered.filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category));
-            const expenseTxs = filtered.filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && t.paymentMethod !== 'credito');
+            const expenseTxs = filtered.filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault' && (includeCredit || t.paymentMethod !== 'credito'));
             const investmentTxs = filtered.filter(t => t.type === 'expense' && t.category === 'investment');
 
             const totalIncome = incomeTxs.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
