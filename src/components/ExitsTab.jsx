@@ -170,6 +170,12 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const handleSaveGasto = async (e) => {
         e.preventDefault();
         if (!description || !amount || isSaving) return;
+        
+        if (paymentMethod === 'credito' && !selectedCardId) {
+            alert('Por favor, selecione um cartão de crédito.');
+            return;
+        }
+        
         setIsSaving(true);
 
         try {
@@ -216,7 +222,8 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     currentInstallment: 1,
                     type: isRecurring ? 'recurring' : 'installment',
                     createdAt: Date.now(),
-                    installmentMode
+                    installmentMode,
+                    category: category
                 };
                 await addDoc(collection(db, 'subscriptions'), subData);
             }
@@ -1058,6 +1065,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                         <div className="animate-in slide-in-from-top-4">
                                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Vincular ao Cartão</label>
                                             <select 
+                                                required={paymentMethod === 'credito'}
                                                 value={selectedCardId} 
                                                 onChange={e => setSelectedCardId(e.target.value)}
                                                 className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all appearance-none ${

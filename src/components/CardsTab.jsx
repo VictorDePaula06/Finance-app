@@ -18,6 +18,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { CATEGORIES } from '../constants/categories';
 
 const CardsTab = ({ transactions = [] }) => {
   const { theme } = useTheme();
@@ -102,6 +103,7 @@ const CardsTab = ({ transactions = [] }) => {
     await updateDoc(doc(db, 'transactions', editingTransaction.id), {
         description: editingTransaction.description,
         amount: parseFloat(editingTransaction.amount),
+        category: editingTransaction.category || 'other',
         date: formattedDate
     });
     setEditingTransaction(null);
@@ -114,7 +116,8 @@ const CardsTab = ({ transactions = [] }) => {
     await updateDoc(doc(db, 'subscriptions', editingSub.id), {
         name: editingSub.name,
         value: parseFloat(editingSub.value),
-        day: parseInt(editingSub.day) || 1
+        day: parseInt(editingSub.day) || 1,
+        category: editingSub.category || 'other'
     });
     setEditingSub(null);
   };
@@ -352,6 +355,7 @@ const CardsTab = ({ transactions = [] }) => {
                                                 id: exp.id,
                                                 description: exp.description,
                                                 amount: exp.amount,
+                                                category: exp.category || 'other',
                                                 date: formattedDate
                                             });
                                         }}
@@ -370,20 +374,36 @@ const CardsTab = ({ transactions = [] }) => {
                         </div>
                     ))}
                     
-                    {/* Assinaturas Fixas */}
-                    {cardSubs.map(sub => (
-                        <div key={sub.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
-                            theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
-                        }`}>
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                                    <Tag className="w-4 h-4 text-blue-500" />
+                    {/* Assinaturas Fixas e Parcelamentos */}
+                    {cardSubs.map(sub => {
+                        const catDef = CATEGORIES.expense.find(c => c.id === sub.category) || { icon: Tag, color: 'text-blue-500' };
+                        const Icon = catDef.icon;
+                        const isInstallment = sub.type === 'installment';
+                        const bgClass = isInstallment ? 'bg-slate-500/10' : 'bg-blue-500/10';
+                        return (
+                            <div key={sub.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all group/item ${
+                                theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
+                            }`}>
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-xl ${bgClass} flex items-center justify-center`}>
+                                        <Icon className={`w-4 h-4 ${catDef.color}`} />
+                                    </div>
+                                    <p className={`text-[10px] font-black ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{sub.name}</p>
                                 </div>
-                                <p className={`text-[10px] font-black ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{sub.name}</p>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-black text-emerald-500">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                    <div className="flex opacity-100 md:opacity-0 md:group-hover/item:opacity-100 transition-all">
+                                        <button 
+                                            onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day, category: sub.category || 'other' })}
+                                            className="p-1.5 text-slate-500 hover:text-emerald-500"
+                                        >
+                                            <Pencil className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                            <span className="text-[10px] font-black text-emerald-500">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                    ))}
+                        );
+                    })}
                     </div>
                 </div>
 
@@ -467,6 +487,142 @@ const CardsTab = ({ transactions = [] }) => {
             );
           })}
 
+          {/* ORPHANED CREDIT CARD TRANSACTIONS */}
+          {(() => {
+            const activeCardIds = cards.map(c => c.id);
+            const orphanedExpenses = transactions.filter(t => t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' && (!t.selectedCardId || !activeCardIds.includes(t.selectedCardId)));
+            const orphanedSubs = subscriptions.filter(s => s.isInstallment && (!s.cardId || !activeCardIds.includes(s.cardId)));
+            
+            if (orphanedExpenses.length === 0 && orphanedSubs.length === 0) return null;
+            
+            const subsTotal = orphanedSubs.reduce((acc, s) => acc + s.value, 0);
+            const expensesTotal = orphanedExpenses.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+            const totalInvoice = expensesTotal + subsTotal;
+
+            return (
+              <div key="orphaned" className={`group relative p-4 rounded-[2.5rem] border transition-all duration-500 border-rose-500/30 ${
+                theme === 'light' ? 'bg-white shadow-sm' : 'bg-slate-900 shadow-2xl'
+              }`}>
+                {/* Visual Card Element */}
+                <div className="w-full aspect-[1.6/1] rounded-3xl p-6 flex flex-col justify-between text-white shadow-2xl relative overflow-hidden transition-transform group-hover:scale-[1.02] duration-500 bg-slate-800">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-rose-500/20 to-transparent opacity-50"></div>
+                  
+                  <div className="relative z-10 flex justify-between items-start">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 text-rose-400">Atenção</p>
+                      <h3 className="text-xl font-black tracking-tight drop-shadow-md text-rose-500">Cartão Excluído</h3>
+                    </div>
+                    <AlertCircle className="w-6 h-6 text-rose-500 opacity-80" />
+                  </div>
+                  
+                  <div className="relative z-10">
+                    <p className="text-[9px] uppercase font-black opacity-60 mb-0.5">Total Pendente</p>
+                    <p className="text-xl font-black tabular-nums text-rose-500">R$ {totalInvoice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+
+                {/* Itens da Fatura */}
+                <div className="mt-6 px-2">
+                    <div className="flex items-center justify-between mb-3">
+                        <p className="text-[9px] uppercase font-black text-slate-500 tracking-widest">Lançamentos Órfãos</p>
+                        <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full">{orphanedSubs.length + orphanedExpenses.length} itens</span>
+                    </div>
+                    <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1 scrollbar-hide">
+                    {/* Gastos Avulsos */}
+                    {orphanedExpenses.map(exp => (
+                        <div key={exp.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all group/item ${
+                            theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
+                        }`}>
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-xl bg-rose-500/10 flex items-center justify-center">
+                                    <ShoppingBag className="w-4 h-4 text-rose-500" />
+                                </div>
+                                <div>
+                                    <p className={`text-[10px] font-black ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{exp.description}</p>
+                                    <p className="text-[8px] font-bold text-slate-500 uppercase">{new Date(exp.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black text-rose-500">R$ {parseFloat(exp.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                <div className="flex opacity-100 md:opacity-0 md:group-hover/item:opacity-100 transition-all">
+                                    <button 
+                                        onClick={() => setDeleteConfirm({ id: exp.id, type: 'transaction', title: exp.description, cardId: 'orphaned' })}
+                                        className="p-1.5 text-slate-500 hover:text-rose-500"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {/* Assinaturas */}
+                    {orphanedSubs.map(sub => (
+                        <div key={sub.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all group/item ${
+                            theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
+                        }`}>
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                                    <Tag className="w-4 h-4 text-blue-500" />
+                                </div>
+                                <p className={`text-[10px] font-black ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{sub.name}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black text-emerald-500">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                <div className="flex opacity-100 md:opacity-0 md:group-hover/item:opacity-100 transition-all">
+                                    <button 
+                                        onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name, cardId: 'orphaned' })}
+                                        className="p-1.5 text-slate-500 hover:text-rose-500"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    </div>
+                </div>
+
+                {/* Delete overlay for Orphaned Transaction */}
+                {deleteConfirm?.id && deleteConfirm?.type === 'transaction' && deleteConfirm?.cardId === 'orphaned' && (
+                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-center z-[100] animate-in fade-in duration-300">
+                        <div className="max-w-[280px] w-full space-y-4">
+                            <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <Trash2 className="w-8 h-8 text-rose-500" />
+                            </div>
+                            <h4 className="text-white font-black text-xl">Excluir Gasto?</h4>
+                            <p className="text-white/60 text-xs leading-relaxed">
+                                Remover <span className="text-white font-bold">{deleteConfirm.title}</span>?
+                            </p>
+                            <div className="flex gap-3 pt-4">
+                                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3.5 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors">Voltar</button>
+                                <button onClick={() => handleDeleteTransaction(deleteConfirm.id)} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                
+                {/* Delete overlay for Orphaned Sub */}
+                {deleteConfirm?.id && deleteConfirm?.type === 'sub' && deleteConfirm?.cardId === 'orphaned' && (
+                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-center z-[100] animate-in fade-in duration-300">
+                        <div className="max-w-[280px] w-full space-y-4">
+                            <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <Trash2 className="w-8 h-8 text-rose-500" />
+                            </div>
+                            <h4 className="text-white font-black text-xl">Excluir?</h4>
+                            <p className="text-white/60 text-xs leading-relaxed">
+                                Remover <span className="text-white font-bold">{deleteConfirm.title}</span>?
+                            </p>
+                            <div className="flex gap-3 pt-4">
+                                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3.5 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors">Voltar</button>
+                                <button onClick={() => handleDeleteSub(deleteConfirm.id)} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+              </div>
+            );
+          })()}
+
           {cards.length === 0 && !isAddingCard && (
             <div className={`aspect-[1.6/1] md:aspect-auto rounded-[2rem] border-2 border-dashed flex flex-col items-center justify-center p-8 opacity-40 hover:opacity-100 transition-all cursor-pointer ${
               theme === 'light' ? 'border-slate-200 text-slate-400' : 'border-slate-700 text-slate-500'
@@ -507,7 +663,7 @@ const CardsTab = ({ transactions = [] }) => {
                     <Tag className="w-6 h-6 text-purple-500" />
                   </div>
                   <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
-                    <button onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day })} className="p-2 text-slate-500 hover:text-emerald-500 bg-white/5 rounded-xl mr-1">
+                    <button onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day, category: sub.category || 'other' })} className="p-2 text-slate-500 hover:text-emerald-500 bg-white/5 rounded-xl mr-1">
                       <Pencil className="w-4 h-4" />
                     </button>
                     <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className="p-2 text-slate-500 hover:text-rose-500 bg-white/5 rounded-xl">
@@ -585,7 +741,7 @@ const CardsTab = ({ transactions = [] }) => {
                     <Hash className="w-6 h-6 text-rose-500" />
                   </div>
                   <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
-                    <button onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day })} className="p-2 text-slate-500 hover:text-emerald-500 bg-white/5 rounded-xl mr-1">
+                    <button onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day, category: sub.category || 'other' })} className="p-2 text-slate-500 hover:text-emerald-500 bg-white/5 rounded-xl mr-1">
                       <Pencil className="w-4 h-4" />
                     </button>
                     <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className="p-2 text-slate-500 hover:text-rose-500 bg-white/5 rounded-xl">
@@ -873,6 +1029,18 @@ const CardsTab = ({ transactions = [] }) => {
                   }`}
                 />
               </div>
+              <select
+                required
+                value={editingTransaction.category || 'other'}
+                onChange={(e) => setEditingTransaction({...editingTransaction, category: e.target.value})}
+                className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all outline-none appearance-none cursor-pointer ${
+                  theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 text-slate-800' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+                }`}
+              >
+                  {CATEGORIES.expense.map(cat => (
+                      <option key={cat.id} value={cat.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{cat.label}</option>
+                  ))}
+              </select>
             </div>
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setEditingTransaction(null)} className={`flex-1 py-4 rounded-2xl font-bold text-xs ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>Cancelar</button>
@@ -925,6 +1093,18 @@ const CardsTab = ({ transactions = [] }) => {
                   }`}
                 />
               </div>
+              <select
+                required
+                value={editingSub.category || 'other'}
+                onChange={(e) => setEditingSub({...editingSub, category: e.target.value})}
+                className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all outline-none appearance-none cursor-pointer ${
+                  theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 text-slate-800' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+                }`}
+              >
+                  {CATEGORIES.expense.map(cat => (
+                      <option key={cat.id} value={cat.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{cat.label}</option>
+                  ))}
+              </select>
             </div>
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setEditingSub(null)} className={`flex-1 py-4 rounded-2xl font-bold text-xs ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>Cancelar</button>

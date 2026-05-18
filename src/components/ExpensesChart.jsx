@@ -85,7 +85,12 @@ export default function ExpensesChart({ transactions, targetMonth, mode = 'gasto
         }, {});
 
         subsToInclude.forEach(sub => {
-            grouped['subscriptions'] = (grouped['subscriptions'] || 0) + (parseFloat(sub.value) || 0);
+            if (sub.type === 'installment') {
+                const cat = sub.category || 'other';
+                grouped[cat] = (grouped[cat] || 0) + (parseFloat(sub.value) || 0);
+            } else {
+                grouped['subscriptions'] = (grouped['subscriptions'] || 0) + (parseFloat(sub.value) || 0);
+            }
         });
 
         const totalExpense = Object.values(grouped).reduce((a, b) => a + (parseFloat(b) || 0), 0);
@@ -187,16 +192,7 @@ export default function ExpensesChart({ transactions, targetMonth, mode = 'gasto
                 </ResponsiveContainer>
             </div>
 
-            <div key="total-wrapper" className={`mt-auto flex flex-col items-center justify-center p-6 rounded-3xl border shadow-sm transition-all ${
-                theme === 'light' 
-                ? 'bg-verde-respira/5 border-verde-respira/10 hover:bg-verde-respira/10' 
-                : 'bg-white/5 border-white/10 hover:bg-white/10'
-            }`}>
-                <span key="total-label" className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">{mode === 'cartoes' ? 'Total na Fatura' : 'Gasto Total no Período'}</span>
-                <span key="total-value" className={`text-4xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>
-                    {`R$ ${totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                </span>
-            </div>
+
 
             {Object.keys(byPriority).length > 0 && (
               <div className={`mt-6 p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
@@ -285,7 +281,7 @@ export default function ExpensesChart({ transactions, targetMonth, mode = 'gasto
                         {selectedCategory === 'subscriptions' ? (
                             <>
                                 {/* Assinaturas fixas */}
-                                {filteredExpenses.subsToInclude.map(sub => (
+                                {filteredExpenses.subsToInclude.filter(s => s.type !== 'installment' || s.category === 'subscriptions').map(sub => (
                                     <div key={`sub-${sub.id}`} className={`flex items-center justify-between p-2 rounded-lg transition-colors ${theme === 'light' ? 'bg-white hover:bg-slate-100' : 'bg-white/5 hover:bg-white/10'}`}>
                                         <div className="flex items-center gap-3">
                                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${theme === 'light' ? 'bg-slate-100' : 'bg-white/10'}`}>
@@ -328,6 +324,22 @@ export default function ExpensesChart({ transactions, targetMonth, mode = 'gasto
                         ) : (
                             /* Outras categorias */
                             <>
+                                {filteredExpenses.subsToInclude.filter(s => s.type === 'installment' && (s.category || 'other') === selectedCategory).map(sub => (
+                                    <div key={`sub-${sub.id}`} className={`flex items-center justify-between p-2 rounded-lg transition-colors ${theme === 'light' ? 'bg-white hover:bg-slate-100' : 'bg-white/5 hover:bg-white/10'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${theme === 'light' ? 'bg-slate-100' : 'bg-white/10'}`}>
+                                                <CreditCard className="w-4 h-4 text-slate-500" />
+                                            </div>
+                                            <div>
+                                                <p className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>{sub.name || 'Sem nome'}</p>
+                                                <p className="text-[10px] text-slate-500">Parcelamento</p>
+                                            </div>
+                                        </div>
+                                        <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                            - R$ {parseFloat(sub.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+                                ))}
                                 {filteredExpenses.expenses
                                     .filter(t => t.category === selectedCategory)
                                     .sort((a, b) => new Date(b.date) - new Date(a.date))

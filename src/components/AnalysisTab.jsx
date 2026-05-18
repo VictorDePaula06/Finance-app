@@ -107,9 +107,16 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
       return acc;
     }, {});
     
-    // Add subs to "subscriptions" category
+    // Process subs (installments to their category, recurring to subscriptions)
     if (cardSubs.length > 0) {
-        byCategory['subscriptions'] = (byCategory['subscriptions'] || 0) + subsTotal;
+        cardSubs.forEach(s => {
+            if (s.type === 'installment') {
+                const cat = s.category || 'other';
+                byCategory[cat] = (byCategory[cat] || 0) + parseFloat(s.value || 0);
+            } else {
+                byCategory['subscriptions'] = (byCategory['subscriptions'] || 0) + parseFloat(s.value || 0);
+            }
+        });
     }
     
     const topCategory = Object.keys(byCategory).length > 0 
@@ -151,84 +158,188 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
           <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Análise de Gastos</h2>
       </div>
 
+      {/* Navigation Row */}
       <div className="flex flex-col items-center gap-4 mb-8">
-        <div className={`flex items-center rounded-lg border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
-          <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className={`px-4 text-[10px] font-bold uppercase min-w-[140px] text-center ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
-            {monthLabel}
-          </span>
-          <button onClick={handleNextMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Toggle Credit Card Expenses */}
-        <div className={`flex items-center gap-3 px-4 py-2 rounded-full border ${theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest cursor-pointer select-none">
-                Incluir Cartão
-            </label>
-            <label className="inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" checked={includeCredit} onChange={(e) => setIncludeCredit(e.target.checked)} />
-                <div className="relative w-9 h-5 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
-            </label>
-        </div>
-      </div>
-
-      {/* Chart Mode Toggle */}
-      <div className="flex flex-col items-center justify-center gap-4">
-          <div className={`p-1.5 rounded-2xl flex gap-1 ${theme === 'light' ? 'bg-slate-100' : 'bg-white/5 shadow-inner'}`}>
+          {/* Tabs on top */}
+          <div className="flex gap-6 border-b border-slate-700/50">
               <button 
                   onClick={() => { setChartMode('gastos'); setSelectedCard('all'); }}
-                  className={`px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+                  className={`pb-3 px-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
                       chartMode === 'gastos' 
-                      ? (theme === 'light' ? 'bg-white text-blue-500 shadow-sm' : 'bg-white/10 text-blue-400 shadow-xl')
-                      : 'text-slate-500 hover:text-slate-700'
+                      ? 'border-rose-400 text-rose-400' 
+                      : 'border-transparent text-slate-500 hover:text-slate-300'
                   }`}
               >
-                  <PieChart className="w-3 h-3" />
                   Gastos
               </button>
               <button 
                   onClick={() => setChartMode('cartoes')}
-                  className={`px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+                  className={`pb-3 px-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
                       chartMode === 'cartoes' 
-                      ? (theme === 'light' ? 'bg-white text-violet-500 shadow-sm' : 'bg-white/10 text-violet-400 shadow-xl')
-                      : 'text-slate-500 hover:text-slate-700'
+                      ? 'border-violet-400 text-violet-400' 
+                      : 'border-transparent text-slate-500 hover:text-slate-300'
                   }`}
               >
-                  <CreditCard className="w-3 h-3" />
                   Cartões
               </button>
           </div>
-          
-          {chartMode === 'cartoes' && cards.length > 0 && (
-              <div className="flex gap-2 flex-wrap justify-center animate-in fade-in slide-in-from-top-2 duration-300">
-                  <button
-                      onClick={() => setSelectedCard('all')}
-                      className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                          selectedCard === 'all'
-                          ? (theme === 'light' ? 'bg-violet-100 text-violet-600' : 'bg-violet-500/20 text-violet-400')
-                          : (theme === 'light' ? 'bg-slate-50 text-slate-400 hover:bg-slate-100' : 'bg-white/5 text-slate-500 hover:bg-white/10')
-                      }`}
-                  >
-                      Todos
+
+          {/* Month Selector and Filters below */}
+          <div className="flex flex-wrap items-center justify-center gap-4">
+              <div className={`flex items-center rounded-lg border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
+                  <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
+                      <ChevronLeft className="w-4 h-4" />
                   </button>
-                  {cards.map(card => (
-                      <button
-                          key={card.id}
-                          onClick={() => setSelectedCard(card.id)}
-                          className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                              selectedCard === card.id
-                              ? (theme === 'light' ? 'bg-violet-100 text-violet-600' : 'bg-violet-500/20 text-violet-400')
-                              : (theme === 'light' ? 'bg-slate-50 text-slate-400 hover:bg-slate-100' : 'bg-white/5 text-slate-500 hover:bg-white/10')
+                  <span className={`px-4 text-[10px] font-bold uppercase min-w-[140px] text-center ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
+                      {monthLabel}
+                  </span>
+                  <button onClick={handleNextMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
+                      <ChevronRight className="w-4 h-4" />
+                  </button>
+              </div>
+
+              {chartMode === 'gastos' && (
+                  <div className={`flex items-center gap-3 px-4 py-2 rounded-lg border ${theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest cursor-pointer select-none">
+                          Incluir Cartão
+                      </label>
+                      <label className="inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" checked={includeCredit} onChange={(e) => setIncludeCredit(e.target.checked)} />
+                          <div className="relative w-7 h-4 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-500"></div>
+                      </label>
+                  </div>
+              )}
+
+              {chartMode === 'cartoes' && cards.length > 0 && (
+                  <div className="flex gap-2">
+                      <select
+                          value={selectedCard}
+                          onChange={(e) => setSelectedCard(e.target.value)}
+                          className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border outline-none appearance-none cursor-pointer ${
+                              theme === 'light' ? 'bg-white border-slate-200 text-slate-800' : 'bg-[#1e2330] border-slate-700/50 text-white'
                           }`}
                       >
-                          {card.name || card.brand} {card.last4}
-                      </button>
-                  ))}
-              </div>
+                          <option value="all">Todos os Cartões</option>
+                          {cards.map(c => (
+                              <option key={c.id} value={c.id}>{c.name || c.brand} {c.last4}</option>
+                          ))}
+                      </select>
+                  </div>
+              )}
+          </div>
+      </div>
+
+      {/* Cards Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 mb-8">
+          {chartMode === 'gastos' ? (
+              <>
+                  {/* Ganhos */}
+                  <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                      <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                              <div className="text-emerald-500">
+                                  <TrendingUp className="w-4 h-4" />
+                              </div>
+                              <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Ganhos</span>
+                          </div>
+                          {prevStats.income > 0 && (
+                              <div className={`flex items-center gap-1 text-[10px] font-bold ${stats.income >= prevStats.income ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                  {stats.income >= prevStats.income ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                                  {Math.abs(((stats.income - prevStats.income) / prevStats.income) * 100).toFixed(0)}%
+                              </div>
+                          )}
+                      </div>
+                      <div className={`text-2xl font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                          R$ {stats.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                  </div>
+
+                  {/* Gastos */}
+                  <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                      <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                              <div className="text-rose-500">
+                                  <TrendingDown className="w-4 h-4" />
+                              </div>
+                              <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Gastos</span>
+                          </div>
+                          {prevStats.expense > 0 && (
+                              <div className={`flex items-center gap-1 text-[10px] font-bold ${stats.expense <= prevStats.expense ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                  {stats.expense <= prevStats.expense ? <ArrowDownRight className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
+                                  {Math.abs(((stats.expense - prevStats.expense) / prevStats.expense) * 100).toFixed(0)}%
+                              </div>
+                          )}
+                      </div>
+                      <div className={`text-2xl font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                          R$ {stats.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                  </div>
+
+                  {/* Resultado do Período */}
+                  <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                      <div className="flex items-center gap-2">
+                          <div className={stats.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}>
+                              <Target className="w-4 h-4" />
+                          </div>
+                          <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Resultado do Período</span>
+                      </div>
+                      <div className={`text-2xl font-bold ${stats.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                          R$ {stats.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                  </div>
+              </>
+          ) : (
+              <>
+                  {/* Fatura em Aberto */}
+                  <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                      <div className="flex items-center gap-2">
+                          <div className="text-violet-500">
+                              <CreditCard className="w-4 h-4" />
+                          </div>
+                          <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Fatura em Aberto</span>
+                      </div>
+                      <div className="text-2xl font-bold text-violet-500">
+                          R$ {cardStats.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                  </div>
+
+                  {/* Lançamentos no Cartão */}
+                  <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                      <div className="flex items-center gap-2">
+                          <div className="text-blue-500">
+                              <PieChart className="w-4 h-4" />
+                          </div>
+                          <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Lançamentos</span>
+                      </div>
+                      <div className={`text-2xl font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                          {cardStats.count} <span className="text-sm font-medium text-slate-400 uppercase tracking-wider">itens</span>
+                      </div>
+                  </div>
+
+                  {/* Vilão do Cartão */}
+                  <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                      <div className="flex items-center gap-2">
+                          <div className="text-rose-500">
+                              <AlertTriangle className="w-4 h-4" />
+                          </div>
+                          <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Vilão do Cartão</span>
+                      </div>
+                      {cardStats.topCategory ? (
+                          <div className="flex items-end justify-between">
+                              <div className={`text-xl font-bold uppercase tracking-wider truncate mr-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                  {CATEGORIES.expense.find(c => c.id === cardStats.topCategory)?.label || 'Outro'}
+                              </div>
+                              <div className="text-[10px] font-bold text-rose-500 mb-1">
+                                  {cardStats.total > 0 ? ((cardStats.topCategoryValue / cardStats.total) * 100).toFixed(0) : 0}%
+                              </div>
+                          </div>
+                      ) : (
+                          <div className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+                              Nenhum
+                          </div>
+                      )}
+                  </div>
+              </>
           )}
       </div>
 
@@ -246,73 +357,6 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
           
           {chartMode === 'gastos' ? (
             <>
-              {/* Main Balance Card */}
-              <div className={`p-5 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border relative overflow-hidden group ${
-                stats.balance >= 0 
-                ? (theme === 'light' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-emerald-500/10 border-emerald-500/20')
-                : (theme === 'light' ? 'bg-rose-50/50 border-rose-100' : 'bg-rose-500/10 border-rose-500/20')
-              }`}>
-                <div className="relative z-10 flex flex-col justify-center gap-3">
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Resultado do Período</span>
-                    </div>
-                    <p className={`text-2xl font-bold ${stats.balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                    R$ {stats.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                    {stats.balance >= 0 ? 'Mês fechando no azul' : 'Mês fechando no vermelho'}
-                    </p>
-                </div>
-                <div className={`absolute -right-4 -bottom-4 w-24 h-24 blur-3xl opacity-20 ${stats.balance >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
-              </div>
-
-              {/* Quick Stats Grid */}
-              <div className="grid grid-cols-1 gap-4">
-                <div className={`p-6 rounded-3xl border flex items-center justify-between ${
-                    theme === 'light' ? 'bg-white border-slate-100' : 'bg-white/5 border-white/5'
-                }`}>
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-emerald-500/10 rounded-2xl">
-                            <TrendingUp className="w-5 h-5 text-emerald-500" />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Ganhos</p>
-                            <p className={`text-2xl font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                R$ {stats.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </p>
-                        </div>
-                    </div>
-                    {prevStats.income > 0 && (
-                        <div className={`flex items-center gap-1 text-[10px] font-bold ${stats.income >= prevStats.income ? 'text-emerald-500' : 'text-rose-500'}`}>
-                            {stats.income >= prevStats.income ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                            {Math.abs(((stats.income - prevStats.income) / prevStats.income) * 100).toFixed(0)}%
-                        </div>
-                    )}
-                </div>
-
-                <div className={`p-6 rounded-3xl border flex items-center justify-between ${
-                    theme === 'light' ? 'bg-white border-slate-100' : 'bg-white/5 border-white/5'
-                }`}>
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-rose-500/10 rounded-2xl">
-                            <TrendingDown className="w-5 h-5 text-rose-500" />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Gastos</p>
-                            <p className={`text-2xl font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                R$ {stats.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </p>
-                        </div>
-                    </div>
-                    {prevStats.expense > 0 && (
-                        <div className={`flex items-center gap-1 text-[10px] font-bold ${stats.expense <= prevStats.expense ? 'text-emerald-500' : 'text-rose-500'}`}>
-                            {stats.expense <= prevStats.expense ? <ArrowDownRight className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
-                            {Math.abs(((stats.expense - prevStats.expense) / prevStats.expense) * 100).toFixed(0)}%
-                        </div>
-                    )}
-                </div>
-              </div>
-
               {/* Category Highlight */}
               {stats.topCategory && (
                 <div className={`p-6 rounded-3xl border flex flex-col gap-3 ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-white/5 border-white/5'}`}>
@@ -342,27 +386,9 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
                     </div>
                 </div>
               )}
-
-
             </>
           ) : (
             <>
-              {/* Credit Card Total */}
-              <div className={`p-5 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border relative overflow-hidden group ${
-                theme === 'light' ? 'bg-violet-50/50 border-violet-100' : 'bg-violet-500/10 border-violet-500/20'
-              }`}>
-                <div className="relative z-10 flex flex-col gap-3">
-                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Fatura em Aberto</p>
-                    <p className="text-2xl font-bold text-violet-500">
-                    R$ {cardStats.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                    {cardStats.count} {cardStats.count === 1 ? 'lançamento' : 'lançamentos'} no cartão
-                    </p>
-                </div>
-                <div className="absolute -right-4 -bottom-4 w-24 h-24 blur-3xl opacity-20 bg-violet-500"></div>
-              </div>
-
               {/* Card breakdown by category */}
               <div className={`p-6 rounded-3xl border flex flex-col gap-3 ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-white/5 border-white/5'}`}>
                   <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Detalhamento</p>
