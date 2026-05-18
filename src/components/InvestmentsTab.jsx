@@ -22,6 +22,18 @@ import {
     X,
     Check,
     ChevronDown,
+    ChevronUp
+} from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
+import { db } from '../services/firebase';
+import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { useAuth } from '../contexts/AuthContext';
+import { ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Tooltip as ReTooltip } from 'recharts';
+import { BarChart3, Layers, List, Sparkles } from 'lucide-react';
+import aliviaFinal from '../assets/alivia/alivia-final.png';
+
+export default function InvestmentsTab() {
+    const { theme } = useTheme();
     const { currentUser } = useAuth();
     const [investments, setInvestments] = useState([]);
     const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, type, title }
