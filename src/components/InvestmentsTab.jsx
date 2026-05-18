@@ -930,25 +930,7 @@ export default function InvestmentsTab() {
                             <div className="md:col-span-2 relative mx-auto w-full max-w-[260px]">
                                 <ResponsiveContainer width="100%" height={240}>
                                     <RechartsPieChart>
-                                        <ReTooltip 
-                                            content={({ active, payload }) => {
-                                                if (active && payload && payload.length) {
-                                                    const item = payload[0].payload;
-                                                    const pct = totalChartValue > 0 ? (item.value / totalChartValue) * 100 : 0;
-                                                    return (
-                                                        <div className={`p-3 rounded-xl border shadow-xl ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/10'}`}>
-                                                            <p className="text-[8px] font-black uppercase tracking-widest mb-0.5" style={{ color: item.color }}>{item.name}</p>
-                                                            <p className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                                                {viewInUSD ? '$' : 'R$'} {(item.value * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                            </p>
-                                                            <p className="text-[9px] font-bold text-slate-500">{pct.toFixed(1)}%</p>
-                                                        </div>
-                                                    );
-                                                }
-                                                return null;
-                                            }}
-                                            cursor={false}
-                                        />
+
                                         <Pie 
                                             data={chartItems} 
                                             cx="50%" 
@@ -974,6 +956,22 @@ export default function InvestmentsTab() {
                                     <p className={`text-[8px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-400' : 'text-slate-600'}`}>Total</p>
                                     <p className={`text-lg font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{viewInUSD ? '$' : 'R$'} {(totalChartValue * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 </div>
+
+                                {hoveredSlice !== null && chartItems[hoveredSlice] && (
+                                    <div 
+                                        className={`absolute top-1/2 -translate-y-1/2 left-[75%] md:left-[95%] z-50 p-4 rounded-2xl border shadow-2xl w-40 pointer-events-none transition-all duration-300 ${theme === 'light' ? 'bg-white/90 backdrop-blur-md border-slate-100' : 'bg-slate-900/90 backdrop-blur-md border-white/10'}`}
+                                    >
+                                        <p className="text-[9px] font-black uppercase tracking-widest mb-1" style={{ color: chartItems[hoveredSlice].color }}>
+                                            {chartItems[hoveredSlice].name}
+                                        </p>
+                                        <p className={`text-sm font-black mb-0.5 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                            {viewInUSD ? '$' : 'R$'} {(chartItems[hoveredSlice].value * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </p>
+                                        <p className="text-[10px] font-bold text-slate-500">
+                                            {(totalChartValue > 0 ? (chartItems[hoveredSlice].value / totalChartValue) * 100 : 0).toFixed(1)}% do Patrimônio
+                                        </p>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Legend */}
