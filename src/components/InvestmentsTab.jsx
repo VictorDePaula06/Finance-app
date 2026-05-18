@@ -949,8 +949,24 @@ export default function InvestmentsTab() {
                                             }}
                                             cursor={false}
                                         />
-                                        <Pie data={chartItems} cx="50%" cy="50%" innerRadius={68} outerRadius={108} paddingAngle={2} dataKey="value" stroke="none" animationDuration={800} animationEasing="ease-out" onMouseEnter={handlePieEnter} onMouseLeave={handlePieLeave} activeIndex={hoveredSlice} activeShape={({ cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill }) => { const RADIAN = Math.PI / 180; const sin = Math.sin(-RADIAN * ((startAngle + endAngle) / 2)); const cos = Math.cos(-RADIAN * ((startAngle + endAngle) / 2)); return ( <g><path d={`M ${cx + (innerRadius) * cos} ${cy + (innerRadius) * sin} A ${innerRadius} ${innerRadius} 0 ${endAngle - startAngle > 180 ? 1 : 0} 0 ${cx + innerRadius * Math.cos(-RADIAN * startAngle)} ${cy + innerRadius * Math.sin(-RADIAN * startAngle)} L ${cx + (outerRadius + 6) * Math.cos(-RADIAN * startAngle)} ${cy + (outerRadius + 6) * Math.sin(-RADIAN * startAngle)} A ${outerRadius + 6} ${outerRadius + 6} 0 ${endAngle - startAngle > 180 ? 1 : 0} 1 ${cx + (outerRadius + 6) * cos} ${cy + (outerRadius + 6) * sin} Z`} fill={fill} opacity={0.95} /><path d={`M ${cx + innerRadius * Math.cos(-RADIAN * startAngle)} ${cy + innerRadius * Math.sin(-RADIAN * startAngle)} A ${innerRadius} ${innerRadius} 0 ${endAngle - startAngle > 180 ? 1 : 0} 1 ${cx + innerRadius * cos} ${cy + innerRadius * sin}`} fill="none" stroke={fill} strokeWidth={0} /></g> ); }}>
-                                            {chartItems.map((entry, idx) => (<Cell key={idx} fill={entry.color} className="outline-none cursor-pointer" style={{ opacity: hoveredSlice !== null && hoveredSlice !== idx ? 0.4 : 1, transition: 'opacity 0.3s ease' }} />))}
+                                        <Pie 
+                                            data={chartItems} 
+                                            cx="50%" 
+                                            cy="50%" 
+                                            innerRadius={68} 
+                                            outerRadius={108} 
+                                            paddingAngle={2} 
+                                            dataKey="value" 
+                                            stroke="none" 
+                                            animationDuration={800} 
+                                            animationEasing="ease-out" 
+                                            onMouseEnter={handlePieEnter} 
+                                            onMouseLeave={handlePieLeave} 
+                                            activeIndex={hoveredSlice}
+                                        >
+                                            {chartItems.map((entry, idx) => (
+                                                <Cell key={idx} fill={entry.color} className="outline-none cursor-pointer" style={{ opacity: hoveredSlice !== null && hoveredSlice !== idx ? 0.4 : 1, transition: 'opacity 0.3s ease' }} />
+                                            ))}
                                         </Pie>
                                     </RechartsPieChart>
                                 </ResponsiveContainer>
