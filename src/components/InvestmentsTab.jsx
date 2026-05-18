@@ -22,19 +22,6 @@ import {
     X,
     Check,
     ChevronDown,
-    ChevronUp
-} from 'lucide-react';
-import { useTheme } from '../contexts/ThemeContext';
-import { db } from '../services/firebase';
-import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { useAuth } from '../contexts/AuthContext';
-import { ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Tooltip as ReTooltip } from 'recharts';
-import { BarChart3, Layers, List } from 'lucide-react';
-
-
-
-export default function InvestmentsTab() {
-    const { theme } = useTheme();
     const { currentUser } = useAuth();
     const [investments, setInvestments] = useState([]);
     const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, type, title }
@@ -48,6 +35,7 @@ export default function InvestmentsTab() {
     const [viewInUSD, setViewInUSD] = useState(false);
     const [chartViewMode, setChartViewMode] = useState('category');
     const [expandedCategories, setExpandedCategories] = useState({});
+    const [hoveredSlice, setHoveredSlice] = useState(null);
     
     const [newAsset, setNewAsset] = useState({
         type: 'renda_fixa',
@@ -790,16 +778,11 @@ export default function InvestmentsTab() {
         chartItems = items.map((it, idx) => ({ name: it.name, value: it.value, color: ASSET_COLORS[idx % ASSET_COLORS.length] })).sort((a, b) => b.value - a.value);
     }
 
-    const CustomPieTooltip = ({ active, payload }) => {
-        if (!active || !payload?.length) return null;
-        const d = payload[0];
-        return (
-            <div className={`px-4 py-3 rounded-2xl border shadow-2xl text-xs ${theme === 'light' ? 'bg-white border-slate-200 text-slate-800' : 'bg-slate-900 border-white/10 text-white'}`}>
-                <p className="font-black mb-1" style={{ color: d.payload.color }}>{d.name}</p>
-                <p className="font-bold">{viewInUSD ? '$' : 'R$'} {(d.value * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                <p className="text-slate-500 font-bold">{totalChartValue > 0 ? ((d.value / totalChartValue) * 100).toFixed(1) : 0}%</p>
-            </div>
-        );
+    const handlePieEnter = (_, index) => {
+        setHoveredSlice(index);
+    };
+    const handlePieLeave = () => {
+        setHoveredSlice(null);
     };
 
     return (
@@ -935,13 +918,31 @@ export default function InvestmentsTab() {
                             <div className="md:col-span-2 relative mx-auto w-full max-w-[260px]">
                                 <ResponsiveContainer width="100%" height={240}>
                                     <RechartsPieChart>
-                                        <Pie data={chartItems} cx="50%" cy="50%" innerRadius={68} outerRadius={108} paddingAngle={2} dataKey="value" stroke="none" animationDuration={800} animationEasing="ease-out">
-                                            {chartItems.map((entry, idx) => (<Cell key={idx} fill={entry.color} className="transition-all hover:opacity-80 outline-none cursor-pointer" />))}
+                                        <ReTooltip 
+                                            content={({ active, payload }) => {
+                                                if (active && payload && payload.length) {
+                                                    const item = payload[0].payload;
+                                                    const pct = totalChartValue > 0 ? (item.value / totalChartValue) * 100 : 0;
+                                                    return (
+                                                        <div className={`p-3 rounded-xl border shadow-xl ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/10'}`}>
+                                                            <p className="text-[8px] font-black uppercase tracking-widest mb-0.5" style={{ color: item.color }}>{item.name}</p>
+                                                            <p className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                                                {viewInUSD ? '$' : 'R$'} {(item.value * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                            </p>
+                                                            <p className="text-[9px] font-bold text-slate-500">{pct.toFixed(1)}%</p>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }}
+                                            cursor={false}
+                                        />
+                                        <Pie data={chartItems} cx="50%" cy="50%" innerRadius={68} outerRadius={108} paddingAngle={2} dataKey="value" stroke="none" animationDuration={800} animationEasing="ease-out" onMouseEnter={handlePieEnter} onMouseLeave={handlePieLeave} activeIndex={hoveredSlice} activeShape={({ cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill }) => { const RADIAN = Math.PI / 180; const sin = Math.sin(-RADIAN * ((startAngle + endAngle) / 2)); const cos = Math.cos(-RADIAN * ((startAngle + endAngle) / 2)); return ( <g><path d={`M ${cx + (innerRadius) * cos} ${cy + (innerRadius) * sin} A ${innerRadius} ${innerRadius} 0 ${endAngle - startAngle > 180 ? 1 : 0} 0 ${cx + innerRadius * Math.cos(-RADIAN * startAngle)} ${cy + innerRadius * Math.sin(-RADIAN * startAngle)} L ${cx + (outerRadius + 6) * Math.cos(-RADIAN * startAngle)} ${cy + (outerRadius + 6) * Math.sin(-RADIAN * startAngle)} A ${outerRadius + 6} ${outerRadius + 6} 0 ${endAngle - startAngle > 180 ? 1 : 0} 1 ${cx + (outerRadius + 6) * cos} ${cy + (outerRadius + 6) * sin} Z`} fill={fill} opacity={0.95} /><path d={`M ${cx + innerRadius * Math.cos(-RADIAN * startAngle)} ${cy + innerRadius * Math.sin(-RADIAN * startAngle)} A ${innerRadius} ${innerRadius} 0 ${endAngle - startAngle > 180 ? 1 : 0} 1 ${cx + innerRadius * cos} ${cy + innerRadius * sin}`} fill="none" stroke={fill} strokeWidth={0} /></g> ); }}>
+                                            {chartItems.map((entry, idx) => (<Cell key={idx} fill={entry.color} className="outline-none cursor-pointer" style={{ opacity: hoveredSlice !== null && hoveredSlice !== idx ? 0.4 : 1, transition: 'opacity 0.3s ease' }} />))}
                                         </Pie>
-                                        <ReTooltip content={<CustomPieTooltip />} />
                                     </RechartsPieChart>
                                 </ResponsiveContainer>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ transition: 'all 0.2s ease' }}>
                                     <p className={`text-[8px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-400' : 'text-slate-600'}`}>Total</p>
                                     <p className={`text-lg font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{viewInUSD ? '$' : 'R$'} {(totalChartValue * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 </div>
@@ -983,171 +984,205 @@ export default function InvestmentsTab() {
                     <p className="text-sm font-bold text-slate-500">Nenhum investimento cadastrado ainda.</p>
                 </div>
             ) : (
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h3 className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Seus Ativos em Detalhe</h3>
-                </div>
-                <div className="space-y-3">
-                    {Object.entries(groupedInvestments).map(([type, assets]) => {
-                        const Config = ASSET_TYPES[type] || ASSET_TYPES.crypto;
-                        const isExpanded = expandedCategories[type];
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div className="lg:col-span-3 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h3 className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Seus Ativos em Detalhe</h3>
+                    </div>
+                    <div className="space-y-3">
+                        {Object.entries(groupedInvestments).map(([type, assets]) => {
+                            const Config = ASSET_TYPES[type] || ASSET_TYPES.crypto;
+                            const isExpanded = expandedCategories[type];
 
-                        return (
-                            <div key={type} className={`rounded-2xl border overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/80 border-white/[0.06]'}`}>
-                                {/* Category Header */}
-                                <button 
-                                    onClick={() => setExpandedCategories(prev => ({ ...prev, [type]: !prev[type] }))}
-                                    className={`w-full flex items-center justify-between px-5 py-3.5 transition-all ${theme === 'light' ? 'hover:bg-slate-50' : 'hover:bg-white/5'}`}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronUp className="w-4 h-4 text-slate-500" />}
-                                        <Config.icon className={`w-4 h-4 ${Config.color}`} />
-                                        <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{Config.label}</span>
-                                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-500">{assets.length}</span>
-                                    </div>
-                                    <div className={`text-[10px] font-black text-slate-500`}>
-                                    </div>
-                                </button>
+                            return (
+                                <div key={type} className={`rounded-2xl border overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/80 border-white/[0.06]'}`}>
+                                    {/* Category Header */}
+                                    <button 
+                                        onClick={() => setExpandedCategories(prev => ({ ...prev, [type]: !prev[type] }))}
+                                        className={`w-full flex items-center justify-between px-5 py-3.5 transition-all ${theme === 'light' ? 'hover:bg-slate-50' : 'hover:bg-white/5'}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronUp className="w-4 h-4 text-slate-500" />}
+                                            <Config.icon className={`w-4 h-4 ${Config.color}`} />
+                                            <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{Config.label}</span>
+                                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-500">{assets.length}</span>
+                                        </div>
+                                        <div className={`text-[10px] font-black text-slate-500`}>
+                                        </div>
+                                    </button>
 
-                                {/* Table Header */}
-                                {isExpanded && (
-                                <div className="animate-in slide-in-from-top-2 fade-in duration-200">
-                                    <div className={`hidden md:grid grid-cols-12 gap-2 px-5 py-2 text-[8px] font-black uppercase tracking-widest border-t ${theme === 'light' ? 'text-slate-400 border-slate-100 bg-slate-50/50' : 'text-slate-600 border-white/[0.04] bg-white/[0.02]'}`}>
-                                        <div className="col-span-1"></div>
-                                        <div className="col-span-2">Ativo</div>
-                                        <div className="col-span-1">Categoria</div>
-                                        <div className="col-span-2 text-right">Quantidade</div>
-                                        <div className="col-span-2 text-right">Preço Médio</div>
-                                        <div className="col-span-2 text-right">Desempenho (%)</div>
-                                        <div className="col-span-2 text-right">Valor Total</div>
-                                    </div>
+                                    {/* Table Header */}
+                                    {isExpanded && (
+                                    <div className="animate-in slide-in-from-top-2 fade-in duration-200">
+                                        <div className={`hidden md:grid grid-cols-12 gap-2 px-5 py-2 text-[8px] font-black uppercase tracking-widest border-t ${theme === 'light' ? 'text-slate-400 border-slate-100 bg-slate-50/50' : 'text-slate-600 border-white/[0.04] bg-white/[0.02]'}`}>
+                                            <div className="col-span-1"></div>
+                                            <div className="col-span-2">Ativo</div>
+                                            <div className="col-span-1">Categoria</div>
+                                            <div className="col-span-2 text-right">Quantidade</div>
+                                            <div className="col-span-2 text-right">Preço Médio</div>
+                                            <div className="col-span-2 text-right">Desempenho (%)</div>
+                                            <div className="col-span-2 text-right">Valor Total</div>
+                                        </div>
 
-                                    {/* Asset Rows */}
-                                    {assets.map(asset => {
-                                        const isFixedIncome = asset.type === 'renda_fixa';
-                                        const trueInvested = isFixedIncome
-                                            ? (asset.totalApplied || asset.quantity * asset.purchasePrice)
-                                            : (asset.quantity * asset.purchasePrice * (asset.isUSD ? prices.USD : 1));
-                                        let currentPrice = asset.manualCurrentPrice || asset.purchasePrice;
-                                        if (!isFixedIncome) {
-                                            if (asset.type === 'crypto' && asset.symbol) {
-                                                const sym = asset.symbol.toUpperCase();
-                                                if (asset.isUSD && prices[`${sym}_USD`]) currentPrice = prices[`${sym}_USD`];
-                                                else if (!asset.isUSD && prices[`${sym}_BRL`]) currentPrice = prices[`${sym}_BRL`];
-                                                else if (!asset.isUSD && prices[`${sym}_USD`] && prices.USD) currentPrice = prices[`${sym}_USD`] * prices.USD;
-                                            } else if (['acoes', 'etfs', 'fiis'].includes(asset.type) && asset.symbol) {
-                                                const sym = asset.symbol.toUpperCase();
-                                                if (prices[sym]) currentPrice = prices[sym];
+                                        {/* Asset Rows */}
+                                        {assets.map(asset => {
+                                            const isFixedIncome = asset.type === 'renda_fixa';
+                                            const trueInvested = isFixedIncome
+                                                ? (asset.totalApplied || asset.quantity * asset.purchasePrice)
+                                                : (asset.quantity * asset.purchasePrice * (asset.isUSD ? prices.USD : 1));
+                                            let currentPrice = asset.manualCurrentPrice || asset.purchasePrice;
+                                            if (!isFixedIncome) {
+                                                if (asset.type === 'crypto' && asset.symbol) {
+                                                    const sym = asset.symbol.toUpperCase();
+                                                    if (asset.isUSD && prices[`${sym}_USD`]) currentPrice = prices[`${sym}_USD`];
+                                                    else if (!asset.isUSD && prices[`${sym}_BRL`]) currentPrice = prices[`${sym}_BRL`];
+                                                    else if (!asset.isUSD && prices[`${sym}_USD`] && prices.USD) currentPrice = prices[`${sym}_USD`] * prices.USD;
+                                                } else if (['acoes', 'etfs', 'fiis'].includes(asset.type) && asset.symbol) {
+                                                    const sym = asset.symbol.toUpperCase();
+                                                    if (prices[sym]) currentPrice = prices[sym];
+                                                }
                                             }
-                                        }
-                                        let trueCurrent = isFixedIncome
-                                            ? (asset.manualCurrentPrice || trueInvested)
-                                            : (asset.quantity * currentPrice * (asset.isUSD ? prices.USD : 1));
-                                        if (isFixedIncome) {
-                                            const liveData = getLiveTesouroRate(asset.name);
-                                            const pRate = parseFloat(asset.purchaseRate || asset.fixedRate || 0);
-                                            let cRate = liveData ? liveData.rate : parseFloat(asset.currentMarketRate || asset.fixedRate || 0);
-                                            if (pRate > 0 && cRate > 0 && pRate !== cRate && !asset.manualCurrentPrice) {
-                                                trueCurrent = trueInvested * (pRate / cRate);
+                                            let trueCurrent = isFixedIncome
+                                                ? (asset.manualCurrentPrice || trueInvested)
+                                                : (asset.quantity * currentPrice * (asset.isUSD ? prices.USD : 1));
+                                            if (isFixedIncome) {
+                                                const liveData = getLiveTesouroRate(asset.name);
+                                                const pRate = parseFloat(asset.purchaseRate || asset.fixedRate || 0);
+                                                let cRate = liveData ? liveData.rate : parseFloat(asset.currentMarketRate || asset.fixedRate || 0);
+                                                if (pRate > 0 && cRate > 0 && pRate !== cRate && !asset.manualCurrentPrice) {
+                                                    trueCurrent = trueInvested * (pRate / cRate);
+                                                }
                                             }
-                                        }
-                                        const profitPct = trueInvested > 0 ? ((trueCurrent - trueInvested) / trueInvested) * 100 : 0;
-                                        const displayCurrency = viewInUSD ? '$' : 'R$';
-                                        const displayCurrentVal = trueCurrent * displayMultiplier;
-                                        const brlPurchasePrice = asset.isUSD ? asset.purchasePrice * (prices.USD || 5.0) : asset.purchasePrice;
-                                        const displayPurchasePrice = isFixedIncome ? (trueInvested * displayMultiplier) : (brlPurchasePrice * displayMultiplier);
+                                            const profitPct = trueInvested > 0 ? ((trueCurrent - trueInvested) / trueInvested) * 100 : 0;
+                                            const displayCurrency = viewInUSD ? '$' : 'R$';
+                                            const displayCurrentVal = trueCurrent * displayMultiplier;
+                                            const brlPurchasePrice = asset.isUSD ? asset.purchasePrice * (prices.USD || 5.0) : asset.purchasePrice;
+                                            const displayPurchasePrice = isFixedIncome ? (trueInvested * displayMultiplier) : (brlPurchasePrice * displayMultiplier);
 
-                                        return (
-                                            <div key={asset.id} className={`group relative grid grid-cols-1 md:grid-cols-12 gap-2 items-center px-5 py-3 border-t transition-all ${theme === 'light' ? 'border-slate-100 hover:bg-slate-50' : 'border-white/[0.04] hover:bg-white/[0.03]'}`}>
-                                                {/* Actions */}
-                                                <div className="col-span-1 flex items-center gap-1">
-                                                    <button 
-                                                        onClick={() => { setNewAsset({ ...asset, aporteQuantity: '', aporteAmount: '' }); setIsAporting(asset.id); }}
-                                                        className={`p-1 rounded-md transition-all opacity-0 group-hover:opacity-100 ${theme === 'light' ? 'hover:bg-blue-50 text-blue-500' : 'hover:bg-blue-500/10 text-blue-400'}`}
-                                                        title="Aporte"
-                                                    >
-                                                        <Plus className="w-3 h-3" />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => { setNewAsset({ ...asset }); setIsEditing(asset.id); setIsAdding(true); }}
-                                                        className={`p-1 rounded-md transition-all opacity-0 group-hover:opacity-100 ${theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'}`}
-                                                        title="Editar"
-                                                    >
-                                                        <Edit2 className="w-3 h-3" />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => setDeleteConfirm({ id: asset.id, type: 'asset', title: asset.name })}
-                                                        className={`p-1 rounded-md transition-all opacity-0 group-hover:opacity-100 ${theme === 'light' ? 'hover:bg-rose-50 text-rose-400' : 'hover:bg-rose-500/10 text-rose-400'}`}
-                                                        title="Excluir"
-                                                    >
-                                                        <Trash2 className="w-3 h-3" />
-                                                    </button>
-                                                </div>
-
-                                                {/* Asset Name */}
-                                                <div className="col-span-2 flex items-center gap-2.5 min-w-0">
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${Config.bg}`}>
-                                                        <Config.icon className={`w-4 h-4 ${Config.color}`} />
+                                            return (
+                                                <div key={asset.id} className={`group relative grid grid-cols-1 md:grid-cols-12 gap-2 items-center px-5 py-3 border-t transition-all ${theme === 'light' ? 'border-slate-100 hover:bg-slate-50' : 'border-white/[0.04] hover:bg-white/[0.03]'}`}>
+                                                    {/* Actions */}
+                                                    <div className="col-span-1 flex items-center gap-1">
+                                                        <button 
+                                                            onClick={() => { setNewAsset({ ...asset, aporteQuantity: '', aporteAmount: '' }); setIsAporting(asset.id); }}
+                                                            className={`p-1 rounded-md transition-all opacity-0 group-hover:opacity-100 ${theme === 'light' ? 'hover:bg-blue-50 text-blue-500' : 'hover:bg-blue-500/10 text-blue-400'}`}
+                                                            title="Aporte"
+                                                        >
+                                                            <Plus className="w-3 h-3" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => { setNewAsset({ ...asset }); setIsEditing(asset.id); setIsAdding(true); }}
+                                                            className={`p-1 rounded-md transition-all opacity-0 group-hover:opacity-100 ${theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'}`}
+                                                            title="Editar"
+                                                        >
+                                                            <Edit2 className="w-3 h-3" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => setDeleteConfirm({ id: asset.id, type: 'asset', title: asset.name })}
+                                                            className={`p-1 rounded-md transition-all opacity-0 group-hover:opacity-100 ${theme === 'light' ? 'hover:bg-rose-50 text-rose-400' : 'hover:bg-rose-500/10 text-rose-400'}`}
+                                                            title="Excluir"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </button>
                                                     </div>
-                                                    <div className="min-w-0">
-                                                        <p className={`text-xs font-black truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{asset.symbol || asset.name}</p>
-                                                        <p className="text-[9px] text-slate-500 font-medium truncate">{asset.name}</p>
-                                                    </div>
-                                                </div>
 
-                                                {/* Category */}
-                                                <div className="col-span-1">
-                                                    <span className="text-[9px] font-bold text-slate-500">{Config.label}</span>
-                                                </div>
-
-                                                {/* Quantity */}
-                                                <div className="col-span-2 text-right">
-                                                    <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
-                                                        {isFixedIncome ? '1' : asset.quantity?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                    </span>
-                                                </div>
-
-                                                {/* Purchase Price */}
-                                                <div className="col-span-2 text-right">
-                                                    <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
-                                                        {displayCurrency} {displayPurchasePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                    </span>
-                                                </div>
-
-                                                {/* Performance */}
-                                                <div className="col-span-2 text-right">
-                                                    <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md ${profitPct >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                                                        {profitPct >= 0 ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
-                                                        {profitPct >= 0 ? '+' : ''}{profitPct.toFixed(1)}%
-                                                    </span>
-                                                </div>
-
-                                                {/* Total Value */}
-                                                <div className="col-span-2 text-right">
-                                                    <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                                        {displayCurrency} {displayCurrentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                    </span>
-                                                </div>
-
-                                                {/* Delete overlay */}
-                                                {deleteConfirm?.id === asset.id && deleteConfirm?.type === 'asset' && (
-                                                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-2xl flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
-                                                        <div className="flex items-center gap-4">
-                                                            <Trash2 className="w-5 h-5 text-rose-500" />
-                                                            <span className="text-white font-bold text-xs">Excluir {asset.name}?</span>
-                                                            <button onClick={() => setDeleteConfirm(null)} className="px-3 py-1.5 rounded-lg bg-white/10 text-white font-black text-[10px] hover:bg-white/20">Não</button>
-                                                            <button onClick={() => handleDeleteAsset(asset.id)} className="px-3 py-1.5 rounded-lg bg-rose-500 text-white font-black text-[10px] hover:bg-rose-600">Excluir</button>
+                                                    {/* Asset Name */}
+                                                    <div className="col-span-2 flex items-center gap-2.5 min-w-0">
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${Config.bg}`}>
+                                                            <Config.icon className={`w-4 h-4 ${Config.color}`} />
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className={`text-xs font-black truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{asset.symbol || asset.name}</p>
+                                                            <p className="text-[9px] text-slate-500 font-medium truncate">{asset.name}</p>
                                                         </div>
                                                     </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
+
+                                                    {/* Category */}
+                                                    <div className="col-span-1">
+                                                        <span className="text-[9px] font-bold text-slate-500">{Config.label}</span>
+                                                    </div>
+
+                                                    {/* Quantity */}
+                                                    <div className="col-span-2 text-right">
+                                                        <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
+                                                            {isFixedIncome ? '1' : asset.quantity?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Purchase Price */}
+                                                    <div className="col-span-2 text-right">
+                                                        <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
+                                                            {displayCurrency} {displayPurchasePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Performance */}
+                                                    <div className="col-span-2 text-right">
+                                                        <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md ${profitPct >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                                                            {profitPct >= 0 ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+                                                            {profitPct >= 0 ? '+' : ''}{profitPct.toFixed(1)}%
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Total Value */}
+                                                    <div className="col-span-2 text-right">
+                                                        <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                                            {displayCurrency} {displayCurrentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Delete overlay */}
+                                                    {deleteConfirm?.id === asset.id && deleteConfirm?.type === 'asset' && (
+                                                        <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-2xl flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
+                                                            <div className="flex items-center gap-4">
+                                                                <Trash2 className="w-5 h-5 text-rose-500" />
+                                                                <span className="text-white font-bold text-xs">Excluir {asset.name}?</span>
+                                                                <button onClick={() => setDeleteConfirm(null)} className="px-3 py-1.5 rounded-lg bg-white/10 text-white font-black text-[10px] hover:bg-white/20">Não</button>
+                                                                <button onClick={() => handleDeleteAsset(asset.id)} className="px-3 py-1.5 rounded-lg bg-rose-500 text-white font-black text-[10px] hover:bg-rose-600">Excluir</button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    )}
                                 </div>
-                                )}
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Right Column: Alivia Insight */}
+                <div className="lg:col-span-1 space-y-4">
+                    <div className={`p-5 rounded-3xl border ${theme === 'light' ? 'bg-indigo-50 border-indigo-100 shadow-sm' : 'bg-indigo-500/5 border-indigo-500/20'} relative overflow-hidden group transition-all duration-300`}>
+                        <div className="absolute top-0 right-0 p-4 opacity-10 text-indigo-500">
+                            <Sparkles className="w-20 h-20" />
+                        </div>
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="relative shrink-0">
+                                    <img src={aliviaFinal} alt="Alívia" className="w-10 h-10 object-cover rounded-full border border-indigo-200/50 shadow-sm" />
+                                    <div className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-[#131621] border border-white/10 text-indigo-400">
+                                        <Sparkles className="w-3 h-3" />
+                                    </div>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-indigo-600' : 'text-indigo-400'}`}>Alívia Insight</span>
+                                    <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Foco da Carteira</span>
+                                </div>
                             </div>
-                        );
-                    })}
+                            <p className={`text-xs font-medium leading-relaxed ${theme === 'light' ? 'text-indigo-900/80' : 'text-indigo-100/70'}`}>
+                                Analisando seus investimentos, noto que sua alocação está ganhando corpo. {
+                                    (groupedInvestments['acoes']?.length > 0 || groupedInvestments['etfs']?.length > 0) 
+                                    ? 'Com exposição ao mercado de ações/ETFs, você aposta no crescimento de grandes empresas, inovação e tecnologia no longo prazo.' 
+                                    : groupedInvestments['crypto']?.length > 0 
+                                    ? 'Sua exposição a criptomoedas mostra um apetite por disrupção e tecnologia.' 
+                                    : 'A carteira tem um perfil sólido focado em rentabilidade previsível e preservação de patrimônio.'
+                                } Continue mantendo o equilíbrio!
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
             )}
