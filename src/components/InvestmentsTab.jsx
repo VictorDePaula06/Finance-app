@@ -1029,45 +1029,62 @@ export default function InvestmentsTab() {
             ) : (
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-3 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h3 className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Seus Ativos em Detalhe</h3>
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl ${theme === 'light' ? 'bg-slate-100' : 'bg-white/5'}`}>
+                            <Layers className={`w-4 h-4 ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`} />
+                        </div>
+                        <div>
+                            <h3 className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Seus Ativos em Detalhe</h3>
+                            <p className="text-[9px] text-slate-500 font-medium">Visão detalhada por categoria</p>
+                        </div>
                     </div>
                     <div className="space-y-3">
                         {Object.entries(groupedInvestments).map(([type, assets]) => {
                             const Config = ASSET_TYPES[type] || ASSET_TYPES.crypto;
                             const isExpanded = expandedCategories[type];
+                            const catTotal = assets.reduce((sum, asset) => {
+                                const isFixed = asset.type === 'renda_fixa';
+                                const usdMul = asset.isUSD ? (prices.USD || 5.0) : 1;
+                                const invested = isFixed ? (asset.totalApplied || asset.quantity * asset.purchasePrice) : (asset.quantity * asset.purchasePrice * usdMul);
+                                let cp = asset.manualCurrentPrice || asset.purchasePrice;
+                                if (!isFixed) {
+                                    if (asset.type === 'crypto' && asset.symbol) { const s = asset.symbol.toUpperCase(); if (asset.isUSD && prices[`${s}_USD`]) cp = prices[`${s}_USD`]; else if (!asset.isUSD && prices[`${s}_BRL`]) cp = prices[`${s}_BRL`]; else if (!asset.isUSD && prices[`${s}_USD`] && prices.USD) cp = prices[`${s}_USD`] * prices.USD; }
+                                    else if (['acoes','etfs','fiis'].includes(asset.type) && asset.symbol) { const s = asset.symbol.toUpperCase(); if (prices[s]) cp = prices[s]; }
+                                }
+                                let cur = isFixed ? (asset.manualCurrentPrice || invested) : (asset.quantity * cp * usdMul);
+                                if (isFixed) { const ld = getLiveTesouroRate(asset.name); const pR = parseFloat(asset.purchaseRate || asset.fixedRate || 0); let cR = ld ? ld.rate : parseFloat(asset.currentMarketRate || asset.fixedRate || 0); if (pR > 0 && cR > 0 && pR !== cR && !asset.manualCurrentPrice) cur = invested * (pR / cR); }
+                                return sum + cur;
+                            }, 0);
 
                             return (
-                                <div key={type} className={`rounded-2xl border overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/80 border-white/[0.06]'}`}>
+                                <div key={type} className={`rounded-2xl border overflow-hidden transition-all duration-200 ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm hover:shadow-md' : 'bg-slate-900/80 border-white/[0.06] hover:border-white/[0.1]'}`}>
                                     {/* Category Header */}
                                     <button 
                                         onClick={() => setExpandedCategories(prev => ({ ...prev, [type]: !prev[type] }))}
-                                        className={`w-full flex items-center justify-between px-5 py-3.5 transition-all ${theme === 'light' ? 'hover:bg-slate-50' : 'hover:bg-white/5'}`}
+                                        className={`w-full flex items-center justify-between px-5 py-4 transition-all ${theme === 'light' ? 'hover:bg-slate-50/50' : 'hover:bg-white/[0.02]'}`}
                                     >
                                         <div className="flex items-center gap-3">
-                                            {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronUp className="w-4 h-4 text-slate-500" />}
-                                            <Config.icon className={`w-4 h-4 ${Config.color}`} />
-                                            <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{Config.label}</span>
-                                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-500">{assets.length}</span>
+                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${Config.bg}`}>
+                                                <Config.icon className={`w-4 h-4 ${Config.color}`} />
+                                            </div>
+                                            <div className="text-left">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{Config.label}</span>
+                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/[0.06] text-slate-500'}`}>{assets.length} {assets.length === 1 ? 'ativo' : 'ativos'}</span>
+                                                </div>
+                                                <span className={`text-[10px] font-bold ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                    {viewInUSD ? '$' : 'R$'} {(catTotal * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className={`text-[10px] font-black text-slate-500`}>
+                                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isExpanded ? 'rotate-180' : ''} ${theme === 'light' ? 'bg-slate-100 text-slate-400' : 'bg-white/5 text-slate-500'}`}>
+                                            <ChevronDown className="w-3.5 h-3.5" />
                                         </div>
                                     </button>
 
-                                    {/* Table Header */}
+                                    {/* Asset Cards */}
                                     {isExpanded && (
-                                    <div className="animate-in slide-in-from-top-2 fade-in duration-200">
-                                        <div className={`hidden md:grid grid-cols-12 gap-2 px-5 py-2 text-[8px] font-black uppercase tracking-widest border-t ${theme === 'light' ? 'text-slate-400 border-slate-100 bg-slate-50/50' : 'text-slate-600 border-white/[0.04] bg-white/[0.02]'}`}>
-                                            <div className="col-span-1"></div>
-                                            <div className="col-span-2">Ativo</div>
-                                            <div className="col-span-1">Categoria</div>
-                                            <div className="col-span-2 text-right">Quantidade</div>
-                                            <div className="col-span-2 text-right">Preço Médio</div>
-                                            <div className="col-span-2 text-right">Desempenho (%)</div>
-                                            <div className="col-span-2 text-right">Valor Total</div>
-                                        </div>
-
-                                        {/* Asset Rows */}
+                                    <div className="animate-in slide-in-from-top-2 fade-in duration-200 p-3 pt-0 space-y-2">
                                         {assets.map(asset => {
                                             const isFixedIncome = asset.type === 'renda_fixa';
                                             const trueInvested = isFixedIncome
@@ -1097,86 +1114,79 @@ export default function InvestmentsTab() {
                                                 }
                                             }
                                             const profitPct = trueInvested > 0 ? ((trueCurrent - trueInvested) / trueInvested) * 100 : 0;
+                                            const profitVal = trueCurrent - trueInvested;
                                             const displayCurrency = viewInUSD ? '$' : 'R$';
                                             const displayCurrentVal = trueCurrent * displayMultiplier;
-                                            const brlPurchasePrice = asset.isUSD ? asset.purchasePrice * (prices.USD || 5.0) : asset.purchasePrice;
-                                            const displayPurchasePrice = isFixedIncome ? (trueInvested * displayMultiplier) : (brlPurchasePrice * displayMultiplier);
+                                            const displayInvestedVal = trueInvested * displayMultiplier;
 
                                             return (
-                                                <div key={asset.id} className={`group relative grid grid-cols-1 md:grid-cols-12 gap-2 items-center px-5 py-3 border-t transition-all ${theme === 'light' ? 'border-slate-100 hover:bg-slate-50' : 'border-white/[0.04] hover:bg-white/[0.03]'}`}>
-                                                    {/* Actions */}
-                                                    <div className="col-span-1 flex items-center gap-1">
-                                                        <button 
-                                                            onClick={() => { setNewAsset({ ...asset, aporteQuantity: '', aporteAmount: '' }); setIsAporting(asset.id); }}
-                                                            className={`p-1 rounded-md transition-all opacity-0 group-hover:opacity-100 ${theme === 'light' ? 'hover:bg-blue-50 text-blue-500' : 'hover:bg-blue-500/10 text-blue-400'}`}
-                                                            title="Aporte"
-                                                        >
-                                                            <Plus className="w-3 h-3" />
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => { setNewAsset({ ...asset }); setIsEditing(asset.id); setIsAdding(true); }}
-                                                            className={`p-1 rounded-md transition-all opacity-0 group-hover:opacity-100 ${theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'}`}
-                                                            title="Editar"
-                                                        >
-                                                            <Edit2 className="w-3 h-3" />
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => setDeleteConfirm({ id: asset.id, type: 'asset', title: asset.name })}
-                                                            className={`p-1 rounded-md transition-all opacity-0 group-hover:opacity-100 ${theme === 'light' ? 'hover:bg-rose-50 text-rose-400' : 'hover:bg-rose-500/10 text-rose-400'}`}
-                                                            title="Excluir"
-                                                        >
-                                                            <Trash2 className="w-3 h-3" />
-                                                        </button>
-                                                    </div>
-
-                                                    {/* Asset Name */}
-                                                    <div className="col-span-2 flex items-center gap-2.5 min-w-0">
-                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${Config.bg}`}>
-                                                            <Config.icon className={`w-4 h-4 ${Config.color}`} />
+                                                <div key={asset.id} className={`group relative rounded-xl border p-4 transition-all duration-200 ${theme === 'light' ? 'bg-slate-50/60 border-slate-100 hover:bg-slate-100/60 hover:shadow-sm' : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.04] hover:border-white/[0.08]'}`}>
+                                                    {/* Top row: Name + Actions */}
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="flex items-center gap-3 min-w-0">
+                                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${Config.bg}`}>
+                                                                <Config.icon className={`w-3.5 h-3.5 ${Config.color}`} />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className={`text-xs font-black truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                                                    {asset.symbol ? asset.symbol.toUpperCase() : asset.name}
+                                                                </p>
+                                                                {asset.symbol && asset.name && asset.symbol.toUpperCase() !== asset.name.toUpperCase() && (
+                                                                    <p className="text-[9px] text-slate-500 font-medium truncate">{asset.name}</p>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                        <div className="min-w-0">
-                                                            <p className={`text-xs font-black truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{asset.symbol || asset.name}</p>
-                                                            <p className="text-[9px] text-slate-500 font-medium truncate">{asset.name}</p>
+                                                        <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
+                                                            <button 
+                                                                onClick={() => { setNewAsset({ ...asset, aporteQuantity: '', aporteAmount: '' }); setIsAporting(asset.id); }}
+                                                                className={`p-1.5 rounded-lg transition-all ${theme === 'light' ? 'hover:bg-blue-50 text-blue-500' : 'hover:bg-blue-500/10 text-blue-400'}`}
+                                                                title="Aporte"
+                                                            >
+                                                                <Plus className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => { setNewAsset({ ...asset }); setIsEditing(asset.id); setIsAdding(true); }}
+                                                                className={`p-1.5 rounded-lg transition-all ${theme === 'light' ? 'hover:bg-slate-200 text-slate-400' : 'hover:bg-white/10 text-slate-500'}`}
+                                                                title="Editar"
+                                                            >
+                                                                <Edit2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => setDeleteConfirm({ id: asset.id, type: 'asset', title: asset.name })}
+                                                                className={`p-1.5 rounded-lg transition-all ${theme === 'light' ? 'hover:bg-rose-50 text-rose-400' : 'hover:bg-rose-500/10 text-rose-400'}`}
+                                                                title="Excluir"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
                                                         </div>
                                                     </div>
 
-                                                    {/* Category */}
-                                                    <div className="col-span-1">
-                                                        <span className="text-[9px] font-bold text-slate-500">{Config.label}</span>
-                                                    </div>
-
-                                                    {/* Quantity */}
-                                                    <div className="col-span-2 text-right">
-                                                        <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
-                                                            {isFixedIncome ? '1' : asset.quantity?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Purchase Price */}
-                                                    <div className="col-span-2 text-right">
-                                                        <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
-                                                            {displayCurrency} {displayPurchasePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Performance */}
-                                                    <div className="col-span-2 text-right">
-                                                        <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md ${profitPct >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                                                            {profitPct >= 0 ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
-                                                            {profitPct >= 0 ? '+' : ''}{profitPct.toFixed(1)}%
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Total Value */}
-                                                    <div className="col-span-2 text-right">
-                                                        <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                                            {displayCurrency} {displayCurrentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                        </span>
+                                                    {/* Stats row */}
+                                                    <div className="grid grid-cols-3 gap-3">
+                                                        <div>
+                                                            <p className={`text-[8px] font-bold uppercase tracking-widest mb-0.5 ${theme === 'light' ? 'text-slate-400' : 'text-slate-600'}`}>Investido</p>
+                                                            <p className={`text-[11px] font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
+                                                                {displayCurrency} {displayInvestedVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <p className={`text-[8px] font-bold uppercase tracking-widest mb-0.5 ${theme === 'light' ? 'text-slate-400' : 'text-slate-600'}`}>Rentabilidade</p>
+                                                            <span className={`inline-flex items-center gap-0.5 text-[11px] font-black ${profitPct >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                                {profitPct >= 0 ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+                                                                {profitPct >= 0 ? '+' : ''}{profitPct.toFixed(2)}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className={`text-[8px] font-bold uppercase tracking-widest mb-0.5 ${theme === 'light' ? 'text-slate-400' : 'text-slate-600'}`}>Valor Atual</p>
+                                                            <p className={`text-[11px] font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                                                {displayCurrency} {displayCurrentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                            </p>
+                                                        </div>
                                                     </div>
 
                                                     {/* Delete overlay */}
                                                     {deleteConfirm?.id === asset.id && deleteConfirm?.type === 'asset' && (
-                                                        <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-2xl flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
+                                                        <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-xl flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
                                                             <div className="flex items-center gap-4">
                                                                 <Trash2 className="w-5 h-5 text-rose-500" />
                                                                 <span className="text-white font-bold text-xs">Excluir {asset.name}?</span>
