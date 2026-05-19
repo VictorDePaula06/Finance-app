@@ -58,9 +58,27 @@ export default function ExpensesChart({ transactions, targetMonth, mode = 'gasto
                 (t.date?.slice(0, 7) === monthToFilter || t.month === monthToFilter) &&
                 (selectedCard === 'all' || t.selectedCardId === selectedCard)
             );
-            subsToInclude = subscriptions.filter(s => 
-                s.cardId && (selectedCard === 'all' || s.cardId === selectedCard)
-            );
+            const [selYear, selMonthNum] = monthToFilter.split('-').map(Number);
+            const selTotalMonths = selYear * 12 + selMonthNum;
+
+            subsToInclude = subscriptions.filter(s => {
+                if (!s.cardId) return false;
+                if (selectedCard !== 'all' && s.cardId !== selectedCard) return false;
+                
+                if (!s.createdAt) return true;
+                const createdDate = new Date(s.createdAt);
+                if (isNaN(createdDate.getTime())) return true;
+
+                const createdTotalMonths = createdDate.getFullYear() * 12 + (createdDate.getMonth() + 1);
+                const monthsPassed = selTotalMonths - createdTotalMonths;
+
+                if (monthsPassed < 0) return false;
+
+                if (s.type === 'installment') {
+                    if (monthsPassed >= (s.totalInstallments || 1)) return false;
+                }
+                return true;
+            });
         } else {
             expenses = transactions.filter(t =>
                 t.type === 'expense' &&

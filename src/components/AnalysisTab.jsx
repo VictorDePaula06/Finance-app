@@ -90,7 +90,28 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
       t.type === 'expense' && t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid'
     );
     
-    let cardSubs = subscriptions.filter(s => s.cardId);
+    const [selYear, selMonthNum] = selectedMonth.split('-').map(Number);
+    const selTotalMonths = selYear * 12 + selMonthNum;
+
+    let cardSubs = subscriptions.filter(s => {
+        if (!s.cardId) return false;
+        if (!s.createdAt) return true; // Legacy fallback
+
+        const createdDate = new Date(s.createdAt);
+        if (isNaN(createdDate.getTime())) return true;
+
+        const createdTotalMonths = createdDate.getFullYear() * 12 + (createdDate.getMonth() + 1);
+        const monthsPassed = selTotalMonths - createdTotalMonths;
+
+        if (monthsPassed < 0) return false; // Was created in the future
+
+        if (s.type === 'installment') {
+            if (monthsPassed >= (s.totalInstallments || 1)) {
+                return false; // Finished before this month
+            }
+        }
+        return true;
+    });
 
     if (selectedCard !== 'all') {
       cardExpenses = cardExpenses.filter(t => t.selectedCardId === selectedCard);
