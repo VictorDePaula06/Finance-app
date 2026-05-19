@@ -976,20 +976,37 @@ export default function InvestmentsTab() {
 
                             {/* Legend */}
                             <div className="md:col-span-3">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div className="flex flex-col gap-2.5">
                                     {chartItems.map((item, idx) => {
                                         const pct = totalChartValue > 0 ? (item.value / totalChartValue) * 100 : 0;
                                         return (
-                                            <div key={idx} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${theme === 'light' ? 'hover:bg-slate-50' : 'hover:bg-white/[0.03]'}`}>
-                                                <div className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm" style={{ background: item.color }} />
-                                                <div className="flex-1 min-w-0">
-                                                    <p className={`text-xs font-black truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{item.name}</p>
-                                                    <p className={`text-[10px] font-bold ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                                            <div 
+                                                key={idx} 
+                                                className={`relative p-4 rounded-2xl border transition-all duration-200 ${
+                                                    theme === 'light' 
+                                                        ? 'bg-slate-50/80 border-slate-100 hover:bg-slate-100/80 hover:shadow-sm' 
+                                                        : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.1]'
+                                                }`}
+                                                style={{ borderLeftWidth: '3px', borderLeftColor: item.color }}
+                                            >
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: item.color, boxShadow: `0 0 8px ${item.color}40` }} />
+                                                        <p className={`text-xs font-black truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{item.name}</p>
+                                                    </div>
+                                                    <p className="text-sm font-black flex-shrink-0 ml-3" style={{ color: item.color }}>{pct.toFixed(1)}%</p>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <p className={`text-[11px] font-bold ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
                                                         {viewInUSD ? '$' : 'R$'} {(item.value * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </p>
                                                 </div>
-                                                <div className="flex-shrink-0 text-right">
-                                                    <p className="text-sm font-black" style={{ color: item.color }}>{pct.toFixed(1)}%</p>
+                                                {/* Progress bar */}
+                                                <div className={`mt-2.5 h-1 rounded-full overflow-hidden ${theme === 'light' ? 'bg-slate-200/60' : 'bg-white/[0.06]'}`}>
+                                                    <div 
+                                                        className="h-full rounded-full transition-all duration-700 ease-out" 
+                                                        style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${item.color}, ${item.color}90)` }} 
+                                                    />
                                                 </div>
                                             </div>
                                         );

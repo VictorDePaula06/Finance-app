@@ -1,0 +1,5 @@
+const fs=require('fs'); 
+let c=fs.readFileSync('src/components/InvestmentsTab.jsx','utf8'); 
+c=c.replace(/    ChevronDown,[\r\n]+    const \{ currentUser \} = useAuth\(\);[\r\n]+    const \[investments, setInvestments\] = useState\(\[\]\);/, `    ChevronDown,\n    ChevronUp\n} from 'lucide-react';\nimport { useTheme } from '../contexts/ThemeContext';\nimport { db } from '../services/firebase';\nimport { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';\nimport { useAuth } from '../contexts/AuthContext';\nimport { ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Tooltip as ReTooltip } from 'recharts';\nimport { BarChart3, Layers, List, Sparkles } from 'lucide-react';\nimport aliviaFinal from '../assets/alivia/alivia-final.png';\n\nexport default function InvestmentsTab() {\n    const { theme } = useTheme();\n    const { currentUser } = useAuth();\n    const [investments, setInvestments] = useState([]);`); 
+fs.writeFileSync('src/components/InvestmentsTab.jsx', c);
+console.log('Fixed');
