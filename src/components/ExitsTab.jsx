@@ -1198,11 +1198,6 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                     setDestinationType('jar');
                                                     setDescription('');
                                                     setCdiPercent('100');
-                                                } else if (val === 'new_inv') {
-                                                    setIsNewReserve(true);
-                                                    setDestinationType('inv');
-                                                    setDescription('');
-                                                    setCdiPercent('100');
                                                 } else if (val.startsWith('jar_')) {
                                                     const jarId = val.replace('jar_', '');
                                                     const jar = savingsJars.find(j => j.id === jarId);
@@ -1248,7 +1243,6 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                                 {inv.name || inv.symbol} (R$ {parseFloat(inv.manualCurrentPrice || inv.totalApplied || (inv.quantity * inv.purchasePrice) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                                                             </option>
                                                         ))}
-                                                        <option value="new_inv" className="text-emerald-500 font-bold">+ Criar Novo Investimento...</option>
                                                     </>
                                                 ) : (
                                                     <option disabled value="">Assine o Premium para investir</option>
