@@ -537,8 +537,22 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     };
 
     const totalExpensesMonthVal = useMemo(() => {
-        return monthExits.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    }, [monthExits]);
+        const monthExitsFiltered = transactions.filter(t => {
+            const isExpense = t.type === 'expense';
+            const isNotInvestment = t.category !== 'investment';
+            const txMonth = t.month || (t.date ? t.date.slice(0, 7) : '');
+            const matchesMonth = txMonth === selectedMonth;
+            return isExpense && isNotInvestment && matchesMonth;
+        });
+
+        if (showCreditCard) {
+            return monthExitsFiltered.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+        } else {
+            return monthExitsFiltered
+                .filter(t => t.paymentMethod !== 'credito')
+                .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+        }
+    }, [transactions, selectedMonth, showCreditCard]);
 
     const totalIncomeMonthVal = useMemo(() => {
         return transactions.filter(t => {
