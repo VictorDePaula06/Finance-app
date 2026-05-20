@@ -1098,8 +1098,13 @@ export default function InvestmentsTab() {
                                             <div className="flex items-center justify-between mb-4">
                                                 <div className="flex items-center gap-3 min-w-0">
                                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${MC.bg}`}><MC.icon className={`w-4 h-4 ${MC.color}`} /></div>
-                                                    <div className="min-w-0">
-                                                        <p className={`text-sm font-black truncate ${theme==='light'?'text-slate-800':'text-white'}`}>{asset.symbol?asset.symbol.toUpperCase():asset.name}</p>
+                                                    <div className="min-w-0 flex flex-col justify-center">
+                                                        <div className="flex items-center gap-2">
+                                                            <p className={`text-sm font-black truncate ${theme==='light'?'text-slate-800':'text-white'}`}>{asset.symbol?asset.symbol.toUpperCase():asset.name}</p>
+                                                            <span className={`text-xs font-black ${theme==='light'?'text-slate-500':'text-slate-400'}`}>
+                                                                {dCur} {(cP * (asset.isUSD ? (prices.USD || 1) : 1) * displayMultiplier).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+                                                            </span>
+                                                        </div>
                                                         {asset.symbol&&asset.name&&asset.symbol.toUpperCase()!==asset.name.toUpperCase()&&(<p className="text-[10px] text-slate-500 font-medium truncate">{asset.name}</p>)}
                                                     </div>
                                                 </div>
