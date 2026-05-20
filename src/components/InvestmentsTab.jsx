@@ -1101,12 +1101,23 @@ export default function InvestmentsTab() {
                                                         {asset.symbol || asset.name ? (
                                                             <>
                                                                 <img 
-                                                                    src={asset.type === 'crypto' ? `https://assets.coincap.io/assets/icons/${(asset.symbol || 'btc').toLowerCase()}@2x.png` : `https://logo.clearbit.com/${(asset.name || asset.symbol).split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '')}.com`}
+                                                                    src={asset.type === 'crypto' ? `https://assets.coincap.io/assets/icons/${(asset.symbol || 'btc').toLowerCase()}@2x.png` : `https://eodhd.com/img/logos/US/${(asset.symbol || '').toLowerCase()}.png`}
                                                                     className="w-full h-full object-contain bg-white p-1 z-10"
                                                                     onError={(e) => { 
-                                                                        e.target.style.display = 'none'; 
-                                                                        if (e.target.nextElementSibling) {
-                                                                            e.target.nextElementSibling.style.display = 'block';
+                                                                        if (asset.type === 'crypto') {
+                                                                            e.target.style.display = 'none'; 
+                                                                            if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'block';
+                                                                            return;
+                                                                        }
+                                                                        if (!e.target.dataset.fallbackOne) {
+                                                                            e.target.dataset.fallbackOne = 'true';
+                                                                            e.target.src = `https://s3.sa-east-1.amazonaws.com/br.com.easynvest.cdn.custom/dashboard/mkt-data/logos/${(asset.symbol || '').toUpperCase()}.png`;
+                                                                        } else if (!e.target.dataset.fallbackTwo) {
+                                                                            e.target.dataset.fallbackTwo = 'true';
+                                                                            e.target.src = `https://logo.clearbit.com/${(asset.name || asset.symbol).split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '')}.com`;
+                                                                        } else {
+                                                                            e.target.style.display = 'none'; 
+                                                                            if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'block';
                                                                         }
                                                                     }}
                                                                 />
