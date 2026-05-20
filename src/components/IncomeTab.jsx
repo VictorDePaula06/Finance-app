@@ -257,13 +257,18 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
         return new Date(year, month - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
     }, [selectedMonth]);
 
+    const selectedMonthName = useMemo(() => {
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const name = new Date(year, month - 1).toLocaleDateString('pt-BR', { month: 'long' });
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    }, [selectedMonth]);
+
     // Logic to filter transactions for the selected month
     const currentMonthKey = selectedMonth;
 
     // 1. Regular Incomes (Salary, Freelance, etc)
     const filteredIncomes = useMemo(() => {
         const today = new Date();
-        const currentMonthStr = today.toISOString().slice(0, 7);
         
         return transactions.filter(t => {
             const isIncome = t.type === 'income';
@@ -272,7 +277,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
             if (!isIncome || !isNotSpecial) return false;
             
             if (incomesPeriod === 'month') {
-                return t.month === currentMonthStr || (t.date && t.date.startsWith(currentMonthStr));
+                return t.month === selectedMonth || (t.date && t.date.startsWith(selectedMonth));
             }
             const txDate = new Date(t.date);
             const diffDays = (today - txDate) / (1000 * 60 * 60 * 24);
@@ -280,7 +285,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
             if (incomesPeriod === '30d') return diffDays <= 30;
             return true;
         });
-    }, [transactions, incomesPeriod]);
+    }, [transactions, incomesPeriod, selectedMonth]);
 
     const recentIncomes = useMemo(() => {
         return [...filteredIncomes].sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -430,7 +435,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                     {/* Table Row */}
                     <div className={`p-8 rounded-2xl ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-                            <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Últimos Recebimentos</h3>
+                            <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Recebimentos de {selectedMonthName}</h3>
                             <button
                                 onClick={() => {
                                     setEditingId(null);
