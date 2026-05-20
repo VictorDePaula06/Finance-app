@@ -1219,37 +1219,11 @@ export default function InvestmentsTab() {
                             </div>
 
                             {/* Common Name Field */}
-                            <div>
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
-                                    {newAsset.type === 'imoveis' ? 'Nome do Imóvel' : (newAsset.type === 'renda_fixa' ? 'Nome do Título' : 'Nome do Ativo')}
-                                </label>
-                                {newAsset.type === 'renda_fixa' && newAsset.subType === 'Tesouro' && tesouroData.length > 0 ? (
-                                    <select
-                                        value={newAsset.name}
-                                        onChange={(e) => {
-                                            const selected = tesouroData.find(b => b.nm === e.target.value);
-                                            if (selected) {
-                                                const isIPCA = selected.nm.includes('IPCA') || selected.nm.includes('Renda+');
-                                                setNewAsset({
-                                                    ...newAsset,
-                                                    name: selected.nm,
-                                                    symbol: selected.nm,
-                                                    yieldType: isIPCA ? 'ipca' : 'pre',
-                                                    fixedRate: String(selected.anulRentPrcnt),
-                                                    manualCurrentPrice: String(selected.untrPric)
-                                                });
-                                            }
-                                        }}
-                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-slate-800 border-white/10 text-white focus:border-emerald-500'
-                                        }`}
-                                    >
-                                        <option value="">Selecione um título...</option>
-                                        {tesouroData.map(bond => (
-                                            <option key={bond.nm} value={bond.nm}>{bond.nm}</option>
-                                        ))}
-                                    </select>
-                                ) : (
+                            {newAsset.type !== 'renda_fixa' && (
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+                                        {newAsset.type === 'imoveis' ? 'Nome do Imóvel' : 'Nome do Ativo'}
+                                    </label>
                                     <input 
                                         type="text"
                                         required
@@ -1258,10 +1232,10 @@ export default function InvestmentsTab() {
                                         className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
                                             theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
                                         }`}
-                                        placeholder={newAsset.type === 'imoveis' ? 'Ex: Apartamento Centro' : (newAsset.type === 'renda_fixa' ? 'Ex: Tesouro Selic 2029' : 'Ex: Vale ON, Bitcoin...')}
+                                        placeholder={newAsset.type === 'imoveis' ? 'Ex: Apartamento Centro' : 'Ex: Vale ON, Bitcoin...'}
                                     />
-                                )}
-                            </div>
+                                </div>
+                            )}
 
                             {/* Dynamic Fields Grid */}
                             <div className="grid grid-cols-2 gap-4">
