@@ -71,6 +71,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const [selectedCategory, setSelectedCategory] = useState(null);
     // Priority
     const [priority, setPriority] = useState('comfort');
+    const [showCreditCard, setShowCreditCard] = useState(false);
 
     const PRIORITY_OPTIONS = [
         { id: 'essential', label: 'Essencial', icon: Shield, color: 'emerald', description: 'Necessidade básica' },
@@ -112,13 +113,13 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     // Filtered Transactions (Only Expenses/Exits)
     const exits = useMemo(() => {
         return transactions
-            .filter(t => t.type === 'expense' && t.paymentMethod !== 'credito')
+            .filter(t => t.type === 'expense' && (showCreditCard ? t.paymentMethod === 'credito' : t.paymentMethod !== 'credito'))
             .sort((a, b) => {
                 const dateDiff = new Date(b.date) - new Date(a.date);
                 if (dateDiff !== 0) return dateDiff;
                 return (b.createdAt || 0) - (a.createdAt || 0);
             });
-    }, [transactions]);
+    }, [transactions, showCreditCard]);
 
     // Calcular saldo total para o aviso
     const availableBalance = useMemo(() => {
@@ -657,15 +658,45 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     <div className={`p-8 rounded-2xl ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
                             <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Últimos Lançamentos</h3>
-                            <button
-                                onClick={() => {
-                                    setStep('expense');
-                                    setShowModal(true);
-                                }}
-                                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-rose-500/90 hover:bg-rose-500 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(244,63,94,0.15)]"
-                            >
-                                <span className="text-lg leading-none">+</span> Nova Despesa
-                            </button>
+                            <div className="flex flex-wrap items-center gap-4">
+                                <label className="flex items-center gap-2 cursor-pointer select-none">
+                                    <input 
+                                        type="checkbox"
+                                        checked={showCreditCard}
+                                        onChange={(e) => {
+                                            setShowCreditCard(e.target.checked);
+                                            setSelectedCategory(null);
+                                        }}
+                                        className="sr-only peer"
+                                    />
+                                    <div className={`w-8 h-4 rounded-full relative transition-all duration-300 ${
+                                        showCreditCard 
+                                        ? 'bg-rose-500' 
+                                        : (theme === 'light' ? 'bg-slate-200' : 'bg-slate-700')
+                                    }`}>
+                                        <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-all duration-300 ${
+                                            showCreditCard ? 'translate-x-4' : ''
+                                        }`} />
+                                    </div>
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${
+                                        showCreditCard 
+                                        ? 'text-rose-400' 
+                                        : (theme === 'light' ? 'text-slate-500' : 'text-slate-400')
+                                    }`}>
+                                        Exibir Cartão
+                                    </span>
+                                </label>
+
+                                <button
+                                    onClick={() => {
+                                        setStep('expense');
+                                        setShowModal(true);
+                                    }}
+                                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-rose-500/90 hover:bg-rose-500 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(244,63,94,0.15)]"
+                                >
+                                    <span className="text-lg leading-none">+</span> Nova Despesa
+                                </button>
+                            </div>
                         </div>
 
                         {/* Category Filter Chips */}
