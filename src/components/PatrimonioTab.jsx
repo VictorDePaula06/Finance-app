@@ -62,6 +62,8 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   const [cdiAnual, setCdiAnual] = useState(10.65); // fallback %
   const [hidePatrimonio, setHidePatrimonio] = useState(() => localStorage.getItem('hidePatrimonio') === 'true');
   const [usdRate, setUsdRate] = useState(5.0);
+  const [livePrices, setLivePrices] = useState({ USD: 5.0 });
+  const [tesouroData, setTesouroData] = useState([]);
   const [userConfig, setUserConfig] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -76,6 +78,149 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   const [simModalYears, setSimModalYears] = useState('');
   const [simModalAporte, setSimModalAporte] = useState('');
   const [simSaving, setSimSaving] = useState(false);
+
+  // Helper: get live Tesouro rate for a bond name
+  const getLiveTesouroRate = (bondName) => {
+    if (!bondName || tesouroData.length === 0) return null;
+    const normalizedName = bondName.trim().toLowerCase();
+    const match = tesouroData.find(b => b.nm && b.nm.trim().toLowerCase() === normalizedName);
+    if (match) return { rate: parseFloat(match.anulRentPrcnt), unitPrice: parseFloat(match.untrPric) };
+    const fuzzy = tesouroData.find(b => b.nm && (
+      normalizedName.includes(b.nm.trim().toLowerCase()) || 
+      b.nm.trim().toLowerCase().includes(normalizedName)
+    ));
+    if (fuzzy) return { rate: parseFloat(fuzzy.anulRentPrcnt), unitPrice: parseFloat(fuzzy.untrPric) };
+    return null;
+  };
+
+  const fetchLivePrices = async () => {
+    try {
+      const newPrices = { ...livePrices };
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+      // Crypto from Binance
+      const cryptoTickers = [...new Set(investments.filter(a => a.type === 'crypto' && a.symbol).map(a => a.symbol.toUpperCase()))];
+      if (cryptoTickers.length > 0) {
+        try {
+          const binanceRes = await fetch('https://api.binance.com/api/v3/ticker/price');
+          const binanceData = await binanceRes.json();
+          cryptoTickers.forEach(ticker => {
+            const usdtPair = binanceData.find(p => p.symbol === `${ticker}USDT`);
+            const brlPair  = binanceData.find(p => p.symbol === `${ticker}BRL`);
+            if (usdtPair) newPrices[`${ticker}_USD`] = parseFloat(usdtPair.price);
+            if (brlPair)  newPrices[`${ticker}_BRL`] = parseFloat(brlPair.price);
+          });
+        } catch (e) { console.warn('Binance fetch failed', e); }
+      }
+
+      // Stocks, ETFs, FIIs
+      const stockTickers = [...new Set(investments.filter(a => ['acoes', 'etfs', 'fiis'].includes(a.type) && a.symbol).map(a => a.symbol.toUpperCase()))];
+      const stockTypes   = stockTickers.map(t => {
+        const asset = investments.find(a => a.symbol?.toUpperCase() === t);
+        return asset?.type || 'acoes';
+      });
+
+      if (stockTickers.length > 0) {
+        if (!isLocalhost) {
+          try {
+            const apiUrl = `/api/prices?tickers=${stockTickers.join(',')}&types=${stockTypes.join(',')}`;
+            const res = await fetch(apiUrl);
+            if (res.ok) {
+              const data = await res.json();
+              Object.assign(newPrices, data.prices);
+            }
+          } catch (e) { console.warn('Serverless fetch failed', e); }
+        } else {
+          await Promise.all(stockTickers.map(async (ticker) => {
+            try {
+              const brapiRes = await fetch(`https://brapi.dev/api/quote/${ticker}`);
+              if (brapiRes.ok) {
+                const brapiData = await brapiRes.json();
+                const price = brapiData?.results?.[0]?.regularMarketPrice;
+                if (price) { newPrices[ticker] = parseFloat(price); return; }
+              }
+            } catch (e) {}
+            try {
+              const isProbablyBR = /\d/.test(ticker) || (ticker.length >= 5 && !ticker.includes('.'));
+              const yahooTicker = isProbablyBR ? `${ticker}.SA` : ticker;
+              const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooTicker}`;
+              const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+              if (res.ok) {
+                const data = await res.json();
+                const meta  = data?.chart?.result?.[0]?.meta;
+                const price = meta?.regularMarketPrice || meta?.previousClose;
+                if (price) { newPrices[ticker] = parseFloat(price); return; }
+              }
+            } catch (e) {}
+          }));
+        }
+      }
+
+      // USD/BRL
+      try {
+        const usdRes = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL');
+        const usdData = await usdRes.json();
+        newPrices.USD = parseFloat(usdData.USDBRL.bid);
+        setUsdRate(parseFloat(usdData.USDBRL.bid));
+      } catch (e) {
+        if (!newPrices.USD) newPrices.USD = usdRate || 5.0;
+      }
+
+      setLivePrices(newPrices);
+    } catch (error) {
+      console.error("Price fetch failed:", error);
+    }
+  };
+
+  const fetchTesouro = async () => {
+    try {
+      const res = await fetch('/api/tesouro', { signal: AbortSignal.timeout(10000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.bonds && data.bonds.length > 0) {
+          setTesouroData(data.bonds);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('/api/tesouro failed:', e.message);
+    }
+
+    const tesouroUrl = 'https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondpriceandsavings.json';
+    const proxies = [
+      `https://api.allorigins.win/get?url=${encodeURIComponent(tesouroUrl)}`,
+      `https://corsproxy.io/?${encodeURIComponent(tesouroUrl)}`,
+    ];
+
+    for (const proxyUrl of proxies) {
+      try {
+        const res = await fetch(proxyUrl);
+        if (res.ok) {
+          const data = await res.json();
+          const rawContents = data.contents ? JSON.parse(data.contents) : data;
+          const list = rawContents?.response?.TrsryBondArr || [];
+          if (list.length > 0) {
+            setTesouroData(list);
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+  };
+
+  useEffect(() => {
+    fetchTesouro();
+  }, []);
+
+  useEffect(() => {
+    fetchLivePrices();
+    fetchTesouro();
+    const interval = setInterval(() => {
+      fetchLivePrices();
+      fetchTesouro();
+    }, 60000 * 2); 
+    return () => clearInterval(interval);
+  }, [investments.length]);
 
   // ── listeners ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -170,24 +315,56 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
     return { jarsDailyYield: jarsYield, totalDailyYield: jarsYield + fixedIncomeYield };
   }, [jarsDynamic, investments, cdiAnual]);
 
-  // Investments
-  const investmentsTotal = useMemo(() => {
-    return investments.reduce((acc, a) => {
-      const price = a.manualCurrentPrice || a.purchasePrice;
-      const usdMultiplier = a.isUSD ? usdRate : 1;
-      return acc + (a.quantity * price * usdMultiplier);
-    }, 0);
-  }, [investments, usdRate]);
+  // Calculate investments total, cost, and profit/loss matching InvestmentsTab logic
+  const { investmentsTotal, investmentsCost, investmentsProfit } = useMemo(() => {
+    let totalInvested = 0;
+    let currentValue = 0;
 
-  const investmentsCost = useMemo(() => {
-    return investments.reduce((acc, a) => {
-      const usdMultiplier = a.isUSD ? usdRate : 1;
-      return acc + (a.quantity * (a.purchasePrice || 0) * usdMultiplier);
-    }, 0);
-  }, [investments, usdRate]);
+    investments.forEach(asset => {
+      const usdMultiplier = asset.isUSD ? (livePrices.USD || usdRate || 5.0) : 1;
+
+      // Renda Fixa: use totalApplied vs calculated/manual current value
+      if (asset.type === 'renda_fixa') {
+        const applied = asset.totalApplied || (asset.quantity * asset.purchasePrice) || 0;
+        let current = asset.manualCurrentPrice || applied;
+
+        // Try to get live rate from Tesouro API for mark-to-market
+        const liveData = getLiveTesouroRate(asset.name);
+        const pRate = parseFloat(asset.purchaseRate || asset.fixedRate || 0);
+        let cRate = liveData ? liveData.rate : parseFloat(asset.currentMarketRate || asset.fixedRate || 0);
+
+        if (pRate > 0 && cRate > 0 && pRate !== cRate && !asset.manualCurrentPrice) {
+          current = applied * (pRate / cRate);
+        }
+        totalInvested += applied;
+        currentValue += current;
+        return;
+      }
+
+      const invested = asset.quantity * asset.purchasePrice * usdMultiplier;
+      totalInvested += invested;
+
+      let currentPrice = asset.manualCurrentPrice || asset.purchasePrice || 0;
+      if (asset.type === 'crypto' && asset.symbol) {
+        const sym = asset.symbol.toUpperCase();
+        if (asset.isUSD && livePrices[`${sym}_USD`]) currentPrice = livePrices[`${sym}_USD`];
+        else if (!asset.isUSD && livePrices[`${sym}_BRL`]) currentPrice = livePrices[`${sym}_BRL`];
+        else if (!asset.isUSD && livePrices[`${sym}_USD`] && (livePrices.USD || usdRate)) currentPrice = livePrices[`${sym}_USD`] * (livePrices.USD || usdRate);
+      } else if (['acoes', 'etfs', 'fiis'].includes(asset.type) && asset.symbol) {
+        const sym = asset.symbol.toUpperCase();
+        if (livePrices[sym]) currentPrice = livePrices[sym];
+      }
+      currentValue += (asset.quantity * currentPrice * usdMultiplier);
+    });
+
+    return {
+      investmentsTotal: currentValue,
+      investmentsCost: totalInvested,
+      investmentsProfit: currentValue - totalInvested
+    };
+  }, [investments, livePrices, usdRate, tesouroData]);
 
   const patrimonioTotal = jarsTotal + investmentsTotal;
-  const investmentsProfit = investmentsTotal - investmentsCost;
 
   const handleAnalyze = async (force = false) => {
     if (!isGeminiConfigured()) return;
