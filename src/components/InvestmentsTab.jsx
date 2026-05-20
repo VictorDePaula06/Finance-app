@@ -1662,7 +1662,40 @@ export default function InvestmentsTab() {
             )}
 
 
-
+            {/* Modal: Excluir Ativo */}
+            {deleteConfirm && (
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setDeleteConfirm(null); }}>
+                    <div className={`w-full max-w-sm rounded-[2rem] border animate-in zoom-in-95 duration-300 p-6 ${
+                        theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+                    }`}>
+                        <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500">
+                            <Trash2 className="w-8 h-8" />
+                        </div>
+                        <h3 className={`text-xl font-black text-center mb-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                            Excluir Ativo?
+                        </h3>
+                        <p className={`text-sm text-center font-medium leading-relaxed mb-8 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                            Tem certeza que deseja excluir o ativo <span className="font-bold text-rose-500">{deleteConfirm.title}</span>? Esta ação não pode ser desfeita.
+                        </p>
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={() => setDeleteConfirm(null)}
+                                className={`flex-1 py-4 rounded-xl font-bold text-sm transition-all ${
+                                    theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                }`}
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={() => handleDeleteAsset(deleteConfirm.id)}
+                                className="flex-1 py-4 bg-rose-500 hover:bg-rose-400 text-white rounded-xl font-black text-sm shadow-xl shadow-rose-500/20 transition-all active:scale-95"
+                            >
+                                Excluir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Footer Sources */}
             <div className={`mt-10 p-8 rounded-[2.5rem] border text-center space-y-4 ${
