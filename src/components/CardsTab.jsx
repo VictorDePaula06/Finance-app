@@ -12,7 +12,9 @@ import {
   MoreVertical,
   Pencil,
   Hash,
-  ShoppingBag
+  ShoppingBag,
+  Eye,
+  X
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -37,6 +39,7 @@ const CardsTab = ({ transactions = [] }) => {
   const [payingInstallment, setPayingInstallment] = useState(null); // { sub object }
   const [payingInvoice, setPayingInvoice] = useState(null); // { cardId, total, expenses }
   const [paidInvoiceSuccess, setPaidInvoiceSuccess] = useState(null); // cardId
+  const [viewingInvoiceCardId, setViewingInvoiceCardId] = useState(null);
   
   // Edit Transaction State
   const [editingTransaction, setEditingTransaction] = useState(null); // { id, description, amount, date }
@@ -315,7 +318,7 @@ const CardsTab = ({ transactions = [] }) => {
                 </div>
 
                 {/* Fatura Actions */}
-                <div className="mt-4 px-2">
+                <div className="mt-4 px-2 flex flex-col gap-2">
                     <button 
                         onClick={() => totalInvoice > 0 && setPayingInvoice({ cardId: card.id, total: totalInvoice, expenses: unpaidExpenses, subs: cardSubs })}
                         disabled={totalInvoice === 0}
@@ -328,91 +331,18 @@ const CardsTab = ({ transactions = [] }) => {
                         <CheckCircle2 className="w-4 h-4" />
                         {totalInvoice > 0 ? 'Pagar Fatura' : 'Fatura Zerada'}
                     </button>
-                </div>
 
-                {/* Itens da Fatura (Assinaturas + Gastos Avulsos) */}
-                <div className="mt-6 px-2">
-                    <div className="flex items-center justify-between mb-3">
-                        <p className="text-[9px] uppercase font-black text-slate-500 tracking-widest">Itens da Fatura</p>
-                        <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full">{cardSubs.length + unpaidExpenses.length} itens</span>
-                    </div>
-                    <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1 scrollbar-hide">
-
-                    {/* Gastos Avulsos do Mês */}
-                    {unpaidExpenses.map(exp => (
-                        <div key={exp.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all group/item ${
-                            theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
-                        }`}>
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-xl bg-rose-500/10 flex items-center justify-center">
-                                    <ShoppingBag className="w-4 h-4 text-rose-500" />
-                                </div>
-                                <div>
-                                    <p className={`text-[10px] font-black ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{exp.description}</p>
-                                    <p className="text-[8px] font-bold text-slate-500 uppercase">{new Date(exp.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black text-rose-500">R$ {parseFloat(exp.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                <div className="flex opacity-100 md:opacity-0 md:group-hover/item:opacity-100 transition-all">
-                                    <button 
-                                        onClick={() => {
-                                            const d = new Date(exp.date);
-                                            const formattedDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-                                            setEditingTransaction({
-                                                id: exp.id,
-                                                description: exp.description,
-                                                amount: exp.amount,
-                                                category: exp.category || 'other',
-                                                date: formattedDate
-                                            });
-                                        }}
-                                        className="p-1.5 text-slate-500 hover:text-emerald-500"
-                                    >
-                                        <Pencil className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button 
-                                        onClick={() => setDeleteConfirm({ id: exp.id, type: 'transaction', title: exp.description, cardId: card.id })}
-                                        className="p-1.5 text-slate-500 hover:text-rose-500"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                    
-                    {/* Assinaturas Fixas e Parcelamentos */}
-                    {cardSubs.map(sub => {
-                        const catDef = CATEGORIES.expense.find(c => c.id === sub.category) || { icon: Tag, color: 'text-blue-500' };
-                        const Icon = catDef.icon;
-                        const isInstallment = sub.type === 'installment';
-                        const bgClass = isInstallment ? 'bg-slate-500/10' : 'bg-blue-500/10';
-                        return (
-                            <div key={sub.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all group/item ${
-                                theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
-                            }`}>
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-8 h-8 rounded-xl ${bgClass} flex items-center justify-center`}>
-                                        <Icon className={`w-4 h-4 ${catDef.color}`} />
-                                    </div>
-                                    <p className={`text-[10px] font-black ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{sub.name}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black text-emerald-500">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                    <div className="flex opacity-100 md:opacity-0 md:group-hover/item:opacity-100 transition-all">
-                                        <button 
-                                            onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day, category: sub.category || 'other' })}
-                                            className="p-1.5 text-slate-500 hover:text-emerald-500"
-                                        >
-                                            <Pencil className="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                    </div>
+                    <button 
+                        onClick={() => setViewingInvoiceCardId(card.id)}
+                        className={`w-full py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border ${
+                            theme === 'light' 
+                            ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50' 
+                            : 'bg-slate-800/40 border-white/10 text-white hover:bg-slate-800'
+                        }`}
+                    >
+                        <Eye className="w-4 h-4" />
+                        Ver Fatura do Cartão
+                    </button>
                 </div>
 
                 {/* Action Buttons (Repositioned to avoid overlap) */}
@@ -434,83 +364,6 @@ const CardsTab = ({ transactions = [] }) => {
                     <Trash2 className="w-4 h-4" />
                     </button>
                 </div>
-
-                {/* Delete overlay for Card */}
-                {deleteConfirm?.id === card.id && deleteConfirm?.type === 'card' && (
-                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-center z-[100] animate-in fade-in duration-300">
-                        <div className="max-w-[280px] w-full space-y-4">
-                            <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                                <Trash2 className="w-8 h-8 text-rose-500" />
-                            </div>
-                            <h4 className="text-white font-black text-xl">Excluir?</h4>
-                            <p className="text-white/60 text-xs leading-relaxed">
-                                Você está removendo o cartão <span className="text-white font-bold">{card.name}</span>. Esta ação não pode ser desfeita.
-                            </p>
-                            <div className="flex gap-3 pt-4">
-                                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3.5 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors">Voltar</button>
-                                <button onClick={() => handleDeleteCard(card.id)} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Invoice Payment Overlay */}
-                {payingInvoice?.cardId === card.id && (
-                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-center z-[100] animate-in fade-in duration-300">
-                        <div className="max-w-[280px] w-full space-y-4">
-                            <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                                <DollarSign className="w-8 h-8 text-rose-500" />
-                            </div>
-                            <h4 className="text-white font-black text-xl uppercase tracking-widest">Pagar Fatura</h4>
-                            <p className="text-white/60 text-xs leading-relaxed">
-                                Você vai debitar <span className="text-rose-400 font-bold">R$ {payingInvoice.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> do seu saldo principal para pagar a fatura deste cartão. Confirmar?
-                            </p>
-                            <div className="flex gap-3 pt-4">
-                                <button onClick={() => setPayingInvoice(null)} className="flex-1 py-3.5 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors">Voltar</button>
-                                <button onClick={handlePayInvoice} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Pagar</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Invoice Paid Success Overlay */}
-                {paidInvoiceSuccess === card.id && (
-                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-center z-[100] animate-in fade-in zoom-in-95 duration-300">
-                        <div className="max-w-[280px] w-full space-y-4">
-                            <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                                <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-                            </div>
-                            <h4 className="text-white font-black text-xl uppercase tracking-widest">Fatura Paga!</h4>
-                            <p className="text-white/60 text-xs leading-relaxed">
-                                A fatura deste cartão foi paga com sucesso e o saldo foi debitado.
-                            </p>
-                            <div className="flex pt-4">
-                                <button onClick={() => setPaidInvoiceSuccess(null)} className="flex-1 py-3.5 rounded-2xl bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors">
-                                    Concluir
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Delete overlay for Transaction */}
-                {deleteConfirm?.id && deleteConfirm?.type === 'transaction' && deleteConfirm?.cardId === card.id && (
-                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-center z-[100] animate-in fade-in duration-300">
-                        <div className="max-w-[280px] w-full space-y-4">
-                            <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                                <Trash2 className="w-8 h-8 text-rose-500" />
-                            </div>
-                            <h4 className="text-white font-black text-xl">Excluir Gasto?</h4>
-                            <p className="text-white/60 text-xs leading-relaxed">
-                                Remover <span className="text-white font-bold">{deleteConfirm.title}</span> da fatura deste cartão?
-                            </p>
-                            <div className="flex gap-3 pt-4">
-                                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3.5 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors">Voltar</button>
-                                <button onClick={() => handleDeleteTransaction(deleteConfirm.id)} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
               </div>
             );
           })}
@@ -549,104 +402,20 @@ const CardsTab = ({ transactions = [] }) => {
                   </div>
                 </div>
 
-                {/* Itens da Fatura */}
-                <div className="mt-6 px-2">
-                    <div className="flex items-center justify-between mb-3">
-                        <p className="text-[9px] uppercase font-black text-slate-500 tracking-widest">Lançamentos Órfãos</p>
-                        <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full">{orphanedSubs.length + orphanedExpenses.length} itens</span>
-                    </div>
-                    <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1 scrollbar-hide">
-                    {/* Gastos Avulsos */}
-                    {orphanedExpenses.map(exp => (
-                        <div key={exp.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all group/item ${
-                            theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
-                        }`}>
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-xl bg-rose-500/10 flex items-center justify-center">
-                                    <ShoppingBag className="w-4 h-4 text-rose-500" />
-                                </div>
-                                <div>
-                                    <p className={`text-[10px] font-black ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{exp.description}</p>
-                                    <p className="text-[8px] font-bold text-slate-500 uppercase">{new Date(exp.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black text-rose-500">R$ {parseFloat(exp.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                <div className="flex opacity-100 md:opacity-0 md:group-hover/item:opacity-100 transition-all">
-                                    <button 
-                                        onClick={() => setDeleteConfirm({ id: exp.id, type: 'transaction', title: exp.description, cardId: 'orphaned' })}
-                                        className="p-1.5 text-slate-500 hover:text-rose-500"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                    {/* Assinaturas */}
-                    {orphanedSubs.map(sub => (
-                        <div key={sub.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all group/item ${
-                            theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
-                        }`}>
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                                    <Tag className="w-4 h-4 text-blue-500" />
-                                </div>
-                                <p className={`text-[10px] font-black ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{sub.name}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black text-emerald-500">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                <div className="flex opacity-100 md:opacity-0 md:group-hover/item:opacity-100 transition-all">
-                                    <button 
-                                        onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name, cardId: 'orphaned' })}
-                                        className="p-1.5 text-slate-500 hover:text-rose-500"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                    </div>
+                {/* Orphaned Fatura Actions */}
+                <div className="mt-4 px-2">
+                    <button 
+                        onClick={() => setViewingInvoiceCardId('orphaned')}
+                        className={`w-full py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border ${
+                            theme === 'light' 
+                            ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50' 
+                            : 'bg-slate-800/40 border-white/10 text-white hover:bg-slate-800'
+                        }`}
+                    >
+                        <Eye className="w-4 h-4" />
+                        Ver Lançamentos Órfãos
+                    </button>
                 </div>
-
-                {/* Delete overlay for Orphaned Transaction */}
-                {deleteConfirm?.id && deleteConfirm?.type === 'transaction' && deleteConfirm?.cardId === 'orphaned' && (
-                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-center z-[100] animate-in fade-in duration-300">
-                        <div className="max-w-[280px] w-full space-y-4">
-                            <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                                <Trash2 className="w-8 h-8 text-rose-500" />
-                            </div>
-                            <h4 className="text-white font-black text-xl">Excluir Gasto?</h4>
-                            <p className="text-white/60 text-xs leading-relaxed">
-                                Remover <span className="text-white font-bold">{deleteConfirm.title}</span>?
-                            </p>
-                            <div className="flex gap-3 pt-4">
-                                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3.5 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors">Voltar</button>
-                                <button onClick={() => handleDeleteTransaction(deleteConfirm.id)} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                
-                {/* Delete overlay for Orphaned Sub */}
-                {deleteConfirm?.id && deleteConfirm?.type === 'sub' && deleteConfirm?.cardId === 'orphaned' && (
-                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-center z-[100] animate-in fade-in duration-300">
-                        <div className="max-w-[280px] w-full space-y-4">
-                            <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                                <Trash2 className="w-8 h-8 text-rose-500" />
-                            </div>
-                            <h4 className="text-white font-black text-xl">Excluir?</h4>
-                            <p className="text-white/60 text-xs leading-relaxed">
-                                Remover <span className="text-white font-bold">{deleteConfirm.title}</span>?
-                            </p>
-                            <div className="flex gap-3 pt-4">
-                                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3.5 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors">Voltar</button>
-                                <button onClick={() => handleDeleteSub(deleteConfirm.id)} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
               </div>
             );
           })()}
@@ -1017,9 +786,299 @@ const CardsTab = ({ transactions = [] }) => {
         </div>
       )}
 
+      {/* MODAL: VIEW INVOICE ITEMS */}
+      {viewingInvoiceCardId && (() => {
+          const isOrphaned = viewingInvoiceCardId === 'orphaned';
+          const card = isOrphaned 
+            ? { name: 'Cartão Excluído', color: 'bg-slate-850', brand: 'Desconhecido', last4: '0000' }
+            : cards.find(c => c.id === viewingInvoiceCardId);
+
+          if (!card) return null;
+
+          const cardSubs = isOrphaned 
+            ? subscriptions.filter(s => s.isInstallment && (!s.cardId || !cards.map(c => c.id).includes(s.cardId)))
+            : getCardSubs(card.id);
+
+          const unpaidExpenses = isOrphaned
+            ? transactions.filter(t => t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' && (!t.selectedCardId || !cards.map(c => c.id).includes(t.selectedCardId)))
+            : getUnpaidExpenses(card.id);
+
+          const totalInvoice = unpaidExpenses.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0) + cardSubs.reduce((acc, s) => acc + s.value, 0);
+
+          return (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
+              <div className={`border rounded-[3rem] w-full max-w-lg p-8 md:p-10 space-y-6 relative max-h-[90vh] flex flex-col justify-between animate-in zoom-in-95 duration-300 ${
+                theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+              }`}>
+                {/* Close Button */}
+                <button 
+                  onClick={() => setViewingInvoiceCardId(null)}
+                  className={`absolute top-6 right-6 p-2 rounded-xl transition-colors z-[10] ${
+                    theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'
+                  }`}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Header */}
+                <div className="space-y-1 pr-8">
+                  <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md text-white ${card.color}`}>
+                    {card.brand} •••• {card.last4}
+                  </span>
+                  <h3 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                    Fatura do {card.name}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
+                    {unpaidExpenses.length + cardSubs.length} itens lançados • Total: <span className="text-rose-500 font-black">R$ {totalInvoice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </p>
+                </div>
+
+                {/* Content Area - Scrollable */}
+                <div className="flex-1 overflow-y-auto pr-1 my-4 space-y-3 max-h-[50vh] scrollbar-thin">
+                  {unpaidExpenses.length === 0 && cardSubs.length === 0 ? (
+                    <div className="py-12 text-center text-sm text-slate-500 font-medium">
+                      Nenhum item lançado nesta fatura.
+                    </div>
+                  ) : (
+                    <>
+                      {/* Gastos Avulsos */}
+                      {unpaidExpenses.map(exp => {
+                        const catDef = CATEGORIES.expense.find(c => c.id === exp.category) || { icon: ShoppingBag, color: 'text-rose-500' };
+                        const Icon = catDef.icon;
+                        return (
+                          <div key={exp.id} className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
+                            theme === 'light' 
+                            ? 'bg-slate-50 border-slate-100 hover:bg-slate-100/80 hover:border-slate-200' 
+                            : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10'
+                          }`}>
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-rose-500/10 flex items-center justify-center shrink-0">
+                                <Icon className={`w-4.5 h-4.5 ${catDef.color}`} />
+                              </div>
+                              <div>
+                                <p className={`text-xs font-black leading-tight ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{exp.description}</p>
+                                <p className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">
+                                  {new Date(exp.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs font-black text-rose-500">
+                                R$ {parseFloat(exp.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                              <div className="flex gap-0.5">
+                                <button 
+                                  onClick={() => {
+                                    const d = new Date(exp.date);
+                                    const formattedDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                                    setEditingTransaction({
+                                      id: exp.id,
+                                      description: exp.description,
+                                      amount: exp.amount,
+                                      category: exp.category || 'other',
+                                      date: formattedDate
+                                    });
+                                  }}
+                                  className={`p-2 rounded-lg transition-colors ${
+                                    theme === 'light' ? 'hover:bg-slate-200 text-slate-500' : 'hover:bg-white/10 text-slate-400'
+                                  }`}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button 
+                                  onClick={() => setDeleteConfirm({ id: exp.id, type: 'transaction', title: exp.description, cardId: viewingInvoiceCardId })}
+                                  className={`p-2 rounded-lg transition-colors ${
+                                    theme === 'light' ? 'hover:bg-slate-200 text-rose-500' : 'hover:bg-white/10 text-rose-400'
+                                  }`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Assinaturas e Parcelas */}
+                      {cardSubs.map(sub => {
+                        const catDef = CATEGORIES.expense.find(c => c.id === sub.category) || { icon: Tag, color: 'text-blue-500' };
+                        const Icon = catDef.icon;
+                        const isInstallment = sub.type === 'installment';
+                        const bgClass = isInstallment ? 'bg-slate-500/10' : 'bg-blue-500/10';
+                        return (
+                          <div key={sub.id} className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
+                            theme === 'light' ? 'bg-slate-50 border-slate-100 hover:bg-slate-100/80 hover:border-slate-200' : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10'
+                          }`}>
+                            <div className="flex items-center gap-3">
+                              <div className={`w-9 h-9 rounded-xl ${bgClass} flex items-center justify-center shrink-0`}>
+                                <Icon className={`w-4.5 h-4.5 ${catDef.color}`} />
+                              </div>
+                              <div>
+                                <p className={`text-xs font-black leading-tight ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{sub.name}</p>
+                                <p className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">
+                                  {isInstallment ? `Parcela ${sub.currentInstallment}/${sub.totalInstallments}` : 'Assinatura'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs font-black text-rose-500">
+                                R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                              <div className="flex gap-0.5">
+                                <button 
+                                  onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day, category: sub.category || 'other' })}
+                                  className={`p-2 rounded-lg transition-colors ${
+                                    theme === 'light' ? 'hover:bg-slate-200 text-slate-500' : 'hover:bg-white/10 text-slate-400'
+                                  }`}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                {isOrphaned && (
+                                  <button 
+                                    onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name, cardId: 'orphaned' })}
+                                    className={`p-2 rounded-lg transition-colors ${
+                                      theme === 'light' ? 'hover:bg-slate-200 text-rose-500' : 'hover:bg-white/10 text-rose-400'
+                                    }`}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="pt-4 border-t border-slate-700/10 flex gap-3">
+                  <button 
+                    onClick={() => setViewingInvoiceCardId(null)} 
+                    className={`flex-1 py-4 rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors ${
+                      theme === 'light' ? 'bg-slate-100 hover:bg-slate-200 text-slate-700' : 'bg-white/5 hover:bg-white/10 text-white'
+                    }`}
+                  >
+                    Fechar
+                  </button>
+                  {!isOrphaned && totalInvoice > 0 && (
+                    <button 
+                      onClick={() => {
+                        setViewingInvoiceCardId(null);
+                        setPayingInvoice({ cardId: card.id, total: totalInvoice, expenses: unpaidExpenses, subs: cardSubs });
+                      }}
+                      className="flex-1 py-4 rounded-2xl font-bold text-xs uppercase tracking-wider bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/20 transition-all"
+                    >
+                      Pagar Fatura
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+      })()}
+
+      {/* MODAL: DELETE CONFIRMATION (CARD) */}
+      {deleteConfirm && deleteConfirm.type === 'card' && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[220] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className={`border rounded-[2.5rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
+            theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/5 shadow-2xl'
+          }`}>
+            <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
+              <Trash2 className="w-8 h-8 text-rose-500" />
+            </div>
+            <h4 className={`text-xl font-black text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir Cartão?</h4>
+            <p className={`text-xs leading-relaxed text-center ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+              Você está removendo o cartão <span className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{deleteConfirm.title}</span>. Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-3 pt-4">
+              <button onClick={() => setDeleteConfirm(null)} className={`flex-1 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-colors ${
+                theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/10 text-white'
+              }`}>Voltar</button>
+              <button onClick={() => handleDeleteCard(deleteConfirm.id)} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DELETE CONFIRMATION (TRANSACTION/SUB) */}
+      {deleteConfirm && (deleteConfirm.type === 'transaction' || deleteConfirm.type === 'sub') && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[220] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className={`border rounded-[2.5rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
+            theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/5 shadow-2xl'
+          }`}>
+            <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
+              <Trash2 className="w-8 h-8 text-rose-500" />
+            </div>
+            <h4 className={`text-xl font-black text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir Item?</h4>
+            <p className={`text-xs leading-relaxed text-center ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+              Remover <span className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{deleteConfirm.title}</span> da fatura?
+            </p>
+            <div className="flex gap-3 pt-4">
+              <button onClick={() => setDeleteConfirm(null)} className={`flex-1 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-colors ${
+                theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/10 text-white'
+              }`}>Voltar</button>
+              <button onClick={() => {
+                if (deleteConfirm.type === 'transaction') {
+                  handleDeleteTransaction(deleteConfirm.id);
+                } else {
+                  handleDeleteSub(deleteConfirm.id);
+                }
+              }} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: PAY INVOICE */}
+      {payingInvoice && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[220] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className={`border rounded-[2.5rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
+            theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/5 shadow-2xl'
+          }`}>
+            <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
+              <DollarSign className="w-8 h-8 text-rose-500" />
+            </div>
+            <h4 className={`text-xl font-black text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Pagar Fatura</h4>
+            <p className={`text-xs leading-relaxed text-center ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+              Você vai debitar <span className="text-rose-500 font-bold">R$ {payingInvoice.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> do seu saldo principal para pagar a fatura do cartão <span className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{cards.find(c => c.id === payingInvoice.cardId)?.name || 'Cartão'}</span>. Confirmar?
+            </p>
+            <div className="flex gap-3 pt-4">
+              <button onClick={() => setPayingInvoice(null)} className={`flex-1 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-colors ${
+                theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/10 text-white'
+              }`}>Voltar</button>
+              <button onClick={handlePayInvoice} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Pagar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: INVOICE PAID SUCCESS */}
+      {paidInvoiceSuccess && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[220] flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-300">
+          <div className={`border rounded-[2.5rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
+            theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/5 shadow-2xl'
+          }`}>
+            <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
+              <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+            </div>
+            <h4 className={`text-xl font-black text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Fatura Paga!</h4>
+            <p className={`text-xs leading-relaxed text-center ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+              A fatura do cartão <span className="font-bold text-emerald-500">{cards.find(c => c.id === paidInvoiceSuccess)?.name || 'Cartão'}</span> foi paga com sucesso e o saldo foi debitado.
+            </p>
+            <div className="flex pt-4">
+              <button onClick={() => setPaidInvoiceSuccess(null)} className="flex-1 py-3.5 rounded-2xl bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors">
+                Concluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL: EDIT TRANSACTION */}
       {editingTransaction && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <form onSubmit={handleUpdateTransaction} className={`border rounded-[2.5rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
             theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/5 shadow-2xl shadow-emerald-500/10'
           }`}>
@@ -1080,7 +1139,7 @@ const CardsTab = ({ transactions = [] }) => {
 
       {/* MODAL: EDIT SUB */}
       {editingSub && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <form onSubmit={handleUpdateSub} className={`border rounded-[2.5rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
             theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/5 shadow-2xl shadow-purple-500/10'
           }`}>
