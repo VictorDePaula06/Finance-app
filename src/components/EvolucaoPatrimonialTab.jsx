@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
@@ -81,6 +81,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
     const [isLoading, setIsLoading] = useState(false);
     const [lastUpdated, setLastUpdated] = useState(null);
     const [error, setError] = useState(null);
+    const lastRequestTimestamp = useRef(0);
 
     const days = PERIODS.find(p => p.id === period)?.days ?? 90;
 
@@ -107,6 +108,8 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
 
     // ── Fetch all benchmark data from serverless endpoint (no CORS) ────────────
     const fetchBenchmarks = useCallback(async () => {
+        const timestamp = Date.now();
+        lastRequestTimestamp.current = timestamp;
         setIsLoading(true);
         setError(null);
 
@@ -123,6 +126,8 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const data = await r.json();
 
+            if (timestamp < lastRequestTimestamp.current) return;
+
             if (data.cdiAnual && data.cdiAnual > 0) setCdiAnual(data.cdiAnual);
             setBenchmarkData({
                 ibov: data.ibov ?? null,
@@ -131,10 +136,13 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
             });
             setLastUpdated(new Date());
         } catch (err) {
+            if (timestamp < lastRequestTimestamp.current) return;
             setError('Não foi possível buscar dados de mercado.');
             console.warn('[EvolucaoPatrimonial] fetchBenchmarks error:', err);
         } finally {
-            setIsLoading(false);
+            if (timestamp >= lastRequestTimestamp.current) {
+                setIsLoading(false);
+            }
         }
     }, [period, variableTickers]);
 
