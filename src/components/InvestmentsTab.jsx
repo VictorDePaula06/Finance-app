@@ -1097,7 +1097,25 @@ export default function InvestmentsTab() {
                                         <div key={asset.id} className={`group relative rounded-2xl border p-5 transition-all duration-200 ${theme==='light'?'bg-slate-50/60 border-slate-100 hover:bg-slate-100/60 hover:shadow-sm':'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.04] hover:border-white/[0.08]'}`}>
                                             <div className="flex items-center justify-between mb-4">
                                                 <div className="flex items-center gap-3 min-w-0">
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${MC.bg}`}><MC.icon className={`w-4 h-4 ${MC.color}`} /></div>
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${MC.bg} overflow-hidden relative`}>
+                                                        {asset.symbol || asset.name ? (
+                                                            <>
+                                                                <img 
+                                                                    src={asset.type === 'crypto' ? `https://assets.coincap.io/assets/icons/${(asset.symbol || 'btc').toLowerCase()}@2x.png` : `https://logo.clearbit.com/${(asset.name || asset.symbol).split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '')}.com`}
+                                                                    className="w-full h-full object-contain bg-white p-1 z-10"
+                                                                    onError={(e) => { 
+                                                                        e.target.style.display = 'none'; 
+                                                                        if (e.target.nextElementSibling) {
+                                                                            e.target.nextElementSibling.style.display = 'block';
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                <MC.icon className={`w-4 h-4 ${MC.color} absolute z-0`} style={{ display: 'none' }} />
+                                                            </>
+                                                        ) : (
+                                                            <MC.icon className={`w-4 h-4 ${MC.color}`} />
+                                                        )}
+                                                    </div>
                                                     <div className="min-w-0 flex flex-col justify-center">
                                                         <div className="flex items-center gap-2">
                                                             <p className={`text-sm font-black truncate ${theme==='light'?'text-slate-800':'text-white'}`}>{asset.symbol?asset.symbol.toUpperCase():asset.name}</p>
