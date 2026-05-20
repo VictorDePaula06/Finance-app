@@ -27,12 +27,12 @@ import {
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
-import { collection, addDoc, deleteDoc, doc, updateDoc, query, where } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, updateDoc, query, where, onSnapshot } from 'firebase/firestore';
 import { CATEGORIES } from '../constants/categories';
 
 export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.65, cards = [], subscriptions = [], walletStats, hideBalance, toggleHideBalance }) {
     const { theme } = useTheme();
-    const { currentUser } = useAuth();
+    const { currentUser, planLevel, isAdmin } = useAuth();
     
     // States
     const [showModal, setShowModal] = useState(false);
@@ -54,12 +54,17 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const [category, setCategory] = useState('other');
     const [cdiPercent, setCdiPercent] = useState('100');
     const [pendingSave, setPendingSave] = useState(null); // Para guardar o que seria salvo após o aviso
-    const [selectedJarId, setSelectedJarId] = useState('');
+    
+    // Destination States (Caixinhas vs Investimentos)
+    const [selectedDestination, setSelectedDestination] = useState(''); // 'jar_ID', 'inv_ID', 'new_jar', 'new_inv'
+    const [destinationType, setDestinationType] = useState('jar'); // 'jar' | 'inv'
     const [isNewReserve, setIsNewReserve] = useState(false);
+    
     const [reserveType, setReserveType] = useState('cofrinho');
     const [isInstallmentSuccess, setIsInstallmentSuccess] = useState(false);
     const [transactionToDelete, setTransactionToDelete] = useState(null);
-
+    const [investments, setInvestments] = useState([]);
+    
     // Month Navigation
     const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
     // Category Filter
@@ -86,6 +91,18 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         setSelectedMonth(next.toISOString().slice(0, 7));
         setSelectedCategory(null);
     };
+
+    // Load Investments
+    React.useEffect(() => {
+        if (!currentUser) return;
+        const q = query(collection(db, 'investments'), where('userId', '==', currentUser.uid));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setInvestments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        });
+        return () => unsubscribe();
+    }, [currentUser]);
+
+    const isPremiumUser = planLevel === 'premium' || planLevel === 'lifetime' || isAdmin;
 
     const monthLabel = useMemo(() => {
         const [year, month] = selectedMonth.split('-').map(Number);
@@ -156,7 +173,8 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         setShowModal(false);
         setIsSaving(false);
         setPendingSave(null);
-        setSelectedJarId('');
+        setSelectedDestination('');
+        setDestinationType('jar');
         setIsNewReserve(false);
         setReserveType('cofrinho');
         setIsInstallment(false);
@@ -318,9 +336,9 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         e.preventDefault();
         if (!description || !amount || isSaving) return;
         
-        // Se não for nova reserva, precisa ter selecionado uma
-        if (!isNewReserve && !selectedJarId) {
-            alert("Selecione uma reserva ou escolha 'Criar Nova'");
+        // Se não for nova reserva, precisa ter selecionado um destino
+        if (!isNewReserve && !selectedDestination) {
+            alert("Selecione um destino ou escolha 'Criar Nova'");
             return;
         }
 
@@ -344,38 +362,83 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
             let jarDataToSave = null;
             let existingJarId = null;
+            let invDataToSave = null;
+            let existingInvId = null;
 
-            if (selectedJarId && selectedJarId !== 'new' && !isNewReserve) {
-                // UPDATE EXISTING JAR
-                const jar = savingsJars.find(j => j.id === selectedJarId);
-                if (jar) {
-                    existingJarId = jar.id;
-                    const cdiAnual = (cdiRate || 10.65) / 100;
-                    const percent = (parseFloat(jar.cdiPercent) || 100) / 100;
-                    const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
-                    const lastUpdate = jar.updatedAt ? new Date(jar.updatedAt) : (jar.createdAt ? new Date(jar.createdAt) : new Date());
-                    const diffDays = Math.max(0, now - lastUpdate) / (1000 * 60 * 60 * 24);
-                    
-                    const jarBalance = parseFloat(jar.balance) || 0;
-                    const currentDynamicBalance = jarBalance * Math.pow(1 + dailyRate, diffDays);
-                    
+            if (destinationType === 'jar') {
+                if (selectedDestination && !isNewReserve) {
+                    // UPDATE EXISTING JAR
+                    const jarId = selectedDestination.replace('jar_', '');
+                    const jar = savingsJars.find(j => j.id === jarId);
+                    if (jar) {
+                        existingJarId = jar.id;
+                        const cdiAnual = (cdiRate || 10.65) / 100;
+                        const percent = (parseFloat(jar.cdiPercent) || 100) / 100;
+                        const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
+                        const lastUpdate = jar.updatedAt ? new Date(jar.updatedAt) : (jar.createdAt ? new Date(jar.createdAt) : new Date());
+                        const diffDays = Math.max(0, now - lastUpdate) / (1000 * 60 * 60 * 24);
+                        
+                        const jarBalance = parseFloat(jar.balance) || 0;
+                        const currentDynamicBalance = jarBalance * Math.pow(1 + dailyRate, diffDays);
+                        
+                        jarDataToSave = {
+                            balance: currentDynamicBalance + val,
+                            updatedAt: now.toISOString()
+                        };
+                    }
+                } else {
+                    // CREATE NEW JAR
                     jarDataToSave = {
-                        balance: currentDynamicBalance + val,
+                        name: description,
+                        balance: val,
+                        cdiPercent: perc,
+                        type: reserveType,
+                        color: 'emerald',
+                        userId: currentUser.uid,
+                        createdAt: now.toISOString(),
                         updatedAt: now.toISOString()
                     };
                 }
-            } else {
-                // CREATE NEW JAR
-                jarDataToSave = {
-                    name: description,
-                    balance: val,
-                    cdiPercent: perc,
-                    type: reserveType,
-                    color: 'emerald',
-                    userId: currentUser.uid,
-                    createdAt: now.toISOString(),
-                    updatedAt: now.toISOString()
-                };
+            } else if (destinationType === 'inv') {
+                if (selectedDestination && !isNewReserve) {
+                    const invId = selectedDestination.replace('inv_', '');
+                    const inv = investments.find(i => i.id === invId);
+                    if (inv) {
+                        existingInvId = inv.id;
+                        if (inv.type === 'renda_fixa') {
+                            invDataToSave = {
+                                totalApplied: (parseFloat(inv.totalApplied || inv.purchasePrice * inv.quantity || 0)) + val,
+                                updatedAt: now.toISOString()
+                            };
+                        } else {
+                            const q_new = 1;
+                            const v_new = val;
+                            const q_old = inv.quantity || 0;
+                            const p_old = inv.purchasePrice || 0;
+                            const q_total = q_old + q_new;
+                            const p_avg = ((q_old * p_old) + v_new) / q_total;
+                            
+                            invDataToSave = {
+                                quantity: q_total,
+                                purchasePrice: p_avg,
+                                updatedAt: now.toISOString()
+                            };
+                        }
+                    }
+                } else {
+                    invDataToSave = {
+                        name: description,
+                        type: 'renda_fixa',
+                        quantity: 1,
+                        purchasePrice: val,
+                        totalApplied: val,
+                        isUSD: false,
+                        cdiPercent: perc,
+                        userId: currentUser.uid,
+                        createdAt: now.toISOString(),
+                        updatedAt: now.toISOString()
+                    };
+                }
             }
 
             // VERIFICAÇÃO DE SALDO
@@ -384,7 +447,10 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     type: 'investment', 
                     transaction: transactionData, 
                     jar: jarDataToSave,
-                    jarId: existingJarId 
+                    jarId: existingJarId,
+                    inv: invDataToSave,
+                    invId: existingInvId,
+                    destinationType
                 });
                 setIsSaving(false); // Garante que destrave caso mostre o aviso
                 setStep('warning');
@@ -405,10 +471,18 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 const tRef = collection(db, 'transactions');
                 await addDoc(tRef, transactionData);
                 
-                if (existingJarId) {
-                    await updateDoc(doc(db, 'savings_jars', existingJarId), jarDataToSave);
-                } else {
-                    await addDoc(collection(db, 'savings_jars'), jarDataToSave);
+                if (destinationType === 'jar') {
+                    if (existingJarId) {
+                        await updateDoc(doc(db, 'savings_jars', existingJarId), jarDataToSave);
+                    } else {
+                        await addDoc(collection(db, 'savings_jars'), jarDataToSave);
+                    }
+                } else if (destinationType === 'inv') {
+                    if (existingInvId) {
+                        await updateDoc(doc(db, 'investments', existingInvId), invDataToSave);
+                    } else {
+                        await addDoc(collection(db, 'investments'), invDataToSave);
+                    }
                 }
 
                 setIsSaving(false);
@@ -435,10 +509,19 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 }
             } else if (pendingSave.type === 'investment') {
                 await addDoc(collection(db, 'transactions'), pendingSave.transaction);
-                if (pendingSave.jarId) {
-                    await updateDoc(doc(db, 'savings_jars', pendingSave.jarId), pendingSave.jar);
-                } else {
-                    await addDoc(collection(db, 'savings_jars'), pendingSave.jar);
+                
+                if (pendingSave.destinationType === 'jar') {
+                    if (pendingSave.jarId) {
+                        await updateDoc(doc(db, 'savings_jars', pendingSave.jarId), pendingSave.jar);
+                    } else {
+                        await addDoc(collection(db, 'savings_jars'), pendingSave.jar);
+                    }
+                } else if (pendingSave.destinationType === 'inv') {
+                    if (pendingSave.invId) {
+                        await updateDoc(doc(db, 'investments', pendingSave.invId), pendingSave.inv);
+                    } else {
+                        await addDoc(collection(db, 'investments'), pendingSave.inv);
+                    }
                 }
             }
 
@@ -1105,19 +1188,39 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Onde guardar?</label>
                                         <select 
                                             required
-                                            value={selectedJarId}
+                                            value={selectedDestination}
                                             onChange={(e) => {
                                                 const val = e.target.value;
-                                                setSelectedJarId(val);
-                                                if (val === 'new') {
+                                                setSelectedDestination(val);
+                                                
+                                                if (val === 'new_jar') {
                                                     setIsNewReserve(true);
+                                                    setDestinationType('jar');
                                                     setDescription('');
                                                     setCdiPercent('100');
-                                                } else if (val !== '') {
-                                                    const jar = savingsJars.find(j => j.id === val);
+                                                } else if (val === 'new_inv') {
+                                                    setIsNewReserve(true);
+                                                    setDestinationType('inv');
+                                                    setDescription('');
+                                                    setCdiPercent('100');
+                                                } else if (val.startsWith('jar_')) {
+                                                    const jarId = val.replace('jar_', '');
+                                                    const jar = savingsJars.find(j => j.id === jarId);
                                                     setIsNewReserve(false);
-                                                    setDescription(jar.name);
-                                                    setCdiPercent(jar.cdiPercent.toString());
+                                                    setDestinationType('jar');
+                                                    if (jar) {
+                                                        setDescription(jar.name);
+                                                        setCdiPercent(jar.cdiPercent?.toString() || '100');
+                                                    }
+                                                } else if (val.startsWith('inv_')) {
+                                                    const invId = val.replace('inv_', '');
+                                                    const inv = investments.find(i => i.id === invId);
+                                                    setIsNewReserve(false);
+                                                    setDestinationType('inv');
+                                                    if (inv) {
+                                                        setDescription(inv.name || inv.symbol);
+                                                        setCdiPercent(inv.cdiPercent?.toString() || '100');
+                                                    }
                                                 } else {
                                                     setIsNewReserve(false);
                                                     setDescription('');
@@ -1127,17 +1230,34 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                 theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
                                             }`}
                                         >
-                                            <option value="">Selecione uma reserva...</option>
-                                            {savingsJars?.map(jar => (
-                                                <option key={jar.id} value={jar.id}>
-                                                    {jar.name} (R$ {parseFloat(jar.dynamicBalance || jar.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-                                                </option>
-                                            ))}
-                                            <option value="new" className="text-emerald-500 font-bold">+ Criar Nova Reserva...</option>
+                                            <option value="">Selecione o destino...</option>
+                                            <optgroup label="Minhas Caixinhas (Reservas)">
+                                                {savingsJars?.map(jar => (
+                                                    <option key={`jar_${jar.id}`} value={`jar_${jar.id}`}>
+                                                        {jar.name} (R$ {parseFloat(jar.dynamicBalance || jar.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                                                    </option>
+                                                ))}
+                                                <option value="new_jar" className="text-emerald-500 font-bold">+ Criar Nova Caixinha...</option>
+                                            </optgroup>
+                                            
+                                            <optgroup label="Meus Investimentos (Premium)">
+                                                {isPremiumUser ? (
+                                                    <>
+                                                        {investments?.map(inv => (
+                                                            <option key={`inv_${inv.id}`} value={`inv_${inv.id}`}>
+                                                                {inv.name || inv.symbol} (R$ {parseFloat(inv.manualCurrentPrice || inv.totalApplied || (inv.quantity * inv.purchasePrice) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                                                            </option>
+                                                        ))}
+                                                        <option value="new_inv" className="text-emerald-500 font-bold">+ Criar Novo Investimento...</option>
+                                                    </>
+                                                ) : (
+                                                    <option disabled value="">Assine o Premium para investir</option>
+                                                )}
+                                            </optgroup>
                                         </select>
                                     </div>
 
-                                    {isNewReserve && (
+                                    {isNewReserve && destinationType === 'jar' && (
                                         <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
                                             <div>
                                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Nome da Reserva</label>
@@ -1230,11 +1350,13 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
                                 <div className="space-y-2">
                                     <h3 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                        {isInstallmentSuccess ? 'Parcelamento Agendado!' : 'Lançamento efetuado!'}
+                                        {isInstallmentSuccess ? 'Parcelamento Agendado!' : (paymentMethod === 'credito' ? 'Lançado no Cartão!' : 'Lançamento efetuado!')}
                                     </h3>
                                     <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
                                         {isInstallmentSuccess 
                                             ? 'Seu parcelamento foi criado. Agora, vá até a aba Cartões para dar baixa na primeira parcela e debitar do seu saldo.' 
+                                            : paymentMethod === 'credito'
+                                            ? 'Sua despesa foi registrada no cartão de crédito. Ela aparecerá na aba Cartões e não será descontada do saldo principal agora.'
                                             : 'Sua saída foi registrada com sucesso no sistema.'}
                                     </p>
                                 </div>

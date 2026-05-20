@@ -36,6 +36,7 @@ const CardsTab = ({ transactions = [] }) => {
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, type, title }
   const [payingInstallment, setPayingInstallment] = useState(null); // { sub object }
   const [payingInvoice, setPayingInvoice] = useState(null); // { cardId, total, expenses }
+  const [paidInvoiceSuccess, setPaidInvoiceSuccess] = useState(null); // cardId
   
   // Edit Transaction State
   const [editingTransaction, setEditingTransaction] = useState(null); // { id, description, amount, date }
@@ -219,7 +220,14 @@ const CardsTab = ({ transactions = [] }) => {
             await Promise.all(subPromises);
         }
         
+        const paidCardId = payingInvoice.cardId;
         setPayingInvoice(null);
+        setPaidInvoiceSuccess(paidCardId);
+        
+        setTimeout(() => {
+            setPaidInvoiceSuccess(prev => prev === paidCardId ? null : prev);
+        }, 3000);
+        
     } catch (err) {
         console.error("Erro ao pagar fatura:", err);
     }
@@ -460,6 +468,26 @@ const CardsTab = ({ transactions = [] }) => {
                             <div className="flex gap-3 pt-4">
                                 <button onClick={() => setPayingInvoice(null)} className="flex-1 py-3.5 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors">Voltar</button>
                                 <button onClick={handlePayInvoice} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Pagar</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Invoice Paid Success Overlay */}
+                {paidInvoiceSuccess === card.id && (
+                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center p-8 text-center z-[100] animate-in fade-in zoom-in-95 duration-300">
+                        <div className="max-w-[280px] w-full space-y-4">
+                            <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                            </div>
+                            <h4 className="text-white font-black text-xl uppercase tracking-widest">Fatura Paga!</h4>
+                            <p className="text-white/60 text-xs leading-relaxed">
+                                A fatura deste cartão foi paga com sucesso e o saldo foi debitado.
+                            </p>
+                            <div className="flex pt-4">
+                                <button onClick={() => setPaidInvoiceSuccess(null)} className="flex-1 py-3.5 rounded-2xl bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors">
+                                    Concluir
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -894,10 +922,10 @@ const CardsTab = ({ transactions = [] }) => {
                   theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
                 }`}
               >
-                  <option value="Visa">Visa</option>
-                  <option value="Mastercard">Mastercard</option>
-                  <option value="Elo">Elo</option>
-                  <option value="Amex">Amex</option>
+                  <option value="Visa" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Visa</option>
+                  <option value="Mastercard" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Mastercard</option>
+                  <option value="Elo" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Elo</option>
+                  <option value="Amex" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Amex</option>
                 </select>
               </div>
               <div className="grid grid-cols-5 gap-2">
