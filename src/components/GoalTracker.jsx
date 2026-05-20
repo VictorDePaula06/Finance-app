@@ -492,9 +492,16 @@ export default function GoalTracker() {
                                                     ) : (
                                                         <div>
                                                             <div className="flex items-center justify-between mb-2">
-                                                                <p className={`text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                                                                    Plano: R$ {fmt(simAporteVal)}/mês por {savedYears} ano{savedYears !== 1 ? 's' : ''} + CDI {CDI_MEDIO_10A}%
-                                                                </p>
+                                                                <div className={`flex items-baseline gap-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                                                                    <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Seu Plano:</p>
+                                                                    <p className="text-base font-black">
+                                                                        R$ {fmt(simAporteVal)}<span className="text-[10px] font-bold opacity-70 ml-0.5">/mês</span>
+                                                                    </p>
+                                                                    <div className="w-px h-3 bg-current opacity-20"></div>
+                                                                    <p className="text-[9px] font-black uppercase tracking-widest opacity-70">
+                                                                        Por {savedYears} ano{savedYears !== 1 ? 's' : ''} + CDI {CDI_MEDIO_10A}%
+                                                                    </p>
+                                                                </div>
                                                                 <div className="flex items-center gap-1">
                                                                     <button onClick={() => openSimModal(goal, true)} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-blue-400' : 'hover:bg-slate-100 text-slate-400 hover:text-blue-500'}`}><Pencil className="w-3 h-3" /></button>
                                                                     <button onClick={() => handleDeleteSim(goal.id)} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-rose-400' : 'hover:bg-slate-100 text-slate-400 hover:text-rose-500'}`}><Trash2 className="w-3 h-3" /></button>

@@ -413,7 +413,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
                 </div>
               ) : (
                 <div className="flex flex-col lg:flex-row gap-6 items-center">
-                  <div className="relative w-full lg:w-[280px] flex-shrink-0">
+                  <div className="relative w-full lg:w-[280px] flex-shrink-0 group">
                     <ResponsiveContainer width="100%" height={220}>
                       <PieChart>
                         <Pie data={chartItems} cx="50%" cy="50%" innerRadius={60} outerRadius={95} paddingAngle={2} dataKey="value" stroke="none" animationDuration={600}>
@@ -422,7 +422,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
                         <ReTooltip content={<CustomPieTooltip />} />
                       </PieChart>
                     </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none transition-opacity duration-300 group-hover:opacity-0">
                       <p className={`text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total</p>
                       <p className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(totalValue)}</p>
                     </div>
@@ -723,9 +723,16 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
                     ) : (
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <p className={`text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                            Seu Plano: R$ {fmt(simAporteVal)}/mês por {savedYears} ano{savedYears !== 1 ? 's' : ''} + CDI {CDI_MEDIO_10A}%
-                          </p>
+                          <div className={`flex items-baseline gap-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                            <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Seu Plano:</p>
+                            <p className="text-base font-black">
+                              R$ {fmt(simAporteVal)}<span className="text-[10px] font-bold opacity-70 ml-0.5">/mês</span>
+                            </p>
+                            <div className="w-px h-3 bg-current opacity-20"></div>
+                            <p className="text-[9px] font-black uppercase tracking-widest opacity-70">
+                              Por {savedYears} ano{savedYears !== 1 ? 's' : ''} + CDI {CDI_MEDIO_10A}%
+                            </p>
+                          </div>
                           <div className="flex items-center gap-1">
                             <button onClick={() => handleOpenModal(true)} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-blue-400' : 'hover:bg-slate-100 text-slate-400 hover:text-blue-500'}`}>
                               <Pencil className="w-3 h-3" />
