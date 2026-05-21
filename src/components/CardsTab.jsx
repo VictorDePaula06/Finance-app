@@ -255,7 +255,7 @@ const CardsTab = ({ transactions = [] }) => {
           </div>
           <button 
             onClick={() => setIsAddingCard(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-xs hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"
+            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"
           >
             <Plus className="w-4 h-4" /> Novo Cartão
           </button>
@@ -277,7 +277,7 @@ const CardsTab = ({ transactions = [] }) => {
             
             return (
               <div key={card.id} className={`group relative p-4 rounded-2xl border transition-all duration-500 ${
-                theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] shadow-2xl'
+                theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-800/60 shadow-2xl'
               }`}>
                 {/* Visual Card Element */}
                 <div className={`w-full aspect-[1.6/1] rounded-3xl p-6 flex flex-col justify-between text-white shadow-2xl relative overflow-hidden transition-transform group-hover:scale-[1.02] duration-500 ${card.color}`}>
@@ -323,10 +323,10 @@ const CardsTab = ({ transactions = [] }) => {
                     <button 
                         onClick={() => totalInvoice > 0 && setPayingInvoice({ cardId: card.id, total: totalInvoice, expenses: unpaidExpenses, subs: cardSubs })}
                         disabled={totalInvoice === 0}
-                        className={`w-full py-3.5 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                        className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
                             totalInvoice > 0 
                             ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20 hover:bg-rose-600' 
-                            : (theme === 'light' ? 'bg-slate-100 text-slate-400' : 'bg-white/5 text-slate-500')
+                            : (theme === 'light' ? 'bg-slate-100 text-slate-450 border border-slate-200/60' : 'bg-white/5 text-slate-500 border border-white/5')
                         }`}
                     >
                         <CheckCircle2 className="w-4 h-4" />
@@ -335,7 +335,7 @@ const CardsTab = ({ transactions = [] }) => {
 
                     <button 
                         onClick={() => setViewingInvoiceCardId(card.id)}
-                        className={`w-full py-3 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border ${
+                        className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 border ${
                             theme === 'light' 
                             ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50' 
                             : 'bg-slate-800/40 border-white/10 text-white hover:bg-slate-800'
@@ -450,7 +450,7 @@ const CardsTab = ({ transactions = [] }) => {
           </div>
           <button 
             onClick={() => setIsAddingSub(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-xl font-bold text-xs hover:bg-purple-600 transition-all shadow-lg shadow-purple-500/20"
+            className="flex items-center gap-2 px-5 py-2.5 bg-purple-500 text-white rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-purple-600 transition-all shadow-lg shadow-purple-500/20"
           >
             <Plus className="w-4 h-4" /> Nova Assinatura
           </button>
@@ -461,17 +461,21 @@ const CardsTab = ({ transactions = [] }) => {
             const linkedCard = cards.find(c => c.id === sub.cardId);
             return (
               <div key={sub.id} className={`p-5 rounded-2xl border group relative transition-all hover:shadow-xl hover:-translate-y-1 ${
-                theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330]'
+                theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-800/60'
               }`}>
                 <div className="flex justify-between items-start mb-6">
                   <div className="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center">
                     <Tag className="w-6 h-6 text-purple-500" />
                   </div>
                   <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
-                    <button onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day, category: sub.category || 'other' })} className="p-2 text-slate-500 hover:text-emerald-500 bg-white/5 rounded-xl mr-1">
+                    <button onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day, category: sub.category || 'other' })} className={`p-2 rounded-lg transition-colors mr-1 ${
+                      theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-emerald-600' : 'hover:bg-white/5 text-slate-500 hover:text-emerald-400'
+                    }`}>
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className="p-2 text-slate-500 hover:text-rose-500 bg-white/5 rounded-xl">
+                    <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className={`p-2 rounded-lg transition-colors ${
+                      theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-rose-600' : 'hover:bg-white/5 text-slate-500 hover:text-rose-400'
+                    }`}>
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -479,27 +483,31 @@ const CardsTab = ({ transactions = [] }) => {
 
                 {/* Delete overlay for Subscription */}
                 {deleteConfirm?.id === sub.id && deleteConfirm?.type === 'sub' && (
-                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300">
+                    <div className={`absolute inset-0 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300 ${
+                        theme === 'light' ? 'bg-white/95 border border-slate-100' : 'bg-slate-950/95'
+                    }`}>
                         <div className="max-w-[200px] w-full">
                             <Trash2 className="w-8 h-8 text-rose-500 mx-auto mb-3" />
-                            <p className="text-white font-black text-sm mb-6 leading-tight">Excluir {sub.name}?</p>
+                            <p className={`font-bold text-sm mb-6 leading-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir {sub.name}?</p>
                             <div className="flex gap-2">
-                                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl bg-white/10 text-white font-black text-[9px] uppercase tracking-widest">Não</button>
-                                <button onClick={() => handleDeleteSub(sub.id)} className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white font-black text-[9px] uppercase tracking-widest">Sim</button>
+                                <button onClick={() => setDeleteConfirm(null)} className={`flex-1 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all ${
+                                    theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/10 text-white hover:bg-white/20'
+                                }`}>Não</button>
+                                <button onClick={() => handleDeleteSub(sub.id)} className="flex-1 py-2 rounded-lg bg-rose-500 text-white font-bold text-xs uppercase tracking-wider hover:bg-rose-600 transition-all">Sim</button>
                             </div>
                         </div>
                     </div>
                 )}
                 <div className="space-y-1">
                   <h4 className={`font-bold text-base ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{sub.name}</h4>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold flex items-center gap-1.5">
+                  <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                     <Calendar className="w-3 h-3" /> Vence dia {sub.day}
                   </p>
                 </div>
                 <div className="mt-6 pt-5 border-t border-white/5 flex justify-between items-end">
                   <div className="space-y-1">
-                    <p className="text-[9px] uppercase font-bold text-slate-500">Valor Mensal</p>
-                    <span className="text-lg font-black text-emerald-500 tabular-nums">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Valor Mensal</p>
+                    <span className="text-lg font-bold text-emerald-500 tabular-nums">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                   </div>
                   {linkedCard ? (
                     <span className={`text-[9px] font-bold px-3 py-1.5 rounded-xl ${linkedCard.color} text-white shadow-lg shadow-black/20`}>
@@ -543,20 +551,23 @@ const CardsTab = ({ transactions = [] }) => {
             const linkedCard = cards.find(c => c.id === sub.cardId);
             const remaining = (sub.totalInstallments || 0) - (sub.currentInstallment || 0) + 1;
             const progress = ((sub.currentInstallment || 1) / (sub.totalInstallments || 1)) * 100;
-            
             return (
               <div key={sub.id} className={`p-5 rounded-2xl border group relative transition-all hover:shadow-xl hover:-translate-y-1 ${
-                theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330]'
+                theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-800/60'
               }`}>
                 <div className="flex justify-between items-start mb-6">
                   <div className="w-12 h-12 bg-rose-500/10 rounded-2xl flex items-center justify-center">
                     <Hash className="w-6 h-6 text-rose-500" />
                   </div>
                   <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
-                    <button onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day, category: sub.category || 'other' })} className="p-2 text-slate-500 hover:text-emerald-500 bg-white/5 rounded-xl mr-1">
+                    <button onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day, category: sub.category || 'other' })} className={`p-2 rounded-lg transition-colors mr-1 ${
+                      theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-emerald-600' : 'hover:bg-white/5 text-slate-500 hover:text-emerald-400'
+                    }`}>
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className="p-2 text-slate-500 hover:text-rose-500 bg-white/5 rounded-xl">
+                    <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className={`p-2 rounded-lg transition-colors ${
+                      theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-rose-600' : 'hover:bg-white/5 text-slate-500 hover:text-rose-400'
+                    }`}>
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -564,13 +575,17 @@ const CardsTab = ({ transactions = [] }) => {
 
                 {/* Delete overlay for Installment */}
                 {deleteConfirm?.id === sub.id && deleteConfirm?.type === 'sub' && (
-                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300">
+                    <div className={`absolute inset-0 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300 ${
+                        theme === 'light' ? 'bg-white/95 border border-slate-100' : 'bg-slate-950/95'
+                    }`}>
                         <div className="max-w-[200px] w-full">
                             <Trash2 className="w-8 h-8 text-rose-500 mx-auto mb-3" />
-                            <p className="text-white font-black text-sm mb-6 leading-tight">Excluir {sub.name}?</p>
+                            <p className={`font-bold text-sm mb-6 leading-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir {sub.name}?</p>
                             <div className="flex gap-2">
-                                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl bg-white/10 text-white font-black text-[9px] uppercase tracking-widest">Não</button>
-                                <button onClick={() => handleDeleteSub(sub.id)} className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white font-black text-[9px] uppercase tracking-widest">Sim</button>
+                                <button onClick={() => setDeleteConfirm(null)} className={`flex-1 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all ${
+                                    theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/10 text-white hover:bg-white/20'
+                                }`}>Não</button>
+                                <button onClick={() => handleDeleteSub(sub.id)} className="flex-1 py-2 rounded-lg bg-rose-500 text-white font-bold text-xs uppercase tracking-wider hover:bg-rose-600 transition-all">Sim</button>
                             </div>
                         </div>
                     </div>
@@ -579,10 +594,10 @@ const CardsTab = ({ transactions = [] }) => {
                 <div className="space-y-1">
                   <h4 className={`font-bold text-base ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{sub.name}</h4>
                   <div className="flex items-center justify-between">
-                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
                       Parcela {sub.currentInstallment} de {sub.totalInstallments}
                     </p>
-                    <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest bg-rose-500/10 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider bg-rose-500/10 px-2 py-0.5 rounded-full">
                       Faltam {remaining}
                     </span>
                   </div>
@@ -598,10 +613,10 @@ const CardsTab = ({ transactions = [] }) => {
                   {!sub.cardId && (
                     <button 
                       onClick={() => setPayingInstallment(sub)}
-                      className={`w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-[9px] uppercase tracking-widest transition-all ${
+                      className={`w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
                           theme === 'light' 
-                          ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white shadow-sm' 
-                          : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white shadow-xl'
+                          ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-100 shadow-sm' 
+                          : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 shadow-xl'
                       }`}
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
@@ -612,23 +627,29 @@ const CardsTab = ({ transactions = [] }) => {
 
                 {/* Confirmation Overlay for Payment */}
                 {payingInstallment?.id === sub.id && (
-                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300">
+                    <div className={`absolute inset-0 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300 ${
+                        theme === 'light' ? 'bg-white/95 border border-slate-100' : 'bg-slate-950/95'
+                    }`}>
                         <div className="max-w-[220px] w-full space-y-4">
                             <div className="w-12 h-12 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
                                 <CheckCircle2 className="w-6 h-6 text-emerald-500" />
                             </div>
-                            <h4 className="text-white font-black text-sm uppercase tracking-widest">Confirmar Pagamento</h4>
-                            <p className="text-white/60 text-[10px] leading-relaxed mb-4">
-                                Dar baixa na parcela <span className="text-emerald-400 font-black">{sub.currentInstallment}/{sub.totalInstallments}</span> de <span className="text-white font-bold">{sub.name}</span>?
+                            <h4 className={`text-base font-bold uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Confirmar Pagamento</h4>
+                            <p className={`text-[11px] leading-relaxed mb-4 ${theme === 'light' ? 'text-slate-655 text-slate-600' : 'text-white/60'}`}>
+                                Dar baixa na parcela <span className="text-emerald-500 font-bold">{sub.currentInstallment}/{sub.totalInstallments}</span> de <span className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{sub.name}</span>?
                             </p>
                             <div className="flex flex-col gap-2 pt-2">
-                                <button onClick={() => handlePayInstallment(sub, true)} className="w-full py-2.5 rounded-xl bg-emerald-500 text-white font-black text-[9px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors">
+                                <button onClick={() => handlePayInstallment(sub, true)} className="w-full py-2 rounded-lg bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors">
                                     Sim, criar saída (R$ {sub.value.toLocaleString('pt-BR')})
                                 </button>
-                                <button onClick={() => handlePayInstallment(sub, false)} className="w-full py-2.5 rounded-xl bg-blue-500/20 text-blue-400 font-black text-[9px] uppercase tracking-widest hover:bg-blue-500/30 transition-colors">
+                                <button onClick={() => handlePayInstallment(sub, false)} className={`w-full py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ${
+                                    theme === 'light' ? 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100/50' : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/10'
+                                }`}>
                                     Avançar parcela (Já lancei fatura)
                                 </button>
-                                <button onClick={() => setPayingInstallment(null)} className="w-full py-2.5 rounded-xl bg-white/10 text-white font-black text-[9px] uppercase tracking-widest hover:bg-white/20 transition-colors">Cancelar</button>
+                                <button onClick={() => setPayingInstallment(null)} className={`w-full py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all ${
+                                    theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/10 text-white hover:bg-white/20'
+                                }`}>Cancelar</button>
                             </div>
                         </div>
                     </div>
@@ -636,8 +657,8 @@ const CardsTab = ({ transactions = [] }) => {
 
                 <div className="mt-6 pt-5 border-t border-white/5 flex justify-between items-end">
                   <div className="space-y-1">
-                    <p className="text-[9px] uppercase font-bold text-slate-500">Valor Parcela</p>
-                    <span className="text-lg font-black text-rose-500 tabular-nums">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Valor Parcela</p>
+                    <span className="text-lg font-bold text-rose-500 tabular-nums">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                   </div>
                   {linkedCard && (
                     <span className={`text-[9px] font-bold px-3 py-1.5 rounded-xl ${linkedCard.color} text-white shadow-lg shadow-black/20`}>
@@ -658,9 +679,9 @@ const CardsTab = ({ transactions = [] }) => {
 
       {/* MODAL: ADD CARD */}
       {isAddingCard && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
           <form onSubmit={handleAddCard} className={`border rounded-[3rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 shadow-2xl ${
-            theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-white/10 shadow-emerald-500/10'
+            theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/10 shadow-emerald-500/10'
           }`}>
             <div className="text-center space-y-2 mb-6">
               <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
@@ -684,7 +705,7 @@ const CardsTab = ({ transactions = [] }) => {
                   value={newCard.name}
                   onChange={(e) => setNewCard({...newCard, name: e.target.value})}
                   className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white placeholder-slate-500'
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white placeholder-slate-500'
                   }`}
                 />
               </div>
@@ -698,7 +719,7 @@ const CardsTab = ({ transactions = [] }) => {
                     value={newCard.last4}
                     onChange={(e) => setNewCard({...newCard, last4: e.target.value})}
                     className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white placeholder-slate-500'
+                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white placeholder-slate-500'
                     }`}
                   />
                 </div>
@@ -712,7 +733,7 @@ const CardsTab = ({ transactions = [] }) => {
                     value={newCard.dueDay}
                     onChange={(e) => setNewCard({...newCard, dueDay: parseInt(e.target.value)})}
                     className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white placeholder-slate-500'
+                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white placeholder-slate-500'
                     }`}
                   />
                 </div>
@@ -723,7 +744,7 @@ const CardsTab = ({ transactions = [] }) => {
                   value={newCard.brand}
                   onChange={(e) => setNewCard({...newCard, brand: e.target.value})}
                   className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold appearance-none outline-none ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white'
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white'
                   }`}
                 >
                   <option value="Visa" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Visa</option>
@@ -752,8 +773,8 @@ const CardsTab = ({ transactions = [] }) => {
                   setIsAddingCard(false);
                   setEditingCardId(null);
                   setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10 });
-              }} className={`flex-1 py-4 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-colors ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>Cancelar</button>
-              <button type="submit" onClick={editingCardId ? handleUpdateCard : handleAddCard} className="flex-1 py-4 rounded-2xl font-bold text-[10px] uppercase tracking-widest bg-emerald-500 hover:bg-emerald-600 transition-colors text-white shadow-lg shadow-emerald-500/20">
+              }} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
+              <button type="submit" onClick={editingCardId ? handleUpdateCard : handleAddCard} className="flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-emerald-500 hover:bg-emerald-600 transition-all text-white shadow-lg shadow-emerald-500/20">
                   {editingCardId ? 'Salvar Alterações' : 'Salvar Cartão'}
               </button>
             </div>
@@ -763,9 +784,9 @@ const CardsTab = ({ transactions = [] }) => {
 
       {/* MODAL: ADD SUB */}
       {isAddingSub && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
           <form onSubmit={handleAddSub} className={`border rounded-[3rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 shadow-2xl ${
-            theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-white/10 shadow-purple-500/10'
+            theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/10 shadow-purple-500/10'
           }`}>
             <div className="text-center space-y-2 mb-6">
               <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/20">
@@ -789,7 +810,7 @@ const CardsTab = ({ transactions = [] }) => {
                   value={newSub.name}
                   onChange={(e) => setNewSub({...newSub, name: e.target.value})}
                   className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
                   }`}
                 />
               </div>
@@ -804,7 +825,7 @@ const CardsTab = ({ transactions = [] }) => {
                     value={newSub.value}
                     onChange={(e) => setNewSub({...newSub, value: e.target.value})}
                     className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
+                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
                     }`}
                   />
                 </div>
@@ -818,7 +839,7 @@ const CardsTab = ({ transactions = [] }) => {
                     value={newSub.day}
                     onChange={(e) => setNewSub({...newSub, day: e.target.value})}
                     className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
+                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
                     }`}
                   />
                 </div>
@@ -829,7 +850,7 @@ const CardsTab = ({ transactions = [] }) => {
                   value={newSub.cardId}
                   onChange={(e) => setNewSub({...newSub, cardId: e.target.value})}
                   className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold appearance-none outline-none ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white'
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white'
                   }`}
                 >
                   <option value="" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Sem cartão (Avulsa)</option>
@@ -840,8 +861,8 @@ const CardsTab = ({ transactions = [] }) => {
               </div>
             </div>
             <div className="flex gap-3 pt-4">
-              <button type="button" onClick={() => setIsAddingSub(false)} className={`flex-1 py-4 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-colors ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>Cancelar</button>
-              <button type="submit" className="flex-1 py-4 rounded-2xl font-bold text-[10px] uppercase tracking-widest bg-purple-500 hover:bg-purple-600 transition-colors text-white shadow-lg shadow-purple-500/20">Salvar Conta</button>
+              <button type="button" onClick={() => setIsAddingSub(false)} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
+              <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-purple-500 hover:bg-purple-600 transition-all text-white shadow-lg shadow-purple-500/20">Salvar Conta</button>
             </div>
           </form>
         </div>
@@ -867,9 +888,9 @@ const CardsTab = ({ transactions = [] }) => {
           const totalInvoice = unpaidExpenses.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0) + cardSubs.reduce((acc, s) => acc + s.value, 0);
 
           return (
-            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
               <div className={`border rounded-[3rem] w-full max-w-lg p-8 md:p-10 space-y-6 relative max-h-[90vh] flex flex-col justify-between animate-in zoom-in-95 duration-300 ${
-                theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+                theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
               }`}>
                 {/* Close Button */}
                 <button 
@@ -883,14 +904,14 @@ const CardsTab = ({ transactions = [] }) => {
 
                 {/* Header */}
                 <div className="space-y-1 pr-8">
-                  <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md text-white ${card.color}`}>
+                  <span className={`text-[9px] font-bold uppercase tracking-[0.2em] px-2 py-0.5 rounded-md text-white ${card.color}`}>
                     {card.brand} •••• {card.last4}
                   </span>
-                  <h3 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                  <h3 className={`text-2xl font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                     Fatura do {card.name}
                   </h3>
                   <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
-                    {unpaidExpenses.length + cardSubs.length} itens lançados • Total: <span className="text-rose-500 font-black">R$ {totalInvoice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    {unpaidExpenses.length + cardSubs.length} itens lançados • Total: <span className="text-rose-500 font-bold">R$ {totalInvoice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                   </p>
                 </div>
 
@@ -907,7 +928,7 @@ const CardsTab = ({ transactions = [] }) => {
                         const catDef = CATEGORIES.expense.find(c => c.id === exp.category) || { icon: ShoppingBag, color: 'text-rose-500' };
                         const Icon = catDef.icon;
                         return (
-                          <div key={exp.id} className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
+                          <div key={exp.id} className={`flex items-center justify-between p-3.5 rounded-xl border transition-all ${
                             theme === 'light' 
                             ? 'bg-slate-50 border-slate-100 hover:bg-slate-100/80 hover:border-slate-200' 
                             : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10'
@@ -917,14 +938,14 @@ const CardsTab = ({ transactions = [] }) => {
                                 <Icon className={`w-4.5 h-4.5 ${catDef.color}`} />
                               </div>
                               <div>
-                                <p className={`text-xs font-black leading-tight ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{exp.description}</p>
+                                <p className={`text-[13px] font-semibold leading-tight ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{exp.description}</p>
                                 <p className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">
                                   {new Date(exp.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                                 </p>
                               </div>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="text-xs font-black text-rose-500">
+                              <span className="text-xs font-bold text-rose-500">
                                 R$ {parseFloat(exp.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                               </span>
                               <div className="flex gap-0.5">
@@ -941,7 +962,7 @@ const CardsTab = ({ transactions = [] }) => {
                                     });
                                   }}
                                   className={`p-2 rounded-lg transition-colors ${
-                                    theme === 'light' ? 'hover:bg-slate-200 text-slate-500' : 'hover:bg-white/10 text-slate-400'
+                                    theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-slate-600' : 'hover:bg-white/5 text-slate-500 hover:text-slate-300'
                                   }`}
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
@@ -949,7 +970,7 @@ const CardsTab = ({ transactions = [] }) => {
                                 <button 
                                   onClick={() => setDeleteConfirm({ id: exp.id, type: 'transaction', title: exp.description, cardId: viewingInvoiceCardId })}
                                   className={`p-2 rounded-lg transition-colors ${
-                                    theme === 'light' ? 'hover:bg-slate-200 text-rose-500' : 'hover:bg-white/10 text-rose-400'
+                                    theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-rose-600' : 'hover:bg-white/5 text-slate-500 hover:text-rose-400'
                                   }`}
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -967,7 +988,7 @@ const CardsTab = ({ transactions = [] }) => {
                         const isInstallment = sub.type === 'installment';
                         const bgClass = isInstallment ? 'bg-slate-500/10' : 'bg-blue-500/10';
                         return (
-                          <div key={sub.id} className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
+                          <div key={sub.id} className={`flex items-center justify-between p-3.5 rounded-xl border transition-all ${
                             theme === 'light' ? 'bg-slate-50 border-slate-100 hover:bg-slate-100/80 hover:border-slate-200' : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10'
                           }`}>
                             <div className="flex items-center gap-3">
@@ -975,21 +996,21 @@ const CardsTab = ({ transactions = [] }) => {
                                 <Icon className={`w-4.5 h-4.5 ${catDef.color}`} />
                               </div>
                               <div>
-                                <p className={`text-xs font-black leading-tight ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{sub.name}</p>
+                                <p className={`text-[13px] font-semibold leading-tight ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>{sub.name}</p>
                                 <p className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">
                                   {isInstallment ? `Parcela ${sub.currentInstallment}/${sub.totalInstallments}` : 'Assinatura'}
                                 </p>
                               </div>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="text-xs font-black text-rose-500">
+                              <span className="text-xs font-bold text-rose-500">
                                 R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                               </span>
                               <div className="flex gap-0.5">
                                 <button 
                                   onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day, category: sub.category || 'other' })}
                                   className={`p-2 rounded-lg transition-colors ${
-                                    theme === 'light' ? 'hover:bg-slate-200 text-slate-500' : 'hover:bg-white/10 text-slate-400'
+                                    theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-slate-600' : 'hover:bg-white/10 text-slate-500 hover:text-slate-300'
                                   }`}
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
@@ -998,7 +1019,7 @@ const CardsTab = ({ transactions = [] }) => {
                                   <button 
                                     onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name, cardId: 'orphaned' })}
                                     className={`p-2 rounded-lg transition-colors ${
-                                      theme === 'light' ? 'hover:bg-slate-200 text-rose-500' : 'hover:bg-white/10 text-rose-400'
+                                      theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-rose-600' : 'hover:bg-white/5 text-slate-500 hover:text-rose-400'
                                     }`}
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
@@ -1017,8 +1038,8 @@ const CardsTab = ({ transactions = [] }) => {
                 <div className="pt-4 border-t border-slate-700/10 flex gap-3">
                   <button 
                     onClick={() => setViewingInvoiceCardId(null)} 
-                    className={`flex-1 py-4 rounded-2xl font-bold text-xs uppercase tracking-wider transition-colors ${
-                      theme === 'light' ? 'bg-slate-100 hover:bg-slate-200 text-slate-700' : 'bg-white/5 hover:bg-white/10 text-white'
+                    className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${
+                      theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
                     }`}
                   >
                     Fechar
@@ -1029,7 +1050,7 @@ const CardsTab = ({ transactions = [] }) => {
                         setViewingInvoiceCardId(null);
                         setPayingInvoice({ cardId: card.id, total: totalInvoice, expenses: unpaidExpenses, subs: cardSubs });
                       }}
-                      className="flex-1 py-4 rounded-2xl font-bold text-xs uppercase tracking-wider bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/20 transition-all"
+                      className="flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/20 transition-all"
                     >
                       Pagar Fatura
                     </button>
@@ -1042,22 +1063,22 @@ const CardsTab = ({ transactions = [] }) => {
 
       {/* MODAL: DELETE CONFIRMATION (CARD) */}
       {deleteConfirm && deleteConfirm.type === 'card' && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[220] flex items-center justify-center p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[220] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className={`border rounded-[3rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
-            theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+            theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
           }`}>
             <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
               <Trash2 className="w-8 h-8 text-rose-500" />
             </div>
-            <h4 className={`text-xl font-medium text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir Cartão?</h4>
+            <h4 className={`text-2xl font-bold text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir Cartão?</h4>
             <p className={`text-xs leading-relaxed text-center ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
               Você está removendo o cartão <span className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{deleteConfirm.title}</span>. Esta ação não pode ser desfeita.
             </p>
             <div className="flex gap-3 pt-4">
-              <button onClick={() => setDeleteConfirm(null)} className={`flex-1 py-3.5 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-colors ${
-                theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/10 text-white'
+              <button onClick={() => setDeleteConfirm(null)} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${
+                theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
               }`}>Voltar</button>
-              <button onClick={() => handleDeleteCard(deleteConfirm.id)} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
+              <button onClick={() => handleDeleteCard(deleteConfirm.id)} className="flex-1 py-3.5 rounded-xl bg-rose-500 text-white font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all">Excluir</button>
             </div>
           </div>
         </div>
@@ -1065,20 +1086,20 @@ const CardsTab = ({ transactions = [] }) => {
 
       {/* MODAL: DELETE CONFIRMATION (TRANSACTION/SUB) */}
       {deleteConfirm && (deleteConfirm.type === 'transaction' || deleteConfirm.type === 'sub') && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[220] flex items-center justify-center p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[220] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className={`border rounded-[3rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
-            theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+            theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
           }`}>
             <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
               <Trash2 className="w-8 h-8 text-rose-500" />
             </div>
-            <h4 className={`text-xl font-medium text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir Item?</h4>
+            <h4 className={`text-2xl font-bold text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir Item?</h4>
             <p className={`text-xs leading-relaxed text-center ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
               Remover <span className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{deleteConfirm.title}</span> da fatura?
             </p>
             <div className="flex gap-3 pt-4">
-              <button onClick={() => setDeleteConfirm(null)} className={`flex-1 py-3.5 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-colors ${
-                theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/10 text-white'
+              <button onClick={() => setDeleteConfirm(null)} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${
+                theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
               }`}>Voltar</button>
               <button onClick={() => {
                 if (deleteConfirm.type === 'transaction') {
@@ -1086,7 +1107,7 @@ const CardsTab = ({ transactions = [] }) => {
                 } else {
                   handleDeleteSub(deleteConfirm.id);
                 }
-              }} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
+              }} className="flex-1 py-3.5 rounded-xl bg-rose-500 text-white font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all">Excluir</button>
             </div>
           </div>
         </div>
@@ -1094,22 +1115,22 @@ const CardsTab = ({ transactions = [] }) => {
 
       {/* MODAL: PAY INVOICE */}
       {payingInvoice && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[220] flex items-center justify-center p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[220] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className={`border rounded-[3rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
-            theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+            theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
           }`}>
             <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
               <DollarSign className="w-8 h-8 text-rose-500" />
             </div>
-            <h4 className={`text-xl font-medium text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Pagar Fatura</h4>
+            <h4 className={`text-2xl font-bold text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Pagar Fatura</h4>
             <p className={`text-xs leading-relaxed text-center ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
               Você vai debitar <span className="text-rose-500 font-bold">R$ {payingInvoice.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> do seu saldo principal para pagar a fatura do cartão <span className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{cards.find(c => c.id === payingInvoice.cardId)?.name || 'Cartão'}</span>. Confirmar?
             </p>
             <div className="flex gap-3 pt-4">
-              <button onClick={() => setPayingInvoice(null)} className={`flex-1 py-3.5 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-colors ${
-                theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/10 text-white'
+              <button onClick={() => setPayingInvoice(null)} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${
+                theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
               }`}>Voltar</button>
-              <button onClick={handlePayInvoice} className="flex-1 py-3.5 rounded-2xl bg-rose-500 text-white font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Pagar</button>
+              <button onClick={handlePayInvoice} className="flex-1 py-3.5 rounded-xl bg-rose-500 text-white font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all">Pagar</button>
             </div>
           </div>
         </div>
@@ -1117,19 +1138,19 @@ const CardsTab = ({ transactions = [] }) => {
 
       {/* MODAL: INVOICE PAID SUCCESS */}
       {paidInvoiceSuccess && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[220] flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[220] flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-300">
           <div className={`border rounded-[3rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
-            theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+            theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
           }`}>
             <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
               <CheckCircle2 className="w-8 h-8 text-emerald-500" />
             </div>
-            <h4 className={`text-xl font-medium text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Fatura Paga!</h4>
+            <h4 className={`text-2xl font-bold text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Fatura Paga!</h4>
             <p className={`text-xs leading-relaxed text-center ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
               A fatura do cartão <span className="font-bold text-emerald-500">{cards.find(c => c.id === paidInvoiceSuccess)?.name || 'Cartão'}</span> foi paga com sucesso e o saldo foi debitado.
             </p>
             <div className="flex pt-4">
-              <button onClick={() => setPaidInvoiceSuccess(null)} className="flex-1 py-3.5 rounded-2xl bg-emerald-500 text-white font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors">
+              <button onClick={() => setPaidInvoiceSuccess(null)} className="flex-1 py-3.5 rounded-xl bg-emerald-500 text-white font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all">
                 Concluir
               </button>
             </div>
@@ -1139,11 +1160,11 @@ const CardsTab = ({ transactions = [] }) => {
 
       {/* MODAL: EDIT TRANSACTION */}
       {editingTransaction && (
-        <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
           <form onSubmit={handleUpdateTransaction} className={`border rounded-[3rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
-            theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl shadow-emerald-500/10'
+            theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl shadow-emerald-500/10'
           }`}>
-            <h3 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Editar Gasto</h3>
+            <h3 className={`text-xl font-bold tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Editar Gasto</h3>
             <div className="space-y-4">
               <input
                 type="text"
@@ -1152,7 +1173,7 @@ const CardsTab = ({ transactions = [] }) => {
                 value={editingTransaction.description}
                 onChange={(e) => setEditingTransaction({...editingTransaction, description: e.target.value})}
                 className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
-                  theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+                  theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 text-slate-800' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
                 }`}
               />
               <div className="grid grid-cols-2 gap-4">
@@ -1164,7 +1185,7 @@ const CardsTab = ({ transactions = [] }) => {
                   value={editingTransaction.amount}
                   onChange={(e) => setEditingTransaction({...editingTransaction, amount: e.target.value})}
                   className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 text-slate-800' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
                   }`}
                 />
                 <input
@@ -1173,7 +1194,7 @@ const CardsTab = ({ transactions = [] }) => {
                   value={editingTransaction.date}
                   onChange={(e) => setEditingTransaction({...editingTransaction, date: e.target.value})}
                   className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 [color-scheme:light]' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white [color-scheme:dark]'
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 text-slate-800 [color-scheme:light]' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white [color-scheme:dark]'
                   }`}
                 />
               </div>
@@ -1182,7 +1203,7 @@ const CardsTab = ({ transactions = [] }) => {
                 value={editingTransaction.category || 'other'}
                 onChange={(e) => setEditingTransaction({...editingTransaction, category: e.target.value})}
                 className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all outline-none appearance-none cursor-pointer ${
-                  theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 text-slate-800' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+                  theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 text-slate-800' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
                 }`}
               >
                   {CATEGORIES.expense.map(cat => (
@@ -1191,8 +1212,8 @@ const CardsTab = ({ transactions = [] }) => {
               </select>
             </div>
             <div className="flex gap-3 pt-2">
-              <button type="button" onClick={() => setEditingTransaction(null)} className={`flex-1 py-4 rounded-2xl font-bold text-xs ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>Cancelar</button>
-              <button type="submit" className="flex-1 py-4 rounded-2xl font-bold text-xs bg-emerald-500 text-white shadow-lg shadow-emerald-500/20">Salvar Alterações</button>
+              <button type="button" onClick={() => setEditingTransaction(null)} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
+              <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-emerald-500 text-white shadow-lg shadow-emerald-500/20">Salvar Alterações</button>
             </div>
           </form>
         </div>
@@ -1200,9 +1221,9 @@ const CardsTab = ({ transactions = [] }) => {
 
       {/* MODAL: EDIT SUB */}
       {editingSub && (
-        <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
           <form onSubmit={handleUpdateSub} className={`border rounded-[3rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 shadow-2xl ${
-            theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-white/10 shadow-purple-500/10'
+            theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/10 shadow-purple-500/10'
           }`}>
             <div className="text-center space-y-2 mb-6">
               <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/20">
@@ -1226,7 +1247,7 @@ const CardsTab = ({ transactions = [] }) => {
                   value={editingSub.name}
                   onChange={(e) => setEditingSub({...editingSub, name: e.target.value})}
                   className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
                   }`}
                 />
               </div>
@@ -1241,7 +1262,7 @@ const CardsTab = ({ transactions = [] }) => {
                     value={editingSub.value}
                     onChange={(e) => setEditingSub({...editingSub, value: e.target.value})}
                     className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
+                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
                     }`}
                   />
                 </div>
@@ -1256,7 +1277,7 @@ const CardsTab = ({ transactions = [] }) => {
                     value={editingSub.day}
                     onChange={(e) => setEditingSub({...editingSub, day: e.target.value})}
                     className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
+                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
                     }`}
                   />
                 </div>
@@ -1268,7 +1289,7 @@ const CardsTab = ({ transactions = [] }) => {
                   value={editingSub.category || 'other'}
                   onChange={(e) => setEditingSub({...editingSub, category: e.target.value})}
                   className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold appearance-none outline-none ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white'
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white'
                   }`}
                 >
                     {CATEGORIES.expense.map(cat => (
@@ -1278,8 +1299,8 @@ const CardsTab = ({ transactions = [] }) => {
               </div>
             </div>
             <div className="flex gap-3 pt-4">
-              <button type="button" onClick={() => setEditingSub(null)} className={`flex-1 py-4 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-colors ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>Cancelar</button>
-              <button type="submit" className="flex-1 py-4 rounded-2xl font-bold text-[10px] uppercase tracking-widest bg-purple-500 hover:bg-purple-600 transition-colors text-white shadow-lg shadow-purple-500/20">Salvar Alterações</button>
+              <button type="button" onClick={() => setEditingSub(null)} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
+              <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-purple-500 hover:bg-purple-600 transition-all text-white shadow-lg shadow-purple-500/20">Salvar Alterações</button>
             </div>
           </form>
         </div>
