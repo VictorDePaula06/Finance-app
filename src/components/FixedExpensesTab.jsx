@@ -7,7 +7,9 @@ import {
   CheckCircle2, 
   Calendar,
   DollarSign,
-  FileText
+  FileText,
+  Wallet,
+  CircleDollarSign
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -105,6 +107,24 @@ export default function FixedExpensesTab({ transactions = [] }) {
 
   const currentMonthStr = new Date().toISOString().slice(0, 7);
 
+  const { totalToPay, totalPaid, paidCount, totalCount } = useMemo(() => {
+    let toPay = 0;
+    let paid = 0;
+    let pCount = 0;
+    fixedExpenses.forEach(exp => {
+      const val = parseFloat(exp.value) || 0;
+      if (exp.lastPaidMonth === currentMonthStr) {
+        paid += val;
+        pCount++;
+      } else {
+        toPay += val;
+      }
+    });
+    return { totalToPay: toPay, totalPaid: paid, paidCount: pCount, totalCount: fixedExpenses.length };
+  }, [fixedExpenses, currentMonthStr]);
+
+  const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <section className="space-y-6">
@@ -121,6 +141,59 @@ export default function FixedExpensesTab({ transactions = [] }) {
           >
             <Plus className="w-4 h-4" /> Nova Conta
           </button>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Total a Pagar */}
+          <div className={`p-5 rounded-2xl border relative overflow-hidden transition-all ${
+            theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'
+          }`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                <Wallet className="w-5 h-5 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total a Pagar</p>
+                <p className="text-[9px] text-slate-500 font-bold">
+                  {totalCount - paidCount} {totalCount - paidCount === 1 ? 'conta pendente' : 'contas pendentes'}
+                </p>
+              </div>
+            </div>
+            <span className={`text-2xl font-black tabular-nums ${
+              totalToPay > 0 ? 'text-amber-500' : (theme === 'light' ? 'text-slate-300' : 'text-slate-600')
+            }`}>
+              {formatCurrency(totalToPay)}
+            </span>
+            {totalToPay > 0 && (
+              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+            )}
+          </div>
+
+          {/* Total Pago */}
+          <div className={`p-5 rounded-2xl border relative overflow-hidden transition-all ${
+            theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'
+          }`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Pago</p>
+                <p className="text-[9px] text-slate-500 font-bold">
+                  {paidCount} de {totalCount} {totalCount === 1 ? 'conta paga' : 'contas pagas'}
+                </p>
+              </div>
+            </div>
+            <span className={`text-2xl font-black tabular-nums ${
+              paidCount > 0 ? 'text-emerald-500' : (theme === 'light' ? 'text-slate-300' : 'text-slate-600')
+            }`}>
+              {formatCurrency(totalPaid)}
+            </span>
+            {paidCount === totalCount && totalCount > 0 && (
+              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
