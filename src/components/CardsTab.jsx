@@ -188,37 +188,44 @@ const CardsTab = ({ transactions = [] }) => {
     if (!payingInvoice || (payingInvoice.expenses.length === 0 && (!payingInvoice.subs || payingInvoice.subs.length === 0))) return;
     
     try {
+        const now = new Date();
+        const paidMonth = now.toISOString().slice(0, 7);
+
         // 1. Criar transação de pagamento de fatura na carteira (que vai deduzir o saldo)
         await addDoc(collection(db, 'transactions'), {
             description: `Pagamento de Fatura - ${cards.find(c => c.id === payingInvoice.cardId)?.name || 'Cartão'}`,
             amount: payingInvoice.total,
             type: 'expense',
             category: 'credit_card_bill',
-            date: new Date().toISOString(),
+            date: now.toISOString(),
             userId: currentUser.uid,
-            month: new Date().toISOString().slice(0, 7),
+            month: paidMonth,
             createdAt: Date.now(),
-            paymentMethod: 'pix', // default para pagamento de fatura, deduz da conta corrente
+            paymentMethod: 'pix',
             selectedCardId: payingInvoice.cardId
         });
 
-        // 2. Marcar todas as transações da fatura como pagas
+        // 2. Marcar todas as transações avulsas da fatura como pagas
         const updatePromises = payingInvoice.expenses.map(exp => 
             updateDoc(doc(db, 'transactions', exp.id), { invoiceStatus: 'paid' })
         );
         await Promise.all(updatePromises);
         
-        // 3. Atualizar parcelamentos vinculados ao cartão (avançar parcela)
-        // Assinaturas recorrentes NÃO são alteradas - elas sempre aparecem na fatura do cartão
+        // 3. Atualizar subscriptions vinculadas ao cartão
         if (payingInvoice.subs && payingInvoice.subs.length > 0) {
-            const cardInstallments = payingInvoice.subs.filter(s => s.type === 'installment');
-            const subPromises = cardInstallments.map(sub => {
-                const nextInstallment = (sub.currentInstallment || 1) + 1;
-                const total = sub.totalInstallments || 1;
-                if (nextInstallment > total) {
-                    return deleteDoc(doc(db, 'subscriptions', sub.id));
+            const subPromises = payingInvoice.subs.map(sub => {
+                if (sub.type === 'installment') {
+                    // Parcelamentos: avançar ou deletar ao terminar
+                    const nextInstallment = (sub.currentInstallment || 1) + 1;
+                    const total = sub.totalInstallments || 1;
+                    if (nextInstallment > total) {
+                        return deleteDoc(doc(db, 'subscriptions', sub.id));
+                    } else {
+                        return updateDoc(doc(db, 'subscriptions', sub.id), { currentInstallment: nextInstallment });
+                    }
                 } else {
-                    return updateDoc(doc(db, 'subscriptions', sub.id), { currentInstallment: nextInstallment });
+                    // Recorrentes: marcar mês como pago para evitar duplicidade no mesmo mês
+                    return updateDoc(doc(db, 'subscriptions', sub.id), { lastPaidMonth: paidMonth });
                 }
             });
             await Promise.all(subPromises);
@@ -238,7 +245,20 @@ const CardsTab = ({ transactions = [] }) => {
   };
 
   const getCardSubs = (cardId) => subscriptions.filter(s => s.cardId === cardId);
+
+  const currentMonthKey = new Date().toISOString().slice(0, 7);
+
+  // Retorna TODOS os unpaid (meses anteriores acumulam na fatura atual — comportamento real de cartão)
   const getUnpaidExpenses = (cardId) => transactions.filter(t => t.selectedCardId === cardId && t.invoiceStatus === 'unpaid');
+
+  // Separação para exibir aviso de faturas anteriores pendentes
+  const getUnpaidExpensesByPeriod = (cardId) => {
+    const all = getUnpaidExpenses(cardId);
+    const current = all.filter(t => (t.month || t.date?.slice(0,7)) === currentMonthKey);
+    const previous = all.filter(t => (t.month || t.date?.slice(0,7)) < currentMonthKey);
+    return { current, previous, all };
+  };
+
   const getUnlinkedSubs = () => subscriptions.filter(s => !s.cardId);
 
   return (
@@ -264,10 +284,18 @@ const CardsTab = ({ transactions = [] }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {cards.map(card => {
             const cardSubs = getCardSubs(card.id);
-            const unpaidExpenses = getUnpaidExpenses(card.id);
-            const subsTotal = cardSubs.reduce((acc, s) => acc + s.value, 0);
+            const { current: currentExpenses, previous: previousExpenses, all: unpaidExpenses } = getUnpaidExpensesByPeriod(card.id);
+            // Subscriptions: só entram na fatura se o dia de vencimento já chegou no mês atual
+            const todayDay = new Date().getDate();
+            const unpaidSubs = cardSubs.filter(s => {
+                if (s.lastPaidMonth === currentMonthKey) return false; // já paga este mês
+                const dueDay = parseInt(s.day) || 1;
+                return todayDay >= dueDay; // só aparece quando o dia chegou
+            });
+            const subsTotal = unpaidSubs.reduce((acc, s) => acc + s.value, 0);
             const expensesTotal = unpaidExpenses.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
             const totalInvoice = expensesTotal + subsTotal;
+            const hasPreviousDebt = previousExpenses.length > 0;
             
             const lastPayment = transactions
               .filter(t => t.category === 'credit_card_bill' && t.description.includes(card.name))
@@ -320,8 +348,14 @@ const CardsTab = ({ transactions = [] }) => {
 
                 {/* Fatura Actions */}
                 <div className="mt-4 px-2 flex flex-col gap-2">
+                    {/* Aviso de dívida de meses anteriores */}
+                    {hasPreviousDebt && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-amber-500">⚠ Inclui fatura(s) anterior(es) não paga(s)</span>
+                      </div>
+                    )}
                     <button 
-                        onClick={() => totalInvoice > 0 && setPayingInvoice({ cardId: card.id, total: totalInvoice, expenses: unpaidExpenses, subs: cardSubs })}
+                        onClick={() => totalInvoice > 0 && setPayingInvoice({ cardId: card.id, total: totalInvoice, expenses: unpaidExpenses, subs: unpaidSubs })}
                         disabled={totalInvoice === 0}
                         className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
                             totalInvoice > 0 
@@ -877,9 +911,19 @@ const CardsTab = ({ transactions = [] }) => {
 
           if (!card) return null;
 
-          const cardSubs = isOrphaned 
+          const allCardSubs = isOrphaned 
             ? subscriptions.filter(s => s.isInstallment && (!s.cardId || !cards.map(c => c.id).includes(s.cardId)))
             : getCardSubs(card.id);
+
+          // Subscriptions: só entrar na fatura se o dia de vencimento já chegou
+          const todayDay = new Date().getDate();
+          const cardSubs = isOrphaned
+            ? allCardSubs
+            : allCardSubs.filter(s => {
+                if (s.lastPaidMonth === currentMonthKey) return false;
+                const dueDay = parseInt(s.day) || 1;
+                return todayDay >= dueDay;
+              });
 
           const unpaidExpenses = isOrphaned
             ? transactions.filter(t => t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' && (!t.selectedCardId || !cards.map(c => c.id).includes(t.selectedCardId)))

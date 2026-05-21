@@ -50,6 +50,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     // Form States
     const [description, setDescription] = useState('');
     const [amount, setAmount] = useState('');
+    const [amountError, setAmountError] = useState('');
     const [date, setDate] = useState(new Date().toLocaleDateString('en-CA'));
     const [category, setCategory] = useState('other');
     const [cdiPercent, setCdiPercent] = useState('100');
@@ -216,6 +217,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const resetForm = () => {
         setDescription('');
         setAmount('');
+        setAmountError('');
         setDate(new Date().toLocaleDateString('en-CA'));
         setCategory('other');
         setCdiPercent('100');
@@ -239,6 +241,9 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const handleSaveGasto = async (e) => {
         e.preventDefault();
         if (!description || !amount || isSaving) return;
+        const val = parseFloat(amount);
+        if (!val || val <= 0) { setAmountError('Informe um valor válido maior que zero.'); return; }
+        setAmountError('');
         
         if (paymentMethod === 'credito' && !selectedCardId) {
             alert('Por favor, selecione um cartão de crédito.');
@@ -248,7 +253,6 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         setIsSaving(true);
 
         try {
-            const val = parseFloat(amount);
             const transactionValue = isInstallment && installmentMode === 'total' 
                 ? (val / parseInt(installments)) 
                 : val;
@@ -283,7 +287,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 const subData = {
                     name: description,
                     value: transactionValue,
-                    day: new Date(date).getDate(),
+                    day: parseInt(date.split('-')[2], 10),
                     cardId: selectedCardId || '',
                     userId: currentUser.uid,
                     isInstallment: isInstallment,
@@ -588,7 +592,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
     const totalExpensesMonthVal = useMemo(() => {
         return monthExits
-            .filter(t => t.category !== 'investment' && t.category !== 'credit_card_bill')
+            .filter(t => t.category !== 'investment')
             .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     }, [monthExits]);
 
@@ -1094,12 +1098,19 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                         <div>
                                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Valor (R$)</label>
                                             <input 
-                                                type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)}
+                                                type="number" step="0.01" required value={amount} onChange={e => { setAmount(e.target.value); if (amountError) setAmountError(''); }}
                                                 placeholder="0.00"
                                                 className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                                    theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-rose-500' : 'bg-white/5 border-white/5 text-white focus:border-rose-500'
+                                                    amountError
+                                                      ? 'border-rose-500 bg-rose-500/5 text-rose-500 focus:border-rose-500'
+                                                      : (theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-rose-500' : 'bg-white/5 border-white/5 text-white focus:border-rose-500')
                                                 }`}
                                             />
+                                            {amountError && (
+                                              <p className="text-[10px] font-bold text-rose-500 mt-1 ml-1 flex items-center gap-1">
+                                                <span>⚠</span> {amountError}
+                                              </p>
+                                            )}
                                         </div>
                                         <div>
                                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Data</label>
