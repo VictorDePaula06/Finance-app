@@ -439,7 +439,14 @@ const CardsTab = ({ transactions = [] }) => {
             <div className="p-2 bg-purple-500/10 rounded-xl">
               <Calendar className="w-6 h-6 text-purple-500" />
             </div>
-            <h2 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Assinaturas Avulsas</h2>
+            <div>
+              <h2 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Assinaturas Avulsas</h2>
+              {subscriptions.filter(s => s.type !== 'installment').length > 0 && (
+                <p className="text-[10px] font-black text-purple-500 mt-0.5">
+                  Total mensal: R$ {subscriptions.filter(s => s.type !== 'installment').reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} • {subscriptions.filter(s => s.type !== 'installment').length} {subscriptions.filter(s => s.type !== 'installment').length === 1 ? 'assinatura' : 'assinaturas'}
+                </p>
+              )}
+            </div>
           </div>
           <button 
             onClick={() => setIsAddingSub(true)}
@@ -521,7 +528,14 @@ const CardsTab = ({ transactions = [] }) => {
           <div className="p-2 bg-rose-500/10 rounded-xl">
             <Hash className="w-6 h-6 text-rose-500" />
           </div>
-          <h2 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Parcelamentos Ativos</h2>
+          <div>
+            <h2 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Parcelamentos Ativos</h2>
+            {subscriptions.filter(s => s.type === 'installment').length > 0 && (
+              <p className="text-[10px] font-black text-rose-500 mt-0.5">
+                Total mensal: R$ {subscriptions.filter(s => s.type === 'installment').reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} • {subscriptions.filter(s => s.type === 'installment').length} {subscriptions.filter(s => s.type === 'installment').length === 1 ? 'parcelamento' : 'parcelamentos'}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
