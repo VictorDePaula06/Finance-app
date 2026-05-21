@@ -367,7 +367,7 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Comparative Section - Spans 2 columns on large screens */}
-        <div className={`lg:col-span-2 p-5 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border ${
+        <div className={`lg:col-span-2 p-5 md:p-8 rounded-2xl border ${
           theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-700/50'
         }`}>
           <ExpensesChart transactions={transactions} targetMonth={selectedMonth} mode={chartMode} selectedCard={selectedCard} subscriptions={subscriptions} includeCredit={includeCredit} />
@@ -380,7 +380,7 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
             <>
               {/* Category Highlight */}
               {stats.topCategory && (
-                <div className={`p-6 rounded-3xl border flex flex-col gap-3 ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                <div className={`p-6 rounded-2xl border flex flex-col gap-3 ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-[#1e2330] border-slate-700/50'}`}>
                     <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Vilão do Mês</p>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -411,7 +411,7 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
           ) : (
             <>
               {/* Card breakdown by category */}
-              <div className={`p-6 rounded-3xl border flex flex-col gap-3 ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-white/5 border-white/5'}`}>
+              <div className={`p-6 rounded-2xl border flex flex-col gap-3 ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-[#1e2330] border-slate-700/50'}`}>
                   <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Detalhamento</p>
                   <div className="space-y-3">
                       {Object.entries(cardStats.byCategory).sort(([,a],[,b]) => b - a).map(([catId, value]) => {
@@ -529,7 +529,7 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
                   </div>
                 </div>
                 <div className="flex flex-col flex-1 min-w-0">
-                  <span className={`text-[10px] font-black uppercase tracking-widest ${textColors[insightStatus]} opacity-90`}>Alívia</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${textColors[insightStatus]} opacity-90`}>Alívia</span>
                   <span className={`text-[12px] font-medium leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
                     {insightMessage}
                   </span>
@@ -551,7 +551,7 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
                 {isAnalyzing ? <Loader2 className="w-5 h-5 text-blue-500 animate-spin" /> : <Sparkles className="w-5 h-5 text-blue-500" />}
             </div>
             <div className="text-left">
-                <p className="text-xs font-black uppercase tracking-widest">{isAnalyzing ? 'Analisando...' : 'Análise Profunda com IA'}</p>
+                <p className="text-xs font-bold uppercase tracking-widest">{isAnalyzing ? 'Analisando...' : 'Análise Profunda com IA'}</p>
                 <p className="text-[9px] font-medium opacity-60">Gerar relatório detalhado com a Alívia</p>
             </div>
           </button>

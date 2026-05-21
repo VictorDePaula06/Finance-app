@@ -325,7 +325,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
     }, [transactions, currentMonthKey]);
 
     const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
-    const cardBg = theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/50 border-white/5';
+    const cardBg = theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330]';
     const textColor = theme === 'light' ? 'text-slate-800' : 'text-white';
     const subTextColor = theme === 'light' ? 'text-slate-500' : 'text-slate-400';
 
@@ -453,9 +453,9 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                         <div className="w-full">
                             {/* Table Header - Hidden on Mobile */}
                             <div className={`hidden sm:grid grid-cols-[1fr_1fr_1fr] pb-4 border-b mb-2 px-2 ${theme === 'light' ? 'border-slate-200' : 'border-slate-700'}`}>
-                                <span className="text-[10px] font-medium text-slate-400 uppercase">Origem</span>
-                                <span className="text-[10px] font-medium text-slate-400 uppercase">Data</span>
-                                <span className="text-[10px] font-medium text-slate-400 uppercase text-right">Valor</span>
+                                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Origem</span>
+                                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Data</span>
+                                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider text-right">Valor</span>
                             </div>
 
                             {/* Table Body */}
@@ -509,10 +509,10 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                     <div className="flex justify-center">
                         <button 
                             onClick={() => setShowRescueModal(true)}
-                            className={`flex items-center gap-3 px-8 py-5 rounded-[2rem] border font-black text-sm uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-xl ${
+                            className={`flex items-center gap-3 px-5 py-2.5 rounded-lg border font-bold text-xs uppercase tracking-wider transition-all hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(59,130,246,0.15)] ${
                                 theme === 'light' 
-                                ? 'bg-blue-600 text-white border-blue-500 shadow-blue-500/20' 
-                                : 'bg-blue-600 text-white border-blue-500 shadow-blue-500/20'
+                                ? 'bg-blue-600 text-white border-blue-500' 
+                                : 'bg-blue-600 text-white border-blue-500'
                             }`}
                         >
                             <Landmark className="w-5 h-5" />
@@ -520,8 +520,8 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                         </button>
                     </div>
 
-                    <div className={`p-6 md:p-8 rounded-[2.5rem] border shadow-sm ${
-                        theme === 'light' ? 'bg-white border-blue-100/50 shadow-blue-500/5' : 'bg-slate-900 border-blue-500/10'
+                    <div className={`p-6 md:p-8 rounded-2xl border shadow-sm ${
+                        theme === 'light' ? 'bg-white border-blue-100/50 shadow-blue-500/5' : 'bg-[#1e2330] border-blue-500/10'
                     }`}>
                         <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
                             <div className="flex items-center gap-3">
@@ -529,15 +529,15 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                     <Landmark className="w-6 h-6 text-blue-500" />
                                 </div>
                                 <div>
-                                    <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                    <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                                         Histórico de Resgates
                                     </h3>
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Movimentações de Patrimônio → Carteira</p>
+                                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Movimentações de Patrimônio → Carteira</p>
                                 </div>
                             </div>
                             <div className="text-right px-4 py-2 bg-blue-500/5 rounded-2xl border border-blue-500/10">
                                 <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Total Resgatado ({monthLabel.split(' ')[0]})</span>
-                                <span className={`text-2xl font-black ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`}>
+                                <span className={`text-2xl font-bold ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`}>
                                     R$ {totalRedemptionMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </span>
                             </div>
@@ -545,12 +545,12 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
 
                         <div className="space-y-4">
                             {recentRedemptions.length === 0 ? (
-                                <div className="text-center py-12 border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[2rem]">
+                                <div className="text-center py-12 border-2 border-dashed border-slate-100 dark:border-white/5 rounded-2xl">
                                     <p className="text-sm font-bold text-slate-400 italic">Nenhum resgate de investimento este mês.</p>
                                 </div>
                             ) : (
                                 recentRedemptions.map(inc => (
-                                    <div key={inc.id} className={`flex items-center justify-between p-5 rounded-2xl border transition-all hover:shadow-lg ${
+                                    <div key={inc.id} className={`flex items-center justify-between p-5 rounded-xl border transition-all hover:shadow-lg ${
                                         theme === 'light' ? 'bg-blue-50/30 border-blue-100/50 hover:bg-blue-50 hover:border-blue-200' : 'bg-blue-500/5 border-blue-500/10 hover:bg-blue-500/10'
                                     }`}>
                                         <div className="flex items-center gap-4">
@@ -560,19 +560,19 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                                 <Landmark className={`w-6 h-6 text-blue-500`} />
                                             </div>
                                             <div>
-                                                <h4 className={`font-bold text-base ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                                <h4 className={`text-[13px] ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                                                     {inc.description}
                                                 </h4>
                                                 <div className="flex items-center gap-2 mt-0.5">
                                                     <p className={`text-[11px] font-bold ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
                                                         {new Date(inc.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
                                                     </p>
-                                                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-500 text-white">Sucesso</span>
+                                                    <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500 text-white">Sucesso</span>
                                                 </div>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-4">
-                                            <span className="font-black text-xl text-blue-500">
+                                            <span className="font-bold text-lg text-blue-500">
                                                 + R$ {parseFloat(inc.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                             </span>
                                             <button 
@@ -595,7 +595,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
             {/* Income Modal */}
             {showIncomeModal && (
                 <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className={`w-full max-w-xl rounded-[2.5rem] p-8 md:p-10 border relative animate-in zoom-in-95 duration-300 ${
+                    <div className={`w-full max-w-xl rounded-[3rem] p-8 md:p-10 border relative animate-in zoom-in-95 duration-300 ${
                         theme === 'light' ? 'bg-white border-emerald-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
                     }`}>
                         <button 
@@ -610,10 +610,10 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                 <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${theme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/10'}`}>
                                     <ArrowUpCircle className={`w-8 h-8 ${theme === 'light' ? 'text-emerald-500' : 'text-emerald-400'}`} />
                                 </div>
-                                <h3 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                <h3 className={`text-2xl font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                                     {incomeStep === 'form' ? (editingId ? 'Editar Recebimento' : 'Novo Recebimento') : 'Confirmar Dados'}
                                 </h3>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                     {incomeStep === 'form' ? 'Preencha os detalhes do seu recebimento' : 'Verifique se as informações estão corretas'}
                                 </p>
                             </div>
@@ -622,7 +622,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                 <form onSubmit={handleSubmit} className="space-y-6">
                                     <div className="space-y-4">
                                         <div>
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Nome do Recebimento</label>
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block ml-1">Nome do Recebimento</label>
                                             <input
                                                 type="text"
                                                 required
@@ -637,7 +637,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Valor</label>
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block ml-1">Valor</label>
                                                 <div className="relative">
                                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">{isUSD ? 'U$' : 'R$'}</span>
                                                     <input
@@ -653,7 +653,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                                 </div>
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Data</label>
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block ml-1">Data</label>
                                                 <input
                                                     type="date"
                                                     required
@@ -679,34 +679,34 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
 
                                         {isUSD && amount && usdRate && (
                                             <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center animate-in zoom-in-95">
-                                                <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1">Cotação Atual: R$ {usdRate.toFixed(2)}</p>
-                                                <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">R$ {(parseFloat(amount) * usdRate).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1">Cotação Atual: R$ {usdRate.toFixed(2)}</p>
+                                                <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">R$ {(parseFloat(amount) * usdRate).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                             </div>
                                         )}
                                     </div>
 
                                     <button
                                         type="submit"
-                                        className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
+                                        className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-bold text-sm shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
                                     >
                                         Próximo Passo
                                     </button>
                                 </form>
                             ) : (
                                 <div className="space-y-6">
-                                    <div className={`p-6 rounded-3xl border space-y-4 ${theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/10'}`}>
+                                    <div className={`p-6 rounded-2xl border space-y-4 ${theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/10'}`}>
                                         <div className="flex justify-between items-center">
-                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Descrição</span>
-                                            <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{description}</span>
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Descrição</span>
+                                            <span className={`text-sm font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{description}</span>
                                         </div>
                                         <div className="flex justify-between items-center border-t border-slate-500/10 pt-4">
-                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Valor Final</span>
-                                            <span className="text-xl font-black text-emerald-500">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Valor Final</span>
+                                            <span className="text-xl font-bold text-emerald-500">
                                                 R$ {isUSD ? (parseFloat(amount) * usdRate).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : parseFloat(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center border-t border-slate-500/10 pt-4">
-                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data do Lançamento</span>
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Data do Lançamento</span>
                                             <span className={`text-sm font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                                                 {new Date(date.split('-').join('/')).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
                                             </span>
@@ -716,7 +716,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                     <div className="grid grid-cols-2 gap-4">
                                         <button
                                             onClick={() => setIncomeStep('form')}
-                                            className={`py-4 rounded-2xl font-black text-sm transition-all active:scale-95 border ${
+                                            className={`py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 border ${
                                                 theme === 'light' ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50' : 'bg-slate-800 border-white/10 text-white hover:bg-slate-700'
                                             }`}
                                         >
@@ -725,7 +725,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                         <button
                                             onClick={handleFinalSave}
                                             disabled={isSaving}
-                                            className="py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                                            className="py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-bold text-sm shadow-xl shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                                         >
                                             {isSaving ? (
                                                 <>
@@ -762,22 +762,22 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                 <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <ArrowDownCircle className="w-8 h-8 text-blue-500" />
                                 </div>
-                                <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Resgatar Valor</h3>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mova dinheiro do investimento para sua carteira</p>
+                                <h3 className={`text-2xl font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Resgatar Valor</h3>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Mova dinheiro do investimento para sua carteira</p>
                             </div>
 
                             <div className={`p-4 rounded-2xl border text-center ${
                                 theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
                             }`}>
-                                <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Disponível para Resgate</p>
-                                <p className={`text-2xl font-black ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`}>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Disponível para Resgate</p>
+                                <p className={`text-2xl font-bold ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`}>
                                     R$ {totalAvailable.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </p>
                             </div>
 
                             <form onSubmit={handleRescue} className="space-y-4">
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Selecione a Reserva</label>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block ml-1">Selecione a Reserva</label>
                                         <select 
                                             required
                                             value={selectedJarId}
@@ -813,7 +813,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                 </div>
 
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Quanto deseja resgatar?</label>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block ml-1">Quanto deseja resgatar?</label>
                                     <input 
                                         type="number" step="0.01" required
                                         value={rescueAmount}
@@ -834,7 +834,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                 <button 
                                     type="submit"
                                     disabled={!rescueAmount || !selectedJarId || isRescuing}
-                                    className="w-full py-4 bg-blue-500 hover:bg-blue-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
+                                    className="w-full py-4 bg-blue-500 hover:bg-blue-400 text-white rounded-2xl font-bold text-sm shadow-xl shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
                                 >
                                     {isRescuing ? 'Processando...' : 'Confirmar Resgate'}
                                 </button>
@@ -853,7 +853,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                         <div className="w-20 h-20 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
                             <Trash2 className="w-10 h-10 text-rose-500" />
                         </div>
-                        <h3 className={`text-2xl font-black mb-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir Lançamento?</h3>
+                        <h3 className={`text-2xl font-bold mb-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir Lançamento?</h3>
                         <p className={`text-sm font-bold mb-8 leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
                             Tem certeza que deseja remover esta entrada? Esta ação não pode ser desfeita.
                         </p>
@@ -861,7 +861,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                         <div className="flex gap-3">
                             <button 
                                 onClick={() => setTransactionToDelete(null)}
-                                className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                                className={`flex-1 py-4 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-all ${
                                     theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
                                 }`}
                             >
@@ -869,7 +869,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                             </button>
                             <button 
                                 onClick={confirmDelete}
-                                className="flex-1 py-4 bg-rose-500 hover:bg-rose-400 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-rose-500/20 transition-all active:scale-95"
+                                className="flex-1 py-4 bg-rose-500 hover:bg-rose-400 text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-rose-500/20 transition-all active:scale-95"
                             >
                                 Sim, Excluir
                             </button>

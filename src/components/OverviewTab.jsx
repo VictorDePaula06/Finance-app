@@ -147,7 +147,7 @@ export default function OverviewTab({
         return cat ? cat.label : categoryId;
     };
 
-    const cardBg = theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/50 border-white/5';
+    const cardBg = theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]';
     const textColor = theme === 'light' ? 'text-slate-800' : 'text-white';
     const subTextColor = theme === 'light' ? 'text-slate-500' : 'text-slate-400';
 
@@ -158,16 +158,16 @@ export default function OverviewTab({
                 
                 {/* Ativos e Saldos */}
                 <div>
-                    <h3 className={`text-base font-bold mb-4 ${textColor}`}>Ativos e Saldos</h3>
-                    <div className={`p-6 rounded-[2rem] border flex items-center justify-between h-40 ${cardBg}`}>
+                    <h3 className={`text-base font-medium uppercase tracking-wider mb-4 ${textColor}`}>Ativos e Saldos</h3>
+                    <div className={`p-6 rounded-2xl border flex items-center justify-between h-40 ${cardBg}`}>
                         <div>
                             <div className="flex items-center gap-2 mb-2">
-                                <span className={`text-sm font-semibold ${subTextColor}`}>Saldo Total em Carteira</span>
+                                <span className={`text-sm font-medium ${subTextColor}`}>Saldo Total em Carteira</span>
                                 <button onClick={toggleHideBalance} className="text-slate-400 hover:text-blue-500 transition-colors">
                                     {hideBalance ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
-                            <div className={`text-3xl font-black ${hideBalance ? 'blur-md select-none' : textColor}`}>
+                            <div className={`text-2xl font-bold ${hideBalance ? 'blur-md select-none' : textColor}`}>
                                 {hideBalance ? 'R$ 0.000,00' : formatCurrency(walletStats.balance)}
                             </div>
                         </div>
@@ -189,19 +189,19 @@ export default function OverviewTab({
 
                 {/* Lançamentos e Reservas */}
                 <div>
-                    <h3 className={`text-base font-bold mb-4 ${textColor}`}>Lançamentos e Reservas</h3>
+                    <h3 className={`text-base font-medium uppercase tracking-wider mb-4 ${textColor}`}>Lançamentos e Reservas</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Total Lançado */}
-                        <div className={`p-6 rounded-[2rem] border flex flex-col justify-center ${cardBg}`}>
-                            <span className={`text-sm font-semibold mb-2 ${subTextColor}`}>Total Lançado (Mês)</span>
-                            <div className={`text-2xl font-black mb-1 ${hideBalance ? 'blur-md select-none' : textColor}`}>
+                        <div className={`p-6 rounded-xl border flex flex-col justify-center ${cardBg}`}>
+                            <span className={`text-sm font-medium mb-2 ${subTextColor}`}>Total Lançado (Mês)</span>
+                            <div className={`text-2xl font-bold mb-1 ${hideBalance ? 'blur-md select-none' : textColor}`}>
                                 {hideBalance ? 'R$ 0.000,00' : formatCurrency(walletStats.expense)}
                             </div>
                             <span className={`text-xs ${subTextColor}`}>{expenseTransactions.length} lançamentos</span>
                         </div>
                         
                         {/* Reservas */}
-                        <div className={`p-6 rounded-[2rem] border flex flex-col justify-center relative group/reservas ${cardBg}`}>
+                        <div className={`p-6 rounded-xl border flex flex-col justify-center relative group/reservas ${cardBg}`}>
                             <div className="flex items-center justify-between">
                                 <div className="w-16 h-16 relative">
                                     <ResponsiveContainer width="100%" height="100%">
@@ -229,8 +229,8 @@ export default function OverviewTab({
                                     </div>
                                 </div>
                                 <div className="flex-1 ml-4">
-                                    <span className={`text-xs font-semibold ${subTextColor}`}>Total Reservado:</span>
-                                    <div className={`text-sm font-black mb-2 ${hideBalance ? 'blur-md select-none' : textColor}`}>
+                                    <span className={`text-xs font-medium ${subTextColor}`}>Total Reservado:</span>
+                                    <div className={`text-sm font-bold mb-2 ${hideBalance ? 'blur-md select-none' : textColor}`}>
                                         {hideBalance ? 'R$ 0,00' : formatCurrency(investmentStats.totalGuarded)}
                                     </div>
                                     <div className="space-y-1">
@@ -260,7 +260,7 @@ export default function OverviewTab({
                 {/* Fluxo de Caixa */}
                 <div className="xl:col-span-2">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className={`text-base font-bold ${textColor}`}>Visão Geral do Fluxo de Caixa</h3>
+                        <h3 className={`text-base font-medium uppercase tracking-wider ${textColor}`}>Visão Geral do Fluxo de Caixa</h3>
                         <select 
                             value={cashFlowPeriod}
                             onChange={(e) => setCashFlowPeriod(e.target.value)}
@@ -270,15 +270,15 @@ export default function OverviewTab({
                             <option value="30d">Últimos 30 dias</option>
                         </select>
                     </div>
-                    <div className={`p-6 rounded-[2rem] border flex flex-col ${cardBg}`} style={{ height: '340px' }}>
+                    <div className={`p-6 rounded-2xl border flex flex-col ${cardBg}`} style={{ height: '340px' }}>
                         <div className="flex items-center justify-center gap-6 mb-4">
                             <div className="flex items-center gap-2">
                                 <div className="w-8 h-2 bg-emerald-500 rounded-full"></div>
-                                <span className={`text-xs font-semibold ${subTextColor}`}>Entradas</span>
+                                <span className={`text-xs font-medium ${subTextColor}`}>Entradas</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-8 h-2 bg-rose-500 rounded-full"></div>
-                                <span className={`text-xs font-semibold ${subTextColor}`}>Saídas</span>
+                                <span className={`text-xs font-medium ${subTextColor}`}>Saídas</span>
                             </div>
                         </div>
                         <div className="flex-1 w-full min-h-0">
@@ -309,18 +309,18 @@ export default function OverviewTab({
                             </ResponsiveContainer>
                         </div>
                         <div className="mt-4 pt-4 border-t border-slate-500/10">
-                            <span className={`text-xs font-semibold ${subTextColor}`}>Ganho Diário: <span className="text-emerald-500 font-bold">+ {formatCurrency(investmentStats.dailyYield)} /dia</span></span>
+                            <span className={`text-xs font-medium ${subTextColor}`}>Ganho Diário: <span className="text-emerald-500 font-bold">+ {formatCurrency(investmentStats.dailyYield)} /dia</span></span>
                         </div>
                     </div>
                 </div>
 
                 {/* Últimos Recebimentos */}
                 <div className="xl:col-span-1">
-                    <h3 className={`text-base font-bold mb-4 ${textColor}`}>Últimos Recebimentos</h3>
-                    <div className={`p-6 rounded-[2rem] border flex flex-col justify-between ${cardBg}`} style={{ height: '340px' }}>
+                    <h3 className={`text-base font-medium uppercase tracking-wider mb-4 ${textColor}`}>Últimos Recebimentos</h3>
+                    <div className={`p-6 rounded-2xl border flex flex-col justify-between ${cardBg}`} style={{ height: '340px' }}>
                         <div>
                             <div className="flex items-center justify-between mb-6 relative">
-                                <span className={`text-sm font-semibold ${textColor}`}>Atividade de Recebimentos</span>
+                                <span className={`text-sm font-medium ${textColor}`}>Atividade de Recebimentos</span>
                                 <button 
                                     onClick={() => setShowIncomesConfig(!showIncomesConfig)}
                                     className={`p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'hover:bg-slate-100' : 'hover:bg-white/10'}`}
@@ -329,7 +329,7 @@ export default function OverviewTab({
                                 </button>
                                 
                                 {showIncomesConfig && (
-                                    <div className={`absolute top-full right-0 mt-2 w-48 rounded-xl border shadow-xl z-10 overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-800 border-slate-700'}`}>
+                                    <div className={`absolute top-full right-0 mt-2 w-48 rounded-xl border shadow-xl z-10 overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-[#1e2330] border-slate-700'}`}>
                                         <div className="p-2 space-y-1">
                                             {[
                                                 { id: 'month', label: 'Somente este mês' },
@@ -339,7 +339,7 @@ export default function OverviewTab({
                                                 <button
                                                     key={opt.id}
                                                     onClick={() => handleIncomesPeriodChange(opt.id)}
-                                                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                                                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                                                         incomesPeriod === opt.id 
                                                             ? 'bg-emerald-500/10 text-emerald-500' 
                                                             : (theme === 'light' ? 'text-slate-600 hover:bg-slate-50' : 'text-slate-300 hover:bg-white/5')
@@ -357,7 +357,7 @@ export default function OverviewTab({
                                     <div key={t.id} className="flex items-center justify-between">
                                         <div className="flex items-center gap-3 overflow-hidden">
                                             <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${theme === 'light' ? 'bg-slate-100' : 'bg-white/10'}`}>
-                                                <span className={`text-xs font-black ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
+                                                <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
                                                     {t.description ? t.description.charAt(0).toUpperCase() : 'R'}
                                                 </span>
                                             </div>
@@ -381,7 +381,7 @@ export default function OverviewTab({
                             </div>
                         </div>
                         <div className="mt-4 pt-4 border-t border-slate-500/10 text-right">
-                            <span className={`text-xs font-semibold ${subTextColor}`}>
+                            <span className={`text-xs font-medium ${subTextColor}`}>
                                 Total Recebido {incomesPeriodLabel}: <span className={textColor}>{formatCurrency(totalIncomesFiltered)}</span>
                             </span>
                         </div>
