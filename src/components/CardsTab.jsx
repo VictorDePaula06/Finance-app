@@ -14,7 +14,8 @@ import {
   Hash,
   ShoppingBag,
   Eye,
-  X
+  X,
+  Repeat
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -643,77 +644,102 @@ const CardsTab = ({ transactions = [] }) => {
 
       {/* MODAL: ADD CARD */}
       {isAddingCard && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <form onSubmit={handleAddCard} className={`border rounded-[2.5rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
-            theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/5 shadow-2xl shadow-emerald-500/10'
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
+          <form onSubmit={handleAddCard} className={`border rounded-[2.5rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 shadow-2xl ${
+            theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-white/5 shadow-emerald-500/10'
           }`}>
-            <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                {editingCardId ? 'Editar Cartão' : 'Novo Cartão'}
-            </h3>
-            <div className="space-y-4">
-              <input
-                type="text"
-                placeholder="Nome do Cartão (ex: Nubank, Inter)"
-                required
-                value={newCard.name}
-                onChange={(e) => setNewCard({...newCard, name: e.target.value})}
-                className={`w-full p-4 rounded-2xl border transition-all ${
-                  theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
-                }`}
-              />
-              <div className="grid grid-cols-2 gap-4">
+            <div className="text-center space-y-2 mb-6">
+              <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
+                <CreditCard className="w-8 h-8 text-emerald-500" />
+              </div>
+              <h3 className={`text-xl font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                  {editingCardId ? 'Editar Cartão' : 'Novo Cartão'}
+              </h3>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                Cadastre seus cartões de crédito
+              </p>
+            </div>
+
+            <div className="space-y-5">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Nome do Cartão</label>
                 <input
                   type="text"
-                  placeholder="Últimos 4 dígitos"
-                  maxLength={4}
-                  value={newCard.last4}
-                  onChange={(e) => setNewCard({...newCard, last4: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border transition-all ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
-                  }`}
-                />
-                <input
-                  type="number"
-                  placeholder="Dia de Vencimento"
-                  min={1}
-                  max={31}
-                  value={newCard.dueDay}
-                  onChange={(e) => setNewCard({...newCard, dueDay: parseInt(e.target.value)})}
-                  className={`w-full p-4 rounded-2xl border transition-all ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+                  placeholder="ex: Nubank, Inter"
+                  required
+                  value={newCard.name}
+                  onChange={(e) => setNewCard({...newCard, name: e.target.value})}
+                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white placeholder-slate-500'
                   }`}
                 />
               </div>
-              <select
-                value={newCard.brand}
-                onChange={(e) => setNewCard({...newCard, brand: e.target.value})}
-                className={`w-full p-4 rounded-2xl border transition-all ${
-                  theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
-                }`}
-              >
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Final (4 Dígitos)</label>
+                  <input
+                    type="text"
+                    placeholder="ex: 1234"
+                    maxLength={4}
+                    value={newCard.last4}
+                    onChange={(e) => setNewCard({...newCard, last4: e.target.value})}
+                    className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
+                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white placeholder-slate-500'
+                    }`}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Vencimento (Dia)</label>
+                  <input
+                    type="number"
+                    placeholder="1-31"
+                    min={1}
+                    max={31}
+                    value={newCard.dueDay}
+                    onChange={(e) => setNewCard({...newCard, dueDay: parseInt(e.target.value)})}
+                    className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
+                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white placeholder-slate-500'
+                    }`}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Bandeira</label>
+                <select
+                  value={newCard.brand}
+                  onChange={(e) => setNewCard({...newCard, brand: e.target.value})}
+                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold appearance-none outline-none ${
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white'
+                  }`}
+                >
                   <option value="Visa" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Visa</option>
                   <option value="Mastercard" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Mastercard</option>
                   <option value="Elo" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Elo</option>
                   <option value="Amex" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Amex</option>
                 </select>
               </div>
-              <div className="grid grid-cols-5 gap-2">
-                {['bg-blue-600', 'bg-purple-600', 'bg-emerald-600', 'bg-rose-600', 'bg-slate-800'].map(color => (
-                  <button 
-                    key={color}
-                    type="button"
-                    onClick={() => setNewCard({...newCard, color})}
-                    className={`w-full aspect-square rounded-xl transition-all ${color} ${newCard.color === color ? 'ring-4 ring-white/50 scale-110' : ''}`}
-                  />
-                ))}
+              
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Cor de Identificação</label>
+                <div className="grid grid-cols-5 gap-2">
+                  {['bg-blue-600', 'bg-purple-600', 'bg-emerald-600', 'bg-rose-600', 'bg-slate-800'].map(color => (
+                    <button 
+                      key={color}
+                      type="button"
+                      onClick={() => setNewCard({...newCard, color})}
+                      className={`w-full aspect-square rounded-xl transition-all ${color} ${newCard.color === color ? 'ring-4 ring-white/50 scale-110' : ''}`}
+                    />
+                  ))}
+                </div>
               </div>
-            <div className="flex gap-3 pt-2">
+            </div>
+            <div className="flex gap-3 pt-4">
               <button type="button" onClick={() => {
                   setIsAddingCard(false);
                   setEditingCardId(null);
                   setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10 });
-              }} className={`flex-1 py-4 rounded-2xl font-bold text-xs ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>Cancelar</button>
-              <button type="submit" onClick={editingCardId ? handleUpdateCard : handleAddCard} className="flex-1 py-4 rounded-2xl font-bold text-xs bg-emerald-500 text-white shadow-lg shadow-emerald-500/20">
+              }} className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-colors ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>Cancelar</button>
+              <button type="submit" onClick={editingCardId ? handleUpdateCard : handleAddCard} className="flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest bg-emerald-500 hover:bg-emerald-600 transition-colors text-white shadow-lg shadow-emerald-500/20">
                   {editingCardId ? 'Salvar Alterações' : 'Salvar Cartão'}
               </button>
             </div>
@@ -723,64 +749,85 @@ const CardsTab = ({ transactions = [] }) => {
 
       {/* MODAL: ADD SUB */}
       {isAddingSub && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <form onSubmit={handleAddSub} className={`border rounded-[2.5rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
-            theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/5 shadow-2xl shadow-purple-500/10'
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
+          <form onSubmit={handleAddSub} className={`border rounded-[2.5rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 shadow-2xl ${
+            theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-white/5 shadow-purple-500/10'
           }`}>
-            <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Nova Assinatura</h3>
-            <div className="space-y-4">
-              <input
-                type="text"
-                placeholder="Serviço (ex: Netflix)"
-                required
-                value={newSub.name}
-                onChange={(e) => setNewSub({...newSub, name: e.target.value})}
-                className={`w-full p-4 rounded-2xl border transition-all ${
-                  theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
-                }`}
-              />
-              <div className="grid grid-cols-2 gap-4">
+            <div className="text-center space-y-2 mb-6">
+              <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/20">
+                <Plus className="w-8 h-8 text-purple-500" />
+              </div>
+              <h3 className={`text-xl font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                  Nova Assinatura
+              </h3>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                Cadastre um novo serviço ou parcelamento
+              </p>
+            </div>
+
+            <div className="space-y-5">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Nome do Serviço</label>
                 <input
-                  type="number"
-                  placeholder="Valor R$"
+                  type="text"
+                  placeholder="ex: Netflix, Academia"
                   required
-                  value={newSub.value}
-                  onChange={(e) => setNewSub({...newSub, value: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border transition-all ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
-                  }`}
-                />
-                <input
-                  type="number"
-                  placeholder="Vencimento"
-                  min={1} max={31}
-                  required
-                  value={newSub.day}
-                  onChange={(e) => setNewSub({...newSub, day: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border transition-all ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+                  value={newSub.name}
+                  onChange={(e) => setNewSub({...newSub, name: e.target.value})}
+                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
                   }`}
                 />
               </div>
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Vincular Cartão</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Valor</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="R$ 0,00"
+                    required
+                    value={newSub.value}
+                    onChange={(e) => setNewSub({...newSub, value: e.target.value})}
+                    className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
+                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
+                    }`}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Dia Vencimento</label>
+                  <input
+                    type="number"
+                    placeholder="1-31"
+                    min={1} max={31}
+                    required
+                    value={newSub.day}
+                    onChange={(e) => setNewSub({...newSub, day: e.target.value})}
+                    className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
+                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
+                    }`}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Vincular Cartão</label>
                 <select
                   value={newSub.cardId}
                   onChange={(e) => setNewSub({...newSub, cardId: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border transition-all ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold appearance-none outline-none ${
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white'
                   }`}
                 >
-                  <option value="" className="bg-slate-800 text-white">Sem cartão (Avulsa)</option>
+                  <option value="" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Sem cartão (Avulsa)</option>
                   {cards.map(c => (
-                    <option key={c.id} value={c.id} className="bg-slate-800 text-white">{c.name} (•• {c.last4})</option>
+                    <option key={c.id} value={c.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{c.name} (•• {c.last4})</option>
                   ))}
                 </select>
               </div>
             </div>
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={() => setIsAddingSub(false)} className={`flex-1 py-4 rounded-2xl font-bold text-xs ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>Cancelar</button>
-              <button type="submit" className="flex-1 py-4 rounded-2xl font-bold text-xs bg-purple-500 text-white shadow-lg shadow-purple-500/20">Salvar</button>
+            <div className="flex gap-3 pt-4">
+              <button type="button" onClick={() => setIsAddingSub(false)} className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-colors ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>Cancelar</button>
+              <button type="submit" className="flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest bg-purple-500 hover:bg-purple-600 transition-colors text-white shadow-lg shadow-purple-500/20">Salvar Conta</button>
             </div>
           </form>
         </div>
@@ -1139,63 +1186,86 @@ const CardsTab = ({ transactions = [] }) => {
 
       {/* MODAL: EDIT SUB */}
       {editingSub && (
-        <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <form onSubmit={handleUpdateSub} className={`border rounded-[2.5rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
-            theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/5 shadow-2xl shadow-purple-500/10'
+        <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
+          <form onSubmit={handleUpdateSub} className={`border rounded-[2.5rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 shadow-2xl ${
+            theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-white/5 shadow-purple-500/10'
           }`}>
-            <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Editar Assinatura</h3>
-            <div className="space-y-4">
-              <input
-                type="text"
-                placeholder="Nome da assinatura"
-                required
-                value={editingSub.name}
-                onChange={(e) => setEditingSub({...editingSub, name: e.target.value})}
-                className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
-                  theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
-                }`}
-              />
-              <div className="grid grid-cols-2 gap-4">
+            <div className="text-center space-y-2 mb-6">
+              <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/20">
+                <Repeat className="w-8 h-8 text-purple-500" />
+              </div>
+              <h3 className={`text-xl font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                  Editar Assinatura
+              </h3>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                Ajuste os dados da cobrança recorrente
+              </p>
+            </div>
+
+            <div className="space-y-5">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Nome da Assinatura</label>
                 <input
-                  type="number"
-                  step="0.01"
-                  placeholder="Valor R$"
+                  type="text"
+                  placeholder="ex: Netflix, Spotify"
                   required
-                  value={editingSub.value}
-                  onChange={(e) => setEditingSub({...editingSub, value: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
-                  }`}
-                />
-                <input
-                  type="number"
-                  placeholder="Dia Venc."
-                  min="1"
-                  max="31"
-                  required
-                  value={editingSub.day}
-                  onChange={(e) => setEditingSub({...editingSub, day: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+                  value={editingSub.name}
+                  onChange={(e) => setEditingSub({...editingSub, name: e.target.value})}
+                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
                   }`}
                 />
               </div>
-              <select
-                required
-                value={editingSub.category || 'other'}
-                onChange={(e) => setEditingSub({...editingSub, category: e.target.value})}
-                className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all outline-none appearance-none cursor-pointer ${
-                  theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 text-slate-800' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
-                }`}
-              >
-                  {CATEGORIES.expense.map(cat => (
-                      <option key={cat.id} value={cat.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{cat.label}</option>
-                  ))}
-              </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Valor</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="R$ 0,00"
+                    required
+                    value={editingSub.value}
+                    onChange={(e) => setEditingSub({...editingSub, value: e.target.value})}
+                    className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
+                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
+                    }`}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Dia Vencimento</label>
+                  <input
+                    type="number"
+                    placeholder="1-31"
+                    min="1"
+                    max="31"
+                    required
+                    value={editingSub.day}
+                    onChange={(e) => setEditingSub({...editingSub, day: e.target.value})}
+                    className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
+                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
+                    }`}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Categoria</label>
+                <select
+                  required
+                  value={editingSub.category || 'other'}
+                  onChange={(e) => setEditingSub({...editingSub, category: e.target.value})}
+                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold appearance-none outline-none ${
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white'
+                  }`}
+                >
+                    {CATEGORIES.expense.map(cat => (
+                        <option key={cat.id} value={cat.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{cat.label}</option>
+                    ))}
+                </select>
+              </div>
             </div>
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={() => setEditingSub(null)} className={`flex-1 py-4 rounded-2xl font-bold text-xs ${theme === 'light' ? 'bg-slate-100 text-slate-500' : 'bg-white/5 text-slate-400'}`}>Cancelar</button>
-              <button type="submit" className="flex-1 py-4 rounded-2xl font-bold text-xs bg-purple-500 text-white shadow-lg shadow-purple-500/20">Salvar Alterações</button>
+            <div className="flex gap-3 pt-4">
+              <button type="button" onClick={() => setEditingSub(null)} className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-colors ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>Cancelar</button>
+              <button type="submit" className="flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest bg-purple-500 hover:bg-purple-600 transition-colors text-white shadow-lg shadow-purple-500/20">Salvar Alterações</button>
             </div>
           </form>
         </div>

@@ -44,6 +44,7 @@ import AliviaConfigForm from './components/AliviaConfigForm';
 import OverviewTab from './components/OverviewTab';
 import TermsAcceptanceModal from './components/TermsAcceptanceModal';
 import CookieConsent from './components/CookieConsent';
+import FixedExpensesTab from './components/FixedExpensesTab';
 
 // CONFIGURAÇÃO MASTER
 const MASTER_EMAIL = 'financealivia@gmail.com';
@@ -620,6 +621,12 @@ function Dashboard() {
                 hideBalance={hideBalance}
                 toggleHideBalance={toggleHideBalance}
               />
+            </div>
+          )}
+
+          {activeTab === 'fixas' && (
+            <div className="space-y-10">
+              <FixedExpensesTab transactions={transactions} />
             </div>
           )}
 

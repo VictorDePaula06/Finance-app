@@ -16,7 +16,8 @@ import {
   ShieldCheck,
   TrendingDown,
   ArrowUpCircle,
-  BarChart3
+  BarChart3,
+  Home
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -33,6 +34,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
     { id: 'entradas', label: 'Recebimentos', icon: ArrowUpCircle, module: 'gastos' },
     { id: 'gastos', label: 'Lançamentos', icon: TrendingDown, module: 'gastos' },
     { id: 'analise', label: 'Análise de Gastos', icon: TrendingUp, module: 'gastos' },
+    { id: 'fixas', label: 'Contas Fixas', icon: Home, module: 'gastos' },
     { id: 'cartoes', label: 'Cartões', icon: CreditCard, module: 'gastos' },
     
     // Patrimônio Module

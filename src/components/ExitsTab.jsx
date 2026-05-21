@@ -72,6 +72,8 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     // Priority
     const [priority, setPriority] = useState('comfort');
     const [showCreditCard, setShowCreditCard] = useState(false);
+    const [selectedCardFilter, setSelectedCardFilter] = useState('all');
+    const [hidePaidInvoices, setHidePaidInvoices] = useState(false);
 
     const PRIORITY_OPTIONS = [
         { id: 'essential', label: 'Essencial', icon: Shield, color: 'emerald', description: 'Necessidade básica' },
@@ -112,14 +114,62 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
     // Filtered Transactions (Only Expenses/Exits)
     const exits = useMemo(() => {
-        return transactions
+        let baseTxs = [...transactions];
+        
+        // Inject subscriptions to match AnalysisTab behavior
+        const [selYear, selMonthNum] = selectedMonth.split('-').map(Number);
+        const selTotalMonths = selYear * 12 + selMonthNum;
+
+        subscriptions.forEach(s => {
+            let createdDate = s.createdAt ? new Date(s.createdAt) : new Date(2023, 0, 1);
+            if (isNaN(createdDate.getTime())) createdDate = new Date(2023, 0, 1);
+
+            const createdTotalMonths = createdDate.getFullYear() * 12 + (createdDate.getMonth() + 1);
+            const monthsPassed = selTotalMonths - createdTotalMonths;
+
+            if (monthsPassed < 0) return; // Future
+
+            if (s.type === 'installment') {
+                if (monthsPassed >= (s.totalInstallments || 1)) return; // Finished
+            }
+
+            const dayStr = String(createdDate.getDate()).padStart(2, '0');
+
+            baseTxs.push({
+                id: s.id + '-' + selectedMonth,
+                description: s.type === 'installment' ? `${s.name || s.service} (${monthsPassed + 1}/${s.totalInstallments})` : (s.name || s.service),
+                amount: s.value,
+                type: 'expense',
+                category: s.category || (s.type === 'installment' ? 'other' : 'subscriptions'),
+                date: `${selectedMonth}-${dayStr}T12:00:00Z`,
+                month: selectedMonth,
+                paymentMethod: s.cardId ? 'credito' : 'pix',
+                invoiceStatus: 'unpaid',
+                priority: 'superfluuo',
+                isSubscription: true,
+                cardId: s.cardId
+            });
+        });
+
+        return baseTxs
             .filter(t => t.type === 'expense' && (showCreditCard ? t.paymentMethod === 'credito' : t.paymentMethod !== 'credito'))
+            .filter(t => {
+                if (showCreditCard && selectedCardFilter !== 'all') {
+                    // Subscriptions use cardId, regular transactions use selectedCardId
+                    const txCardId = t.isSubscription ? t.cardId : t.selectedCardId;
+                    if (txCardId !== selectedCardFilter) return false;
+                }
+                if (showCreditCard && hidePaidInvoices && t.paymentMethod === 'credito') {
+                    return t.invoiceStatus !== 'paid';
+                }
+                return true;
+            })
             .sort((a, b) => {
                 const dateDiff = new Date(b.date) - new Date(a.date);
                 if (dateDiff !== 0) return dateDiff;
                 return (b.createdAt || 0) - (a.createdAt || 0);
             });
-    }, [transactions, showCreditCard]);
+    }, [transactions, subscriptions, showCreditCard, selectedCardFilter, hidePaidInvoices, selectedMonth]);
 
     // Calcular saldo total para o aviso
     const availableBalance = useMemo(() => {
@@ -537,22 +587,10 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     };
 
     const totalExpensesMonthVal = useMemo(() => {
-        const monthExitsFiltered = transactions.filter(t => {
-            const isExpense = t.type === 'expense';
-            const isNotInvestment = t.category !== 'investment';
-            const txMonth = t.month || (t.date ? t.date.slice(0, 7) : '');
-            const matchesMonth = txMonth === selectedMonth;
-            return isExpense && isNotInvestment && matchesMonth;
-        });
-
-        if (showCreditCard) {
-            return monthExitsFiltered.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-        } else {
-            return monthExitsFiltered
-                .filter(t => t.paymentMethod !== 'credito')
-                .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-        }
-    }, [transactions, selectedMonth, showCreditCard]);
+        return monthExits
+            .filter(t => t.category !== 'investment' && t.category !== 'credit_card_bill')
+            .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    }, [monthExits]);
 
     const totalIncomeMonthVal = useMemo(() => {
         return transactions.filter(t => {
@@ -700,6 +738,48 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                         Exibir Cartão
                                     </span>
                                 </label>
+                                
+                                {showCreditCard && cards.length > 0 && (
+                                    <select
+                                        value={selectedCardFilter}
+                                        onChange={(e) => setSelectedCardFilter(e.target.value)}
+                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border outline-none appearance-none cursor-pointer ${
+                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-slate-800 border-slate-700/50 text-white'
+                                        }`}
+                                    >
+                                        <option value="all">Todos os Cartões</option>
+                                        {cards.map(c => (
+                                            <option key={c.id} value={c.id}>{c.name || c.brand} {c.last4}</option>
+                                        ))}
+                                    </select>
+                                )}
+
+                                {showCreditCard && (
+                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                        <input 
+                                            type="checkbox"
+                                            checked={hidePaidInvoices}
+                                            onChange={(e) => setHidePaidInvoices(e.target.checked)}
+                                            className="sr-only peer"
+                                        />
+                                        <div className={`w-8 h-4 rounded-full relative transition-all duration-300 ${
+                                            hidePaidInvoices 
+                                            ? 'bg-emerald-500' 
+                                            : (theme === 'light' ? 'bg-slate-200' : 'bg-slate-700')
+                                        }`}>
+                                            <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-all duration-300 ${
+                                                hidePaidInvoices ? 'translate-x-4' : ''
+                                            }`} />
+                                        </div>
+                                        <span className={`text-[10px] font-black uppercase tracking-widest ${
+                                            hidePaidInvoices 
+                                            ? 'text-emerald-500' 
+                                            : (theme === 'light' ? 'text-slate-500' : 'text-slate-400')
+                                        }`}>
+                                            Fatura Atual
+                                        </span>
+                                    </label>
+                                )}
 
                                 <button
                                     onClick={() => {
@@ -831,8 +911,12 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                         <span className={`text-[13px] font-medium text-rose-400 ${t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' ? 'opacity-70' : ''}`}>
                                                             - {formatCurrency(parseFloat(t.amount))}
                                                         </span>
-                                                        {t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' && (
-                                                            <span className="text-[9px] font-black text-slate-500 uppercase mt-0.5">Fatura Aberta</span>
+                                                        {t.paymentMethod === 'credito' && (
+                                                            t.invoiceStatus === 'paid' ? (
+                                                                <span className="text-[9px] font-black text-emerald-500 uppercase mt-0.5 bg-emerald-500/10 px-1.5 py-0.5 rounded-sm">Fatura Paga</span>
+                                                            ) : (
+                                                                <span className="text-[9px] font-black text-slate-500 uppercase mt-0.5">Fatura Aberta</span>
+                                                            )
                                                         )}
                                                     </div>
                                                     {/* Actions visible on hover */}
@@ -848,10 +932,10 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                             </div>
 
                             {/* Total Footer */}
-                            <div className={`mt-6 p-4 rounded-lg flex justify-end ${theme === 'light' ? 'bg-slate-100' : 'bg-slate-700/30'}`}>
-                                <div className={`text-xs uppercase tracking-wider ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
-                                    Total Lançado (Mês): <span className={`font-bold text-sm ml-1 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{formatCurrency(totalExpensesMonthVal)}</span>
-                                </div>
+                            <div className={`mt-2 py-4 border-t flex justify-end items-center ${theme === 'light' ? 'border-slate-200' : 'border-slate-700/50'}`}>
+                                <span className={`text-[10px] uppercase font-black tracking-widest ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                                    Total Listado: <span className={`font-bold text-sm ml-1 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{formatCurrency(regularExpenses.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0))}</span>
+                                </span>
                             </div>
                         </div>
                     </div>
