@@ -159,7 +159,7 @@ export default function OverviewTab({
                 {/* Ativos e Saldos */}
                 <div>
                     <h3 className={`text-base font-medium uppercase tracking-wider mb-4 ${textColor}`}>Ativos e Saldos</h3>
-                    <div className={`p-6 rounded-2xl border flex items-center justify-between h-40 ${cardBg}`}>
+                    <div className={`p-6 rounded-2xl flex items-center justify-between h-40 ${cardBg}`}>
                         <div>
                             <div className="flex items-center gap-2 mb-2">
                                 <span className={`text-sm font-medium ${subTextColor}`}>Saldo Total em Carteira</span>
@@ -192,7 +192,7 @@ export default function OverviewTab({
                     <h3 className={`text-base font-medium uppercase tracking-wider mb-4 ${textColor}`}>Lançamentos e Reservas</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Total Lançado */}
-                        <div className={`p-6 rounded-xl border flex flex-col justify-center ${cardBg}`}>
+                        <div className={`p-6 rounded-xl flex flex-col justify-center ${cardBg}`}>
                             <span className={`text-sm font-medium mb-2 ${subTextColor}`}>Total Lançado (Mês)</span>
                             <div className={`text-2xl font-bold mb-1 ${hideBalance ? 'blur-md select-none' : textColor}`}>
                                 {hideBalance ? 'R$ 0.000,00' : formatCurrency(walletStats.expense)}
@@ -201,7 +201,7 @@ export default function OverviewTab({
                         </div>
                         
                         {/* Reservas */}
-                        <div className={`p-6 rounded-xl border flex flex-col justify-center relative group/reservas ${cardBg}`}>
+                        <div className={`p-6 rounded-xl flex flex-col justify-center relative group/reservas ${cardBg}`}>
                             <div className="flex items-center justify-between">
                                 <div className="w-16 h-16 relative">
                                     <ResponsiveContainer width="100%" height="100%">
@@ -270,7 +270,7 @@ export default function OverviewTab({
                             <option value="30d">Últimos 30 dias</option>
                         </select>
                     </div>
-                    <div className={`p-6 rounded-2xl border flex flex-col ${cardBg}`} style={{ height: '340px' }}>
+                    <div className={`p-6 rounded-2xl flex flex-col ${cardBg}`} style={{ height: '340px' }}>
                         <div className="flex items-center justify-center gap-6 mb-4">
                             <div className="flex items-center gap-2">
                                 <div className="w-8 h-2 bg-emerald-500 rounded-full"></div>
@@ -317,7 +317,7 @@ export default function OverviewTab({
                 {/* Últimos Recebimentos */}
                 <div className="xl:col-span-1">
                     <h3 className={`text-base font-medium uppercase tracking-wider mb-4 ${textColor}`}>Últimos Recebimentos</h3>
-                    <div className={`p-6 rounded-2xl border flex flex-col justify-between ${cardBg}`} style={{ height: '340px' }}>
+                    <div className={`p-6 rounded-2xl flex flex-col justify-between ${cardBg}`} style={{ height: '340px' }}>
                         <div>
                             <div className="flex items-center justify-between mb-6 relative">
                                 <span className={`text-sm font-medium ${textColor}`}>Atividade de Recebimentos</span>
