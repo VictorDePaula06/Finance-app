@@ -1036,7 +1036,7 @@ export default function InvestmentsTab() {
             {/* Modal: Adicionar/Editar Ativo */}
             {isAdding && (
                 <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-                    <div className={`w-full max-w-md max-h-[90vh] overflow-y-auto rounded-[3rem] p-8 md:p-10 border animate-in zoom-in-95 duration-300 ${
+                    <div className={`w-full max-w-lg max-h-[90vh] overflow-y-auto scrollbar-hide rounded-[3rem] p-8 md:p-12 border relative animate-in zoom-in-95 duration-300 ${
                         theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
                     }`}>
                         <h3 className={`text-2xl font-black mb-1 text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
