@@ -179,192 +179,162 @@ export default function EmergencyReserveTab() {
 
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            {/* Header Area */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h2 className={`text-3xl font-black tracking-tight flex items-center gap-3 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                        <ShieldCheck className="w-8 h-8 text-emerald-500" /> Reserva para Emergências
-                    </h2>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1 ml-11">
-                        Sua segurança financeira em primeiro lugar
-                    </p>
+                    <h2 className={`text-2xl md:text-3xl font-black tracking-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Reserva para Emergências</h2>
+                    <p className="text-[11px] font-medium text-slate-500 mt-0.5">Sua segurança financeira em primeiro lugar</p>
                 </div>
-                <button 
-                    onClick={() => {
-                        setIsEditing(null);
-                        setFormData({ type: 'tesouro', name: '', balance: '', cdiPercent: '100' });
-                        setIsAdding(true);
-                    }}
-                    className="px-6 py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3 transition-all active:scale-95"
-                >
-                    <Plus className="w-5 h-5" /> Adicionar Fundos
-                </button>
+                <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-medium text-slate-500">Atualizado recentemente</span>
+                </div>
             </div>
 
-            {/* Stats */}
-            <div className={`p-6 md:p-8 rounded-[2rem] border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`}>
-                <h3 className={`text-sm font-black mb-6 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Resumo da Reserva</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 divide-y md:divide-y-0 md:divide-x divide-slate-200 dark:divide-white/5">
-                    
-                    {/* Total Consolidado */}
-                    <div className="pt-4 md:pt-0">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Total Consolidado</p>
-                        <p className={`text-3xl font-black ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-500'}`}>
-                            R$ {totalReserve.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
+            {/* Top Pill Dashboard */}
+            <div className={`flex flex-wrap items-center gap-6 md:gap-12 p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#151822] border-white/5 text-white'}`}>
+                <div className="flex flex-col">
+                    <span className="text-[11px] font-medium text-slate-400 mb-1">Total Consolidado:</span>
+                    <span className="text-xl font-black text-emerald-400">
+                        R$ {totalReserve.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[11px] font-medium text-slate-400 mb-1 flex items-center gap-1">Rendimento Diário <TrendingUp className="w-3 h-3" /></span>
+                    <span className="text-xl font-black text-emerald-400">
+                        +R$ {totalDailyYield.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                </div>
+                
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                     <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-medium text-slate-400">Status da Meta ({reserveGoal ? 'R$ ' + reserveGoal.toLocaleString('pt-BR') : 'Não definida'})</span>
+                        <button onClick={() => { setGoalInput(reserveGoal ? reserveGoal.toString() : ''); setIsSettingGoal(true); }} className="text-slate-500 hover:text-emerald-400 transition-colors">
+                            <Edit2 className="w-3 h-3" />
+                        </button>
                     </div>
-
-                    {/* Desempenho da Reserva */}
-                    <div className="pt-4 md:pt-0 md:pl-8">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
-                            Desempenho da Reserva <TrendingUp className="w-3 h-3" />
-                        </p>
-                        <p className="text-xl font-black text-emerald-500">
-                            + R$ {totalDailyYield.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-bold opacity-70">/dia útil</span>
-                        </p>
-                        {totalDailyYield > 0 && <p className="text-xs font-bold text-slate-500 mt-1">Acumulação mensal ~R$ {(totalDailyYield * 21).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>}
-                    </div>
-
-                    {/* Status da Meta */}
-                    <div className="pt-4 md:pt-0 md:pl-8 flex flex-col justify-center">
-                        <div className="flex items-center justify-between mb-2">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Status da Meta</p>
-                            <button onClick={() => { setGoalInput(reserveGoal ? reserveGoal.toString() : ''); setIsSettingGoal(true); }} className="text-slate-400 hover:text-emerald-500 transition-colors">
-                                <Edit2 className="w-3 h-3" />
-                            </button>
+                    {reserveGoal ? (
+                        <div className="w-full h-1.5 rounded-full bg-white/10 relative overflow-hidden mt-1">
+                            <div className="absolute left-0 top-0 h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${Math.min((totalReserve / reserveGoal) * 100, 100)}%` }}></div>
                         </div>
-                        {reserveGoal ? (
-                            <>
-                                <div className={`h-2 rounded-full overflow-hidden my-3 ${theme === 'light' ? 'bg-slate-100' : 'bg-white/5'} relative`}>
-                                    <div 
-                                        className="h-full rounded-full transition-all duration-1000 bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.3)] relative" 
-                                        style={{ width: `${Math.min((totalReserve / reserveGoal) * 100, 100)}%` }} 
-                                    >
-                                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full border-[3px] border-emerald-500 shadow-md transform translate-x-1/2" />
-                                    </div>
-                                </div>
-                                <p className="text-xs font-bold text-slate-400">
-                                    <span className={theme === 'light' ? 'text-slate-800 font-black' : 'text-white font-black'}>
-                                        {Math.min((totalReserve / reserveGoal) * 100, 100).toFixed(0)}% da Meta
-                                    </span> (Meta de R$ {reserveGoal.toLocaleString('pt-BR', { minimumFractionDigits: 0 })})
-                                </p>
-                            </>
-                        ) : (
-                            <button 
-                                onClick={() => setIsSettingGoal(true)}
-                                className={`w-full py-3 mt-1 rounded-xl border border-dashed font-bold text-xs transition-colors ${
-                                    theme === 'light' ? 'border-slate-300 text-slate-500 hover:bg-slate-50' : 'border-white/10 text-slate-400 hover:bg-white/5'
-                                }`}
-                            >
-                                Configurar Meta
-                            </button>
-                        )}
-                    </div>
+                    ) : (
+                        <button onClick={() => setIsSettingGoal(true)} className="text-[10px] font-bold text-emerald-500 mt-1 uppercase tracking-widest hover:underline">Configurar Meta</button>
+                    )}
+                </div>
+
+                <div className="ml-auto flex items-center gap-3">
+                    <button 
+                        onClick={() => {
+                            setIsEditing(null);
+                            setFormData({ type: 'tesouro', name: '', balance: '', cdiPercent: '100' });
+                            setIsAdding(true);
+                        }}
+                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
+                    >
+                        <Plus className="w-3.5 h-3.5" /> Adicionar
+                    </button>
                 </div>
             </div>
 
             {/* List */}
-            {reserves.length === 0 ? (
-                <div className={`p-16 rounded-[3rem] border border-dashed text-center space-y-4 ${theme === 'light' ? 'border-slate-200' : 'border-white/5'}`}>
-                    <div className="w-20 h-20 bg-emerald-500/10 rounded-3xl flex items-center justify-center mx-auto">
-                        <ShieldCheck className="w-10 h-10 text-emerald-500" />
-                    </div>
-                    <p className="text-sm font-bold text-slate-500">Nenhuma reserva cadastrada.</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {reserves.map(reserve => {
-                        const typeConfig = RESERVE_TYPES[reserve.type] || RESERVE_TYPES.cofrinho;
-                        const cdiAnual = cdiRate / 100;
-                        const percent = (reserve.cdiPercent || 100) / 100;
-                        const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
-                        
-                        // Cálculo do Saldo Dinâmico (Saldo Base + Rendimento Acumulado)
-                        const lastUpdate = reserve.updatedAt ? new Date(reserve.updatedAt) : (reserve.createdAt ? new Date(reserve.createdAt) : new Date());
-                        const now = new Date();
-                        const diffTime = Math.max(0, now - lastUpdate);
-                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
-                        
-                        // Juros compostos simples para o período
-                        const dynamicBalance = reserve.balance * Math.pow(1 + dailyRate, diffDays);
-                        const dailyYield = reserve.balance * dailyRate;
+            <div className="pt-4">
+                <div className="space-y-3">
+                    {reserves.length === 0 ? (
+                        <div className="text-center py-10">
+                            <p className="text-slate-500 text-xs font-bold">Nenhuma reserva cadastrada.</p>
+                        </div>
+                    ) : (
+                        reserves.map(reserve => {
+                            const typeConfig = RESERVE_TYPES[reserve.type] || RESERVE_TYPES.cofrinho;
+                            const cdiAnual = cdiRate / 100;
+                            const percent = (reserve.cdiPercent || 100) / 100;
+                            const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
+                            
+                            const lastUpdate = reserve.updatedAt ? new Date(reserve.updatedAt) : (reserve.createdAt ? new Date(reserve.createdAt) : new Date());
+                            const now = new Date();
+                            const diffTime = Math.max(0, now - lastUpdate);
+                            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                            
+                            const dynamicBalance = reserve.balance * Math.pow(1 + dailyRate, diffDays);
+                            const dailyYield = reserve.balance * dailyRate;
 
-                        return (
-                            <div key={reserve.id} className={`p-8 rounded-[2.5rem] border transition-all hover:shadow-2xl ${
-                                theme === 'light' ? 'bg-white border-slate-100 hover:border-emerald-200 shadow-sm' : 'bg-slate-900 border-white/5 hover:bg-white/10'
-                            }`}>
-                                <div className="flex justify-between items-start mb-6">
-                                    <div className={`p-4 rounded-2xl ${typeConfig.bg} shadow-inner`}>
-                                        <typeConfig.icon className={`w-7 h-7 ${typeConfig.color}`} />
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button 
-                                            onClick={() => {
-                                                setFormData({
-                                                    type: reserve.type || 'cofrinho',
-                                                    name: reserve.name,
-                                                    balance: reserve.balance.toString(),
-                                                    cdiPercent: reserve.cdiPercent.toString()
-                                                });
-                                                setIsEditing(reserve.id);
-                                                setIsAdding(true);
-                                            }}
-                                            className="p-2 text-slate-400 hover:text-emerald-500 transition-colors"
-                                        >
-                                            <Edit2 className="w-4 h-4" />
-                                        </button>
-                                        <button 
-                                            onClick={() => setDeleteConfirm(reserve)}
-                                            className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div>
-                                    <h4 className={`text-sm font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                        {reserve.name}
-                                    </h4>
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase mt-1">
-                                        {typeConfig.label} • {reserve.cdiPercent}% do CDI
-                                    </p>
-                                </div>
-
-                                <div className="mt-6 pt-6 border-t border-white/5 flex justify-between items-end">
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Saldo Atualizado</p>
-                                        <p className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                            R$ {dynamicBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                        </p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500/70 mb-1">Proj. Dia</p>
-                                        <p className="text-sm font-black text-emerald-500">
-                                            +R$ {dailyYield.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Modal Delete */}
-                                {deleteConfirm?.id === reserve.id && (
-                                    <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300">
-                                        <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <Trash2 className="w-8 h-8 text-rose-500" />
+                            return (
+                                <div key={reserve.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-[#151822] border-white/5'}`}>
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${typeConfig.bg} overflow-hidden`}>
+                                            <typeConfig.icon className={`w-4 h-4 ${typeConfig.color}`} />
                                         </div>
-                                        <p className="text-white font-black text-lg mb-2">Excluir Reserva?</p>
-                                        <p className="text-white/50 text-[10px] mb-8 leading-relaxed">Esta ação removerá permanentemente o registro de <span className="text-white font-bold">{reserve.name}</span>.</p>
-                                        <div className="flex gap-3 w-full">
-                                            <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-4 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors">Cancelar</button>
-                                            <button onClick={() => handleDelete(reserve.id)} className="flex-1 py-4 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
+                                        <div className="flex flex-col">
+                                            <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{reserve.name}</span>
+                                            <span className="text-[10px] text-slate-500 font-medium">{typeConfig.label} • {reserve.cdiPercent}% do CDI</span>
                                         </div>
                                     </div>
-                                )}
-                            </div>
-                        );
-                    })}
+
+                                    <div className="flex items-center gap-10">
+                                        <div className="hidden md:flex flex-col items-end">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Saldo Atual</span>
+                                            <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-emerald-400'}`}>
+                                                R$ {dynamicBalance.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                            </span>
+                                        </div>
+                                        <div className="hidden md:flex flex-col items-end w-24">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Proj. Dia</span>
+                                            <span className="inline-flex items-center gap-0.5 text-xs font-black text-emerald-500">
+                                                <TrendingUp className="w-3 h-3" />
+                                                +R$ {dailyYield.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                                            </span>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-1.5 ml-2">
+                                            <button 
+                                                onClick={() => {
+                                                    setFormData({
+                                                        type: reserve.type || 'cofrinho',
+                                                        name: reserve.name,
+                                                        balance: reserve.balance.toString(),
+                                                        cdiPercent: reserve.cdiPercent.toString()
+                                                    });
+                                                    setIsEditing(reserve.id);
+                                                    setIsAdding(true);
+                                                }} 
+                                                className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-slate-100 text-slate-500 hover:bg-slate-200':'bg-white/5 text-slate-400 hover:bg-white/10'}`} 
+                                                title="Editar"
+                                            >
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button 
+                                                onClick={() => setDeleteConfirm(reserve)} 
+                                                className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-rose-50 text-rose-400 hover:bg-rose-100':'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20'}`} 
+                                                title="Excluir"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Modal Delete Interno para a Reserva atual */}
+                                    {deleteConfirm?.id === reserve.id && (
+                                        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
+                                            <div className={`w-full max-w-sm rounded-[2rem] p-8 border animate-in zoom-in-95 duration-300 ${
+                                                theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/10'
+                                            }`}>
+                                                <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                    <Trash2 className="w-8 h-8 text-rose-500" />
+                                                </div>
+                                                <p className={`font-black text-lg mb-2 text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir Reserva?</p>
+                                                <p className="text-slate-500 text-[10px] mb-8 text-center leading-relaxed">Esta ação removerá permanentemente <span className="font-bold">{reserve.name}</span>.</p>
+                                                <div className="flex gap-3 w-full">
+                                                    <button onClick={() => setDeleteConfirm(null)} className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-colors ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/10 text-white hover:bg-white/20'}`}>Cancelar</button>
+                                                    <button onClick={() => handleDelete(reserve.id)} className="flex-1 py-4 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
+                    )}
                 </div>
-            )}
+            </div>
 
             {/* Modal Setting Goal */}
             {isSettingGoal && (
