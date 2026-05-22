@@ -22,7 +22,8 @@ import {
     X,
     Check,
     ChevronDown,
-    ChevronUp
+    ChevronUp,
+    ArrowRight
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
