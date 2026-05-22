@@ -78,7 +78,7 @@ export default function GoalTracker() {
     const [goals, setGoals] = useState([]);
     const [jars, setJars] = useState([]);
     const [investments, setInvestments] = useState([]);
-    const [activeTab, setActiveTab] = useState('active');
+    const [isAdding, setIsAdding] = useState(false);
 
     // Form state (create)
     const [newTitle, setNewTitle] = useState('');
@@ -195,7 +195,7 @@ export default function GoalTracker() {
         await addDoc(collection(db, 'goals'), goalData);
         setNewTitle(''); setNewTarget(''); setNewDeadline('');
         setNewJarIds([]); setNewInvIds([]); setNewIsPatrimony(false);
-        setActiveTab('active');
+        setIsAdding(false);
     };
 
     const handleUpdateGoal = async (e) => {
@@ -249,7 +249,13 @@ export default function GoalTracker() {
         } catch (e) { console.error(e); }
     };
 
-    const filteredGoals = goals.filter(g => g.status === (activeTab === 'active' ? 'active' : 'completed'));
+    const sortedGoals = useMemo(() => {
+        return [...goals].sort((a, b) => {
+            if (a.status === 'active' && b.status === 'completed') return -1;
+            if (a.status === 'completed' && b.status === 'active') return 1;
+            return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        });
+    }, [goals]);
 
     const stats = useMemo(() => {
         const active = goals.filter(g => g.status === 'active');
@@ -278,151 +284,55 @@ export default function GoalTracker() {
                 </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className={`flex p-1.5 rounded-2xl border w-full md:w-auto ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'}`}>
-                    {[{ id: 'active', label: 'Em Andamento', icon: Target }, { id: 'history', label: 'Histórico', icon: History }, { id: 'new', label: 'Nova Meta', icon: Plus }].map(t => (
-                        <button key={t.id} onClick={() => setActiveTab(t.id)}
-                            className={`flex-1 md:flex-none px-3 md:px-6 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-tight md:tracking-widest transition-all flex items-center justify-center gap-1 md:gap-2 ${
-                                activeTab === t.id 
-                                    ? (theme === 'light' ? 'bg-emerald-500 text-white shadow-md' : 'bg-emerald-500 text-slate-900') 
-                                    : (theme === 'light' ? 'text-slate-500 hover:text-slate-800' : 'text-slate-400 hover:text-white')
-                            }`}>
-                            <t.icon className="w-3.5 h-3.5 md:w-4 md:h-4" />{t.label}
-                        </button>
-                    ))}
+            {/* Top Pill Dashboard */}
+            <div className={`flex flex-wrap items-center gap-6 md:gap-12 p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#151822] border-white/5 text-white'}`}>
+                <div className="flex flex-col">
+                    <span className="text-[11px] font-medium text-slate-400 mb-1 flex items-center gap-1">Total Planejado <Target className="w-3.5 h-3.5 text-slate-400" /></span>
+                    <span className="text-xl font-black">
+                        R$ {stats.totalTarget.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
                 </div>
-                {activeTab !== 'new' && (
-                    <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-500/5 border border-emerald-500/10">
-                        <Trophy className="w-4 h-4 text-emerald-500" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{goals.filter(g => g.status === 'active').length} Objetivos Ativos</span>
+                <div className="flex flex-col">
+                    <span className="text-[11px] font-medium text-slate-400 mb-1 flex items-center gap-1">Total Acumulado <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /></span>
+                    <span className="text-xl font-black text-emerald-400">
+                        R$ {stats.totalCurrent.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                </div>
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                    <span className="text-[11px] font-medium text-slate-400 mb-1 flex items-center gap-1">Progresso Geral <Activity className="w-3.5 h-3.5 text-blue-400" /></span>
+                    <div className="flex items-center gap-3">
+                        <span className="text-xl font-black text-blue-400">
+                            {stats.progress.toFixed(1)}%
+                        </span>
+                        <div className="flex-1 h-1.5 rounded-full bg-white/10 relative overflow-hidden mt-1">
+                            <div className="absolute left-0 top-0 h-full bg-blue-500 transition-all duration-1000" style={{ width: `${Math.min(stats.progress, 100)}%` }}></div>
+                        </div>
                     </div>
-                )}
+                </div>
+                <div className="ml-auto flex items-center gap-3">
+                    <button 
+                        onClick={() => {
+                            setIsAdding(true);
+                        }}
+                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
+                    >
+                        <Plus className="w-3.5 h-3.5" /> Adicionar
+                    </button>
+                </div>
             </div>
 
-            {/* Top Pill Dashboard */}
-            {activeTab === 'active' && filteredGoals.length > 0 && (
-                <div className={`flex flex-wrap items-center gap-6 md:gap-12 p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#151822] border-white/5 text-white'}`}>
-                    <div className="flex flex-col">
-                        <span className="text-[11px] font-medium text-slate-400 mb-1 flex items-center gap-1">Total Planejado <Target className="w-3 h-3 text-slate-400" /></span>
-                        <span className="text-xl font-black">
-                            R$ {stats.totalTarget.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-[11px] font-medium text-slate-400 mb-1 flex items-center gap-1">Total Acumulado <TrendingUp className="w-3 h-3 text-emerald-400" /></span>
-                        <span className="text-xl font-black text-emerald-400">
-                            R$ {stats.totalCurrent.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                    </div>
-                    <div className="flex flex-col flex-1 min-w-[200px]">
-                        <span className="text-[11px] font-medium text-slate-400 mb-1 flex items-center gap-1">Progresso Geral <Activity className="w-3 h-3 text-blue-400" /></span>
-                        <div className="flex items-center gap-3">
-                            <span className="text-xl font-black text-blue-400">
-                                {stats.progress.toFixed(1)}%
-                            </span>
-                            <div className="flex-1 h-1.5 rounded-full bg-white/10 relative overflow-hidden mt-1">
-                                <div className="absolute left-0 top-0 h-full bg-blue-500 transition-all duration-1000" style={{ width: `${Math.min(stats.progress, 100)}%` }}></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             <div className="min-h-[400px]">
-                {/* CREATE FORM */}
-                {activeTab === 'new' ? (
-                    <form onSubmit={handleAddGoal} className={`max-w-xl mx-auto p-6 md:p-8 rounded-[2.5rem] border shadow-2xl animate-in zoom-in-95 ${card}`}>
-                        <div className="text-center mb-8">
-                            <div className="w-16 h-16 bg-emerald-500/10 rounded-3xl flex items-center justify-center mx-auto mb-4"><Target className="w-8 h-8 text-emerald-500" /></div>
-                            <h3 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Qual seu próximo objetivo?</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in slide-in-from-bottom-4 duration-500">
+                    {sortedGoals.length === 0 ? (
+                        <div className="col-span-full text-center py-20 opacity-50">
+                            <Target className="w-12 h-12 mx-auto mb-4" />
+                            <p className="text-sm font-bold">Nenhuma meta cadastrada.</p>
                         </div>
-                        <div className="space-y-5">
-                            {/* Goal Type Selector */}
-                            <div>
-                                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1 mb-2 block">Tipo de Meta</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button type="button" onClick={() => setNewIsPatrimony(false)}
-                                        className={`p-4 rounded-2xl border text-left transition-all ${!newIsPatrimony ? 'border-emerald-500 bg-emerald-500/10' : isDark ? 'border-white/10 bg-white/5 hover:border-white/20' : 'border-slate-200 bg-slate-50'}`}>
-                                        <div className="flex items-center gap-2">
-                                            <Trophy className={`w-5 h-5 ${!newIsPatrimony ? 'text-emerald-500' : 'text-slate-400'}`} />
-                                            <div>
-                                                <p className={`text-xs font-black ${!newIsPatrimony ? 'text-emerald-500' : isDark ? 'text-white' : 'text-slate-800'}`}>Meta Pessoal</p>
-                                                <p className={`text-[9px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Viagem, carro, reserva...</p>
-                                            </div>
-                                        </div>
-                                    </button>
-                                    <button type="button" onClick={() => setNewIsPatrimony(true)}
-                                        className={`p-4 rounded-2xl border text-left transition-all ${newIsPatrimony ? 'border-blue-500 bg-blue-500/10' : isDark ? 'border-white/10 bg-white/5 hover:border-white/20' : 'border-slate-200 bg-slate-50'}`}>
-                                        <div className="flex items-center gap-2">
-                                            <Gem className={`w-5 h-5 ${newIsPatrimony ? 'text-blue-400' : 'text-slate-400'}`} />
-                                            <div>
-                                                <p className={`text-xs font-black ${newIsPatrimony ? 'text-blue-400' : isDark ? 'text-white' : 'text-slate-800'}`}>Meta Patrimônio</p>
-                                                <p className={`text-[9px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Patrimônio total, imóvel...</p>
-                                            </div>
-                                        </div>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Patrimony subtype */}
-                            {newIsPatrimony && (
-                                <div className="grid grid-cols-2 gap-2 animate-in fade-in duration-300">
-                                    {[{ id: 'patrimonio_total', label: 'Total de Patrimônio', emoji: '💎' }, { id: 'imovel', label: 'Imóvel', emoji: '🏠' }].map(gt => (
-                                        <button key={gt.id} type="button" onClick={() => setNewPatrimonyType(gt.id)}
-                                            className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2 ${newPatrimonyType === gt.id ? 'border-blue-500 bg-blue-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-50'}`}>
-                                            <span className="text-lg">{gt.emoji}</span>
-                                            <span className={`text-xs font-black ${newPatrimonyType === gt.id ? 'text-blue-400' : isDark ? 'text-white' : 'text-slate-800'}`}>{gt.label}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-
-                            <div>
-                                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1 mb-1 block">Nome da Meta</label>
-                                <input type="text" placeholder={newIsPatrimony ? (newPatrimonyType === 'imovel' ? 'Ex: Meu Apartamento' : 'Ex: Meta de Patrimônio') : 'Ex: Viagem, Carro, Reserva...'} value={newTitle} onChange={e => setNewTitle(e.target.value)} className={inp} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1 mb-1 block">Valor Alvo (R$)</label>
-                                    <input type="number" placeholder={newIsPatrimony ? (newPatrimonyType === 'imovel' ? '350000' : '100000') : '0.00'} value={newTarget} onChange={e => setNewTarget(e.target.value)} className={inp} />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1 mb-1 block">Prazo</label>
-                                    <input type="date" value={newDeadline} min="2020-01-01" max="2099-12-31" onChange={e => setNewDeadline(e.target.value)} className={inp} />
-                                </div>
-                            </div>
-                            {!newIsPatrimony && (
-                                <AssetPicker
-                                    jars={jars} investments={investments}
-                                    selectedJarIds={newJarIds} selectedInvIds={newInvIds}
-                                    onToggleJar={id => setNewJarIds(p => toggle(p, id))}
-                                    onToggleInv={id => setNewInvIds(p => toggle(p, id))}
-                                />
-                            )}
-                            {newIsPatrimony && (
-                                <p className={`text-[10px] font-bold flex items-center gap-1.5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                                    <TrendingUp className="w-3 h-3" /> O acumulado será o seu patrimônio total em tempo real (reservas + investimentos).
-                                </p>
-                            )}
-                            <div className="flex gap-3 pt-2">
-                                <button type="button" onClick={() => setActiveTab('active')} className={`flex-1 py-4 rounded-2xl font-bold text-xs ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Cancelar</button>
-                                <button type="submit" className="flex-1 py-4 rounded-2xl font-bold text-xs bg-emerald-500 text-white shadow-lg shadow-emerald-500/20">Criar Meta</button>
-                            </div>
-                        </div>
-                    </form>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in slide-in-from-bottom-4 duration-500">
-                        {filteredGoals.length === 0 ? (
-                            <div className="col-span-full text-center py-20 opacity-50">
-                                <Target className="w-12 h-12 mx-auto mb-4" />
-                                <p className="text-sm font-bold">Nenhuma meta {activeTab === 'active' ? 'em andamento' : 'concluída'}.</p>
-                            </div>
-                        ) : filteredGoals.map(goal => {
+                    ) : sortedGoals.map(goal => {
                             const current = resolveGoalCurrent(goal);
                             const remaining = Math.max(0, goal.target - current);
                             const pct = Math.min((current / goal.target) * 100, 100).toFixed(1);
-                            const done = current >= goal.target;
+                            const done = current >= goal.target || goal.status === 'completed';
                             const jarIds = goal.linkedJarIds || (goal.linkedJarId ? [goal.linkedJarId] : []);
                             const invIds = goal.linkedInvIds || [];
                             const linked = jars.filter(j => jarIds.includes(j.id));
@@ -437,10 +347,8 @@ export default function GoalTracker() {
                                     : goal.isPatrimonyGoal ? (isDark ? 'bg-gradient-to-r from-slate-900 to-blue-950/40 border-white/[0.06]' : 'bg-gradient-to-r from-white to-blue-50/50 border-slate-200 shadow-sm')
                                     : (isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm')
                                 }`}>
-                                    {/* Glow effect */}
                                     <div className={`absolute top-[-50%] right-[-15%] w-[40%] h-[120%] rounded-full blur-[80px] pointer-events-none opacity-10 ${done ? 'bg-emerald-400' : goal.isPatrimonyGoal ? 'bg-blue-500' : 'bg-emerald-500'}`} />
 
-                                        {/* Header */}
                                         <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center gap-2.5">
                                                 <div className={`p-2 rounded-xl ${done ? 'bg-emerald-500/20' : goal.isPatrimonyGoal ? (isDark ? 'bg-blue-500/15' : 'bg-blue-100') : 'bg-emerald-500/10'}`}>
@@ -462,7 +370,6 @@ export default function GoalTracker() {
                                             </div>
                                         </div>
 
-                                        {/* Values Row — matching PatrimonioTab */}
                                         <div className="grid grid-cols-4 gap-3 mb-3">
                                             <div>
                                                 <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Alvo</p>
@@ -482,82 +389,79 @@ export default function GoalTracker() {
                                             </div>
                                         </div>
 
-                                        {/* Deadline */}
                                         {goal.deadline && (
                                             <p className={`text-[9px] font-bold flex items-center gap-1 mb-3 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                                                 <Calendar className="w-3 h-3" /> Prazo: {new Date(goal.deadline + "T12:00:00").toLocaleDateString('pt-BR')}
                                             </p>
                                         )}
 
-                                        {/* Progress Bar */}
                                         <div className={`h-2 rounded-full overflow-hidden mb-3 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
                                             <div className={`h-full rounded-full transition-all duration-1000 ${done ? 'bg-emerald-500' : goal.isPatrimonyGoal ? 'bg-gradient-to-r from-blue-500 to-emerald-500' : 'bg-emerald-400'}`} style={{ width: `${pct}%` }} />
                                         </div>
-
-                                        {activeTab === 'active' && !done && current < goal.target && (() => {
-                                            const savedYears = goal.simYears ? parseFloat(goal.simYears) : null;
-                                            const savedAporte = goal.simAporte || null;
-                                            const hasSavedSim = savedYears && savedAporte;
-                                            const simMonths = savedYears ? Math.round(savedYears * 12) : 0;
-                                            const simAporteVal = savedAporte ? parseFloat(String(savedAporte).replace(/\D/g, '')) / 100 : 0;
-                                            const projectedValue = hasSavedSim ? current * Math.pow(1 + MONTHLY_RATE, simMonths) + simAporteVal * ((Math.pow(1 + MONTHLY_RATE, simMonths) - 1) / MONTHLY_RATE) : 0;
-                                            const willReach = projectedValue >= goal.target;
-                                            let monthsNeeded = null;
-                                            if (simAporteVal > 0) {
-                                                for (let n = 1; n <= 600; n++) {
-                                                    const fv = current * Math.pow(1 + MONTHLY_RATE, n) + simAporteVal * ((Math.pow(1 + MONTHLY_RATE, n) - 1) / MONTHLY_RATE);
-                                                    if (fv >= goal.target) { monthsNeeded = n; break; }
-                                                }
-                                            }
-                                            return (
-                                                <>
-                                                    {!hasSavedSim ? (
-                                                        <button onClick={() => openSimModal(goal, false)}
-                                                            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black transition-all border ${isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100'}`}>
-                                                            <LineChart className="w-3.5 h-3.5" /> Planejar minha meta
-                                                        </button>
-                                                    ) : (
-                                                        <div>
-                                                            <div className="flex items-center justify-between mb-2">
-                                                                <div className={`flex items-baseline gap-2 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                                                                    <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Seu Plano:</p>
-                                                                    <p className="text-base font-black">
-                                                                        R$ {fmt(simAporteVal)}<span className="text-[10px] font-bold opacity-70 ml-0.5">/mês</span>
-                                                                    </p>
-                                                                    <div className="w-px h-3 bg-current opacity-20"></div>
-                                                                    <p className="text-[9px] font-black uppercase tracking-widest opacity-70">
-                                                                        Por {savedYears} ano{savedYears !== 1 ? 's' : ''} + CDI {CDI_MEDIO_10A}%
-                                                                    </p>
-                                                                </div>
-                                                                <div className="flex items-center gap-1">
-                                                                    <button onClick={() => openSimModal(goal, true)} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-emerald-400' : 'hover:bg-slate-100 text-slate-400 hover:text-emerald-500'}`}><Edit2 className="w-3 h-3" /></button>
-                                                                    <button onClick={() => handleDeleteSim(goal.id)} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-rose-400' : 'hover:bg-slate-100 text-slate-400 hover:text-rose-500'}`}><Trash2 className="w-3 h-3" /></button>
-                                                                </div>
-                                                            </div>
-                                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                                                <div className={`p-3 rounded-xl border ${willReach ? (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-100') : (isDark ? 'bg-amber-500/5 border-amber-500/15' : 'bg-amber-50 border-amber-100')}`}>
-                                                                    <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${willReach ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>Em {savedYears} ano{savedYears !== 1 ? 's' : ''}</p>
-                                                                    <p className={`text-base font-black ${willReach ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>R$ {fmt(projectedValue)}</p>
-                                                                    <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{willReach ? '✓ Meta atingida' : `Faltarão R$ ${fmt(goal.target - projectedValue)}`}</p>
-                                                                </div>
-                                                                <div className={`p-3 rounded-xl border ${isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-100'}`}>
-                                                                    <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Tempo estimado</p>
-                                                                    <p className={`text-base font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{monthsNeeded ? fmtTime(monthsNeeded) : '–'}</p>
-                                                                    <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>CDI médio {CDI_MEDIO_10A}% a.a.</p>
-                                                                </div>
-                                                                <div className={`p-3 rounded-xl border ${isDark ? 'bg-purple-500/5 border-purple-500/15' : 'bg-purple-50 border-purple-100'}`}>
-                                                                    <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Faltam</p>
-                                                                    <p className={`text-base font-black ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>R$ {fmt(remaining)}</p>
-                                                                    <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{((current / goal.target) * 100).toFixed(1)}% alcançado</p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </>
-                                            );
-                                        })()}
-
-                                        {activeTab === 'active' && !isLinked && !goal.isPatrimonyGoal && (
+                                         {goal.status === 'active' && !done && current < goal.target && (() => {
+                                             const savedYears = goal.simYears ? parseFloat(goal.simYears) : null;
+                                             const savedAporte = goal.simAporte || null;
+                                             const hasSavedSim = savedYears && savedAporte;
+                                             const simMonths = savedYears ? Math.round(savedYears * 12) : 0;
+                                             const simAporteVal = savedAporte ? parseFloat(String(savedAporte).replace(/\D/g, '')) / 100 : 0;
+                                             const projectedValue = hasSavedSim ? current * Math.pow(1 + MONTHLY_RATE, simMonths) + simAporteVal * ((Math.pow(1 + MONTHLY_RATE, simMonths) - 1) / MONTHLY_RATE) : 0;
+                                             const willReach = projectedValue >= goal.target;
+                                             let monthsNeeded = null;
+                                             if (simAporteVal > 0) {
+                                                 for (let n = 1; n <= 600; n++) {
+                                                     const fv = current * Math.pow(1 + MONTHLY_RATE, n) + simAporteVal * ((Math.pow(1 + MONTHLY_RATE, n) - 1) / MONTHLY_RATE);
+                                                     if (fv >= goal.target) { monthsNeeded = n; break; }
+                                                 }
+                                             }
+                                             return (
+                                                 <>
+                                                     {!hasSavedSim ? (
+                                                         <button onClick={() => openSimModal(goal, false)}
+                                                             className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black transition-all border ${isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100'}`}>
+                                                             <LineChart className="w-3.5 h-3.5" /> Planejar minha meta
+                                                         </button>
+                                                     ) : (
+                                                         <div>
+                                                             <div className="flex items-center justify-between mb-2">
+                                                                 <div className={`flex items-baseline gap-2 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                                                                     <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Seu Plano:</p>
+                                                                     <p className="text-base font-black">
+                                                                         R$ {fmt(simAporteVal)}<span className="text-[10px] font-bold opacity-70 ml-0.5">/mês</span>
+                                                                     </p>
+                                                                     <div className="w-px h-3 bg-current opacity-20"></div>
+                                                                     <p className="text-[9px] font-black uppercase tracking-widest opacity-70">
+                                                                         Por {savedYears} ano{savedYears !== 1 ? 's' : ''} + CDI {CDI_MEDIO_10A}%
+                                                                     </p>
+                                                                 </div>
+                                                                 <div className="flex items-center gap-1">
+                                                                     <button onClick={() => openSimModal(goal, true)} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-emerald-400' : 'hover:bg-slate-100 text-slate-400 hover:text-emerald-500'}`}><Edit2 className="w-3 h-3" /></button>
+                                                                     <button onClick={() => handleDeleteSim(goal.id)} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-rose-400' : 'hover:bg-slate-100 text-slate-400 hover:text-rose-500'}`}><Trash2 className="w-3 h-3" /></button>
+                                                                 </div>
+                                                             </div>
+                                                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                                                 <div className={`p-3 rounded-xl border ${willReach ? (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-100') : (isDark ? 'bg-amber-500/5 border-amber-500/15' : 'bg-amber-50 border-amber-100')}`}>
+                                                                     <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${willReach ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>Em {savedYears} ano{savedYears !== 1 ? 's' : ''}</p>
+                                                                     <p className={`text-base font-black ${willReach ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>R$ {fmt(projectedValue)}</p>
+                                                                     <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{willReach ? '✓ Meta atingida' : `Faltarão R$ ${fmt(goal.target - projectedValue)}`}</p>
+                                                                 </div>
+                                                                 <div className={`p-3 rounded-xl border ${isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-100'}`}>
+                                                                     <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Tempo estimado</p>
+                                                                     <p className={`text-base font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{monthsNeeded ? fmtTime(monthsNeeded) : '–'}</p>
+                                                                     <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>CDI médio {CDI_MEDIO_10A}% a.a.</p>
+                                                                 </div>
+                                                                 <div className={`p-3 rounded-xl border ${isDark ? 'bg-purple-500/5 border-purple-500/15' : 'bg-purple-50 border-purple-100'}`}>
+                                                                     <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Faltam</p>
+                                                                     <p className={`text-base font-black ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>R$ {fmt(remaining)}</p>
+                                                                     <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{((current / goal.target) * 100).toFixed(1)}% alcançado</p>
+                                                                 </div>
+                                                             </div>
+                                                         </div>
+                                                     )}
+                                                 </>
+                                             );
+                                         })()}
+ 
+                                         {goal.status === 'active' && !isLinked && !goal.isPatrimonyGoal && (
                                             <div className="flex gap-3 pt-2">
                                                 <div className="flex-1 relative">
                                                     <input type="number" placeholder="Adicionar valor..."
@@ -655,8 +559,7 @@ export default function GoalTracker() {
                                 </div>
                             );
                         })}
-                    </div>
-                )}
+                </div>
             </div>
 
             {/* ── GOAL SIMULATOR MODAL ── */}
@@ -732,6 +635,111 @@ export default function GoalTracker() {
                     </div>
                 );
             })()}
+
+            {/* Modal: Adicionar Nova Meta */}
+            {isAdding && (
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+                    <div className={`w-full max-w-md rounded-[3rem] p-8 md:p-10 border shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto ${
+                        theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/10'
+                    }`}>
+                        <div className="text-center mb-6">
+                            <div className="w-14 h-14 bg-emerald-500/10 rounded-3xl flex items-center justify-center mx-auto mb-3">
+                                <Target className="w-7 h-7 text-emerald-500" />
+                            </div>
+                            <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Nova Meta & Objetivo</h3>
+                            <p className="text-slate-500 text-[10px] font-bold text-center uppercase tracking-widest mt-1">
+                                Planeje e acompanhe seus alvos
+                            </p>
+                        </div>
+
+                        <form onSubmit={handleAddGoal} className="space-y-5">
+                            {/* Goal Type Selector */}
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">Tipo de Meta</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button type="button" onClick={() => setNewIsPatrimony(false)}
+                                        className={`p-3.5 rounded-2xl border text-left transition-all ${!newIsPatrimony ? 'border-emerald-500 bg-emerald-500/10' : isDark ? 'border-white/10 bg-white/5 hover:border-white/20' : 'border-slate-200 bg-slate-50'}`}>
+                                        <div className="flex items-center gap-2">
+                                            <Trophy className={`w-4 h-4 ${!newIsPatrimony ? 'text-emerald-500' : 'text-slate-400'}`} />
+                                            <div>
+                                                <p className={`text-xs font-black ${!newIsPatrimony ? 'text-emerald-500' : isDark ? 'text-white' : 'text-slate-800'}`}>Pessoal</p>
+                                                <p className={`text-[8px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Viagem, carro...</p>
+                                            </div>
+                                        </div>
+                                    </button>
+                                    <button type="button" onClick={() => setNewIsPatrimony(true)}
+                                        className={`p-3.5 rounded-2xl border text-left transition-all ${newIsPatrimony ? 'border-blue-500 bg-blue-500/10' : isDark ? 'border-white/10 bg-white/5 hover:border-white/20' : 'border-slate-200 bg-slate-50'}`}>
+                                        <div className="flex items-center gap-2">
+                                            <Gem className={`w-4 h-4 ${newIsPatrimony ? 'text-blue-400' : 'text-slate-400'}`} />
+                                            <div>
+                                                <p className={`text-xs font-black ${newIsPatrimony ? 'text-blue-400' : isDark ? 'text-white' : 'text-slate-800'}`}>Patrimônio</p>
+                                                <p className={`text-[8px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total, imóvel...</p>
+                                            </div>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Patrimony subtype */}
+                            {newIsPatrimony && (
+                                <div className="grid grid-cols-2 gap-2 animate-in fade-in duration-300">
+                                    {[{ id: 'patrimonio_total', label: 'Total de Patrimônio', emoji: '💎' }, { id: 'imovel', label: 'Imóvel', emoji: '🏠' }].map(gt => (
+                                        <button key={gt.id} type="button" onClick={() => setNewPatrimonyType(gt.id)}
+                                            className={`p-2.5 rounded-xl border text-left transition-all flex items-center gap-2 ${newPatrimonyType === gt.id ? 'border-blue-500 bg-blue-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-50'}`}>
+                                            <span className="text-base">{gt.emoji}</span>
+                                            <span className={`text-[10px] font-black ${newPatrimonyType === gt.id ? 'text-blue-400' : isDark ? 'text-white' : 'text-slate-800'}`}>{gt.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 block">Nome da Meta</label>
+                                <input type="text" placeholder={newIsPatrimony ? (newPatrimonyType === 'imovel' ? 'Ex: Meu Apartamento' : 'Ex: Meta de Patrimônio') : 'Ex: Viagem, Carro, Reserva...'} value={newTitle} onChange={e => setNewTitle(e.target.value)} className={inp} />
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 block">Valor Alvo (R$)</label>
+                                    <input type="number" placeholder={newIsPatrimony ? (newPatrimonyType === 'imovel' ? '350000' : '100000') : '0.00'} value={newTarget} onChange={e => setNewTarget(e.target.value)} className={inp} />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 block">Prazo</label>
+                                    <input type="date" value={newDeadline} min="2020-01-01" max="2099-12-31" onChange={e => setNewDeadline(e.target.value)} className={inp} />
+                                </div>
+                            </div>
+
+                            {!newIsPatrimony && (
+                                <AssetPicker
+                                    jars={jars} investments={investments}
+                                    selectedJarIds={newJarIds} selectedInvIds={newInvIds}
+                                    onToggleJar={id => setNewJarIds(p => toggle(p, id))}
+                                    onToggleInv={id => setNewInvIds(p => toggle(p, id))}
+                                />
+                            )}
+                            
+                            {newIsPatrimony && (
+                                <p className={`text-[10px] font-bold flex items-center gap-1.5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                                    <TrendingUp className="w-3.5 h-3.5" /> O acumulado será o seu patrimônio total em tempo real (reservas + investimentos).
+                                </p>
+                            )}
+
+                            <div className="flex gap-3 pt-2">
+                                <button type="button" onClick={() => {
+                                    setIsAdding(false);
+                                    setNewTitle(''); setNewTarget(''); setNewDeadline('');
+                                    setNewJarIds([]); setNewInvIds([]); setNewIsPatrimony(false);
+                                }} className={`flex-1 py-3.5 rounded-2xl font-black text-xs transition-all ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="flex-1 py-3.5 rounded-2xl font-black text-xs bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20 transition-all active:scale-95">
+                                    Criar Meta
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
