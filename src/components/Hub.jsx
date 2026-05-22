@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Wallet, TrendingUp, ChevronRight, LayoutDashboard, Landmark, Sun, Moon, Lock as LockIcon, ShieldCheck } from 'lucide-react';
 import logo from '../assets/logo.png';
 import UpgradeModal from './UpgradeModal';
+import { version } from '../../package.json';
 
 export default function Hub({ onSelectModule }) {
   const { theme, toggleTheme } = useTheme();
@@ -145,6 +146,15 @@ export default function Hub({ onSelectModule }) {
             </button>
           </div>
         )}
+
+        {/* System Version */}
+        <div className="mt-12 text-center">
+          <p className={`text-[9px] font-black uppercase tracking-[0.3em] opacity-20 ${
+            isDark ? 'text-slate-500' : 'text-slate-400'
+          }`}>
+            Alívia v.{version}
+          </p>
+        </div>
 
       </div>
 
