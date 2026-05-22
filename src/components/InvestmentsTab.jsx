@@ -743,6 +743,8 @@ export default function InvestmentsTab() {
     }).filter(i => i.value > 0);
 
     const totalInvestments = items.reduce((a, i) => a + i.value, 0);
+    const totalInvested = items.reduce((a, i) => a + i.invested, 0);
+    const totalProfitabilityPct = totalInvested > 0 ? ((totalInvestments - totalInvested) / totalInvested) * 100 : 0;
     
     const totalReserve = reserves.reduce((acc, curr) => {
         const cdiAnual = cdiRate / 100;
@@ -794,6 +796,34 @@ export default function InvestmentsTab() {
                         {viewInUSD ? '$' : 'R$'} {(totalInvestments * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                 </div>
+                <div className="flex flex-col">
+                    <span className="text-[11px] font-medium text-slate-400 mb-1">Rentabilidade:</span>
+                    <span className={`text-xl font-black flex items-center gap-1 ${totalProfitabilityPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {totalProfitabilityPct >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+                        {totalProfitabilityPct >= 0 ? '+' : ''}{totalProfitabilityPct.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                    </span>
+                </div>
+                {/* Análise da Alívia */}
+                {investments.length > 0 && (
+                    <div className="flex items-center gap-3 max-w-xs md:max-w-sm p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-all hover:bg-white/10">
+                        <div className="relative shrink-0">
+                            <img src={aliviaFinal} alt="Alívia" className="w-8 h-8 object-cover rounded-full border border-indigo-500/30" />
+                            <div className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-[#131621] text-indigo-400"><Sparkles className="w-2.5 h-2.5" /></div>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Análise da Alívia</span>
+                            <p className="text-[10px] font-medium leading-snug text-slate-300">
+                                {
+                                    (catMap['acoes_etfs'] > 0) 
+                                    ? 'Sua carteira está exposta a ações/ETFs, buscando crescimento em inovação e tecnologia a longo prazo.' 
+                                    : catMap['crypto'] > 0 
+                                    ? 'Sua alocação em cripto indica foco em disrupção e tecnologia de alto risco.' 
+                                    : 'A carteira tem um perfil sólido focado em rentabilidade previsível e preservação.'
+                                }
+                            </p>
+                        </div>
+                    </div>
+                )}
                 <div className="ml-auto flex items-center gap-3">
                      <button 
                         onClick={() => setViewInUSD(!viewInUSD)}
@@ -895,6 +925,13 @@ export default function InvestmentsTab() {
                         <span className="text-[11px] font-medium text-slate-400 mb-1">Total de investimentos</span>
                         <span className="text-lg font-black text-white">
                             {viewInUSD ? '$' : 'R$'} {(totalInvestments * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                    </div>
+                     <div className="flex flex-col">
+                        <span className="text-[11px] font-medium text-slate-400 mb-1">Rentabilidade</span>
+                        <span className={`text-lg font-black flex items-center gap-1 ${totalProfitabilityPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {totalProfitabilityPct >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                            {totalProfitabilityPct >= 0 ? '+' : ''}{totalProfitabilityPct.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                         </span>
                     </div>
                 </div>
@@ -1002,33 +1039,6 @@ export default function InvestmentsTab() {
                         </div>
                     </div>
 
-                    {/* Right: Alivia Insight */}
-                    {investments.length > 0 && (
-                        <div className={`w-full md:w-[320px] shrink-0 p-5 rounded-2xl border ${theme === 'light' ? 'bg-indigo-50 border-indigo-100 shadow-sm' : 'bg-[#1A1A2E] border-[#2A2A4A]'} relative overflow-hidden`}>
-                            <div className="absolute top-0 right-0 p-4 opacity-5 text-[#8b5cf6]"><Sparkles className="w-24 h-24" /></div>
-                            <div className="relative z-10 flex flex-col gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="relative shrink-0">
-                                        <img src={aliviaFinal} alt="Alívia" className="w-10 h-10 object-cover rounded-full border border-indigo-500/30 shadow-sm" />
-                                        <div className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-[#131621] border border-white/10 text-indigo-400"><Sparkles className="w-3 h-3" /></div>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className={`text-[9px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-indigo-600' : 'text-indigo-400'}`}>Alívia Insight</span>
-                                        <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Foco da Carteira</span>
-                                    </div>
-                                </div>
-                                <p className={`text-xs font-medium leading-relaxed ${theme === 'light' ? 'text-indigo-900/80' : 'text-slate-400'}`}>
-                                    Analisando seus investimentos, noto que sua alocação está ganhando corpo. {
-                                        (catMap['acoes_etfs'] > 0) 
-                                        ? 'Com exposição ao mercado de ações/ETFs, você aposta no crescimento de grandes empresas, inovação e tecnologia no longo prazo.' 
-                                        : catMap['crypto'] > 0 
-                                        ? 'Sua exposição a criptomoedas mostra um apetite por disrupção e tecnologia.' 
-                                        : 'A carteira tem um perfil sólido focado em rentabilidade previsível e preservação de patrimônio.'
-                                    } Continue mantendo o equilíbrio!
-                                </p>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
 
