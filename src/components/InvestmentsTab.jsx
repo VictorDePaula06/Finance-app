@@ -43,7 +43,7 @@ export default function InvestmentsTab() {
     const [isLoadingPrices, setIsLoadingPrices] = useState(false);
     const [prices, setPrices] = useState({ USD: 5.0, CDI: 0.10 });
     const [tesouroData, setTesouroData] = useState([]);
-    const [filter, setFilter] = useState('all');
+    const [filter, setFilter] = useState('renda_fixa');
     const [viewInUSD, setViewInUSD] = useState(false);
     const [chartViewMode, setChartViewMode] = useState('category');
     const [expandedCategories, setExpandedCategories] = useState({});
@@ -659,86 +659,33 @@ export default function InvestmentsTab() {
         return null;
     };
 
-    const calculateStats = (filteredInvestments) => {
-        let totalInvested = 0;
-        let currentValue = 0;
-
-        filteredInvestments.forEach(asset => {
-            const usdMultiplier = asset.isUSD ? (prices.USD || 5.0) : 1;
-
-            // Renda Fixa: use totalApplied vs calculated/manual current value
-            if (asset.type === 'renda_fixa') {
-                const applied = asset.totalApplied || (asset.quantity * asset.purchasePrice) || 0;
-                let current = asset.manualCurrentPrice || applied;
-
-                // Try to get live rate from Tesouro API for mark-to-market
-                const liveData = getLiveTesouroRate(asset.name);
-                const pRate = parseFloat(asset.purchaseRate || asset.fixedRate || 0);
-                let cRate = liveData ? liveData.rate : parseFloat(asset.currentMarketRate || asset.fixedRate || 0);
-
-                if (pRate > 0 && cRate > 0 && pRate !== cRate && !asset.manualCurrentPrice) {
-                    current = applied * (pRate / cRate);
-                }
-                totalInvested += applied;
-                currentValue += current;
-                return;
-            }
-
-            const invested = asset.quantity * asset.purchasePrice * usdMultiplier;
-            totalInvested += invested;
-
-            let currentPrice = asset.manualCurrentPrice || asset.purchasePrice;
-            if (asset.type === 'crypto' && asset.symbol) {
-                const sym = asset.symbol.toUpperCase();
-                if (asset.isUSD && prices[`${sym}_USD`]) currentPrice = prices[`${sym}_USD`];
-                else if (!asset.isUSD && prices[`${sym}_BRL`]) currentPrice = prices[`${sym}_BRL`];
-                else if (!asset.isUSD && prices[`${sym}_USD`] && prices.USD) currentPrice = prices[`${sym}_USD`] * prices.USD;
-            } else if (['acoes', 'etfs', 'fiis'].includes(asset.type) && asset.symbol) {
-                const sym = asset.symbol.toUpperCase();
-                if (prices[sym]) currentPrice = prices[sym];
-            }
-            currentValue += (asset.quantity * currentPrice * usdMultiplier);
-        });
-
-        const profit = currentValue - totalInvested;
-        const profitPct = totalInvested > 0 ? (profit / totalInvested) * 100 : 0;
-        return { totalInvested, currentValue, profit, profitPct };
+    const getGroup = (type) => {
+        if (type === 'renda_fixa') return 'renda_fixa';
+        if (type === 'acoes' || type === 'etfs') return 'acoes_etfs';
+        if (type === 'crypto') return 'crypto';
+        if (type === 'fiis' || type === 'imoveis') return 'fundos_imoveis';
+        return 'renda_fixa';
     };
 
-    const activeInvestments = filter === 'all' 
-        ? investments 
-        : investments.filter(a => a.type === filter);
-
-    const stats = calculateStats(activeInvestments);
-    const displayMultiplier = viewInUSD ? (1 / (prices.USD || 5.0)) : 1;
-
-    const groupedInvestments = activeInvestments.reduce((acc, asset) => {
-        const type = asset.type || 'crypto';
-        if (!acc[type]) acc[type] = [];
-        acc[type].push(asset);
-        return acc;
-    }, {});
-
-    const availableFilters = ['all', ...new Set(investments.map(a => a.type || 'crypto'))];
-
-    // Chart logic
-    const CATEGORY_COLORS = {
-        'Renda Fixa': '#6366f1',
-        'Ações': '#a855f7',
-        'ETFs': '#3b82f6',
-        'Fundos Imobiliários': '#14b8a6',
-        'Criptomoedas': '#f59e0b',
-        'Imóveis': '#f97316',
-        'Outros': '#64748b',
-    };
-    const ASSET_COLORS = ['#10b981','#6366f1','#a855f7','#3b82f6','#14b8a6','#f59e0b','#f97316','#ec4899','#8b5cf6','#06b6d4','#84cc16','#ef4444','#22d3ee','#e879f9'];
-    const CATEGORY_MAP = {
+    const GROUP_LABELS = {
         renda_fixa: 'Renda Fixa',
-        acoes: 'Ações',
-        etfs: 'ETFs',
-        fiis: 'Fundos Imobiliários',
-        crypto: 'Criptomoedas',
-        imoveis: 'Imóveis',
+        acoes_etfs: 'Ações/ETF\'s',
+        crypto: 'Criptoativos',
+        fundos_imoveis: 'Fundos/Imóveis'
+    };
+
+    const GROUP_COLORS = {
+        renda_fixa: '#6366f1',
+        acoes_etfs: '#f59e0b',
+        crypto: '#10b981',
+        fundos_imoveis: '#3b82f6'
+    };
+    
+    const GROUP_ICONS = {
+        renda_fixa: <PieChart className="w-5 h-5 text-[#6366f1]" />,
+        acoes_etfs: <Activity className="w-5 h-5 text-[#f59e0b]" />,
+        crypto: <Bitcoin className="w-5 h-5 text-[#10b981]" />,
+        fundos_imoveis: <Landmark className="w-5 h-5 text-[#3b82f6]" />
     };
 
     const items = investments.map(inv => {
@@ -771,35 +718,39 @@ export default function InvestmentsTab() {
         }
         
         return { 
-            name: inv.name || inv.symbol || 'Ativo', 
-            category: CATEGORY_MAP[inv.type] || 'Outros', 
-            value: trueCurrent 
+            ...inv,
+            category: getGroup(inv.type), 
+            value: trueCurrent,
+            invested: trueInvested,
+            currentPrice
         };
     }).filter(i => i.value > 0);
 
-    const totalChartValue = items.reduce((a, i) => a + i.value, 0);
+    const totalInvestments = items.reduce((a, i) => a + i.value, 0);
+    
+    const totalReserve = reserves.reduce((acc, curr) => {
+        const cdiAnual = cdiRate / 100;
+        const percent = (curr.cdiPercent || 100) / 100;
+        const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
+        const lastUpdate = curr.updatedAt ? new Date(curr.updatedAt) : (curr.createdAt ? new Date(curr.createdAt) : new Date());
+        const diffDays = Math.max(0, (new Date() - lastUpdate) / (1000 * 60 * 60 * 24));
+        return acc + (curr.balance || 0) * Math.pow(1 + dailyRate, diffDays);
+    }, 0);
 
-    let chartItems;
-    if (chartViewMode === 'category') {
-        const catMap = {};
-        items.forEach(it => {
-            if (!catMap[it.category]) catMap[it.category] = 0;
-            catMap[it.category] += it.value;
-        });
-        chartItems = Object.entries(catMap).map(([name, value]) => ({ name, value, color: CATEGORY_COLORS[name] || '#64748b' })).sort((a, b) => b.value - a.value);
-    } else {
-        chartItems = items.map((it, idx) => ({ name: it.name, value: it.value, color: ASSET_COLORS[idx % ASSET_COLORS.length] })).sort((a, b) => b.value - a.value);
-    }
+    const totalPatrimonio = totalInvestments + totalReserve;
 
-    const handlePieEnter = (_, index) => {
-        setHoveredSlice(index);
-    };
-    const handlePieLeave = () => {
-        setHoveredSlice(null);
-    };
+    const catMap = { renda_fixa: 0, acoes_etfs: 0, crypto: 0, fundos_imoveis: 0 };
+    items.forEach(it => { catMap[it.category] += it.value; });
+    const chartItems = Object.entries(catMap).map(([name, value]) => ({ name, value, color: GROUP_COLORS[name] })).filter(i => i.value > 0);
+
+    const handlePieEnter = (_, index) => setHoveredSlice(index);
+    const handlePieLeave = () => setHoveredSlice(null);
+    
+    const filteredItemsForList = items.filter(it => it.category === filter && (searchQuery === '' || (it.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (it.symbol || '').toLowerCase().includes(searchQuery.toLowerCase())));
+
 
     return (
-        <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
             {/* Header Area */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
@@ -807,21 +758,29 @@ export default function InvestmentsTab() {
                     <p className="text-[11px] font-medium text-slate-500 mt-0.5">Visão Geral e Ativos Detalhados</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button 
-                        onClick={fetchLivePrices}
-                        className={`px-3 py-2 rounded-xl border transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${
-                            theme === 'light' ? 'bg-white border-slate-200 hover:bg-slate-50 text-slate-500' : 'bg-slate-800/80 border-white/10 hover:bg-white/10 text-slate-400'
-                        }`}
-                        title="Atualizar Preços"
-                    >
-                        <RefreshCw className={`w-3.5 h-3.5 ${isLoadingPrices ? 'animate-spin' : ''}`} /> Atualizar
-                    </button>
-                    <button 
+                    <span className="text-[11px] font-medium text-slate-500">Atualizado recentemente</span>
+                </div>
+            </div>
+
+            {/* Top Pill Dashboard */}
+            <div className={`flex flex-wrap items-center gap-6 md:gap-12 p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#151822] border-white/5 text-white'}`}>
+                <div className="flex flex-col">
+                    <span className="text-[11px] font-medium text-slate-400 mb-1">Patrimônio total:</span>
+                    <span className="text-xl font-black">
+                        {viewInUSD ? '$' : 'R$'} {(totalPatrimonio * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[11px] font-medium text-slate-400 mb-1">Total de investimentos:</span>
+                    <span className="text-xl font-black">
+                        {viewInUSD ? '$' : 'R$'} {(totalInvestments * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                </div>
+                <div className="ml-auto flex items-center gap-3">
+                     <button 
                         onClick={() => setViewInUSD(!viewInUSD)}
-                        className={`px-3 py-2 rounded-xl border transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${
-                            viewInUSD 
-                            ? (theme === 'light' ? 'bg-blue-100 border-blue-200 text-blue-600' : 'bg-blue-500/20 border-blue-500/30 text-blue-400') 
-                            : (theme === 'light' ? 'bg-white border-slate-200 text-slate-500' : 'bg-slate-800/80 border-white/10 text-slate-400')
+                        className={`px-3 py-2 rounded-xl transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${
+                            viewInUSD ? 'bg-blue-500/20 text-blue-400' : 'bg-white/10 hover:bg-white/20 text-slate-300'
                         }`}
                     >
                         Moeda ({viewInUSD ? '$' : 'R$'})
@@ -832,120 +791,31 @@ export default function InvestmentsTab() {
                             setNewAsset({ type: 'crypto', name: 'Bitcoin', symbol: 'BTC', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false });
                             setIsAdding(true);
                         }}
-                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
+                        className="px-4 py-2 bg-[#20B2AA] hover:bg-[#1C9C95] text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-[#20B2AA]/20 flex items-center gap-2 transition-all active:scale-95"
                     >
-                        <Plus className="w-3.5 h-3.5" /> Adicionar Ativo
+                        <Plus className="w-3.5 h-3.5" /> Adicionar
                     </button>
                 </div>
             </div>
 
-            {/* Filter Chips */}
-            <div className="flex flex-wrap gap-1.5">
-                {availableFilters.map(f => (
-                    <button
-                        key={f}
-                        onClick={() => setFilter(f)}
-                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                            filter === f
-                            ? (theme === 'light' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900')
-                            : (theme === 'light' ? 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50' : 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10')
-                        }`}
-                    >
-                        {f === 'all' ? 'Tudo' : (ASSET_TYPES[f]?.label || f)}
+            {/* Main Cards Dashboard */}
+            <div className={`p-6 rounded-2xl border ${theme === 'light' ? 'bg-slate-900 border-slate-800' : 'bg-[#151822] border-white/5'}`}>
+                <div className="flex items-center gap-3 mb-6">
+                    <button onClick={fetchLivePrices} className="text-slate-400 hover:text-white transition-colors" title="Atualizar Preços">
+                        <RefreshCw className={`w-4 h-4 ${isLoadingPrices ? 'animate-spin' : ''}`} />
                     </button>
-                ))}
-            </div>
-
-            {/* Stats Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className={`p-5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/80 border-white/[0.06]'}`}>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
-                        <Wallet className="w-3 h-3" /> Patrimônio Total
-                    </p>
-                    <p className={`text-xl md:text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                        {viewInUSD ? '$' : 'R$'} {(stats.currentValue * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
-                    <div className={`mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black ${stats.profit >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                        {stats.profit >= 0 ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
-                        {stats.profit >= 0 ? '+' : ''}{stats.profitPct.toFixed(1)}%
-                    </div>
                 </div>
-
-                <div className={`p-5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/80 border-white/[0.06]'}`}>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
-                        <TrendingUp className="w-3 h-3" /> Desempenho Geral
-                    </p>
-                    <p className={`text-xl md:text-2xl font-black ${stats.profitPct >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        {stats.profitPct >= 0 ? '+' : ''}{stats.profitPct.toFixed(1)}%
-                    </p>
-                    <p className="text-[9px] text-slate-500 font-medium mt-1">Desde o início</p>
-                </div>
-
-                <div className={`p-5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/80 border-white/[0.06]'}`}>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
-                        <LineChart className="w-3 h-3" /> Lucro Bruto
-                    </p>
-                    <p className={`text-xl md:text-2xl font-black ${stats.profit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        {viewInUSD ? '$' : 'R$'} {(stats.profit * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
-                    {stats.currentValue > 0 && (
-                        <div className="mt-2 h-1.5 rounded-full overflow-hidden bg-slate-500/10">
-                            <div className={`h-full rounded-full transition-all duration-700 ${stats.profit >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ width: `${Math.min(Math.abs(stats.profitPct), 100)}%` }} />
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Alocação de Patrimônio - Full Width Chart */}
-            <div className={`rounded-2xl border overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900/80 border-white/[0.06]'}`}>
-                <div className="flex items-center justify-between p-5 pb-0">
-                    <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-xl ${theme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
-                            <BarChart3 className={`w-4 h-4 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`} />
-                        </div>
-                        <div>
-                            <p className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Alocação de Patrimônio</p>
-                            <p className="text-[9px] text-slate-500 font-medium">Distribuição por {chartViewMode === 'category' ? 'categoria' : 'ativo'}</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className={`flex rounded-lg border overflow-hidden ${theme === 'light' ? 'border-slate-200' : 'border-white/10'}`}>
-                            <button onClick={() => setChartViewMode('category')} className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'category' ? 'bg-emerald-500 text-white' : (theme === 'light' ? 'text-slate-500 bg-white hover:bg-slate-50' : 'text-slate-400 bg-slate-900 hover:bg-white/5')}`}>
-                                <Layers className="w-3 h-3" /> Cat
-                            </button>
-                            <button onClick={() => setChartViewMode('asset')} className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all border-l ${theme === 'light' ? 'border-slate-200' : 'border-white/10'} ${chartViewMode === 'asset' ? 'bg-emerald-500 text-white' : (theme === 'light' ? 'text-slate-500 bg-white hover:bg-slate-50' : 'text-slate-400 bg-slate-900 hover:bg-white/5')}`}>
-                                <List className="w-3 h-3" /> Ativos
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="p-5">
-                    {totalChartValue <= 0 ? (
-                        <div className="text-center py-10">
-                            <p className="text-slate-500 text-xs font-bold">Nenhum valor para exibir no gráfico.</p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
-                            {/* Donut Chart */}
-                            <div className="md:col-span-2 relative mx-auto w-full max-w-[260px]">
-                                <ResponsiveContainer width="100%" height={240}>
+                
+                <div className="flex flex-col md:flex-row gap-8 items-center justify-between">
+                    {/* Left: Chart and Legend */}
+                    <div className="flex items-center gap-8 w-full md:w-1/2">
+                        <div className="relative w-[200px] h-[200px] flex-shrink-0">
+                            {totalInvestments > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
                                     <RechartsPieChart>
-
                                         <Pie 
-                                            data={chartItems} 
-                                            cx="50%" 
-                                            cy="50%" 
-                                            innerRadius={68} 
-                                            outerRadius={108} 
-                                            paddingAngle={2} 
-                                            dataKey="value" 
-                                            stroke="none" 
-                                            animationDuration={800} 
-                                            animationEasing="ease-out" 
-                                            onMouseEnter={handlePieEnter} 
-                                            onMouseLeave={handlePieLeave} 
-                                            activeIndex={hoveredSlice}
+                                            data={chartItems} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={2} dataKey="value" stroke="none" 
+                                            onMouseEnter={handlePieEnter} onMouseLeave={handlePieLeave} activeIndex={hoveredSlice}
                                         >
                                             {chartItems.map((entry, idx) => (
                                                 <Cell key={idx} fill={entry.color} className="outline-none cursor-pointer" style={{ opacity: hoveredSlice !== null && hoveredSlice !== idx ? 0.4 : 1, transition: 'opacity 0.3s ease' }} />
@@ -953,225 +823,198 @@ export default function InvestmentsTab() {
                                         </Pie>
                                     </RechartsPieChart>
                                 </ResponsiveContainer>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ transition: 'all 0.2s ease' }}>
-                                    <p className={`text-[8px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-400' : 'text-slate-600'}`}>Total</p>
-                                    <p className={`text-lg font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{viewInUSD ? '$' : 'R$'} {(totalChartValue * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            ) : (
+                                <div className="w-full h-full rounded-full border-4 border-slate-800 flex items-center justify-center">
+                                    <p className="text-[10px] font-bold text-slate-600">Sem dados</p>
                                 </div>
-
-                                {hoveredSlice !== null && chartItems[hoveredSlice] && (
-                                    <div 
-                                        className={`absolute top-1/2 -translate-y-1/2 left-[75%] md:left-[95%] z-50 p-4 rounded-2xl border shadow-2xl w-40 pointer-events-none transition-all duration-300 ${theme === 'light' ? 'bg-white/90 backdrop-blur-md border-slate-100' : 'bg-slate-900/90 backdrop-blur-md border-white/10'}`}
-                                    >
-                                        <p className="text-[9px] font-black uppercase tracking-widest mb-1" style={{ color: chartItems[hoveredSlice].color }}>
-                                            {chartItems[hoveredSlice].name}
-                                        </p>
-                                        <p className={`text-sm font-black mb-0.5 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                            {viewInUSD ? '$' : 'R$'} {(chartItems[hoveredSlice].value * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                        </p>
-                                        <p className="text-[10px] font-bold text-slate-500">
-                                            {(totalChartValue > 0 ? (chartItems[hoveredSlice].value / totalChartValue) * 100 : 0).toFixed(1)}% do Patrimônio
-                                        </p>
+                            )}
+                        </div>
+                        
+                        <div className="flex flex-col gap-3">
+                            {chartItems.map((item, idx) => {
+                                const pct = totalInvestments > 0 ? (item.value / totalInvestments) * 100 : 0;
+                                return (
+                                    <div key={idx} className="flex items-center gap-2">
+                                        <div className="w-3 h-3 rounded-full" style={{ background: item.color }} />
+                                        <div className="flex flex-col">
+                                            <span className="text-[11px] font-bold text-slate-300" style={{ color: item.color }}>{pct.toFixed(2)}%</span>
+                                            <span className="text-[10px] text-slate-400">{GROUP_LABELS[item.name]}</span>
+                                        </div>
                                     </div>
-                                )}
-                            </div>
+                                );
+                            })}
+                        </div>
+                    </div>
 
-                            {/* Legend */}
-                            <div className="md:col-span-3">
-                                <div className="flex flex-col gap-2.5">
-                                    {chartItems.map((item, idx) => {
-                                        const pct = totalChartValue > 0 ? (item.value / totalChartValue) * 100 : 0;
-                                        const RCM = Object.fromEntries(Object.entries(CATEGORY_MAP).map(([k,v]) => [v,k]));
-                                        const typeKey = chartViewMode === 'category' ? RCM[item.name] : null;
-                                        return (
-                                            <div 
-                                                key={idx} 
-                                                className={`relative p-4 rounded-2xl border transition-all duration-200 ${
-                                                    theme === 'light' 
-                                                        ? 'bg-slate-50/80 border-slate-100 hover:bg-slate-100/80 hover:shadow-sm' 
-                                                        : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.1]'
-                                                }`}
-                                                style={{ borderLeftWidth: '3px', borderLeftColor: item.color }}
-                                            >
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <div className="flex items-center gap-2.5 min-w-0">
-                                                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: item.color, boxShadow: `0 0 8px ${item.color}40` }} />
-                                                        <p className={`text-xs font-black truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{item.name}</p>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <p className="text-sm font-black flex-shrink-0" style={{ color: item.color }}>{pct.toFixed(1)}%</p>
-                                                        {typeKey && groupedInvestments[typeKey]?.length > 0 && (
-                                                            <button
-                                                                onClick={() => setSelectedCategoryModal(typeKey)}
-                                                                className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
-                                                                    theme === 'light' 
-                                                                        ? 'bg-slate-200/80 text-slate-600 hover:bg-slate-300/80' 
-                                                                        : 'bg-white/[0.08] text-slate-400 hover:bg-white/[0.14] hover:text-white'
-                                                                }`}
-                                                            >
-                                                                Ver
-                                                            </button>
-                                                        )}
-                                                    </div>
+                    {/* Right: 4 Cards Grid */}
+                    <div className="grid grid-cols-2 gap-4 w-full md:w-1/2">
+                        {Object.keys(GROUP_LABELS).map((groupKey) => {
+                            const groupValue = catMap[groupKey] || 0;
+                            return (
+                                <div key={groupKey} className="p-4 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span className="text-xs font-medium text-slate-300">{GROUP_LABELS[groupKey]}</span>
+                                        {GROUP_ICONS[groupKey]}
+                                    </div>
+                                    <span className="text-lg font-black text-white">
+                                        {viewInUSD ? '$' : 'R$'} {(groupValue * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Bottom Stats Inside Main Card */}
+                <div className="mt-8 pt-6 border-t border-white/10 flex items-center gap-12">
+                    <div className="flex flex-col">
+                        <span className="text-[11px] font-medium text-slate-400 mb-1">Patrimônio total</span>
+                        <span className="text-lg font-black text-white">
+                            {viewInUSD ? '$' : 'R$'} {(totalPatrimonio * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                    </div>
+                     <div className="flex flex-col">
+                        <span className="text-[11px] font-medium text-slate-400 mb-1">Total de investimentos</span>
+                        <span className="text-lg font-black text-white">
+                            {viewInUSD ? '$' : 'R$'} {(totalInvestments * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Bottom Tabs & Content */}
+            <div className="pt-4">
+                <div className={`flex border-b overflow-x-auto scrollbar-hide ${theme === 'light' ? 'border-slate-200' : 'border-white/10'}`}>
+                    {Object.keys(GROUP_LABELS).map((groupKey) => (
+                        <button
+                            key={groupKey}
+                            onClick={() => setFilter(groupKey)}
+                            className={`whitespace-nowrap px-6 py-4 text-xs font-black uppercase tracking-widest transition-all border-b-2 ${
+                                filter === groupKey
+                                ? (theme === 'light' ? 'border-indigo-500 text-indigo-600' : 'border-indigo-400 text-indigo-400')
+                                : (theme === 'light' ? 'border-transparent text-slate-400 hover:text-slate-600' : 'border-transparent text-slate-500 hover:text-slate-300')
+                            }`}
+                        >
+                            {GROUP_LABELS[groupKey]}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="mt-6 flex flex-col md:flex-row gap-6 items-start">
+                    {/* Left: Search and List */}
+                    <div className="flex-1 w-full space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className={`flex-1 flex items-center px-4 py-3 rounded-xl border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#151822] border-white/5'}`}>
+                                <Search className="w-4 h-4 text-slate-500 mr-2" />
+                                <input 
+                                    type="text" 
+                                    placeholder={`PESQUISAR ${GROUP_LABELS[filter].toUpperCase()} [NOME]`}
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="bg-transparent border-none outline-none w-full text-xs font-bold text-slate-800 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-600"
+                                />
+                            </div>
+                            <button className={`px-4 py-3 rounded-xl border flex items-center gap-2 text-xs font-bold transition-all ${theme === 'light' ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50' : 'bg-[#151822] border-white/5 text-slate-400 hover:bg-white/5'}`}>
+                                FILTROS <span className="ml-1 opacity-50">≡</span>
+                            </button>
+                        </div>
+
+                        {/* List */}
+                        <div className="space-y-3">
+                            {filteredItemsForList.length === 0 ? (
+                                <div className="text-center py-10">
+                                    <p className="text-slate-500 text-xs font-bold">Nenhum ativo encontrado nesta categoria.</p>
+                                </div>
+                            ) : (
+                                filteredItemsForList.map(asset => {
+                                    const dCur = viewInUSD ? '$' : 'R$';
+                                    const pp = asset.invested > 0 ? ((asset.value - asset.invested) / asset.invested) * 100 : 0;
+                                    const MC = ASSET_TYPES[asset.type] || ASSET_TYPES.crypto;
+                                    
+                                    return (
+                                        <div key={asset.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-[#151822] border-white/5'}`}>
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${MC.bg} overflow-hidden relative`}>
+                                                    {asset.symbol || asset.name ? (
+                                                        <>
+                                                            <img 
+                                                                src={asset.type === 'crypto' ? `https://assets.coincap.io/assets/icons/${(asset.symbol || 'btc').toLowerCase()}@2x.png` : `https://financialmodelingprep.com/image-stock/${(asset.symbol || '').toUpperCase()}.png`}
+                                                                className="w-full h-full object-contain bg-white p-1 z-10"
+                                                                onError={(e) => { e.target.style.display = 'none'; if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'block'; }}
+                                                            />
+                                                            <MC.icon className={`w-4 h-4 ${MC.color} absolute z-0`} style={{ display: 'none' }} />
+                                                        </>
+                                                    ) : (
+                                                        <MC.icon className={`w-4 h-4 ${MC.color}`} />
+                                                    )}
                                                 </div>
-                                                <div className="flex items-center justify-between">
-                                                    <p className={`text-[11px] font-bold ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                                                        {viewInUSD ? '$' : 'R$'} {(item.value * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                    </p>
-                                                </div>
-                                                {/* Progress bar */}
-                                                <div className={`mt-2.5 h-1 rounded-full overflow-hidden ${theme === 'light' ? 'bg-slate-200/60' : 'bg-white/[0.06]'}`}>
-                                                    <div 
-                                                        className="h-full rounded-full transition-all duration-700 ease-out" 
-                                                        style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${item.color}, ${item.color}90)` }} 
-                                                    />
+                                                <div className="flex flex-col">
+                                                    <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{asset.symbol ? asset.symbol.toUpperCase() : asset.name}</span>
+                                                    {asset.symbol && asset.name && asset.symbol.toUpperCase() !== asset.name.toUpperCase() && (
+                                                        <span className="text-[10px] text-slate-500 font-medium">{asset.name}</span>
+                                                    )}
                                                 </div>
                                             </div>
-                                        );
-                                    })}
+
+                                            <div className="flex items-center gap-10">
+                                                <div className="hidden md:flex flex-col items-end">
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Valor Atual</span>
+                                                    <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                                        {dCur} {(asset.value * displayMultiplier).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                                                    </span>
+                                                </div>
+                                                <div className="hidden md:flex flex-col items-end w-20">
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Rent.</span>
+                                                    <span className={`inline-flex items-center gap-0.5 text-xs font-black ${pp >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                        {pp >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                                                        {pp >= 0 ? '+' : ''}{pp.toFixed(2)}%
+                                                    </span>
+                                                </div>
+                                                
+                                                <div className="flex items-center gap-1.5 ml-2">
+                                                    <button onClick={() => {setNewAsset({...asset,aporteQuantity:'',aporteAmount:''});setIsAporting(asset.id);}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-blue-50 text-blue-500 hover:bg-blue-100':'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'}`} title="Aporte"><Plus className="w-4 h-4" /></button>
+                                                    <button onClick={() => {setNewAsset({...asset});setIsEditing(asset.id);setIsAdding(true);}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-slate-100 text-slate-500 hover:bg-slate-200':'bg-white/5 text-slate-400 hover:bg-white/10'}`} title="Editar"><Edit2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => {setDeleteConfirm({id:asset.id,type:'asset',title:asset.name});}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-rose-50 text-rose-400 hover:bg-rose-100':'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20'}`} title="Excluir"><Trash2 className="w-4 h-4" /></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Right: Alivia Insight */}
+                    {investments.length > 0 && (
+                        <div className={`w-full md:w-[320px] shrink-0 p-5 rounded-2xl border ${theme === 'light' ? 'bg-indigo-50 border-indigo-100 shadow-sm' : 'bg-[#1A1A2E] border-[#2A2A4A]'} relative overflow-hidden`}>
+                            <div className="absolute top-0 right-0 p-4 opacity-5 text-[#8b5cf6]"><Sparkles className="w-24 h-24" /></div>
+                            <div className="relative z-10 flex flex-col gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="relative shrink-0">
+                                        <img src={aliviaFinal} alt="Alívia" className="w-10 h-10 object-cover rounded-full border border-indigo-500/30 shadow-sm" />
+                                        <div className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-[#131621] border border-white/10 text-indigo-400"><Sparkles className="w-3 h-3" /></div>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className={`text-[9px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-indigo-600' : 'text-indigo-400'}`}>Alívia Insight</span>
+                                        <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Foco da Carteira</span>
+                                    </div>
                                 </div>
+                                <p className={`text-xs font-medium leading-relaxed ${theme === 'light' ? 'text-indigo-900/80' : 'text-slate-400'}`}>
+                                    Analisando seus investimentos, noto que sua alocação está ganhando corpo. {
+                                        (catMap['acoes_etfs'] > 0) 
+                                        ? 'Com exposição ao mercado de ações/ETFs, você aposta no crescimento de grandes empresas, inovação e tecnologia no longo prazo.' 
+                                        : catMap['crypto'] > 0 
+                                        ? 'Sua exposição a criptomoedas mostra um apetite por disrupção e tecnologia.' 
+                                        : 'A carteira tem um perfil sólido focado em rentabilidade previsível e preservação de patrimônio.'
+                                    } Continue mantendo o equilíbrio!
+                                </p>
                             </div>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Alivia Insight */}
-            {investments.length > 0 && (
-                <div className={`p-5 rounded-2xl border ${theme === 'light' ? 'bg-indigo-50 border-indigo-100 shadow-sm' : 'bg-indigo-500/5 border-indigo-500/20'} relative overflow-hidden`}>
-                    <div className="absolute top-0 right-0 p-4 opacity-10 text-indigo-500"><Sparkles className="w-16 h-16" /></div>
-                    <div className="relative z-10 flex items-start gap-4">
-                        <div className="relative shrink-0">
-                            <img src={aliviaFinal} alt="Alívia" className="w-10 h-10 object-cover rounded-full border border-indigo-200/50 shadow-sm" />
-                            <div className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-[#131621] border border-white/10 text-indigo-400"><Sparkles className="w-3 h-3" /></div>
-                        </div>
-                        <div>
-                            <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-indigo-600' : 'text-indigo-400'}`}>Alívia Insight</span>
-                            <p className={`text-xs font-medium leading-relaxed mt-1 ${theme === 'light' ? 'text-indigo-900/80' : 'text-indigo-100/70'}`}>
-                                Analisando seus investimentos, noto que sua alocação está ganhando corpo. {
-                                    (groupedInvestments['acoes']?.length > 0 || groupedInvestments['etfs']?.length > 0) 
-                                    ? 'Com exposição ao mercado de ações/ETFs, você aposta no crescimento de grandes empresas, inovação e tecnologia no longo prazo.' 
-                                    : groupedInvestments['crypto']?.length > 0 
-                                    ? 'Sua exposição a criptomoedas mostra um apetite por disrupção e tecnologia.' 
-                                    : 'A carteira tem um perfil sólido focado em rentabilidade previsível e preservação de patrimônio.'
-                                } Continue mantendo o equilíbrio!
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {investments.length === 0 && (
-                <div className={`p-12 rounded-2xl border border-dashed text-center space-y-3 ${theme === 'light' ? 'border-slate-200' : 'border-white/10'}`}>
-                    <div className="w-16 h-16 bg-slate-500/10 rounded-2xl flex items-center justify-center mx-auto"><Search className="w-8 h-8 text-slate-500" /></div>
-                    <p className="text-sm font-bold text-slate-500">Nenhum investimento cadastrado ainda.</p>
-                </div>
-            )}
-
-            {/* Category Detail Modal */}
-            {selectedCategoryModal && (() => {
-                const mt = selectedCategoryModal;
-                const MC = ASSET_TYPES[mt] || ASSET_TYPES.crypto;
-                const ma = investments.filter(a => (a.type || 'crypto') === mt);
-                const mTot = ma.reduce((s, a) => { const iF=a.type==='renda_fixa',uM=a.isUSD?(prices.USD||5):1; const inv=iF?(a.totalApplied||a.quantity*a.purchasePrice):(a.quantity*a.purchasePrice*uM); let cp=a.manualCurrentPrice||a.purchasePrice; if(!iF){if(a.type==='crypto'&&a.symbol){const x=a.symbol.toUpperCase();if(a.isUSD&&prices[`${x}_USD`])cp=prices[`${x}_USD`];else if(!a.isUSD&&prices[`${x}_BRL`])cp=prices[`${x}_BRL`];else if(!a.isUSD&&prices[`${x}_USD`]&&prices.USD)cp=prices[`${x}_USD`]*prices.USD;}else if(['acoes','etfs','fiis'].includes(a.type)&&a.symbol){const x=a.symbol.toUpperCase();if(prices[x])cp=prices[x];}} let c=iF?(a.manualCurrentPrice||inv):(a.quantity*cp*uM); if(iF){const ld=getLiveTesouroRate(a.name);const pR=parseFloat(a.purchaseRate||a.fixedRate||0);let cR=ld?ld.rate:parseFloat(a.currentMarketRate||a.fixedRate||0);if(pR>0&&cR>0&&pR!==cR&&!a.manualCurrentPrice)c=inv*(pR/cR);} return s+c; }, 0);
-                return (
-                    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={e => { if(e.target===e.currentTarget) setSelectedCategoryModal(null); }}>
-                        <div className={`w-full max-w-2xl max-h-[85vh] rounded-[2rem] border animate-in zoom-in-95 duration-300 flex flex-col overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'}`}>
-                            <div className={`p-6 pb-4 border-b shrink-0 ${theme === 'light' ? 'border-slate-100' : 'border-white/[0.06]'}`}>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${MC.bg}`}><MC.icon className={`w-5 h-5 ${MC.color}`} /></div>
-                                        <div>
-                                            <h3 className={`text-lg font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{MC.label}</h3>
-                                            <p className="text-[10px] text-slate-500 font-bold">{ma.length} {ma.length===1?'ativo':'ativos'} · {viewInUSD?'$':'R$'} {(mTot*displayMultiplier).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</p>
-                                        </div>
-                                    </div>
-                                    <button onClick={() => setSelectedCategoryModal(null)} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}><X className="w-4 h-4" /></button>
-                                </div>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                                {ma.length === 0 ? (<div className="text-center py-12"><p className="text-slate-500 text-xs font-bold">Nenhum ativo nesta categoria.</p></div>) : ma.map(asset => {
-                                    const isFI=asset.type==='renda_fixa'; const tI=isFI?(asset.totalApplied||asset.quantity*asset.purchasePrice):(asset.quantity*asset.purchasePrice*(asset.isUSD?prices.USD:1)); let cP=asset.manualCurrentPrice||asset.purchasePrice;
-                                    if(!isFI){if(asset.type==='crypto'&&asset.symbol){const s=asset.symbol.toUpperCase();if(asset.isUSD&&prices[`${s}_USD`])cP=prices[`${s}_USD`];else if(!asset.isUSD&&prices[`${s}_BRL`])cP=prices[`${s}_BRL`];else if(!asset.isUSD&&prices[`${s}_USD`]&&prices.USD)cP=prices[`${s}_USD`]*prices.USD;}else if(['acoes','etfs','fiis'].includes(asset.type)&&asset.symbol){const s=asset.symbol.toUpperCase();if(prices[s])cP=prices[s];}}
-                                    let tC=isFI?(asset.manualCurrentPrice||tI):(asset.quantity*cP*(asset.isUSD?prices.USD:1)); if(isFI){const ld=getLiveTesouroRate(asset.name);const pR=parseFloat(asset.purchaseRate||asset.fixedRate||0);let cR=ld?ld.rate:parseFloat(asset.currentMarketRate||asset.fixedRate||0);if(pR>0&&cR>0&&pR!==cR&&!asset.manualCurrentPrice)tC=tI*(pR/cR);}
-                                    const pp=tI>0?((tC-tI)/tI)*100:0, dCur=viewInUSD?'$':'R$';
-                                    return (
-                                        <div key={asset.id} className={`group relative rounded-2xl border p-5 transition-all duration-200 ${theme==='light'?'bg-slate-50/60 border-slate-100 hover:bg-slate-100/60 hover:shadow-sm':'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.04] hover:border-white/[0.08]'}`}>
-                                            <div className="flex items-center justify-between mb-4">
-                                                <div className="flex items-center gap-3 min-w-0">
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${MC.bg} overflow-hidden relative`}>
-                                                        {asset.symbol || asset.name ? (
-                                                            <>
-                                                                <img 
-                                                                    src={asset.type === 'crypto' ? `https://assets.coincap.io/assets/icons/${(asset.symbol || 'btc').toLowerCase()}@2x.png` : `https://financialmodelingprep.com/image-stock/${(asset.symbol || '').toUpperCase()}.png`}
-                                                                    className="w-full h-full object-contain bg-white p-1 z-10"
-                                                                    data-fallback-index="0"
-                                                                    onError={(e) => { 
-                                                                        if (asset.type === 'crypto') {
-                                                                            e.target.style.display = 'none'; 
-                                                                            if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'block';
-                                                                            return;
-                                                                        }
-                                                                        const idx = parseInt(e.target.dataset.fallbackIndex || '0');
-                                                                        const fallbacks = [
-                                                                            `https://eodhd.com/img/logos/US/${(asset.symbol || '').toLowerCase()}.png`,
-                                                                            `https://logo.clearbit.com/${(asset.symbol || '').toLowerCase()}.com`,
-                                                                            `https://logo.clearbit.com/${(asset.name || asset.symbol).split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
-                                                                            `https://s3.sa-east-1.amazonaws.com/br.com.easynvest.cdn.custom/dashboard/mkt-data/logos/${(asset.symbol || '').toUpperCase()}.png`
-                                                                        ];
-                                                                        if (idx < fallbacks.length) {
-                                                                            e.target.dataset.fallbackIndex = (idx + 1).toString();
-                                                                            e.target.src = fallbacks[idx];
-                                                                        } else {
-                                                                            e.target.style.display = 'none'; 
-                                                                            if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'block';
-                                                                        }
-                                                                    }}
-                                                                />
-                                                                <MC.icon className={`w-4 h-4 ${MC.color} absolute z-0`} style={{ display: 'none' }} />
-                                                            </>
-                                                        ) : (
-                                                            <MC.icon className={`w-4 h-4 ${MC.color}`} />
-                                                        )}
-                                                    </div>
-                                                    <div className="min-w-0 flex flex-col justify-center">
-                                                        <div className="flex items-center gap-2">
-                                                            <p className={`text-sm font-black truncate ${theme==='light'?'text-slate-800':'text-white'}`}>{asset.symbol?asset.symbol.toUpperCase():asset.name}</p>
-                                                            <span className={`text-xs font-black ${theme==='light'?'text-slate-500':'text-slate-400'}`}>
-                                                                {dCur} {(cP * (asset.isUSD ? (prices.USD || 1) : 1) * displayMultiplier).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
-                                                            </span>
-                                                        </div>
-                                                        {asset.symbol&&asset.name&&asset.symbol.toUpperCase()!==asset.name.toUpperCase()&&(<p className="text-[10px] text-slate-500 font-medium truncate">{asset.name}</p>)}
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-1.5">
-                                                    <button onClick={() => {setNewAsset({...asset,aporteQuantity:'',aporteAmount:''});setIsAporting(asset.id);setSelectedCategoryModal(null);}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-blue-50 text-blue-500 hover:bg-blue-100':'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'}`} title="Aporte"><Plus className="w-4 h-4" /></button>
-                                                    <button onClick={() => {setNewAsset({...asset});setIsEditing(asset.id);setIsAdding(true);setSelectedCategoryModal(null);}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-slate-100 text-slate-500 hover:bg-slate-200':'bg-white/5 text-slate-400 hover:bg-white/10'}`} title="Editar"><Edit2 className="w-4 h-4" /></button>
-                                                    <button onClick={() => {setDeleteConfirm({id:asset.id,type:'asset',title:asset.name});setSelectedCategoryModal(null);}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-rose-50 text-rose-400 hover:bg-rose-100':'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20'}`} title="Excluir"><Trash2 className="w-4 h-4" /></button>
-                                                </div>
-                                            </div>
-                                            <div className="grid grid-cols-3 gap-3">
-                                                <div className={`p-3 rounded-xl ${theme==='light'?'bg-white border border-slate-100':'bg-white/[0.03] border border-white/[0.05]'}`}>
-                                                    <p className={`text-[8px] font-bold uppercase tracking-widest mb-1 ${theme==='light'?'text-slate-400':'text-slate-600'}`}>Investido</p>
-                                                    <p className={`text-xs font-bold ${theme==='light'?'text-slate-700':'text-slate-300'}`}>{dCur} {(tI*displayMultiplier).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</p>
-                                                </div>
-                                                <div className={`p-3 rounded-xl ${theme==='light'?'bg-white border border-slate-100':'bg-white/[0.03] border border-white/[0.05]'}`}>
-                                                    <p className={`text-[8px] font-bold uppercase tracking-widest mb-1 ${theme==='light'?'text-slate-400':'text-slate-600'}`}>Rentabilidade</p>
-                                                    <span className={`inline-flex items-center gap-0.5 text-xs font-black ${pp>=0?'text-emerald-500':'text-rose-500'}`}>
-                                                        {pp>=0?<ArrowUpRight className="w-3 h-3" />:<ArrowDownRight className="w-3 h-3" />}{pp>=0?'+':''}{pp.toFixed(2)}%
-                                                    </span>
-                                                </div>
-                                                <div className={`p-3 rounded-xl ${theme==='light'?'bg-white border border-slate-100':'bg-white/[0.03] border border-white/[0.05]'}`}>
-                                                    <p className={`text-[8px] font-bold uppercase tracking-widest mb-1 ${theme==='light'?'text-slate-400':'text-slate-600'}`}>Valor Atual</p>
-                                                    <p className={`text-xs font-black ${theme==='light'?'text-slate-800':'text-white'}`}>{dCur} {(tC*displayMultiplier).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </div>
-                );
-            })()}
+            {/* Modal: Adicionar/Editar Ativo */}
 
             {/* Modal: Adicionar/Editar Ativo */}
             {isAdding && (
