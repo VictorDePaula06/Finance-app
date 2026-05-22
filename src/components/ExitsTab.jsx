@@ -134,7 +134,10 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 if (monthsPassed >= (s.totalInstallments || 1)) return; // Finished
             }
 
-            const dayStr = String(createdDate.getDate()).padStart(2, '0');
+            const dueDay = parseInt(s.day) || createdDate.getDate();
+            const daysInMonth = new Date(selYear, selMonthNum, 0).getDate();
+            const clampedDay = Math.min(dueDay, daysInMonth);
+            const dayStr = String(clampedDay).padStart(2, '0');
 
             baseTxs.push({
                 id: s.id + '-' + selectedMonth,
