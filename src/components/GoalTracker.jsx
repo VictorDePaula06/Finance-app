@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Target, Plus, Pencil, Check, Trophy, History, Trash2, TrendingUp, Calendar, DollarSign, Activity, PiggyBank, Home, Gem, LineChart, Loader2, Save, X } from 'lucide-react';
+import { Target, Plus, Edit2, Check, Trophy, History, Trash2, TrendingUp, Calendar, DollarSign, Activity, PiggyBank, Home, Gem, LineChart, Loader2, Save, X } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -258,17 +258,36 @@ export default function GoalTracker() {
         return { totalTarget, totalCurrent, progress: totalTarget > 0 ? (totalCurrent / totalTarget) * 100 : 0 };
     }, [goals, jars, investments]);
 
-    const card = isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm';
-    const inp = `w-full p-4 rounded-2xl border transition-all ${isDark ? 'bg-white/5 border-white/5 text-white focus:bg-white/10' : 'bg-slate-50 border-slate-200 focus:bg-white'} focus:outline-none`;
+    const card = theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#151822] border-white/5';
+    const inp = `w-full p-4 rounded-2xl border transition-all focus:outline-none focus:border-emerald-500 ${
+        theme === 'light' 
+            ? 'bg-slate-50 border-slate-200 text-slate-800 focus:bg-white' 
+            : 'bg-white/5 border-white/10 text-white focus:bg-white/10'
+    }`;
 
     return (
-        <div className="space-y-10 animate-in fade-in duration-700">
+        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+            {/* Header Area */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h2 className={`text-2xl md:text-3xl font-black tracking-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Metas & Objetivos</h2>
+                    <p className="text-[11px] font-medium text-slate-500 mt-0.5">Planeje e acompanhe seus alvos de curto, médio e longo prazo</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-medium text-slate-500">Atualizado recentemente</span>
+                </div>
+            </div>
+
             {/* Tabs */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className={`flex p-1.5 rounded-2xl border w-full md:w-auto ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100'}`}>
+                <div className={`flex p-1.5 rounded-2xl border w-full md:w-auto ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/5'}`}>
                     {[{ id: 'active', label: 'Em Andamento', icon: Target }, { id: 'history', label: 'Histórico', icon: History }, { id: 'new', label: 'Nova Meta', icon: Plus }].map(t => (
                         <button key={t.id} onClick={() => setActiveTab(t.id)}
-                            className={`flex-1 md:flex-none px-3 md:px-6 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-tight md:tracking-widest transition-all flex items-center justify-center gap-1 md:gap-2 ${activeTab === t.id ? (isDark ? 'bg-emerald-500 text-white' : 'bg-emerald-400 text-white') : 'text-slate-500'}`}>
+                            className={`flex-1 md:flex-none px-3 md:px-6 py-2.5 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-tight md:tracking-widest transition-all flex items-center justify-center gap-1 md:gap-2 ${
+                                activeTab === t.id 
+                                    ? (theme === 'light' ? 'bg-emerald-500 text-white shadow-md' : 'bg-emerald-500 text-slate-900') 
+                                    : (theme === 'light' ? 'text-slate-500 hover:text-slate-800' : 'text-slate-400 hover:text-white')
+                            }`}>
                             <t.icon className="w-3.5 h-3.5 md:w-4 md:h-4" />{t.label}
                         </button>
                     ))}
@@ -281,22 +300,30 @@ export default function GoalTracker() {
                 )}
             </div>
 
-            {/* Stats */}
+            {/* Top Pill Dashboard */}
             {activeTab === 'active' && filteredGoals.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
-                    <div className={`p-5 md:p-8 rounded-[2rem] border ${card}`}>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2"><Target className="w-3 h-3" /> Total Planejado</p>
-                        <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {stats.totalTarget.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <div className={`flex flex-wrap items-center gap-6 md:gap-12 p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#151822] border-white/5 text-white'}`}>
+                    <div className="flex flex-col">
+                        <span className="text-[11px] font-medium text-slate-400 mb-1 flex items-center gap-1">Total Planejado <Target className="w-3 h-3 text-slate-400" /></span>
+                        <span className="text-xl font-black">
+                            R$ {stats.totalTarget.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
                     </div>
-                    <div className={`p-5 md:p-8 rounded-[2rem] border ${card}`}>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-2 flex items-center gap-2"><TrendingUp className="w-3 h-3" /> Total Acumulado</p>
-                        <p className="text-2xl font-black text-emerald-500">R$ {stats.totalCurrent.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <div className="flex flex-col">
+                        <span className="text-[11px] font-medium text-slate-400 mb-1 flex items-center gap-1">Total Acumulado <TrendingUp className="w-3 h-3 text-emerald-400" /></span>
+                        <span className="text-xl font-black text-emerald-400">
+                            R$ {stats.totalCurrent.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
                     </div>
-                    <div className={`p-5 md:p-8 rounded-[2rem] border ${card}`}>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-2 flex items-center gap-2"><Activity className="w-3 h-3" /> Progresso Geral</p>
+                    <div className="flex flex-col flex-1 min-w-[200px]">
+                        <span className="text-[11px] font-medium text-slate-400 mb-1 flex items-center gap-1">Progresso Geral <Activity className="w-3 h-3 text-blue-400" /></span>
                         <div className="flex items-center gap-3">
-                            <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{stats.progress.toFixed(1)}%</p>
-                            <div className="flex-1 h-2 bg-slate-500/10 rounded-full overflow-hidden"><div className="h-full bg-blue-500" style={{ width: `${Math.min(stats.progress, 100)}%` }} /></div>
+                            <span className="text-xl font-black text-blue-400">
+                                {stats.progress.toFixed(1)}%
+                            </span>
+                            <div className="flex-1 h-1.5 rounded-full bg-white/10 relative overflow-hidden mt-1">
+                                <div className="absolute left-0 top-0 h-full bg-blue-500 transition-all duration-1000" style={{ width: `${Math.min(stats.progress, 100)}%` }}></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -406,7 +433,7 @@ export default function GoalTracker() {
 
                             return (
                                 <div key={goal.id} className={`p-4 md:p-5 rounded-2xl border transition-all group relative flex flex-col overflow-hidden ${
-                                    done ? 'bg-gradient-to-r from-emerald-900/40 to-teal-900/30 border-emerald-500/30'
+                                    done ? (isDark ? 'bg-gradient-to-r from-emerald-950/40 to-teal-950/30 border-emerald-500/30' : 'bg-gradient-to-r from-emerald-50 to-teal-50/50 border-emerald-200 shadow-sm')
                                     : goal.isPatrimonyGoal ? (isDark ? 'bg-gradient-to-r from-slate-900 to-blue-950/40 border-white/[0.06]' : 'bg-gradient-to-r from-white to-blue-50/50 border-slate-200 shadow-sm')
                                     : (isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm')
                                 }`}>
@@ -420,15 +447,15 @@ export default function GoalTracker() {
                                                     <GoalIcon className={`w-4 h-4 ${done ? 'text-emerald-400' : goal.isPatrimonyGoal ? (isDark ? 'text-blue-400' : 'text-blue-500') : (isDark ? 'text-emerald-400' : 'text-emerald-500')}`} />
                                                 </div>
                                                 <div>
-                                                    {goalLabel && <p className={`text-[9px] font-black uppercase tracking-[0.15em] ${done ? 'text-emerald-400' : isDark ? 'text-blue-400' : 'text-blue-500'}`}>{goalLabel}</p>}
+                                                    {goalLabel && <p className={`text-[9px] font-black uppercase tracking-[0.15em] ${done ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : isDark ? 'text-blue-400' : 'text-blue-500'}`}>{goalLabel}</p>}
                                                     <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{goal.title}</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1">
-                                                {done && <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-widest animate-pulse">✨ Alcançada!</span>}
+                                                {done && <span className={`px-3 py-1 rounded-full bg-emerald-500/20 ${isDark ? 'text-emerald-400' : 'text-emerald-700'} text-[9px] font-black uppercase tracking-widest animate-pulse`}>✨ Alcançada!</span>}
                                                 <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                                     <button onClick={() => { setEditingId(goal.id); setEditTitle(goal.title); setEditTarget(goal.target); setEditDeadline(goal.deadline || ''); setEditJarIds(jarIds); setEditInvIds(invIds); }}
-                                                        className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-blue-400' : 'hover:bg-slate-100 text-slate-400 hover:text-blue-500'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                                                        className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-emerald-400' : 'hover:bg-slate-100 text-slate-400 hover:text-emerald-500'}`}><Edit2 className="w-3.5 h-3.5" /></button>
                                                     <button onClick={() => toggleStatus(goal)} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-emerald-400' : 'hover:bg-slate-100 text-slate-400 hover:text-emerald-500'}`}><Check className="w-3.5 h-3.5" /></button>
                                                     <button onClick={() => setDeleteConfirmId(goal.id)} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-rose-400' : 'hover:bg-slate-100 text-slate-400 hover:text-rose-500'}`}><Trash2 className="w-3.5 h-3.5" /></button>
                                                 </div>
@@ -443,15 +470,15 @@ export default function GoalTracker() {
                                             </div>
                                             <div>
                                                 <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Acumulado</p>
-                                                <p className="text-base font-black text-emerald-400">R$ {fmt(current)}</p>
+                                                <p className={`text-base font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>R$ {fmt(current)}</p>
                                             </div>
                                             <div>
                                                 <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Faltam</p>
-                                                <p className={`text-base font-black ${remaining > 0 ? (isDark ? 'text-amber-400' : 'text-amber-500') : 'text-emerald-400'}`}>{remaining > 0 ? `R$ ${fmt(remaining)}` : '✔'}</p>
+                                                <p className={`text-base font-black ${remaining > 0 ? (isDark ? 'text-amber-400' : 'text-amber-500') : (isDark ? 'text-emerald-400' : 'text-emerald-600')}`}>{remaining > 0 ? `R$ ${fmt(remaining)}` : '✔'}</p>
                                             </div>
                                             <div>
                                                 <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Progresso</p>
-                                                <p className={`text-base font-black ${done ? 'text-emerald-400' : goal.isPatrimonyGoal ? (isDark ? 'text-blue-400' : 'text-blue-500') : 'text-emerald-500'}`}>{pct}%</p>
+                                                <p className={`text-base font-black ${done ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : goal.isPatrimonyGoal ? (isDark ? 'text-blue-400' : 'text-blue-550') : (isDark ? 'text-emerald-400' : 'text-emerald-600')}`}>{pct}%</p>
                                             </div>
                                         </div>
 
@@ -486,13 +513,13 @@ export default function GoalTracker() {
                                                 <>
                                                     {!hasSavedSim ? (
                                                         <button onClick={() => openSimModal(goal, false)}
-                                                            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black transition-all border ${isDark ? 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 border-blue-100 text-blue-600 hover:bg-blue-100'}`}>
+                                                            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black transition-all border ${isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100'}`}>
                                                             <LineChart className="w-3.5 h-3.5" /> Planejar minha meta
                                                         </button>
                                                     ) : (
                                                         <div>
                                                             <div className="flex items-center justify-between mb-2">
-                                                                <div className={`flex items-baseline gap-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                                                                <div className={`flex items-baseline gap-2 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
                                                                     <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Seu Plano:</p>
                                                                     <p className="text-base font-black">
                                                                         R$ {fmt(simAporteVal)}<span className="text-[10px] font-bold opacity-70 ml-0.5">/mês</span>
@@ -503,7 +530,7 @@ export default function GoalTracker() {
                                                                     </p>
                                                                 </div>
                                                                 <div className="flex items-center gap-1">
-                                                                    <button onClick={() => openSimModal(goal, true)} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-blue-400' : 'hover:bg-slate-100 text-slate-400 hover:text-blue-500'}`}><Pencil className="w-3 h-3" /></button>
+                                                                    <button onClick={() => openSimModal(goal, true)} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-emerald-400' : 'hover:bg-slate-100 text-slate-400 hover:text-emerald-500'}`}><Edit2 className="w-3 h-3" /></button>
                                                                     <button onClick={() => handleDeleteSim(goal.id)} className={`p-1.5 rounded-lg transition-all ${isDark ? 'hover:bg-white/5 text-slate-500 hover:text-rose-400' : 'hover:bg-slate-100 text-slate-400 hover:text-rose-500'}`}><Trash2 className="w-3 h-3" /></button>
                                                                 </div>
                                                             </div>
@@ -513,9 +540,9 @@ export default function GoalTracker() {
                                                                     <p className={`text-base font-black ${willReach ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>R$ {fmt(projectedValue)}</p>
                                                                     <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{willReach ? '✓ Meta atingida' : `Faltarão R$ ${fmt(goal.target - projectedValue)}`}</p>
                                                                 </div>
-                                                                <div className={`p-3 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/15' : 'bg-blue-50 border-blue-100'}`}>
-                                                                    <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Tempo estimado</p>
-                                                                    <p className={`text-base font-black ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>{monthsNeeded ? fmtTime(monthsNeeded) : '–'}</p>
+                                                                <div className={`p-3 rounded-xl border ${isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-100'}`}>
+                                                                    <p className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Tempo estimado</p>
+                                                                    <p className={`text-base font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{monthsNeeded ? fmtTime(monthsNeeded) : '–'}</p>
                                                                     <p className={`text-[8px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>CDI médio {CDI_MEDIO_10A}% a.a.</p>
                                                                 </div>
                                                                 <div className={`p-3 rounded-xl border ${isDark ? 'bg-purple-500/5 border-purple-500/15' : 'bg-purple-50 border-purple-100'}`}>
@@ -536,12 +563,12 @@ export default function GoalTracker() {
                                                     <input type="number" placeholder="Adicionar valor..."
                                                         value={contributions[goal.id] || ''}
                                                         onChange={e => setContributions(p => ({ ...p, [goal.id]: e.target.value }))}
-                                                        className={`w-full bg-transparent border-b-2 text-lg font-black focus:outline-none py-2 pl-8 ${isDark ? 'border-white/5 focus:border-emerald-500 text-white' : 'border-slate-100 focus:border-emerald-500'}`}
+                                                        className={`w-full bg-transparent border-b-2 text-lg font-black focus:outline-none py-2 pl-8 ${isDark ? 'border-white/5 focus:border-emerald-500 text-white' : 'border-slate-100 focus:border-emerald-500 text-slate-800'}`}
                                                     />
                                                     <DollarSign className="w-5 h-5 absolute left-0 top-1/2 -translate-y-1/2 text-slate-500" />
                                                 </div>
                                                 <button onClick={() => handleContribute(goal.id, goal.current)}
-                                                    className="px-6 py-2 bg-emerald-500 text-white rounded-2xl font-black uppercase text-[10px] hover:scale-105 transition-transform shadow-lg shadow-emerald-500/20">Salvar</button>
+                                                    className="px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black uppercase text-[10px] hover:scale-105 transition-transform shadow-lg shadow-emerald-500/20 active:scale-95">Salvar</button>
                                             </div>
                                         )}
 
@@ -553,15 +580,19 @@ export default function GoalTracker() {
 
 
                                     {deleteConfirmId === goal.id && (
-                                        <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-8 text-center z-10 animate-in fade-in duration-300">
+                                        <div className={`absolute inset-0 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-8 text-center z-10 animate-in fade-in duration-300 ${
+                                            isDark ? 'bg-slate-950/95 text-white' : 'bg-white/95 text-slate-800'
+                                        }`}>
                                             <div className="max-w-[240px] w-full">
                                                 <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                                                     <Trash2 className="w-8 h-8 text-rose-500" />
                                                 </div>
-                                                <p className="text-white font-black text-lg mb-2">Excluir meta?</p>
-                                                <p className="text-white/50 text-[10px] mb-8 leading-relaxed">Esta ação removerá permanentemente o objetivo <span className="text-white font-bold">{goal.title}</span>.</p>
+                                                <p className={`font-black text-lg mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Excluir meta?</p>
+                                                <p className={`text-[10px] mb-8 leading-relaxed ${isDark ? 'text-white/50' : 'text-slate-500'}`}>Esta ação removerá permanentemente o objetivo <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{goal.title}</span>.</p>
                                                 <div className="flex gap-4">
-                                                    <button onClick={() => setDeleteConfirmId(null)} className="flex-1 py-4 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors">Não</button>
+                                                    <button onClick={() => setDeleteConfirmId(null)} className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-colors ${
+                                                        isDark ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                                    }`}>Não</button>
                                                     <button onClick={() => handleDelete(goal.id)} className="flex-1 py-4 rounded-2xl bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-colors">Excluir</button>
                                                 </div>
                                             </div>
@@ -569,23 +600,54 @@ export default function GoalTracker() {
                                     )}
 
                                     {editingId === goal.id && (
-                                        <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-2xl p-6 z-20 animate-in zoom-in-95 overflow-y-auto">
-                                            <h4 className="text-white font-black text-xl mb-5 flex items-center gap-2"><Pencil className="w-5 h-5 text-blue-400" /> Editar Meta</h4>
+                                        <div className={`absolute inset-0 backdrop-blur-md rounded-2xl p-5 z-20 animate-in zoom-in-95 overflow-y-auto ${
+                                            isDark ? 'bg-slate-950/95 text-white' : 'bg-white/95 text-slate-800'
+                                        }`}>
+                                            <h4 className={`font-black text-lg mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                                                <Edit2 className={`w-4 h-4 ${isDark ? 'text-emerald-400' : 'text-emerald-500'}`} /> Editar Meta
+                                            </h4>
                                             <form onSubmit={handleUpdateGoal} className="space-y-4">
-                                                <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Título" className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white text-sm focus:border-blue-500 outline-none" />
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <input type="number" value={editTarget} onChange={e => setEditTarget(e.target.value)} placeholder="Alvo R$" className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white text-sm focus:border-blue-500 outline-none" />
-                                                    <input type="date" value={editDeadline} min="2020-01-01" max="2099-12-31" onChange={e => setEditDeadline(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white text-sm focus:border-blue-500 outline-none" />
+                                                <div>
+                                                    <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1 block">Título</label>
+                                                    <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Título"
+                                                        className={`w-full p-3 rounded-xl border text-xs font-bold outline-none transition-all ${
+                                                            isDark ? 'bg-white/5 border-white/10 text-white focus:border-emerald-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500 focus:bg-white'
+                                                        }`}
+                                                    />
                                                 </div>
-                                                <AssetPicker
-                                                    jars={jars} investments={investments}
-                                                    selectedJarIds={editJarIds} selectedInvIds={editInvIds}
-                                                    onToggleJar={id => setEditJarIds(p => toggle(p, id))}
-                                                    onToggleInv={id => setEditInvIds(p => toggle(p, id))}
-                                                />
-                                                <div className="flex gap-3 mt-2">
-                                                    <button type="button" onClick={() => setEditingId(null)} className="flex-1 py-3 rounded-xl bg-white/10 text-white font-black text-[9px]">Cancelar</button>
-                                                    <button type="submit" className="flex-1 py-3 rounded-xl bg-blue-500 text-white font-black text-[9px]">Salvar</button>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1 block">Alvo R$</label>
+                                                        <input type="number" value={editTarget} onChange={e => setEditTarget(e.target.value)} placeholder="Alvo R$"
+                                                            className={`w-full p-3 rounded-xl border text-xs font-bold outline-none transition-all ${
+                                                                isDark ? 'bg-white/5 border-white/10 text-white focus:border-emerald-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500 focus:bg-white'
+                                                            }`}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1 block">Prazo</label>
+                                                        <input type="date" value={editDeadline} min="2020-01-01" max="2099-12-31" onChange={e => setEditDeadline(e.target.value)}
+                                                            className={`w-full p-3 rounded-xl border text-xs font-bold outline-none transition-all ${
+                                                                isDark ? 'bg-white/5 border-white/10 text-white focus:border-emerald-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500 focus:bg-white'
+                                                            }`}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                {!goal.isPatrimonyGoal && (
+                                                    <AssetPicker
+                                                        jars={jars} investments={investments}
+                                                        selectedJarIds={editJarIds} selectedInvIds={editInvIds}
+                                                        onToggleJar={id => setEditJarIds(p => toggle(p, id))}
+                                                        onToggleInv={id => setEditInvIds(p => toggle(p, id))}
+                                                    />
+                                                )}
+                                                <div className="flex gap-3 pt-2">
+                                                    <button type="button" onClick={() => setEditingId(null)} className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-colors ${
+                                                        isDark ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                                    }`}>Cancelar</button>
+                                                    <button type="submit" className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-colors ${
+                                                        isDark ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-900' : 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20'
+                                                    }`}>Salvar</button>
                                                 </div>
                                             </form>
                                         </div>
@@ -605,13 +667,13 @@ export default function GoalTracker() {
                 return (
                     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-500" onClick={() => setSimGoalId(null)}>
                         <div onClick={(e) => e.stopPropagation()}
-                            className={`relative w-full max-w-md rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-500 overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
+                            className={`relative w-full max-w-md rounded-[3rem] shadow-2xl animate-in zoom-in-95 duration-500 overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
                             {/* Header */}
                             <div className={`p-6 pb-4 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <div className={`p-2.5 rounded-xl ${isDark ? 'bg-blue-500/15' : 'bg-blue-100'}`}>
-                                            <LineChart className={`w-5 h-5 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+                                        <div className={`p-2.5 rounded-xl ${isDark ? 'bg-emerald-500/15' : 'bg-emerald-100'}`}>
+                                            <LineChart className={`w-5 h-5 ${isDark ? 'text-emerald-400' : 'text-emerald-500'}`} />
                                         </div>
                                         <div>
                                             <h3 className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Planejar Meta</h3>
@@ -627,14 +689,14 @@ export default function GoalTracker() {
                                     <div>
                                         <label className={`text-[9px] font-black uppercase tracking-widest block mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Em quantos anos quer atingir?</label>
                                         <input type="number" min="1" max="50" step="0.5" value={simModalYears} onChange={(e) => setSimModalYears(e.target.value)} placeholder="Ex: 5"
-                                            className={`w-full px-4 py-3.5 rounded-2xl text-lg font-black border-2 outline-none transition-all focus:ring-2 ${isDark ? 'bg-slate-800 border-white/10 text-white focus:border-blue-500 focus:ring-blue-500/20 placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500 focus:ring-blue-500/10 placeholder:text-slate-300'}`} />
+                                            className={`w-full px-4 py-3.5 rounded-2xl text-lg font-black border-2 outline-none transition-all focus:ring-2 ${isDark ? 'bg-slate-800 border-white/10 text-white focus:border-emerald-500 focus:ring-emerald-500/20 placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500 focus:ring-emerald-500/10 placeholder:text-slate-300'}`} />
                                     </div>
                                     <div>
                                         <label className={`text-[9px] font-black uppercase tracking-widest block mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Quanto pode investir por mês? (R$)</label>
                                         <input type="text" inputMode="numeric" value={simModalAporte}
                                             onChange={(e) => { const raw = e.target.value.replace(/\D/g, ''); if (!raw) { setSimModalAporte(''); return; } setSimModalAporte((parseInt(raw) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })); }}
                                             placeholder="Ex: 500,00"
-                                            className={`w-full px-4 py-3.5 rounded-2xl text-lg font-black border-2 outline-none transition-all focus:ring-2 ${isDark ? 'bg-slate-800 border-white/10 text-white focus:border-blue-500 focus:ring-blue-500/20 placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500 focus:ring-blue-500/10 placeholder:text-slate-300'}`} />
+                                            className={`w-full px-4 py-3.5 rounded-2xl text-lg font-black border-2 outline-none transition-all focus:ring-2 ${isDark ? 'bg-slate-800 border-white/10 text-white focus:border-emerald-500 focus:ring-emerald-500/20 placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500 focus:ring-emerald-500/10 placeholder:text-slate-300'}`} />
                                     </div>
                                 </div>
                                 {/* Live Preview */}
@@ -649,7 +711,7 @@ export default function GoalTracker() {
                                         <div className={`p-4 rounded-2xl border ${pw ? (isDark ? 'bg-emerald-500/5 border-emerald-500/15' : 'bg-emerald-50 border-emerald-100') : (isDark ? 'bg-amber-500/5 border-amber-500/15' : 'bg-amber-50 border-amber-100')}`}>
                                             <div className="flex items-center justify-between mb-1">
                                                 <p className={`text-[9px] font-black uppercase tracking-widest ${pw ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>Projeção</p>
-                                                {pt && <p className={`text-[9px] font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Meta em {fmtTime(pt)}</p>}
+                                                {pt && <p className={`text-[9px] font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Meta em {fmtTime(pt)}</p>}
                                             </div>
                                             <p className={`text-2xl font-black ${pw ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-amber-400' : 'text-amber-600')}`}>R$ {fmt(pfv)}</p>
                                             <p className={`text-[9px] mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{pw ? `✓ Você ultrapassa a meta de R$ ${fmt(simGoal.target)}` : `Faltarão R$ ${fmt(simGoal.target - pfv)} — aumente prazo ou aporte`}</p>
@@ -661,7 +723,7 @@ export default function GoalTracker() {
                             <div className={`p-6 pt-4 border-t flex gap-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
                                 <button onClick={() => setSimGoalId(null)} className={`flex-1 py-3 rounded-2xl text-sm font-black transition-all ${isDark ? 'bg-white/5 hover:bg-white/10 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'}`}>Cancelar</button>
                                 <button onClick={handleSaveSim} disabled={!simModalYears || !simModalAporte || simSaving}
-                                    className={`flex-1 py-3 rounded-2xl text-sm font-black flex items-center justify-center gap-2 transition-all ${simModalYears && simModalAporte && !simSaving ? 'bg-blue-500 hover:bg-blue-400 text-white shadow-lg shadow-blue-500/20' : isDark ? 'bg-white/5 text-slate-600 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
+                                    className={`flex-1 py-3 rounded-2xl text-sm font-black flex items-center justify-center gap-2 transition-all ${simModalYears && simModalAporte && !simSaving ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20 active:scale-95' : isDark ? 'bg-white/5 text-slate-600 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
                                     {simSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                     {simSaving ? 'Salvando...' : 'Salvar Plano'}
                                 </button>
