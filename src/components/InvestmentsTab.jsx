@@ -36,6 +36,9 @@ export default function InvestmentsTab() {
     const { theme } = useTheme();
     const { currentUser } = useAuth();
     const [investments, setInvestments] = useState([]);
+    const [reserves, setReserves] = useState([]);
+    const [cdiRate, setCdiRate] = useState(10.65);
+    const [searchQuery, setSearchQuery] = useState('');
     const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, type, title }
     const [isAdding, setIsAdding] = useState(false);
     const [isEditing, setIsEditing] = useState(null);
@@ -85,10 +88,22 @@ export default function InvestmentsTab() {
             const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setInvestments(items);
         });
-        return () => unsubscribe();
+
+        const qReserves = query(collection(db, 'savings_jars'), where('userId', '==', currentUser.uid));
+        const unsubReserves = onSnapshot(qReserves, (snapshot) => {
+            const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setReserves(items);
+        });
+
+        fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json')
+            .then(res => res.json())
+            .then(data => {
+                if (data && data[0] && data[0].valor) setCdiRate(parseFloat(data[0].valor) * 365);
+            })
+            .catch(err => console.warn("Erro ao buscar CDI:", err));
+
+        return () => { unsubscribe(); unsubReserves(); };
     }, [currentUser]);
-
-
 
     const fetchLivePrices = async () => {
         setIsLoadingPrices(true);
@@ -747,6 +762,8 @@ export default function InvestmentsTab() {
     const handlePieLeave = () => setHoveredSlice(null);
     
     const filteredItemsForList = items.filter(it => it.category === filter && (searchQuery === '' || (it.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (it.symbol || '').toLowerCase().includes(searchQuery.toLowerCase())));
+
+    const displayMultiplier = viewInUSD ? (1 / (prices.USD || 5.0)) : 1;
 
 
     return (
