@@ -783,67 +783,74 @@ export default function InvestmentsTab() {
             </div>
 
             {/* Top Pill Dashboard */}
-            <div className={`flex flex-wrap items-center gap-6 md:gap-12 p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#151822] border-white/5 text-white'}`}>
-                <div className="flex flex-col">
-                    <span className="text-[11px] font-medium text-slate-400 mb-1">Total de investimentos:</span>
-                    <span className="text-xl font-black">
-                        {viewInUSD ? '$' : 'R$'} {(totalInvestments * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                </div>
-                <div className="flex flex-col">
-                    <span className="text-[11px] font-medium text-slate-400 mb-1">Rentabilidade (%):</span>
-                    <span className={`text-xl font-black flex items-center gap-1 ${totalProfitabilityPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {totalProfitabilityPct >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
-                        {totalProfitabilityPct >= 0 ? '+' : ''}{totalProfitabilityPct.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
-                    </span>
-                </div>
-                <div className="flex flex-col">
-                    <span className="text-[11px] font-medium text-slate-400 mb-1">Lucro / Perda:</span>
-                    <span className={`text-xl font-black flex items-center gap-1 ${totalInvestments - totalInvested >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {totalInvestments - totalInvested >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
-                        {totalInvestments - totalInvested >= 0 ? '+' : '-'} {viewInUSD ? '$' : 'R$'} {Math.abs((totalInvestments - totalInvested) * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                </div>
-                {/* Análise da Alívia */}
-                {investments.length > 0 && (
-                    <div className="flex items-center gap-3 max-w-xs md:max-w-sm p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-all hover:bg-white/10">
-                        <div className="relative shrink-0">
-                            <img src={aliviaFinal} alt="Alívia" className="w-8 h-8 object-cover rounded-full border border-indigo-500/30" />
-                            <div className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-[#131621] text-indigo-400"><Sparkles className="w-2.5 h-2.5" /></div>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Análise da Alívia</span>
-                            <p className="text-[10px] font-medium leading-snug text-slate-300">
-                                {
-                                    (catMap['acoes_etfs'] > 0) 
-                                    ? 'Sua carteira está exposta a ações/ETFs, buscando crescimento em inovação e tecnologia a longo prazo.' 
-                                    : catMap['crypto'] > 0 
-                                    ? 'Sua alocação em cripto indica foco em disrupção e tecnologia de alto risco.' 
-                                    : 'A carteira tem um perfil sólido focado em rentabilidade previsível e preservação.'
-                                }
-                            </p>
-                        </div>
+            <div className={`flex flex-wrap items-center justify-between gap-6 p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#151822] border-white/5 text-white'}`}>
+                {/* Metrics */}
+                <div className="flex flex-wrap items-center gap-6 md:gap-10">
+                    <div className="flex flex-col">
+                        <span className="text-[11px] font-medium text-slate-400 mb-1">Total de investimentos:</span>
+                        <span className="text-xl font-black">
+                            {viewInUSD ? '$' : 'R$'} {(totalInvestments * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
                     </div>
-                )}
-                <div className="ml-auto flex items-center gap-3">
-                     <button 
-                        onClick={() => setViewInUSD(!viewInUSD)}
-                        className={`px-3 py-2 rounded-xl transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${
-                            viewInUSD ? 'bg-blue-500/20 text-blue-400' : 'bg-white/10 hover:bg-white/20 text-slate-300'
-                        }`}
-                    >
-                        Moeda ({viewInUSD ? '$' : 'R$'})
-                    </button>
-                    <button  
-                        onClick={() => {
-                            setIsEditing(null);
-                            setNewAsset({ type: 'crypto', name: 'Bitcoin', symbol: 'BTC', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false });
-                            setIsAdding(true);
-                        }}
-                        className="px-4 py-2 bg-[#20B2AA] hover:bg-[#1C9C95] text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-[#20B2AA]/20 flex items-center gap-2 transition-all active:scale-95"
-                    >
-                        <Plus className="w-3.5 h-3.5" /> Adicionar
-                    </button>
+                    <div className="flex flex-col">
+                        <span className="text-[11px] font-medium text-slate-400 mb-1">Rentabilidade (%):</span>
+                        <span className={`text-xl font-black flex items-center gap-1 ${totalProfitabilityPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {totalProfitabilityPct >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+                            {totalProfitabilityPct >= 0 ? '+' : ''}{totalProfitabilityPct.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                        </span>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-[11px] font-medium text-slate-400 mb-1">Lucro / Perda:</span>
+                        <span className={`text-xl font-black flex items-center gap-1 ${totalInvestments - totalInvested >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {totalInvestments - totalInvested >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+                            {totalInvestments - totalInvested >= 0 ? '+' : '-'} {viewInUSD ? '$' : 'R$'} {Math.abs((totalInvestments - totalInvested) * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Analysis and Action Buttons */}
+                <div className="flex flex-wrap items-center gap-4 md:ml-auto">
+                    {/* Análise da Alívia */}
+                    {investments.length > 0 && (
+                        <div className="flex items-center gap-3 max-w-xs md:max-w-sm p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-all hover:bg-white/10">
+                            <div className="relative shrink-0">
+                                <img src={aliviaFinal} alt="Alívia" className="w-8 h-8 object-cover rounded-full border border-indigo-500/30" />
+                                <div className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-[#131621] text-indigo-400"><Sparkles className="w-2.5 h-2.5" /></div>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Análise da Alívia</span>
+                                <p className="text-[10px] font-medium leading-snug text-slate-300">
+                                    {
+                                        (catMap['acoes_etfs'] > 0) 
+                                        ? 'Sua carteira está exposta a ações/ETFs, buscando crescimento em inovação e tecnologia a longo prazo.' 
+                                        : catMap['crypto'] > 0 
+                                        ? 'Sua alocação em cripto indica foco em disrupção e tecnologia de alto risco.' 
+                                        : 'A carteira tem um perfil sólido focado em rentabilidade previsível e preservação.'
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                    <div className="flex items-center gap-3">
+                         <button 
+                            onClick={() => setViewInUSD(!viewInUSD)}
+                            className={`px-3 py-2 rounded-xl transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${
+                                viewInUSD ? 'bg-blue-500/20 text-blue-400' : 'bg-white/10 hover:bg-white/20 text-slate-300'
+                            }`}
+                        >
+                            Moeda ({viewInUSD ? '$' : 'R$'})
+                        </button>
+                        <button  
+                            onClick={() => {
+                                setIsEditing(null);
+                                setNewAsset({ type: 'crypto', name: 'Bitcoin', symbol: 'BTC', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false });
+                                setIsAdding(true);
+                            }}
+                            className="px-4 py-2 bg-[#20B2AA] hover:bg-[#1C9C95] text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-[#20B2AA]/20 flex items-center gap-2 transition-all active:scale-95"
+                        >
+                            <Plus className="w-3.5 h-3.5" /> Adicionar
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -914,29 +921,6 @@ export default function InvestmentsTab() {
                     </div>
                 </div>
 
-                {/* Bottom Stats Inside Main Card */}
-                <div className="mt-8 pt-6 border-t border-white/10 flex items-center gap-12">
-                     <div className="flex flex-col">
-                        <span className="text-[11px] font-medium text-slate-400 mb-1">Total de investimentos</span>
-                        <span className="text-lg font-black text-white">
-                            {viewInUSD ? '$' : 'R$'} {(totalInvestments * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                    </div>
-                     <div className="flex flex-col">
-                        <span className="text-[11px] font-medium text-slate-400 mb-1">Rentabilidade (%)</span>
-                        <span className={`text-lg font-black flex items-center gap-1 ${totalProfitabilityPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {totalProfitabilityPct >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                            {totalProfitabilityPct >= 0 ? '+' : ''}{totalProfitabilityPct.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
-                        </span>
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-[11px] font-medium text-slate-400 mb-1">Lucro / Perda</span>
-                        <span className={`text-lg font-black flex items-center gap-1 ${totalInvestments - totalInvested >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {totalInvestments - totalInvested >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                            {totalInvestments - totalInvested >= 0 ? '+' : '-'} {viewInUSD ? '$' : 'R$'} {Math.abs((totalInvestments - totalInvested) * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                    </div>
-                </div>
             </div>
 
             {/* Bottom Tabs & Content */}
