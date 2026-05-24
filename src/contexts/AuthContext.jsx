@@ -580,6 +580,68 @@ export function AuthProvider({ children }) {
         }
     }
 
+    async function resetGastosData(uid) {
+        if (!uid) return;
+        try {
+            console.log(`[User] Resetando dados de Gastos para o usuário: ${uid}`);
+            
+            const collectionsToClear = ['transactions', 'cards', 'subscriptions', 'fixed_expenses'];
+            for (const colName of collectionsToClear) {
+                const qCol = query(collection(db, colName), where('userId', '==', uid));
+                const snap = await getDocs(qCol);
+                const deletePromises = snap.docs.map(d => deleteDoc(d.ref));
+                await Promise.all(deletePromises);
+            }
+
+            const userPrefsRef = doc(db, 'users', uid, 'settings', 'general');
+            await setDoc(userPrefsRef, {
+                hasSeenWelcome: false,
+                manualConfig: {
+                    income: 0,
+                    fixedExpenses: 0,
+                    variableEstimate: 0,
+                    categoryBudgets: {},
+                    recurringSubs: []
+                }
+            }, { merge: true });
+
+            console.log("[User] Reset de dados de Gastos concluído.");
+            return { success: true };
+        } catch (error) {
+            console.error("Erro ao resetar dados de Gastos:", error);
+            throw error;
+        }
+    }
+
+    async function resetPatrimonioData(uid) {
+        if (!uid) return;
+        try {
+            console.log(`[User] Resetando dados de Patrimônio para o usuário: ${uid}`);
+            
+            const collectionsToClear = ['goals', 'savings_jars', 'investments'];
+            for (const colName of collectionsToClear) {
+                const qCol = query(collection(db, colName), where('userId', '==', uid));
+                const snap = await getDocs(qCol);
+                const deletePromises = snap.docs.map(d => deleteDoc(d.ref));
+                await Promise.all(deletePromises);
+            }
+
+            const userPrefsRef = doc(db, 'users', uid, 'settings', 'general');
+            await setDoc(userPrefsRef, {
+                hasSeenPatrimonyWelcome: false,
+                manualConfig: {
+                    invested: 0
+                }
+            }, { merge: true });
+
+            console.log("[User] Reset de dados de Patrimônio concluído.");
+            return { success: true };
+        } catch (error) {
+            console.error("Erro ao resetar dados de Patrimônio:", error);
+            throw error;
+        }
+    }
+
     const value = {
         currentUser,
         isPremium,
@@ -595,6 +657,8 @@ export function AuthProvider({ children }) {
         logout,
         deleteAccount,
         resetUserData,
+        resetGastosData,
+        resetPatrimonioData,
         saveUserPreferences,
         getUserPreferences,
         saveChatHistory,

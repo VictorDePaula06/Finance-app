@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Shield, Moon, Sun, Key, Check, AlertCircle, Loader2, Video, HelpCircle, Sparkles, ChevronRight, Bookmark, X, CreditCard, Calculator, Trash2, AlertTriangle } from 'lucide-react';
+import { Settings, Shield, Moon, Sun, Key, Check, AlertCircle, Loader2, Video, HelpCircle, Sparkles, ChevronRight, Bookmark, X, CreditCard, Calculator, Trash2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { validateApiKey } from '../services/gemini';
@@ -10,10 +10,14 @@ import { Sparkles as SparklesIcon } from 'lucide-react';
 
 const SettingsTab = ({ manualConfig, updateManualConfig }) => {
   const { theme, toggleTheme } = useTheme();
-  const { currentUser, deleteAccount, logout, planLevel, subType } = useAuth();
+  const { currentUser, deleteAccount, logout, planLevel, subType, resetGastosData, resetPatrimonioData } = useAuth();
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [showResetGastosConfirm, setShowResetGastosConfirm] = useState(false);
+  const [isResettingGastos, setIsResettingGastos] = useState(false);
+  const [showResetPatrimonioConfirm, setShowResetPatrimonioConfirm] = useState(false);
+  const [isResettingPatrimonio, setIsResettingPatrimonio] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [apiKey, setApiKey] = useState(manualConfig.geminiKey || '');
   const [isValidating, setIsValidating] = useState(false);
@@ -287,6 +291,106 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
                 </ul>
               </div>
             ))}
+          </div>
+        </section>
+      </div>
+
+      {/* Reset Modules */}
+      <div className="col-span-full">
+        <section className={`p-8 rounded-[2.5rem] border ${theme === 'light' ? 'bg-white border-amber-100 shadow-sm' : 'bg-slate-900 border-amber-500/20'} mb-8`}>
+          <h3 className="text-sm font-black uppercase tracking-widest mb-2 flex items-center gap-2 text-amber-500">
+            <RefreshCw className="w-4 h-4" /> Zerar Módulos
+          </h3>
+          <p className="text-xs text-slate-500 mb-6">Apague os dados de um módulo específico e refaça a configuração inicial. Essa ação não pode ser desfeita.</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Gastos Reset */}
+            <div className={`p-6 rounded-2xl border ${theme === 'light' ? 'bg-amber-50/50 border-amber-200' : 'bg-amber-500/5 border-amber-500/30'}`}>
+              <h4 className={`text-sm font-black mb-2 ${theme === 'light' ? 'text-amber-700' : 'text-amber-500'}`}>Controle de Gastos</h4>
+              <p className="text-xs text-slate-500 mb-4 h-8">Zera transações, cartões, despesas fixas e assinaturas.</p>
+              
+              {!showResetGastosConfirm ? (
+                <button
+                  onClick={() => setShowResetGastosConfirm(true)}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-amber-500/30 text-amber-600 text-xs font-black uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-all"
+                >
+                  <RefreshCw className="w-4 h-4" /> Zerar Gastos
+                </button>
+              ) : (
+                <div className="space-y-3 animate-in fade-in zoom-in-95 duration-200">
+                  <p className="text-xs font-bold text-rose-500">Tem certeza? Os dados não poderão ser recuperados.</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        setIsResettingGastos(true);
+                        try {
+                          await resetGastosData(currentUser.uid);
+                          window.location.reload();
+                        } catch (e) {
+                          console.error(e);
+                          setIsResettingGastos(false);
+                        }
+                      }}
+                      disabled={isResettingGastos}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-rose-500 text-white text-xs font-black uppercase tracking-widest hover:bg-rose-600 transition-all disabled:opacity-60"
+                    >
+                      {isResettingGastos ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar'}
+                    </button>
+                    <button
+                      onClick={() => setShowResetGastosConfirm(false)}
+                      disabled={isResettingGastos}
+                      className={`flex-1 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-200 text-slate-700 hover:bg-slate-300' : 'bg-white/10 text-slate-300 hover:bg-white/20'}`}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Patrimonio Reset */}
+            <div className={`p-6 rounded-2xl border ${theme === 'light' ? 'bg-amber-50/50 border-amber-200' : 'bg-amber-500/5 border-amber-500/30'}`}>
+              <h4 className={`text-sm font-black mb-2 ${theme === 'light' ? 'text-amber-700' : 'text-amber-500'}`}>Construção de Patrimônio</h4>
+              <p className="text-xs text-slate-500 mb-4 h-8">Zera investimentos, metas e reserva de emergência.</p>
+              
+              {!showResetPatrimonioConfirm ? (
+                <button
+                  onClick={() => setShowResetPatrimonioConfirm(true)}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-amber-500/30 text-amber-600 text-xs font-black uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-all"
+                >
+                  <RefreshCw className="w-4 h-4" /> Zerar Patrimônio
+                </button>
+              ) : (
+                <div className="space-y-3 animate-in fade-in zoom-in-95 duration-200">
+                  <p className="text-xs font-bold text-rose-500">Tem certeza? Os dados não poderão ser recuperados.</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        setIsResettingPatrimonio(true);
+                        try {
+                          await resetPatrimonioData(currentUser.uid);
+                          window.location.reload();
+                        } catch (e) {
+                          console.error(e);
+                          setIsResettingPatrimonio(false);
+                        }
+                      }}
+                      disabled={isResettingPatrimonio}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-rose-500 text-white text-xs font-black uppercase tracking-widest hover:bg-rose-600 transition-all disabled:opacity-60"
+                    >
+                      {isResettingPatrimonio ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar'}
+                    </button>
+                    <button
+                      onClick={() => setShowResetPatrimonioConfirm(false)}
+                      disabled={isResettingPatrimonio}
+                      className={`flex-1 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-200 text-slate-700 hover:bg-slate-300' : 'bg-white/10 text-slate-300 hover:bg-white/20'}`}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </section>
       </div>
