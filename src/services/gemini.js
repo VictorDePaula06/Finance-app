@@ -42,7 +42,7 @@ const withRetry = async (fn, retries = 5, delay = 2000) => {
     }
 };
 
-export const calculateStatsContext = (transactions, manualConfig, isPanic = false, jars = [], investments = []) => {
+export const calculateStatsContext = (transactions, manualConfig, isPanic = false, jars = [], investments = [], onboarding = {}) => {
     const today = new Date();
     const currentMonth = today.toLocaleDateString('en-CA').slice(0, 7); // YYYY-MM (Local)
 
@@ -161,6 +161,10 @@ ${jarsText}
   - Total em Investimentos: R$ ${investmentsTotal.toFixed(2)} (Valor aproximado)
 ${invText}
 
+- DADOS COMPORTAMENTAIS DO USUÁRIO (ONBOARDING):
+  - Foco/Objetivos Principais: ${onboarding.objectives && onboarding.objectives.length > 0 ? onboarding.objectives.join(', ') : 'Não especificado'}
+  - Perfil de Investidor: ${onboarding.riskProfile || 'Não especificado'}
+
 - ATENÇÃO CRÍTICA (NÃO CONFUNDA NÚMEROS):
   1. O Saldo em Carteira HOJE é R$ ${cumulativeBalance.toFixed(2)}. 
   2. O Saldo Previsto para o fim do mês (visto na Projeção Acima) considera o que ainda pode entrar e sair conforme configurado.
@@ -180,7 +184,8 @@ DIRETRIZES DE ANÁLISE (INTELIGÊNCIA REAL):
 1. **Compras Parceladas**: Se o usuário perguntar sobre uma compra parcelada, não se desespere pelo valor total se o saldo atual for baixo. Calcule se a PARCELA cabe na "sobra mensal" (Renda - Fixos - Variáveis). 
 2. **Projeções Negativas**: Se a projeção de saldo for negativa, analise se é uma "burrice técnica" (configuração de renda baixa demais vs gastos reais altos) ou se é um risco real de endividamento.
 3. **Seja Educadora**: Se uma compra for viável mas arriscada, explique: "Embora você tenha saldo hoje, essa parcela consome X% da sua margem de segurança mensal".
-4. **Objetividade Acima de Tudo**: Apresente os dados antes da opinião. 
+4. **Análise de Portfólio vs Perfil**: Se o usuário tiver especificado um 'Perfil de Investidor', ao analisar os investimentos dele, OBRIGATORIAMENTE cite se os ativos atuais (Investimentos) estão de acordo com o perfil (Conservador, Moderado, Arrojado).
+5. **Objetividade Acima de Tudo**: Apresente os dados antes da opinião. 
 
 INSTRUÇÕES DE TOM:
 - Profissional, direta, segura de si. 

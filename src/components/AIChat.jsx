@@ -31,7 +31,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
     const initialSyncDone = useRef(false);
     const prevMessagesLength = useRef(messages.length);
 
-    const { currentUser, saveUserPreferences, getUserPreferences, saveChatHistory, getChatHistory } = useAuth();
+    const { currentUser, saveUserPreferences, getUserPreferences, saveChatHistory, getChatHistory, userPrefs } = useAuth();
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -159,7 +159,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
         const safetyReset = setTimeout(() => setIsLoading(false), 30000);
 
         try {
-            const context = calculateStatsContext(transactions, manualConfig, isPanic, jars, investments);
+            const context = calculateStatsContext(transactions, manualConfig, isPanic, jars, investments, userPrefs?.onboarding);
             const responseText = await sendMessageToGemini(messages, inputMsg, context);
 
             const sanitizeAIValue = (val) => {

@@ -30,8 +30,12 @@ export default function PatrimonyWelcome({ onComplete }) {
   const [patrimonyGoalType, setPatrimonyGoalType] = useState('');
   const [patrimonyGoalValue, setPatrimonyGoalValue] = useState('');
   
+  const [debtName, setDebtName] = useState('');
+  const [debtValue, setDebtValue] = useState('');
+  const [reserveGoal, setReserveGoal] = useState('');
+  
   const [reserves, setReserves] = useState([{ id: 1, name: '', value: '', cdi: '100' }]);
-  const [investments, setInvestments] = useState([{ id: 1, type: 'acoes', ticker: '', name: '', quantity: '', purchasePrice: '', isUSD: false }]);
+  const [investments, setInvestments] = useState([{ id: 1, type: 'acoes', ticker: '', name: '', quantity: '', purchasePrice: '', isUSD: false, purchaseDate: '' }]);
 
   const isDark = theme !== 'light';
   const card = isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100 shadow-sm';
@@ -74,6 +78,7 @@ export default function PatrimonyWelcome({ onComplete }) {
             purchasePrice: parseFloat(inv.purchasePrice),
             manualCurrentPrice: parseFloat(inv.purchasePrice),
             isUSD: inv.isUSD || false,
+            purchaseDate: inv.purchaseDate || '',
             userId: currentUser.uid,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
@@ -114,10 +119,32 @@ export default function PatrimonyWelcome({ onComplete }) {
       }
     }
 
+    if (objectives.includes('debt') && parseFloat(debtValue) > 0) {
+      try {
+        const { addDoc: addGoalDoc } = await import('firebase/firestore');
+        await addGoalDoc(collection(db, 'goals'), {
+          userId: currentUser.uid,
+          title: debtName || 'Sair das Dívidas',
+          target: parseFloat(debtValue),
+          current: 0,
+          status: 'active',
+          isDebtGoal: true,
+          linkedJarIds: [],
+          linkedInvIds: [],
+          createdAt: new Date().toISOString()
+        });
+      } catch (e) {
+        console.error('Erro ao criar meta de dívida:', e);
+      }
+    }
+
     await saveUserPreferences({
       hasSeenPatrimonyWelcome: true,
       hasSeenWelcome: true,
-      manualConfig: updatedManualConfig,
+      manualConfig: {
+        ...updatedManualConfig,
+        reserveGoal: reserveGoal ? parseFloat(reserveGoal) : (updatedManualConfig.reserveGoal || 0)
+      },
       onboarding: {
         ...onboarding,
         objectives: objectives.length > 0 ? objectives : (onboarding.objectives || []),
@@ -138,7 +165,7 @@ export default function PatrimonyWelcome({ onComplete }) {
   const removeReserve = (id) => setReserves(reserves.filter(r => r.id !== id));
   const updateReserve = (id, field, val) => setReserves(reserves.map(r => r.id === id ? { ...r, [field]: val } : r));
 
-  const addInvestment = () => setInvestments([...investments, { id: Date.now(), type: 'acoes', ticker: '', name: '', quantity: '', purchasePrice: '', isUSD: false }]);
+  const addInvestment = () => setInvestments([...investments, { id: Date.now(), type: 'acoes', ticker: '', name: '', quantity: '', purchasePrice: '', isUSD: false, purchaseDate: '' }]);
   const removeInvestment = (id) => setInvestments(investments.filter(i => i.id !== id));
   const updateInvestment = (id, field, val) => setInvestments(investments.map(i => i.id === id ? { ...i, [field]: val } : i));
 
@@ -151,7 +178,7 @@ export default function PatrimonyWelcome({ onComplete }) {
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-500">
-      <div className={`relative w-full max-w-lg rounded-[2.5rem] border overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-8 duration-500 ${card}`}>
+      <div className={`relative w-full max-w-2xl rounded-[2rem] border overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-8 duration-500 ${card}`}>
         
         {/* Glow */}
         <div className="absolute top-[-30%] left-[-20%] w-[60%] h-[60%] rounded-full blur-[100px] pointer-events-none opacity-30 bg-emerald-500" />
@@ -209,6 +236,23 @@ export default function PatrimonyWelcome({ onComplete }) {
                   );
                 })}
               </div>
+              
+              {objectives.includes('debt') && (
+                <div className="mt-4 p-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <h3 className={`text-sm font-black ${text}`}>Informações da Dívida</h3>
+                  <p className={`text-xs ${sub}`}>Como você quer sair das dívidas, vamos transformá-las em uma meta para acompanhamento da Alívia.</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                       <span className={`text-[10px] font-bold uppercase ${sub} mb-1 block`}>Nome da Dívida</span>
+                       <input type="text" value={debtName} onChange={e => setDebtName(e.target.value)} placeholder="Ex: Empréstimo Itaú" className={inputCls} />
+                    </div>
+                    <div>
+                       <span className={`text-[10px] font-bold uppercase ${sub} mb-1 block`}>Valor Total (R$)</span>
+                       <input type="number" step="any" value={debtValue} onChange={e => setDebtValue(e.target.value)} placeholder="Ex: 5000" className={inputCls} />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -306,6 +350,12 @@ export default function PatrimonyWelcome({ onComplete }) {
                 <h2 className={`text-2xl font-black ${text}`}>Suas Reservas</h2>
                 <p className={`text-sm mt-1 ${sub}`}>Valores seguros e de alta liquidez.</p>
               </div>
+
+              <div className={`p-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/5`}>
+                <span className={`text-[10px] font-bold uppercase ${sub} mb-1 block`}>Meta Total da Reserva (R$)</span>
+                <input type="number" step="any" value={reserveGoal} onChange={e => setReserveGoal(e.target.value)} placeholder="Ex: 50000" className={inputCls} />
+                <p className={`text-[10px] mt-2 ${sub}`}>Qual o valor total que você deseja ter como reserva de emergência?</p>
+              </div>
               
               <div className="space-y-4">
                 {reserves.map((res, idx) => (
@@ -383,15 +433,26 @@ export default function PatrimonyWelcome({ onComplete }) {
                           </div>
                           <div>
                             <span className={`text-[10px] font-bold uppercase ${sub} mb-1 block`}>Ticker/Símbolo</span>
-                            <input type="text" value={inv.ticker} onChange={e => updateInvestment(inv.id, 'ticker', e.target.value.toUpperCase())} placeholder="Ex: VALE3, AAPL..." className={inputCls} />
-                            <p className="text-[9px] text-slate-500 mt-1.5 font-medium leading-tight">Símbolo oficial para atualizar o preço automático.</p>
+                            <div className="flex flex-col gap-2">
+                              <input type="text" value={inv.ticker} onChange={e => updateInvestment(inv.id, 'ticker', e.target.value.toUpperCase())} placeholder="Ex: VALE3, AAPL..." className={inputCls} />
+                              <div className="flex items-center gap-2 mt-1">
+                                <input 
+                                  type="checkbox" 
+                                  id={`isUSD-${inv.id}`} 
+                                  checked={inv.isUSD} 
+                                  onChange={e => updateInvestment(inv.id, 'isUSD', e.target.checked)} 
+                                  className="w-4 h-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500/40 cursor-pointer"
+                                />
+                                <label htmlFor={`isUSD-${inv.id}`} className={`text-[11px] font-bold cursor-pointer ${sub}`}>Ativo dolarizado (USD)</label>
+                              </div>
+                            </div>
                           </div>
                           <div>
                             <span className={`text-[10px] font-bold uppercase ${sub} mb-1 block`}>Nome</span>
                             <input type="text" value={inv.name} onChange={e => updateInvestment(inv.id, 'name', e.target.value)} placeholder="Ex: Ações Vale" className={inputCls} />
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                           <div>
                             <span className={`text-[10px] font-bold uppercase ${sub} mb-1 block`}>Quantidade</span>
                             <input type="number" step="any" value={inv.quantity} onChange={e => updateInvestment(inv.id, 'quantity', e.target.value)} placeholder="Ex: 100" className={inputCls} />
@@ -399,20 +460,14 @@ export default function PatrimonyWelcome({ onComplete }) {
                           <div>
                             <span className={`text-[10px] font-bold uppercase ${sub} mb-1 block`}>Preço Médio</span>
                             <div className="relative">
-                              <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${isDark ? 'text-white' : 'text-slate-800'}`}>{inv.isUSD ? '$' : 'R$'}</span>
-                              <input type="number" step="any" value={inv.purchasePrice} onChange={e => updateInvestment(inv.id, 'purchasePrice', e.target.value)} placeholder="0.00" className={`${inputCls} pl-10`} />
+                              <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${isDark ? 'text-white' : 'text-slate-800'}`}>{inv.isUSD ? '$' : 'R$'}</span>
+                              <input type="number" step="any" value={inv.purchasePrice} onChange={e => updateInvestment(inv.id, 'purchasePrice', e.target.value)} placeholder="0.00" className={`${inputCls} pl-8`} />
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <input 
-                            type="checkbox" 
-                            id={`isUSD-${inv.id}`} 
-                            checked={inv.isUSD} 
-                            onChange={e => updateInvestment(inv.id, 'isUSD', e.target.checked)} 
-                            className="w-4 h-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500/40 cursor-pointer"
-                          />
-                          <label htmlFor={`isUSD-${inv.id}`} className={`text-[11px] font-bold cursor-pointer ${sub}`}>Ativo dolarizado (preço em Dólar - USD)</label>
+                          <div>
+                            <span className={`text-[10px] font-bold uppercase ${sub} mb-1 block`}>Data Compra</span>
+                            <input type="date" value={inv.purchaseDate || ''} onChange={e => updateInvestment(inv.id, 'purchaseDate', e.target.value)} className={inputCls} />
+                          </div>
                         </div>
                     </div>
                   </div>
