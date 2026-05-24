@@ -785,22 +785,23 @@ export default function InvestmentsTab() {
             {/* Top Pill Dashboard */}
             <div className={`flex flex-wrap items-center gap-6 md:gap-12 p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#151822] border-white/5 text-white'}`}>
                 <div className="flex flex-col">
-                    <span className="text-[11px] font-medium text-slate-400 mb-1">Patrimônio total:</span>
-                    <span className="text-xl font-black">
-                        {viewInUSD ? '$' : 'R$'} {(totalPatrimonio * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                </div>
-                <div className="flex flex-col">
                     <span className="text-[11px] font-medium text-slate-400 mb-1">Total de investimentos:</span>
                     <span className="text-xl font-black">
                         {viewInUSD ? '$' : 'R$'} {(totalInvestments * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                 </div>
                 <div className="flex flex-col">
-                    <span className="text-[11px] font-medium text-slate-400 mb-1">Rentabilidade:</span>
+                    <span className="text-[11px] font-medium text-slate-400 mb-1">Rentabilidade (%):</span>
                     <span className={`text-xl font-black flex items-center gap-1 ${totalProfitabilityPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {totalProfitabilityPct >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
                         {totalProfitabilityPct >= 0 ? '+' : ''}{totalProfitabilityPct.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                    </span>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[11px] font-medium text-slate-400 mb-1">Lucro / Perda:</span>
+                    <span className={`text-xl font-black flex items-center gap-1 ${totalInvestments - totalInvested >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {totalInvestments - totalInvested >= 0 ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+                        {totalInvestments - totalInvested >= 0 ? '+' : '-'} {viewInUSD ? '$' : 'R$'} {Math.abs((totalInvestments - totalInvested) * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                 </div>
                 {/* Análise da Alívia */}
@@ -915,12 +916,6 @@ export default function InvestmentsTab() {
 
                 {/* Bottom Stats Inside Main Card */}
                 <div className="mt-8 pt-6 border-t border-white/10 flex items-center gap-12">
-                    <div className="flex flex-col">
-                        <span className="text-[11px] font-medium text-slate-400 mb-1">Patrimônio total</span>
-                        <span className="text-lg font-black text-white">
-                            {viewInUSD ? '$' : 'R$'} {(totalPatrimonio * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                    </div>
                      <div className="flex flex-col">
                         <span className="text-[11px] font-medium text-slate-400 mb-1">Total de investimentos</span>
                         <span className="text-lg font-black text-white">
@@ -928,10 +923,17 @@ export default function InvestmentsTab() {
                         </span>
                     </div>
                      <div className="flex flex-col">
-                        <span className="text-[11px] font-medium text-slate-400 mb-1">Rentabilidade</span>
+                        <span className="text-[11px] font-medium text-slate-400 mb-1">Rentabilidade (%)</span>
                         <span className={`text-lg font-black flex items-center gap-1 ${totalProfitabilityPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                             {totalProfitabilityPct >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
                             {totalProfitabilityPct >= 0 ? '+' : ''}{totalProfitabilityPct.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                        </span>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-[11px] font-medium text-slate-400 mb-1">Lucro / Perda</span>
+                        <span className={`text-lg font-black flex items-center gap-1 ${totalInvestments - totalInvested >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {totalInvestments - totalInvested >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                            {totalInvestments - totalInvested >= 0 ? '+' : '-'} {viewInUSD ? '$' : 'R$'} {Math.abs((totalInvestments - totalInvested) * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                     </div>
                 </div>
