@@ -1080,37 +1080,31 @@ export default function InvestmentsTab() {
 
             {/* Modal: Adicionar/Editar Ativo */}
             {isAdding && (
-                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-                    <div className={`w-full max-w-lg max-h-[90vh] overflow-y-auto scrollbar-hide rounded-[3rem] p-8 md:p-12 border relative animate-in zoom-in-95 duration-300 ${
-                        theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-3">
+                    <div className={`w-full max-w-2xl max-h-[96vh] overflow-y-auto scrollbar-hide rounded-2xl p-6 border relative animate-in zoom-in-95 duration-300 ${
+                        theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
                     }`}>
-                        <button 
-                            onClick={() => { setIsAdding(false); setIsEditing(null); }}
-                            className={`absolute top-6 right-6 p-2 rounded-xl transition-colors z-[10] ${
-                                theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'
-                            }`}
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-                        <div className="flex items-start gap-3 mb-8">
-                            <button type="button" onClick={() => { setIsAdding(false); setIsEditing(null); }} className="p-2 -ml-2 text-slate-400 hover:text-slate-600 transition-colors mt-0.5 shrink-0">
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-1">
+                            <button type="button" onClick={() => { setIsAdding(false); setIsEditing(null); }} className={`p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-slate-600 hover:bg-slate-100' : 'text-slate-500 hover:text-slate-300 hover:bg-white/10'}`}>
                                 <ArrowRight className="w-4 h-4 rotate-180" />
                             </button>
-                            <div>
-                                <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                    {isEditing ? 'Editar Ativo' : 'Novo Ativo'}
-                                </h3>
-                                {!isEditing && (
-                                    <p className={`text-xs font-medium mt-0.5 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
-                                        Adicione um novo ativo à sua carteira para acompanhar e investir.
-                                    </p>
-                                )}
-                            </div>
+                            <h3 className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                {isEditing ? 'Editar Ativo' : 'Novo Ativo'}
+                            </h3>
+                            <button onClick={() => { setIsAdding(false); setIsEditing(null); }} className={`p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-slate-600 hover:bg-slate-100' : 'text-slate-500 hover:text-slate-300 hover:bg-white/10'}`}>
+                                <X className="w-4 h-4" />
+                            </button>
                         </div>
+                        {!isEditing && (
+                            <p className={`text-xs font-medium mb-5 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                Adicione um novo ativo à sua carteira para acompanhar e investir.
+                            </p>
+                        )}
 
-                        <form onSubmit={handleSaveAsset} className="space-y-6">
+                        <form onSubmit={handleSaveAsset} className="space-y-3">
                             <div>
-                                <h4 className={`text-sm font-black mb-3 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Tipo de ativo</h4>
+                                <h4 className={`text-xs font-black mb-2 ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>Tipo de ativo</h4>
                                 <div className="grid grid-cols-3 gap-2">
                                     {Object.entries(ASSET_TYPES).map(([key, config]) => (
                                         <button
@@ -1127,84 +1121,86 @@ export default function InvestmentsTab() {
                                                 yield: '',
                                                 expiryDate: ''
                                             })}
-                                            className={`p-3 rounded-2xl border flex flex-col items-center gap-1 transition-all ${
+                                            className={`py-2.5 px-2 rounded-xl border flex flex-col items-center gap-1 transition-all ${
                                                 newAsset.type === key
-                                                ? (theme === 'light' ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg' : 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-600/20')
-                                                : (theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100' : 'bg-white/5 border-white/5 text-slate-500 hover:bg-white/10')
+                                                ? (theme === 'light' ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 'bg-emerald-600/20 border-emerald-500 text-emerald-400')
+                                                : (theme === 'light' ? 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50' : 'bg-white/5 border-white/10 text-slate-500 hover:bg-white/10')
                                             }`}
                                         >
-                                            <config.icon className="w-5 h-5" />
-                                            <span className="text-[8px] font-black uppercase tracking-widest">{config.label}</span>
+                                            <config.icon className="w-4 h-4" />
+                                            <span className="text-[10px] font-semibold">{config.label}</span>
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
-                            <h4 className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Informações do ativo</h4>
+                            <div>
+                                <h4 className={`text-xs font-black mb-2 ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>Informações do ativo</h4>
+                            </div>
 
                             {/* Common Name Field */}
                             {newAsset.type !== 'renda_fixa' && (
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
-                                        {newAsset.type === 'imoveis' ? 'Nome do Imóvel' : 'Nome do Ativo'}
+                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                                        {newAsset.type === 'imoveis' ? 'Nome do Imóvel' : 'Nome do ativo'}
                                     </label>
-                                    <input 
+                                    <input
                                         type="text"
                                         required
                                         value={newAsset.name}
                                         onChange={(e) => setNewAsset({...newAsset, name: e.target.value})}
-                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                        className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
+                                            theme === 'light' ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400' : 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500'
                                         }`}
-                                        placeholder={newAsset.type === 'imoveis' ? 'Ex: Apartamento Centro' : 'Ex: Vale ON, Bitcoin...'}
+                                        placeholder={newAsset.type === 'imoveis' ? 'Ex: Apartamento Centro' : 'Ex: Vale ON...'}
                                     />
                                 </div>
                             )}
 
                             {/* Dynamic Fields Grid */}
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-3">
                                 {['acoes', 'etfs', 'fiis', 'crypto'].includes(newAsset.type) ? (
                                     <>
                                         <div>
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Símbolo/Ticker</label>
+                                            <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Símbolo / Ticker</label>
                                             <div className="flex gap-2">
-                                                <input 
+                                                <input
                                                     type="text"
                                                     required={newAsset.type !== 'imoveis'}
                                                     value={newAsset.symbol}
                                                     onChange={(e) => setNewAsset({...newAsset, symbol: e.target.value.toUpperCase()})}
-                                                    className={`flex-1 w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                                    className={`flex-1 px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
+                                                        theme === 'light' ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400' : 'bg-white/5 border-white/10 text-white placeholder-slate-500'
                                                     }`}
-                                                    placeholder="Ex: NVDA, BTC, BBAS3"
+                                                    placeholder="e.g. AAPL"
                                                 />
                                                 <button
                                                     type="button"
                                                     onClick={() => setNewAsset({...newAsset, isUSD: !newAsset.isUSD})}
-                                                    title="Clique para alternar entre BRL e USD"
-                                                    className={`flex items-center gap-1.5 px-4 py-4 rounded-2xl border font-black text-xs transition-all whitespace-nowrap ${
+                                                    title="Clique para alternar entre Real e Dólar"
+                                                    className={`flex items-center gap-1 px-3 py-2.5 rounded-xl border text-xs font-semibold transition-all whitespace-nowrap ${
                                                         newAsset.isUSD
-                                                        ? (theme === 'light' ? 'bg-emerald-50 border-emerald-300 text-emerald-600' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400')
-                                                        : (theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-400' : 'bg-white/5 border-white/10 text-slate-400')
+                                                        ? (theme === 'light' ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400')
+                                                        : (theme === 'light' ? 'bg-white border-slate-300 text-slate-500' : 'bg-white/5 border-white/10 text-slate-400')
                                                     }`}
                                                 >
-                                                    {newAsset.isUSD ? 'USD' : 'BRL'}
+                                                    {newAsset.isUSD ? 'Dólar (USD)' : 'Real (BRL)'}
                                                     <ChevronDown className="w-3 h-3" />
                                                 </button>
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Quantidade</label>
-                                            <input 
+                                            <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Quantidade</label>
+                                            <input
                                                 type="text"
                                                 inputMode="decimal"
                                                 required
                                                 value={newAsset.quantity}
                                                 onChange={(e) => setNewAsset({...newAsset, quantity: e.target.value})}
-                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                                    theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
+                                                    theme === 'light' ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400' : 'bg-white/5 border-white/10 text-white placeholder-slate-500'
                                                 }`}
-                                                placeholder="0.00"
+                                                placeholder="0,00"
                                             />
                                         </div>
                                     </>
@@ -1370,13 +1366,13 @@ export default function InvestmentsTab() {
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
                                         {newAsset.type === 'renda_fixa' ? 'Valor Total Aplicado (R$)' : (newAsset.type === 'imoveis' ? 'Valor de Compra' : `Preço médio (${newAsset.isUSD ? 'USD' : 'R$'})`)}
                                     </label>
                                     <div className="relative">
-                                        <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                        <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold opacity-60 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
                                             {newAsset.isUSD ? '$' : 'R$'}
                                         </span>
                                         <input
@@ -1385,20 +1381,20 @@ export default function InvestmentsTab() {
                                             required
                                             value={newAsset.type === 'renda_fixa' ? (newAsset.totalApplied || '') : newAsset.purchasePrice}
                                             onChange={(e) => setNewAsset(newAsset.type === 'renda_fixa' ? {...newAsset, totalApplied: e.target.value, purchasePrice: e.target.value, quantity: '1'} : {...newAsset, purchasePrice: e.target.value})}
-                                            className={`w-full p-4 ${newAsset.isUSD ? 'pl-10' : 'pl-12'} rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                                theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                            className={`w-full py-2.5 pr-3 ${newAsset.isUSD ? 'pl-8' : 'pl-10'} rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
+                                                theme === 'light' ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400' : 'bg-white/5 border-white/10 text-white placeholder-slate-500'
                                             }`}
                                             placeholder="0,00"
                                         />
                                     </div>
-                                    {newAsset.type === 'renda_fixa' && <p className="text-[9px] text-slate-400 mt-1.5 font-medium">Quanto você investiu no total</p>}
+                                    {newAsset.type === 'renda_fixa' && <p className="text-[9px] text-slate-400 mt-1 font-medium">Quanto você investiu no total</p>}
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">
+                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
                                         {newAsset.type === 'renda_fixa' ? 'Valor Atual Total (R$)' : (newAsset.type === 'imoveis' ? 'Valor Atual' : `Preço atual (${newAsset.isUSD ? 'USD' : 'R$'})`)}
                                     </label>
                                     <div className="relative">
-                                        <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                        <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold opacity-60 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
                                             {newAsset.isUSD ? '$' : 'R$'}
                                         </span>
                                         <input
@@ -1406,29 +1402,29 @@ export default function InvestmentsTab() {
                                             inputMode="decimal"
                                             value={newAsset.manualCurrentPrice || ''}
                                             onChange={(e) => setNewAsset({...newAsset, manualCurrentPrice: e.target.value})}
-                                            className={`w-full p-4 ${newAsset.isUSD ? 'pl-10' : 'pl-12'} rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                                theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                            className={`w-full py-2.5 pr-3 ${newAsset.isUSD ? 'pl-8' : 'pl-10'} rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
+                                                theme === 'light' ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400' : 'bg-white/5 border-white/10 text-white placeholder-slate-500'
                                             }`}
                                             placeholder={newAsset.type === 'renda_fixa' ? 'Consultar na corretora' : 'Opcional'}
                                         />
                                     </div>
-                                    {newAsset.type === 'renda_fixa' && <p className="text-[9px] text-slate-400 mt-1.5 font-medium">Saldo atual na corretora</p>}
+                                    {newAsset.type === 'renda_fixa' && <p className="text-[9px] text-slate-400 mt-1 font-medium">Saldo atual na corretora</p>}
                                 </div>
                             </div>
 
                             {/* Data de Compra */}
                             <div>
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Data da Compra</label>
-                                <input 
+                                <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Data da compra</label>
+                                <input
                                     type="date"
                                     required
                                     value={newAsset.purchaseDate || ''}
                                     onChange={(e) => setNewAsset({...newAsset, purchaseDate: e.target.value})}
-                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
+                                        theme === 'light' ? 'bg-white border-slate-300 text-slate-800' : 'bg-white/5 border-white/10 text-white'
                                     }`}
                                 />
-                                <p className={`text-[9px] mt-1.5 font-medium ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>Quando você comprou/aplicou este ativo</p>
+                                <p className={`text-[9px] mt-1 font-medium ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>Quando você comprou/aplicou este ativo</p>
                             </div>
 
                             {['acoes', 'etfs', 'fiis', 'crypto'].includes(newAsset.type) && (
@@ -1444,22 +1440,19 @@ export default function InvestmentsTab() {
 
 
 
-                            <div className="flex gap-4 pt-4">
-                                <button 
+                            <div className="flex gap-3 pt-2">
+                                <button
                                     type="button"
-                                    onClick={() => {
-                                        setIsAdding(false);
-                                        setIsEditing(null);
-                                    }}
-                                    className={`flex-1 py-4 rounded-2xl font-black text-sm transition-all ${
-                                        theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                    onClick={() => { setIsAdding(false); setIsEditing(null); }}
+                                    className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-all border ${
+                                        theme === 'light' ? 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
                                     }`}
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                    className="flex-1 py-3 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-semibold text-sm shadow-lg shadow-emerald-700/20 transition-all active:scale-95 flex items-center justify-center gap-2"
                                 >
                                     <Save className="w-4 h-4" />
                                     {isEditing ? 'Salvar Alterações' : 'Salvar Ativo'}
