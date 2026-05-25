@@ -160,16 +160,21 @@ export default function AdminPanel({ onBack }) {
                     isExpired = true;
                 }
 
+                // isPremium = assinante 'active'. isLifetime é permissão especial separada —
+                // não seta isPremium para evitar dupla seleção no modal de edição.
                 let finalIsPremium = false, finalIsStandard = false, finalIsFree = false;
                 if (!isBlocked) {
-                    if (subStatus === 'active' || subStatus === 'lifetime') finalIsPremium = true;
+                    if (subStatus === 'active') finalIsPremium = true;
                     else if (subStatus === 'standard') finalIsStandard = true;
-                    else finalIsFree = true;
+                    else if (subStatus !== 'lifetime') finalIsFree = true;
+                    // lifetime: isLifetime=true, os três acima ficam false
                 } else {
                     finalIsFree = true;
                 }
 
                 const userEmail = settingsData.email || userData.email || customerData.email || 'N/A';
+                // isEmailAdmin: email fixo nos security rules — não pode ser removido via UI
+                const isEmailAdmin = ADMIN_EMAILS.includes(userEmail);
 
                 userList.push({
                     uid, email: userEmail,
@@ -177,7 +182,8 @@ export default function AdminPanel({ onBack }) {
                     subType, subStatus, isTrial,
                     subDate: subDate ? subDate.toLocaleDateString('pt-BR') : 'N/A',
                     daysLeft, isExpired, isLifetime, isBlocked,
-                    isAdmin: userData.isAdmin === true || ADMIN_EMAILS.includes(userEmail),
+                    isAdmin: userData.isAdmin === true || isEmailAdmin,
+                    isEmailAdmin,
                     pushSubscriptions: userData.pushSubscriptions || [],
                     createdAt: baseDate ? baseDate.toLocaleDateString('pt-BR') : 'N/A',
                     lastSync: (settingsData.subscription?.updatedAt || userData.subscription?.updatedAt)?.toDate?.().toLocaleDateString() || 'N/A',
@@ -238,15 +244,37 @@ export default function AdminPanel({ onBack }) {
                     const userRef = doc(db, 'users', uid);
                     const settingsRef = doc(db, 'users', uid, 'settings', 'general');
                     const batch = writeBatch(db);
-                    let finalStatus = 'free', finalType = 'monthly';
-                    if (pendingUser.isLifetime) { finalStatus = 'lifetime'; finalType = 'lifetime'; }
-                    else if (pendingUser.isPremium) { finalStatus = 'active'; finalType = 'monthly'; }
-                    else if (pendingUser.isStandard) { finalStatus = 'standard'; finalType = 'monthly'; }
-                    batch.update(userRef, { isAdmin: pendingUser.isAdmin, isBlocked: pendingUser.isBlocked || false });
+
+                    // Determina status e tipo finais
+                    let finalStatus = 'free';
+                    let finalType = pendingUser.subType || 'monthly'; // preserva anual/mensal existente
+
+                    if (pendingUser.isLifetime) {
+                        finalStatus = 'lifetime';
+                        finalType = 'lifetime';
+                    } else if (pendingUser.isPremium) {
+                        finalStatus = 'active';
+                    } else if (pendingUser.isStandard) {
+                        finalStatus = 'standard';
+                    } else {
+                        finalStatus = 'free';
+                        finalType = 'monthly';
+                    }
+
+                    // isBlocked sobrepõe tudo — usa set+merge para criar o doc se não existir
+                    const effectiveStatus = pendingUser.isBlocked ? 'blocked' : finalStatus;
+
+                    batch.set(userRef, {
+                        isAdmin: pendingUser.isAdmin,
+                        isBlocked: pendingUser.isBlocked || false
+                    }, { merge: true });
+
                     batch.set(settingsRef, {
                         subscription: {
-                            status: pendingUser.isBlocked ? 'blocked' : finalStatus,
-                            type: finalType, updatedAt: new Date(), date: new Date(),
+                            status: effectiveStatus,
+                            type: finalType,
+                            updatedAt: new Date(),
+                            date: new Date(),
                             isBlocked: pendingUser.isBlocked || false
                         }
                     }, { merge: true });
@@ -264,10 +292,10 @@ export default function AdminPanel({ onBack }) {
 
     const handlePlanSelect = (planId) => {
         if (!pendingUser) return;
+        // isLifetime é permissão especial — não é tocado aqui
         setPendingUser(prev => ({
             ...prev,
             isPremium:  planId === 'isPremium',
-            isLifetime: planId === 'isLifetime',
             isStandard: planId === 'isStandard',
             isFree:     planId === 'isFree',
         }));
@@ -469,72 +497,110 @@ export default function AdminPanel({ onBack }) {
                             </div>
                         </div>
 
-                        {/* PLANO — Radio Buttons */}
+                        {/* PLANO — Radio (3 opções, Vitalício não está aqui) */}
                         <div className="mb-5">
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">
-                                Plano de Acesso
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">
+                                Plano de Assinatura
                             </p>
-                            <div className="grid grid-cols-2 gap-2">
+                            {pendingUser.isLifetime && (
+                                <p className="text-[10px] text-slate-500 bg-white/5 border border-white/10 rounded-lg px-3 py-2 mb-3">
+                                    ⚡ Vitalício ativo — o plano abaixo fica inativo enquanto vigente.
+                                </p>
+                            )}
+                            <div className="grid grid-cols-3 gap-2">
                                 {[
-                                    { id: 'isPremium',  label: 'Premium',  desc: 'Acesso completo'      },
-                                    { id: 'isLifetime', label: 'Vitalício', desc: 'Permanente ilimitado' },
-                                    { id: 'isStandard', label: 'Standard', desc: 'Versão intermediária'  },
-                                    { id: 'isFree',     label: 'Gratuito', desc: 'Teste ou sem plano'    },
+                                    { id: 'isPremium',  label: 'Premium',  desc: 'Completo'       },
+                                    { id: 'isStandard', label: 'Standard', desc: 'Intermediário'   },
+                                    { id: 'isFree',     label: 'Gratuito', desc: 'Sem plano'       },
                                 ].map(plan => {
-                                    const active = pendingUser[plan.id];
+                                    // Mostra estado real apenas quando não é lifetime
+                                    const active = pendingUser[plan.id] && !pendingUser.isLifetime;
+                                    const disabled = isSaving || pendingUser.isLifetime;
                                     return (
                                         <button
                                             key={plan.id}
                                             type="button"
-                                            disabled={isSaving}
+                                            disabled={disabled}
                                             onClick={() => handlePlanSelect(plan.id)}
                                             className={`p-3 rounded-xl border-2 text-left transition-all ${
                                                 active
                                                     ? 'border-emerald-500 bg-emerald-500/10'
-                                                    : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                                                    : disabled
+                                                        ? 'border-white/5 bg-white/[0.01] opacity-40 cursor-not-allowed'
+                                                        : 'border-white/10 bg-white/[0.02] hover:border-white/20'
                                             }`}
                                         >
                                             <div className="flex items-center justify-between mb-1">
-                                                <span className={`text-xs font-bold ${active ? 'text-emerald-400' : 'text-white'}`}>{plan.label}</span>
-                                                <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+                                                <span className={`text-xs font-bold ${active ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                                    {plan.label}
+                                                </span>
+                                                <div className={`w-3 h-3 rounded-full border-2 flex items-center justify-center ${
                                                     active ? 'bg-emerald-500 border-transparent' : 'border-white/20'
                                                 }`}>
-                                                    {active && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                    {active && <div className="w-1 h-1 rounded-full bg-white" />}
                                                 </div>
                                             </div>
-                                            <p className="text-[10px] text-slate-500">{plan.desc}</p>
+                                            <p className="text-[10px] text-slate-600">{plan.desc}</p>
                                         </button>
                                     );
                                 })}
                             </div>
                         </div>
 
-                        {/* TOGGLES INDEPENDENTES */}
+                        {/* PERMISSÕES ESPECIAIS — inclui Vitalício */}
                         <div className="space-y-2 mb-5">
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">
                                 Permissões Especiais
                             </p>
                             {[
-                                { id: 'isAdmin',   label: 'Administrador',    desc: 'Acesso ao Painel Admin',       activeClass: 'border-white/30 bg-white/5' },
-                                { id: 'isBlocked', label: 'Bloquear Usuário', desc: 'Suspende o acesso da conta',   activeClass: 'border-rose-500/50 bg-rose-500/10' },
+                                {
+                                    id: 'isLifetime',
+                                    label: 'Acesso Vitalício',
+                                    desc: 'Sobrepõe o plano — acesso premium permanente sem assinatura',
+                                    activeClass: 'border-emerald-500/40 bg-emerald-500/10',
+                                    checkBg: 'bg-emerald-500',
+                                    canEdit: true,
+                                },
+                                {
+                                    id: 'isAdmin',
+                                    label: 'Administrador',
+                                    desc: editingUser?.isEmailAdmin
+                                        ? 'E-mail fixo nas regras de segurança — não pode ser removido aqui'
+                                        : 'Concede acesso ao Painel de Controle',
+                                    activeClass: 'border-white/30 bg-white/5',
+                                    checkBg: 'bg-emerald-500',
+                                    canEdit: !editingUser?.isEmailAdmin,
+                                },
+                                {
+                                    id: 'isBlocked',
+                                    label: 'Bloquear Conta',
+                                    desc: 'Suspende o acesso imediatamente, independente do plano',
+                                    activeClass: 'border-rose-500/50 bg-rose-500/10',
+                                    checkBg: 'bg-rose-500',
+                                    canEdit: true,
+                                },
                             ].map(flag => (
                                 <button
                                     key={flag.id}
                                     type="button"
-                                    disabled={isSaving}
-                                    onClick={() => handleToggle(flag.id)}
+                                    disabled={isSaving || !flag.canEdit}
+                                    onClick={() => flag.canEdit && handleToggle(flag.id)}
                                     className={`w-full px-3 py-2.5 rounded-xl border-2 transition-all flex items-center gap-3 text-left ${
-                                        pendingUser[flag.id] ? flag.activeClass : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                                        pendingUser[flag.id]
+                                            ? flag.activeClass
+                                            : !flag.canEdit
+                                                ? 'border-white/5 bg-white/[0.01] opacity-50 cursor-not-allowed'
+                                                : 'border-white/10 bg-white/[0.02] hover:border-white/20'
                                     }`}
                                 >
                                     <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                                        pendingUser[flag.id] ? 'bg-emerald-500 border-transparent' : 'border-white/20'
+                                        pendingUser[flag.id] ? `${flag.checkBg} border-transparent` : 'border-white/20'
                                     }`}>
                                         {pendingUser[flag.id] && <Check className="w-2.5 h-2.5 text-white" />}
                                     </div>
-                                    <div>
+                                    <div className="min-w-0">
                                         <p className="text-xs font-bold text-white">{flag.label}</p>
-                                        <p className="text-[10px] text-slate-500">{flag.desc}</p>
+                                        <p className="text-[10px] text-slate-500 leading-snug">{flag.desc}</p>
                                     </div>
                                 </button>
                             ))}
@@ -906,7 +972,7 @@ export default function AdminPanel({ onBack }) {
                                                     {/* Plan Badge */}
                                                     <div className="hidden sm:block">
                                                         {user.isLifetime ? (
-                                                            <span className="px-2.5 py-1 rounded-lg bg-white/5 text-slate-300 text-[10px] font-bold border border-white/10">Vitalício</span>
+                                                            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20">Vitalício</span>
                                                         ) : user.isPremium ? (
                                                             <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20">Premium</span>
                                                         ) : user.isStandard ? (
