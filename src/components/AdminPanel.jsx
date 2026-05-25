@@ -402,18 +402,18 @@ export default function AdminPanel({ onBack }) {
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-[#5CCEEA]/30 flex flex-col">
+        <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col">
 
             {/* ── Toast ── */}
             {toast && (
                 <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[300] animate-in fade-in slide-in-from-top-4 duration-300">
-                    <div className={`px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-xl ${
+                    <div className={`px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-xl ${
                         toast.type === 'success'
                             ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                             : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
                     }`}>
                         {toast.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                        <span className="text-xs font-black uppercase tracking-[0.15em]">{toast.message}</span>
+                        <span className="text-xs font-bold">{toast.message}</span>
                     </div>
                 </div>
             )}
@@ -423,22 +423,22 @@ export default function AdminPanel({ onBack }) {
                 <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
                     <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-300">
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 rounded-xl bg-[#5CCEEA]/10 shrink-0">
-                                <Info className="w-5 h-5 text-[#5CCEEA]" />
+                            <div className="p-2 rounded-xl bg-white/5 shrink-0">
+                                <Info className="w-4 h-4 text-slate-400" />
                             </div>
-                            <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">{confirmDialog.title}</h3>
+                            <h3 className="text-sm font-black text-white">{confirmDialog.title}</h3>
                         </div>
                         <p className="text-xs text-slate-400 mb-6 leading-relaxed">{confirmDialog.message}</p>
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setConfirmDialog(null)}
-                                className="flex-1 py-2.5 rounded-xl bg-white/5 text-slate-400 text-[10px] font-black uppercase tracking-[0.15em] hover:bg-white/10 transition-all"
+                                className="flex-1 py-2.5 rounded-xl bg-white/5 text-slate-400 text-xs font-bold hover:bg-white/10 transition-all"
                             >
                                 Cancelar
                             </button>
                             <button
                                 onClick={confirmDialog.onConfirm}
-                                className="flex-1 py-2.5 rounded-xl bg-[#5CCEEA] text-slate-950 text-[10px] font-black uppercase tracking-[0.15em] hover:bg-[#69C8B9] transition-all"
+                                className="flex-1 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-all"
                             >
                                 {confirmDialog.confirmText || 'Confirmar'}
                             </button>
@@ -460,34 +460,28 @@ export default function AdminPanel({ onBack }) {
 
                         {/* Modal Header */}
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-xl bg-[#5CCEEA]/10 shrink-0">
-                                <Settings className="w-5 h-5 text-[#5CCEEA]" />
+                            <div className="p-2 rounded-xl bg-white/5 shrink-0">
+                                <Settings className="w-4 h-4 text-slate-400" />
                             </div>
                             <div>
-                                <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">Editar Permissões</h3>
-                                <p className="text-[10px] text-slate-500 truncate font-black uppercase tracking-[0.1em] mt-0.5">{editingUser.email}</p>
+                                <h3 className="text-sm font-black text-white">Editar Permissões</h3>
+                                <p className="text-xs text-slate-500 truncate mt-0.5">{editingUser.email}</p>
                             </div>
                         </div>
 
                         {/* PLANO — Radio Buttons */}
                         <div className="mb-5">
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1 flex items-center gap-2">
-                                <CreditCard className="w-3 h-3" /> Plano de Acesso
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">
+                                Plano de Acesso
                             </p>
                             <div className="grid grid-cols-2 gap-2">
                                 {[
-                                    { id: 'isPremium',  label: 'Premium',  desc: 'Acesso completo',       color: 'emerald' },
-                                    { id: 'isLifetime', label: 'Vitalício', desc: 'Permanente ilimitado',  color: 'purple'  },
-                                    { id: 'isStandard', label: 'Standard', desc: 'Versão intermediária',   color: 'amber'   },
-                                    { id: 'isFree',     label: 'Gratuito', desc: 'Teste ou sem plano',     color: 'rose'    },
+                                    { id: 'isPremium',  label: 'Premium',  desc: 'Acesso completo'      },
+                                    { id: 'isLifetime', label: 'Vitalício', desc: 'Permanente ilimitado' },
+                                    { id: 'isStandard', label: 'Standard', desc: 'Versão intermediária'  },
+                                    { id: 'isFree',     label: 'Gratuito', desc: 'Teste ou sem plano'    },
                                 ].map(plan => {
                                     const active = pendingUser[plan.id];
-                                    const colorMap = {
-                                        emerald: { border: 'border-emerald-500', bg: 'bg-emerald-500/10', text: 'text-emerald-400', dot: 'bg-emerald-500' },
-                                        purple:  { border: 'border-purple-500',  bg: 'bg-purple-500/10',  text: 'text-purple-400',  dot: 'bg-purple-500'  },
-                                        amber:   { border: 'border-amber-500',   bg: 'bg-amber-500/10',   text: 'text-amber-400',   dot: 'bg-amber-500'   },
-                                        rose:    { border: 'border-rose-500',    bg: 'bg-rose-500/10',    text: 'text-rose-400',    dot: 'bg-rose-500'    },
-                                    }[plan.color];
                                     return (
                                         <button
                                             key={plan.id}
@@ -495,18 +489,20 @@ export default function AdminPanel({ onBack }) {
                                             disabled={isSaving}
                                             onClick={() => handlePlanSelect(plan.id)}
                                             className={`p-3 rounded-xl border-2 text-left transition-all ${
-                                                active ? `${colorMap.border} ${colorMap.bg}` : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                                                active
+                                                    ? 'border-emerald-500 bg-emerald-500/10'
+                                                    : 'border-white/10 bg-white/[0.02] hover:border-white/20'
                                             }`}
                                         >
                                             <div className="flex items-center justify-between mb-1">
-                                                <span className={`text-xs font-black ${active ? colorMap.text : 'text-white'}`}>{plan.label}</span>
+                                                <span className={`text-xs font-bold ${active ? 'text-emerald-400' : 'text-white'}`}>{plan.label}</span>
                                                 <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
-                                                    active ? `${colorMap.dot} border-transparent` : 'border-white/20'
+                                                    active ? 'bg-emerald-500 border-transparent' : 'border-white/20'
                                                 }`}>
                                                     {active && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                                                 </div>
                                             </div>
-                                            <p className="text-[9px] text-slate-500 font-medium">{plan.desc}</p>
+                                            <p className="text-[10px] text-slate-500">{plan.desc}</p>
                                         </button>
                                     );
                                 })}
@@ -515,12 +511,12 @@ export default function AdminPanel({ onBack }) {
 
                         {/* TOGGLES INDEPENDENTES */}
                         <div className="space-y-2 mb-5">
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1 flex items-center gap-2">
-                                <Shield className="w-3 h-3" /> Permissões Especiais
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">
+                                Permissões Especiais
                             </p>
                             {[
-                                { id: 'isAdmin',   label: 'Administrador',   desc: 'Acesso ao Painel Admin',      border: 'border-purple-500', bg: 'bg-purple-500/10', check: 'bg-purple-500' },
-                                { id: 'isBlocked', label: 'Bloquear Usuário', desc: 'Suspende acesso imediatamente', border: 'border-rose-600',   bg: 'bg-rose-600/10',   check: 'bg-rose-600'   },
+                                { id: 'isAdmin',   label: 'Administrador',    desc: 'Acesso ao Painel Admin',       activeClass: 'border-white/30 bg-white/5' },
+                                { id: 'isBlocked', label: 'Bloquear Usuário', desc: 'Suspende o acesso da conta',   activeClass: 'border-rose-500/50 bg-rose-500/10' },
                             ].map(flag => (
                                 <button
                                     key={flag.id}
@@ -528,17 +524,17 @@ export default function AdminPanel({ onBack }) {
                                     disabled={isSaving}
                                     onClick={() => handleToggle(flag.id)}
                                     className={`w-full px-3 py-2.5 rounded-xl border-2 transition-all flex items-center gap-3 text-left ${
-                                        pendingUser[flag.id] ? `${flag.border} ${flag.bg}` : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                                        pendingUser[flag.id] ? flag.activeClass : 'border-white/10 bg-white/[0.02] hover:border-white/20'
                                     }`}
                                 >
                                     <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                                        pendingUser[flag.id] ? `${flag.check} border-transparent` : 'border-white/20'
+                                        pendingUser[flag.id] ? 'bg-emerald-500 border-transparent' : 'border-white/20'
                                     }`}>
                                         {pendingUser[flag.id] && <Check className="w-2.5 h-2.5 text-white" />}
                                     </div>
                                     <div>
-                                        <p className="text-xs font-black text-white">{flag.label}</p>
-                                        <p className="text-[9px] text-slate-500 font-medium">{flag.desc}</p>
+                                        <p className="text-xs font-bold text-white">{flag.label}</p>
+                                        <p className="text-[10px] text-slate-500">{flag.desc}</p>
                                     </div>
                                 </button>
                             ))}
@@ -549,7 +545,7 @@ export default function AdminPanel({ onBack }) {
                             <button
                                 onClick={saveUserChanges}
                                 disabled={isSaving}
-                                className="w-full py-3 rounded-xl bg-[#5CCEEA] text-slate-950 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#69C8B9] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                className="w-full py-3 rounded-xl bg-emerald-500 text-white text-sm font-bold hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 <Save className="w-3.5 h-3.5" />
                                 {isSaving ? 'Salvando...' : 'Salvar Alterações'}
@@ -558,26 +554,26 @@ export default function AdminPanel({ onBack }) {
                                 <button
                                     onClick={handleResetTrial}
                                     disabled={isSaving}
-                                    className="py-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-[0.15em] border border-emerald-500/20 hover:bg-emerald-500/20 transition-all"
+                                    className="py-2.5 rounded-xl bg-white/5 text-slate-400 text-xs font-bold border border-white/[0.08] hover:bg-white/10 hover:text-slate-200 transition-all"
                                 >
                                     Resetar Teste
                                 </button>
                                 <button
                                     onClick={handleExpireTrial}
                                     disabled={isSaving}
-                                    className="py-2.5 rounded-xl bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-[0.15em] border border-amber-500/20 hover:bg-amber-500/20 transition-all"
+                                    className="py-2.5 rounded-xl bg-white/5 text-slate-400 text-xs font-bold border border-white/[0.08] hover:bg-white/10 hover:text-slate-200 transition-all"
                                 >
                                     Expirar Teste
                                 </button>
                                 <button
                                     onClick={() => adminDeleteUser(editingUser)}
-                                    className="py-2.5 rounded-xl bg-rose-500/10 text-rose-400 text-[10px] font-black uppercase tracking-[0.15em] border border-rose-500/20 hover:bg-rose-500/20 transition-all"
+                                    className="py-2.5 rounded-xl bg-rose-500/10 text-rose-400 text-xs font-bold border border-rose-500/20 hover:bg-rose-500/20 transition-all"
                                 >
                                     Excluir Conta
                                 </button>
                                 <button
                                     onClick={() => { setEditingUser(null); setPendingUser(null); }}
-                                    className="py-2.5 rounded-xl bg-white/5 text-slate-400 text-[10px] font-black uppercase tracking-[0.15em] hover:bg-white/10 transition-all"
+                                    className="py-2.5 rounded-xl bg-white/5 text-slate-400 text-xs font-bold hover:bg-white/10 transition-all"
                                 >
                                     Cancelar
                                 </button>
@@ -596,21 +592,21 @@ export default function AdminPanel({ onBack }) {
                     <ArrowLeft className="w-4 h-4" />
                 </button>
                 <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-[#5CCEEA]/10 shrink-0">
-                        <Shield className="w-4 h-4 text-[#5CCEEA]" />
+                    <div className="p-2 rounded-xl bg-white/5 shrink-0">
+                        <Shield className="w-4 h-4 text-slate-400" />
                     </div>
                     <div>
-                        <h1 className="text-sm font-black uppercase tracking-[0.2em] text-white leading-tight">Painel de Controle</h1>
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Administração Alívia</p>
+                        <h1 className="text-base font-black text-white leading-tight">Painel de Controle</h1>
+                        <p className="text-xs text-slate-500">Administração do sistema</p>
                     </div>
                 </div>
                 <div className="ml-auto">
-                    <div className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-[0.15em] ${
+                    <div className={`px-3 py-1.5 rounded-lg border text-xs font-bold ${
                         loading
-                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-                            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                            ? 'bg-white/5 border-white/10 text-slate-500'
+                            : 'bg-white/5 border-white/10 text-slate-400'
                     }`}>
-                        {loading ? 'Sincronizando...' : `${stats.total} usuários`}
+                        {loading ? 'Carregando...' : `${stats.total} usuários`}
                     </div>
                 </div>
             </header>
@@ -636,7 +632,7 @@ export default function AdminPanel({ onBack }) {
                                     onClick={() => setActiveTab(item.id)}
                                     className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all text-sm font-bold text-left mb-1 ${
                                         isActive
-                                            ? 'bg-[#5CCEEA]/10 text-[#5CCEEA]'
+                                            ? 'bg-emerald-500/10 text-emerald-400'
                                             : 'text-slate-500 hover:bg-white/5 hover:text-slate-200'
                                     }`}
                                 >
@@ -645,8 +641,8 @@ export default function AdminPanel({ onBack }) {
                                         {item.label}
                                     </div>
                                     {item.badge !== null && (
-                                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${
-                                            isActive ? 'bg-[#5CCEEA]/20 text-[#5CCEEA]' : 'bg-white/5 text-slate-600'
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                                            isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-slate-600'
                                         }`}>
                                             {item.badge}
                                         </span>
@@ -668,17 +664,17 @@ export default function AdminPanel({ onBack }) {
                                     ))}
                                 </div>
                             ) : (
-                                <div className="space-y-1">
+                                <div className="space-y-0.5">
                                     {[
-                                        { label: 'Premium',  val: stats.premium,  color: 'text-emerald-400' },
-                                        { label: 'Standard', val: stats.standard, color: 'text-slate-400'   },
-                                        { label: 'Gratuito', val: stats.free,     color: 'text-rose-400'    },
-                                        { label: 'Admins',   val: stats.admins,   color: 'text-purple-400'  },
-                                        { label: 'Excluídos',val: stats.deleted,  color: 'text-slate-600'   },
+                                        { label: 'Premium',   val: stats.premium  },
+                                        { label: 'Standard',  val: stats.standard },
+                                        { label: 'Gratuito',  val: stats.free     },
+                                        { label: 'Admins',    val: stats.admins   },
+                                        { label: 'Excluídos', val: stats.deleted  },
                                     ].map(s => (
-                                        <div key={s.label} className="flex items-center justify-between px-3 py-1">
-                                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-[0.15em]">{s.label}</span>
-                                            <span className={`text-xs font-black ${s.color}`}>{s.val}</span>
+                                        <div key={s.label} className="flex items-center justify-between px-3 py-1.5">
+                                            <span className="text-xs text-slate-500">{s.label}</span>
+                                            <span className="text-xs font-bold text-slate-300">{s.val}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -702,17 +698,17 @@ export default function AdminPanel({ onBack }) {
                         {activeTab === 'dashboard' && (
                             <div className="space-y-6">
                                 {/* Stat Cards */}
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                     {[
-                                        { label: 'Total',    val: stats.total,   icon: Users,      color: 'text-[#5CCEEA]',  bg: 'bg-[#5CCEEA]/10'  },
-                                        { label: 'Premium',  val: stats.premium, icon: Zap,        color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-                                        { label: 'Standard', val: stats.standard,icon: CreditCard, color: 'text-slate-400',   bg: 'bg-slate-400/10'   },
-                                        { label: 'Gratuito', val: stats.free,    icon: Gift,       color: 'text-rose-400',    bg: 'bg-rose-400/10'    },
-                                        { label: 'Admins',   val: stats.admins,  icon: Shield,     color: 'text-purple-400',  bg: 'bg-purple-400/10'  },
-                                        { label: 'Excluídos',val: stats.deleted, icon: Trash2,     color: 'text-slate-500',   bg: 'bg-slate-500/10'   },
+                                        { label: 'Total de Usuários', val: stats.total,   icon: Users      },
+                                        { label: 'Premium',           val: stats.premium, icon: Zap        },
+                                        { label: 'Standard',          val: stats.standard,icon: CreditCard },
+                                        { label: 'Gratuito',          val: stats.free,    icon: Gift       },
+                                        { label: 'Admins',            val: stats.admins,  icon: Shield     },
+                                        { label: 'Excluídos',         val: stats.deleted, icon: Trash2     },
                                     ].map(item => (
-                                        <div key={item.label} className="p-5 rounded-2xl border border-white/[0.06] bg-slate-900/50 hover:border-white/10 transition-all group">
-                                            <div className={`p-2 rounded-xl ${item.bg} ${item.color} w-fit mb-4 transition-transform group-hover:scale-110`}>
+                                        <div key={item.label} className="p-5 rounded-2xl border border-white/[0.06] bg-slate-900/50 hover:border-white/10 transition-all">
+                                            <div className="p-2 rounded-xl bg-white/5 text-slate-400 w-fit mb-4">
                                                 <item.icon className="w-4 h-4" />
                                             </div>
                                             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1">{item.label}</p>
@@ -724,14 +720,14 @@ export default function AdminPanel({ onBack }) {
                                 {/* Breakdown Row */}
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                     {[
-                                        { label: 'Prem. Mensal', val: stats.premiumMonthly,  color: 'text-emerald-400' },
-                                        { label: 'Prem. Anual',  val: stats.premiumAnnual,   color: 'text-emerald-300' },
-                                        { label: 'Std. Mensal',  val: stats.standardMonthly, color: 'text-slate-400'   },
-                                        { label: 'Std. Anual',   val: stats.standardAnnual,  color: 'text-slate-300'   },
+                                        { label: 'Prem. Mensal', val: stats.premiumMonthly  },
+                                        { label: 'Prem. Anual',  val: stats.premiumAnnual   },
+                                        { label: 'Std. Mensal',  val: stats.standardMonthly },
+                                        { label: 'Std. Anual',   val: stats.standardAnnual  },
                                     ].map(item => (
                                         <div key={item.label} className="px-4 py-3 rounded-xl border border-white/[0.06] bg-white/[0.02] flex items-center justify-between">
-                                            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500">{item.label}</span>
-                                            <span className={`text-sm font-black ${item.color}`}>{item.val}</span>
+                                            <span className="text-xs text-slate-500">{item.label}</span>
+                                            <span className="text-sm font-bold text-white">{item.val}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -741,12 +737,12 @@ export default function AdminPanel({ onBack }) {
                                     {/* Push Notification */}
                                     <div className="bg-slate-900/50 border border-white/[0.06] rounded-2xl p-5">
                                         <div className="flex items-center gap-3 mb-4">
-                                            <div className="p-2 rounded-xl bg-[#5CCEEA]/10 shrink-0">
-                                                <Zap className="w-4 h-4 text-[#5CCEEA]" />
+                                            <div className="p-2 rounded-xl bg-white/5 shrink-0">
+                                                <Zap className="w-4 h-4 text-slate-400" />
                                             </div>
                                             <div>
                                                 <h2 className="text-sm font-black text-white">Notificação Push</h2>
-                                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.15em]">Enviar para todos os usuários</p>
+                                                <p className="text-xs text-slate-500">Enviar para todos os usuários</p>
                                             </div>
                                         </div>
                                         <div className="space-y-3">
@@ -773,7 +769,7 @@ export default function AdminPanel({ onBack }) {
                                             <button
                                                 onClick={sendPushToAll}
                                                 disabled={isSendingPush}
-                                                className="w-full py-3 rounded-xl bg-[#5CCEEA] text-slate-950 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#69C8B9] active:scale-95 transition-all disabled:opacity-50"
+                                                className="w-full py-3 rounded-xl bg-emerald-500 text-white text-sm font-bold hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-50"
                                             >
                                                 {isSendingPush ? 'Enviando...' : 'Disparar Notificação'}
                                             </button>
@@ -781,23 +777,23 @@ export default function AdminPanel({ onBack }) {
                                     </div>
 
                                     {/* Global Reset */}
-                                    <div className="bg-rose-500/5 border border-rose-500/10 rounded-2xl p-5 flex flex-col">
+                                    <div className="bg-slate-900/50 border border-white/[0.06] rounded-2xl p-5 flex flex-col">
                                         <div className="flex items-center gap-3 mb-4">
-                                            <div className="p-2 rounded-xl bg-rose-500/10 shrink-0">
-                                                <Trash2 className="w-4 h-4 text-rose-500" />
+                                            <div className="p-2 rounded-xl bg-white/5 shrink-0">
+                                                <Trash2 className="w-4 h-4 text-slate-400" />
                                             </div>
                                             <div>
                                                 <h2 className="text-sm font-black text-white">Manutenção Global</h2>
-                                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.15em]">Zona de perigo</p>
+                                                <p className="text-xs text-slate-500">Zona de perigo — use com cautela</p>
                                             </div>
                                         </div>
                                         <p className="text-xs text-slate-500 leading-relaxed flex-1 mb-5">
-                                            Reseta transações, metas e configurações de todos os usuários. Operação <span className="text-rose-400 font-black">irreversível</span> — use somente em manutenções planejadas.
+                                            Reseta transações, metas e configurações de todos os usuários. Esta operação é <span className="text-rose-400 font-bold">irreversível</span> e deve ser usada apenas em manutenções planejadas.
                                         </p>
                                         <button
                                             onClick={resetGlobalData}
                                             disabled={isResettingGlobal}
-                                            className="w-full py-3 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-rose-500 active:scale-95 transition-all disabled:opacity-50"
+                                            className="w-full py-3 rounded-xl bg-rose-600 text-white text-sm font-bold hover:bg-rose-500 active:scale-95 transition-all disabled:opacity-50"
                                         >
                                             {isResettingGlobal ? 'Executando...' : 'Executar Reset Global'}
                                         </button>
@@ -812,8 +808,8 @@ export default function AdminPanel({ onBack }) {
                                 {/* Header row: title + search */}
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                     <div>
-                                        <h2 className="text-sm font-black text-white uppercase tracking-[0.2em]">Gestão de Usuários</h2>
-                                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.15em] mt-0.5">{filteredUsers.length} encontrados</p>
+                                        <h2 className="text-base font-black text-white">Gestão de Usuários</h2>
+                                        <p className="text-xs text-slate-500 mt-0.5">{filteredUsers.length} encontrados</p>
                                     </div>
                                     <div className="relative w-full sm:w-72">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
@@ -828,7 +824,7 @@ export default function AdminPanel({ onBack }) {
                                 </div>
 
                                 {/* Sub-tabs */}
-                                <div className="flex gap-1.5 overflow-x-auto custom-scrollbar pb-1">
+                                <div className="flex gap-1.5 overflow-x-auto pb-1">
                                     {[
                                         { id: 'admins',          label: 'Admins',      count: stats.admins          },
                                         { id: 'premium_monthly', label: 'Prem Mensal', count: stats.premiumMonthly  },
@@ -841,13 +837,13 @@ export default function AdminPanel({ onBack }) {
                                         <button
                                             key={tab.id}
                                             onClick={() => setUserSubTab(tab.id)}
-                                            className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap transition-all ${
+                                            className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                                                 userSubTab === tab.id
-                                                    ? 'bg-[#5CCEEA] text-slate-950'
+                                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                                     : 'bg-white/[0.04] text-slate-500 hover:bg-white/[0.08] hover:text-slate-300 border border-white/[0.06]'
                                             }`}
                                         >
-                                            {tab.label} <span className="opacity-70">({tab.count})</span>
+                                            {tab.label} <span className="opacity-60 font-normal">({tab.count})</span>
                                         </button>
                                     ))}
                                 </div>
@@ -856,10 +852,10 @@ export default function AdminPanel({ onBack }) {
                                 <div className="space-y-2">
                                     {/* List Header */}
                                     <div className="hidden sm:grid grid-cols-[1fr_120px_100px_48px] gap-4 px-4 py-2">
-                                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Identidade</p>
+                                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Usuário</p>
                                         <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Plano</p>
                                         <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Status</p>
-                                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] text-right">Ação</p>
+                                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] text-right">Ed.</p>
                                     </div>
 
                                     {loading ? (
@@ -886,23 +882,22 @@ export default function AdminPanel({ onBack }) {
                                                 <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_120px_100px_48px] gap-3 items-center">
                                                     {/* Identity */}
                                                     <div className="flex items-center gap-3 min-w-0">
-                                                        <div className={`p-2 rounded-xl shrink-0 ${user.isAdmin ? 'bg-purple-500/10 text-purple-400' : 'bg-blue-500/10 text-blue-400'}`}>
+                                                        <div className="p-2 rounded-xl bg-white/5 text-slate-400 shrink-0">
                                                             {user.isAdmin ? <ShieldAlert className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <p className="text-sm font-black text-white truncate leading-tight">{user.email}</p>
+                                                            <p className="text-sm font-bold text-white truncate leading-tight">{user.email}</p>
                                                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
+                                                                <span className="text-[10px] text-slate-600 flex items-center gap-1">
                                                                     <Fingerprint className="w-2.5 h-2.5" /> {user.uid.slice(0, 8)}...
                                                                 </span>
-                                                                <span className="text-[9px] text-slate-600">•</span>
-                                                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wider">{user.createdAt}</span>
+                                                                <span className="text-[10px] text-slate-600">· {user.createdAt}</span>
                                                                 {user.hasAcceptedTerms
-                                                                    ? <span className="text-[9px] font-black text-emerald-500">✓ Termos</span>
-                                                                    : <span className="text-[9px] font-black text-amber-500">! Termos</span>
+                                                                    ? <span className="text-[10px] text-emerald-500">✓ Termos</span>
+                                                                    : <span className="text-[10px] text-amber-500">! Termos</span>
                                                                 }
                                                                 {user.daysLeft > 0 && user.daysLeft < 365 && !user.isDeleted && (
-                                                                    <span className="text-[9px] font-black text-slate-500">· {user.daysLeft}d restantes</span>
+                                                                    <span className="text-[10px] text-slate-500">· {user.daysLeft}d restantes</span>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -911,36 +906,36 @@ export default function AdminPanel({ onBack }) {
                                                     {/* Plan Badge */}
                                                     <div className="hidden sm:block">
                                                         {user.isLifetime ? (
-                                                            <span className="px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-400 text-[9px] font-black uppercase tracking-widest border border-purple-500/20">Vitalício</span>
+                                                            <span className="px-2.5 py-1 rounded-lg bg-white/5 text-slate-300 text-[10px] font-bold border border-white/10">Vitalício</span>
                                                         ) : user.isPremium ? (
-                                                            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-[9px] font-black uppercase tracking-widest border border-emerald-500/20">Premium</span>
+                                                            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20">Premium</span>
                                                         ) : user.isStandard ? (
-                                                            <span className="px-2.5 py-1 rounded-lg bg-slate-500/10 text-slate-400 text-[9px] font-black uppercase tracking-widest border border-slate-500/20">Standard</span>
+                                                            <span className="px-2.5 py-1 rounded-lg bg-white/5 text-slate-400 text-[10px] font-bold border border-white/10">Standard</span>
                                                         ) : (
-                                                            <span className="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-400 text-[9px] font-black uppercase tracking-widest border border-rose-500/20">Gratuito</span>
+                                                            <span className="px-2.5 py-1 rounded-lg bg-white/5 text-slate-500 text-[10px] font-bold border border-white/10">Gratuito</span>
                                                         )}
                                                     </div>
 
                                                     {/* Status */}
                                                     <div className="hidden sm:block">
                                                         {user.isDeleted ? (
-                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-500/10 text-slate-400 text-[9px] font-black border border-slate-500/20">
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 text-slate-500 text-[10px] font-bold border border-white/10">
                                                                 <Trash2 className="w-3 h-3" /> Excluído
                                                             </div>
                                                         ) : user.isBlocked ? (
-                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-400 text-[9px] font-black border border-rose-500/20">
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-400 text-[10px] font-bold border border-rose-500/20">
                                                                 <Ban className="w-3 h-3" /> Bloqueado
                                                             </div>
                                                         ) : user.isExpired ? (
-                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 text-[9px] font-black border border-amber-500/20">
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 text-slate-400 text-[10px] font-bold border border-white/10">
                                                                 <Clock className="w-3 h-3" /> Expirado
                                                             </div>
                                                         ) : user.isTrial ? (
-                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-500/10 text-sky-400 text-[9px] font-black border border-sky-500/20">
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 text-slate-400 text-[10px] font-bold border border-white/10">
                                                                 <Zap className="w-3 h-3" /> Teste
                                                             </div>
                                                         ) : (
-                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-[9px] font-black border border-emerald-500/20">
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20">
                                                                 <Check className="w-3 h-3" /> Ativo
                                                             </div>
                                                         )}
