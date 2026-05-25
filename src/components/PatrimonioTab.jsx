@@ -437,50 +437,26 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
       parts.push('Configure seu perfil e objetivos em "Editar Configuração" para análise personalizada.');
     }
 
-    // 3. Análise dos ativos — grandes techs EUA, cripto conhecida, BR, obscuros
+    // 3. Análise geral dos ativos por categoria
     if (hasInvestments) {
-      const TECH_US = {
-        NVDA: 'NVIDIA', AAPL: 'Apple', MSFT: 'Microsoft', GOOG: 'Google', GOOGL: 'Google',
-        META: 'Meta', AMZN: 'Amazon', TSLA: 'Tesla', AMD: 'AMD', INTC: 'Intel',
-        QCOM: 'Qualcomm', AVGO: 'Broadcom', CRM: 'Salesforce', ADBE: 'Adobe',
-        SNOW: 'Snowflake', PLTR: 'Palantir', COIN: 'Coinbase', SHOP: 'Shopify',
-        NET: 'Cloudflare', DDOG: 'Datadog', SMCI: 'Super Micro',
-        IVVB11: 'IVVB11 (S&P 500)', QQQM: 'QQQM (Nasdaq)', QQQ: 'QQQ (Nasdaq)',
-        SPY: 'SPY (S&P 500)', VOO: 'VOO (S&P 500)',
-      };
-      const CRYPTO = {
-        BTC: 'Bitcoin', ETH: 'Ethereum', SOL: 'Solana', BNB: 'BNB',
-        ADA: 'Cardano', XRP: 'XRP', DOT: 'Polkadot', AVAX: 'Avalanche', MATIC: 'Polygon',
-      };
-      const BR = {
-        VALE3: 'Vale', PETR4: 'Petrobras', PETR3: 'Petrobras', ITUB4: 'Itaú',
-        BBDC4: 'Bradesco', ABEV3: 'Ambev', BBAS3: 'Banco do Brasil',
-        WEGE3: 'WEG', RENT3: 'Localiza', MGLU3: 'Magazine Luiza', HGLG11: 'HGLG11', MXRF11: 'MXRF11',
-      };
-      const techNames   = [];
-      const cryptoNames = [];
-      const brNames     = [];
-      const otherNames  = [];
+      const TECH_US_SYMS = new Set(['NVDA','AAPL','MSFT','GOOG','GOOGL','META','AMZN','TSLA','AMD','INTC','QCOM','AVGO','CRM','ADBE','SNOW','PLTR','COIN','SHOP','NET','DDOG','SMCI','IVVB11','QQQM','QQQ','SPY','VOO','ARKK','SOXX']);
+      const CRYPTO_SYMS  = new Set(['BTC','ETH','SOL','BNB','ADA','XRP','DOT','AVAX','MATIC','DOGE','LTC','LINK','UNI']);
+      let hasTechUS = false, hasCrypto = false, hasBR = false, hasFIIs = false, hasOther = false;
       investments.forEach(inv => {
-        const sym = (inv.symbol || '').toUpperCase();
-        const name = inv.name || sym;
-        if (TECH_US[sym]) { techNames.push(TECH_US[sym]); }
-        else if (CRYPTO[sym] || inv.type === 'crypto') { cryptoNames.push(CRYPTO[sym] || name); }
-        else if (BR[sym]) { brNames.push(BR[sym]); }
-        else { otherNames.push(name); }
+        const sym  = (inv.symbol || '').toUpperCase();
+        const type = inv.type || '';
+        if (TECH_US_SYMS.has(sym) || (inv.isUSD && type === 'acoes') || (inv.isUSD && type === 'etfs')) hasTechUS = true;
+        else if (type === 'crypto' || CRYPTO_SYMS.has(sym)) hasCrypto = true;
+        else if (type === 'fiis') hasFIIs = true;
+        else if (['acoes','etfs','renda_fixa','imoveis'].includes(type)) hasBR = true;
+        else hasOther = true;
       });
-      const uTech   = [...new Set(techNames)];
-      const uCrypto = [...new Set(cryptoNames)];
-      const uBR     = [...new Set(brNames)];
-      const uOther  = [...new Set(otherNames)];
-      if (uTech.length > 0)   parts.push(`Grandes techs dos EUA na carteira: ${uTech.slice(0, 3).join(', ')}${uTech.length > 3 ? ` e mais ${uTech.length - 3}` : ''}.`);
-      if (uCrypto.length > 0) parts.push(`Criptomoedas: ${uCrypto.slice(0, 3).join(', ')}.`);
-      if (uBR.length > 0)     parts.push(`Ativos da bolsa brasileira: ${uBR.slice(0, 3).join(', ')}.`);
-      if (uOther.length > 0 && (uTech.length + uCrypto.length + uBR.length) === 0) {
-        parts.push(`Carteira com ${uOther.slice(0, 3).join(', ')} — ativos menos conhecidos exigem acompanhamento próximo dos fundamentos.`);
-      } else if (uOther.length > 0) {
-        parts.push(`Também possui ${uOther.slice(0, 2).join(', ')} na carteira.`);
-      }
+      if (hasTechUS)  parts.push('Exposição a grandes empresas de tecnologia dos EUA — boa diversificação internacional.');
+      if (hasCrypto)  parts.push('Criptomoedas presentes na carteira — ativos de alta volatilidade, adequados a perfis arrojados.');
+      if (hasFIIs)    parts.push('Fundos Imobiliários na carteira — boa fonte de renda passiva em reais.');
+      if (hasBR)      parts.push('Ativos do mercado brasileiro presentes — diversificação no mercado doméstico.');
+      if (hasOther && !hasTechUS && !hasCrypto && !hasBR && !hasFIIs)
+        parts.push('Carteira diversificada — mantenha o acompanhamento regular dos fundamentos.');
     }
 
     let pStatus = 'neutral';
@@ -512,44 +488,47 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         <div className="absolute top-[-50%] right-[-15%] w-[60%] h-[140%] rounded-full blur-[120px] pointer-events-none opacity-[0.12] bg-emerald-400" />
         <div className="absolute bottom-[-40%] left-[-10%] w-[40%] h-[100%] rounded-full blur-[100px] pointer-events-none opacity-[0.06] bg-purple-500" />
         <div className="relative">
-          {/* Valor principal */}
-          <div className="mb-3">
-            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-emerald-400/80 mb-1">Patrimônio Total Consolidado</p>
-            <p className={`text-3xl md:text-4xl font-black tracking-tight leading-none ${patrimonioTotal >= 0 ? 'text-white' : 'text-rose-400'}`}>
-              {fmtSigned(patrimonioTotal)}
-            </p>
-            {totalDailyYield > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black">
-                  <TrendingUp className="w-2.5 h-2.5" /> +R$ {fmt(totalDailyYield)}/dia
-                </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black">
-                  ≈ R$ {fmt(totalDailyYield * 30)}/mês
-                </span>
-              </div>
-            )}
-          </div>
-          {/* Alívia — faixa full-width dentro do hero card */}
-          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white/[0.06] border border-white/[0.08] mb-4">
-            <div className="relative shrink-0">
-              <img src={aliviaFinal} alt="Alívia" className="w-8 h-8 object-cover rounded-full border border-white/20 shadow-md" />
-              <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-slate-950 border border-white/10 flex items-center justify-center ${
-                aliviaInsight.pStatus === 'positive' ? 'text-emerald-400' : aliviaInsight.pStatus === 'warning' ? 'text-amber-400' : 'text-slate-400'
-              }`}>
-                {aliviaInsight.pStatus === 'positive' ? <TrendingUp className="w-2 h-2" /> : <Sparkles className="w-2 h-2" />}
-              </div>
+          {/* Valor + Alívia lado a lado */}
+          <div className="flex flex-col md:flex-row md:items-start gap-3 mb-4">
+            {/* Esquerda: valor total */}
+            <div className="shrink-0">
+              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-emerald-400/80 mb-1">Patrimônio Total Consolidado</p>
+              <p className={`text-3xl md:text-4xl font-black tracking-tight leading-none ${patrimonioTotal >= 0 ? 'text-white' : 'text-rose-400'}`}>
+                {fmtSigned(patrimonioTotal)}
+              </p>
+              {totalDailyYield > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black">
+                    <TrendingUp className="w-2.5 h-2.5" /> +R$ {fmt(totalDailyYield)}/dia
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black">
+                    ≈ R$ {fmt(totalDailyYield * 30)}/mês
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="flex-1 min-w-0">
-              <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400/80 block mb-0.5">Alívia</span>
-              <span className="text-[11px] text-slate-300 leading-relaxed">{aliviaInsight.pMessage}</span>
+            {/* Direita: Alívia — ocupa o espaço restante, sem truncar */}
+            <div className="flex-1 min-w-0 flex items-start gap-2 p-3 rounded-xl bg-white/[0.06] border border-white/[0.08] self-start">
+              <div className="relative shrink-0">
+                <img src={aliviaFinal} alt="Alívia" className="w-8 h-8 object-cover rounded-full border border-white/20 shadow-md" />
+                <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-slate-950 border border-white/10 flex items-center justify-center ${
+                  aliviaInsight.pStatus === 'positive' ? 'text-emerald-400' : aliviaInsight.pStatus === 'warning' ? 'text-amber-400' : 'text-slate-400'
+                }`}>
+                  {aliviaInsight.pStatus === 'positive' ? <TrendingUp className="w-2 h-2" /> : <Sparkles className="w-2 h-2" />}
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400/80 block mb-0.5">Alívia</span>
+                <span className="text-[11px] text-slate-300 leading-relaxed">{aliviaInsight.pMessage}</span>
+              </div>
+              <button
+                onClick={() => handleAnalyze(true)}
+                title="Atualizar"
+                className="p-1 rounded-lg hover:bg-white/10 text-slate-500 hover:text-slate-300 transition-all shrink-0"
+              >
+                <RefreshCw className="w-3 h-3" />
+              </button>
             </div>
-            <button
-              onClick={() => handleAnalyze(true)}
-              title="Atualizar"
-              className="p-1 rounded-lg hover:bg-white/10 text-slate-500 hover:text-slate-300 transition-all shrink-0"
-            >
-              <RefreshCw className="w-3 h-3" />
-            </button>
           </div>
           {patrimonioTotal > 0 && (
             <div className="space-y-2 pt-3 border-t border-white/[0.06]">
