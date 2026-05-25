@@ -481,7 +481,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
       {activeTab === 'visao' && (<>
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* ═══ LEFT COLUMN (3/5) ═══ */}
-        <div className="lg:col-span-3 space-y-4">
+        <div className="lg:col-span-3 flex flex-col gap-4">
 
       {/* ── HERO: PATRIMÔNIO TOTAL ── */}
       <div className={`p-5 md:p-7 rounded-[2rem] border relative overflow-hidden ${isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/30 border-white/[0.06]' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900/40 border-slate-700'}`}>
@@ -559,6 +559,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
       </div>
 
       {/* ── MEU PATRIMÔNIO: Allocation Chart + Breakdown ── */}
+      <div className="flex-1 min-h-0">
       {(() => {
         const CATEGORY_COLORS = {
           'Reserva': '#10b981',
@@ -622,8 +623,8 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         };
 
         return (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
-            <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 h-full">
+            <div className={`rounded-2xl border overflow-hidden h-full ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
               <div className={`w-full flex items-center justify-between p-4`}>
                 <div className="flex items-center gap-2.5">
                   <div className={`p-2 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
@@ -698,10 +699,10 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
           </div>
         );
       })()}
+      </div>{/* end flex-1 allocation chart wrapper */}
 
-      {/* ── ALÍVIA PATRIMÔNIO INSIGHT ── */}
       {(() => {
-        // --- Local patrimony insight generation ---
+        // dead code block — kept to avoid removing variables
         const reservesPct = patrimonioTotal > 0 ? (jarsTotal / patrimonioTotal * 100) : 0;
         const investPct = patrimonioTotal > 0 ? (investmentsTotal / patrimonioTotal * 100) : 0;
 
@@ -817,7 +818,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         </div>{/* end left col */}
 
         {/* ═══ RIGHT COLUMN (2/5) ═══ */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 flex flex-col gap-4">
 
       {/* ── ALÍVIA INSIGHT ── */}
       <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
@@ -1022,7 +1023,9 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
       })()}
 
       {/* ── RETORNO ACUMULADO — Estilo Evolução Patrimonial ── */}
-      <EvolucaoPatrimonialTab hideHeader compact />
+      <div className="flex-1 min-h-0">
+        <EvolucaoPatrimonialTab hideHeader compact fill />
+      </div>
 
         </div>{/* end right col */}
       </div>{/* end grid */}

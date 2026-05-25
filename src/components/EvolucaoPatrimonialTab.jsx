@@ -66,7 +66,7 @@ function CustomTooltip({ active, payload, label, isDark }) {
     );
 }
 
-export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = false }) {
+export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = false, fill = false }) {
     const { theme } = useTheme();
     const { currentUser } = useAuth();
     const isDark = theme !== 'light';
@@ -443,7 +443,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
     const visibleLines = lines.filter(l => l.key === 'portfolio' || activeBenchmarks.includes(l.key));
 
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className={`animate-in fade-in slide-in-from-bottom-4 duration-700 ${fill ? 'h-full flex flex-col gap-4' : 'space-y-8'}`}>
 
             {/* ── HEADER ── */}
             {!hideHeader && (
@@ -542,7 +542,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
             </div>}
 
             {/* ── CHART ── */}
-            <div className={`p-6 md:p-8 rounded-[2.5rem] border ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+            <div className={`p-6 md:p-8 rounded-[2.5rem] border ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'} ${fill ? 'flex-1 flex flex-col min-h-0' : ''}`}>
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
                         <BarChart3 className="w-5 h-5 text-[#5CCEEA]" />
@@ -557,14 +557,15 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
                 </div>
 
                 {isLoading ? (
-                    <div className="h-72 flex items-center justify-center">
+                    <div className={`${fill ? 'flex-1 min-h-[200px]' : 'h-72'} flex items-center justify-center`}>
                         <div className="flex flex-col items-center gap-4">
                             <div className="w-10 h-10 rounded-full border-2 border-[#5CCEEA] border-t-transparent animate-spin" />
                             <p className="text-sm font-bold text-slate-500">Buscando dados de mercado...</p>
                         </div>
                     </div>
                 ) : (
-                    <ResponsiveContainer width="100%" height={340}>
+                    <div className={fill ? 'flex-1 min-h-[200px]' : ''}>
+                    <ResponsiveContainer width="100%" height={fill ? '100%' : 340}>
                         <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                             <defs>
                                 <filter id="portfolioGlow" x="-20%" y="-20%" width="140%" height="140%">
@@ -636,6 +637,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
                             ))}
                         </LineChart>
                     </ResponsiveContainer>
+                    </div>
                 )}
             </div>
 
