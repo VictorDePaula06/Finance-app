@@ -1044,57 +1044,57 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             {/* Modal Overlay */}
             {showModal && (
                 <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className={`w-full max-w-lg max-h-[90vh] overflow-y-auto scrollbar-hide rounded-[3rem] p-8 md:p-12 border relative animate-in zoom-in-95 duration-300 ${
+                    <div className={`w-full max-w-lg max-h-[90vh] overflow-y-auto scrollbar-hide rounded-2xl p-6 border relative animate-in zoom-in-95 duration-300 ${
                         theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
                     }`}>
                         {/* Close button */}
-                        <button 
+                        <button
                             onClick={resetForm}
-                            className={`absolute top-6 right-6 p-2 rounded-xl transition-colors z-[10] ${
+                            className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors z-[10] ${
                                 theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'
                             }`}
                         >
-                            <X className="w-5 h-5" />
+                            <X className="w-4 h-4" />
                         </button>
 
                         {/* STEP 1: CHOICE */}
                         {step === 'choice' && (
-                            <div className="space-y-8 py-4">
-                                <div className="text-center space-y-2">
-                                    <h3 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>O que deseja lançar?</h3>
-                                    <p className="text-sm text-slate-500 font-bold uppercase tracking-widest text-[10px]">Escolha o tipo de saída para continuar</p>
+                            <div className="space-y-5 py-2">
+                                <div className="text-center space-y-1.5">
+                                    <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>O que deseja lançar?</h3>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Escolha o tipo de saída para continuar</p>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <button 
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <button
                                         onClick={() => setStep('expense')}
-                                        className={`group p-6 rounded-3xl border-2 text-left transition-all hover:scale-105 active:scale-95 ${
-                                            theme === 'light' 
-                                            ? 'bg-rose-50 border-rose-100 hover:border-rose-400' 
+                                        className={`group p-5 rounded-2xl border text-left transition-all hover:scale-[1.02] active:scale-95 ${
+                                            theme === 'light'
+                                            ? 'bg-rose-50 border-rose-100 hover:border-rose-400'
                                             : 'bg-rose-500/5 border-rose-500/10 hover:border-rose-500/40'
                                         }`}
                                     >
-                                        <div className="p-3 bg-rose-500 text-white rounded-2xl w-fit mb-4 shadow-lg shadow-rose-500/20">
-                                            <TrendingDown className="w-6 h-6" />
+                                        <div className="p-2.5 bg-rose-500 text-white rounded-xl w-fit mb-3 shadow-lg shadow-rose-500/20">
+                                            <TrendingDown className="w-5 h-5" />
                                         </div>
-                                        <h4 className={`text-lg font-black mb-1 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Lançar Gasto</h4>
+                                        <h4 className={`text-base font-black mb-1 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Lançar Gasto</h4>
                                         <p className="text-[10px] font-bold text-slate-500 leading-relaxed">
                                             Registre compras, contas, lazer e despesas variáveis do dia a dia.
                                         </p>
                                     </button>
 
-                                    <button 
+                                    <button
                                         onClick={() => setStep('investment')}
-                                        className={`group p-6 rounded-3xl border-2 text-left transition-all hover:scale-105 active:scale-95 ${
-                                            theme === 'light' 
-                                            ? 'bg-emerald-50 border-emerald-100 hover:border-emerald-400' 
+                                        className={`group p-5 rounded-2xl border text-left transition-all hover:scale-[1.02] active:scale-95 ${
+                                            theme === 'light'
+                                            ? 'bg-emerald-50 border-emerald-100 hover:border-emerald-400'
                                             : 'bg-emerald-500/5 border-emerald-500/10 hover:border-emerald-500/40'
                                         }`}
                                     >
-                                        <div className="p-3 bg-emerald-500 text-white rounded-2xl w-fit mb-4 shadow-lg shadow-emerald-500/20">
-                                            <PiggyBank className="w-6 h-6" />
+                                        <div className="p-2.5 bg-emerald-500 text-white rounded-xl w-fit mb-3 shadow-lg shadow-emerald-500/20">
+                                            <PiggyBank className="w-5 h-5" />
                                         </div>
-                                        <h4 className={`text-lg font-black mb-1 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Guardar / Investir</h4>
+                                        <h4 className={`text-base font-black mb-1 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Guardar / Investir</h4>
                                         <p className="text-[10px] font-bold text-slate-500 leading-relaxed">
                                             Mova dinheiro para reserva, cofrinho ou investimentos com rendimento.
                                         </p>
@@ -1115,11 +1115,11 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Descrição</label>
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Descrição</label>
                                         <input 
                                             type="text" required value={description} onChange={e => setDescription(e.target.value)}
                                             placeholder="Ex: Supermercado, Aluguel..."
-                                            className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                            className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
                                                 theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-rose-500' : 'bg-white/5 border-white/5 text-white focus:border-rose-500'
                                             }`}
                                         />
@@ -1127,11 +1127,11 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Valor (R$)</label>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Valor (R$)</label>
                                             <input 
                                                 type="number" step="0.01" required value={amount} onChange={e => { setAmount(e.target.value); if (amountError) setAmountError(''); }}
                                                 placeholder="0.00"
-                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
                                                     amountError
                                                       ? 'border-rose-500 bg-rose-500/5 text-rose-500 focus:border-rose-500'
                                                       : (theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-rose-500' : 'bg-white/5 border-white/5 text-white focus:border-rose-500')
@@ -1144,10 +1144,10 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                             )}
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Data</label>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Data</label>
                                             <input 
                                                 type="date" required value={date} onChange={e => setDate(e.target.value)}
-                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
                                                     theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 [color-scheme:light]' : 'bg-white/5 border-white/5 text-white [color-scheme:dark]'
                                                 }`}
                                             />
@@ -1155,7 +1155,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                     </div>
 
                                     <div>
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Categoria</label>
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Categoria</label>
                                         <select 
                                             value={category} onChange={e => {
                                                 const newCat = e.target.value;
@@ -1163,7 +1163,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                 const catDef = CATEGORIES.expense.find(c => c.id === newCat);
                                                 if (catDef?.defaultPriority) setPriority(catDef.defaultPriority);
                                             }}
-                                            className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all appearance-none ${
+                                            className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all appearance-none ${
                                                 theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
                                             }`}
                                         >
@@ -1175,7 +1175,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
                                     {/* Priority Selector */}
                                     <div>
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Prioridade do Gasto</label>
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Prioridade do Gasto</label>
                                         <div className="grid grid-cols-3 gap-2">
                                             {PRIORITY_OPTIONS.map(opt => {
                                                 const PIcon = opt.icon;
@@ -1185,7 +1185,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                         key={opt.id}
                                                         type="button"
                                                         onClick={() => setPriority(priority === opt.id ? '' : opt.id)}
-                                                        className={`p-3 rounded-2xl border-2 text-center transition-all ${
+                                                        className={`p-2.5 rounded-xl border text-center transition-all ${
                                                             isSelected
                                                             ? (opt.color === 'emerald' 
                                                                 ? (theme === 'light' ? 'bg-emerald-50 border-emerald-400 shadow-sm' : 'bg-emerald-500/10 border-emerald-500/40')
@@ -1284,11 +1284,11 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                     {/* Payment Method & Installments */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">F. Pagamento</label>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">F. Pagamento</label>
                                             <select 
                                                 value={paymentMethod} 
                                                 onChange={e => setPaymentMethod(e.target.value)}
-                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all appearance-none ${
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all appearance-none ${
                                                     theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
                                                 }`}
                                             >
@@ -1301,12 +1301,12 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
                                         {isInstallment && (
                                             <div className="animate-in slide-in-from-right-4">
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Nº Parcelas</label>
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Nº Parcelas</label>
                                                 <input 
                                                     type="number" min="2" max="48"
                                                     value={installments} 
                                                     onChange={e => setInstallments(e.target.value)}
-                                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
                                                         theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-rose-500' : 'bg-white/5 border-white/5 text-white focus:border-rose-500'
                                                     }`}
                                                 />
@@ -1317,12 +1317,12 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                     {/* Select Card if Credit Card is active */}
                                     {paymentMethod === 'credito' && (
                                         <div className="animate-in slide-in-from-top-4">
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Vincular ao Cartão</label>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Vincular ao Cartão</label>
                                             <select 
                                                 required={paymentMethod === 'credito'}
                                                 value={selectedCardId} 
                                                 onChange={e => setSelectedCardId(e.target.value)}
-                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all appearance-none ${
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all appearance-none ${
                                                     theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
                                                 }`}
                                             >
@@ -1337,7 +1337,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
                                 <button 
                                     type="submit" disabled={isSaving}
-                                    className="w-full py-4 bg-rose-500 hover:bg-rose-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-rose-500/20 transition-all active:scale-95"
+                                    className="w-full py-3 bg-rose-500 hover:bg-rose-400 text-white rounded-xl font-black text-sm shadow-lg shadow-rose-500/20 transition-all active:scale-95"
                                 >
                                     {isSaving ? 'Salvando...' : 'Confirmar Lançamento'}
                                 </button>
@@ -1356,7 +1356,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Onde guardar?</label>
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Onde guardar?</label>
                                         <select 
                                             required
                                             value={selectedDestination}
@@ -1392,7 +1392,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                     setDescription('');
                                                 }
                                             }}
-                                            className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all appearance-none ${
+                                            className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all appearance-none ${
                                                 theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
                                             }`}
                                         >
@@ -1425,20 +1425,20 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                     {isNewReserve && destinationType === 'jar' && (
                                         <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Nome da Reserva</label>
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Nome da Reserva</label>
                                                 <input 
                                                     type="text" required value={description} onChange={e => setDescription(e.target.value)}
                                                     placeholder="Ex: Reserva Emergência, Viagem..."
-                                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
                                                         theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500'
                                                     }`}
                                                 />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Tipo de Investimento</label>
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Tipo de Investimento</label>
                                                 <select 
                                                     value={reserveType} onChange={e => setReserveType(e.target.value)}
-                                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all appearance-none ${
+                                                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all appearance-none ${
                                                         theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
                                                     }`}
                                                 >
@@ -1452,21 +1452,21 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">Valor (R$)</label>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Valor (R$)</label>
                                             <input 
                                                 type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)}
                                                 placeholder="0.00"
-                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
                                                     theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500'
                                                 }`}
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block ml-1">% do CDI</label>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">% do CDI</label>
                                             <input 
                                                 type="number" required value={cdiPercent} onChange={e => setCdiPercent(e.target.value)}
                                                 placeholder="100"
-                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
                                                     theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500'
                                                 }`}
                                             />
@@ -1496,7 +1496,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
                                 <button 
                                     type="submit" disabled={isSaving}
-                                    className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
+                                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-black text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
                                 >
                                     {isSaving ? 'Salvando...' : editingId ? 'Salvar Alterações' : 'Confirmar e Guardar'}
                                 </button>
@@ -1533,13 +1533,13 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                             setAmount('');
                                             setStep(subTab === 'despesas' ? 'expense' : 'investment');
                                         }}
-                                        className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
+                                        className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-black text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
                                     >
                                         Realizar outra saída
                                     </button>
                                     <button 
                                         onClick={resetForm}
-                                        className={`w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-95 ${
+                                        className={`w-full py-3 rounded-xl font-black text-sm transition-all active:scale-95 ${
                                             theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'
                                         }`}
                                     >
@@ -1572,7 +1572,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                 <div className="flex flex-col gap-3">
                                     <button 
                                         onClick={handleConfirmWarning}
-                                        className="w-full py-4 bg-rose-500 hover:bg-rose-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-rose-500/20 transition-all active:scale-95"
+                                        className="w-full py-3 bg-rose-500 hover:bg-rose-400 text-white rounded-xl font-black text-sm shadow-lg shadow-rose-500/20 transition-all active:scale-95"
                                     >
                                         Sim, prosseguir mesmo assim
                                     </button>
@@ -1581,7 +1581,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                             setStep(pendingSave.type === 'expense' ? 'expense' : 'investment');
                                             setPendingSave(null);
                                         }}
-                                        className={`w-full py-4 rounded-2xl font-black text-sm transition-all active:scale-95 ${
+                                        className={`w-full py-3 rounded-xl font-black text-sm transition-all active:scale-95 ${
                                             theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'
                                         }`}
                                     >
@@ -1597,7 +1597,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             {/* Delete Confirmation Modal */}
             {transactionToDelete && (
                 <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[250] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className={`w-full max-w-sm rounded-[2.5rem] p-8 border text-center relative overflow-hidden animate-in zoom-in-95 duration-300 ${
+                    <div className={`w-full max-w-sm rounded-2xl p-6 border text-center relative overflow-hidden animate-in zoom-in-95 duration-300 ${
                         theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
                     }`}>
                         <div className="w-20 h-20 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -1611,7 +1611,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                         <div className="flex gap-3">
                             <button 
                                 onClick={() => setTransactionToDelete(null)}
-                                className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                                className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${
                                     theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
                                 }`}
                             >
@@ -1630,7 +1630,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             {/* Custom Warning Modal for Fixed Expenses */}
             {fixedExpenseWarning && (
                 <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className={`w-full max-w-sm rounded-[3rem] p-8 border text-center animate-in zoom-in-95 duration-300 ${
+                    <div className={`w-full max-w-sm rounded-2xl p-6 border text-center animate-in zoom-in-95 duration-300 ${
                         theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
                     }`}>
                         <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -1640,7 +1640,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                         <p className="text-slate-500 text-xs font-bold leading-relaxed mb-8">
                             Este é um pagamento de <strong className="text-blue-500">Conta Fixa</strong>. Para editar valores ou estornar esse lançamento, você deve acessar a aba de Contas Fixas para não perder o histórico.
                         </p>
-                        <button onClick={() => setFixedExpenseWarning(false)} className="w-full py-4 bg-blue-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-95">
+                        <button onClick={() => setFixedExpenseWarning(false)} className="w-full py-3 bg-blue-500 text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-blue-500/20 active:scale-95">
                             Entendi
                         </button>
                     </div>
