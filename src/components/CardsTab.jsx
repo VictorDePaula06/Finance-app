@@ -978,6 +978,7 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
 
           // Subscriptions: só entrar na fatura se o dia de vencimento já chegou
           const todayDay = new Date().getDate();
+          const currentMonthKey = new Date().toISOString().slice(0, 7);
           const cardSubs = isOrphaned
             ? allCardSubs
             : allCardSubs.filter(s => {
