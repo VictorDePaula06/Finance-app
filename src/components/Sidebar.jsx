@@ -99,16 +99,6 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
 
         {/* Navigation Links */}
         <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto custom-scrollbar">
-          <button
-            onClick={() => setActiveModule('hub')}
-            className={`w-full flex items-center gap-3 p-3 mb-4 rounded-xl transition-all duration-300 group font-bold text-sm text-left ${
-              theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'
-            }`}
-          >
-            <LayoutDashboard className="w-4 h-4" />
-            Voltar para Início
-          </button>
-
           <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 px-3 opacity-60">
             {activeModule === 'gastos' ? 'Controle de Gastos' : 'Construção de Patrimônio'}
           </div>
@@ -143,6 +133,18 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
               </button>
             );
           })}
+
+          <div className={`pt-2 mt-2 border-t ${theme === 'light' ? 'border-slate-100' : 'border-white/5'}`}>
+            <button
+              onClick={() => setActiveModule('hub')}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-300 font-bold text-sm text-left ${
+                theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              Trocar Módulo
+            </button>
+          </div>
         </nav>
 
         {/* User Profile Section */}

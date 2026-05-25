@@ -759,51 +759,67 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
       {/* MODAL: ADD CARD */}
       {isAddingCard && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
-          <form onSubmit={handleAddCard} className={`border rounded-[3rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 shadow-2xl ${
-            theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/10 shadow-emerald-500/10'
+          <form onSubmit={editingCardId ? handleUpdateCard : handleAddCard} className={`border rounded-2xl w-full max-w-sm p-6 space-y-4 relative animate-in zoom-in-95 duration-300 shadow-2xl ${
+            theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
           }`}>
-            <div className="text-center space-y-2 mb-6">
-              <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
-                <CreditCard className="w-8 h-8 text-emerald-500" />
+            <button
+              type="button"
+              onClick={() => {
+                setIsAddingCard(false);
+                setEditingCardId(null);
+                setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10 });
+              }}
+              className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors ${
+                theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'
+              }`}
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-1">
+              <div className={`p-2 rounded-xl shrink-0 ${theme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/10'}`}>
+                <CreditCard className={`w-5 h-5 ${theme === 'light' ? 'text-emerald-500' : 'text-emerald-400'}`} />
               </div>
-              <h3 className={`text-xl font-medium uppercase tracking-widest ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+              <div>
+                <h3 className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                   {editingCardId ? 'Editar Cartão' : 'Novo Cartão'}
-              </h3>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                Cadastre seus cartões de crédito
-              </p>
+                </h3>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                  Cadastre seus cartões de crédito
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-5">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Nome do Cartão</label>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Nome do Cartão</label>
                 <input
                   type="text"
                   placeholder="ex: Nubank, Inter"
                   required
                   value={newCard.name}
                   onChange={(e) => setNewCard({...newCard, name: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white placeholder-slate-500'
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                    theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-emerald-500 text-slate-800' : 'bg-white/5 border-white/5 focus:border-emerald-500 text-white placeholder-slate-500'
                   }`}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Final (4 Dígitos)</label>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Final (4 Dígitos)</label>
                   <input
                     type="text"
                     placeholder="ex: 1234"
                     maxLength={4}
                     value={newCard.last4}
                     onChange={(e) => setNewCard({...newCard, last4: e.target.value})}
-                    className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white placeholder-slate-500'
+                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                      theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-emerald-500 text-slate-800' : 'bg-white/5 border-white/5 focus:border-emerald-500 text-white placeholder-slate-500'
                     }`}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Vencimento (Dia)</label>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Vencimento (Dia)</label>
                   <input
                     type="number"
                     placeholder="1-31"
@@ -811,14 +827,14 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
                     max={31}
                     value={newCard.dueDay}
                     onChange={(e) => setNewCard({...newCard, dueDay: parseInt(e.target.value)})}
-                    className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white placeholder-slate-500'
+                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                      theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-emerald-500 text-slate-800' : 'bg-white/5 border-white/5 focus:border-emerald-500 text-white placeholder-slate-500'
                     }`}
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Data de Fechamento</label>
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Data de Fechamento</label>
                 <input
                   type="number"
                   placeholder="Melhor dia para compra (ex: 8)"
@@ -826,18 +842,18 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
                   max={31}
                   value={newCard.closingDay}
                   onChange={(e) => setNewCard({...newCard, closingDay: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white placeholder-slate-500'
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                    theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-emerald-500 text-slate-800' : 'bg-white/5 border-white/5 focus:border-emerald-500 text-white placeholder-slate-500'
                   }`}
                 />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Bandeira</label>
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Bandeira</label>
                 <select
                   value={newCard.brand}
                   onChange={(e) => setNewCard({...newCard, brand: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold appearance-none outline-none ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white'
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none appearance-none transition-all ${
+                    theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-emerald-500 text-slate-800' : 'bg-white/5 border-white/5 focus:border-emerald-500 text-white'
                   }`}
                 >
                   <option value="Visa" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Visa</option>
@@ -846,12 +862,12 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
                   <option value="Amex" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Amex</option>
                 </select>
               </div>
-              
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Cor de Identificação</label>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Cor de Identificação</label>
                 <div className="grid grid-cols-5 gap-2">
                   {['bg-blue-600', 'bg-purple-600', 'bg-emerald-600', 'bg-rose-600', 'bg-slate-800'].map(color => (
-                    <button 
+                    <button
                       key={color}
                       type="button"
                       onClick={() => setNewCard({...newCard, color})}
@@ -861,14 +877,14 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
                 </div>
               </div>
             </div>
-            <div className="flex gap-3 pt-4">
+            <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => {
-                  setIsAddingCard(false);
-                  setEditingCardId(null);
-                  setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10 });
-              }} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
-              <button type="submit" onClick={editingCardId ? handleUpdateCard : handleAddCard} className="flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-emerald-500 hover:bg-emerald-600 transition-all text-white shadow-lg shadow-emerald-500/20">
-                  {editingCardId ? 'Salvar Alterações' : 'Salvar Cartão'}
+                setIsAddingCard(false);
+                setEditingCardId(null);
+                setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10 });
+              }} className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
+              <button type="submit" className="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] bg-emerald-500 hover:bg-emerald-600 transition-all text-white shadow-lg shadow-emerald-500/20 active:scale-95">
+                {editingCardId ? 'Salvar Alterações' : 'Salvar Cartão'}
               </button>
             </div>
           </form>
@@ -878,38 +894,50 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
       {/* MODAL: ADD SUB */}
       {isAddingSub && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
-          <form onSubmit={handleAddSub} className={`border rounded-[3rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 shadow-2xl ${
-            theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/10 shadow-purple-500/10'
+          <form onSubmit={handleAddSub} className={`border rounded-2xl w-full max-w-sm p-6 space-y-4 relative animate-in zoom-in-95 duration-300 shadow-2xl ${
+            theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
           }`}>
-            <div className="text-center space-y-2 mb-6">
-              <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/20">
-                <Plus className="w-8 h-8 text-purple-500" />
+            <button
+              type="button"
+              onClick={() => setIsAddingSub(false)}
+              className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors ${
+                theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'
+              }`}
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-1">
+              <div className={`p-2 rounded-xl shrink-0 ${theme === 'light' ? 'bg-purple-50' : 'bg-purple-500/10'}`}>
+                <Plus className={`w-5 h-5 ${theme === 'light' ? 'text-purple-500' : 'text-purple-400'}`} />
               </div>
-              <h3 className={`text-xl font-medium uppercase tracking-widest ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+              <div>
+                <h3 className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                   Nova Assinatura
-              </h3>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                Cadastre um novo serviço ou parcelamento
-              </p>
+                </h3>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                  Cadastre um novo serviço ou parcelamento
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-5">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Nome do Serviço</label>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Nome do Serviço</label>
                 <input
                   type="text"
                   placeholder="ex: Netflix, Academia"
                   required
                   value={newSub.name}
                   onChange={(e) => setNewSub({...newSub, name: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                    theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-purple-500 text-slate-800' : 'bg-white/5 border-white/5 focus:border-purple-500 text-white placeholder-slate-500'
                   }`}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Valor</label>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Valor</label>
                   <input
                     type="number"
                     step="0.01"
@@ -917,14 +945,14 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
                     required
                     value={newSub.value}
                     onChange={(e) => setNewSub({...newSub, value: e.target.value})}
-                    className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
+                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                      theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-purple-500 text-slate-800' : 'bg-white/5 border-white/5 focus:border-purple-500 text-white placeholder-slate-500'
                     }`}
                   />
                 </div>
                 {!newSub.cardId && (
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Dia da Cobrança</label>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Dia da Cobrança</label>
                     <input
                       type="number"
                       placeholder="1-31"
@@ -932,20 +960,20 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
                       required={!newSub.cardId}
                       value={newSub.day}
                       onChange={(e) => setNewSub({...newSub, day: e.target.value})}
-                      className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                        theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
+                      className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                        theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-purple-500 text-slate-800' : 'bg-white/5 border-white/5 focus:border-purple-500 text-white placeholder-slate-500'
                       }`}
                     />
                   </div>
                 )}
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Vincular Cartão</label>
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Vincular Cartão</label>
                 <select
                   value={newSub.cardId}
                   onChange={(e) => setNewSub({...newSub, cardId: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold appearance-none outline-none ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white'
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none appearance-none transition-all ${
+                    theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-purple-500 text-slate-800' : 'bg-white/5 border-white/5 focus:border-purple-500 text-white'
                   }`}
                 >
                   <option value="" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Sem cartão (Avulsa)</option>
@@ -955,9 +983,9 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
                 </select>
               </div>
             </div>
-            <div className="flex gap-3 pt-4">
-              <button type="button" onClick={() => setIsAddingSub(false)} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
-              <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-purple-500 hover:bg-purple-600 transition-all text-white shadow-lg shadow-purple-500/20">Salvar Conta</button>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setIsAddingSub(false)} className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
+              <button type="submit" className="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] bg-purple-500 hover:bg-purple-600 transition-all text-white shadow-lg shadow-purple-500/20 active:scale-95">Salvar Assinatura</button>
             </div>
           </form>
         </div>
