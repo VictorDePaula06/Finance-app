@@ -978,7 +978,7 @@ export default function InvestmentsTab() {
                                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${MC.bg} overflow-hidden relative`}>
                                                     {asset.symbol || asset.name ? (
                                                         <>
-                                                            <img 
+                                                            <img
                                                                 src={asset.type === 'crypto' ? `https://assets.coincap.io/assets/icons/${(asset.symbol || 'btc').toLowerCase()}@2x.png` : `https://financialmodelingprep.com/image-stock/${(asset.symbol || '').toUpperCase()}.png`}
                                                                 className="w-full h-full object-contain bg-white p-1 z-10"
                                                                 onError={(e) => { e.target.style.display = 'none'; if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'block'; }}
@@ -989,47 +989,49 @@ export default function InvestmentsTab() {
                                                         <MC.icon className={`w-4 h-4 ${MC.color}`} />
                                                     )}
                                                 </div>
-                                                <div className="flex flex-col">
-                                                    <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{asset.symbol ? asset.symbol.toUpperCase() : asset.name}</span>
-                                                    {asset.symbol && asset.name && asset.symbol.toUpperCase() !== asset.name.toUpperCase() && (
-                                                        <span className="text-[10px] text-slate-500 font-medium">{asset.name}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex flex-col">
+                                                        <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{asset.symbol ? asset.symbol.toUpperCase() : asset.name}</span>
+                                                        {asset.symbol && asset.name && asset.symbol.toUpperCase() !== asset.name.toUpperCase() && (
+                                                            <span className="text-[10px] text-slate-500 font-medium">{asset.name}</span>
+                                                        )}
+                                                    </div>
+                                                    {/* Preço/Taxa ao lado do ticker */}
+                                                    {asset.type !== 'imoveis' && (
+                                                        <div className={`hidden md:flex flex-col pl-3 border-l ${theme === 'light' ? 'border-slate-200' : 'border-white/10'}`}>
+                                                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                                                                {asset.type === 'renda_fixa' ? 'Taxa' : 'Preço'}
+                                                            </span>
+                                                            {asset.type === 'renda_fixa' ? (
+                                                                <span className="text-xs font-black text-emerald-500">
+                                                                    {asset.yieldType === 'cdi'
+                                                                        ? `${asset.cdiPercent || 100}% CDI`
+                                                                        : asset.yieldType === 'ipca'
+                                                                        ? `IPCA +${parseFloat(asset.purchaseRate || asset.fixedRate || 0).toFixed(2)}%`
+                                                                        : asset.yieldType === 'pre'
+                                                                        ? `${parseFloat(asset.purchaseRate || asset.fixedRate || 0).toFixed(2)}% a.a.`
+                                                                        : '—'
+                                                                    }
+                                                                </span>
+                                                            ) : isLoadingPrices ? (
+                                                                <span className="text-slate-500 text-xs animate-pulse font-black">•••</span>
+                                                            ) : (
+                                                                <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-700' : 'text-slate-100'}`}>
+                                                                    {(() => {
+                                                                        const priceInBRL = asset.isUSD
+                                                                            ? asset.currentPrice * (prices.USD || 5.0)
+                                                                            : asset.currentPrice;
+                                                                        const dp = priceInBRL * displayMultiplier;
+                                                                        return `${dCur} ${dp.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: dp < 1 ? 6 : 2 })}`;
+                                                                    })()}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
 
                                             <div className="flex items-center gap-4 md:gap-6 lg:gap-10">
-                                                {/* Preço por Unidade / Taxa */}
-                                                {asset.type !== 'imoveis' && (
-                                                    <div className="hidden md:flex flex-col items-end min-w-[80px]">
-                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                                            {asset.type === 'renda_fixa' ? 'Taxa' : 'Preço/Un.'}
-                                                        </span>
-                                                        {asset.type === 'renda_fixa' ? (
-                                                            <span className="text-xs font-black text-emerald-500">
-                                                                {asset.yieldType === 'cdi'
-                                                                    ? `${asset.cdiPercent || 100}% CDI`
-                                                                    : asset.yieldType === 'ipca'
-                                                                    ? `IPCA +${parseFloat(asset.purchaseRate || asset.fixedRate || 0).toFixed(2)}%`
-                                                                    : asset.yieldType === 'pre'
-                                                                    ? `${parseFloat(asset.purchaseRate || asset.fixedRate || 0).toFixed(2)}% a.a.`
-                                                                    : '—'
-                                                                }
-                                                            </span>
-                                                        ) : isLoadingPrices ? (
-                                                            <span className="text-slate-500 text-xs animate-pulse font-black">•••</span>
-                                                        ) : (
-                                                            <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                                                {(() => {
-                                                                    const priceInBRL = (asset.type === 'crypto' && asset.isUSD)
-                                                                        ? asset.currentPrice * (prices.USD || 5.0)
-                                                                        : asset.currentPrice;
-                                                                    const dp = priceInBRL * displayMultiplier;
-                                                                    return `${dCur} ${dp.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: dp < 1 ? 6 : 2 })}`;
-                                                                })()}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                )}
 
                                                 <div className="hidden md:flex flex-col items-end">
                                                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Valor Atual</span>
