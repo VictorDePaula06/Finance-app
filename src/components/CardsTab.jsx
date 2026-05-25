@@ -23,7 +23,7 @@ import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { CATEGORIES } from '../constants/categories';
 
-const CardsTab = ({ transactions = [] }) => {
+const CardsTab = ({ transactions = [], setActiveTab }) => {
   const { theme } = useTheme();
   const { currentUser } = useAuth();
   
@@ -33,12 +33,12 @@ const CardsTab = ({ transactions = [] }) => {
   const [isAddingSub, setIsAddingSub] = useState(false);
   
   // Form States
-  const [newCard, setNewCard] = useState({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10 });
+  const [newCard, setNewCard] = useState({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '' });
   const [editingCardId, setEditingCardId] = useState(null);
   const [newSub, setNewSub] = useState({ name: '', value: '', day: 1, cardId: '' });
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, type, title }
   const [payingInstallment, setPayingInstallment] = useState(null); // { sub object }
-  const [payingInvoice, setPayingInvoice] = useState(null); // { cardId, total, expenses }
+  const [payingInvoice, setPayingInvoice] = useState(null); // { cardId, total, expenses, invoiceMonth }
   const [paidInvoiceSuccess, setPaidInvoiceSuccess] = useState(null); // cardId
   const [viewingInvoiceCardId, setViewingInvoiceCardId] = useState(null);
   
@@ -70,16 +70,23 @@ const CardsTab = ({ transactions = [] }) => {
   const handleAddCard = async (e) => {
     e.preventDefault();
     if (!newCard.name) return;
-    await addDoc(collection(db, 'cards'), { ...newCard, userId: currentUser.uid });
-    setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10 });
+    await addDoc(collection(db, 'cards'), { 
+        ...newCard, 
+        closingDay: parseInt(newCard.closingDay) || ((newCard.dueDay - 7 > 0) ? newCard.dueDay - 7 : 25),
+        userId: currentUser.uid 
+    });
+    setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '' });
     setIsAddingCard(false);
   };
 
   const handleUpdateCard = async (e) => {
     e.preventDefault();
     if (!newCard.name || !editingCardId) return;
-    await updateDoc(doc(db, 'cards', editingCardId), { ...newCard });
-    setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10 });
+    await updateDoc(doc(db, 'cards', editingCardId), { 
+        ...newCard,
+        closingDay: parseInt(newCard.closingDay) || ((newCard.dueDay - 7 > 0) ? newCard.dueDay - 7 : 25)
+    });
+    setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '' });
     setEditingCardId(null);
     setIsAddingCard(false);
   };
@@ -118,11 +125,18 @@ const CardsTab = ({ transactions = [] }) => {
     e.preventDefault();
     if (!editingSub?.name || !editingSub?.value) return;
     
+    let finalDay = editingSub.day;
+    if (editingSub.cardId) {
+        const linkedCard = cards.find(c => c.id === editingSub.cardId);
+        if (linkedCard) finalDay = linkedCard.dueDay;
+    }
+    
     await updateDoc(doc(db, 'subscriptions', editingSub.id), {
         name: editingSub.name,
         value: parseFloat(editingSub.value),
-        day: parseInt(editingSub.day) || 1,
-        category: editingSub.category || 'other'
+        day: parseInt(finalDay) || 1,
+        category: editingSub.category || 'other',
+        cardId: editingSub.cardId || ''
     });
     setEditingSub(null);
   };
@@ -130,8 +144,16 @@ const CardsTab = ({ transactions = [] }) => {
   const handleAddSub = async (e) => {
     e.preventDefault();
     if (!newSub.name || !newSub.value) return;
+    
+    let finalDay = newSub.day;
+    if (newSub.cardId) {
+        const linkedCard = cards.find(c => c.id === newSub.cardId);
+        if (linkedCard) finalDay = linkedCard.dueDay;
+    }
+    
     await addDoc(collection(db, 'subscriptions'), { 
       ...newSub, 
+      day: parseInt(finalDay) || 1,
       value: parseFloat(newSub.value), 
       type: 'recurring',
       userId: currentUser.uid 
@@ -189,7 +211,7 @@ const CardsTab = ({ transactions = [] }) => {
     
     try {
         const now = new Date();
-        const paidMonth = now.toISOString().slice(0, 7);
+        const paidMonth = payingInvoice.invoiceMonth; // Uses the computed invoice month
 
         // 1. Criar transação de pagamento de fatura na carteira (que vai deduzir o saldo)
         await addDoc(collection(db, 'transactions'), {
@@ -199,7 +221,8 @@ const CardsTab = ({ transactions = [] }) => {
             category: 'credit_card_bill',
             date: now.toISOString(),
             userId: currentUser.uid,
-            month: paidMonth,
+            month: now.toISOString().slice(0, 7), // Calendar month of payment
+            invoiceMonthPaid: paidMonth, // Store which invoice was paid
             createdAt: Date.now(),
             paymentMethod: 'pix',
             selectedCardId: payingInvoice.cardId
@@ -207,7 +230,7 @@ const CardsTab = ({ transactions = [] }) => {
 
         // 2. Marcar todas as transações avulsas da fatura como pagas
         const updatePromises = payingInvoice.expenses.map(exp => 
-            updateDoc(doc(db, 'transactions', exp.id), { invoiceStatus: 'paid' })
+            updateDoc(doc(db, 'transactions', exp.id), { invoiceStatus: 'paid', paidInInvoice: paidMonth })
         );
         await Promise.all(updatePromises);
         
@@ -215,7 +238,6 @@ const CardsTab = ({ transactions = [] }) => {
         if (payingInvoice.subs && payingInvoice.subs.length > 0) {
             const subPromises = payingInvoice.subs.map(sub => {
                 if (sub.type === 'installment') {
-                    // Parcelamentos: avançar ou deletar ao terminar
                     const nextInstallment = (sub.currentInstallment || 1) + 1;
                     const total = sub.totalInstallments || 1;
                     if (nextInstallment > total) {
@@ -224,7 +246,6 @@ const CardsTab = ({ transactions = [] }) => {
                         return updateDoc(doc(db, 'subscriptions', sub.id), { currentInstallment: nextInstallment });
                     }
                 } else {
-                    // Recorrentes: marcar mês como pago para evitar duplicidade no mesmo mês
                     return updateDoc(doc(db, 'subscriptions', sub.id), { lastPaidMonth: paidMonth });
                 }
             });
@@ -246,17 +267,33 @@ const CardsTab = ({ transactions = [] }) => {
 
   const getCardSubs = (cardId) => subscriptions.filter(s => s.cardId === cardId);
 
-  const currentMonthKey = new Date().toISOString().slice(0, 7);
+  const getInvoiceMonth = (dateStr, closingDay) => {
+      const d = new Date(dateStr);
+      const day = d.getDate();
+      let month = d.getMonth();
+      let year = d.getFullYear();
+      if (day >= closingDay) {
+          month += 1;
+          if (month > 11) {
+              month = 0;
+              year += 1;
+          }
+      }
+      return `${year}-${String(month + 1).padStart(2, '0')}`;
+  };
 
-  // Retorna TODOS os unpaid (meses anteriores acumulam na fatura atual — comportamento real de cartão)
   const getUnpaidExpenses = (cardId) => transactions.filter(t => t.selectedCardId === cardId && t.invoiceStatus === 'unpaid');
 
-  // Separação para exibir aviso de faturas anteriores pendentes
-  const getUnpaidExpensesByPeriod = (cardId) => {
-    const all = getUnpaidExpenses(cardId);
-    const current = all.filter(t => (t.month || t.date?.slice(0,7)) === currentMonthKey);
-    const previous = all.filter(t => (t.month || t.date?.slice(0,7)) < currentMonthKey);
-    return { current, previous, all };
+  const getUnpaidExpensesByPeriod = (card) => {
+    const all = getUnpaidExpenses(card.id);
+    const closingDay = card.closingDay || ((card.dueDay - 7 > 0) ? card.dueDay - 7 : 25);
+    const todayStr = new Date().toISOString();
+    const currentInvoiceMonth = getInvoiceMonth(todayStr, closingDay);
+
+    const current = all.filter(t => getInvoiceMonth(t.date || new Date().toISOString(), closingDay) === currentInvoiceMonth);
+    const previous = all.filter(t => getInvoiceMonth(t.date || new Date().toISOString(), closingDay) < currentInvoiceMonth);
+    
+    return { current, previous, all, currentInvoiceMonth, closingDay };
   };
 
   const getUnlinkedSubs = () => subscriptions.filter(s => !s.cardId);
@@ -284,13 +321,21 @@ const CardsTab = ({ transactions = [] }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {cards.map(card => {
             const cardSubs = getCardSubs(card.id);
-            const { current: currentExpenses, previous: previousExpenses, all: unpaidExpenses } = getUnpaidExpensesByPeriod(card.id);
-            // Subscriptions: só entram na fatura se o dia de vencimento já chegou no mês atual
-            const todayDay = new Date().getDate();
+            const { current: currentExpenses, previous: previousExpenses, all: unpaidExpenses, currentInvoiceMonth, closingDay } = getUnpaidExpensesByPeriod(card);
+            
+            const today = new Date();
             const unpaidSubs = cardSubs.filter(s => {
-                if (s.lastPaidMonth === currentMonthKey) return false; // já paga este mês
-                const dueDay = parseInt(s.day) || 1;
-                return todayDay >= dueDay; // só aparece quando o dia chegou
+                if (s.lastPaidMonth === currentInvoiceMonth) return false;
+                
+                const subDay = parseInt(s.day) || 1;
+                // Calculate when this subscription charges this month
+                const chargeDateThisMonth = new Date(today.getFullYear(), today.getMonth(), subDay, 12, 0, 0);
+                const subInvoiceMonth = getInvoiceMonth(chargeDateThisMonth.toISOString(), closingDay);
+                
+                // If it charges on a date that falls into a future invoice, don't include it in the current open invoice
+                if (subInvoiceMonth > currentInvoiceMonth) return false;
+                
+                return true;
             });
             const subsTotal = unpaidSubs.reduce((acc, s) => acc + s.value, 0);
             const expensesTotal = unpaidExpenses.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
@@ -340,7 +385,7 @@ const CardsTab = ({ transactions = [] }) => {
                         </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-[9px] uppercase font-black opacity-60 mb-0.5">Fatura de {currentMonthName}</p>
+                      <p className="text-[9px] uppercase font-black opacity-60 mb-0.5">Fatura de {new Date(currentInvoiceMonth + '-15').toLocaleDateString('pt-BR', { month: 'long' })}</p>
                       <p className="text-xl font-black tabular-nums">R$ {totalInvoice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>
                   </div>
@@ -355,7 +400,7 @@ const CardsTab = ({ transactions = [] }) => {
                       </div>
                     )}
                     <button 
-                        onClick={() => totalInvoice > 0 && setPayingInvoice({ cardId: card.id, total: totalInvoice, expenses: unpaidExpenses, subs: unpaidSubs })}
+                        onClick={() => totalInvoice > 0 && setPayingInvoice({ cardId: card.id, total: totalInvoice, expenses: unpaidExpenses, subs: unpaidSubs, invoiceMonth: currentInvoiceMonth })}
                         disabled={totalInvoice === 0}
                         className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
                             totalInvoice > 0 
@@ -385,7 +430,7 @@ const CardsTab = ({ transactions = [] }) => {
                     <button 
                     onClick={() => {
                         setEditingCardId(card.id);
-                        setNewCard({ name: card.name, color: card.color, last4: card.last4, brand: card.brand, dueDay: card.dueDay || 10 });
+                        setNewCard({ name: card.name, color: card.color, last4: card.last4, brand: card.brand, dueDay: card.dueDay || 10, closingDay: card.closingDay || '' });
                         setIsAddingCard(true);
                     }}
                     className="p-2.5 bg-white/20 hover:bg-white/40 text-white rounded-xl shadow-2xl backdrop-blur-md border border-white/20 transition-colors"
@@ -535,7 +580,7 @@ const CardsTab = ({ transactions = [] }) => {
                 <div className="space-y-1">
                   <h4 className={`font-bold text-base ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{sub.name}</h4>
                   <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Calendar className="w-3 h-3" /> Vence dia {sub.day}
+                    <Calendar className="w-3 h-3" /> {linkedCard ? `Na Fatura (Vence dia ${linkedCard.dueDay})` : `Vence dia ${sub.day}`}
                   </p>
                 </div>
                 <div className="mt-6 pt-5 border-t border-white/5 flex justify-between items-end">
@@ -773,6 +818,20 @@ const CardsTab = ({ transactions = [] }) => {
                 </div>
               </div>
               <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Data de Fechamento</label>
+                <input
+                  type="number"
+                  placeholder="Melhor dia para compra (ex: 8)"
+                  min={1}
+                  max={31}
+                  value={newCard.closingDay}
+                  onChange={(e) => setNewCard({...newCard, closingDay: e.target.value})}
+                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 text-white placeholder-slate-500'
+                  }`}
+                />
+              </div>
+              <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Bandeira</label>
                 <select
                   value={newCard.brand}
@@ -863,20 +922,22 @@ const CardsTab = ({ transactions = [] }) => {
                     }`}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Dia Vencimento</label>
-                  <input
-                    type="number"
-                    placeholder="1-31"
-                    min={1} max={31}
-                    required
-                    value={newSub.day}
-                    onChange={(e) => setNewSub({...newSub, day: e.target.value})}
-                    className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
-                    }`}
-                  />
-                </div>
+                {!newSub.cardId && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Dia da Cobrança</label>
+                    <input
+                      type="number"
+                      placeholder="1-31"
+                      min={1} max={31}
+                      required={!newSub.cardId}
+                      value={newSub.day}
+                      onChange={(e) => setNewSub({...newSub, day: e.target.value})}
+                      className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
+                        theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
+                      }`}
+                    />
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Vincular Cartão</label>
@@ -1310,21 +1371,23 @@ const CardsTab = ({ transactions = [] }) => {
                     }`}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Dia Vencimento</label>
-                  <input
-                    type="number"
-                    placeholder="1-31"
-                    min="1"
-                    max="31"
-                    required
-                    value={editingSub.day}
-                    onChange={(e) => setEditingSub({...editingSub, day: e.target.value})}
-                    className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
-                    }`}
-                  />
-                </div>
+                {!editingSub.cardId && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Dia da Cobrança</label>
+                    <input
+                      type="number"
+                      placeholder="1-31"
+                      min="1"
+                      max="31"
+                      required={!editingSub.cardId}
+                      value={editingSub.day}
+                      onChange={(e) => setEditingSub({...editingSub, day: e.target.value})}
+                      className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
+                        theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
+                      }`}
+                    />
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Categoria</label>

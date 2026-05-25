@@ -30,6 +30,7 @@ export const CATEGORIES = {
         { id: 'leisure', label: 'Lazer', icon: Gamepad2, color: 'text-indigo-400', defaultPriority: 'superfluous' },
         { id: 'shopping', label: 'Compras', icon: ShoppingBag, color: 'text-pink-400', defaultPriority: 'superfluous' },
         { id: 'credit_card_bill', label: 'Fatura Cartão', icon: CreditCard, color: 'text-violet-500', defaultPriority: 'essential' },
+        { id: 'conta_fixa', label: 'Conta Fixa', icon: Home, color: 'text-indigo-500', defaultPriority: 'essential' },
         { id: 'other', label: 'Outro', icon: Circle, color: 'text-slate-400', defaultPriority: 'comfort' }
     ]
 };

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
     Plus, 
     TrendingDown, 
@@ -75,6 +75,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const [showCreditCard, setShowCreditCard] = useState(false);
     const [selectedCardFilter, setSelectedCardFilter] = useState('all');
     const [hidePaidInvoices, setHidePaidInvoices] = useState(false);
+    const [fixedExpenseWarning, setFixedExpenseWarning] = useState(false);
 
     const PRIORITY_OPTIONS = [
         { id: 'essential', label: 'Essencial', icon: Shield, color: 'emerald', description: 'Necessidade básica' },
@@ -174,6 +175,17 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 return (b.createdAt || 0) - (a.createdAt || 0);
             });
     }, [transactions, subscriptions, showCreditCard, selectedCardFilter, hidePaidInvoices, selectedMonth]);
+
+    // Check hash for auto-opening modal
+    useEffect(() => {
+        if (window.location.hash === '#novo-parcelamento') {
+            setShowModal(true);
+            setIsInstallment(true);
+            setPaymentMethod('credito');
+            // Remove the hash without triggering a scroll jump
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+    }, [showModal]);
 
     // Calcular saldo total para o aviso
     const availableBalance = useMemo(() => {
@@ -334,6 +346,10 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     };
 
     const handleEdit = (t) => {
+        if (t.isFixed || t.category === 'conta_fixa') {
+            setFixedExpenseWarning(true);
+            return;
+        }
         setEditingId(t.id);
         setDescription(t.description.replace('Investimento: ', ''));
         setAmount(t.amount.toString());
@@ -356,6 +372,10 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     };
 
     const handleDelete = (transaction) => {
+        if (transaction.isFixed || transaction.category === 'conta_fixa') {
+            setFixedExpenseWarning(true);
+            return;
+        }
         setTransactionToDelete(transaction);
     };
 
@@ -599,6 +619,12 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     }, [monthExits]);
 
+    const totalInvestmentsMonthVal = useMemo(() => {
+        return monthExits
+            .filter(t => t.category === 'investment')
+            .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    }, [monthExits]);
+
     const totalIncomeMonthVal = useMemo(() => {
         return transactions.filter(t => {
             const isIncome = t.type === 'income';
@@ -635,7 +661,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                         onClick={() => setSubTab('reservas')}
                         className={`pb-3 px-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
                             subTab === 'reservas' 
-                            ? 'border-rose-400 text-rose-400' 
+                            ? 'border-blue-400 text-blue-400' 
                             : 'border-transparent text-slate-500 hover:text-slate-300'
                         }`}
                     >
@@ -697,16 +723,18 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     </div>
                 </div>
 
-                {/* Lançamentos no Mês */}
+                {/* Lançamentos no Mês / Aportes no Mês */}
                 <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
                     <div className="flex items-center gap-2">
-                        <div className="text-rose-400">
+                        <div className={subTab === 'despesas' ? 'text-rose-400' : 'text-blue-400'}>
                             <TrendingDown className="w-4 h-4" />
                         </div>
-                        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Lançamentos no Mês</span>
+                        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+                            {subTab === 'despesas' ? 'Despesas no Mês' : 'Aportes no Mês'}
+                        </span>
                     </div>
-                    <div className="text-2xl font-bold text-rose-400">
-                        {formatCurrency(totalExpensesMonthVal)}
+                    <div className={`text-2xl font-bold ${subTab === 'despesas' ? 'text-rose-400' : 'text-blue-400'}`}>
+                        {formatCurrency(subTab === 'despesas' ? totalExpensesMonthVal : totalInvestmentsMonthVal)}
                     </div>
                 </div>
             </div>
@@ -1209,7 +1237,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                 onChange={e => setIsRecurring(e.target.checked)}
                                                 className="w-4 h-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500"
                                             />
-                                            <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>Essa é uma venda recorrente</span>
+                                            <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>Essa é uma assinatura</span>
                                         </label>
                                     </div>
 
@@ -1596,6 +1624,25 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                 Sim, Excluir
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+            {/* Custom Warning Modal for Fixed Expenses */}
+            {fixedExpenseWarning && (
+                <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className={`w-full max-w-sm rounded-[3rem] p-8 border text-center animate-in zoom-in-95 duration-300 ${
+                        theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+                    }`}>
+                        <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <Shield className="w-8 h-8 text-blue-500" />
+                        </div>
+                        <h3 className={`text-xl font-black mb-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Ação Protegida</h3>
+                        <p className="text-slate-500 text-xs font-bold leading-relaxed mb-8">
+                            Este é um pagamento de <strong className="text-blue-500">Conta Fixa</strong>. Para editar valores ou estornar esse lançamento, você deve acessar a aba de Contas Fixas para não perder o histórico.
+                        </p>
+                        <button onClick={() => setFixedExpenseWarning(false)} className="w-full py-4 bg-blue-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-95">
+                            Entendi
+                        </button>
                     </div>
                 </div>
             )}

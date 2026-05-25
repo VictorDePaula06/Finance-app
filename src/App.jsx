@@ -601,7 +601,7 @@ function Dashboard() {
 
           { activeTab === 'evolucao' && (planLevel === 'premium' || isAdmin ? <EvolucaoPatrimonialTab /> : null) }
 
-          { activeTab === 'cartoes' && <CardsTab transactions={transactions} /> }
+          { activeTab === 'cartoes' && <CardsTab transactions={transactions} setActiveTab={setActiveTab} /> }
           
           { activeTab === 'reserva' && (planLevel === 'premium' || isAdmin ? <EmergencyReserveTab /> : null) }
           
@@ -626,7 +626,7 @@ function Dashboard() {
 
           {activeTab === 'fixas' && (
             <div className="space-y-10">
-              <FixedExpensesTab transactions={transactions} />
+              <FixedExpensesTab transactions={transactions} setActiveTab={setActiveTab} />
             </div>
           )}
 
