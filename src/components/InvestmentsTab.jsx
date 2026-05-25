@@ -997,7 +997,40 @@ export default function InvestmentsTab() {
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-10">
+                                            <div className="flex items-center gap-4 md:gap-6 lg:gap-10">
+                                                {/* Preço por Unidade / Taxa */}
+                                                {asset.type !== 'imoveis' && (
+                                                    <div className="hidden md:flex flex-col items-end min-w-[80px]">
+                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                                            {asset.type === 'renda_fixa' ? 'Taxa' : 'Preço/Un.'}
+                                                        </span>
+                                                        {asset.type === 'renda_fixa' ? (
+                                                            <span className="text-xs font-black text-emerald-500">
+                                                                {asset.yieldType === 'cdi'
+                                                                    ? `${asset.cdiPercent || 100}% CDI`
+                                                                    : asset.yieldType === 'ipca'
+                                                                    ? `IPCA +${parseFloat(asset.purchaseRate || asset.fixedRate || 0).toFixed(2)}%`
+                                                                    : asset.yieldType === 'pre'
+                                                                    ? `${parseFloat(asset.purchaseRate || asset.fixedRate || 0).toFixed(2)}% a.a.`
+                                                                    : '—'
+                                                                }
+                                                            </span>
+                                                        ) : isLoadingPrices ? (
+                                                            <span className="text-slate-500 text-xs animate-pulse font-black">•••</span>
+                                                        ) : (
+                                                            <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                                                {(() => {
+                                                                    const priceInBRL = (asset.type === 'crypto' && asset.isUSD)
+                                                                        ? asset.currentPrice * (prices.USD || 5.0)
+                                                                        : asset.currentPrice;
+                                                                    const dp = priceInBRL * displayMultiplier;
+                                                                    return `${dCur} ${dp.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: dp < 1 ? 6 : 2 })}`;
+                                                                })()}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+
                                                 <div className="hidden md:flex flex-col items-end">
                                                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Valor Atual</span>
                                                     <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
@@ -1011,7 +1044,7 @@ export default function InvestmentsTab() {
                                                         {pp >= 0 ? '+' : ''}{pp.toFixed(2)}%
                                                     </span>
                                                 </div>
-                                                
+
                                                 <div className="flex items-center gap-1.5 ml-2">
                                                     <button onClick={() => {setNewAsset({...asset,aporteQuantity:'',aporteAmount:''});setIsAporting(asset.id);}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-blue-50 text-blue-500 hover:bg-blue-100':'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'}`} title="Aporte"><Plus className="w-4 h-4" /></button>
                                                     <button onClick={() => {setNewAsset({...asset});setIsEditing(asset.id);setIsAdding(true);}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-slate-100 text-slate-500 hover:bg-slate-200':'bg-white/5 text-slate-400 hover:bg-white/10'}`} title="Editar"><Edit2 className="w-4 h-4" /></button>
