@@ -356,52 +356,54 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
       {/* Modal Add/Edit */}
       {isAddingExpense && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
-          <form onSubmit={editingExpenseId ? handleUpdateExpense : handleAddExpense} className={`border rounded-[3rem] w-full max-w-md p-8 md:p-10 space-y-6 relative animate-in zoom-in-95 duration-300 shadow-2xl ${
+          <form onSubmit={editingExpenseId ? handleUpdateExpense : handleAddExpense} className={`border rounded-2xl w-full max-w-md p-6 space-y-5 relative animate-in zoom-in-95 duration-300 shadow-2xl ${
             theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
           }`}>
-            <button 
+            <button
               type="button"
               onClick={() => {
                 setIsAddingExpense(false);
                 setEditingExpenseId(null);
                 setNewExpense({ name: '', value: '', day: 1 });
               }}
-              className={`absolute top-6 right-6 p-2 rounded-xl transition-colors z-[10] ${
+              className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors z-[10] ${
                 theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'
               }`}
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
 
-            <div className="text-center space-y-2 mb-6">
-              <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-500/20">
-                <FileText className="w-8 h-8 text-blue-500" />
+            <div className="flex items-center gap-3 mb-1">
+              <div className={`p-2 rounded-xl shrink-0 ${theme === 'light' ? 'bg-blue-50' : 'bg-blue-500/10'}`}>
+                <FileText className={`w-5 h-5 ${theme === 'light' ? 'text-blue-500' : 'text-blue-400'}`} />
               </div>
-              <h3 className={`text-2xl font-bold uppercase tracking-widest ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+              <div>
+                <h3 className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                   {editingExpenseId ? 'Editar Conta Fixa' : 'Nova Conta Fixa'}
-              </h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Cadastre suas despesas recorrentes
-              </p>
+                </h3>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                  Cadastre suas despesas recorrentes
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-5">
-              <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block ml-1">Nome da Conta</label>
-                  <input
-                    type="text"
-                    placeholder="ex: Aluguel, Luz"
-                    required
-                    value={newExpense.name}
-                    onChange={(e) => setNewExpense({...newExpense, name: e.target.value})}
-                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                      theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/5 text-white focus:border-blue-500'
-                    }`}
-                  />
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Nome da Conta</label>
+                <input
+                  type="text"
+                  placeholder="ex: Aluguel, Luz"
+                  required
+                  value={newExpense.name}
+                  onChange={(e) => setNewExpense({...newExpense, name: e.target.value})}
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                    theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/5 text-white focus:border-blue-500'
+                  }`}
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block ml-1">Valor</label>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Valor</label>
                   <input
                     type="number"
                     step="0.01"
@@ -409,13 +411,13 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
                     required
                     value={newExpense.value}
                     onChange={(e) => setNewExpense({...newExpense, value: e.target.value})}
-                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
                       theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/5 text-white focus:border-blue-500'
                     }`}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block ml-1">Vencimento (Dia)</label>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Vencimento (Dia)</label>
                   <input
                     type="number"
                     min={1}
@@ -424,32 +426,32 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
                     required
                     value={newExpense.day}
                     onChange={(e) => setNewExpense({...newExpense, day: e.target.value})}
-                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
                       theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/5 text-white focus:border-blue-500'
                     }`}
                   />
                 </div>
               </div>
             </div>
-            <div className="flex gap-3 pt-4">
-              <button 
-                type="button" 
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
                 onClick={() => {
                   setIsAddingExpense(false);
                   setEditingExpenseId(null);
                   setNewExpense({ name: '', value: '', day: 1 });
-                }} 
-                className={`flex-1 py-4 rounded-2xl font-bold text-xs uppercase tracking-wider transition-all ${
+                }}
+                className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all ${
                   theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
                 }`}
               >
                 Cancelar
               </button>
-              <button 
-                type="submit" 
-                className="flex-1 py-4 rounded-2xl font-bold text-xs uppercase tracking-wider bg-blue-500 hover:bg-blue-600 transition-all text-white shadow-lg shadow-blue-500/20 active:scale-95"
+              <button
+                type="submit"
+                className="flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-[0.2em] bg-blue-500 hover:bg-blue-600 transition-all text-white shadow-lg shadow-blue-500/20 active:scale-95"
               >
-                  {editingExpenseId ? 'Salvar Alterações' : 'Salvar Conta'}
+                {editingExpenseId ? 'Salvar Alterações' : 'Salvar Conta'}
               </button>
             </div>
           </form>

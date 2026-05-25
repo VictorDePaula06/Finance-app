@@ -1466,93 +1466,101 @@ export default function InvestmentsTab() {
             {/* Modal: Novo Aporte */}
             {isAporting && (
                 <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-                    <div className={`w-full max-w-md rounded-[3rem] p-8 md:p-10 border animate-in zoom-in-95 duration-300 ${
+                    <div className={`w-full max-w-md rounded-2xl p-6 border relative animate-in zoom-in-95 duration-300 ${
                         theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
                     }`}>
-                        <div className="flex flex-col items-center mb-8">
-                            <div className="w-16 h-16 bg-blue-500/10 rounded-3xl flex items-center justify-center mb-4">
-                                <Coins className="w-8 h-8 text-blue-500" />
+                        <button
+                            type="button"
+                            onClick={() => setIsAporting(null)}
+                            className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'}`}
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className={`p-2 rounded-xl shrink-0 ${theme === 'light' ? 'bg-blue-50' : 'bg-blue-500/10'}`}>
+                                <Coins className={`w-5 h-5 ${theme === 'light' ? 'text-blue-500' : 'text-blue-400'}`} />
                             </div>
-                            <h3 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                Novo Aporte
-                            </h3>
-                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
-                                {investments.find(a => a.id === isAporting)?.name}
-                            </p>
+                            <div>
+                                <h3 className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                    Novo Aporte
+                                </h3>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                                    {investments.find(a => a.id === isAporting)?.name}
+                                </p>
+                            </div>
                         </div>
 
-                        <form onSubmit={handleAporte} className="space-y-6">
-                            <div className="grid grid-cols-1 gap-6">
-                                <div>
-                                    <div className="flex gap-4">
-                                        <div className="flex-1">
-                                            <p className="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Quantidade</p>
-                                            <input 
+                        <form onSubmit={handleAporte} className="space-y-4">
+                            <div>
+                                <div className="flex gap-4">
+                                    <div className="flex-1">
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">Quantidade</p>
+                                        <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            required
+                                            value={newAsset.aporteQuantity}
+                                            onChange={(e) => setNewAsset({...newAsset, aporteQuantity: e.target.value})}
+                                            className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                                                theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/10 text-white focus:border-blue-500'
+                                            }`}
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">Custo Total ({newAsset.isUSD ? 'USD' : 'R$'})</p>
+                                        <div className="relative">
+                                            <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                {newAsset.isUSD ? '$' : 'R$'}
+                                            </span>
+                                            <input
                                                 type="text"
                                                 inputMode="decimal"
                                                 required
-                                                value={newAsset.aporteQuantity}
-                                                onChange={(e) => setNewAsset({...newAsset, aporteQuantity: e.target.value})}
-                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                value={newAsset.aporteAmount}
+                                                onChange={(e) => setNewAsset({...newAsset, aporteAmount: e.target.value})}
+                                                className={`w-full px-3 py-2.5 pl-9 rounded-xl border text-sm focus:outline-none transition-all ${
                                                     theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/10 text-white focus:border-blue-500'
                                                 }`}
                                                 placeholder="0.00"
                                             />
                                         </div>
-                                        <div className="flex-1">
-                                            <p className="text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Custo Total ({newAsset.isUSD ? 'USD' : 'R$'})</p>
-                                            <div className="relative">
-                                                <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
-                                                    {newAsset.isUSD ? '$' : 'R$'}
-                                                </span>
-                                                <input 
-                                                    type="text"
-                                                    inputMode="decimal"
-                                                    required
-                                                    value={newAsset.aporteAmount}
-                                                    onChange={(e) => setNewAsset({...newAsset, aporteAmount: e.target.value})}
-                                                    className={`w-full p-4 pl-12 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/10 text-white focus:border-blue-500'
-                                                    }`}
-                                                    placeholder="0.00"
-                                                />
-                                            </div>
-                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-3 mt-4 p-4 rounded-2xl bg-blue-500/5 border border-blue-500/10">
-                                        <input 
-                                            type="checkbox"
-                                            id="isUSD-aporte"
-                                            checked={newAsset.isUSD}
-                                            onChange={(e) => setNewAsset({...newAsset, isUSD: e.target.checked})}
-                                            className="w-5 h-5 rounded-lg border-slate-300 text-blue-500 focus:ring-blue-500/40 cursor-pointer"
-                                        />
-                                        <label htmlFor="isUSD-aporte" className={`text-xs font-bold cursor-pointer ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
-                                            Este aporte foi feito em Dólar (USD)
-                                        </label>
-                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 mt-4 p-3 rounded-xl bg-blue-500/5 border border-blue-500/10">
+                                    <input
+                                        type="checkbox"
+                                        id="isUSD-aporte"
+                                        checked={newAsset.isUSD}
+                                        onChange={(e) => setNewAsset({...newAsset, isUSD: e.target.checked})}
+                                        className="w-5 h-5 rounded-lg border-slate-300 text-blue-500 focus:ring-blue-500/40 cursor-pointer"
+                                    />
+                                    <label htmlFor="isUSD-aporte" className={`text-xs font-bold cursor-pointer ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
+                                        Este aporte foi feito em Dólar (USD)
+                                    </label>
                                 </div>
                             </div>
 
-                            <div className={`p-4 rounded-2xl border text-center ${theme === 'light' ? 'bg-blue-50 border-blue-100' : 'bg-blue-500/5 border-blue-500/10'}`}>
-                                <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wide">
+                            <div className={`p-3 rounded-xl border text-center ${theme === 'light' ? 'bg-blue-50 border-blue-100' : 'bg-blue-500/5 border-blue-500/10'}`}>
+                                <p className="text-[10px] font-bold text-blue-500 uppercase tracking-[0.2em]">
                                     O Alívia vai recalcular seu Preço Médio automaticamente com base neste aporte.
                                 </p>
                             </div>
 
-                            <div className="flex gap-4 pt-4">
-                                <button 
+                            <div className="flex gap-4 pt-2">
+                                <button
                                     type="button"
                                     onClick={() => setIsAporting(null)}
-                                    className={`flex-1 py-4 rounded-2xl font-black text-sm transition-all ${
+                                    className={`flex-1 py-3 rounded-xl font-black text-sm transition-all ${
                                         theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'
                                     }`}
                                 >
                                     Cancelar
                                 </button>
-                                <button 
+                                <button
                                     type="submit"
-                                    className="flex-1 py-4 bg-blue-500 hover:bg-blue-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-blue-500/20 transition-all active:scale-95"
+                                    className="flex-1 py-3 bg-blue-500 hover:bg-blue-400 text-white rounded-xl font-black text-sm shadow-lg shadow-blue-500/20 transition-all active:scale-95"
                                 >
                                     Confirmar Aporte
                                 </button>

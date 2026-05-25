@@ -595,41 +595,43 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
             {/* Income Modal */}
             {showIncomeModal && (
                 <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className={`w-full max-w-xl rounded-[3rem] p-8 md:p-10 border relative animate-in zoom-in-95 duration-300 ${
+                    <div className={`w-full max-w-xl rounded-2xl p-6 border relative animate-in zoom-in-95 duration-300 ${
                         theme === 'light' ? 'bg-white border-emerald-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
                     }`}>
-                        <button 
+                        <button
                             onClick={() => setShowIncomeModal(false)}
-                            className="absolute top-6 right-6 p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                            className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'}`}
                         >
-                            <X className="w-5 h-5" />
+                            <X className="w-4 h-4" />
                         </button>
 
-                        <div className="space-y-8">
-                            <div className="text-center space-y-2">
-                                <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${theme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/10'}`}>
-                                    <ArrowUpCircle className={`w-8 h-8 ${theme === 'light' ? 'text-emerald-500' : 'text-emerald-400'}`} />
+                        <div className="space-y-5">
+                            <div className="flex items-center gap-3 mb-1">
+                                <div className={`p-2 rounded-xl shrink-0 ${theme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/10'}`}>
+                                    <ArrowUpCircle className={`w-5 h-5 ${theme === 'light' ? 'text-emerald-500' : 'text-emerald-400'}`} />
                                 </div>
-                                <h3 className={`text-2xl font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                    {incomeStep === 'form' ? (editingId ? 'Editar Recebimento' : 'Novo Recebimento') : 'Confirmar Dados'}
-                                </h3>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                    {incomeStep === 'form' ? 'Preencha os detalhes do seu recebimento' : 'Verifique se as informações estão corretas'}
-                                </p>
+                                <div>
+                                    <h3 className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                        {incomeStep === 'form' ? (editingId ? 'Editar Recebimento' : 'Novo Recebimento') : 'Confirmar Dados'}
+                                    </h3>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                                        {incomeStep === 'form' ? 'Preencha os detalhes' : 'Verifique as informações'}
+                                    </p>
+                                </div>
                             </div>
 
                             {incomeStep === 'form' ? (
                                 <form onSubmit={handleSubmit} className="space-y-6">
                                     <div className="space-y-4">
                                         <div>
-                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block ml-1">Nome do Recebimento</label>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Nome do Recebimento</label>
                                             <input
                                                 type="text"
                                                 required
                                                 placeholder="Ex: Salário, Freelance..."
                                                 value={description}
                                                 onChange={(e) => setDescription(e.target.value)}
-                                                className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
                                                     theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500'
                                                 }`}
                                             />
@@ -637,36 +639,36 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block ml-1">Valor</label>
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Valor</label>
                                                 <div className="relative">
-                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">{isUSD ? 'U$' : 'R$'}</span>
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">{isUSD ? 'U$' : 'R$'}</span>
                                                     <input
                                                         type="number"
                                                         step="0.01"
                                                         required
                                                         value={amount}
                                                         onChange={(e) => setAmount(e.target.value)}
-                                                        className={`w-full p-4 pl-12 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                        className={`w-full px-3 py-2.5 pl-9 rounded-xl border text-sm focus:outline-none transition-all ${
                                                             theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500'
                                                         }`}
                                                     />
                                                 </div>
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block ml-1">Data</label>
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Data</label>
                                                 <input
                                                     type="date"
                                                     required
                                                     value={date}
                                                     onChange={(e) => setDate(e.target.value)}
-                                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
                                                         theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500 [color-scheme:light]' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500 [color-scheme:dark]'
                                                     }`}
                                                 />
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center justify-between p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10">
+                                        <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
                                             <div className="flex items-center gap-3">
                                                 <CircleDollarSign className="w-5 h-5 text-emerald-500" />
                                                 <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>Recebido em Dólar</span>
@@ -678,8 +680,8 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                         </div>
 
                                         {isUSD && amount && usdRate && (
-                                            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center animate-in zoom-in-95">
-                                                <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1">Cotação Atual: R$ {usdRate.toFixed(2)}</p>
+                                            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center animate-in zoom-in-95">
+                                                <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em] mb-1">Cotação Atual: R$ {usdRate.toFixed(2)}</p>
                                                 <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">R$ {(parseFloat(amount) * usdRate).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                             </div>
                                         )}
@@ -687,26 +689,26 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
 
                                     <button
                                         type="submit"
-                                        className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-bold text-sm shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
+                                        className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-black text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
                                     >
                                         Próximo Passo
                                     </button>
                                 </form>
                             ) : (
                                 <div className="space-y-6">
-                                    <div className={`p-6 rounded-2xl border space-y-4 ${theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/10'}`}>
+                                    <div className={`p-4 rounded-xl border space-y-4 ${theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/10'}`}>
                                         <div className="flex justify-between items-center">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Descrição</span>
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Descrição</span>
                                             <span className={`text-sm font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{description}</span>
                                         </div>
                                         <div className="flex justify-between items-center border-t border-slate-500/10 pt-4">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Valor Final</span>
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Valor Final</span>
                                             <span className="text-xl font-bold text-emerald-500">
                                                 R$ {isUSD ? (parseFloat(amount) * usdRate).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : parseFloat(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center border-t border-slate-500/10 pt-4">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Data do Lançamento</span>
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Data do Lançamento</span>
                                             <span className={`text-sm font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                                                 {new Date(date.split('-').join('/')).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
                                             </span>
@@ -716,7 +718,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                     <div className="grid grid-cols-2 gap-4">
                                         <button
                                             onClick={() => setIncomeStep('form')}
-                                            className={`py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 border ${
+                                            className={`py-3 rounded-xl font-semibold text-sm transition-all active:scale-95 border ${
                                                 theme === 'light' ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50' : 'bg-slate-800 border-white/10 text-white hover:bg-slate-700'
                                             }`}
                                         >
@@ -725,7 +727,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                         <button
                                             onClick={handleFinalSave}
                                             disabled={isSaving}
-                                            className="py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-bold text-sm shadow-xl shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                                            className="py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-black text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                                         >
                                             {isSaving ? (
                                                 <>
@@ -747,29 +749,31 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
             {/* Rescue Modal */}
             {showRescueModal && (
                 <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className={`w-full max-w-md rounded-[2.5rem] p-8 md:p-10 border relative animate-in zoom-in-95 duration-300 ${
+                    <div className={`w-full max-w-md rounded-2xl p-6 border relative animate-in zoom-in-95 duration-300 ${
                         theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
                     }`}>
-                        <button 
+                        <button
                             onClick={() => setShowRescueModal(false)}
-                            className="absolute top-6 right-6 p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                            className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'}`}
                         >
-                            <X className="w-5 h-5" />
+                            <X className="w-4 h-4" />
                         </button>
 
-                        <div className="space-y-6">
-                            <div className="text-center space-y-2">
-                                <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <ArrowDownCircle className="w-8 h-8 text-blue-500" />
+                        <div className="space-y-5">
+                            <div className="flex items-center gap-3 mb-1">
+                                <div className={`p-2 rounded-xl shrink-0 ${theme === 'light' ? 'bg-blue-50' : 'bg-blue-500/10'}`}>
+                                    <ArrowDownCircle className={`w-5 h-5 ${theme === 'light' ? 'text-blue-500' : 'text-blue-400'}`} />
                                 </div>
-                                <h3 className={`text-2xl font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Resgatar Valor</h3>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Mova dinheiro do investimento para sua carteira</p>
+                                <div>
+                                    <h3 className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Resgatar Valor</h3>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Mova dinheiro do investimento para sua carteira</p>
+                                </div>
                             </div>
 
-                            <div className={`p-4 rounded-2xl border text-center ${
+                            <div className={`p-3 rounded-xl border text-center ${
                                 theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
                             }`}>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Disponível para Resgate</p>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Disponível para Resgate</p>
                                 <p className={`text-2xl font-bold ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`}>
                                     R$ {totalAvailable.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </p>
@@ -777,14 +781,14 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
 
                             <form onSubmit={handleRescue} className="space-y-4">
                                 <div>
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block ml-1">Selecione a Reserva</label>
-                                        <select 
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Selecione a Reserva</label>
+                                        <select
                                             required
                                             value={selectedJarId}
                                             onChange={(e) => setSelectedJarId(e.target.value)}
-                                            className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                                theme === 'light' 
-                                                ? 'bg-slate-50 border-slate-100 text-slate-800' 
+                                            className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                                                theme === 'light'
+                                                ? 'bg-slate-50 border-slate-100 text-slate-800'
                                                 : 'bg-slate-800 border-white/5 text-white'
                                             }`}
                                         >
@@ -813,13 +817,13 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                 </div>
 
                                 <div>
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block ml-1">Quanto deseja resgatar?</label>
-                                    <input 
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Quanto deseja resgatar?</label>
+                                    <input
                                         type="number" step="0.01" required
                                         value={rescueAmount}
                                         onChange={(e) => setRescueAmount(e.target.value)}
                                         placeholder="0.00"
-                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
+                                        className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
                                             theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/5 text-white focus:border-blue-500'
                                         }`}
                                     />
@@ -831,10 +835,10 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                     )}
                                 </div>
 
-                                <button 
+                                <button
                                     type="submit"
                                     disabled={!rescueAmount || !selectedJarId || isRescuing}
-                                    className="w-full py-4 bg-blue-500 hover:bg-blue-400 text-white rounded-2xl font-bold text-sm shadow-xl shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
+                                    className="w-full py-3 bg-blue-500 hover:bg-blue-400 text-white rounded-xl font-black text-sm shadow-lg shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
                                 >
                                     {isRescuing ? 'Processando...' : 'Confirmar Resgate'}
                                 </button>
@@ -847,29 +851,29 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
             {/* Delete Confirmation Modal */}
             {transactionToDelete && (
                 <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[250] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className={`w-full max-w-sm rounded-[2.5rem] p-8 border text-center relative overflow-hidden animate-in zoom-in-95 duration-300 ${
+                    <div className={`w-full max-w-sm rounded-2xl p-6 border text-center relative overflow-hidden animate-in zoom-in-95 duration-300 ${
                         theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
                     }`}>
-                        <div className="w-20 h-20 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <Trash2 className="w-10 h-10 text-rose-500" />
+                        <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-5">
+                            <Trash2 className="w-8 h-8 text-rose-500" />
                         </div>
-                        <h3 className={`text-2xl font-bold mb-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir Lançamento?</h3>
-                        <p className={`text-sm font-bold mb-8 leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                        <h3 className={`text-xl font-black mb-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir Lançamento?</h3>
+                        <p className={`text-sm mb-6 leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
                             Tem certeza que deseja remover esta entrada? Esta ação não pode ser desfeita.
                         </p>
-                        
+
                         <div className="flex gap-3">
-                            <button 
+                            <button
                                 onClick={() => setTransactionToDelete(null)}
-                                className={`flex-1 py-4 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-all ${
+                                className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${
                                     theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
                                 }`}
                             >
                                 Cancelar
                             </button>
-                            <button 
+                            <button
                                 onClick={confirmDelete}
-                                className="flex-1 py-4 bg-rose-500 hover:bg-rose-400 text-white rounded-2xl font-bold text-[10px] uppercase tracking-widest shadow-xl shadow-rose-500/20 transition-all active:scale-95"
+                                className="flex-1 py-3 bg-rose-500 hover:bg-rose-400 text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-rose-500/20 transition-all active:scale-95"
                             >
                                 Sim, Excluir
                             </button>
