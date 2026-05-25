@@ -396,6 +396,73 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
     }
   }, [currentUser, jarsTotal, investmentsTotal]);
 
+  // ── Alívia insight (computed once, used in hero card) ─────────────────────
+  const aliviaInsight = useMemo(() => {
+    const CATEGORY_LABELS = {
+      renda_fixa: 'Renda Fixa', acoes: 'Ações', etfs: 'ETFs',
+      fiis: 'Fundos Imobiliários', crypto: 'Criptomoedas', imoveis: 'Imóveis',
+    };
+    const TECH_KEYWORDS = ['nvda','nvidia','aapl','apple','msft','microsoft','goog','google','meta','amzn','amazon','tsla','tesla','amd','intc','intel','qcom','qualcomm','tsmc','asml','avgo','broadcom','crm','salesforce','adbe','adobe','snow','pltr','palantir','coin','coinbase','sq','block','shop','shopify','net','cloudflare','ddog','datadog','ai','c3ai','smci','ivvb','qqqm','qqq','nasd','spy','voo','arkk','arkg','soxx','btc','bitcoin','eth','ethereum','sol','solana'];
+    const catCount = {};
+    investments.forEach(inv => { catCount[inv.type || 'outros'] = (catCount[inv.type || 'outros'] || 0) + 1; });
+    const uniqueCategories = Object.keys(catCount);
+    const techAssets = investments.filter(inv => {
+      const n = (inv.name || '').toLowerCase();
+      const s = (inv.symbol || '').toLowerCase();
+      return TECH_KEYWORDS.some(kw => n.includes(kw) || s.includes(kw));
+    });
+    const hasTechFocus = techAssets.length > 0;
+    const techPct = investmentsTotal > 0 ? techAssets.reduce((acc, inv) => {
+      const price = inv.manualCurrentPrice || inv.purchasePrice || 0;
+      const usdM = inv.isUSD ? usdRate : 1;
+      return acc + ((inv.quantity || 1) * price * usdM);
+    }, 0) / investmentsTotal * 100 : 0;
+    let pStatus = 'neutral';
+    let pMessage = 'Analisando seu patrimônio...';
+    if (patrimonioTotal <= 0 && jars.length === 0 && investments.length === 0) {
+      pMessage = 'Ainda não há ativos cadastrados. Comece adicionando suas reservas e investimentos.';
+    } else {
+      const parts = [];
+      const hasReserve = jars.length > 0 && jarsTotal > 0;
+      const hasInvestments = investments.length > 0;
+      const isConsolidated = hasReserve && hasInvestments && uniqueCategories.length >= 2;
+      if (isConsolidated) {
+        pStatus = 'positive';
+        parts.push(`Patrimônio consolidado com reserva e ${investments.length} ativo${investments.length > 1 ? 's' : ''} em ${uniqueCategories.length} categoria${uniqueCategories.length > 1 ? 's' : ''}.`);
+      } else if (hasReserve && !hasInvestments) {
+        pStatus = 'warning';
+        parts.push(`Reserva ativa com ${jars.length} cofre${jars.length > 1 ? 's' : ''}, mas ainda sem investimentos — considere diversificar.`);
+      } else if (!hasReserve && hasInvestments) {
+        pStatus = 'warning';
+        parts.push(`${investments.length} ativo${investments.length > 1 ? 's' : ''} em carteira, mas sem reserva de emergência — priorize criar uma.`);
+      } else if (hasReserve && hasInvestments && uniqueCategories.length < 2) {
+        pStatus = 'warning';
+        parts.push(`Reserva ativa e ${investments.length} ativo${investments.length > 1 ? 's' : ''}, mas concentrados em ${CATEGORY_LABELS[uniqueCategories[0]] || 'uma categoria'}.`);
+      }
+      if (hasTechFocus) {
+        const techNames = techAssets.slice(0, 3).map(a => a.name || a.symbol).join(', ');
+        parts.push(techPct >= 50
+          ? `Perfil focado em tecnologia e inovação (${techPct.toFixed(0)}% da carteira: ${techNames}).`
+          : `Exposição a tech/inovação com ${techNames} (${techPct.toFixed(0)}%).`);
+      }
+      if (hasInvestments) {
+        if (investmentsProfit > 0) {
+          parts.push(`Lucro acumulado de R$ ${fmt(investmentsProfit)}.`);
+        } else if (investmentsProfit < 0) {
+          pStatus = pStatus === 'positive' ? 'warning' : pStatus;
+          parts.push(`Prejuízo de R$ ${fmt(Math.abs(investmentsProfit))} nos investimentos.`);
+        }
+      }
+      const reservesPct = patrimonioTotal > 0 ? (jarsTotal / patrimonioTotal * 100) : 0;
+      if (reservesPct > 80 && hasInvestments) {
+        pStatus = 'warning';
+        parts.push('Muita concentração em reserva — considere alocar mais em ativos.');
+      }
+      pMessage = parts.join(' ');
+    }
+    return { pStatus, pMessage };
+  }, [jars, investments, jarsTotal, investmentsTotal, patrimonioTotal, investmentsProfit, usdRate]);
+
   // ── render ─────────────────────────────────────────────────────────────────
   const h1 = isDark ? 'text-white' : 'text-slate-900';
   const sub = isDark ? 'text-slate-400' : 'text-slate-500';
@@ -419,23 +486,45 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         <div className="absolute top-[-50%] right-[-15%] w-[60%] h-[140%] rounded-full blur-[120px] pointer-events-none opacity-[0.12] bg-emerald-400" />
         <div className="absolute bottom-[-40%] left-[-10%] w-[40%] h-[100%] rounded-full blur-[100px] pointer-events-none opacity-[0.06] bg-purple-500" />
         <div className="relative">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-4">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.3em] text-emerald-400/80 mb-1">Patrimônio Total Consolidado</p>
               <p className={`text-3xl md:text-4xl font-black tracking-tight leading-none ${patrimonioTotal >= 0 ? 'text-white' : 'text-rose-400'}`}>
                 {fmtSigned(patrimonioTotal)}
               </p>
+              {totalDailyYield > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black">
+                    <TrendingUp className="w-2.5 h-2.5" /> +R$ {fmt(totalDailyYield)}/dia
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black">
+                    ≈ R$ {fmt(totalDailyYield * 30)}/mês
+                  </span>
+                </div>
+              )}
             </div>
-            {totalDailyYield > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black">
-                  <TrendingUp className="w-2.5 h-2.5" /> +R$ {fmt(totalDailyYield)}/dia
-                </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black">
-                  ≈ R$ {fmt(totalDailyYield * 30)}/mês
-                </span>
+            {/* Alívia mini insight — dentro do card de patrimônio total */}
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-white/[0.06] border border-white/[0.08] max-w-[260px] shrink-0 self-start">
+              <div className="relative shrink-0">
+                <img src={aliviaFinal} alt="Alívia" className="w-8 h-8 object-cover rounded-full border border-white/20 shadow-md" />
+                <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-slate-950 border border-white/10 flex items-center justify-center ${
+                  aliviaInsight.pStatus === 'positive' ? 'text-emerald-400' : aliviaInsight.pStatus === 'warning' ? 'text-amber-400' : 'text-slate-400'
+                }`}>
+                  {aliviaInsight.pStatus === 'positive' ? <TrendingUp className="w-2 h-2" /> : <Sparkles className="w-2 h-2" />}
+                </div>
               </div>
-            )}
+              <div className="flex-1 min-w-0">
+                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400/80 block mb-0.5">Alívia</span>
+                <span className="text-[11px] text-slate-300 leading-snug line-clamp-4">{aliviaInsight.pMessage}</span>
+              </div>
+              <button
+                onClick={() => handleAnalyze(true)}
+                title="Atualizar"
+                className="p-1 rounded-lg hover:bg-white/10 text-slate-500 hover:text-slate-300 transition-all shrink-0"
+              >
+                <RefreshCw className="w-3 h-3" />
+              </button>
+            </div>
           </div>
           {patrimonioTotal > 0 && (
             <div className="space-y-2 pt-3 border-t border-white/[0.06]">
@@ -744,29 +833,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
           neutral: <Sparkles className="w-3.5 h-3.5" />,
         };
 
-        return (
-          <div className={`flex items-start gap-3 p-4 rounded-2xl border ${bgColors[pStatus]} transition-all duration-300 shadow-inner`}>
-            <div className="relative shrink-0 mt-0.5">
-              <img src={aliviaFinal} alt="Alívia" className="w-10 h-10 object-cover rounded-full border-2 border-white/20 shadow-md" />
-              <div className={`absolute -bottom-1 -right-1 p-0.5 rounded-full ${isDark ? 'bg-[#131621]' : 'bg-white'} border border-white/10 ${textColors[pStatus]}`}>
-                {statusIcons[pStatus]}
-              </div>
-            </div>
-            <div className="flex flex-col flex-1 min-w-0">
-              <span className={`text-[10px] font-black uppercase tracking-widest ${textColors[pStatus]} opacity-90`}>Alívia</span>
-              <span className={`text-[12px] font-medium leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                {pMessage}
-              </span>
-            </div>
-            <button
-              onClick={() => handleAnalyze(true)}
-              title="Atualizar Insight"
-              className={`p-2 rounded-lg transition-all shrink-0 ${isDark ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-black/5 text-slate-400'}`}
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          </div>
-        );
+        return null;
       })()}
 
         </div>{/* end left col */}
@@ -961,7 +1028,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
       {/* ── PATRIMÔNIO CONFIG MODAL ── */}
       {showPatrimonioConfig && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-500">
-          <div className={`relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[3rem] shadow-2xl animate-in zoom-in-95 duration-500 custom-scrollbar ${
+          <div className={`relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl animate-in zoom-in-95 duration-500 scrollbar-hide ${
             isDark ? 'bg-slate-900' : 'bg-white'
           }`}>
             <PatrimonioConfigForm
