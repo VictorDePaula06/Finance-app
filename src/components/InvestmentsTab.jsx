@@ -1046,6 +1046,18 @@ export default function InvestmentsTab() {
                                                         {pp >= 0 ? '+' : ''}{pp.toFixed(2)}%
                                                     </span>
                                                 </div>
+                                                <div className="hidden lg:flex flex-col items-end">
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Lucro/Perda</span>
+                                                    {(() => {
+                                                        const pl = (asset.value - asset.invested) * displayMultiplier;
+                                                        return (
+                                                            <span className={`inline-flex items-center gap-0.5 text-xs font-black ${pl >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                                {pl >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                                                                {pl >= 0 ? '+' : '-'} {dCur} {Math.abs(pl).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </div>
 
                                                 <div className="flex items-center gap-1.5 ml-2">
                                                     <button onClick={() => {setNewAsset({...asset,aporteQuantity:'',aporteAmount:''});setIsAporting(asset.id);}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-blue-50 text-blue-500 hover:bg-blue-100':'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'}`} title="Aporte"><Plus className="w-4 h-4" /></button>
