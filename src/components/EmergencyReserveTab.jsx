@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    PiggyBank, 
-    Landmark, 
-    TrendingUp, 
-    Plus, 
-    Trash2, 
+import {
+    PiggyBank,
+    Landmark,
+    TrendingUp,
+    Plus,
+    Trash2,
     Edit2,
-    ShieldCheck
+    ShieldCheck,
+    X,
+    ArrowRight,
+    Save
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -392,25 +395,38 @@ export default function EmergencyReserveTab() {
 
             {/* Modal Add/Edit */}
             {isAdding && (
-                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-                    <div className={`w-full max-w-md rounded-[3rem] p-8 md:p-10 border animate-in zoom-in-95 duration-300 ${
-                        theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-3">
+                    <div className={`w-full max-w-xl rounded-2xl p-6 border animate-in zoom-in-95 duration-300 ${
+                        theme === 'light' ? 'bg-white border-slate-200 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
                     }`}>
-                        <h3 className={`text-2xl font-black mb-1 text-center ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                            {isEditing ? 'Editar Reserva' : 'Nova Reserva'}
-                        </h3>
-                        <p className="text-slate-500 text-xs font-bold text-center mb-8 uppercase tracking-widest">
-                            Guarde com liquidez e segurança
-                        </p>
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-1">
+                            <button type="button" onClick={() => { setIsAdding(false); setIsEditing(null); }}
+                                className={`p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-slate-600 hover:bg-slate-100' : 'text-slate-500 hover:text-slate-300 hover:bg-white/10'}`}>
+                                <ArrowRight className="w-4 h-4 rotate-180" />
+                            </button>
+                            <h3 className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                {isEditing ? 'Editar Reserva' : 'Nova Reserva'}
+                            </h3>
+                            <button onClick={() => { setIsAdding(false); setIsEditing(null); }}
+                                className={`p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-slate-600 hover:bg-slate-100' : 'text-slate-500 hover:text-slate-300 hover:bg-white/10'}`}>
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                        {!isEditing && (
+                            <p className={`text-xs font-medium mb-5 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                Guarde com liquidez e segurança.
+                            </p>
+                        )}
 
-                        <form onSubmit={handleSave} className="space-y-6">
+                        <form onSubmit={handleSave} className="space-y-3">
                             <div>
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Tipo</label>
-                                <select 
+                                <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Tipo</label>
+                                <select
                                     value={formData.type}
                                     onChange={(e) => setFormData({...formData, type: e.target.value})}
-                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all appearance-none ${
-                                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-slate-800 border-white/10 text-white'
+                                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all appearance-none ${
+                                        theme === 'light' ? 'bg-white border-slate-300 text-slate-800' : 'bg-slate-800 border-white/10 text-white'
                                     }`}
                                 >
                                     {Object.entries(RESERVE_TYPES).map(([key, config]) => (
@@ -422,70 +438,68 @@ export default function EmergencyReserveTab() {
                             </div>
 
                             <div>
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Nome de Identificação</label>
-                                <input 
+                                <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Nome de Identificação</label>
+                                <input
                                     type="text"
                                     required
                                     value={formData.name}
                                     onChange={(e) => setFormData({...formData, name: e.target.value})}
-                                    className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
+                                        theme === 'light' ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400' : 'bg-white/5 border-white/10 text-white placeholder-slate-500'
                                     }`}
                                     placeholder={
-                                        formData.type === 'cofrinho' ? 'Ex: Nubank, Inter, PicPay...' : 
+                                        formData.type === 'cofrinho' ? 'Ex: Nubank, Inter, PicPay...' :
                                         formData.type === 'tesouro' ? 'Ex: Tesouro Selic 2029' : 'Ex: CDB Itaú, CDB Sofisa...'
                                     }
                                 />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Saldo Atual (R$)</label>
-                                    <input 
+                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Saldo Atual (R$)</label>
+                                    <input
                                         type="text"
                                         inputMode="decimal"
                                         required
                                         value={formData.balance}
                                         onChange={(e) => setFormData({...formData, balance: e.target.value})}
-                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                        className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
+                                            theme === 'light' ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400' : 'bg-white/5 border-white/10 text-white placeholder-slate-500'
                                         }`}
-                                        placeholder="0.00"
+                                        placeholder="0,00"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">% do CDI</label>
-                                    <input 
+                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>% do CDI</label>
+                                    <input
                                         type="text"
                                         inputMode="decimal"
                                         required
                                         value={formData.cdiPercent}
                                         onChange={(e) => setFormData({...formData, cdiPercent: e.target.value})}
-                                        className={`w-full p-4 rounded-2xl border font-bold text-sm focus:outline-none transition-all ${
-                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'
+                                        className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
+                                            theme === 'light' ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400' : 'bg-white/5 border-white/10 text-white placeholder-slate-500'
                                         }`}
                                         placeholder="Ex: 100"
                                     />
                                 </div>
                             </div>
 
-                            <div className="flex gap-4 pt-4">
-                                <button 
+                            <div className="flex gap-3 pt-2">
+                                <button
                                     type="button"
-                                    onClick={() => {
-                                        setIsAdding(false);
-                                        setIsEditing(null);
-                                    }}
-                                    className={`flex-1 py-4 rounded-2xl font-black text-sm transition-all ${
-                                        theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                    onClick={() => { setIsAdding(false); setIsEditing(null); }}
+                                    className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-all border ${
+                                        theme === 'light' ? 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
                                     }`}
                                 >
                                     Cancelar
                                 </button>
-                                <button 
+                                <button
                                     type="submit"
-                                    className="flex-1 py-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-500/20 transition-all active:scale-95"
+                                    className="flex-1 py-3 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-semibold text-sm shadow-lg shadow-emerald-700/20 transition-all active:scale-95 flex items-center justify-center gap-2"
                                 >
+                                    <Save className="w-4 h-4" />
                                     {isEditing ? 'Atualizar' : 'Salvar'}
                                 </button>
                             </div>

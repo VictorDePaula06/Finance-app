@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Target, Plus, Edit2, Check, Trophy, History, Trash2, TrendingUp, Calendar, DollarSign, Activity, PiggyBank, Home, Gem, LineChart, Loader2, Save, X } from 'lucide-react';
+import { Target, Plus, Edit2, Check, Trophy, History, Trash2, TrendingUp, Calendar, DollarSign, Activity, PiggyBank, Home, Gem, LineChart, Loader2, Save, X, ArrowRight } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -265,10 +265,10 @@ export default function GoalTracker() {
     }, [goals, jars, investments]);
 
     const card = theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#151822] border-white/5';
-    const inp = `w-full p-4 rounded-2xl border transition-all focus:outline-none focus:border-emerald-500 ${
-        theme === 'light' 
-            ? 'bg-slate-50 border-slate-200 text-slate-800 focus:bg-white' 
-            : 'bg-white/5 border-white/10 text-white focus:bg-white/10'
+    const inp = `w-full px-3 py-2.5 rounded-xl border text-sm transition-all focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+        theme === 'light'
+            ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400'
+            : 'bg-white/5 border-white/10 text-white placeholder-slate-500'
     }`;
 
     return (
@@ -638,42 +638,48 @@ export default function GoalTracker() {
 
             {/* Modal: Adicionar Nova Meta */}
             {isAdding && (
-                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-                    <div className={`w-full max-w-md rounded-[3rem] p-8 md:p-10 border shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto ${
-                        theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/10'
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-3">
+                    <div className={`w-full max-w-xl rounded-2xl p-6 border shadow-2xl animate-in zoom-in-95 duration-300 max-h-[96vh] overflow-y-auto scrollbar-hide ${
+                        theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-white/10'
                     }`}>
-                        <div className="text-center mb-6">
-                            <div className="w-14 h-14 bg-emerald-500/10 rounded-3xl flex items-center justify-center mx-auto mb-3">
-                                <Target className="w-7 h-7 text-emerald-500" />
-                            </div>
-                            <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Nova Meta & Objetivo</h3>
-                            <p className="text-slate-500 text-[10px] font-bold text-center uppercase tracking-widest mt-1">
-                                Planeje e acompanhe seus alvos
-                            </p>
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-1">
+                            <button type="button" onClick={() => { setIsAdding(false); setNewTitle(''); setNewTarget(''); setNewDeadline(''); setNewJarIds([]); setNewInvIds([]); setNewIsPatrimony(false); }}
+                                className={`p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-slate-600 hover:bg-slate-100' : 'text-slate-500 hover:text-slate-300 hover:bg-white/10'}`}>
+                                <ArrowRight className="w-4 h-4 rotate-180" />
+                            </button>
+                            <h3 className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Nova Meta & Objetivo</h3>
+                            <button onClick={() => { setIsAdding(false); setNewTitle(''); setNewTarget(''); setNewDeadline(''); setNewJarIds([]); setNewInvIds([]); setNewIsPatrimony(false); }}
+                                className={`p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-slate-600 hover:bg-slate-100' : 'text-slate-500 hover:text-slate-300 hover:bg-white/10'}`}>
+                                <X className="w-4 h-4" />
+                            </button>
                         </div>
+                        <p className={`text-xs font-medium mb-5 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Planeje e acompanhe seus alvos financeiros.
+                        </p>
 
-                        <form onSubmit={handleAddGoal} className="space-y-5">
+                        <form onSubmit={handleAddGoal} className="space-y-3">
                             {/* Goal Type Selector */}
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 block">Tipo de Meta</label>
+                                <label className={`text-[10px] font-semibold mb-1.5 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Tipo de Meta</label>
                                 <div className="grid grid-cols-2 gap-2">
                                     <button type="button" onClick={() => setNewIsPatrimony(false)}
-                                        className={`p-3.5 rounded-2xl border text-left transition-all ${!newIsPatrimony ? 'border-emerald-500 bg-emerald-500/10' : isDark ? 'border-white/10 bg-white/5 hover:border-white/20' : 'border-slate-200 bg-slate-50'}`}>
+                                        className={`p-3 rounded-xl border text-left transition-all ${!newIsPatrimony ? 'border-emerald-500 bg-emerald-500/10' : isDark ? 'border-white/10 bg-white/5 hover:border-white/20' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
                                         <div className="flex items-center gap-2">
                                             <Trophy className={`w-4 h-4 ${!newIsPatrimony ? 'text-emerald-500' : 'text-slate-400'}`} />
                                             <div>
-                                                <p className={`text-xs font-black ${!newIsPatrimony ? 'text-emerald-500' : isDark ? 'text-white' : 'text-slate-800'}`}>Pessoal</p>
-                                                <p className={`text-[8px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Viagem, carro...</p>
+                                                <p className={`text-xs font-bold ${!newIsPatrimony ? 'text-emerald-600' : isDark ? 'text-white' : 'text-slate-700'}`}>Pessoal</p>
+                                                <p className={`text-[9px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Viagem, carro...</p>
                                             </div>
                                         </div>
                                     </button>
                                     <button type="button" onClick={() => setNewIsPatrimony(true)}
-                                        className={`p-3.5 rounded-2xl border text-left transition-all ${newIsPatrimony ? 'border-blue-500 bg-blue-500/10' : isDark ? 'border-white/10 bg-white/5 hover:border-white/20' : 'border-slate-200 bg-slate-50'}`}>
+                                        className={`p-3 rounded-xl border text-left transition-all ${newIsPatrimony ? 'border-blue-500 bg-blue-500/10' : isDark ? 'border-white/10 bg-white/5 hover:border-white/20' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
                                         <div className="flex items-center gap-2">
                                             <Gem className={`w-4 h-4 ${newIsPatrimony ? 'text-blue-400' : 'text-slate-400'}`} />
                                             <div>
-                                                <p className={`text-xs font-black ${newIsPatrimony ? 'text-blue-400' : isDark ? 'text-white' : 'text-slate-800'}`}>Patrimônio</p>
-                                                <p className={`text-[8px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total, imóvel...</p>
+                                                <p className={`text-xs font-bold ${newIsPatrimony ? 'text-blue-500' : isDark ? 'text-white' : 'text-slate-700'}`}>Patrimônio</p>
+                                                <p className={`text-[9px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total, imóvel...</p>
                                             </div>
                                         </div>
                                     </button>
@@ -685,26 +691,26 @@ export default function GoalTracker() {
                                 <div className="grid grid-cols-2 gap-2 animate-in fade-in duration-300">
                                     {[{ id: 'patrimonio_total', label: 'Total de Patrimônio', emoji: '💎' }, { id: 'imovel', label: 'Imóvel', emoji: '🏠' }].map(gt => (
                                         <button key={gt.id} type="button" onClick={() => setNewPatrimonyType(gt.id)}
-                                            className={`p-2.5 rounded-xl border text-left transition-all flex items-center gap-2 ${newPatrimonyType === gt.id ? 'border-blue-500 bg-blue-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-50'}`}>
-                                            <span className="text-base">{gt.emoji}</span>
-                                            <span className={`text-[10px] font-black ${newPatrimonyType === gt.id ? 'text-blue-400' : isDark ? 'text-white' : 'text-slate-800'}`}>{gt.label}</span>
+                                            className={`p-2.5 rounded-xl border text-left transition-all flex items-center gap-2 ${newPatrimonyType === gt.id ? 'border-blue-500 bg-blue-500/10' : isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'}`}>
+                                            <span className="text-sm">{gt.emoji}</span>
+                                            <span className={`text-[10px] font-semibold ${newPatrimonyType === gt.id ? 'text-blue-500' : isDark ? 'text-white' : 'text-slate-700'}`}>{gt.label}</span>
                                         </button>
                                     ))}
                                 </div>
                             )}
 
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 block">Nome da Meta</label>
+                                <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Nome da Meta</label>
                                 <input type="text" placeholder={newIsPatrimony ? (newPatrimonyType === 'imovel' ? 'Ex: Meu Apartamento' : 'Ex: Meta de Patrimônio') : 'Ex: Viagem, Carro, Reserva...'} value={newTitle} onChange={e => setNewTitle(e.target.value)} className={inp} />
                             </div>
-                            
-                            <div className="grid grid-cols-2 gap-4">
+
+                            <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 block">Valor Alvo (R$)</label>
-                                    <input type="number" placeholder={newIsPatrimony ? (newPatrimonyType === 'imovel' ? '350000' : '100000') : '0.00'} value={newTarget} onChange={e => setNewTarget(e.target.value)} className={inp} />
+                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Valor Alvo (R$)</label>
+                                    <input type="number" placeholder={newIsPatrimony ? (newPatrimonyType === 'imovel' ? '350000' : '100000') : '0,00'} value={newTarget} onChange={e => setNewTarget(e.target.value)} className={inp} />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 block">Prazo</label>
+                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Prazo</label>
                                     <input type="date" value={newDeadline} min="2020-01-01" max="2099-12-31" onChange={e => setNewDeadline(e.target.value)} className={inp} />
                                 </div>
                             </div>
@@ -717,9 +723,9 @@ export default function GoalTracker() {
                                     onToggleInv={id => setNewInvIds(p => toggle(p, id))}
                                 />
                             )}
-                            
+
                             {newIsPatrimony && (
-                                <p className={`text-[10px] font-bold flex items-center gap-1.5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                                <p className={`text-[10px] font-medium flex items-center gap-1.5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
                                     <TrendingUp className="w-3.5 h-3.5" /> O acumulado será o seu patrimônio total em tempo real (reservas + investimentos).
                                 </p>
                             )}
@@ -729,10 +735,11 @@ export default function GoalTracker() {
                                     setIsAdding(false);
                                     setNewTitle(''); setNewTarget(''); setNewDeadline('');
                                     setNewJarIds([]); setNewInvIds([]); setNewIsPatrimony(false);
-                                }} className={`flex-1 py-3.5 rounded-2xl font-black text-xs transition-all ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                                }} className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-all border ${theme === 'light' ? 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}>
                                     Cancelar
                                 </button>
-                                <button type="submit" className="flex-1 py-3.5 rounded-2xl font-black text-xs bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/20 transition-all active:scale-95">
+                                <button type="submit" className="flex-1 py-3 rounded-xl font-semibold text-sm bg-emerald-700 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-700/20 transition-all active:scale-95 flex items-center justify-center gap-2">
+                                    <Save className="w-4 h-4" />
                                     Criar Meta
                                 </button>
                             </div>
