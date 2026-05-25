@@ -488,47 +488,21 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         <div className="absolute top-[-50%] right-[-15%] w-[60%] h-[140%] rounded-full blur-[120px] pointer-events-none opacity-[0.12] bg-emerald-400" />
         <div className="absolute bottom-[-40%] left-[-10%] w-[40%] h-[100%] rounded-full blur-[100px] pointer-events-none opacity-[0.06] bg-purple-500" />
         <div className="relative">
-          {/* Valor + Alívia lado a lado */}
-          <div className="flex flex-col md:flex-row md:items-start gap-3 mb-4">
-            {/* Esquerda: valor total */}
-            <div className="shrink-0">
-              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-emerald-400/80 mb-1">Patrimônio Total Consolidado</p>
-              <p className={`text-3xl md:text-4xl font-black tracking-tight leading-none ${patrimonioTotal >= 0 ? 'text-white' : 'text-rose-400'}`}>
-                {fmtSigned(patrimonioTotal)}
-              </p>
-              {totalDailyYield > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black">
-                    <TrendingUp className="w-2.5 h-2.5" /> +R$ {fmt(totalDailyYield)}/dia
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black">
-                    ≈ R$ {fmt(totalDailyYield * 30)}/mês
-                  </span>
-                </div>
-              )}
-            </div>
-            {/* Direita: Alívia — ocupa o espaço restante, sem truncar */}
-            <div className="flex-1 min-w-0 flex items-start gap-2 p-3 rounded-xl bg-white/[0.06] border border-white/[0.08] self-start">
-              <div className="relative shrink-0">
-                <img src={aliviaFinal} alt="Alívia" className="w-8 h-8 object-cover rounded-full border border-white/20 shadow-md" />
-                <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-slate-950 border border-white/10 flex items-center justify-center ${
-                  aliviaInsight.pStatus === 'positive' ? 'text-emerald-400' : aliviaInsight.pStatus === 'warning' ? 'text-amber-400' : 'text-slate-400'
-                }`}>
-                  {aliviaInsight.pStatus === 'positive' ? <TrendingUp className="w-2 h-2" /> : <Sparkles className="w-2 h-2" />}
-                </div>
+          <div className="mb-4">
+            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-emerald-400/80 mb-1">Patrimônio Total Consolidado</p>
+            <p className={`text-3xl md:text-4xl font-black tracking-tight leading-none ${patrimonioTotal >= 0 ? 'text-white' : 'text-rose-400'}`}>
+              {fmtSigned(patrimonioTotal)}
+            </p>
+            {totalDailyYield > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black">
+                  <TrendingUp className="w-2.5 h-2.5" /> +R$ {fmt(totalDailyYield)}/dia
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black">
+                  ≈ R$ {fmt(totalDailyYield * 30)}/mês
+                </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400/80 block mb-0.5">Alívia</span>
-                <span className="text-[11px] text-slate-300 leading-relaxed">{aliviaInsight.pMessage}</span>
-              </div>
-              <button
-                onClick={() => handleAnalyze(true)}
-                title="Atualizar"
-                className="p-1 rounded-lg hover:bg-white/10 text-slate-500 hover:text-slate-300 transition-all shrink-0"
-              >
-                <RefreshCw className="w-3 h-3" />
-              </button>
-            </div>
+            )}
           </div>
           {patrimonioTotal > 0 && (
             <div className="space-y-2 pt-3 border-t border-white/[0.06]">
@@ -844,6 +818,31 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
 
         {/* ═══ RIGHT COLUMN (2/5) ═══ */}
         <div className="lg:col-span-2 space-y-4">
+
+      {/* ── ALÍVIA INSIGHT ── */}
+      <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
+        <div className="flex items-start gap-3">
+          <div className="relative shrink-0">
+            <img src={aliviaFinal} alt="Alívia" className="w-9 h-9 object-cover rounded-full border border-white/20 shadow-md" />
+            <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center ${isDark ? 'bg-slate-900 border border-white/10' : 'bg-white border border-slate-200'} ${
+              aliviaInsight.pStatus === 'positive' ? 'text-emerald-400' : aliviaInsight.pStatus === 'warning' ? 'text-amber-400' : 'text-slate-400'
+            }`}>
+              {aliviaInsight.pStatus === 'positive' ? <TrendingUp className="w-2 h-2" /> : <Sparkles className="w-2 h-2" />}
+            </div>
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className={`text-[9px] font-black uppercase tracking-widest block mb-1 ${isDark ? 'text-emerald-400/80' : 'text-emerald-600'}`}>Alívia</span>
+            <span className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{aliviaInsight.pMessage}</span>
+          </div>
+          <button
+            onClick={() => handleAnalyze(true)}
+            title="Atualizar"
+            className={`p-1.5 rounded-lg transition-all shrink-0 ${isDark ? 'hover:bg-white/10 text-slate-500 hover:text-slate-300' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}
+          >
+            <RefreshCw className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
 
       {/* ── PATRIMONY GOAL PROGRESS CARD ── */}
       {patrimonyGoals.length > 0 && (() => {
