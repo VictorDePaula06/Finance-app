@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
-    Plus, 
-    TrendingDown, 
-    PiggyBank, 
-    Calendar, 
-    Tag, 
-    DollarSign, 
-    X, 
+import {
+    Plus,
+    TrendingDown,
+    PiggyBank,
+    Calendar,
+    Tag,
+    DollarSign,
+    X,
     ArrowRight,
     TrendingUp,
     Circle,
@@ -24,6 +24,7 @@ import {
     Eye,
     EyeOff
 } from 'lucide-react';
+import TrialLimitModal from './TrialLimitModal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
@@ -32,8 +33,12 @@ import { CATEGORIES } from '../constants/categories';
 
 export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.65, cards = [], subscriptions = [], walletStats, hideBalance, toggleHideBalance }) {
     const { theme } = useTheme();
-    const { currentUser, planLevel, isAdmin } = useAuth();
-    
+    const { currentUser, planLevel, isAdmin, isTrial } = useAuth();
+
+    // Trial limits
+    const TRIAL_EXPENSE_LIMIT = 10;
+    const [showTrialModal, setShowTrialModal] = useState(false);
+
     // States
     const [showModal, setShowModal] = useState(false);
     const [step, setStep] = useState('choice'); // 'choice' | 'expense' | 'investment' | 'success' | 'warning'
@@ -818,6 +823,11 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
                                 <button
                                     onClick={() => {
+                                        const expenseCount = transactions.filter(t => t.type === 'expense').length;
+                                        if (isTrial && expenseCount >= TRIAL_EXPENSE_LIMIT) {
+                                            setShowTrialModal(true);
+                                            return;
+                                        }
                                         setStep('expense');
                                         setShowModal(true);
                                     }}
@@ -1593,6 +1603,13 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     </div>
                 </div>
             )}
+
+            {/* Trial Limit Modal */}
+            <TrialLimitModal
+                isOpen={showTrialModal}
+                onClose={() => setShowTrialModal(false)}
+                limitMessage={`Você atingiu o limite de ${TRIAL_EXPENSE_LIMIT} lançamentos de despesa no período de teste.`}
+            />
 
             {/* Delete Confirmation Modal */}
             {transactionToDelete && (

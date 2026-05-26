@@ -5,11 +5,16 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { TrendingUp, TrendingDown, Wallet, Trash2, ArrowUpCircle, CircleDollarSign, Loader2, Pencil, X, Landmark, ArrowDownCircle, ChevronLeft, ChevronRight, Settings, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
+import TrialLimitModal from './TrialLimitModal';
 
 export default function IncomeTab({ transactions, savingsJars, walletStats, hideBalance, toggleHideBalance }) {
     const { theme } = useTheme();
-    const { currentUser } = useAuth();
-    
+    const { currentUser, isTrial } = useAuth();
+
+    // Trial limits
+    const TRIAL_INCOME_LIMIT = 2;
+    const [showTrialModal, setShowTrialModal] = useState(false);
+
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
     const [date, setDate] = useState(() => {
@@ -438,6 +443,14 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                             <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Recebimentos de {selectedMonthName}</h3>
                             <button
                                 onClick={() => {
+                                    const incomeCount = transactions.filter(t =>
+                                        t.type === 'income' &&
+                                        !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category)
+                                    ).length;
+                                    if (isTrial && incomeCount >= TRIAL_INCOME_LIMIT) {
+                                        setShowTrialModal(true);
+                                        return;
+                                    }
                                     setEditingId(null);
                                     setAmount('');
                                     setDescription('');
@@ -847,6 +860,13 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                     </div>
                 </div>
             )}
+
+            {/* Trial Limit Modal */}
+            <TrialLimitModal
+                isOpen={showTrialModal}
+                onClose={() => setShowTrialModal(false)}
+                limitMessage={`Você atingiu o limite de ${TRIAL_INCOME_LIMIT} recebimentos no período de teste.`}
+            />
 
             {/* Delete Confirmation Modal */}
             {transactionToDelete && (

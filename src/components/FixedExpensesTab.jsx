@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Home, 
-  Plus, 
-  Trash2, 
-  Pencil, 
-  CheckCircle2, 
+import {
+  Home,
+  Plus,
+  Trash2,
+  Pencil,
+  CheckCircle2,
   Calendar,
   DollarSign,
   FileText,
@@ -16,11 +16,16 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs } from 'firebase/firestore';
+import TrialLimitModal from './TrialLimitModal';
 
 export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
   const { theme } = useTheme();
-  const { currentUser } = useAuth();
-  
+  const { currentUser, isTrial } = useAuth();
+
+  // Trial limits
+  const TRIAL_FIXED_LIMIT = 2;
+  const [showTrialModal, setShowTrialModal] = useState(false);
+
   const [fixedExpenses, setFixedExpenses] = useState([]);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
@@ -159,8 +164,14 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
       </div>
 
       <div className="flex justify-center mb-8">
-        <button 
-          onClick={() => setIsAddingExpense(true)}
+        <button
+          onClick={() => {
+            if (isTrial && fixedExpenses.length >= TRIAL_FIXED_LIMIT) {
+              setShowTrialModal(true);
+              return;
+            }
+            setIsAddingExpense(true);
+          }}
           className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(59,130,246,0.15)] active:scale-95"
         >
           <Plus className="w-4 h-4" /> Nova Conta
@@ -352,6 +363,13 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
           </div>
         )}
       </div>
+
+      {/* Trial Limit Modal */}
+      <TrialLimitModal
+        isOpen={showTrialModal}
+        onClose={() => setShowTrialModal(false)}
+        limitMessage={`Você atingiu o limite de ${TRIAL_FIXED_LIMIT} contas fixas no período de teste.`}
+      />
 
       {/* Modal Add/Edit */}
       {isAddingExpense && (

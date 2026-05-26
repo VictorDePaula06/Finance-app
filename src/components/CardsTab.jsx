@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  CreditCard, 
-  Plus, 
-  Trash2, 
-  ChevronRight, 
-  Calendar, 
-  DollarSign, 
+import {
+  CreditCard,
+  Plus,
+  Trash2,
+  ChevronRight,
+  Calendar,
+  DollarSign,
   Tag,
   AlertCircle,
   CheckCircle2,
@@ -22,11 +22,20 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { CATEGORIES } from '../constants/categories';
+import TrialLimitModal from './TrialLimitModal';
 
 const CardsTab = ({ transactions = [], setActiveTab }) => {
   const { theme } = useTheme();
-  const { currentUser } = useAuth();
-  
+  const { currentUser, isTrial } = useAuth();
+
+  // Trial limits
+  const TRIAL_CARDS_LIMIT = 1;
+  const TRIAL_SUBS_LIMIT  = 3;
+  const [showTrialModal, setShowTrialModal]     = useState(false);
+  const [trialModalMsg, setTrialModalMsg]       = useState('');
+
+  const openTrialModal = (msg) => { setTrialModalMsg(msg); setShowTrialModal(true); };
+
   const [cards, setCards] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [isAddingCard, setIsAddingCard] = useState(false);
@@ -310,8 +319,14 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
             </div>
             <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Meus Cartões</h2>
           </div>
-          <button 
-            onClick={() => setIsAddingCard(true)}
+          <button
+            onClick={() => {
+              if (isTrial && cards.length >= TRIAL_CARDS_LIMIT) {
+                openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão no período de teste.`);
+                return;
+              }
+              setIsAddingCard(true);
+            }}
             className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"
           >
             <Plus className="w-4 h-4" /> Novo Cartão
@@ -503,7 +518,10 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
           {cards.length === 0 && !isAddingCard && (
             <div className={`aspect-[1.6/1] md:aspect-auto rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-8 opacity-40 hover:opacity-100 transition-all cursor-pointer ${
               theme === 'light' ? 'border-slate-200 text-slate-400' : 'border-slate-700 text-slate-500'
-            }`} onClick={() => setIsAddingCard(true)}>
+            }`} onClick={() => {
+              if (isTrial && cards.length >= TRIAL_CARDS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão no período de teste.`); return; }
+              setIsAddingCard(true);
+            }}>
               <CreditCard className="w-10 h-10 mb-3" />
               <p className="font-bold">Cadastrar Primeiro Cartão</p>
             </div>
@@ -527,8 +545,14 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
               )}
             </div>
           </div>
-          <button 
-            onClick={() => setIsAddingSub(true)}
+          <button
+            onClick={() => {
+              if (isTrial && subscriptions.length >= TRIAL_SUBS_LIMIT) {
+                openTrialModal(`Você atingiu o limite de ${TRIAL_SUBS_LIMIT} assinaturas no período de teste.`);
+                return;
+              }
+              setIsAddingSub(true);
+            }}
             className="flex items-center gap-2 px-5 py-2.5 bg-purple-500 text-white rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-purple-600 transition-all shadow-lg shadow-purple-500/20"
           >
             <Plus className="w-4 h-4" /> Nova Assinatura
@@ -1194,6 +1218,13 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
             </div>
           );
       })()}
+
+      {/* Trial Limit Modal */}
+      <TrialLimitModal
+        isOpen={showTrialModal}
+        onClose={() => setShowTrialModal(false)}
+        limitMessage={trialModalMsg}
+      />
 
       {/* MODAL: DELETE CONFIRMATION (CARD) */}
       {deleteConfirm && deleteConfirm.type === 'card' && (

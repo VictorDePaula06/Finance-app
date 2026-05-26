@@ -945,7 +945,7 @@ export default function AdminPanel({ onBack }) {
                                         { id: 'admins',    label: 'Admins',         count: stats.admins          },
                                         { id: 'premium',   label: 'Plano Premium',  count: stats.premium         },
                                         { id: 'standard',  label: 'Plano Standard', count: stats.standard        },
-                                        { id: 'sem_plano', label: 'S/ Plano',       count: stats.free            },
+                                        { id: 'sem_plano', label: 'Período de Teste', count: stats.free          },
                                         { id: 'excluidos', label: 'Excluídos',      count: stats.deleted         },
                                     ].map(tab => (
                                         <button
