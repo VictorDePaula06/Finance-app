@@ -965,7 +965,7 @@ export default function AdminPanel({ onBack }) {
                                 {/* User List */}
                                 <div className="space-y-2">
                                     {/* List Header */}
-                                    <div className="hidden sm:grid grid-cols-[1fr_120px_100px_48px] gap-4 px-4 py-2">
+                                    <div className="hidden sm:grid grid-cols-[1fr_160px_100px_48px] gap-4 px-4 py-2">
                                         <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Usuário</p>
                                         <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Plano</p>
                                         <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Status</p>
@@ -993,7 +993,7 @@ export default function AdminPanel({ onBack }) {
                                                 key={user.uid}
                                                 className="bg-slate-900/50 border border-white/[0.06] rounded-xl px-4 py-3.5 hover:border-white/10 transition-all"
                                             >
-                                                <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_120px_100px_48px] gap-3 items-center">
+                                                <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_160px_100px_48px] gap-3 items-center">
                                                     {/* Identity */}
                                                     <div className="flex items-center gap-3 min-w-0">
                                                         <div className="p-2 rounded-xl bg-white/5 text-slate-400 shrink-0">
@@ -1010,23 +1010,35 @@ export default function AdminPanel({ onBack }) {
                                                                     ? <span className="text-[10px] text-emerald-500">✓ Termos</span>
                                                                     : <span className="text-[10px] text-amber-500">! Termos</span>
                                                                 }
-                                                                {user.daysLeft > 0 && user.daysLeft < 365 && !user.isDeleted && (
-                                                                    <span className="text-[10px] text-slate-500">· {user.daysLeft}d restantes</span>
-                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
 
                                                     {/* Plan Badge */}
-                                                    <div className="hidden sm:block">
+                                                    <div className="hidden sm:flex flex-col gap-1 justify-center">
                                                         {user.isLifetime ? (
-                                                            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20">Vitalício</span>
+                                                            <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 text-[10px] font-bold border border-purple-500/20 w-fit">Vitalício</span>
                                                         ) : user.isPremium ? (
-                                                            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20">Premium</span>
+                                                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20 w-fit">Plano Premium</span>
                                                         ) : user.isStandard ? (
-                                                            <span className="px-2.5 py-1 rounded-lg bg-white/5 text-slate-400 text-[10px] font-bold border border-white/10">Standard</span>
+                                                            <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 text-[10px] font-bold border border-blue-500/20 w-fit">Plano Standard</span>
                                                         ) : (
-                                                            <span className="px-2.5 py-1 rounded-lg bg-white/5 text-slate-500 text-[10px] font-bold border border-white/10">Gratuito</span>
+                                                            <span className="px-2 py-0.5 rounded-md bg-white/5 text-slate-500 text-[10px] font-bold border border-white/10 w-fit">Gratuito</span>
+                                                        )}
+                                                        {!user.isLifetime && !user.isDeleted && (user.isPremium || user.isStandard) && (
+                                                            <div className="flex items-center gap-1">
+                                                                <span className={`text-[9px] font-bold ${user.subType === 'annual' ? 'text-amber-400' : 'text-slate-500'}`}>
+                                                                    {user.subType === 'annual' ? 'Anual' : 'Mensal'}
+                                                                </span>
+                                                                {user.daysLeft > 0 && (
+                                                                    <span className={`text-[9px] font-bold ${
+                                                                        user.daysLeft <= 7  ? 'text-rose-400'  :
+                                                                        user.daysLeft <= 30 ? 'text-amber-400' : 'text-slate-500'
+                                                                    }`}>
+                                                                        · {user.daysLeft}d
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         )}
                                                     </div>
 

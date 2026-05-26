@@ -158,40 +158,44 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
               {currentUser?.displayName?.charAt(0) || currentUser?.email?.charAt(0) || 'U'}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <p className={`text-sm font-black truncate leading-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                  {currentUser?.displayName?.split(' ')[0] || 'Usuário'}
-                </p>
-                {/* Badge de Plano com Cores Diferenciadas */}
-                {(isLifetime || currentUser?.email?.toLowerCase() === 'j.17jvictor@gmail.com' || currentUser?.email?.toLowerCase() === 'financealivia@gmail.com') ? (
-                  <div className="px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter shrink-0 bg-purple-500/20 text-purple-400 border border-purple-500/20">
-                    Vitalício
-                  </div>
-                ) : isTrial ? (
-                  <div className="px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter shrink-0 bg-sky-500/20 text-sky-400 border border-sky-500/20">
-                    Teste
-                  </div>
-                ) : planLevel === 'premium' ? (
-                  <div className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter shrink-0 border ${
-                    subType === 'annual' 
-                      ? 'bg-amber-500/20 text-amber-400 border-amber-500/20' // Dourado para Anual
-                      : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20' // Verde para Mensal
-                  }`}>
-                    Premium {subType === 'annual' ? 'Anual' : ''}
-                  </div>
-                ) : planLevel === 'standard' ? (
-                  <div className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter shrink-0 border ${
-                    subType === 'annual' 
-                      ? 'bg-amber-500/20 text-amber-400 border-amber-500/20' 
-                      : 'bg-slate-500/20 text-slate-400 border-slate-500/20'
-                  }`}>
-                    Standard {subType === 'annual' ? 'Anual' : ''}
-                  </div>
-                ) : null}
-              </div>
-              <p className="text-[10px] text-slate-500 truncate font-mono opacity-70">
+              <p className={`text-sm font-black truncate leading-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                {currentUser?.displayName?.split(' ')[0] || 'Usuário'}
+              </p>
+              <p className="text-[10px] text-slate-500 truncate font-mono opacity-70 mt-0.5">
                 {currentUser?.email}
               </p>
+              {/* Plano — linha dedicada abaixo do e-mail */}
+              <div className="mt-1.5">
+                {(isLifetime || currentUser?.email?.toLowerCase() === 'j.17jvictor@gmail.com' || currentUser?.email?.toLowerCase() === 'financealivia@gmail.com') ? (
+                  <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black tracking-tight bg-purple-500/20 text-purple-400 border border-purple-500/20">
+                    Vitalício
+                  </span>
+                ) : isTrial ? (
+                  <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black tracking-tight bg-sky-500/20 text-sky-400 border border-sky-500/20">
+                    Período de Teste
+                  </span>
+                ) : planLevel === 'premium' ? (
+                  <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black tracking-tight border ${
+                    subType === 'annual'
+                      ? 'bg-amber-500/20 text-amber-400 border-amber-500/20'
+                      : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
+                  }`}>
+                    Plano Premium
+                  </span>
+                ) : planLevel === 'standard' ? (
+                  <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black tracking-tight border ${
+                    subType === 'annual'
+                      ? 'bg-amber-500/20 text-amber-400 border-amber-500/20'
+                      : 'bg-slate-500/20 text-slate-400 border-slate-500/20'
+                  }`}>
+                    Plano Standard
+                  </span>
+                ) : (
+                  <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black tracking-tight bg-slate-500/10 text-slate-500 border border-slate-500/10">
+                    Gratuito
+                  </span>
+                )}
+              </div>
             </div>
             <button
               onClick={logout}
