@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Settings, Shield, Moon, Sun, Key, Check, Loader2, Video,
   HelpCircle, Sparkles, Bookmark, X, CreditCard,
-  Trash2, AlertTriangle, RefreshCw
+  Trash2, AlertTriangle, RefreshCw, Pencil
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -16,7 +16,6 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
   const { theme, toggleTheme } = useTheme();
   const { currentUser, deleteAccount, planLevel, subType, resetGastosData, resetPatrimonioData } = useAuth();
 
-  // Active section state — default: profile
   const [activeSection, setActiveSection] = useState('profile');
 
   const [showUpgrade, setShowUpgrade] = useState(false);
@@ -27,30 +26,48 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
   const [showResetPatrimonioConfirm, setShowResetPatrimonioConfirm] = useState(false);
   const [isResettingPatrimonio, setIsResettingPatrimonio] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+
+  // AI key states
   const [apiKey, setApiKey] = useState(manualConfig.geminiKey || '');
+  const [isEditingKey, setIsEditingKey] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [validationStatus, setValidationStatus] = useState(null);
   const [showVideo, setShowVideo] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
 
   const handleSaveApiKey = async () => {
-    if (!apiKey) return;
+    if (!apiKey.trim()) return;
     setIsValidating(true);
     setValidationStatus(null);
-    const isValid = await validateApiKey(apiKey);
+    const isValid = await validateApiKey(apiKey.trim());
     setIsValidating(false);
     if (isValid) {
-      updateManualConfig({ ...manualConfig, geminiKey: apiKey });
+      updateManualConfig({ ...manualConfig, geminiKey: apiKey.trim() });
       setValidationStatus('success');
+      setIsEditingKey(false);
       setTimeout(() => setValidationStatus(null), 3000);
     } else {
       setValidationStatus('error');
     }
   };
 
+  const handleDeleteApiKey = () => {
+    updateManualConfig({ ...manualConfig, geminiKey: '' });
+    setApiKey('');
+    setIsEditingKey(false);
+    setValidationStatus(null);
+  };
+
+  const handleCancelEdit = () => {
+    setApiKey(manualConfig.geminiKey || '');
+    setIsEditingKey(false);
+    setValidationStatus(null);
+  };
+
   const changelog = [
+    { version: '8.7.x', title: 'Ajustes Reformulados', items: ['Layout duas colunas', 'Navegação lateral', 'Seções separadas por contexto'] },
+    { version: '8.6.x', title: 'Painel Administrativo', items: ['Dashboard de usuários', 'Controle de planos e permissões', 'Correções de bugs no Firestore'] },
     { version: '6.7.0', title: 'Gestão de Cartões', items: ['Aba de cartões dedicada', 'Vínculo de assinaturas a cartões', 'Dashboard enriquecido'] },
-    { version: '6.6.0', title: 'Layout Sidebar', items: ['Nova navegação vertical', 'Melhoria na densidade de informação', 'Modo escuro otimizado'] },
   ];
 
   // ── Shared style helpers ──
@@ -81,11 +98,11 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
 
   // ── Section title helper ──
   const SectionTitle = ({ icon: Icon, label, iconColor, badge }) => (
-    <div className="flex items-center gap-3 mb-6 pb-4 border-b border-opacity-10" style={{borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}}>
+    <div className="flex items-center gap-3 mb-6 pb-4 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
       <span className={`p-2 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
         <Icon className={`w-5 h-5 ${iconColor}`} />
       </span>
-      <div>
+      <div className="flex items-center gap-2 flex-wrap">
         <h3 className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{label}</h3>
         {badge && (
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -110,7 +127,7 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
             {currentUser?.displayName || 'Usuário Alívia'}
           </p>
           <p className="text-xs text-slate-500 truncate mt-0.5">{currentUser?.email}</p>
-          <p className={`text-[10px] mt-1 font-medium capitalize px-2 py-0.5 rounded-full inline-block ${
+          <p className={`text-[10px] mt-1.5 font-bold capitalize px-2 py-0.5 rounded-full inline-block ${
             planLevel === 'lifetime' ? 'bg-purple-500/10 text-purple-400'
             : planLevel === 'premium' ? 'bg-emerald-500/10 text-emerald-400'
             : planLevel === 'standard' ? 'bg-blue-500/10 text-blue-400'
@@ -125,7 +142,10 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
 
   const renderSubscription = () => (
     <div className="animate-in fade-in duration-200">
-      <SectionTitle icon={CreditCard} label="Sua Assinatura" iconColor="text-blue-400"
+      <SectionTitle
+        icon={CreditCard}
+        label="Sua Assinatura"
+        iconColor="text-blue-400"
         badge={planLevel === 'lifetime' ? 'Vitalício' : planLevel === 'premium' ? 'Premium' : planLevel === 'standard' ? 'Standard' : undefined}
       />
       <div className={`p-4 rounded-xl border-2 flex items-center justify-between gap-3 mb-4 ${
@@ -165,67 +185,121 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
         )}
       </div>
       <p className="text-[10px] text-slate-500 leading-relaxed text-center italic">
-        Gerencie seu plano, faturas e cancelamentos pelo e-mail ou fale com o suporte.
+        Gerencie seu plano, faturas e cancelamentos pelo portal do Stripe ou fale com o suporte.
       </p>
     </div>
   );
 
-  const renderAI = () => (
-    <div className="animate-in fade-in duration-200">
-      <SectionTitle icon={Key} label="Inteligência Artificial" iconColor="text-violet-400" />
-      <div className="space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-xs text-slate-500 leading-relaxed">
-            O Alívia utiliza o Google Gemini para análises financeiras.{' '}
-            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-400 underline">
-              Clique aqui para obter sua chave gratuita.
-            </a>
-          </p>
-          <button
-            onClick={() => setShowVideo(!showVideo)}
-            className="shrink-0 text-[10px] font-semibold text-blue-500 flex items-center gap-1 hover:underline"
-          >
-            <Video className="w-3 h-3" /> Tutorial
-          </button>
+  const renderAI = () => {
+    const keyIsConfigured = !!manualConfig.geminiKey && !isEditingKey;
+
+    return (
+      <div className="animate-in fade-in duration-200">
+        <SectionTitle icon={Key} label="Inteligência Artificial" iconColor="text-violet-400" />
+        <div className="space-y-4">
+
+          {keyIsConfigured ? (
+            /* ── Configured state ── */
+            <div>
+              <div className={`flex items-center gap-3 p-4 rounded-xl border ${
+                isDark ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200'
+              }`}>
+                <div className={`p-2 rounded-xl shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-100'}`}>
+                  <Check className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-emerald-500">Chave API configurada</p>
+                  <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">
+                    {manualConfig.geminiKey.slice(0, 8)}{'•'.repeat(16)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => { setApiKey(manualConfig.geminiKey); setIsEditingKey(true); }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                      isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-white'
+                    }`}
+                  >
+                    <Pencil className="w-3 h-3" /> Editar
+                  </button>
+                  <button
+                    onClick={handleDeleteApiKey}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border border-rose-500/30 text-rose-500 hover:bg-rose-500/10"
+                  >
+                    <Trash2 className="w-3 h-3" /> Excluir
+                  </button>
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-3 leading-relaxed text-center italic">
+                Sua Alívia está ativa e pronta para te ajudar com análises financeiras. 🍃
+              </p>
+            </div>
+          ) : (
+            /* ── Input state (new or editing) ── */
+            <div className="space-y-3">
+              {isEditingKey && (
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-bold text-slate-500">Editando chave</p>
+                  <button
+                    onClick={handleCancelEdit}
+                    className="text-[10px] text-slate-400 hover:text-slate-200 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  O Alívia utiliza o Google Gemini.{' '}
+                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-400 underline">
+                    Obtenha sua chave gratuita aqui.
+                  </a>
+                </p>
+                <button
+                  onClick={() => setShowVideo(!showVideo)}
+                  className="shrink-0 text-[10px] font-semibold text-blue-500 flex items-center gap-1 hover:underline"
+                >
+                  <Video className="w-3 h-3" /> Tutorial
+                </button>
+              </div>
+
+              {showVideo && (
+                <div className="rounded-xl overflow-hidden border border-white/5 bg-black animate-in zoom-in duration-300">
+                  <video src={tutorialVideo} controls className="w-full h-auto" />
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  placeholder="Cole sua Gemini API Key (AIza...)"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className={inp}
+                />
+                <button
+                  onClick={handleSaveApiKey}
+                  disabled={isValidating || !apiKey.trim()}
+                  className={`shrink-0 px-4 rounded-xl font-semibold text-xs transition-all flex items-center gap-2 disabled:opacity-50 ${
+                    isDark
+                      ? 'bg-white text-slate-900 hover:bg-slate-100'
+                      : 'bg-slate-800 text-white hover:bg-slate-700'
+                  }`}
+                >
+                  {isValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salvar'}
+                </button>
+              </div>
+
+              {validationStatus === 'error' && (
+                <p className="text-xs text-rose-500 font-medium">Chave inválida. Verifique e tente novamente.</p>
+              )}
+            </div>
+          )}
+
         </div>
-        {showVideo && (
-          <div className="rounded-xl overflow-hidden border border-white/5 bg-black animate-in zoom-in duration-300">
-            <video src={tutorialVideo} controls className="w-full h-auto" />
-          </div>
-        )}
-        <div className="flex gap-2">
-          <input
-            type="password"
-            placeholder="Sua Gemini API Key"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            className={inp}
-          />
-          <button
-            onClick={handleSaveApiKey}
-            disabled={isValidating}
-            className={`shrink-0 px-4 rounded-xl font-semibold text-xs transition-all flex items-center gap-2 ${
-              validationStatus === 'success'
-                ? 'bg-emerald-500 text-white'
-                : isDark
-                  ? 'bg-white text-slate-900 hover:bg-slate-100'
-                  : 'bg-slate-800 text-white hover:bg-slate-700'
-            }`}
-          >
-            {isValidating
-              ? <Loader2 className="w-4 h-4 animate-spin" />
-              : validationStatus === 'success'
-                ? <Check className="w-4 h-4" />
-                : 'Salvar'
-            }
-          </button>
-        </div>
-        {validationStatus === 'error' && (
-          <p className="text-xs text-rose-500 font-medium">Chave inválida. Verifique e tente novamente.</p>
-        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderAppearance = () => (
     <div className="animate-in fade-in duration-200">
@@ -337,7 +411,6 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-        {/* Gastos */}
         <div className={`p-4 rounded-xl border ${isDark ? 'bg-amber-500/5 border-amber-500/30' : 'bg-amber-50/50 border-amber-200'}`}>
           <h4 className={`text-xs font-bold mb-1 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>Controle de Gastos</h4>
           <p className="text-[10px] text-slate-500 mb-3">Zera transações, cartões, despesas fixas e assinaturas.</p>
@@ -377,7 +450,6 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
           )}
         </div>
 
-        {/* Patrimônio */}
         <div className={`p-4 rounded-xl border ${isDark ? 'bg-amber-500/5 border-amber-500/30' : 'bg-amber-50/50 border-amber-200'}`}>
           <h4 className={`text-xs font-bold mb-1 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>Construção de Patrimônio</h4>
           <p className="text-[10px] text-slate-500 mb-3">Zera investimentos, metas e reserva de emergência.</p>
@@ -542,7 +614,6 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
                 const Icon = item.icon;
                 const isActive = activeSection === item.id;
 
-                // Active color per section
                 const activeCls = isActive
                   ? item.activeColor === 'rose'
                     ? isDark ? 'bg-rose-500/10 text-rose-400' : 'bg-rose-50 text-rose-600'
@@ -567,7 +638,6 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
             </nav>
           </div>
 
-          {/* Bottom footer */}
           <div className="mt-auto p-4">
             <p className={`text-[10px] text-center ${isDark ? 'text-slate-700' : 'text-slate-300'}`}>
               Alívia Finance
