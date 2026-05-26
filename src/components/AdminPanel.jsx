@@ -204,12 +204,10 @@ export default function AdminPanel({ onBack }) {
 
     const filteredUsers = useMemo(() => {
         let list = users.filter(u => u.email.toLowerCase().includes(searchTerm.toLowerCase()));
-        if (userSubTab === 'admins') return list.filter(u => u.isAdmin);
-        if (userSubTab === 'premium_monthly') return list.filter(u => u.isPremium && u.subType === 'monthly' && !u.isAdmin && !u.isDeleted);
-        if (userSubTab === 'premium_annual') return list.filter(u => (u.isPremium && u.subType === 'annual' || u.isLifetime) && !u.isAdmin && !u.isDeleted);
-        if (userSubTab === 'standard_monthly') return list.filter(u => u.isStandard && u.subType === 'monthly' && !u.isAdmin && !u.isDeleted);
-        if (userSubTab === 'standard_annual') return list.filter(u => u.isStandard && u.subType === 'annual' && !u.isAdmin && !u.isDeleted);
-        if (userSubTab === 'gratuito') return list.filter(u => u.isFree && !u.isAdmin && !u.isDeleted);
+        if (userSubTab === 'admins')    return list.filter(u => u.isAdmin);
+        if (userSubTab === 'premium')   return list.filter(u => (u.isPremium || u.isLifetime) && !u.isAdmin && !u.isDeleted);
+        if (userSubTab === 'standard')  return list.filter(u => u.isStandard && !u.isAdmin && !u.isDeleted);
+        if (userSubTab === 'sem_plano') return list.filter(u => u.isFree && !u.isAdmin && !u.isDeleted);
         if (userSubTab === 'excluidos') return list.filter(u => u.isDeleted);
         return list;
     }, [users, searchTerm, userSubTab]);
@@ -545,6 +543,58 @@ export default function AdminPanel({ onBack }) {
                                     );
                                 })}
                             </div>
+
+                            {/* ── Ciclo de cobrança: Mensal / Anual ── */}
+                            {(pendingUser.isPremium || pendingUser.isStandard) && !pendingUser.isLifetime && (
+                                <div className="mt-3 space-y-2">
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">
+                                        Ciclo de Cobrança
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {[
+                                            { id: 'monthly', label: 'Mensal',  days: 30  },
+                                            { id: 'annual',  label: 'Anual',   days: 365 },
+                                        ].map(cycle => {
+                                            const isSelected = (pendingUser.subType || 'monthly') === cycle.id;
+                                            return (
+                                                <button
+                                                    key={cycle.id}
+                                                    type="button"
+                                                    disabled={isSaving}
+                                                    onClick={() => setPendingUser(prev => ({ ...prev, subType: cycle.id }))}
+                                                    className={`px-3 py-2.5 rounded-xl border-2 flex items-center justify-between transition-all ${
+                                                        isSelected
+                                                            ? 'border-emerald-500 bg-emerald-500/10'
+                                                            : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                                                    }`}
+                                                >
+                                                    <div className="text-left">
+                                                        <p className={`text-xs font-bold ${isSelected ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                                            {cycle.label}
+                                                        </p>
+                                                        <p className="text-[10px] text-slate-600">{cycle.days} dias</p>
+                                                    </div>
+                                                    <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+                                                        isSelected ? 'bg-emerald-500 border-transparent' : 'border-white/20'
+                                                    }`}>
+                                                        {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                        <p className="text-[10px] text-slate-500">
+                                            Ao salvar, o acesso expirará em{' '}
+                                            <span className="text-emerald-400 font-bold">
+                                                {(pendingUser.subType || 'monthly') === 'annual' ? '365' : '30'} dias
+                                            </span>{' '}
+                                            a partir de hoje.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* PERMISSÕES ESPECIAIS — inclui Vitalício */}
@@ -892,13 +942,11 @@ export default function AdminPanel({ onBack }) {
                                 {/* Sub-tabs */}
                                 <div className="flex gap-1.5 overflow-x-auto pb-1">
                                     {[
-                                        { id: 'admins',          label: 'Admins',      count: stats.admins          },
-                                        { id: 'premium_monthly', label: 'Prem Mensal', count: stats.premiumMonthly  },
-                                        { id: 'premium_annual',  label: 'Prem Anual',  count: stats.premiumAnnual   },
-                                        { id: 'standard_monthly',label: 'Std Mensal',  count: stats.standardMonthly },
-                                        { id: 'standard_annual', label: 'Std Anual',   count: stats.standardAnnual  },
-                                        { id: 'gratuito',        label: 'Gratuito',    count: stats.free            },
-                                        { id: 'excluidos',       label: 'Excluídos',   count: stats.deleted         },
+                                        { id: 'admins',    label: 'Admins',         count: stats.admins          },
+                                        { id: 'premium',   label: 'Plano Premium',  count: stats.premium         },
+                                        { id: 'standard',  label: 'Plano Standard', count: stats.standard        },
+                                        { id: 'sem_plano', label: 'S/ Plano',       count: stats.free            },
+                                        { id: 'excluidos', label: 'Excluídos',      count: stats.deleted         },
                                     ].map(tab => (
                                         <button
                                             key={tab.id}
