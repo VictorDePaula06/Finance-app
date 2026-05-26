@@ -22,7 +22,8 @@ import {
     Flame,
     Wallet,
     Eye,
-    EyeOff
+    EyeOff,
+    Info
 } from 'lucide-react';
 import TrialLimitModal from './TrialLimitModal';
 import { useTheme } from '../contexts/ThemeContext';
@@ -68,6 +69,9 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     
     const [reserveType, setReserveType] = useState('cofrinho');
     const [isInstallmentSuccess, setIsInstallmentSuccess] = useState(false);
+    // 'jar' = caixinha flow, 'patrimonio' = simple debit + guidance
+    const [investMode, setInvestMode] = useState(null);
+    const [savedToPatrimonio, setSavedToPatrimonio] = useState(false);
     const [transactionToDelete, setTransactionToDelete] = useState(null);
     const [investments, setInvestments] = useState([]);
     
@@ -250,6 +254,8 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         setDestinationType('jar');
         setIsNewReserve(false);
         setReserveType('cofrinho');
+        setInvestMode(null);
+        setSavedToPatrimonio(false);
         setIsInstallment(false);
         setInstallments('2');
         setIsRecurring(false);
@@ -418,9 +424,9 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const handleSaveInvestimento = async (e) => {
         e.preventDefault();
         if (!description || !amount || isSaving) return;
-        
-        // Se não for nova reserva, precisa ter selecionado um destino
-        if (!isNewReserve && !selectedDestination) {
+
+        // Patrimônio mode doesn't need a destination picker
+        if (investMode !== 'patrimonio' && !isNewReserve && !selectedDestination) {
             alert("Selecione um destino ou escolha 'Criar Nova'");
             return;
         }
@@ -550,21 +556,18 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 });
                 resetForm();
             } else {
-                // Salvamento duplo
+                // Salvamento
                 const tRef = collection(db, 'transactions');
                 await addDoc(tRef, transactionData);
-                
-                if (destinationType === 'jar') {
+
+                // Patrimônio mode: só salva a transação — usuário registra o ativo manualmente
+                if (investMode === 'patrimonio') {
+                    setSavedToPatrimonio(true);
+                } else if (destinationType === 'jar') {
                     if (existingJarId) {
                         await updateDoc(doc(db, 'savings_jars', existingJarId), jarDataToSave);
                     } else {
                         await addDoc(collection(db, 'savings_jars'), jarDataToSave);
-                    }
-                } else if (destinationType === 'inv') {
-                    if (existingInvId) {
-                        await updateDoc(doc(db, 'investments', existingInvId), invDataToSave);
-                    } else {
-                        await addDoc(collection(db, 'investments'), invDataToSave);
                     }
                 }
 
@@ -1356,161 +1359,246 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
                         {/* STEP 3: INVESTMENT FORM */}
                         {step === 'investment' && (
-                            <form onSubmit={handleSaveInvestimento} className="space-y-6">
+                            <div className="space-y-6">
+                                {/* Header */}
                                 <div className="flex items-center gap-3 mb-2">
-                                    <button type="button" onClick={() => setStep('choice')} className="p-2 -ml-2 text-slate-400 hover:text-slate-600 transition-colors">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (investMode) {
+                                                setInvestMode(null);
+                                                setDescription('');
+                                                setAmount('');
+                                                setSelectedDestination('');
+                                                setIsNewReserve(false);
+                                            } else {
+                                                setStep('choice');
+                                            }
+                                        }}
+                                        className="p-2 -ml-2 text-slate-400 hover:text-slate-600 transition-colors"
+                                    >
                                         <ArrowRight className="w-4 h-4 rotate-180" />
                                     </button>
-                                    <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Guardar em Investimento</h3>
+                                    <h3 className={`text-xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                        {investMode === 'jar' ? 'Guardar em Caixinha' : investMode === 'patrimonio' ? 'Aporte no Patrimônio' : 'Guardar / Investir'}
+                                    </h3>
                                 </div>
 
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Onde guardar?</label>
-                                        <select 
-                                            required
-                                            value={selectedDestination}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setSelectedDestination(val);
-                                                
-                                                if (val === 'new_jar') {
-                                                    setIsNewReserve(true);
-                                                    setDestinationType('jar');
-                                                    setDescription('');
-                                                    setCdiPercent('100');
-                                                } else if (val.startsWith('jar_')) {
-                                                    const jarId = val.replace('jar_', '');
-                                                    const jar = savingsJars.find(j => j.id === jarId);
-                                                    setIsNewReserve(false);
-                                                    setDestinationType('jar');
-                                                    if (jar) {
-                                                        setDescription(jar.name);
-                                                        setCdiPercent(jar.cdiPercent?.toString() || '100');
-                                                    }
-                                                } else if (val.startsWith('inv_')) {
-                                                    const invId = val.replace('inv_', '');
-                                                    const inv = investments.find(i => i.id === invId);
-                                                    setIsNewReserve(false);
-                                                    setDestinationType('inv');
-                                                    if (inv) {
-                                                        setDescription(inv.name || inv.symbol);
-                                                        setCdiPercent(inv.cdiPercent?.toString() || '100');
-                                                    }
-                                                } else {
-                                                    setIsNewReserve(false);
-                                                    setDescription('');
-                                                }
-                                            }}
-                                            className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all appearance-none ${
-                                                theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
+                                {/* Sub-choice */}
+                                {!investMode && (
+                                    <div className="grid grid-cols-1 gap-3 animate-in fade-in duration-300">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setInvestMode('jar'); setDestinationType('jar'); }}
+                                            className={`p-4 rounded-2xl border-2 text-left transition-all active:scale-[0.98] hover:scale-[1.01] ${
+                                                theme === 'light'
+                                                    ? 'border-emerald-200 bg-emerald-50 hover:border-emerald-400'
+                                                    : 'border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/40'
                                             }`}
                                         >
-                                            <option value="">Selecione o destino...</option>
-                                            <optgroup label="Minhas Caixinhas (Reservas)">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`p-2.5 rounded-xl shrink-0 ${theme === 'light' ? 'bg-emerald-100' : 'bg-emerald-500/20'}`}>
+                                                    <PiggyBank className="w-5 h-5 text-emerald-500" />
+                                                </div>
+                                                <div>
+                                                    <p className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Caixinha / Reserva</p>
+                                                    <p className="text-xs text-slate-500 mt-0.5">Guardar em cofrinho com rendimento automático por CDI</p>
+                                                </div>
+                                            </div>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setInvestMode('patrimonio')}
+                                            className={`p-4 rounded-2xl border-2 text-left transition-all active:scale-[0.98] hover:scale-[1.01] ${
+                                                theme === 'light'
+                                                    ? 'border-blue-200 bg-blue-50 hover:border-blue-400'
+                                                    : 'border-blue-500/20 bg-blue-500/5 hover:border-blue-500/40'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`p-2.5 rounded-xl shrink-0 ${theme === 'light' ? 'bg-blue-100' : 'bg-blue-500/20'}`}>
+                                                    <TrendingUp className="w-5 h-5 text-blue-500" />
+                                                </div>
+                                                <div>
+                                                    <p className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Enviar ao Patrimônio</p>
+                                                    <p className="text-xs text-slate-500 mt-0.5">Registrar aporte em ação, fundo, CDB, cripto...</p>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Mode: Caixinha */}
+                                {investMode === 'jar' && (
+                                    <form onSubmit={handleSaveInvestimento} className="space-y-4 animate-in fade-in duration-300">
+                                        <div>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Onde guardar?</label>
+                                            <select
+                                                required
+                                                value={selectedDestination}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setSelectedDestination(val);
+                                                    if (val === 'new_jar') {
+                                                        setIsNewReserve(true);
+                                                        setDestinationType('jar');
+                                                        setDescription('');
+                                                        setCdiPercent('100');
+                                                    } else if (val.startsWith('jar_')) {
+                                                        const jarId = val.replace('jar_', '');
+                                                        const jar = savingsJars.find(j => j.id === jarId);
+                                                        setIsNewReserve(false);
+                                                        setDestinationType('jar');
+                                                        if (jar) {
+                                                            setDescription(jar.name);
+                                                            setCdiPercent(jar.cdiPercent?.toString() || '100');
+                                                        }
+                                                    } else {
+                                                        setIsNewReserve(false);
+                                                        setDescription('');
+                                                    }
+                                                }}
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all appearance-none ${
+                                                    theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
+                                                }`}
+                                            >
+                                                <option value="">Selecione a caixinha...</option>
                                                 {savingsJars?.map(jar => (
                                                     <option key={`jar_${jar.id}`} value={`jar_${jar.id}`}>
                                                         {jar.name} (R$ {parseFloat(jar.dynamicBalance || jar.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                                                     </option>
                                                 ))}
-                                                <option value="new_jar" className="text-emerald-500 font-bold">+ Criar Nova Caixinha...</option>
-                                            </optgroup>
-                                            
-                                            <optgroup label="Meus Investimentos (Premium)">
-                                                {isPremiumUser ? (
-                                                    <>
-                                                        {investments?.map(inv => (
-                                                            <option key={`inv_${inv.id}`} value={`inv_${inv.id}`}>
-                                                                {inv.name || inv.symbol} (R$ {parseFloat(inv.manualCurrentPrice || inv.totalApplied || (inv.quantity * inv.purchasePrice) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-                                                            </option>
-                                                        ))}
-                                                    </>
-                                                ) : (
-                                                    <option disabled value="">Assine o Premium para investir</option>
-                                                )}
-                                            </optgroup>
-                                        </select>
-                                    </div>
+                                                <option value="new_jar">+ Criar Nova Caixinha...</option>
+                                            </select>
+                                        </div>
 
-                                    {isNewReserve && destinationType === 'jar' && (
-                                        <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                                        {isNewReserve && (
+                                            <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                                                <div>
+                                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Nome da Reserva</label>
+                                                    <input
+                                                        type="text" required value={description} onChange={e => setDescription(e.target.value)}
+                                                        placeholder="Ex: Reserva Emergência, Viagem..."
+                                                        className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                                                            theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500'
+                                                        }`}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Tipo</label>
+                                                    <select
+                                                        value={reserveType} onChange={e => setReserveType(e.target.value)}
+                                                        className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all appearance-none ${
+                                                            theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
+                                                        }`}
+                                                    >
+                                                        <option value="cofrinho">Cofrinho / Poupança</option>
+                                                        <option value="tesouro">Tesouro Selic</option>
+                                                        <option value="cdb">CDB Liquidez Diária</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Nome da Reserva</label>
-                                                <input 
-                                                    type="text" required value={description} onChange={e => setDescription(e.target.value)}
-                                                    placeholder="Ex: Reserva Emergência, Viagem..."
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Valor (R$)</label>
+                                                <input
+                                                    type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)}
+                                                    placeholder="0.00"
                                                     className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
                                                         theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500'
                                                     }`}
                                                 />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Tipo de Investimento</label>
-                                                <select 
-                                                    value={reserveType} onChange={e => setReserveType(e.target.value)}
-                                                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all appearance-none ${
-                                                        theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">% do CDI</label>
+                                                <input
+                                                    type="number" required value={cdiPercent} onChange={e => setCdiPercent(e.target.value)}
+                                                    placeholder="100"
+                                                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                                                        theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500'
                                                     }`}
-                                                >
-                                                    <option value="cofrinho">Cofrinho / Poupança</option>
-                                                    <option value="tesouro">Tesouro Selic</option>
-                                                    <option value="cdb">CDB Liquidez Diária</option>
-                                                </select>
+                                                />
                                             </div>
                                         </div>
-                                    )}
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className={`p-4 rounded-2xl border ${theme === 'light' ? 'bg-emerald-50 border-emerald-100' : 'bg-emerald-500/5 border-emerald-500/10'}`}>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <TrendingUp className="w-4 h-4 text-emerald-500" />
+                                                    <span className="text-[10px] font-black uppercase text-emerald-600">Rendimento Previsto</span>
+                                                </div>
+                                                <p className="text-sm font-black text-emerald-500">
+                                                    {(() => {
+                                                        const val = parseFloat(amount) || 0;
+                                                        const perc = parseFloat(cdiPercent) || 100;
+                                                        const cdiAnual = 0.1065;
+                                                        const dailyRate = Math.pow(1 + (cdiAnual * (perc / 100)), 1 / 365) - 1;
+                                                        return `+ R$ ${(val * dailyRate).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} /dia`;
+                                                    })()}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="submit" disabled={isSaving}
+                                            className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-black text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
+                                        >
+                                            {isSaving ? 'Salvando...' : editingId ? 'Salvar Alterações' : 'Confirmar e Guardar'}
+                                        </button>
+                                    </form>
+                                )}
+
+                                {/* Mode: Patrimônio */}
+                                {investMode === 'patrimonio' && (
+                                    <form onSubmit={handleSaveInvestimento} className="space-y-5 animate-in fade-in duration-300">
+                                        {/* Guidance card */}
+                                        <div className={`p-4 rounded-2xl border ${theme === 'light' ? 'bg-blue-50 border-blue-100' : 'bg-blue-500/5 border-blue-500/20'}`}>
+                                            <div className="flex items-start gap-3">
+                                                <Info className={`w-4 h-4 shrink-0 mt-0.5 ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`} />
+                                                <div>
+                                                    <p className={`text-xs font-black mb-1.5 ${theme === 'light' ? 'text-blue-900' : 'text-white'}`}>Como funciona</p>
+                                                    <p className={`text-[11px] leading-relaxed ${theme === 'light' ? 'text-blue-700' : 'text-blue-300'}`}>
+                                                        O valor será descontado do seu saldo aqui. Para registrar o ativo no seu portfólio, acesse o{' '}
+                                                        <span className="font-black">Módulo Patrimônio → Investimentos</span>{' '}
+                                                        e adicione o investimento manualmente.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div>
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Valor (R$)</label>
-                                            <input 
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Descrição do Aporte</label>
+                                            <input
+                                                type="text" required value={description} onChange={e => setDescription(e.target.value)}
+                                                placeholder="Ex: Aporte PETR4, Tesouro IPCA+, CDB Nubank..."
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                                                    theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/5 text-white focus:border-blue-500'
+                                                }`}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Valor do Aporte (R$)</label>
+                                            <input
                                                 type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)}
                                                 placeholder="0.00"
                                                 className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
-                                                    theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500'
+                                                    theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/5 text-white focus:border-blue-500'
                                                 }`}
                                             />
                                         </div>
-                                        <div>
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">% do CDI</label>
-                                            <input 
-                                                type="number" required value={cdiPercent} onChange={e => setCdiPercent(e.target.value)}
-                                                placeholder="100"
-                                                className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
-                                                    theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/5 text-white focus:border-emerald-500'
-                                                }`}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <div className={`p-4 rounded-2xl border ${
-                                    theme === 'light' ? 'bg-emerald-50 border-emerald-100' : 'bg-emerald-500/5 border-emerald-500/10'
-                                }`}>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <TrendingUp className="w-4 h-4 text-emerald-500" />
-                                            <span className="text-[10px] font-black uppercase text-emerald-600">Rendimento Previsto</span>
-                                        </div>
-                                        <p className="text-sm font-black text-emerald-500">
-                                            {(() => {
-                                                const val = parseFloat(amount) || 0;
-                                                const perc = parseFloat(cdiPercent) || 100;
-                                                const cdiAnual = 0.1065;
-                                                const dailyRate = Math.pow(1 + (cdiAnual * (perc/100)), 1 / 365) - 1;
-                                                return `+ R$ ${(val * dailyRate).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} /dia`;
-                                            })()}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <button 
-                                    type="submit" disabled={isSaving}
-                                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-black text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
-                                >
-                                    {isSaving ? 'Salvando...' : editingId ? 'Salvar Alterações' : 'Confirmar e Guardar'}
-                                </button>
-                            </form>
+                                        <button
+                                            type="submit" disabled={isSaving}
+                                            className="w-full py-3 bg-blue-500 hover:bg-blue-400 text-white rounded-xl font-black text-sm shadow-lg shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
+                                        >
+                                            {isSaving ? 'Registrando...' : 'Confirmar Aporte'}
+                                        </button>
+                                    </form>
+                                )}
+                            </div>
                         )}
 
                         {/* STEP: SUCCESS */}
@@ -1528,13 +1616,24 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                         {isInstallmentSuccess ? 'Parcelamento Agendado!' : (paymentMethod === 'credito' ? 'Lançado no Cartão!' : 'Lançamento efetuado!')}
                                     </h3>
                                     <p className={`text-sm font-bold ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                                        {isInstallmentSuccess 
-                                            ? 'Seu parcelamento foi criado. Agora, vá até a aba Cartões para dar baixa na primeira parcela e debitar do seu saldo.' 
+                                        {isInstallmentSuccess
+                                            ? 'Seu parcelamento foi criado. Agora, vá até a aba Cartões para dar baixa na primeira parcela e debitar do seu saldo.'
                                             : paymentMethod === 'credito'
                                             ? 'Sua despesa foi registrada no cartão de crédito. Ela aparecerá na aba Cartões e não será descontada do saldo principal agora.'
                                             : 'Sua saída foi registrada com sucesso no sistema.'}
                                     </p>
                                 </div>
+
+                                {savedToPatrimonio && (
+                                    <div className={`p-4 rounded-xl border text-left ${theme === 'light' ? 'bg-blue-50 border-blue-100' : 'bg-blue-500/10 border-blue-500/20'}`}>
+                                        <div className="flex items-start gap-2">
+                                            <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                                            <p className={`text-xs leading-relaxed ${theme === 'light' ? 'text-blue-700' : 'text-blue-300'}`}>
+                                                Lembre-se: acesse o <span className="font-black">Módulo Patrimônio → Investimentos</span> para registrar o ativo correspondente a este aporte.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="flex flex-col gap-3">
                                     <button 
