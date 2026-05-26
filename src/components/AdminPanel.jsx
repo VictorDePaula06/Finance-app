@@ -1016,6 +1016,7 @@ export default function AdminPanel({ onBack }) {
 
                                                     {/* Plan Badge */}
                                                     <div className="hidden sm:flex flex-col gap-1 justify-center">
+                                                        {/* Nome do plano */}
                                                         {user.isLifetime ? (
                                                             <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 text-[10px] font-bold border border-purple-500/20 w-fit">Vitalício</span>
                                                         ) : user.isPremium ? (
@@ -1025,21 +1026,31 @@ export default function AdminPanel({ onBack }) {
                                                         ) : (
                                                             <span className="px-2 py-0.5 rounded-md bg-white/5 text-slate-500 text-[10px] font-bold border border-white/10 w-fit">Gratuito</span>
                                                         )}
-                                                        {!user.isLifetime && !user.isDeleted && (user.isPremium || user.isStandard) && (
-                                                            <div className="flex items-center gap-1">
-                                                                <span className={`text-[9px] font-bold ${user.subType === 'annual' ? 'text-amber-400' : 'text-slate-500'}`}>
-                                                                    {user.subType === 'annual' ? 'Anual' : 'Mensal'}
-                                                                </span>
-                                                                {user.daysLeft > 0 && (
-                                                                    <span className={`text-[9px] font-bold ${
-                                                                        user.daysLeft <= 7  ? 'text-rose-400'  :
-                                                                        user.daysLeft <= 30 ? 'text-amber-400' : 'text-slate-500'
-                                                                    }`}>
-                                                                        · {user.daysLeft}d
+
+                                                        {/* Ciclo + dias restantes */}
+                                                        {!user.isLifetime && !user.isDeleted && (user.isPremium || user.isStandard) && (() => {
+                                                            const cycle = user.subType === 'annual' ? 365 : 30;
+                                                            const pct   = user.daysLeft / cycle;
+                                                            const daysCls = pct < 0.17
+                                                                ? 'text-rose-400 bg-rose-500/10 border-rose-500/20'
+                                                                : pct < 0.40
+                                                                    ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                                                                    : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+                                                            return (
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="text-[9px] text-slate-500 font-medium">
+                                                                        {user.subType === 'annual' ? 'Anual' : 'Mensal'}
                                                                     </span>
-                                                                )}
-                                                            </div>
-                                                        )}
+                                                                    {user.daysLeft > 0 ? (
+                                                                        <span className={`text-[9px] font-black px-1.5 py-px rounded-md border ${daysCls}`}>
+                                                                            {user.daysLeft}d restantes
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-[9px] font-bold text-rose-400">Expirado</span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
 
                                                     {/* Status */}
