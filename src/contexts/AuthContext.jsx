@@ -168,7 +168,7 @@ export function AuthProvider({ children }) {
                 ? 'active'
                 : (manualSub?.status || stripeSub?.status || 'free');
 
-            const isManualActive = ['active', 'monthly', 'annual', 'pro', 'premium'].includes(subStatus?.toLowerCase());
+            const isManualActive = ['active', 'monthly', 'annual', 'pro', 'premium', 'standard'].includes(subStatus?.toLowerCase());
             const userEmail = currentUser.email?.toLowerCase();
             const isManualLifetime = dataRef.current.prefs.subscription?.status === 'lifetime' || 
                                      dataRef.current.user.subscription?.status === 'lifetime' || 
@@ -208,7 +208,11 @@ export function AuthProvider({ children }) {
                     currentPlanLevel = 'premium'; // Default to premium for existing subs if unknown
                 }
             } else if (isManualActive) {
-                currentPlanLevel = manualSub?.level || 'premium';
+                if (subStatus === 'standard') {
+                    currentPlanLevel = 'standard';
+                } else {
+                    currentPlanLevel = manualSub?.level || 'premium';
+                }
             }
 
             const subType = (stripeSub?.items?.[0]?.plan?.interval === 'year' || manualSub?.type === 'annual') ? 'annual' : (manualSub?.type || 'monthly');
@@ -275,8 +279,8 @@ export function AuthProvider({ children }) {
                 setIsPremium(globalMaxAccess);
                 setDaysRemaining(Math.max(0, remaining));
                 setIsTrial(newSubInfo.isTrial);
-                setIsLifetime(newSubInfo.isManualLifetime);
-                setSubType(newSubInfo.subType);
+                setIsLifetime(isManualLifetime);
+                setSubType(subType);
                 setPlanLevel(currentPlanLevel);
 
                 setCurrentUser(prev => prev ? ({
