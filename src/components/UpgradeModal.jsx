@@ -76,7 +76,7 @@ export default function UpgradeModal({ isOpen, onClose }) {
                                 className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all relative ${billing === 'annual' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}
                             >
                                 Anual
-                                <span className="absolute -top-2 -right-2 bg-emerald-500 text-[8px] text-white px-2 py-0.5 rounded-full font-black">-16%</span>
+                                <span className="absolute -top-2 -right-2 bg-emerald-500 text-[8px] text-white px-2 py-0.5 rounded-full font-black">-20%</span>
                             </button>
                         </div>
 
@@ -99,7 +99,7 @@ export default function UpgradeModal({ isOpen, onClose }) {
 
                         <div className="mt-auto">
                             <div className="flex items-baseline gap-2 mb-6 justify-center">
-                                <span className="text-4xl font-black text-slate-900">R$ {billing === 'monthly' ? '29,90' : '24,91'}</span>
+                                <span className="text-4xl font-black text-slate-900">R$ {billing === 'monthly' ? '19,90' : '15,90'}</span>
                                 <span className="text-xs text-slate-400 font-bold uppercase tracking-widest">/mês</span>
                             </div>
 

@@ -48,6 +48,7 @@ export default function InvestmentsTab() {
     const [isLoadingPrices, setIsLoadingPrices] = useState(false);
     const [prices, setPrices] = useState({ USD: 5.0, CDI: 0.10 });
     const [tesouroData, setTesouroData] = useState([]);
+    const [tesouroMeta, setTesouroMeta] = useState({ source: null, refDate: null });
     const [filter, setFilter] = useState('renda_fixa');
     const [viewInUSD, setViewInUSD] = useState(false);
     const [chartViewMode, setChartViewMode] = useState('category');
@@ -214,12 +215,14 @@ export default function InvestmentsTab() {
         // Strategy 1: Use our Vercel serverless function (production)
         {
             try {
-                const res = await fetch('/api/tesouro', { signal: AbortSignal.timeout(10000) });
+                // cache-bust so the browser never serves a stale response
+                const res = await fetch(`/api/tesouro?t=${Date.now()}`, { signal: AbortSignal.timeout(10000) });
                 if (res.ok) {
                     const data = await res.json();
                     if (data.bonds && data.bonds.length > 0) {
-                        console.log(`[Tesouro] Loaded ${data.bonds.length} bonds via /api/tesouro (${data.source})`);
+                        console.log(`[Tesouro] Loaded ${data.bonds.length} bonds via /api/tesouro (${data.source}, ref ${data.refDate})`);
                         setTesouroData(data.bonds);
+                        setTesouroMeta({ source: data.source, refDate: data.refDate });
                         return;
                     }
                 }
@@ -247,6 +250,7 @@ export default function InvestmentsTab() {
                     if (list.length > 0) {
                         console.log(`[Tesouro] Loaded ${list.length} bonds via proxy`);
                         setTesouroData(list);
+                        setTesouroMeta({ source: 'proxy', refDate: new Date().toLocaleDateString('pt-BR') });
                         return;
                     }
                 }
@@ -258,6 +262,7 @@ export default function InvestmentsTab() {
         // Strategy 3: Fallback with official names
         console.warn('[Tesouro] All sources failed — using fallback data');
         setTesouroData(FALLBACK_TESOURO_BONDS);
+        setTesouroMeta({ source: 'fallback', refDate: 'aproximado' });
     };
 
     // Fallback bonds with official names from tesourodireto.com.br
@@ -1318,11 +1323,22 @@ export default function InvestmentsTab() {
                                             <div className="col-span-2">
                                                 {/* Current rate info badge */}
                                                 {newAsset.fixedRate && (
-                                                    <div className="mb-4 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-between">
-                                                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Taxa atual de mercado</span>
-                                                        <span className="text-sm font-black text-emerald-500">
-                                                            {newAsset.yieldType === 'ipca' ? `IPCA+ ${newAsset.fixedRate}%` : newAsset.yieldType === 'pre' ? `${newAsset.fixedRate}% a.a.` : `${newAsset.fixedRate}% CDI`}
-                                                        </span>
+                                                    <div className={`mb-4 p-4 rounded-2xl border ${tesouroMeta.source === 'fallback' ? 'bg-amber-500/5 border-amber-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
+                                                        <div className="flex items-center justify-between">
+                                                            <span className={`text-[10px] font-black uppercase tracking-widest ${tesouroMeta.source === 'fallback' ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                                                Taxa atual de mercado
+                                                            </span>
+                                                            <span className={`text-sm font-black ${tesouroMeta.source === 'fallback' ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                                                {newAsset.yieldType === 'ipca' ? `IPCA+ ${newAsset.fixedRate}%` : newAsset.yieldType === 'pre' ? `${newAsset.fixedRate}% a.a.` : `${newAsset.fixedRate}% CDI`}
+                                                            </span>
+                                                        </div>
+                                                        {tesouroMeta.refDate && (
+                                                            <p className={`mt-1.5 text-[9px] font-bold ${tesouroMeta.source === 'fallback' ? 'text-amber-500/80' : 'text-slate-400'}`}>
+                                                                {tesouroMeta.source === 'fallback'
+                                                                    ? 'Valor aproximado — fonte oficial indisponível no momento'
+                                                                    : `Atualizado em ${tesouroMeta.refDate} • fonte: Tesouro Direto`}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 )}
                                                 {/* Purchase rate input */}

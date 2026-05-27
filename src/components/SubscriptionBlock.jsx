@@ -100,7 +100,7 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                     >
                         Anual
                         <span className="absolute -top-3 -right-3 bg-emerald-500 text-[9px] text-white px-2.5 py-1 rounded-full ring-4 ring-white shadow-lg font-black tracking-widest">
-                            -16%
+                            -20%
                         </span>
                     </button>
                 </div>
@@ -125,7 +125,7 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                         </div>
                         <h3 className={`text-xl font-black mb-1 ${plan === 'standard' ? 'text-slate-900' : 'text-slate-500'}`}>Standard</h3>
                         <div className="flex items-baseline gap-1 mb-6">
-                            <span className="text-3xl font-black">R$ {billing === 'monthly' ? '9,99' : '7,83'}</span>
+                            <span className="text-3xl font-black">R$ {billing === 'monthly' ? '9,90' : '7,90'}</span>
                             <span className="text-xs text-slate-400 font-bold uppercase tracking-widest">/mês</span>
                         </div>
                         <ul className="space-y-3">
@@ -162,7 +162,7 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                         </div>
                         <h3 className={`text-xl font-black mb-1 ${plan === 'premium' ? 'text-slate-900' : 'text-slate-500'}`}>Premium</h3>
                         <div className="flex items-baseline gap-1 mb-6">
-                            <span className="text-3xl font-black">R$ {billing === 'monthly' ? '29,90' : '24,91'}</span>
+                            <span className="text-3xl font-black">R$ {billing === 'monthly' ? '19,90' : '15,90'}</span>
                             <span className="text-xs text-slate-400 font-bold uppercase tracking-widest">/mês</span>
                         </div>
                         <ul className="space-y-3">
