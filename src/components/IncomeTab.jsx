@@ -10,9 +10,10 @@ import { useCdiRate, useUsdRate } from '../utils/marketRates';
 
 export default function IncomeTab({ transactions, savingsJars, walletStats, hideBalance, toggleHideBalance }) {
     const { theme } = useTheme();
-    const { currentUser, isTrial } = useAuth();
+    const { currentUser, isTrial, planLevel } = useAuth();
 
-    // Trial limits
+    // Limites aplicados ao trial e ao Plano Gratuito permanente
+    const isLimited = isTrial || planLevel === 'free';
     const TRIAL_INCOME_LIMIT = 2;
     const [showTrialModal, setShowTrialModal] = useState(false);
 
@@ -428,7 +429,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                         t.type === 'income' &&
                                         !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category)
                                     ).length;
-                                    if (isTrial && incomeCount >= TRIAL_INCOME_LIMIT) {
+                                    if (isLimited && incomeCount >= TRIAL_INCOME_LIMIT) {
                                         setShowTrialModal(true);
                                         return;
                                     }
@@ -860,7 +861,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
             <TrialLimitModal
                 isOpen={showTrialModal}
                 onClose={() => setShowTrialModal(false)}
-                limitMessage={`Você atingiu o limite de ${TRIAL_INCOME_LIMIT} recebimentos no período de teste.`}
+                limitMessage={`Você atingiu o limite de ${TRIAL_INCOME_LIMIT} recebimentos do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`}
             />
 
             {/* Delete Confirmation Modal */}

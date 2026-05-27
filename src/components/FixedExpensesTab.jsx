@@ -33,9 +33,10 @@ import { CATEGORIES } from '../constants/categories';
 
 export default function FixedExpensesTab({ transactions = [], setActiveTab, walletStats, hideBalance, toggleHideBalance }) {
   const { theme } = useTheme();
-  const { currentUser, isTrial } = useAuth();
+  const { currentUser, isTrial, planLevel } = useAuth();
 
-  // Trial limits
+  // Limites aplicados ao trial e ao Plano Gratuito permanente
+  const isLimited = isTrial || planLevel === 'free';
   const TRIAL_FIXED_LIMIT = 2;
   const [showTrialModal, setShowTrialModal] = useState(false);
 
@@ -248,7 +249,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
         </div>
         <button
           onClick={() => {
-            if (isTrial && fixedExpenses.length >= TRIAL_FIXED_LIMIT) {
+            if (isLimited && fixedExpenses.length >= TRIAL_FIXED_LIMIT) {
               setShowTrialModal(true);
               return;
             }
@@ -656,7 +657,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
       <TrialLimitModal
         isOpen={showTrialModal}
         onClose={() => setShowTrialModal(false)}
-        limitMessage={`Você atingiu o limite de ${TRIAL_FIXED_LIMIT} contas fixas no período de teste.`}
+        limitMessage={`Você atingiu o limite de ${TRIAL_FIXED_LIMIT} contas fixas do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`}
       />
 
       {/* Aviso de endividamento — pagamento supera o saldo em carteira */}

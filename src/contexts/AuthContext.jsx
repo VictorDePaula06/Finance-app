@@ -170,11 +170,14 @@ export function AuthProvider({ children }) {
 
             const isManualActive = ['active', 'monthly', 'annual', 'pro', 'premium', 'standard'].includes(subStatus?.toLowerCase());
             const userEmail = currentUser.email?.toLowerCase();
-            const isManualLifetime = dataRef.current.prefs.subscription?.status === 'lifetime' || 
-                                     dataRef.current.user.subscription?.status === 'lifetime' || 
-                                     userEmail === 'financealivia@gmail.com' || 
+            const isManualLifetime = dataRef.current.prefs.subscription?.status === 'lifetime' ||
+                                     dataRef.current.user.subscription?.status === 'lifetime' ||
+                                     userEmail === 'financealivia@gmail.com' ||
                                      userEmail === 'j17victor@gmail.com' ||
                                      userEmail === 'j.17jvictor@gmail.com';
+            // Plano Gratuito permanente — escolha explícita do usuário (sem expiração).
+            const isManualFree = dataRef.current.prefs.subscription?.status === 'free' ||
+                                 dataRef.current.user.subscription?.status === 'free';
             const hasActiveStripe = stripeSub?.status === 'active' || stripeSub?.status === 'trialing';
             const isBlocked = (dataRef.current.prefs.isBlocked === true || dataRef.current.user.isBlocked === true || manualSub?.status === 'blocked') && !hasActiveStripe;
 
@@ -235,6 +238,11 @@ export function AuthProvider({ children }) {
             if (isManualLifetime && !isBlocked) {
                 hasValidAccess = true;
                 remaining = 9999;
+            } else if (isManualFree && !isBlocked) {
+                // Plano Gratuito permanente — sem expiração, com limites de lançamento.
+                hasValidAccess = true;
+                remaining = 9999;
+                currentPlanLevel = 'free';
             } else if ((subStatus === 'active' || isManualActive) && !isBlocked) {
                 const cycleDays = resolvedSubType === 'annual' ? 365 : 30;
                 const diffDaysSub = subDate ? Math.floor((now - subDate) / msInDay) : 0;

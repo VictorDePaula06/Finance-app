@@ -37,7 +37,8 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const { theme } = useTheme();
     const { currentUser, planLevel, isAdmin, isTrial } = useAuth();
 
-    // Trial limits
+    // Limites aplicados ao trial e ao Plano Gratuito permanente
+    const isLimited = isTrial || planLevel === 'free';
     const TRIAL_EXPENSE_LIMIT = 10;
     const [showTrialModal, setShowTrialModal] = useState(false);
 
@@ -861,7 +862,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                 <button
                                     onClick={() => {
                                         const expenseCount = transactions.filter(t => t.type === 'expense').length;
-                                        if (isTrial && expenseCount >= TRIAL_EXPENSE_LIMIT) {
+                                        if (isLimited && expenseCount >= TRIAL_EXPENSE_LIMIT) {
                                             setShowTrialModal(true);
                                             return;
                                         }
@@ -1730,7 +1731,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             <TrialLimitModal
                 isOpen={showTrialModal}
                 onClose={() => setShowTrialModal(false)}
-                limitMessage={`Você atingiu o limite de ${TRIAL_EXPENSE_LIMIT} lançamentos de despesa no período de teste.`}
+                limitMessage={`Você atingiu o limite de ${TRIAL_EXPENSE_LIMIT} lançamentos de despesa do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`}
             />
 
             {/* Delete Confirmation Modal */}

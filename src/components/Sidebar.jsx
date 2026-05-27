@@ -192,7 +192,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
                   </span>
                 ) : (
                   <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black tracking-tight bg-slate-500/10 text-slate-500 border border-slate-500/10">
-                    Gratuito
+                    Plano Gratuito
                   </span>
                 )}
               </div>

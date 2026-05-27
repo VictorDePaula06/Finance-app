@@ -27,9 +27,10 @@ import OverdraftWarningModal from './OverdraftWarningModal';
 
 const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
   const { theme } = useTheme();
-  const { currentUser, isTrial } = useAuth();
+  const { currentUser, isTrial, planLevel } = useAuth();
 
-  // Trial limits
+  // Limites aplicados ao trial e ao Plano Gratuito permanente
+  const isLimited = isTrial || planLevel === 'free';
   const TRIAL_CARDS_LIMIT = 1;
   const TRIAL_SUBS_LIMIT  = 3;
   const [showTrialModal, setShowTrialModal]     = useState(false);
@@ -418,8 +419,8 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
           </div>
           <button
             onClick={() => {
-              if (isTrial && cards.length >= TRIAL_CARDS_LIMIT) {
-                openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão no período de teste.`);
+              if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) {
+                openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`);
                 return;
               }
               setIsAddingCard(true);
@@ -616,7 +617,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             <div className={`aspect-[1.6/1] md:aspect-auto rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-8 opacity-40 hover:opacity-100 transition-all cursor-pointer ${
               theme === 'light' ? 'border-slate-200 text-slate-400' : 'border-slate-700 text-slate-500'
             }`} onClick={() => {
-              if (isTrial && cards.length >= TRIAL_CARDS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão no período de teste.`); return; }
+              if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; }
               setIsAddingCard(true);
             }}>
               <CreditCard className="w-10 h-10 mb-3" />
@@ -644,8 +645,8 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
           </div>
           <button
             onClick={() => {
-              if (isTrial && subscriptions.length >= TRIAL_SUBS_LIMIT) {
-                openTrialModal(`Você atingiu o limite de ${TRIAL_SUBS_LIMIT} assinaturas no período de teste.`);
+              if (isLimited && subscriptions.length >= TRIAL_SUBS_LIMIT) {
+                openTrialModal(`Você atingiu o limite de ${TRIAL_SUBS_LIMIT} assinaturas do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`);
                 return;
               }
               setIsAddingSub(true);

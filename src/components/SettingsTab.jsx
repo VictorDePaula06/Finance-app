@@ -166,12 +166,12 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
             </span>
           </h4>
         </div>
-        {planLevel === 'standard' ? (
+        {planLevel === 'standard' || planLevel === 'free' ? (
           <button
             onClick={() => setShowUpgrade(true)}
             className="shrink-0 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-all shadow-lg shadow-emerald-600/20 active:scale-95 flex items-center gap-1.5"
           >
-            <SparklesIcon className="w-3.5 h-3.5" /> Upgrade
+            <SparklesIcon className="w-3.5 h-3.5" /> {planLevel === 'free' ? 'Assinar' : 'Upgrade'}
           </button>
         ) : (
           <button
