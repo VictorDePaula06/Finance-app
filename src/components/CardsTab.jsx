@@ -44,7 +44,7 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
   // Form States
   const [newCard, setNewCard] = useState({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '' });
   const [editingCardId, setEditingCardId] = useState(null);
-  const [newSub, setNewSub] = useState({ name: '', value: '', day: 1, cardId: '' });
+  const [newSub, setNewSub] = useState({ name: '', value: '', day: 1, cardId: '', category: 'subscriptions', priority: 'comfort' });
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, type, title }
   const [payingInstallment, setPayingInstallment] = useState(null); // { sub object }
   const [payingInvoice, setPayingInvoice] = useState(null); // { cardId, total, expenses, invoiceMonth }
@@ -160,14 +160,17 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
         if (linkedCard) finalDay = linkedCard.dueDay;
     }
     
-    await addDoc(collection(db, 'subscriptions'), { 
-      ...newSub, 
+    await addDoc(collection(db, 'subscriptions'), {
+      ...newSub,
       day: parseInt(finalDay) || 1,
-      value: parseFloat(newSub.value), 
+      value: parseFloat(newSub.value),
+      category: newSub.category || 'subscriptions',
+      priority: newSub.priority || 'comfort',
       type: 'recurring',
-      userId: currentUser.uid 
+      userId: currentUser.uid,
+      createdAt: Date.now()
     });
-    setNewSub({ name: '', value: '', day: 1, cardId: '' });
+    setNewSub({ name: '', value: '', day: 1, cardId: '', category: 'subscriptions', priority: 'comfort' });
     setIsAddingSub(false);
   };
 
@@ -635,18 +638,33 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
 
       {/* SECTION: PARCELAMENTOS */}
       <section className="space-y-6">
-        <div className="flex items-center gap-3 px-2">
-          <div className="p-2 bg-rose-500/10 rounded-xl">
-            <Hash className="w-6 h-6 text-rose-500" />
+        <div className="flex items-center justify-between px-2">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-rose-500/10 rounded-xl">
+              <Hash className="w-6 h-6 text-rose-500" />
+            </div>
+            <div>
+              <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Parcelamentos Ativos</h2>
+              {subscriptions.filter(s => s.type === 'installment').length > 0 && (
+                <p className="text-[10px] font-bold text-rose-500 mt-0.5">
+                  Total mensal: R$ {subscriptions.filter(s => s.type === 'installment').reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} • {subscriptions.filter(s => s.type === 'installment').length} {subscriptions.filter(s => s.type === 'installment').length === 1 ? 'parcelamento' : 'parcelamentos'}
+                </p>
+              )}
+            </div>
           </div>
-          <div>
-            <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Parcelamentos Ativos</h2>
-            {subscriptions.filter(s => s.type === 'installment').length > 0 && (
-              <p className="text-[10px] font-bold text-rose-500 mt-0.5">
-                Total mensal: R$ {subscriptions.filter(s => s.type === 'installment').reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} • {subscriptions.filter(s => s.type === 'installment').length} {subscriptions.filter(s => s.type === 'installment').length === 1 ? 'parcelamento' : 'parcelamentos'}
-              </p>
-            )}
-          </div>
+          <button
+            onClick={() => {
+              // Navega para a aba de Lançamentos e abre o modal já em modo parcelamento.
+              // Usa o hash que ExitsTab.jsx já escuta (#novo-parcelamento → modal aberto com isInstallment=true).
+              if (typeof setActiveTab === 'function') {
+                window.location.hash = '#novo-parcelamento';
+                setActiveTab('gastos');
+              }
+            }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-rose-500/20"
+          >
+            <Plus className="w-4 h-4" /> Novo Parcelamento
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1005,6 +1023,65 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
                     <option key={c.id} value={c.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{c.name} (•• {c.last4})</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Categoria + Prioridade — necessário para classificar no Health Score */}
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Categoria</label>
+                <select
+                  value={newSub.category}
+                  onChange={(e) => {
+                    const newCat = e.target.value;
+                    const catDef = CATEGORIES.expense.find(c => c.id === newCat);
+                    setNewSub({
+                      ...newSub,
+                      category: newCat,
+                      priority: catDef?.defaultPriority || newSub.priority
+                    });
+                  }}
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none appearance-none transition-all ${
+                    theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-purple-500 text-slate-800' : 'bg-slate-800 border-white/5 focus:border-purple-500 text-white'
+                  }`}
+                >
+                  {CATEGORIES.expense.map(cat => (
+                    <option key={cat.id} value={cat.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Prioridade</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'essential', label: 'Essencial', color: 'emerald' },
+                    { id: 'comfort', label: 'Conforto', color: 'amber' },
+                    { id: 'superfluous', label: 'Supérfluo', color: 'rose' }
+                  ].map(opt => {
+                    const isSelected = newSub.priority === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setNewSub({...newSub, priority: opt.id})}
+                        className={`p-2 rounded-xl border text-center transition-all ${
+                          isSelected
+                            ? (opt.color === 'emerald'
+                                ? (theme === 'light' ? 'bg-emerald-50 border-emerald-400' : 'bg-emerald-500/10 border-emerald-500/40')
+                                : opt.color === 'rose'
+                                ? (theme === 'light' ? 'bg-rose-50 border-rose-400' : 'bg-rose-500/10 border-rose-500/40')
+                                : (theme === 'light' ? 'bg-amber-50 border-amber-400' : 'bg-amber-500/10 border-amber-500/40'))
+                            : (theme === 'light' ? 'bg-slate-50 border-slate-100 hover:border-slate-200' : 'bg-white/5 border-white/5 hover:border-white/10')
+                        }`}
+                      >
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${
+                          isSelected
+                            ? (opt.color === 'emerald' ? 'text-emerald-600' : opt.color === 'rose' ? 'text-rose-600' : 'text-amber-600')
+                            : (theme === 'light' ? 'text-slate-500' : 'text-slate-400')
+                        }`}>{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
             <div className="flex gap-3 pt-2">

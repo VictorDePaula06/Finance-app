@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import ExpensesChart from './ExpensesChart';
-import { TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Sparkles, Target, AlertTriangle, ArrowUpRight, ArrowDownRight, PieChart, CreditCard, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Sparkles, Target, AlertTriangle, ArrowUpRight, ArrowDownRight, PieChart, CreditCard, RefreshCw, FileDown } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { CATEGORIES } from '../constants/categories';
 import MonthlyReviewModal from './MonthlyReviewModal';
 import { generateMonthlyReview } from '../services/gemini';
 import { Loader2 } from 'lucide-react';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
+import { generatePDF } from '../utils/generatePDF';
+import logo from '../assets/logo.png';
 
 const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
   const { theme } = useTheme();
@@ -169,6 +171,20 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [aiReviewText, setAiReviewText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+
+  const handleExportPDF = async () => {
+    setIsExportingPDF(true);
+    try {
+      // includeCredit controla se "Fluxo Real" (sem crédito) ou "Fluxo Total"
+      await generatePDF(transactions, selectedMonth, logo, !includeCredit);
+    } catch (e) {
+      console.error('Erro ao gerar PDF:', e);
+      alert('Erro ao gerar PDF. Tente novamente.');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
 
   const handleAIAnalysis = async () => {
     setIsAnalyzing(true);
@@ -186,9 +202,18 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
   return (
     <div className="max-w-full overflow-x-hidden px-5 md:px-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       
-      {/* Header */}
-      <div className="flex items-center justify-center pt-8 pb-4">
+      {/* Header — padronizado com as outras abas (título à esquerda, ação à direita) */}
+      <div className="flex items-center justify-between pt-8 pb-4 flex-wrap gap-4">
           <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Análise de Gastos</h2>
+          <button
+              onClick={handleExportPDF}
+              disabled={isExportingPDF}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(59,130,246,0.15)] active:scale-95 disabled:opacity-50"
+              title="Exportar relatório do mês selecionado em PDF"
+          >
+              {isExportingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+              {isExportingPDF ? 'Gerando...' : 'Exportar PDF'}
+          </button>
       </div>
 
       {/* Navigation Row */}

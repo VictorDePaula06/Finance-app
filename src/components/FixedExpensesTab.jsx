@@ -10,13 +10,17 @@ import {
   FileText,
   Wallet,
   CircleDollarSign,
-  X
+  X,
+  Shield,
+  Sparkles,
+  Flame
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs } from 'firebase/firestore';
 import TrialLimitModal from './TrialLimitModal';
+import { CATEGORIES } from '../constants/categories';
 
 export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
   const { theme } = useTheme();
@@ -30,7 +34,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   
-  const [newExpense, setNewExpense] = useState({ name: '', value: '', day: 1 });
+  const [newExpense, setNewExpense] = useState({ name: '', value: '', day: 1, category: 'housing', priority: 'essential' });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [undoConfirm, setUndoConfirm] = useState(null);
   const [payingExpense, setPayingExpense] = useState(null);
@@ -49,29 +53,33 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
   const handleAddExpense = async (e) => {
     e.preventDefault();
     if (!newExpense.name || !newExpense.value) return;
-    
-    await addDoc(collection(db, 'fixed_expenses'), { 
-      ...newExpense, 
+
+    await addDoc(collection(db, 'fixed_expenses'), {
+      ...newExpense,
       value: parseFloat(newExpense.value),
+      category: newExpense.category || 'housing',
+      priority: newExpense.priority || 'essential',
       userId: currentUser.uid,
       createdAt: Date.now()
     });
-    
-    setNewExpense({ name: '', value: '', day: 1 });
+
+    setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential' });
     setIsAddingExpense(false);
   };
 
   const handleUpdateExpense = async (e) => {
     e.preventDefault();
     if (!newExpense.name || !editingExpenseId) return;
-    
-    await updateDoc(doc(db, 'fixed_expenses', editingExpenseId), { 
+
+    await updateDoc(doc(db, 'fixed_expenses', editingExpenseId), {
       name: newExpense.name,
       value: parseFloat(newExpense.value),
-      day: parseInt(newExpense.day)
+      day: parseInt(newExpense.day),
+      category: newExpense.category || 'housing',
+      priority: newExpense.priority || 'essential'
     });
-    
-    setNewExpense({ name: '', value: '', day: 1 });
+
+    setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential' });
     setEditingExpenseId(null);
     setIsAddingExpense(false);
   };
@@ -88,14 +96,17 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
         description: expense.name,
         amount: parseFloat(expense.value),
         type: 'expense',
-        category: 'conta_fixa',
+        // Usa a categoria definida no cadastro (antes era hardcoded 'conta_fixa', o que jogava
+        // tudo no fallback de classificação do Health Score).
+        category: expense.category || 'housing',
         date: today.toISOString(),
         userId: currentUser.uid,
         month: today.toISOString().slice(0, 7),
         createdAt: Date.now(),
         isFixed: true,
         paymentMethod: 'pix',
-        priority: 'essential'
+        // Prioridade definida no cadastro (antes era sempre 'essential', mesmo para Netflix).
+        priority: expense.priority || 'essential'
       };
 
       await addDoc(collection(db, 'transactions'), transactionData);
@@ -158,12 +169,9 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-20 px-2 sm:px-4 md:px-0 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Header */}
-      <div className="flex items-center justify-center pt-8 pb-4">
+      {/* Header — padronizado com as outras abas (título + botão no canto direito) */}
+      <div className="flex items-center justify-between pt-8 pb-4 flex-wrap gap-4">
         <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Contas Fixas</h2>
-      </div>
-
-      <div className="flex justify-center mb-8">
         <button
           onClick={() => {
             if (isTrial && fixedExpenses.length >= TRIAL_FIXED_LIMIT) {
@@ -251,7 +259,13 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
                 <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
                   <button onClick={() => {
                       setEditingExpenseId(expense.id);
-                      setNewExpense({ name: expense.name, value: expense.value, day: expense.day || 1 });
+                      setNewExpense({
+                        name: expense.name,
+                        value: expense.value,
+                        day: expense.day || 1,
+                        category: expense.category || 'housing',
+                        priority: expense.priority || 'essential'
+                      });
                       setIsAddingExpense(true);
                   }} className={`p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Pencil className="w-4 h-4" /></button>
                   <button onClick={() => setDeleteConfirm(expense)} className={`p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Trash2 className="w-4 h-4" /></button>
@@ -382,7 +396,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
               onClick={() => {
                 setIsAddingExpense(false);
                 setEditingExpenseId(null);
-                setNewExpense({ name: '', value: '', day: 1 });
+                setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential' });
               }}
               className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors z-[10] ${
                 theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'
@@ -450,6 +464,72 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
                   />
                 </div>
               </div>
+
+              {/* Categoria — alinha com ExitsTab para o Health Score classificar corretamente */}
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Categoria</label>
+                <select
+                  value={newExpense.category}
+                  onChange={(e) => {
+                    const newCat = e.target.value;
+                    const catDef = CATEGORIES.expense.find(c => c.id === newCat);
+                    setNewExpense({
+                      ...newExpense,
+                      category: newCat,
+                      priority: catDef?.defaultPriority || newExpense.priority
+                    });
+                  }}
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all appearance-none ${
+                    theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
+                  }`}
+                >
+                  {CATEGORIES.expense.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Prioridade — necessária pro Health Score (50/30/20) */}
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Prioridade do Gasto</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'essential', label: 'Essencial', icon: Shield, color: 'emerald' },
+                    { id: 'comfort', label: 'Conforto', icon: Sparkles, color: 'amber' },
+                    { id: 'superfluous', label: 'Supérfluo', icon: Flame, color: 'rose' }
+                  ].map(opt => {
+                    const PIcon = opt.icon;
+                    const isSelected = newExpense.priority === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setNewExpense({...newExpense, priority: opt.id})}
+                        className={`p-2.5 rounded-xl border text-center transition-all ${
+                          isSelected
+                            ? (opt.color === 'emerald'
+                                ? (theme === 'light' ? 'bg-emerald-50 border-emerald-400' : 'bg-emerald-500/10 border-emerald-500/40')
+                                : opt.color === 'rose'
+                                ? (theme === 'light' ? 'bg-rose-50 border-rose-400' : 'bg-rose-500/10 border-rose-500/40')
+                                : (theme === 'light' ? 'bg-amber-50 border-amber-400' : 'bg-amber-500/10 border-amber-500/40'))
+                            : (theme === 'light' ? 'bg-slate-50 border-slate-100 hover:border-slate-200' : 'bg-white/5 border-white/5 hover:border-white/10')
+                        }`}
+                      >
+                        <PIcon className={`w-4 h-4 mx-auto mb-1 ${
+                          isSelected
+                            ? (opt.color === 'emerald' ? 'text-emerald-500' : opt.color === 'rose' ? 'text-rose-500' : 'text-amber-500')
+                            : 'text-slate-400'
+                        }`} />
+                        <span className={`text-[9px] font-black uppercase tracking-widest block ${
+                          isSelected
+                            ? (opt.color === 'emerald' ? 'text-emerald-600' : opt.color === 'rose' ? 'text-rose-600' : 'text-amber-600')
+                            : (theme === 'light' ? 'text-slate-500' : 'text-slate-400')
+                        }`}>{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
             <div className="flex gap-3 pt-2">
               <button
@@ -457,7 +537,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
                 onClick={() => {
                   setIsAddingExpense(false);
                   setEditingExpenseId(null);
-                  setNewExpense({ name: '', value: '', day: 1 });
+                  setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential' });
                 }}
                 className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all ${
                   theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
