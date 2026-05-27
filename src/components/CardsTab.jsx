@@ -45,6 +45,18 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
   const [newCard, setNewCard] = useState({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '' });
   const [editingCardId, setEditingCardId] = useState(null);
   const [newSub, setNewSub] = useState({ name: '', value: '', day: 1, cardId: '', category: 'subscriptions', priority: 'comfort' });
+  // Novo: estado dedicado para o modal de parcelamento (separado das assinaturas)
+  const [isAddingInstallment, setIsAddingInstallment] = useState(false);
+  const [newInstallment, setNewInstallment] = useState({
+    name: '',
+    value: '',
+    valueMode: 'total', // 'total' (valor total dividido) | 'per' (valor de cada parcela)
+    installments: '2',
+    day: 1,
+    cardId: '',
+    category: 'shopping',
+    priority: 'comfort'
+  });
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, type, title }
   const [payingInstallment, setPayingInstallment] = useState(null); // { sub object }
   const [payingInvoice, setPayingInvoice] = useState(null); // { cardId, total, expenses, invoiceMonth }
@@ -153,13 +165,13 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
   const handleAddSub = async (e) => {
     e.preventDefault();
     if (!newSub.name || !newSub.value) return;
-    
+
     let finalDay = newSub.day;
     if (newSub.cardId) {
         const linkedCard = cards.find(c => c.id === newSub.cardId);
         if (linkedCard) finalDay = linkedCard.dueDay;
     }
-    
+
     await addDoc(collection(db, 'subscriptions'), {
       ...newSub,
       day: parseInt(finalDay) || 1,
@@ -172,6 +184,46 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
     });
     setNewSub({ name: '', value: '', day: 1, cardId: '', category: 'subscriptions', priority: 'comfort' });
     setIsAddingSub(false);
+  };
+
+  const handleAddInstallment = async (e) => {
+    e.preventDefault();
+    if (!newInstallment.name || !newInstallment.value || !newInstallment.installments) return;
+
+    const rawValue = parseFloat(newInstallment.value);
+    const totalInstallments = parseInt(newInstallment.installments) || 1;
+    // Se o usuário digitou o total: divide pelas parcelas. Se digitou o valor de cada parcela: usa direto.
+    const valuePerInstallment = newInstallment.valueMode === 'total'
+        ? rawValue / totalInstallments
+        : rawValue;
+
+    let finalDay = newInstallment.day;
+    if (newInstallment.cardId) {
+        const linkedCard = cards.find(c => c.id === newInstallment.cardId);
+        if (linkedCard) finalDay = linkedCard.dueDay;
+    }
+
+    await addDoc(collection(db, 'subscriptions'), {
+      name: newInstallment.name,
+      value: valuePerInstallment,
+      day: parseInt(finalDay) || 1,
+      cardId: newInstallment.cardId || '',
+      category: newInstallment.category || 'shopping',
+      priority: newInstallment.priority || 'comfort',
+      isInstallment: true,
+      totalInstallments,
+      currentInstallment: 1,
+      installmentMode: newInstallment.valueMode,
+      type: 'installment',
+      userId: currentUser.uid,
+      createdAt: Date.now()
+    });
+
+    setNewInstallment({
+      name: '', value: '', valueMode: 'total', installments: '2',
+      day: 1, cardId: '', category: 'shopping', priority: 'comfort'
+    });
+    setIsAddingInstallment(false);
   };
 
   const handleDeleteSub = async (id) => {
@@ -653,14 +705,7 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
             </div>
           </div>
           <button
-            onClick={() => {
-              // Navega para a aba de Lançamentos e abre o modal já em modo parcelamento.
-              // Usa o hash que ExitsTab.jsx já escuta (#novo-parcelamento → modal aberto com isInstallment=true).
-              if (typeof setActiveTab === 'function') {
-                window.location.hash = '#novo-parcelamento';
-                setActiveTab('gastos');
-              }
-            }}
+            onClick={() => setIsAddingInstallment(true)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-rose-500/20"
           >
             <Plus className="w-4 h-4" /> Novo Parcelamento
@@ -1087,6 +1132,235 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setIsAddingSub(false)} className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
               <button type="submit" className="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] bg-purple-500 hover:bg-purple-600 transition-all text-white shadow-lg shadow-purple-500/20 active:scale-95">Salvar Assinatura</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* MODAL: ADD INSTALLMENT (dedicado, separado de Assinatura/Despesa) */}
+      {isAddingInstallment && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+          <form onSubmit={handleAddInstallment} className={`border rounded-2xl w-full max-w-sm p-6 space-y-4 relative animate-in zoom-in-95 duration-300 shadow-2xl max-h-[92vh] overflow-y-auto custom-scrollbar ${
+            theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+          }`}>
+            <button
+              type="button"
+              onClick={() => setIsAddingInstallment(false)}
+              className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors z-10 ${
+                theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'
+              }`}
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-1">
+              <div className={`p-2 rounded-xl shrink-0 ${theme === 'light' ? 'bg-rose-50' : 'bg-rose-500/10'}`}>
+                <Hash className={`w-5 h-5 ${theme === 'light' ? 'text-rose-500' : 'text-rose-400'}`} />
+              </div>
+              <div>
+                <h3 className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                  Novo Parcelamento
+                </h3>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                  Cadastre uma compra em parcelas
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Descrição</label>
+                <input
+                  type="text"
+                  placeholder="ex: Notebook, Geladeira"
+                  required
+                  value={newInstallment.name}
+                  onChange={(e) => setNewInstallment({...newInstallment, name: e.target.value})}
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                    theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-rose-500 text-slate-800' : 'bg-white/5 border-white/5 focus:border-rose-500 text-white placeholder-slate-500'
+                  }`}
+                />
+              </div>
+
+              {/* Toggle: Valor total vs valor por parcela */}
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">O valor que vou digitar é:</label>
+                <div className={`p-1 rounded-xl flex gap-1 ${theme === 'light' ? 'bg-slate-100' : 'bg-white/5'}`}>
+                  <button
+                    type="button"
+                    onClick={() => setNewInstallment({...newInstallment, valueMode: 'total'})}
+                    className={`flex-1 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all ${
+                      newInstallment.valueMode === 'total'
+                        ? (theme === 'light' ? 'bg-white text-rose-500 shadow-sm' : 'bg-white/10 text-rose-400')
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    Valor Total
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewInstallment({...newInstallment, valueMode: 'per'})}
+                    className={`flex-1 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all ${
+                      newInstallment.valueMode === 'per'
+                        ? (theme === 'light' ? 'bg-white text-rose-500 shadow-sm' : 'bg-white/10 text-rose-400')
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    Por Parcela
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">
+                    {newInstallment.valueMode === 'total' ? 'Valor Total (R$)' : 'Valor por Parcela (R$)'}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0,00"
+                    required
+                    value={newInstallment.value}
+                    onChange={(e) => setNewInstallment({...newInstallment, value: e.target.value})}
+                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                      theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-rose-500 text-slate-800' : 'bg-white/5 border-white/5 focus:border-rose-500 text-white placeholder-slate-500'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Nº de Parcelas</label>
+                  <input
+                    type="number"
+                    min={2}
+                    max={120}
+                    placeholder="ex: 12"
+                    required
+                    value={newInstallment.installments}
+                    onChange={(e) => setNewInstallment({...newInstallment, installments: e.target.value})}
+                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                      theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-rose-500 text-slate-800' : 'bg-white/5 border-white/5 focus:border-rose-500 text-white placeholder-slate-500'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {/* Preview do cálculo */}
+              {newInstallment.value && newInstallment.installments && parseFloat(newInstallment.value) > 0 && parseInt(newInstallment.installments) > 0 && (
+                <div className={`p-3 rounded-xl border text-center ${theme === 'light' ? 'bg-rose-50 border-rose-100' : 'bg-rose-500/5 border-rose-500/20'}`}>
+                  <p className="text-[9px] font-black text-rose-600 uppercase tracking-widest mb-1">
+                    {newInstallment.valueMode === 'total' ? 'Cada parcela ficará em:' : 'Valor total da compra:'}
+                  </p>
+                  <p className="text-lg font-black text-rose-500">
+                    R$ {(newInstallment.valueMode === 'total'
+                      ? parseFloat(newInstallment.value) / parseInt(newInstallment.installments)
+                      : parseFloat(newInstallment.value) * parseInt(newInstallment.installments)
+                    ).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <span className="text-xs font-bold text-rose-500/70 ml-1">
+                      {newInstallment.valueMode === 'total' ? `× ${newInstallment.installments}x` : `(${newInstallment.installments}x)`}
+                    </span>
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Vincular Cartão</label>
+                <select
+                  value={newInstallment.cardId}
+                  onChange={(e) => setNewInstallment({...newInstallment, cardId: e.target.value})}
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none appearance-none transition-all ${
+                    theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-rose-500 text-slate-800' : 'bg-white/5 border-white/5 focus:border-rose-500 text-white'
+                  }`}
+                >
+                  <option value="" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Sem cartão (Avulso)</option>
+                  {cards.map(c => (
+                    <option key={c.id} value={c.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{c.name} (•• {c.last4})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Dia da cobrança — só se não tiver cartão vinculado (cartão usa dueDay automaticamente) */}
+              {!newInstallment.cardId && (
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Dia da Cobrança</label>
+                  <input
+                    type="number"
+                    min={1} max={31}
+                    placeholder="1-31"
+                    required
+                    value={newInstallment.day}
+                    onChange={(e) => setNewInstallment({...newInstallment, day: e.target.value})}
+                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                      theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-rose-500 text-slate-800' : 'bg-white/5 border-white/5 focus:border-rose-500 text-white placeholder-slate-500'
+                    }`}
+                  />
+                </div>
+              )}
+
+              {/* Categoria */}
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Categoria</label>
+                <select
+                  value={newInstallment.category}
+                  onChange={(e) => {
+                    const newCat = e.target.value;
+                    const catDef = CATEGORIES.expense.find(c => c.id === newCat);
+                    setNewInstallment({
+                      ...newInstallment,
+                      category: newCat,
+                      priority: catDef?.defaultPriority || newInstallment.priority
+                    });
+                  }}
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none appearance-none transition-all ${
+                    theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-rose-500 text-slate-800' : 'bg-slate-800 border-white/5 focus:border-rose-500 text-white'
+                  }`}
+                >
+                  {CATEGORIES.expense.map(cat => (
+                    <option key={cat.id} value={cat.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Prioridade */}
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Prioridade</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'essential', label: 'Essencial', color: 'emerald' },
+                    { id: 'comfort', label: 'Conforto', color: 'amber' },
+                    { id: 'superfluous', label: 'Supérfluo', color: 'rose' }
+                  ].map(opt => {
+                    const isSelected = newInstallment.priority === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setNewInstallment({...newInstallment, priority: opt.id})}
+                        className={`p-2 rounded-xl border text-center transition-all ${
+                          isSelected
+                            ? (opt.color === 'emerald'
+                                ? (theme === 'light' ? 'bg-emerald-50 border-emerald-400' : 'bg-emerald-500/10 border-emerald-500/40')
+                                : opt.color === 'rose'
+                                ? (theme === 'light' ? 'bg-rose-50 border-rose-400' : 'bg-rose-500/10 border-rose-500/40')
+                                : (theme === 'light' ? 'bg-amber-50 border-amber-400' : 'bg-amber-500/10 border-amber-500/40'))
+                            : (theme === 'light' ? 'bg-slate-50 border-slate-100 hover:border-slate-200' : 'bg-white/5 border-white/5 hover:border-white/10')
+                        }`}
+                      >
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${
+                          isSelected
+                            ? (opt.color === 'emerald' ? 'text-emerald-600' : opt.color === 'rose' ? 'text-rose-600' : 'text-amber-600')
+                            : (theme === 'light' ? 'text-slate-500' : 'text-slate-400')
+                        }`}>{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setIsAddingInstallment(false)} className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
+              <button type="submit" className="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] bg-rose-500 hover:bg-rose-600 transition-all text-white shadow-lg shadow-rose-500/20 active:scale-95">Salvar Parcelamento</button>
             </div>
           </form>
         </div>
