@@ -13,7 +13,15 @@ import {
   X,
   Shield,
   Sparkles,
-  Flame
+  Flame,
+  TrendingUp,
+  TrendingDown,
+  Eye,
+  EyeOff,
+  Repeat,
+  HelpCircle,
+  Zap,
+  Info
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,7 +30,7 @@ import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc
 import TrialLimitModal from './TrialLimitModal';
 import { CATEGORIES } from '../constants/categories';
 
-export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
+export default function FixedExpensesTab({ transactions = [], setActiveTab, walletStats, hideBalance, toggleHideBalance }) {
   const { theme } = useTheme();
   const { currentUser, isTrial } = useAuth();
 
@@ -33,11 +41,19 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
   const [fixedExpenses, setFixedExpenses] = useState([]);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
-  
-  const [newExpense, setNewExpense] = useState({ name: '', value: '', day: 1, category: 'housing', priority: 'essential' });
+
+  // 'isVariable': contas tipo luz/gás/água que mudam de valor todo mês.
+  // O 'value' nesse caso é apenas referência (estimativa/média) — o valor real é
+  // perguntado no momento do pagamento.
+  const [newExpense, setNewExpense] = useState({
+    name: '', value: '', day: 1, category: 'housing', priority: 'essential', isVariable: false
+  });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [undoConfirm, setUndoConfirm] = useState(null);
   const [payingExpense, setPayingExpense] = useState(null);
+  // Valor real do mês (usado quando paying uma conta variável)
+  const [actualValue, setActualValue] = useState('');
+  const [showHelp, setShowHelp] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
 
   useEffect(() => {
@@ -59,11 +75,12 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
       value: parseFloat(newExpense.value),
       category: newExpense.category || 'housing',
       priority: newExpense.priority || 'essential',
+      isVariable: !!newExpense.isVariable,
       userId: currentUser.uid,
       createdAt: Date.now()
     });
 
-    setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential' });
+    setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential', isVariable: false });
     setIsAddingExpense(false);
   };
 
@@ -76,10 +93,11 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
       value: parseFloat(newExpense.value),
       day: parseInt(newExpense.day),
       category: newExpense.category || 'housing',
-      priority: newExpense.priority || 'essential'
+      priority: newExpense.priority || 'essential',
+      isVariable: !!newExpense.isVariable
     });
 
-    setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential' });
+    setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential', isVariable: false });
     setEditingExpenseId(null);
     setIsAddingExpense(false);
   };
@@ -92,12 +110,20 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
   const handlePayExpense = async (expense) => {
     try {
       const today = new Date();
+      // Para contas variáveis: usa o valor digitado no input. Para contas fixas: usa o valor cadastrado.
+      const paidAmount = expense.isVariable
+        ? parseFloat(actualValue)
+        : parseFloat(expense.value);
+
+      if (!isFinite(paidAmount) || paidAmount <= 0) {
+        alert('Informe um valor válido para o pagamento.');
+        return;
+      }
+
       const transactionData = {
         description: expense.name,
-        amount: parseFloat(expense.value),
+        amount: paidAmount,
         type: 'expense',
-        // Usa a categoria definida no cadastro (antes era hardcoded 'conta_fixa', o que jogava
-        // tudo no fallback de classificação do Health Score).
         category: expense.category || 'housing',
         date: today.toISOString(),
         userId: currentUser.uid,
@@ -105,19 +131,22 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
         createdAt: Date.now(),
         isFixed: true,
         paymentMethod: 'pix',
-        // Prioridade definida no cadastro (antes era sempre 'essential', mesmo para Netflix).
         priority: expense.priority || 'essential'
       };
 
       await addDoc(collection(db, 'transactions'), transactionData);
-      
-      // Mark as paid for this month
+
+      // Marca como paga e, se for variável, registra o último valor pago como referência futura.
       const lastPaidMonth = today.toISOString().slice(0, 7);
-      await updateDoc(doc(db, 'fixed_expenses', expense.id), {
-        lastPaidMonth
-      });
+      const updateData = { lastPaidMonth };
+      if (expense.isVariable) {
+        updateData.lastPaidValue = paidAmount;
+        updateData.lastPaidValueMonth = lastPaidMonth;
+      }
+      await updateDoc(doc(db, 'fixed_expenses', expense.id), updateData);
 
       setPayingExpense(null);
+      setActualValue('');
       if (typeof setActiveTab === 'function') {
         setActiveTab('gastos');
       }
@@ -149,6 +178,24 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
 
   const currentMonthStr = new Date().toISOString().slice(0, 7);
 
+  // Cards padronizados com IncomeTab/ExitsTab — totais do mês corrente.
+  const totalIncomeMonth = useMemo(() => {
+    return transactions.filter(t => {
+      const isIncome = t.type === 'income';
+      const isNotSpecial = !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category);
+      const matchesMonth = t.month === currentMonthStr || (t.date && t.date.startsWith(currentMonthStr));
+      return isIncome && isNotSpecial && matchesMonth;
+    }).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+  }, [transactions, currentMonthStr]);
+
+  const totalExpensesMonth = useMemo(() => {
+    return transactions.filter(t => {
+      const isExpense = t.type === 'expense';
+      const matchesMonth = t.month === currentMonthStr || (t.date && t.date.startsWith(currentMonthStr));
+      return isExpense && matchesMonth && t.paymentMethod !== 'credito' && t.category !== 'investment';
+    }).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+  }, [transactions, currentMonthStr]);
+
   const { totalToPay, totalPaid, paidCount, totalCount } = useMemo(() => {
     let toPay = 0;
     let paid = 0;
@@ -171,7 +218,17 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
     <div className="max-w-5xl mx-auto space-y-6 pb-20 px-2 sm:px-4 md:px-0 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Header — padronizado com as outras abas (título + botão no canto direito) */}
       <div className="flex items-center justify-between pt-8 pb-4 flex-wrap gap-4">
-        <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Contas Fixas</h2>
+        <div className="flex items-center gap-2">
+          <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Contas Fixas</h2>
+          <button
+            type="button"
+            onClick={() => setShowHelp(true)}
+            className={`p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-blue-500 hover:bg-blue-50' : 'text-slate-500 hover:text-blue-400 hover:bg-white/5'}`}
+            title="Como funcionam as contas fixas"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
+        </div>
         <button
           onClick={() => {
             if (isTrial && fixedExpenses.length >= TRIAL_FIXED_LIMIT) {
@@ -186,7 +243,63 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
         </button>
       </div>
 
-      {/* Summary Cards */}
+      {/* Cards padrão (Saldo / Recebimentos / Despesas no Mês) — alinhado com IncomeTab/ExitsTab */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {/* Saldo em Carteira */}
+        <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="text-blue-400">
+                <Wallet className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Saldo em Carteira</span>
+            </div>
+            {typeof toggleHideBalance === 'function' && (
+              <button onClick={toggleHideBalance} className={`text-slate-500 hover:text-white transition-colors ${theme === 'light' ? 'hover:text-slate-800' : ''}`}>
+                {hideBalance ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            )}
+          </div>
+          <div className={`text-2xl font-bold ${hideBalance ? 'blur-md' : ''} ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+            {hideBalance ? 'R$ 0,00' : formatCurrency(walletStats?.balance)}
+          </div>
+        </div>
+
+        {/* Recebimentos no Mês */}
+        <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+          <div className="flex items-center gap-2">
+            <div className="text-emerald-400">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Recebimentos no Mês</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-0.5 items-end text-emerald-500 pb-1">
+              <div className="w-1 h-2 bg-emerald-500 rounded-sm"></div>
+              <div className="w-1 h-3 bg-emerald-500 rounded-sm"></div>
+              <div className="w-1 h-4 bg-emerald-500 rounded-sm"></div>
+            </div>
+            <div className="text-2xl font-bold text-emerald-400">
+              {formatCurrency(totalIncomeMonth)}
+            </div>
+          </div>
+        </div>
+
+        {/* Despesas no Mês */}
+        <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+          <div className="flex items-center gap-2">
+            <div className="text-rose-400">
+              <TrendingDown className="w-4 h-4" />
+            </div>
+            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Despesas no Mês</span>
+          </div>
+          <div className="text-2xl font-bold text-rose-400">
+            {formatCurrency(totalExpensesMonth)}
+          </div>
+        </div>
+      </div>
+
+      {/* Summary Cards (a pagar / pago) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Total a Pagar */}
         <div className={`p-5 rounded-xl relative overflow-hidden transition-all ${
@@ -264,7 +377,8 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
                         value: expense.value,
                         day: expense.day || 1,
                         category: expense.category || 'housing',
-                        priority: expense.priority || 'essential'
+                        priority: expense.priority || 'essential',
+                        isVariable: !!expense.isVariable
                       });
                       setIsAddingExpense(true);
                   }} className={`p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Pencil className="w-4 h-4" /></button>
@@ -273,7 +387,14 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
               </div>
 
               <div className="space-y-1">
-                <h4 className={`font-bold text-base ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{expense.name}</h4>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className={`font-bold text-base ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{expense.name}</h4>
+                  {expense.isVariable && (
+                    <span className={`inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${theme === 'light' ? 'bg-amber-100 text-amber-700' : 'bg-amber-500/15 text-amber-400'}`}>
+                      <Zap className="w-2.5 h-2.5" /> Variável
+                    </span>
+                  )}
+                </div>
                 <p className={`text-[10px] uppercase tracking-wider font-medium flex items-center gap-1.5 ${isOverdue ? 'text-rose-500' : 'text-slate-400'}`}>
                   <Calendar className="w-3 h-3" /> {isOverdue ? `Venceu dia ${expense.day || 1}` : `Vence dia ${expense.day || 1}`}
                 </p>
@@ -281,18 +402,37 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
 
               <div className={`mt-6 pt-5 border-t flex justify-between items-end ${theme === 'light' ? 'border-slate-100' : 'border-white/5'}`}>
                 <div className="space-y-1">
-                  <p className="text-[10px] uppercase font-medium text-slate-400 tracking-wider">Valor Estimado</p>
-                  <span className="text-lg font-bold text-blue-500 tabular-nums">R$ {parseFloat(expense.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <p className="text-[10px] uppercase font-medium text-slate-400 tracking-wider">
+                    {expense.isVariable ? 'Média mensal' : 'Valor mensal'}
+                  </p>
+                  <span className={`text-lg font-bold tabular-nums ${expense.isVariable ? 'text-amber-500' : 'text-blue-500'}`}>
+                    {expense.isVariable && <span className="text-xs mr-0.5">≈</span>}
+                    R$ {parseFloat(expense.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                  {expense.isVariable && expense.lastPaidValue && (
+                    <p className="text-[9px] text-slate-400 mt-0.5">
+                      Último mês: R$ {parseFloat(expense.lastPaidValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="mt-4">
                   {!isPaidThisMonth ? (
-                      <button 
-                          onClick={() => setPayingExpense(expense)}
-                          className="w-full py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+                      <button
+                          onClick={() => {
+                              // Para variáveis, abre input pedindo o valor real do mês.
+                              // Para fixas, vai direto pra confirmação com o valor cadastrado.
+                              setActualValue(expense.isVariable ? '' : String(expense.value || ''));
+                              setPayingExpense(expense);
+                          }}
+                          className={`w-full py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider text-white flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 ${
+                              expense.isVariable
+                                ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20'
+                                : 'bg-blue-500 hover:bg-blue-600 shadow-blue-500/20'
+                          }`}
                       >
-                          <DollarSign className="w-4 h-4" /> Pagar Conta
+                          <DollarSign className="w-4 h-4" /> {expense.isVariable ? 'Informar e Pagar' : 'Pagar Conta'}
                       </button>
                   ) : (
                       <div className="w-full py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider bg-emerald-500/10 text-emerald-500 flex items-center justify-center gap-2 relative">
@@ -320,24 +460,68 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
                   </div>
               )}
 
-              {/* Pay Confirm */}
+              {/* Pay Confirm — pra contas variáveis pede o valor real do mês */}
               {payingExpense?.id === expense.id && (
-                  <div className={`absolute inset-0 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300 ${
+                  <div className={`absolute inset-0 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-5 text-center z-50 animate-in fade-in duration-300 ${
                       theme === 'light' ? 'bg-white/95 border border-slate-100' : 'bg-slate-950/95'
                   }`}>
-                      <div className="max-w-[220px] w-full space-y-4">
-                          <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                              <DollarSign className="w-6 h-6 text-blue-500" />
+                      <div className="max-w-[240px] w-full space-y-3">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-1 ${
+                              expense.isVariable ? 'bg-amber-500/10' : 'bg-blue-500/10'
+                          }`}>
+                              {expense.isVariable
+                                ? <Zap className="w-6 h-6 text-amber-500" />
+                                : <DollarSign className="w-6 h-6 text-blue-500" />}
                           </div>
-                          <h4 className={`font-bold text-sm uppercase tracking-widest ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Confirmar Pagamento</h4>
-                          <p className={`text-[10px] leading-relaxed mb-4 ${theme === 'light' ? 'text-slate-500' : 'text-white/60'}`}>
-                              Lançar <span className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{expense.name}</span> no valor de R$ {parseFloat(expense.value).toLocaleString('pt-BR')} nas despesas do mês?
-                          </p>
-                          <div className="flex flex-col gap-2 pt-2">
-                              <button onClick={() => handlePayExpense(expense)} className="w-full py-2 rounded-lg bg-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all active:scale-95">
-                                  Sim, Confirmar
+                          <h4 className={`font-bold text-sm uppercase tracking-widest ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                              {expense.isVariable ? 'Qual foi o valor?' : 'Confirmar Pagamento'}
+                          </h4>
+
+                          {expense.isVariable ? (
+                              <>
+                                  <p className={`text-[10px] leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-white/60'}`}>
+                                      Informe quanto veio a fatura de <span className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{expense.name}</span> neste mês:
+                                  </p>
+                                  <div className="relative">
+                                      <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>R$</span>
+                                      <input
+                                          autoFocus
+                                          type="number"
+                                          step="0.01"
+                                          inputMode="decimal"
+                                          placeholder={String(parseFloat(expense.value).toFixed(2))}
+                                          value={actualValue}
+                                          onChange={(e) => setActualValue(e.target.value)}
+                                          className={`w-full px-3 py-2.5 pl-9 rounded-xl border text-sm font-bold focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all text-center ${
+                                              theme === 'light' ? 'bg-white border-amber-300 text-slate-800' : 'bg-white/5 border-amber-500/40 text-white'
+                                          }`}
+                                      />
+                                  </div>
+                                  <p className="text-[9px] text-slate-400">
+                                      Média cadastrada: R$ {parseFloat(expense.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </p>
+                              </>
+                          ) : (
+                              <p className={`text-[10px] leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-white/60'}`}>
+                                  Lançar <span className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{expense.name}</span> no valor de R$ {parseFloat(expense.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} nas despesas do mês?
+                              </p>
+                          )}
+
+                          <div className="flex flex-col gap-2 pt-1">
+                              <button
+                                  onClick={() => handlePayExpense(expense)}
+                                  disabled={expense.isVariable && (!actualValue || parseFloat(actualValue) <= 0)}
+                                  className={`w-full py-2 rounded-lg text-white font-bold text-xs uppercase tracking-wider shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+                                      expense.isVariable
+                                        ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20'
+                                        : 'bg-blue-500 hover:bg-blue-600 shadow-blue-500/20'
+                                  }`}
+                              >
+                                  {expense.isVariable && actualValue && parseFloat(actualValue) > 0
+                                    ? `Pagar R$ ${parseFloat(actualValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                    : 'Sim, Confirmar'}
                               </button>
-                              <button onClick={() => setPayingExpense(null)} className={`w-full py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all ${
+                              <button onClick={() => { setPayingExpense(null); setActualValue(''); }} className={`w-full py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all ${
                                   theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/10 text-white hover:bg-white/20'
                               }`}>Cancelar</button>
                           </div>
@@ -378,6 +562,79 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
         )}
       </div>
 
+      {/* Help Modal — explica os dois tipos de conta fixa */}
+      {showHelp && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className={`w-full max-w-md rounded-2xl p-6 border relative animate-in zoom-in-95 duration-300 shadow-2xl ${
+            theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/10'
+          }`}>
+            <button
+              type="button"
+              onClick={() => setShowHelp(false)}
+              className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'}`}
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`p-2 rounded-xl shrink-0 ${theme === 'light' ? 'bg-blue-50' : 'bg-blue-500/10'}`}>
+                <HelpCircle className={`w-5 h-5 ${theme === 'light' ? 'text-blue-500' : 'text-blue-400'}`} />
+              </div>
+              <div>
+                <h3 className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Como funcionam as Contas Fixas</h3>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Dois tipos possíveis</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {/* Valor Fixo */}
+              <div className={`p-4 rounded-xl border ${theme === 'light' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Repeat className="w-4 h-4 text-emerald-500" />
+                  <h4 className={`text-xs font-black uppercase tracking-widest ${theme === 'light' ? 'text-emerald-700' : 'text-emerald-400'}`}>Valor Fixo</h4>
+                </div>
+                <p className={`text-[11px] leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
+                  Cobra o <strong>mesmo valor todo mês</strong>. Você cadastra uma vez e clica em "Pagar Conta" quando o boleto chegar.
+                </p>
+                <p className={`text-[10px] mt-1.5 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Exemplos: Aluguel, Internet, Plano de Saúde, Streamings
+                </p>
+              </div>
+
+              {/* Valor Variável */}
+              <div className={`p-4 rounded-xl border ${theme === 'light' ? 'bg-amber-50/50 border-amber-100' : 'bg-amber-500/5 border-amber-500/20'}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="w-4 h-4 text-amber-500" />
+                  <h4 className={`text-xs font-black uppercase tracking-widest ${theme === 'light' ? 'text-amber-700' : 'text-amber-400'}`}>Valor Variável</h4>
+                </div>
+                <p className={`text-[11px] leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
+                  Cobra <strong>valor diferente a cada mês</strong>. Você cadastra uma <strong>média</strong> só pra previsão.
+                  Quando clicar em <strong>"Informar e Pagar"</strong>, o app pergunta quanto veio a fatura no mês.
+                </p>
+                <p className={`text-[10px] mt-1.5 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Exemplos: Luz, Gás, Água, Conta de Celular, Condomínio
+                </p>
+              </div>
+
+              <div className={`p-3 rounded-xl border flex items-start gap-2 ${theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
+                <Pencil className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                <p className={`text-[10px] leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                  <strong>Pode mudar o tipo depois:</strong> clica no lápis pra editar a conta a qualquer momento.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowHelp(false)}
+              className="w-full mt-5 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-black text-xs uppercase tracking-widest transition-all active:scale-95"
+            >
+              Entendi
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Trial Limit Modal */}
       <TrialLimitModal
         isOpen={showTrialModal}
@@ -396,7 +653,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
               onClick={() => {
                 setIsAddingExpense(false);
                 setEditingExpenseId(null);
-                setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential' });
+                setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential', isVariable: false });
               }}
               className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors z-[10] ${
                 theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'
@@ -424,7 +681,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Nome da Conta</label>
                 <input
                   type="text"
-                  placeholder="ex: Aluguel, Luz"
+                  placeholder="ex: Aluguel, Luz, Internet"
                   required
                   value={newExpense.name}
                   onChange={(e) => setNewExpense({...newExpense, name: e.target.value})}
@@ -433,9 +690,60 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
                   }`}
                 />
               </div>
+
+              {/* Tipo da conta: valor exato (aluguel, internet) ou variável (luz, gás, água) */}
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Tipo de Valor</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewExpense({...newExpense, isVariable: false})}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      !newExpense.isVariable
+                        ? (theme === 'light' ? 'bg-emerald-50 border-emerald-400' : 'bg-emerald-500/10 border-emerald-500/40')
+                        : (theme === 'light' ? 'bg-slate-50 border-slate-100 hover:border-slate-200' : 'bg-white/5 border-white/5 hover:border-white/10')
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Repeat className={`w-3.5 h-3.5 ${!newExpense.isVariable ? 'text-emerald-500' : 'text-slate-400'}`} />
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${
+                        !newExpense.isVariable ? 'text-emerald-600' : (theme === 'light' ? 'text-slate-500' : 'text-slate-400')
+                      }`}>Valor Fixo</span>
+                    </div>
+                    <p className="text-[9px] text-slate-400 leading-tight">Mesmo valor todo mês — ex: aluguel, internet, plano</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewExpense({...newExpense, isVariable: true})}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      newExpense.isVariable
+                        ? (theme === 'light' ? 'bg-amber-50 border-amber-400' : 'bg-amber-500/10 border-amber-500/40')
+                        : (theme === 'light' ? 'bg-slate-50 border-slate-100 hover:border-slate-200' : 'bg-white/5 border-white/5 hover:border-white/10')
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Zap className={`w-3.5 h-3.5 ${newExpense.isVariable ? 'text-amber-500' : 'text-slate-400'}`} />
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${
+                        newExpense.isVariable ? 'text-amber-600' : (theme === 'light' ? 'text-slate-500' : 'text-slate-400')
+                      }`}>Valor Variável</span>
+                    </div>
+                    <p className="text-[9px] text-slate-400 leading-tight">Muda todo mês — ex: luz, gás, água, conta de telefone</p>
+                  </button>
+                </div>
+                {newExpense.isVariable && (
+                  <div className={`mt-2 p-3 rounded-xl border flex items-start gap-2 ${theme === 'light' ? 'bg-amber-50/50 border-amber-100' : 'bg-amber-500/5 border-amber-500/20'}`}>
+                    <Info className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-[10px] leading-relaxed text-amber-700 dark:text-amber-400">
+                      O valor abaixo será apenas uma <strong>estimativa/média</strong>. Quando for pagar, o app vai pedir o valor real do mês.
+                    </p>
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Valor</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">
+                    {newExpense.isVariable ? 'Valor médio (estimativa)' : 'Valor'}
+                  </label>
                   <input
                     type="number"
                     step="0.01"
@@ -537,7 +845,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab }) {
                 onClick={() => {
                   setIsAddingExpense(false);
                   setEditingExpenseId(null);
-                  setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential' });
+                  setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential', isVariable: false });
                 }}
                 className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all ${
                   theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'

@@ -652,7 +652,13 @@ function Dashboard() {
 
           {activeTab === 'fixas' && (
             <div className="space-y-10">
-              <FixedExpensesTab transactions={transactions} setActiveTab={setActiveTab} />
+              <FixedExpensesTab
+                transactions={transactions}
+                setActiveTab={setActiveTab}
+                walletStats={walletStats}
+                hideBalance={hideBalance}
+                toggleHideBalance={toggleHideBalance}
+              />
             </div>
           )}
 
