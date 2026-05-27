@@ -31,6 +31,9 @@ export function AuthProvider({ children }) {
     const [userPrefs, setUserPrefs] = useState(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
+    // Usuário precisa escolher um plano antes de acessar o app
+    // (true se nunca escolheu nada: nem free, nem standard, nem premium, nem lifetime, nem stripe).
+    const [needsPlanSelection, setNeedsPlanSelection] = useState(false);
     const expiryTimeoutRef = useRef(null);
 
     // MODO DEV: Bypass de autenticação para localhost
@@ -260,7 +263,14 @@ export function AuthProvider({ children }) {
             }
 
             const isExpired = !hasValidAccess && (dataRef.current.subsLoaded || dataRef.current.prefsLoaded);
-            
+
+            // Usuário precisa escolher plano se NUNCA selecionou nada antes
+            // (sem free, sem lifetime, sem assinatura paga, sem stripe ativo).
+            // Importante: admins via e-mail fixo são lifetime — não cairão aqui.
+            const hasChosenAnyPlan = isManualFree || isManualLifetime || isManualActive || hasActiveStripe;
+            const needsPlanSel = !hasChosenAnyPlan && !isBlocked && (dataRef.current.userLoaded || dataRef.current.prefsLoaded);
+            setNeedsPlanSelection(needsPlanSel);
+
             // New Sync State
             const newSubInfo = {
                 type: resolvedSubType,
@@ -661,6 +671,7 @@ export function AuthProvider({ children }) {
         isTrial,
         isLifetime,
         isDataLoaded,
+        needsPlanSelection,
         subType,
         daysRemaining,
         planLevel,

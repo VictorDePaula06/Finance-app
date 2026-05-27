@@ -170,10 +170,6 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
                   <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black tracking-tight bg-purple-500/20 text-purple-400 border border-purple-500/20">
                     Vitalício
                   </span>
-                ) : isTrial ? (
-                  <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black tracking-tight bg-sky-500/20 text-sky-400 border border-sky-500/20">
-                    Período de Teste
-                  </span>
                 ) : planLevel === 'premium' ? (
                   <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black tracking-tight border ${
                     subType === 'annual'

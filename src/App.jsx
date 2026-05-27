@@ -873,7 +873,7 @@ import Contact from './components/Contact';
 import PatrimonioTab from './components/PatrimonioTab';
 
 function AppContent() {
-  const { currentUser, isPremium, getUserPreferences, saveUserPreferences, isDataLoaded } = useAuth();
+  const { currentUser, isPremium, getUserPreferences, saveUserPreferences, isDataLoaded, needsPlanSelection } = useAuth();
   const { theme } = useTheme();
   const [view, setView] = useState('landing');
   const [renderTrigger, setRenderTrigger] = useState(0);
@@ -942,7 +942,14 @@ function AppContent() {
       return <AdminPanel onBack={() => setView('dashboard')} />;
     }
 
-    console.log("[App Content] Final Decision - isPremium:", isPremium, "isAdmin:", isAdmin, "isNewAccount:", isNewAccount);
+    console.log("[App Content] Final Decision - isPremium:", isPremium, "isAdmin:", isAdmin, "isNewAccount:", isNewAccount, "needsPlanSelection:", needsPlanSelection);
+
+    // Prioridade: se o usuário nunca escolheu plano, sempre mostra a tela de seleção
+    // (admin via e-mail fixo é lifetime e não entra aqui).
+    if (needsPlanSelection && !isAdmin) {
+      return <SubscriptionBlock onAdminAccess={() => isAdmin && setView('admin')} />;
+    }
+
     return isPremium || isAdmin || isNewAccount ? (
       <>
         <Dashboard />
