@@ -231,7 +231,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                         for (let i = transactions.length - 1; i >= 0; i--) {
                             const tx = transactions[i];
                             const isAmountMatch = Math.abs(tx.amount - targetAmount) < 0.05;
-                            const isDescMatch = tx.description.toLowerCase().includes(descSearch.toLowerCase());
+                            const isDescMatch = (tx.description || '').toLowerCase().includes((descSearch || '').toLowerCase());
                             if (isAmountMatch && isDescMatch) { foundTx = tx; break; }
                         }
                         if (foundTx && onDeleteTransaction) {

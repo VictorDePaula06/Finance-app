@@ -5,13 +5,14 @@ import { useTheme } from '../contexts/ThemeContext';
 
 export default function HealthScoreCard({ scoreData, baseIncome = 0, onUpdateBaseIncome }) {
     const { theme } = useTheme();
+    // IMPORTANT: All hooks must be called before any early return (Rules of Hooks).
+    const [showLogic, setShowLogic] = useState(false);
+    const [editingIncome, setEditingIncome] = useState(false);
+    const [incomeInput, setIncomeInput] = useState('');
 
     if (!scoreData) return null;
 
     const { score = 0, feedback = "", color = "text-slate-400", bg = "bg-slate-400/10", breakdown = {} } = scoreData;
-    const [showLogic, setShowLogic] = useState(false);
-    const [editingIncome, setEditingIncome] = useState(false);
-    const [incomeInput, setIncomeInput] = useState('');
 
     const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 

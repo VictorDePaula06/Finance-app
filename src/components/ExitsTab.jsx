@@ -153,14 +153,14 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             baseTxs.push({
                 id: s.id + '-' + selectedMonth,
                 description: s.type === 'installment' ? `${s.name || s.service} (${monthsPassed + 1}/${s.totalInstallments})` : (s.name || s.service),
-                amount: s.value,
+                amount: parseFloat(s.value) || 0,
                 type: 'expense',
                 category: s.category || (s.type === 'installment' ? 'other' : 'subscriptions'),
                 date: `${selectedMonth}-${dayStr}T12:00:00Z`,
                 month: selectedMonth,
                 paymentMethod: s.cardId ? 'credito' : 'pix',
                 invoiceStatus: 'unpaid',
-                priority: 'superfluuo',
+                priority: 'superfluous',
                 isSubscription: true,
                 cardId: s.cardId
             });
@@ -197,14 +197,21 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         }
     }, [showModal]);
 
-    // Calcular saldo total para o aviso
+    // Calcular saldo total para o aviso — usa o mesmo walletStats.balance
+    // que é calculado via calculateCumulativeBalance no App.jsx, garantindo
+    // consistência com o saldo mostrado ao usuário em todos os lugares.
     const availableBalance = useMemo(() => {
-        const income = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+        if (walletStats && typeof walletStats.balance === 'number') return walletStats.balance;
+        // Fallback (caso walletStats não tenha sido passado): calcula localmente
+        // com as mesmas exclusões usadas em calculateCumulativeBalance.
+        const income = transactions
+            .filter(t => t.type === 'income' && t.paymentMethod !== 'credito')
+            .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
         const expense = transactions
             .filter(t => t.type === 'expense' && t.paymentMethod !== 'credito')
             .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
         return income - expense;
-    }, [transactions]);
+    }, [transactions, walletStats]);
 
     // Filter by selected month
     const monthExits = useMemo(() => {
@@ -382,8 +389,8 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             setEditingId(t.id);
             setEditingIsSubscription(false);
         }
-        setDescription(t.description.replace('Investimento: ', ''));
-        setAmount(t.amount.toString());
+        setDescription((t.description || '').replace('Investimento: ', ''));
+        setAmount(String(t.amount ?? ''));
         setDate(new Date(t.date).toLocaleDateString('en-CA'));
         setCategory(t.category);
         setIsRecurring(t.isFixed || false);

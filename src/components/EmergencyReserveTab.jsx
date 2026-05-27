@@ -295,7 +295,7 @@ export default function EmergencyReserveTab() {
                                                     setFormData({
                                                         type: reserve.type || 'cofrinho',
                                                         name: reserve.name,
-                                                        balance: reserve.balance.toString(),
+                                                        balance: String(reserve.balance ?? ''),
                                                         cdiPercent: reserve.cdiPercent.toString()
                                                     });
                                                     setIsEditing(reserve.id);

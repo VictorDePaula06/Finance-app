@@ -40,20 +40,42 @@ export default function OverviewTab({
     const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 
     // Prepare data for "Ativos e Saldos" small chart (last 7 days balance evolution)
+    // Calcula o saldo retroativo real a partir das transações (não mais mock data).
     const balanceHistoryData = useMemo(() => {
         const data = [];
-        let currentBalance = walletStats.balance;
-        
-        // Just mock some variation for the visual if we don't have daily historical balance calculation easily available
-        // Or we can calculate it backwards from current balance
+        const today = new Date();
+        const currentBalance = walletStats.balance || 0;
+
+        // Soma o impacto de cada dia futuro a partir do passado (income +, expense não-credito -)
+        // Para reconstituir o saldo de N dias atrás: começamos do balance atual e
+        // desfazemos as transações posteriores.
+        const isAffecting = (t) => {
+            if (t.paymentMethod === 'credito') return false;
+            return t.type === 'income' || t.type === 'expense';
+        };
+
         for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-            data.push({ name: dateStr, value: currentBalance * (1 - (i * 0.02)) }); // Mock variation
+            const d = new Date(today);
+            d.setHours(0, 0, 0, 0);
+            d.setDate(today.getDate() - i);
+            const labelDate = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+            // Soma das transações entre (d, hoje]
+            let delta = 0;
+            transactions.forEach(t => {
+                if (!isAffecting(t)) return;
+                const txDate = new Date(t.date);
+                if (isNaN(txDate.getTime())) return;
+                if (txDate > d && txDate <= today) {
+                    const val = parseFloat(t.amount) || 0;
+                    delta += (t.type === 'income' ? val : -val);
+                }
+            });
+            const balanceOnThatDay = currentBalance - delta;
+            data.push({ name: labelDate, value: balanceOnThatDay });
         }
         return data;
-    }, [walletStats.balance]);
+    }, [walletStats.balance, transactions]);
 
     // Prepare data for "Lançamentos e Reservas"
     const expenseTransactions = transactions.filter(t => 
@@ -105,8 +127,20 @@ export default function OverviewTab({
                 return txD.getFullYear() === targetYear && txD.getMonth() === targetMonth && txD.getDate() === targetDate;
             };
 
-            const dayIncomes = transactions.filter(t => t.type === 'income' && isSameDate(t.date)).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-            const dayExpenses = transactions.filter(t => t.type === 'expense' && t.category !== 'investment' && isSameDate(t.date)).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+            // Exclui categorias especiais que distorcem o fluxo (saldo inicial, carryover, resgates de cofrinho)
+            const dayIncomes = transactions.filter(t =>
+                t.type === 'income'
+                && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category)
+                && isSameDate(t.date)
+            ).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+            // Exclui investimentos (não são gasto) e compras no crédito (já contam via fatura)
+            const dayExpenses = transactions.filter(t =>
+                t.type === 'expense'
+                && t.category !== 'investment'
+                && t.category !== 'vault'
+                && t.paymentMethod !== 'credito'
+                && isSameDate(t.date)
+            ).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
             data.push({
                 name: displayDate,
@@ -173,7 +207,7 @@ export default function OverviewTab({
                                 </button>
                                 {!editingWallet && (
                                     <button
-                                        onClick={() => { setWalletInput(walletStats.balance.toFixed(2).replace('.', ',')); setEditingWallet(true); }}
+                                        onClick={() => { setWalletInput((Number(walletStats?.balance) || 0).toFixed(2).replace('.', ',')); setEditingWallet(true); }}
                                         title="Ajustar saldo atual"
                                         className="text-slate-400 hover:text-emerald-400 transition-colors"
                                     >

@@ -157,7 +157,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
     const handleEdit = (inc) => {
         setEditingId(inc.id);
         setDescription(inc.description);
-        setAmount(inc.amount.toString());
+        setAmount(String(inc.amount ?? ''));
         const d = new Date(inc.date);
         setDate(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
         setIsUSD(false); // Reset USD on edit for simplicity
@@ -189,7 +189,19 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
         if (!val || val <= 0 || !selectedJarId || isRescuing) return;
 
         const targetJar = savingsJars?.find(j => j.id === selectedJarId);
-        if (!targetJar || val > (parseFloat(targetJar.balance) || 0)) {
+        if (!targetJar) return;
+
+        // Compute current dynamic balance to validate against (matches the value shown to the user)
+        const now = new Date();
+        const cdiAnual = cdiRate / 100;
+        const percent = (targetJar.cdiPercent || 100) / 100;
+        const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
+        const lastUpdate = targetJar.updatedAt ? new Date(targetJar.updatedAt) : (targetJar.createdAt ? new Date(targetJar.createdAt) : new Date());
+        const diffDays = Math.max(0, now - lastUpdate) / (1000 * 60 * 60 * 24);
+        const dynamicBalance = (parseFloat(targetJar.balance) || 0) * Math.pow(1 + dailyRate, diffDays);
+
+        if (val > dynamicBalance) {
+            alert(`Valor superior ao saldo disponível desta reserva (R$ ${dynamicBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).`);
             return;
         }
 
@@ -198,17 +210,8 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
         setShowRescueModal(false);
 
         try {
-            const now = new Date();
             const isoDate = now.toISOString();
             const monthStr = isoDate.slice(0, 7);
-
-            // 1. Update Specific Jar
-            const cdiAnual = cdiRate / 100;
-            const percent = (targetJar.cdiPercent || 100) / 100;
-            const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
-            const lastUpdate = targetJar.updatedAt ? new Date(targetJar.updatedAt) : (targetJar.createdAt ? new Date(targetJar.createdAt) : new Date());
-            const diffDays = Math.max(0, now - lastUpdate) / (1000 * 60 * 60 * 24);
-            const dynamicBalance = targetJar.balance * Math.pow(1 + dailyRate, diffDays);
 
             const newBalance = dynamicBalance - val;
             const jarUpdate = updateDoc(doc(db, 'savings_jars', targetJar.id), {
@@ -840,12 +843,26 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                             theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/5 text-white focus:border-blue-500'
                                         }`}
                                     />
-                                    {selectedJarId && parseFloat(rescueAmount) > (parseFloat(savingsJars.find(j => j.id === selectedJarId)?.balance) || 0) && (
-                                        <div className="mt-3 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2 text-rose-500">
-                                            <AlertTriangle className="w-4 h-4 shrink-0" />
-                                            <p className="text-xs font-bold">Valor superior ao saldo desta reserva!</p>
-                                        </div>
-                                    )}
+                                    {(() => {
+                                        if (!selectedJarId || !rescueAmount) return null;
+                                        const jar = savingsJars.find(j => j.id === selectedJarId);
+                                        if (!jar) return null;
+                                        const cdiAnualValid = cdiRate / 100;
+                                        const percentValid = (jar.cdiPercent || 100) / 100;
+                                        const dailyRateValid = Math.pow(1 + (cdiAnualValid * percentValid), 1 / 365) - 1;
+                                        const lastUpdateValid = jar.updatedAt ? new Date(jar.updatedAt) : (jar.createdAt ? new Date(jar.createdAt) : new Date());
+                                        const diffDaysValid = Math.max(0, new Date() - lastUpdateValid) / (1000 * 60 * 60 * 24);
+                                        const dynBalValid = (parseFloat(jar.balance) || 0) * Math.pow(1 + dailyRateValid, diffDaysValid);
+                                        if (parseFloat(rescueAmount) > dynBalValid) {
+                                            return (
+                                                <div className="mt-3 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2 text-rose-500">
+                                                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                                                    <p className="text-xs font-bold">Valor superior ao saldo desta reserva!</p>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
                                 </div>
 
                                 <button

@@ -352,13 +352,13 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
                 
                 return true;
             });
-            const subsTotal = unpaidSubs.reduce((acc, s) => acc + s.value, 0);
+            const subsTotal = unpaidSubs.reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0);
             const expensesTotal = unpaidExpenses.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
             const totalInvoice = expensesTotal + subsTotal;
             const hasPreviousDebt = previousExpenses.length > 0;
             
             const lastPayment = transactions
-              .filter(t => t.category === 'credit_card_bill' && t.description.includes(card.name))
+              .filter(t => t.category === 'credit_card_bill' && t.description && card.name && t.description.includes(card.name))
               .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
             const currentMonthName = new Date().toLocaleDateString('pt-BR', { month: 'long' });

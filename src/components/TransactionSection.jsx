@@ -405,7 +405,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
         return transactions.filter(t => {
             const matchesMonth = getRobustMonth(t) === selectedMonth;
             const matchesCategory = filterCategory === 'all' || t.category === filterCategory;
-            const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch = (t.description || '').toLowerCase().includes((searchTerm || '').toLowerCase());
             return matchesMonth && matchesCategory && matchesSearch;
         }).sort((a, b) => {
             const dateDiff = new Date(b.date) - new Date(a.date);

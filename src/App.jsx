@@ -10,7 +10,7 @@ import AdminPanel from './components/AdminPanel';
 import HealthScoreCard from './components/HealthScoreCard';
 import { calculateHealthScore } from './utils/healthScore';
 import { db } from './services/firebase';
-import { collection, query, where, orderBy, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import Manual from './components/Manual';
 import PanicButton from './components/PanicButton';
 import { generateSundayBreath } from './utils/sundayBreath';
