@@ -23,8 +23,9 @@ import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { CATEGORIES } from '../constants/categories';
 import TrialLimitModal from './TrialLimitModal';
+import OverdraftWarningModal from './OverdraftWarningModal';
 
-const CardsTab = ({ transactions = [], setActiveTab }) => {
+const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
   const { theme } = useTheme();
   const { currentUser, isTrial } = useAuth();
 
@@ -66,6 +67,9 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
   // Edit Transaction State
   const [editingTransaction, setEditingTransaction] = useState(null); // { id, description, amount, date }
   const [editingSub, setEditingSub] = useState(null); // { id, name, value, day }
+
+  // Aviso de endividamento — { type: 'installment' | 'invoice', amount, itemName, payload }
+  const [overdraftPending, setOverdraftPending] = useState(null);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -231,14 +235,14 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
     setDeleteConfirm(null);
   };
 
-  const handlePayInstallment = async (sub, createTransaction = true) => {
+  // Executa a baixa de parcela (com ou sem criação de transação).
+  const executePayInstallment = async (sub, createTransaction = true) => {
     if (!sub) return;
     try {
         const nextInstallment = (sub.currentInstallment || 1) + 1;
         const total = sub.totalInstallments || 1;
 
         if (createTransaction) {
-            // 1. Create Transaction in History
             await addDoc(collection(db, 'transactions'), {
                 description: `Parcela ${sub.currentInstallment}/${total} - ${sub.name}`,
                 amount: parseFloat(sub.value),
@@ -255,7 +259,6 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
             });
         }
 
-        // 2. Update or Delete Subscription
         if (nextInstallment > total) {
             await deleteDoc(doc(db, 'subscriptions', sub.id));
         } else {
@@ -265,42 +268,62 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
         }
 
         setPayingInstallment(null);
+        setOverdraftPending(null);
     } catch (err) {
         console.error("Erro ao dar baixa na parcela:", err);
     }
   };
 
-  const handlePayInvoice = async () => {
-    if (!payingInvoice || (payingInvoice.expenses.length === 0 && (!payingInvoice.subs || payingInvoice.subs.length === 0))) return;
-    
+  // Wrapper: checa saldo SE for parcela avulsa (sem cartão) com criação de transação.
+  // Parcelas com cartão vão pra fatura — validação acontece no pagamento dela.
+  const handlePayInstallment = async (sub, createTransaction = true) => {
+    if (!sub) return;
+    const impactsBalance = createTransaction && !sub.cardId;
+    if (impactsBalance) {
+      const amount = parseFloat(sub.value) || 0;
+      const currentBalance = Number(walletStats?.balance) || 0;
+      if (amount > currentBalance) {
+        setOverdraftPending({
+          type: 'installment',
+          amount,
+          itemName: `Parcela ${sub.currentInstallment}/${sub.totalInstallments} - ${sub.name}`,
+          payload: { sub, createTransaction }
+        });
+        return;
+      }
+    }
+    await executePayInstallment(sub, createTransaction);
+  };
+
+  // Executa o pagamento de fatura.
+  const executePayInvoice = async (invoiceData) => {
+    if (!invoiceData || (invoiceData.expenses.length === 0 && (!invoiceData.subs || invoiceData.subs.length === 0))) return;
+
     try {
         const now = new Date();
-        const paidMonth = payingInvoice.invoiceMonth; // Uses the computed invoice month
+        const paidMonth = invoiceData.invoiceMonth;
 
-        // 1. Criar transação de pagamento de fatura na carteira (que vai deduzir o saldo)
         await addDoc(collection(db, 'transactions'), {
-            description: `Pagamento de Fatura - ${cards.find(c => c.id === payingInvoice.cardId)?.name || 'Cartão'}`,
-            amount: payingInvoice.total,
+            description: `Pagamento de Fatura - ${cards.find(c => c.id === invoiceData.cardId)?.name || 'Cartão'}`,
+            amount: invoiceData.total,
             type: 'expense',
             category: 'credit_card_bill',
             date: now.toISOString(),
             userId: currentUser.uid,
-            month: now.toISOString().slice(0, 7), // Calendar month of payment
-            invoiceMonthPaid: paidMonth, // Store which invoice was paid
+            month: now.toISOString().slice(0, 7),
+            invoiceMonthPaid: paidMonth,
             createdAt: Date.now(),
             paymentMethod: 'pix',
-            selectedCardId: payingInvoice.cardId
+            selectedCardId: invoiceData.cardId
         });
 
-        // 2. Marcar todas as transações avulsas da fatura como pagas
-        const updatePromises = payingInvoice.expenses.map(exp => 
+        const updatePromises = invoiceData.expenses.map(exp =>
             updateDoc(doc(db, 'transactions', exp.id), { invoiceStatus: 'paid', paidInInvoice: paidMonth })
         );
         await Promise.all(updatePromises);
-        
-        // 3. Atualizar subscriptions vinculadas ao cartão
-        if (payingInvoice.subs && payingInvoice.subs.length > 0) {
-            const subPromises = payingInvoice.subs.map(sub => {
+
+        if (invoiceData.subs && invoiceData.subs.length > 0) {
+            const subPromises = invoiceData.subs.map(sub => {
                 if (sub.type === 'installment') {
                     const nextInstallment = (sub.currentInstallment || 1) + 1;
                     const total = sub.totalInstallments || 1;
@@ -315,18 +338,37 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
             });
             await Promise.all(subPromises);
         }
-        
-        const paidCardId = payingInvoice.cardId;
+
+        const paidCardId = invoiceData.cardId;
         setPayingInvoice(null);
+        setOverdraftPending(null);
         setPaidInvoiceSuccess(paidCardId);
-        
+
         setTimeout(() => {
             setPaidInvoiceSuccess(prev => prev === paidCardId ? null : prev);
         }, 3000);
-        
+
     } catch (err) {
         console.error("Erro ao pagar fatura:", err);
     }
+  };
+
+  // Wrapper: pagamento de fatura sempre impacta saldo (PIX) → checa.
+  const handlePayInvoice = async () => {
+    if (!payingInvoice) return;
+    const amount = parseFloat(payingInvoice.total) || 0;
+    const currentBalance = Number(walletStats?.balance) || 0;
+    if (amount > currentBalance) {
+      const cardName = cards.find(c => c.id === payingInvoice.cardId)?.name || 'Cartão';
+      setOverdraftPending({
+        type: 'invoice',
+        amount,
+        itemName: `Fatura ${cardName}`,
+        payload: payingInvoice
+      });
+      return;
+    }
+    await executePayInvoice(payingInvoice);
   };
 
   const getCardSubs = (cardId) => subscriptions.filter(s => s.cardId === cardId);
@@ -1575,6 +1617,24 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
         isOpen={showTrialModal}
         onClose={() => setShowTrialModal(false)}
         limitMessage={trialModalMsg}
+      />
+
+      {/* Aviso de endividamento — pagamento de parcela avulsa ou fatura supera saldo */}
+      <OverdraftWarningModal
+        isOpen={!!overdraftPending}
+        amount={overdraftPending?.amount || 0}
+        balance={Number(walletStats?.balance) || 0}
+        itemName={overdraftPending?.itemName || 'Este pagamento'}
+        onCancel={() => setOverdraftPending(null)}
+        onConfirm={() => {
+          if (!overdraftPending) return;
+          if (overdraftPending.type === 'installment') {
+            const { sub, createTransaction } = overdraftPending.payload;
+            executePayInstallment(sub, createTransaction);
+          } else if (overdraftPending.type === 'invoice') {
+            executePayInvoice(overdraftPending.payload);
+          }
+        }}
       />
 
       {/* MODAL: DELETE CONFIRMATION (CARD) */}

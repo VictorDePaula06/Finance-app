@@ -627,7 +627,7 @@ function Dashboard() {
 
           { activeTab === 'evolucao' && (planLevel === 'premium' || isAdmin ? <EvolucaoPatrimonialTab /> : null) }
 
-          { activeTab === 'cartoes' && <CardsTab transactions={transactions} setActiveTab={setActiveTab} /> }
+          { activeTab === 'cartoes' && <CardsTab transactions={transactions} setActiveTab={setActiveTab} walletStats={walletStats} /> }
           
           { activeTab === 'reserva' && (planLevel === 'premium' || isAdmin ? <EmergencyReserveTab /> : null) }
           

@@ -28,6 +28,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs } from 'firebase/firestore';
 import TrialLimitModal from './TrialLimitModal';
+import OverdraftWarningModal from './OverdraftWarningModal';
 import { CATEGORIES } from '../constants/categories';
 
 export default function FixedExpensesTab({ transactions = [], setActiveTab, walletStats, hideBalance, toggleHideBalance }) {
@@ -54,6 +55,8 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
   // Valor real do mês (usado quando paying uma conta variável)
   const [actualValue, setActualValue] = useState('');
   const [showHelp, setShowHelp] = useState(false);
+  // Aviso de endividamento — armazena o pagamento pendente até o usuário confirmar.
+  const [overdraftPending, setOverdraftPending] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
 
   useEffect(() => {
@@ -107,19 +110,10 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
     setDeleteConfirm(null);
   };
 
-  const handlePayExpense = async (expense) => {
+  // Executa o pagamento de fato (chamado depois da checagem de saldo).
+  const executePayExpense = async (expense, paidAmount) => {
     try {
       const today = new Date();
-      // Para contas variáveis: usa o valor digitado no input. Para contas fixas: usa o valor cadastrado.
-      const paidAmount = expense.isVariable
-        ? parseFloat(actualValue)
-        : parseFloat(expense.value);
-
-      if (!isFinite(paidAmount) || paidAmount <= 0) {
-        alert('Informe um valor válido para o pagamento.');
-        return;
-      }
-
       const transactionData = {
         description: expense.name,
         amount: paidAmount,
@@ -147,12 +141,35 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
 
       setPayingExpense(null);
       setActualValue('');
+      setOverdraftPending(null);
       if (typeof setActiveTab === 'function') {
         setActiveTab('gastos');
       }
     } catch (err) {
       console.error("Erro ao pagar conta fixa:", err);
     }
+  };
+
+  // Wrapper: valida valor + checa se cabe no saldo em carteira.
+  // Se NÃO couber, abre o aviso de endividamento antes de executar.
+  const handlePayExpense = async (expense) => {
+    const paidAmount = expense.isVariable
+      ? parseFloat(actualValue)
+      : parseFloat(expense.value);
+
+    if (!isFinite(paidAmount) || paidAmount <= 0) {
+      alert('Informe um valor válido para o pagamento.');
+      return;
+    }
+
+    const currentBalance = Number(walletStats?.balance) || 0;
+    if (paidAmount > currentBalance) {
+      // Guarda o pagamento e mostra o modal de aviso.
+      setOverdraftPending({ expense, amount: paidAmount });
+      return;
+    }
+
+    await executePayExpense(expense, paidAmount);
   };
 
   const handleUndoPayment = async (expense) => {
@@ -640,6 +657,20 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
         isOpen={showTrialModal}
         onClose={() => setShowTrialModal(false)}
         limitMessage={`Você atingiu o limite de ${TRIAL_FIXED_LIMIT} contas fixas no período de teste.`}
+      />
+
+      {/* Aviso de endividamento — pagamento supera o saldo em carteira */}
+      <OverdraftWarningModal
+        isOpen={!!overdraftPending}
+        amount={overdraftPending?.amount || 0}
+        balance={Number(walletStats?.balance) || 0}
+        itemName={overdraftPending?.expense?.name || 'Esta despesa'}
+        onCancel={() => setOverdraftPending(null)}
+        onConfirm={() => {
+          if (overdraftPending) {
+            executePayExpense(overdraftPending.expense, overdraftPending.amount);
+          }
+        }}
       />
 
       {/* Modal Add/Edit */}

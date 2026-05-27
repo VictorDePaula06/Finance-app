@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, TrendingUp, TrendingDown, Sparkles } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Sparkles, AlertTriangle } from 'lucide-react';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
+import { calculateCumulativeBalance } from '../utils/financialLogic';
+
+const fmt = (v) => Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function AliviaMiniInsight({ transactions = [], theme }) {
     const [insight, setInsight] = useState(null);
@@ -11,7 +14,11 @@ export default function AliviaMiniInsight({ transactions = [], theme }) {
         const now = new Date();
         const currentMonthStr = now.toISOString().slice(0, 7);
 
-        // Mensais
+        // Saldo em carteira acumulado (mesmo cálculo do walletStats.balance no App.jsx).
+        // Antes a lógica só comparava receitas vs gastos do mês corrente — ignorava
+        // se a carteira já estava negativa por meses anteriores ou sem renda lançada.
+        const cumulativeBalance = calculateCumulativeBalance(transactions, currentMonthStr);
+
         const monthTxs = transactions.filter(t => {
             return t.month === currentMonthStr || (t.date && t.date.startsWith(currentMonthStr));
         });
@@ -24,36 +31,53 @@ export default function AliviaMiniInsight({ transactions = [], theme }) {
         const totalExpense = expenseTxs.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
         const totalInvestment = investmentTxs.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
-        // Priorities
         const superfluous = expenseTxs.filter(t => t.priority === 'superfluous').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
         const essential = expenseTxs.filter(t => t.priority === 'essential').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+        const monthDelta = totalIncome - totalExpense;
 
         let status = 'neutral';
         let message = 'Analisando seu mês...';
 
-        if (totalIncome === 0 && totalExpense === 0) {
+        // PRIORIDADE 1: Saldo negativo — sempre alerta vermelho, independente das entradas.
+        if (cumulativeBalance < 0) {
+            status = 'negative';
+            message = `Atenção: seu saldo em carteira está negativo (-R$ ${fmt(cumulativeBalance)}). Você está gastando mais do que ganha — vamos equilibrar?`;
+        }
+        // PRIORIDADE 2: Sem movimentação alguma.
+        else if (totalIncome === 0 && totalExpense === 0) {
             status = 'neutral';
             message = 'Ainda não há movimentações suficientes neste mês para uma análise.';
-        } else if (totalExpense > totalIncome && totalIncome > 0) {
+        }
+        // PRIORIDADE 3: Tem gasto mas nenhuma entrada lançada (caso do print do usuário).
+        else if (totalIncome === 0 && totalExpense > 0) {
+            status = 'warning';
+            message = `Você lançou R$ ${fmt(totalExpense)} em gastos este mês, mas ainda não registrou nenhum recebimento. Lance sua renda para um cálculo correto.`;
+        }
+        // PRIORIDADE 4: Gastos do mês superaram entradas (saldo ainda positivo por meses anteriores).
+        else if (totalExpense > totalIncome) {
             status = 'negative';
-            message = `Atenção: Seus gastos (R$ ${totalExpense.toLocaleString('pt-BR')}) já superaram suas entradas (R$ ${totalIncome.toLocaleString('pt-BR')}) deste mês.`;
+            message = `Atenção: seus gastos do mês (R$ ${fmt(totalExpense)}) já superaram suas entradas (R$ ${fmt(totalIncome)}). Você consumiu R$ ${fmt(Math.abs(monthDelta))} do saldo anterior.`;
             if (superfluous > essential) {
-                message += ' Notei muitos gastos supérfluos, considere reduzi-los.';
+                message += ' E os gastos supérfluos estão acima dos essenciais — vale rever.';
             }
-        } else {
-            if (totalInvestment === 0 && totalIncome > 0) {
+        }
+        // POSITIVO: Excelente (gastou menos da metade da renda + investiu).
+        else if (totalExpense < totalIncome * 0.5 && totalInvestment > 0) {
+            status = 'positive';
+            message = `Excelente! Você gastou menos da metade das suas entradas e ainda aportou R$ ${fmt(totalInvestment)}. Continue assim!`;
+        }
+        // ATENÇÃO: Não investiu nada.
+        else if (totalInvestment === 0 && totalIncome > 0) {
+            status = 'warning';
+            message = `Seus gastos estão sob controle, mas você ainda não separou nada para suas reservas este mês.`;
+        }
+        // POSITIVO: Padrão saudável.
+        else {
+            status = 'positive';
+            message = `Tudo certo! Gastos dentro do limite das entradas. Sobrou R$ ${fmt(monthDelta)} neste mês.`;
+            if (superfluous > essential && essential > 0) {
                 status = 'warning';
-                message = `Seus gastos estão sob controle, mas você ainda não separou nada para suas reservas este mês.`;
-            } else if (totalExpense < totalIncome * 0.5) {
-                status = 'positive';
-                message = `Excelente! Você gastou menos da metade das suas entradas e já aportou R$ ${totalInvestment.toLocaleString('pt-BR')}. Continue assim!`;
-            } else {
-                status = 'positive';
-                message = `Tudo certo! Gastos dentro do limite das entradas.`;
-                if (superfluous > essential) {
-                    status = 'warning';
-                    message += ` Porém, os gastos supérfluos estão altos.`;
-                }
+                message = `Saldo OK, mas os gastos supérfluos (R$ ${fmt(superfluous)}) superaram os essenciais (R$ ${fmt(essential)}). Vale revisar.`;
             }
         }
 
@@ -93,7 +117,7 @@ export default function AliviaMiniInsight({ transactions = [], theme }) {
 
     const icons = {
         positive: <TrendingUp className="w-3.5 h-3.5" />,
-        negative: <TrendingDown className="w-3.5 h-3.5" />,
+        negative: <AlertTriangle className="w-3.5 h-3.5" />,
         warning: <Sparkles className="w-3.5 h-3.5" />,
         neutral: <Sparkles className="w-3.5 h-3.5" />,
     };
