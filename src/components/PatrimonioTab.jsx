@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { useCdiRate, useUsdRate, getUsdRate } from '../utils/marketRates';
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const fmt = (v) => Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtSigned = (v) => (v < 0 ? '-' : '') + 'R$ ' + fmt(v);
@@ -59,9 +60,11 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
   // ── state ──────────────────────────────────────────────────────────────────
   const [jars, setJars] = useState([]);
   const [investments, setInvestments] = useState([]);
-  const [cdiAnual, setCdiAnual] = useState(10.65); // fallback %
+  const cdiAnual = useCdiRate();
   const [hidePatrimonio, setHidePatrimonio] = useState(() => localStorage.getItem('hidePatrimonio') === 'true');
-  const [usdRate, setUsdRate] = useState(5.0);
+  const usdRateFromHook = useUsdRate();
+  const [usdRate, setUsdRate] = useState(usdRateFromHook);
+  useEffect(() => { setUsdRate(usdRateFromHook); }, [usdRateFromHook]);
   const [livePrices, setLivePrices] = useState({ USD: 5.0 });
   const [tesouroData, setTesouroData] = useState([]);
   const [userConfig, setUserConfig] = useState(null);
@@ -156,15 +159,10 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         }
       }
 
-      // USD/BRL
-      try {
-        const usdRes = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL');
-        const usdData = await usdRes.json();
-        newPrices.USD = parseFloat(usdData.USDBRL.bid);
-        setUsdRate(parseFloat(usdData.USDBRL.bid));
-      } catch (e) {
-        if (!newPrices.USD) newPrices.USD = usdRate || 5.0;
-      }
+      // USD/BRL — usa cache compartilhado (dedupe entre componentes)
+      const usd = await getUsdRate();
+      newPrices.USD = usd;
+      setUsdRate(usd);
 
       setLivePrices(newPrices);
     } catch (error) {
@@ -253,17 +251,9 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
     });
   }, [currentUser]);
 
-  useEffect(() => {
-    fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json')
-      .then(r => r.json())
-      .then(d => setCdiAnual(parseFloat(d[0].valor) * 365))
-      .catch(() => {});
-      
-    fetch('https://economia.awesomeapi.com.br/last/USD-BRL')
-      .then(r => r.json())
-      .then(d => setUsdRate(parseFloat(d.USDBRL.bid)))
-      .catch(() => {});
-  }, []);
+  // CDI e USD agora vêm dos hooks compartilhados (cache global). Não precisa fetch local.
+  // O usdRate ainda é mantido no estado local porque fetchLivePrices também atualiza
+  // ele a partir do retorno da awesomeapi (caso o livePrices.USD seja mais recente).
 
   // ── calculations ───────────────────────────────────────────────────────────
   // Jars — dynamic balance with CDI accrual since last update

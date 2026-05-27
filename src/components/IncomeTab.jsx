@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { db } from '../services/firebase';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,6 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { TrendingUp, TrendingDown, Wallet, Trash2, ArrowUpCircle, CircleDollarSign, Loader2, Pencil, X, Landmark, ArrowDownCircle, ChevronLeft, ChevronRight, Settings, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
 import TrialLimitModal from './TrialLimitModal';
+import { useCdiRate, useUsdRate } from '../utils/marketRates';
 
 export default function IncomeTab({ transactions, savingsJars, walletStats, hideBalance, toggleHideBalance }) {
     const { theme } = useTheme();
@@ -22,14 +23,14 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
         return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     });
     const [isUSD, setIsUSD] = useState(false);
-    const [usdRate, setUsdRate] = useState(null);
-    const [isLoadingRate, setIsLoadingRate] = useState(false);
+    const usdRate = useUsdRate();
+    const isLoadingRate = false; // mantido para compat com a UI; hook é sync de cache
     const [editingId, setEditingId] = useState(null);
     const [showRescueModal, setShowRescueModal] = useState(false);
     const [rescueAmount, setRescueAmount] = useState('');
     const [selectedJarId, setSelectedJarId] = useState('');
     const [isRescuing, setIsRescuing] = useState(false);
-    const [cdiRate, setCdiRate] = useState(10.65);
+    const cdiRate = useCdiRate();
     const [subTab, setSubTab] = useState('recebimentos'); // 'recebimentos' | 'resgates'
     const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
     const [showIncomeModal, setShowIncomeModal] = useState(false);
@@ -51,30 +52,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
         '30d': '(30d)'
     }[incomesPeriod];
     
-    // Fetch USD rate once
-    useEffect(() => {
-        const fetchRate = async () => {
-            setIsLoadingRate(true);
-            try {
-                const response = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL');
-                const data = await response.json();
-                setUsdRate(parseFloat(data.USDBRL.ask));
-                
-                // Buscar CDI também
-                const cdiRes = await fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json');
-                const cdiData = await cdiRes.json();
-                if (cdiData && cdiData[0] && cdiData[0].valor) {
-                    setCdiRate(parseFloat(cdiData[0].valor) * 365);
-                }
-            } catch (error) {
-                console.error("Erro ao buscar cotações:", error);
-                setUsdRate(5.0); // Fallback
-            } finally {
-                setIsLoadingRate(false);
-            }
-        };
-        fetchRate();
-    }, []);
+    // USD e CDI agora vêm de hooks compartilhados (useUsdRate / useCdiRate) com cache global.
 
     const handleSubmit = (e) => {
         if (e) e.preventDefault();

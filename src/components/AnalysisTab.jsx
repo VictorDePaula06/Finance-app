@@ -93,16 +93,28 @@ const AnalysisTab = ({ transactions, cards = [], subscriptions = [] }) => {
     const [selYear, selMonthNum] = selectedMonth.split('-').map(Number);
     const selTotalMonths = selYear * 12 + selMonthNum;
 
+    // Mês "agora" usado como fallback conservador para subs legadas (sem createdAt).
+    // Antes: returnava true → sub aparecia em TODOS os meses passados, inflando histórico.
+    // Agora: assumimos createdAt = mês atual; só aparece deste mês em diante.
+    const nowDate = new Date();
+    const currentTotalMonths = nowDate.getFullYear() * 12 + (nowDate.getMonth() + 1);
+
     let cardSubs = subscriptions.filter(s => {
         if (!s.cardId) return false;
-        if (!s.createdAt) return true; // Legacy fallback
 
-        const createdDate = new Date(s.createdAt);
-        if (isNaN(createdDate.getTime())) return true;
+        let createdTotalMonths;
+        if (!s.createdAt) {
+            createdTotalMonths = currentTotalMonths;
+        } else {
+            const createdDate = new Date(s.createdAt);
+            if (isNaN(createdDate.getTime())) {
+                createdTotalMonths = currentTotalMonths;
+            } else {
+                createdTotalMonths = createdDate.getFullYear() * 12 + (createdDate.getMonth() + 1);
+            }
+        }
 
-        const createdTotalMonths = createdDate.getFullYear() * 12 + (createdDate.getMonth() + 1);
         const monthsPassed = selTotalMonths - createdTotalMonths;
-
         if (monthsPassed < 0) return false; // Was created in the future
 
         if (s.type === 'installment') {

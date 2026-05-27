@@ -4,6 +4,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc, orderBy } from 'firebase/firestore';
+import { useCdiRate, useUsdRate } from '../utils/marketRates';
 
 const fmt = (v) => Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const CDI_MEDIO_10A = 11.15;
@@ -107,8 +108,8 @@ export default function GoalTracker() {
     // New goal type (patrimony or general)
     const [newIsPatrimony, setNewIsPatrimony] = useState(false);
     const [newPatrimonyType, setNewPatrimonyType] = useState('patrimonio_total');
-    const [cdiAnual, setCdiAnual] = useState(10.65);
-    const [usdRate, setUsdRate] = useState(5.0);
+    const cdiAnual = useCdiRate();
+    const usdRate = useUsdRate();
 
     useEffect(() => {
         if (!currentUser) return;
@@ -130,12 +131,7 @@ export default function GoalTracker() {
 
     const toggle = (arr, id) => arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id];
 
-    useEffect(() => {
-        fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json')
-            .then(r => r.json()).then(d => setCdiAnual(parseFloat(d[0].valor) * 365)).catch(() => {});
-        fetch('https://economia.awesomeapi.com.br/last/USD-BRL')
-            .then(r => r.json()).then(d => setUsdRate(parseFloat(d.USDBRL.bid))).catch(() => {});
-    }, []);
+    // CDI e USD vêm dos hooks compartilhados (cache global).
 
     // Patrimony total — exact same calculation as PatrimonioTab
     const { patrimonioTotal, jarsDynamic } = useMemo(() => {
@@ -151,9 +147,10 @@ export default function GoalTracker() {
             return { ...j, dynamicBalance: dynBal };
         });
         const invTotal = investments.reduce((acc, a) => {
-            const price = a.manualCurrentPrice || a.purchasePrice;
-            const usdMultiplier = a.isUSD ? usdRate : 1;
-            return acc + (a.quantity * price * usdMultiplier);
+            const price = parseFloat(a.manualCurrentPrice || a.purchasePrice) || 0;
+            const qty = parseFloat(a.quantity) || 0;
+            const usdMultiplier = a.isUSD ? (usdRate || 1) : 1;
+            return acc + (qty * price * usdMultiplier);
         }, 0);
         return { patrimonioTotal: jarsTotal + invTotal, jarsDynamic: dynamic };
     }, [jars, investments, cdiAnual, usdRate]);
@@ -171,8 +168,10 @@ export default function GoalTracker() {
         const invSum = invIds.reduce((s, id) => {
             const inv = investments.find(x => x.id === id);
             if (!inv) return s;
-            const usdMultiplier = inv.isUSD ? usdRate : 1;
-            return s + inv.quantity * (inv.manualCurrentPrice || inv.purchasePrice) * usdMultiplier;
+            const usdMultiplier = inv.isUSD ? (usdRate || 1) : 1;
+            const qty = parseFloat(inv.quantity) || 0;
+            const price = parseFloat(inv.manualCurrentPrice || inv.purchasePrice) || 0;
+            return s + (qty * price * usdMultiplier);
         }, 0);
         return jarSum + invSum;
     };
@@ -211,9 +210,10 @@ export default function GoalTracker() {
 
     const handleContribute = async (goalId, currentAmount, mult = 1) => {
         const val = parseFloat(contributions[goalId]);
-        if (!val) return;
-        let next = currentAmount + val * mult;
-        if (next < 0) next = 0;
+        if (!val || !isFinite(val)) return;
+        const safeCurrent = parseFloat(currentAmount) || 0;
+        let next = safeCurrent + val * mult;
+        if (!isFinite(next) || next < 0) next = 0;
         await updateDoc(doc(db, 'goals', goalId), { current: next });
         setContributions(p => ({ ...p, [goalId]: '' }));
     };

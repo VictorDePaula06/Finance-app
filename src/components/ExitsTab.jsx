@@ -132,9 +132,12 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         const [selYear, selMonthNum] = selectedMonth.split('-').map(Number);
         const selTotalMonths = selYear * 12 + selMonthNum;
 
+        // Fallback conservador: subs legadas (sem createdAt) entram no mês atual,
+        // não em Jan/2023 — antes inflavam 3 anos de histórico inteiro.
+        const nowDateForFallback = new Date();
         subscriptions.forEach(s => {
-            let createdDate = s.createdAt ? new Date(s.createdAt) : new Date(2023, 0, 1);
-            if (isNaN(createdDate.getTime())) createdDate = new Date(2023, 0, 1);
+            let createdDate = s.createdAt ? new Date(s.createdAt) : nowDateForFallback;
+            if (isNaN(createdDate.getTime())) createdDate = nowDateForFallback;
 
             const createdTotalMonths = createdDate.getFullYear() * 12 + (createdDate.getMonth() + 1);
             const monthsPassed = selTotalMonths - createdTotalMonths;

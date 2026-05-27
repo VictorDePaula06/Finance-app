@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { PiggyBank, TrendingUp, ArrowRightCircle, Info } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { useCdiRate } from '../utils/marketRates';
 
 export default function QuickSavingsForm({ onTransactionAdded }) {
     const { theme } = useTheme();
@@ -12,20 +13,8 @@ export default function QuickSavingsForm({ onTransactionAdded }) {
     const [name, setName] = useState('');
     const [amount, setAmount] = useState('');
     const [cdiPercent, setCdiPercent] = useState('100');
-    const [cdiRate, setCdiRate] = useState(10.65); // Default Selic/CDI
+    const cdiRate = useCdiRate(); // Cache global
     const [isSaving, setIsSaving] = useState(false);
-
-    useEffect(() => {
-        // Fetch approximate CDI rate
-        fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json')
-            .then(res => res.json())
-            .then(data => {
-                if (data && data[0] && data[0].valor) {
-                    setCdiRate(parseFloat(data[0].valor) * 365);
-                }
-            })
-            .catch(err => console.warn("Erro ao buscar CDI:", err));
-    }, []);
 
     const calculateDailyYield = () => {
         const val = parseFloat(amount) || 0;

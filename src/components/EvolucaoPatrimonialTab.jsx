@@ -8,6 +8,7 @@ import {
     ResponsiveContainer, ReferenceLine
 } from 'recharts';
 import { TrendingUp, TrendingDown, RefreshCw, Info, BarChart3, Calendar } from 'lucide-react';
+import { getUsdRate } from '../utils/marketRates';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 const fmt2 = (v) => v?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '–';
@@ -224,12 +225,8 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
                 }
             }
 
-            // USD/BRL
-            try {
-                const usdRes = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL');
-                const usdData = await usdRes.json();
-                newPrices.USD = parseFloat(usdData.USDBRL.bid);
-            } catch (e) { newPrices.USD = 5.0; }
+            // USD/BRL via cache compartilhado
+            newPrices.USD = await getUsdRate();
 
             setLivePrices(newPrices);
         };

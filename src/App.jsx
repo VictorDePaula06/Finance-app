@@ -45,6 +45,7 @@ import OverviewTab from './components/OverviewTab';
 import TermsAcceptanceModal from './components/TermsAcceptanceModal';
 import CookieConsent from './components/CookieConsent';
 import FixedExpensesTab from './components/FixedExpensesTab';
+import { useCdiRate } from './utils/marketRates';
 
 // CONFIGURAÇÃO MASTER
 const MASTER_EMAIL = 'financealivia@gmail.com';
@@ -68,7 +69,7 @@ function Dashboard() {
   const [monthlyReviewText, setMonthlyReviewText] = useState('');
   const [previousMonthStats, setPreviousMonthStats] = useState({ income: 0, expense: 0, balance: 0, topCategory: '' });
   const [previousMonthName, setPreviousMonthName] = useState('');
-  const [cdiRate, setCdiRate] = useState(10.65);
+  const cdiRate = useCdiRate();
   const [editingJar, setEditingJar] = useState(null);
   const [jarDeleteConfirm, setJarDeleteConfirm] = useState(null);
   const [showAliviaConfig, setShowAliviaConfig] = useState(false);
@@ -153,17 +154,7 @@ function Dashboard() {
     return () => window.removeEventListener('onboarding-complete', handler);
   }, []);
 
-  useEffect(() => {
-    // Fetch approximate CDI rate for the dashboard
-    fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json')
-        .then(res => res.json())
-        .then(data => {
-            if (data && data[0] && data[0].valor) {
-                setCdiRate(parseFloat(data[0].valor) * 365);
-            }
-        })
-        .catch(err => console.warn("Erro ao buscar CDI no Dashboard:", err));
-  }, []);
+  // CDI agora vem do hook compartilhado useCdiRate (cache global). Não precisa fetch local.
 
   useEffect(() => {
     if (!currentUser) return;

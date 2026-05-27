@@ -30,6 +30,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { getCdiRate, getUsdRate } from '../utils/marketRates';
 import { ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Tooltip as ReTooltip } from 'recharts';
 import { BarChart3, Layers, List, Sparkles } from 'lucide-react';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
@@ -100,12 +101,7 @@ export default function InvestmentsTab() {
             setReserves(items);
         });
 
-        fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json')
-            .then(res => res.json())
-            .then(data => {
-                if (data && data[0] && data[0].valor) setCdiRate(parseFloat(data[0].valor) * 365);
-            })
-            .catch(err => console.warn("Erro ao buscar CDI:", err));
+        getCdiRate().then(v => setCdiRate(v));
 
         return () => { unsubscribe(); unsubReserves(); };
     }, [currentUser]);
@@ -184,23 +180,10 @@ export default function InvestmentsTab() {
                 }
             }
 
-            // Fetch USD/BRL
-            try {
-                const usdRes = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL');
-                const usdData = await usdRes.json();
-                newPrices.USD = parseFloat(usdData.USDBRL.bid);
-            } catch (e) {
-                if (!newPrices.USD) newPrices.USD = 5.0;
-            }
-
-            // Fetch CDI from BCB
-            try {
-                const cdiRes = await fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json');
-                const cdiData = await cdiRes.json();
-                newPrices.CDI = parseFloat(cdiData[0].valor) / 100;
-            } catch (e) {
-                console.warn("Could not fetch CDI");
-            }
+            // USD e CDI via cache compartilhado
+            newPrices.USD = await getUsdRate();
+            const cdi = await getCdiRate();
+            newPrices.CDI = (cdi / 365) / 100; // mantém formato esperado (diário em fração)
 
             // Fetch Tesouro Direto logic moved to separate useEffect
             setPrices(newPrices);

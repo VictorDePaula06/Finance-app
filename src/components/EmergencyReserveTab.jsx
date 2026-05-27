@@ -15,6 +15,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { useCdiRate } from '../utils/marketRates';
 
 const RESERVE_TYPES = {
     tesouro: { label: 'Tesouro Selic', icon: Landmark, color: 'text-blue-500', bg: 'bg-blue-500/10' },
@@ -29,7 +30,7 @@ export default function EmergencyReserveTab() {
     const [isAdding, setIsAdding] = useState(false);
     const [isEditing, setIsEditing] = useState(null);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
-    const [cdiRate, setCdiRate] = useState(10.65); // Taxa Selic/CDI base atual
+    const cdiRate = useCdiRate(); // Taxa Selic/CDI base — cache global
     const [reserveGoal, setReserveGoal] = useState(null);
     const [isSettingGoal, setIsSettingGoal] = useState(false);
     const [goalInput, setGoalInput] = useState('');
@@ -39,18 +40,6 @@ export default function EmergencyReserveTab() {
         balance: '',
         cdiPercent: '100'
     });
-
-    useEffect(() => {
-        // Fetch approximate CDI rate
-        fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados/ultimos/1?formato=json')
-            .then(res => res.json())
-            .then(data => {
-                if (data && data[0] && data[0].valor) {
-                    setCdiRate(parseFloat(data[0].valor) * 365); // Basic annualized
-                }
-            })
-            .catch(err => console.warn("Erro ao buscar CDI:", err));
-    }, []);
 
     useEffect(() => {
         if (!currentUser) return;

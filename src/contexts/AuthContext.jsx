@@ -215,7 +215,8 @@ export function AuthProvider({ children }) {
                 }
             }
 
-            const subType = (stripeSub?.items?.[0]?.plan?.interval === 'year' || manualSub?.type === 'annual') ? 'annual' : (manualSub?.type || 'monthly');
+            // Renomeado: estava sombreando o state `subType` declarado fora — evita confusão.
+            const resolvedSubType = (stripeSub?.items?.[0]?.plan?.interval === 'year' || manualSub?.type === 'annual') ? 'annual' : (manualSub?.type || 'monthly');
             const subDate = stripeSub?.current_period_start ? new Date(stripeSub.current_period_start.seconds * 1000) : (manualSub?.date?.toDate ? manualSub.date.toDate() : (manualSub?.date ? new Date(manualSub.date) : null));
 
             const trialStart = dataRef.current.user?.trialStartDate?.toDate ? dataRef.current.user.trialStartDate.toDate() : (dataRef.current.user?.trialStartDate ? new Date(dataRef.current.user.trialStartDate) : createdAt);
@@ -235,7 +236,7 @@ export function AuthProvider({ children }) {
                 hasValidAccess = true;
                 remaining = 9999;
             } else if ((subStatus === 'active' || isManualActive) && !isBlocked) {
-                const cycleDays = subType === 'annual' ? 365 : 30;
+                const cycleDays = resolvedSubType === 'annual' ? 365 : 30;
                 const diffDaysSub = subDate ? Math.floor((now - subDate) / msInDay) : 0;
 
                 if (diffDaysSub <= cycleDays || diffDaysSub <= cycleDays + toleranceDays) {
@@ -254,7 +255,7 @@ export function AuthProvider({ children }) {
             
             // New Sync State
             const newSubInfo = {
-                type: subType,
+                type: resolvedSubType,
                 date: subDate ? subDate.getTime() : null,
                 status: subStatus,
                 isUnderTolerance,
@@ -280,7 +281,7 @@ export function AuthProvider({ children }) {
                 setDaysRemaining(Math.max(0, remaining));
                 setIsTrial(newSubInfo.isTrial);
                 setIsLifetime(isManualLifetime);
-                setSubType(subType);
+                setSubType(resolvedSubType);
                 setPlanLevel(currentPlanLevel);
 
                 setCurrentUser(prev => prev ? ({
@@ -297,7 +298,7 @@ export function AuthProvider({ children }) {
             // 3. SCHEDULE NEXT CHECK (Precision Watchdog)
             // Agendamos apenas se houver uma data de expiração futura próxima (> 1 min)
             if (hasValidAccess && subDate) {
-                const cycle = subType === 'annual' ? 365 : 30;
+                const cycle = resolvedSubType === 'annual' ? 365 : 30;
                 const totalCycle = cycle + toleranceDays;
                 
                 const timeToExpire = subDate.getTime() + (totalCycle * msInDay);
@@ -408,7 +409,7 @@ export function AuthProvider({ children }) {
         const interval = setInterval(() => {
             console.log("[Auth] Re-check periódico de expiração...");
             checkStatus();
-        }, 1000 * 60 * 1); // 1 minuto (Watchdog de segurança)
+        }, 1000 * 60 * 5); // 5 minutos — watchdog de segurança (expiryTimeoutRef já cuida da expiração precisa)
 
         return () => {
             unsubPrefs();
