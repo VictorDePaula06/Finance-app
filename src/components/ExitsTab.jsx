@@ -45,6 +45,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const [step, setStep] = useState('choice'); // 'choice' | 'expense' | 'investment' | 'success' | 'warning'
     const [isSaving, setIsSaving] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    const [editingIsSubscription, setEditingIsSubscription] = useState(false);
     const [subTab, setSubTab] = useState('despesas'); // 'despesas' | 'reservas'
     const [isInstallment, setIsInstallment] = useState(false);
     const [installments, setInstallments] = useState('2');
@@ -262,6 +263,8 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         setPaymentMethod('pix');
         setInstallmentMode('total');
         setPriority('comfort');
+        setEditingId(null);
+        setEditingIsSubscription(false);
     };
 
     const handleSaveGasto = async (e) => {
@@ -335,7 +338,17 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 return;
             }
 
-            if (editingId) {
+            if (editingId && editingIsSubscription) {
+                const dayFromDate = parseInt(date.split('-')[2], 10);
+                await updateDoc(doc(db, 'subscriptions', editingId), {
+                    name: description,
+                    value: parseFloat(amount),
+                    day: dayFromDate,
+                    category,
+                    cardId: paymentMethod === 'credito' ? selectedCardId : ''
+                });
+                resetForm();
+            } else if (editingId) {
                 const { createdAt, ...updateData } = transactionData;
                 await updateDoc(doc(db, 'transactions', editingId), updateData);
                 resetForm();
@@ -361,7 +374,14 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             setFixedExpenseWarning(true);
             return;
         }
-        setEditingId(t.id);
+        if (t.isSubscription) {
+            const realSubId = t.id.replace(/-\d{4}-\d{2}$/, '');
+            setEditingId(realSubId);
+            setEditingIsSubscription(true);
+        } else {
+            setEditingId(t.id);
+            setEditingIsSubscription(false);
+        }
         setDescription(t.description.replace('Investimento: ', ''));
         setAmount(t.amount.toString());
         setDate(new Date(t.date).toLocaleDateString('en-CA'));
@@ -967,10 +987,10 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                             )
                                                         )}
                                                     </div>
-                                                    {/* Actions visible on hover */}
-                                                    <div className={`absolute right-0 translate-x-16 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all flex gap-1 pl-2 ${theme === 'light' ? 'bg-white' : 'bg-[#1e2330]'}`}>
-                                                        <button onClick={() => handleEdit(t)} className={`p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Pencil className="w-3 h-3" /></button>
-                                                        <button onClick={() => handleDelete(t)} className={`p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Trash2 className="w-3 h-3" /></button>
+                                                    {/* Actions: always visible on mobile, slide-in on hover for desktop */}
+                                                    <div className={`sm:absolute sm:right-0 sm:translate-x-16 sm:opacity-0 sm:group-hover:translate-x-0 sm:group-hover:opacity-100 transition-all flex gap-1 sm:pl-2 ${theme === 'light' ? 'sm:bg-white' : 'sm:bg-[#1e2330]'}`}>
+                                                        <button onClick={() => handleEdit(t)} className={`p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Pencil className="w-4 h-4 sm:w-3 sm:h-3" /></button>
+                                                        <button onClick={() => handleDelete(t)} className={`p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Trash2 className="w-4 h-4 sm:w-3 sm:h-3" /></button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1038,10 +1058,10 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                     <span className="text-[13px] font-medium text-blue-400">
                                                         + {formatCurrency(parseFloat(t.amount))}
                                                     </span>
-                                                    {/* Actions visible on hover */}
-                                                    <div className={`absolute right-0 translate-x-16 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all flex gap-1 pl-2 ${theme === 'light' ? 'bg-white' : 'bg-[#1e2330]'}`}>
-                                                        <button onClick={() => handleEdit(t)} className={`p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Pencil className="w-3 h-3" /></button>
-                                                        <button onClick={() => handleDelete(t)} className={`p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Trash2 className="w-3 h-3" /></button>
+                                                    {/* Actions: always visible on mobile, slide-in on hover for desktop */}
+                                                    <div className={`sm:absolute sm:right-0 sm:translate-x-16 sm:opacity-0 sm:group-hover:translate-x-0 sm:group-hover:opacity-100 transition-all flex gap-1 sm:pl-2 ${theme === 'light' ? 'sm:bg-white' : 'sm:bg-[#1e2330]'}`}>
+                                                        <button onClick={() => handleEdit(t)} className={`p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Pencil className="w-4 h-4 sm:w-3 sm:h-3" /></button>
+                                                        <button onClick={() => handleDelete(t)} className={`p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Trash2 className="w-4 h-4 sm:w-3 sm:h-3" /></button>
                                                     </div>
                                                 </div>
                                             </div>
