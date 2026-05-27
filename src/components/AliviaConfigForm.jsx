@@ -41,20 +41,31 @@ const riskTextClasses = {
     purple:  'text-purple-500',
 };
 
-export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose }) {
+export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose, module = 'gastos' }) {
     const { theme } = useTheme();
     const { saveUserPreferences, userPrefs, currentUser } = useAuth();
     const isDark = theme !== 'light';
 
+    const isPatrimony = module === 'patrimonio';
+
     const [isSaving, setIsSaving] = useState(false);
     const [tempConfig, setTempConfig] = useState(manualConfig || {});
-    const [activeSection, setActiveSection] = useState('financeiro');
+    // Aba inicial depende do módulo: Gastos abre em "Renda & Custos", Patrimônio em "Perfil Investidor"
+    const [activeSection, setActiveSection] = useState(isPatrimony ? 'perfil' : 'financeiro');
 
     // Onboarding fields (vinham do WelcomeJourney mas nunca eram editáveis depois)
     const [objectives, setObjectives] = useState([]);
     const [riskProfile, setRiskProfile] = useState('');
     const [investmentPercent, setInvestmentPercent] = useState(20);
-    const [alerts, setAlerts] = useState({ ceiling: true, weeklyReport: true });
+    // Alertas separados por módulo — cada módulo tem suas notificações
+    const [alerts, setAlerts] = useState({
+        // Gastos
+        ceiling: true,
+        weeklyReport: true,
+        // Patrimônio
+        goalProgress: true,
+        rebalance: true,
+    });
 
     // Soma real das contas fixas cadastradas (substitui o input duplicado)
     const [fixedExpensesSum, setFixedExpensesSum] = useState(0);
@@ -68,7 +79,12 @@ export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose
         setObjectives(ob.objectives || []);
         setRiskProfile(ob.riskProfile || '');
         setInvestmentPercent(typeof ob.investmentPercent === 'number' ? ob.investmentPercent : 20);
-        setAlerts(ob.alerts || { ceiling: true, weeklyReport: true });
+        setAlerts({
+            ceiling: ob.alerts?.ceiling ?? true,
+            weeklyReport: ob.alerts?.weeklyReport ?? true,
+            goalProgress: ob.alerts?.goalProgress ?? true,
+            rebalance: ob.alerts?.rebalance ?? true,
+        });
     }, [userPrefs]);
 
     // Auto-cálculo das contas fixas em tempo real (mesma fonte da aba "Contas Fixas")
@@ -128,12 +144,19 @@ export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose
     }`;
     const sectionTitle = `text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2`;
 
-    const navItems = [
-        { id: 'financeiro', label: 'Renda & Custos',   icon: DollarSign, color: 'text-emerald-500' },
-        { id: 'perfil',     label: 'Perfil Investidor', icon: TrendingUp, color: 'text-blue-500'    },
-        { id: 'alertas',    label: 'Alertas',           icon: Bell,        color: 'text-amber-500'   },
-        { id: 'margens',    label: 'Margens',           icon: Target,      color: 'text-rose-500'    },
-    ];
+    // Abas dependem do módulo de onde a configuração foi aberta:
+    //  - "gastos" : foco em renda/custos/margens e alertas operacionais de gastos
+    //  - "patrimonio" : foco em perfil de investidor e alertas patrimoniais
+    const navItems = isPatrimony
+        ? [
+            { id: 'perfil',  label: 'Perfil Investidor', icon: TrendingUp, color: 'text-blue-500'  },
+            { id: 'alertas', label: 'Alertas',           icon: Bell,        color: 'text-amber-500' },
+        ]
+        : [
+            { id: 'financeiro', label: 'Renda & Custos', icon: DollarSign, color: 'text-emerald-500' },
+            { id: 'margens',    label: 'Margens',        icon: Target,      color: 'text-rose-500'    },
+            { id: 'alertas',    label: 'Alertas',        icon: Bell,        color: 'text-amber-500'   },
+        ];
 
     return (
         <div className="p-6 md:p-10">
@@ -148,7 +171,7 @@ export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose
                             Configurar Alívia
                         </h2>
                         <p className={`text-[10px] font-black uppercase tracking-[0.2em] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                            Personalize sua inteligência financeira
+                            {isPatrimony ? 'Patrimônio · Perfil & Alertas' : 'Controle de Gastos · Renda, Margens & Alertas'}
                         </p>
                     </div>
                 </div>
@@ -376,7 +399,7 @@ export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose
                     </div>
                 )}
 
-                {/* ── BLOCO 3: ALERTAS ── */}
+                {/* ── BLOCO 3: ALERTAS ── (alertas distintos por módulo) */}
                 {activeSection === 'alertas' && (
                     <div className="space-y-6 animate-in fade-in duration-300">
                         <h3 className={`${sectionTitle} ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
@@ -384,20 +407,36 @@ export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose
                         </h3>
 
                         <div className="space-y-3">
-                            {[
-                                {
-                                    key: 'ceiling',
-                                    label: 'Alerta de Teto por Categoria',
-                                    desc: 'Aviso quando você atingir 80% do limite definido em uma categoria.',
-                                    icon: Target,
-                                },
-                                {
-                                    key: 'weeklyReport',
-                                    label: 'Resumo Semanal',
-                                    desc: 'Relatório de saúde financeira todo domingo.',
-                                    icon: TrendingUp,
-                                },
-                            ].map(item => {
+                            {(isPatrimony
+                                ? [
+                                    {
+                                        key: 'goalProgress',
+                                        label: 'Progresso de Metas',
+                                        desc: 'Aviso quando uma meta de patrimônio atingir marcos (25%, 50%, 75%, 100%).',
+                                        icon: Target,
+                                    },
+                                    {
+                                        key: 'rebalance',
+                                        label: 'Rebalanceamento de Carteira',
+                                        desc: 'Aviso quando sua alocação atual estiver fora do seu perfil de risco.',
+                                        icon: TrendingUp,
+                                    },
+                                ]
+                                : [
+                                    {
+                                        key: 'ceiling',
+                                        label: 'Alerta de Teto por Categoria',
+                                        desc: 'Aviso quando você atingir 80% do limite definido em uma categoria.',
+                                        icon: Target,
+                                    },
+                                    {
+                                        key: 'weeklyReport',
+                                        label: 'Resumo Semanal',
+                                        desc: 'Relatório de saúde financeira todo domingo.',
+                                        icon: TrendingUp,
+                                    },
+                                ]
+                            ).map(item => {
                                 const Icon = item.icon;
                                 const active = !!alerts[item.key];
                                 return (

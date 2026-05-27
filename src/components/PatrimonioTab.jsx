@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Wallet, PiggyBank, TrendingUp, TrendingDown, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List, HelpCircle, ShieldCheck, Target, Home, Gem, Pencil, Trash2, Save, RefreshCw, Info } from 'lucide-react';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
-import PatrimonioConfigForm from './PatrimonioConfigForm';
+import AliviaConfigForm from './AliviaConfigForm';
 import EvolucaoPatrimonialTab from './EvolucaoPatrimonialTab';
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer, AreaChart, Area, LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from 'recharts';
 import ReactMarkdown from 'react-markdown';
@@ -51,7 +51,7 @@ function MiniCard({ label, value, icon: Icon, color, isDark, isHidable, isHidden
 }
 
 // ─── main ──────────────────────────────────────────────────────────────────────
-export default function PatrimonioTab({ transactions, manualConfig }) {
+export default function PatrimonioTab({ transactions, manualConfig, updateManualConfig }) {
   const { theme } = useTheme();
   const { currentUser, userPrefs } = useAuth();
   const isDark = theme !== 'light';
@@ -424,7 +424,7 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
         parts.push(`Objetivo: ${OBJ_LABELS[obj] || obj}. Perfil ${PROFILE_LABELS[riskProfile] || riskProfile} — estratégia alinhada.`);
       }
     } else if (!riskProfile && objectives.length === 0) {
-      parts.push('Configure seu perfil e objetivos em "Editar Configuração" para análise personalizada.');
+      parts.push('Configure seu perfil e objetivos em "Configurar Alívia" para análise personalizada.');
     }
 
     // 3. Análise geral dos ativos por categoria
@@ -463,8 +463,8 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
     <div className="animate-in fade-in duration-700 pb-4">
       {/* Top bar */}
       <div className="flex items-center justify-end mb-4">
-        <button onClick={() => setShowPatrimonioConfig(true)} className={`px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 border ${isDark ? 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-          <Pencil className="w-3 h-3" /> Editar Configuração
+        <button onClick={() => setShowPatrimonioConfig(true)} className={`px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 border ${isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100'}`}>
+          <Sparkles className="w-3 h-3" /> Configurar Alívia
         </button>
       </div>
 
@@ -1021,13 +1021,16 @@ export default function PatrimonioTab({ transactions, manualConfig }) {
       </div>{/* end grid */}
       </>)}
 
-      {/* ── PATRIMÔNIO CONFIG MODAL ── */}
+      {/* ── ALÍVIA CONFIG MODAL (módulo Patrimônio: Perfil Investidor + Alertas) ── */}
       {showPatrimonioConfig && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-500">
-          <div className={`relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl animate-in zoom-in-95 duration-500 scrollbar-hide ${
+          <div className={`relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[3rem] shadow-2xl animate-in zoom-in-95 duration-500 custom-scrollbar ${
             isDark ? 'bg-slate-900' : 'bg-white'
           }`}>
-            <PatrimonioConfigForm
+            <AliviaConfigForm
+              module="patrimonio"
+              manualConfig={manualConfig}
+              onConfigChange={updateManualConfig}
               onClose={() => setShowPatrimonioConfig(false)}
             />
           </div>
