@@ -1,12 +1,12 @@
 import React from 'react';
-import { 
-  LayoutDashboard, 
-  Target, 
-  Wallet, 
-  Sparkles, 
-  TrendingUp, 
-  CreditCard, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Target,
+  Wallet,
+  Sparkles,
+  TrendingUp,
+  CreditCard,
+  Settings,
   LogOut,
   X,
   HelpCircle,
@@ -17,7 +17,9 @@ import {
   TrendingDown,
   ArrowUpCircle,
   BarChart3,
-  Home
+  Home,
+  LayoutGrid,
+  ArrowLeftRight
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -84,19 +86,49 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
         </button>
 
         {/* Logo Section */}
-        <div 
-          className="p-8 flex flex-col items-center justify-center cursor-pointer select-none"
+        <div
+          className="pt-8 px-6 pb-2 flex flex-col items-center justify-center cursor-pointer select-none"
           onDoubleClick={() => {
             if (isAdmin) {
               window.dispatchEvent(new CustomEvent('change-view', { detail: 'admin' }));
             }
           }}
         >
-          <img 
-            src={logo} 
-            alt="Alívia Logo" 
-            className={`w-48 h-48 object-contain drop-shadow-[0_0_40px_rgba(16,185,129,0.15)] transition-all hover:scale-105 duration-700`} 
+          <img
+            src={logo}
+            alt="Alívia Logo"
+            className={`w-40 h-40 object-contain drop-shadow-[0_0_40px_rgba(16,185,129,0.15)] transition-all hover:scale-105 duration-700`}
           />
+        </div>
+
+        {/* Botão "Trocar Módulo" — pílula refinada com tipografia uppercase tracking-widest
+            totalmente distinta dos itens de menu (que usam text-sm font-bold) */}
+        <div className="px-5 pb-5">
+          <button
+            onClick={() => setActiveModule('hub')}
+            className={`group relative w-full overflow-hidden flex items-center justify-center gap-2.5 px-4 py-3 rounded-2xl border transition-all duration-500 hover:scale-[1.02] active:scale-95 ${
+              theme === 'light'
+                ? 'bg-gradient-to-r from-emerald-50 via-white to-blue-50 border-emerald-100/80 hover:border-emerald-300 hover:shadow-lg hover:shadow-emerald-100'
+                : 'bg-gradient-to-r from-emerald-500/[0.04] via-transparent to-blue-500/[0.04] border-white/5 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5'
+            }`}
+            title="Voltar para a tela de seleção de módulos"
+          >
+            {/* Shine sutil no hover */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 pointer-events-none" />
+
+            <div className="relative flex items-center gap-2.5">
+              <div className={`p-1.5 rounded-lg transition-all duration-500 group-hover:rotate-180 ${
+                theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/10 text-emerald-400'
+              }`}>
+                <ArrowLeftRight className="w-3 h-3" />
+              </div>
+              <span className={`text-[9px] font-black uppercase tracking-[0.28em] ${
+                theme === 'light' ? 'text-slate-600 group-hover:text-emerald-700' : 'text-slate-400 group-hover:text-emerald-300'
+              } transition-colors`}>
+                Trocar Módulo
+              </span>
+            </div>
+          </button>
         </div>
 
         {/* Navigation Links */}
@@ -145,17 +177,6 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
             );
           })}
 
-          <div className={`pt-2 mt-2 border-t ${theme === 'light' ? 'border-slate-100' : 'border-white/5'}`}>
-            <button
-              onClick={() => setActiveModule('hub')}
-              className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-300 font-bold text-sm text-left ${
-                theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              Trocar Módulo
-            </button>
-          </div>
         </nav>
 
         {/* User Profile Section */}
