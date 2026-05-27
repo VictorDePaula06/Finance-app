@@ -1,205 +1,502 @@
-import React, { useState, useEffect } from 'react';
-import { Settings, X, Save, Key, Calculator, AlertTriangle, TrendingUp, CreditCard, Pencil, Trash2, Check, CheckCircle2, Loader2, Moon, Sun } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+    Settings, X, Save, Loader2, Sparkles,
+    DollarSign, TrendingUp, Bell, Target,
+    ShieldCheck, Scale, Rocket, Bot, Activity,
+    Home, Sprout, Unlock, Award, Heart, Info,
+    ArrowRight
+} from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
-import { validateApiKey } from '../services/gemini';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
+import { db } from '../services/firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
-const AliviaConfigForm = ({ manualConfig, onConfigChange, onClose }) => {
-    const { theme, toggleTheme } = useTheme();
-    const { saveUserPreferences, userPrefs, deleteAccount } = useAuth();
+// Constantes alinhadas com WelcomeJourney / PatrimonyWelcome
+const OBJECTIVES = [
+    { id: 'independence', label: 'Viver de Renda',         emoji: '🏝️', desc: 'Independência financeira',   icon: Award },
+    { id: 'start',        label: 'Começar a Investir',     emoji: '🌱', desc: 'Dar o primeiro passo',       icon: Sprout },
+    { id: 'debt',         label: 'Sair das Dívidas',       emoji: '🔓', desc: 'Organizar e quitar',         icon: Unlock },
+    { id: 'goal',         label: 'Conquistar um Bem',      emoji: '🏠', desc: 'Casa, carro, viagem',        icon: Home },
+    { id: 'control',      label: 'Controle Total',         emoji: '🧘', desc: 'Paz e organização',          icon: Heart },
+];
+
+const RISK_PROFILES = [
+    { id: 'conservative', label: 'Conservador', desc: 'Segurança em primeiro lugar', icon: ShieldCheck, color: 'blue'    },
+    { id: 'moderate',     label: 'Moderado',    desc: 'Equilíbrio entre risco e retorno', icon: Scale,   color: 'emerald' },
+    { id: 'aggressive',   label: 'Arrojado',    desc: 'Foco em alto crescimento',   icon: Rocket,      color: 'purple'  },
+];
+
+const fmt = (v) => Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Helper: classes para botões de risk profile selecionados
+const riskActiveClasses = {
+    blue:    'border-blue-500 bg-blue-500/10',
+    emerald: 'border-emerald-500 bg-emerald-500/10',
+    purple:  'border-purple-500 bg-purple-500/10',
+};
+const riskTextClasses = {
+    blue:    'text-blue-500',
+    emerald: 'text-emerald-500',
+    purple:  'text-purple-500',
+};
+
+export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose }) {
+    const { theme } = useTheme();
+    const { saveUserPreferences, userPrefs, currentUser } = useAuth();
+    const isDark = theme !== 'light';
+
     const [isSaving, setIsSaving] = useState(false);
-    const [tempManualConfig, setTempManualConfig] = useState(manualConfig);
-    const [apiKey, setApiKey] = useState('');
-    const [error, setError] = useState('');
-    const [isWealthLocked, setIsWealthLocked] = useState(true);
-    const [showConfirmUnlock, setShowConfirmUnlock] = useState(false);
-    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [editingSubId, setEditingSubId] = useState(null);
-    const [editingValues, setEditingValues] = useState({ 
-        name: '', 
-        amount: '', 
-        totalInstallments: '', 
-        currentInstallment: '' 
-    });
+    const [tempConfig, setTempConfig] = useState(manualConfig || {});
+    const [activeSection, setActiveSection] = useState('financeiro');
+
+    // Onboarding fields (vinham do WelcomeJourney mas nunca eram editáveis depois)
+    const [objectives, setObjectives] = useState([]);
+    const [riskProfile, setRiskProfile] = useState('');
+    const [investmentPercent, setInvestmentPercent] = useState(20);
+    const [alerts, setAlerts] = useState({ ceiling: true, weeklyReport: true });
+
+    // Soma real das contas fixas cadastradas (substitui o input duplicado)
+    const [fixedExpensesSum, setFixedExpensesSum] = useState(0);
 
     useEffect(() => {
-        setTempManualConfig(manualConfig);
-        const savedKey = userPrefs?.apiKey || localStorage.getItem('user_gemini_api_key') || '';
-        setApiKey(savedKey);
-    }, [manualConfig, userPrefs]);
+        setTempConfig(manualConfig || {});
+    }, [manualConfig]);
 
-    const handleSaveConfig = async (e) => {
-        e.preventDefault();
-        setIsSaving(true);
-        setError('');
+    useEffect(() => {
+        const ob = userPrefs?.onboarding || {};
+        setObjectives(ob.objectives || []);
+        setRiskProfile(ob.riskProfile || '');
+        setInvestmentPercent(typeof ob.investmentPercent === 'number' ? ob.investmentPercent : 20);
+        setAlerts(ob.alerts || { ceiling: true, weeklyReport: true });
+    }, [userPrefs]);
 
-        if (apiKey.trim()) {
-            const isValid = await validateApiKey(apiKey.trim());
-            if (!isValid) {
-                setError("Chave de API inválida ou expirada.");
-                setIsSaving(false);
-                return;
-            }
-            localStorage.setItem('user_gemini_api_key', apiKey.trim());
-            saveUserPreferences({ apiKey: apiKey.trim() });
-        } else {
-            localStorage.removeItem('user_gemini_api_key');
-            saveUserPreferences({ apiKey: '' });
-        }
+    // Auto-cálculo das contas fixas em tempo real (mesma fonte da aba "Contas Fixas")
+    useEffect(() => {
+        if (!currentUser) return;
+        const q = query(collection(db, 'fixed_expenses'), where('userId', '==', currentUser.uid));
+        const unsub = onSnapshot(q, (snap) => {
+            const total = snap.docs.reduce((acc, d) => acc + (parseFloat(d.data().value) || 0), 0);
+            setFixedExpensesSum(total);
+        });
+        return () => unsub();
+    }, [currentUser]);
 
-        const finalConfig = { ...tempManualConfig };
-        if (tempManualConfig.invested !== manualConfig.invested) {
-            finalConfig.investedAt = Date.now();
-        }
-
-        onConfigChange(finalConfig);
-
-        setTimeout(() => {
-            setIsSaving(false);
-            if (onClose) onClose();
-        }, 1000);
+    const toggleObjective = (id) => {
+        setObjectives(prev => prev.includes(id) ? prev.filter(o => o !== id) : [...prev, id]);
     };
 
+    const handleSave = async (e) => {
+        e?.preventDefault?.();
+        setIsSaving(true);
+
+        // Normaliza valores numéricos
+        const finalConfig = {
+            ...tempConfig,
+            income: parseFloat(tempConfig.income) || 0,
+            variableEstimate: parseFloat(tempConfig.variableEstimate) || 0,
+            // Mantém o auto-cálculo como source-of-truth para fixedExpenses
+            fixedExpenses: fixedExpensesSum,
+        };
+
+        // Salva também o bloco onboarding atualizado
+        const newOnboarding = {
+            ...(userPrefs?.onboarding || {}),
+            objectives,
+            riskProfile,
+            investmentPercent,
+            alerts,
+        };
+
+        try {
+            onConfigChange(finalConfig);
+            await saveUserPreferences({ onboarding: newOnboarding });
+        } catch (err) {
+            console.error('Erro ao salvar Configuração da Alívia:', err);
+        } finally {
+            setTimeout(() => {
+                setIsSaving(false);
+                if (onClose) onClose();
+            }, 600);
+        }
+    };
+
+    // ── Style helpers (padrão do app) ──
+    const card = isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100';
+    const inputBase = `w-full px-4 py-3 rounded-xl border text-sm font-bold transition-all focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+        isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400'
+    }`;
+    const sectionTitle = `text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2`;
+
+    const navItems = [
+        { id: 'financeiro', label: 'Renda & Custos',   icon: DollarSign, color: 'text-emerald-500' },
+        { id: 'perfil',     label: 'Perfil Investidor', icon: TrendingUp, color: 'text-blue-500'    },
+        { id: 'alertas',    label: 'Alertas',           icon: Bell,        color: 'text-amber-500'   },
+        { id: 'margens',    label: 'Margens',           icon: Target,      color: 'text-rose-500'    },
+    ];
+
     return (
-        <div className={`p-8 rounded-[2.5rem] border animate-in fade-in slide-in-from-bottom-4 duration-500 ${
-            theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'
-        }`}>
-            <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-6">
-                <h3 className={`text-xl font-black flex items-center gap-3 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                    <Settings className="w-6 h-6 text-emerald-500" />
-                    Configurar Alívia
-                </h3>
+        <div className="p-6 md:p-10">
+            {/* Header */}
+            <div className={`flex items-center justify-between mb-8 pb-6 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+                <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-2xl ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
+                        <Bot className="w-6 h-6 text-emerald-500" />
+                    </div>
+                    <div>
+                        <h2 className={`text-xl md:text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                            Configurar Alívia
+                        </h2>
+                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                            Personalize sua inteligência financeira
+                        </p>
+                    </div>
+                </div>
                 {onClose && (
-                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
-                        <X className="w-6 h-6" />
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className={`p-2 rounded-xl transition-all ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/5' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                    >
+                        <X className="w-5 h-5" />
                     </button>
                 )}
             </div>
 
-            <form onSubmit={handleSaveConfig} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">Renda Mensal Média (R$)</label>
-                        <input
-                            type="number"
-                            value={tempManualConfig.income ?? ''}
-                            onChange={e => setTempManualConfig({ ...tempManualConfig, income: e.target.value })}
-                            onBlur={e => setTempManualConfig({ ...tempManualConfig, income: parseFloat(e.target.value) || 0 })}
-                            placeholder="Ex: 5000.00"
-                            className={`w-full p-4 rounded-2xl border transition-all ${
-                                theme === 'light' ? 'bg-slate-50 border-slate-200 focus:bg-white' : 'bg-white/5 border-white/5 focus:bg-white/10 text-white'
-                            }`}
-                        />
-                        <p className={`text-[10px] mt-2 leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                            Valor médio que você ganha no mês. A Alívia usa isso para projetar sua capacidade de reserva financeira.
-                        </p>
-                    </div>
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">Gastos Fixos Mensais (R$)</label>
-                        <input
-                            type="number"
-                            value={tempManualConfig.fixedExpenses ?? ''}
-                            onChange={e => setTempManualConfig({ ...tempManualConfig, fixedExpenses: e.target.value })}
-                            onBlur={e => setTempManualConfig({ ...tempManualConfig, fixedExpenses: parseFloat(e.target.value) || 0 })}
-                            placeholder="Ex: 1500.00"
-                            className={`w-full p-4 rounded-2xl border transition-all ${
-                                theme === 'light' ? 'bg-slate-50 border-slate-200 focus:bg-white' : 'bg-white/5 border-white/5 focus:bg-white/10 text-white'
-                            }`}
-                        />
-                        <p className={`text-[10px] mt-2 leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                            Despesas previsíveis e essenciais que não mudam muito (aluguel, contas de luz, internet, mensalidades).
-                        </p>
-                    </div>
-                </div>
-
-                <div>
-                    <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest">Estimativa de Variáveis (R$)</label>
-                    <input
-                        type="number"
-                        value={tempManualConfig.variableEstimate ?? ''}
-                        onChange={e => setTempManualConfig({ ...tempManualConfig, variableEstimate: e.target.value })}
-                        placeholder="Ex: 2000.00"
-                        className={`w-full p-4 rounded-2xl border transition-all ${
-                            theme === 'light' ? 'bg-slate-50 border-slate-200 focus:bg-white' : 'bg-white/5 border-white/5 focus:bg-white/10 text-white'
-                        }`}
-                    />
-                    <p className={`text-[10px] mt-2 leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                        Estimativa do seu custo de vida flexível (fatura do cartão de crédito, lazer, iFood, compras). 
-                        <br/><span className="text-emerald-500 font-bold">Dica da IA:</span> Se deixar em branco, a Alívia vai calcular automaticamente a média do seu histórico real de gastos.
-                    </p>
-                </div>
-
-                <div className="pt-4 border-t border-white/5">
-                    <div className="flex items-center justify-between mb-3">
-                        <label className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Saldo Inicial / Patrimônio Externo (R$)</label>
+            {/* Nav (chips) — alinha visualmente com SettingsTab */}
+            <div className="flex gap-2 mb-8 overflow-x-auto pb-1 scrollbar-hide">
+                {navItems.map(item => {
+                    const Icon = item.icon;
+                    const isActive = activeSection === item.id;
+                    return (
                         <button
+                            key={item.id}
                             type="button"
-                            onClick={() => setShowConfirmUnlock(true)}
-                            className="text-[10px] font-black text-blue-500 uppercase tracking-widest hover:underline"
+                            onClick={() => setActiveSection(item.id)}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap transition-all ${
+                                isActive
+                                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                    : isDark
+                                        ? 'bg-white/[0.03] text-slate-400 border border-white/5 hover:bg-white/5'
+                                        : 'bg-white text-slate-500 border border-slate-100 hover:bg-slate-50'
+                            }`}
                         >
-                            {isWealthLocked ? 'Forçar Ajuste' : 'Liberado'}
+                            <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-500' : item.color}`} />
+                            {item.label}
                         </button>
-                    </div>
-                    <input
-                        type="number"
-                        disabled={isWealthLocked}
-                        value={tempManualConfig.invested ?? ''}
-                        onChange={e => setTempManualConfig({ ...tempManualConfig, invested: e.target.value })}
-                        onBlur={e => setTempManualConfig({ ...tempManualConfig, invested: parseFloat(e.target.value) || 0 })}
-                        className={`w-full p-4 rounded-2xl border transition-all ${
-                            isWealthLocked ? 'opacity-50 cursor-not-allowed' : ''
-                        } ${
-                            theme === 'light' ? 'bg-slate-50 border-slate-200 focus:bg-white' : 'bg-white/5 border-white/5 focus:bg-white/10 text-white'
-                        }`}
-                    />
-                </div>
+                    );
+                })}
+            </div>
 
-                <div className="pt-6 border-t border-white/5">
-                    <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <TrendingUp className="w-4 h-4" /> Margem de Segurança por Categoria
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                        {CATEGORIES.expense.map(cat => (
-                            <div key={cat.id} className={`flex items-center justify-between p-4 rounded-2xl border ${
-                                theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'
-                            }`}>
-                                <div className="flex items-center gap-3">
-                                    <cat.icon className={`w-4 h-4 ${cat.color}`} />
-                                    <span className="text-xs font-bold">{cat.label}</span>
-                                </div>
+            <form onSubmit={handleSave} className="space-y-10">
+
+                {/* ── BLOCO 1: RENDA & CUSTOS ── */}
+                {activeSection === 'financeiro' && (
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                        <h3 className={`${sectionTitle} ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                            <DollarSign className="w-4 h-4" /> Renda & Custo de Vida
+                        </h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label className={`text-[10px] font-black uppercase tracking-widest mb-2 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    Renda Mensal Média (R$)
+                                </label>
                                 <input
                                     type="number"
-                                    value={tempManualConfig.categoryBudgets?.[cat.id] || ''}
-                                    onChange={e => {
-                                        const newBudgets = { ...tempManualConfig.categoryBudgets, [cat.id]: e.target.value };
-                                        setTempManualConfig({ ...tempManualConfig, categoryBudgets: newBudgets });
-                                    }}
-                                    placeholder="0,00"
-                                    className={`w-24 p-2 text-right text-xs font-bold rounded-xl border ${
-                                        theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-white/5 text-white'
-                                    }`}
+                                    step="0.01"
+                                    value={tempConfig.income ?? ''}
+                                    onChange={(e) => setTempConfig({ ...tempConfig, income: e.target.value })}
+                                    placeholder="Ex: 5000,00"
+                                    className={inputBase}
                                 />
+                                <p className={`text-[10px] mt-2 leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                    Quanto entra em média na sua conta todo mês. A Alívia usa como base quando você ainda não lançou os recebimentos do mês.
+                                </p>
                             </div>
-                        ))}
-                    </div>
-                </div>
 
-                <button
-                    type="submit"
-                    disabled={isSaving}
-                    className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl flex items-center justify-center gap-3 ${
-                        isSaving ? 'bg-emerald-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20'
-                    }`}
-                >
-                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                    {isSaving ? 'Salvando...' : 'Salvar Todas as Configurações'}
-                </button>
+                            <div>
+                                <label className={`text-[10px] font-black uppercase tracking-widest mb-2 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    Estimativa de Variáveis (R$)
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={tempConfig.variableEstimate ?? ''}
+                                    onChange={(e) => setTempConfig({ ...tempConfig, variableEstimate: e.target.value })}
+                                    placeholder="Deixe vazio para usar a média real"
+                                    className={inputBase}
+                                />
+                                <p className={`text-[10px] mt-2 leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                    Custo de vida flexível (lazer, iFood, compras). Em branco, usamos a média real dos últimos 3 meses automaticamente.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Gastos Fixos — agora read-only, link pra Contas Fixas */}
+                        <div className={`p-5 rounded-2xl border ${card}`}>
+                            <div className="flex items-start justify-between gap-4 flex-wrap">
+                                <div className="min-w-0 flex-1">
+                                    <p className={`text-[10px] font-black uppercase tracking-widest mb-1 flex items-center gap-2 ${isDark ? 'text-blue-400' : 'text-blue-500'}`}>
+                                        <Activity className="w-3.5 h-3.5" /> Gastos Fixos Mensais
+                                    </p>
+                                    <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                                        R$ {fmt(fixedExpensesSum)}
+                                    </p>
+                                    <p className={`text-[10px] mt-1.5 leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                        Calculado automaticamente a partir das suas contas cadastradas. Para alterar, edite na aba <strong>Contas Fixas</strong>.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (onClose) onClose();
+                                        window.dispatchEvent(new CustomEvent('navigate-tab', { detail: 'fixas' }));
+                                    }}
+                                    className={`shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 ${
+                                        isDark
+                                            ? 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+                                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    Gerenciar <ArrowRight className="w-3 h-3" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── BLOCO 2: PERFIL DE INVESTIDOR ── */}
+                {activeSection === 'perfil' && (
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                        <h3 className={`${sectionTitle} ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                            <TrendingUp className="w-4 h-4" /> Perfil de Investidor
+                        </h3>
+
+                        {/* Objetivos (multi-select) */}
+                        <div>
+                            <label className={`text-[10px] font-black uppercase tracking-widest mb-3 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                Seus Objetivos Financeiros
+                                <span className={`ml-2 normal-case tracking-normal font-medium text-[9px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                    (pode selecionar mais de um)
+                                </span>
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                {OBJECTIVES.map(obj => {
+                                    const active = objectives.includes(obj.id);
+                                    return (
+                                        <button
+                                            key={obj.id}
+                                            type="button"
+                                            onClick={() => toggleObjective(obj.id)}
+                                            className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                                                active
+                                                    ? 'border-emerald-500 bg-emerald-500/10'
+                                                    : isDark
+                                                        ? 'border-white/10 bg-white/5 hover:border-white/20'
+                                                        : 'border-slate-200 bg-white hover:border-slate-300'
+                                            }`}
+                                        >
+                                            <span className="text-lg shrink-0">{obj.emoji}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`font-black text-xs ${active ? 'text-emerald-500' : (isDark ? 'text-white' : 'text-slate-800')}`}>{obj.label}</p>
+                                                <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{obj.desc}</p>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Perfil de Risco */}
+                        <div>
+                            <label className={`text-[10px] font-black uppercase tracking-widest mb-3 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                Perfil de Risco
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                {RISK_PROFILES.map(rp => {
+                                    const Icon = rp.icon;
+                                    const active = riskProfile === rp.id;
+                                    return (
+                                        <button
+                                            key={rp.id}
+                                            type="button"
+                                            onClick={() => setRiskProfile(rp.id)}
+                                            className={`flex flex-col items-center text-center gap-2 p-4 rounded-xl border transition-all ${
+                                                active
+                                                    ? riskActiveClasses[rp.color]
+                                                    : isDark
+                                                        ? 'border-white/10 bg-white/5 hover:border-white/20'
+                                                        : 'border-slate-200 bg-white hover:border-slate-300'
+                                            }`}
+                                        >
+                                            <Icon className={`w-5 h-5 ${active ? riskTextClasses[rp.color] : 'text-slate-400'}`} />
+                                            <div>
+                                                <p className={`font-black text-xs ${active ? riskTextClasses[rp.color] : (isDark ? 'text-white' : 'text-slate-800')}`}>
+                                                    {rp.label}
+                                                </p>
+                                                <p className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{rp.desc}</p>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* % alvo de investimento */}
+                        <div>
+                            <label className={`text-[10px] font-black uppercase tracking-widest mb-3 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                Quanto da renda quer investir
+                            </label>
+                            <div className={`p-5 rounded-2xl border ${card}`}>
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className={`text-xs font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>1%</span>
+                                    <span className="text-3xl font-black text-emerald-500">{investmentPercent}%</span>
+                                    <span className={`text-xs font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>50%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min={1}
+                                    max={50}
+                                    value={investmentPercent}
+                                    onChange={(e) => setInvestmentPercent(parseInt(e.target.value))}
+                                    className="w-full accent-emerald-500"
+                                />
+                                {tempConfig.income > 0 && (
+                                    <p className={`text-[10px] mt-3 leading-relaxed flex items-start gap-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                                        <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                        <span>
+                                            Com R$ {fmt(parseFloat(tempConfig.income))} de renda, {investmentPercent}% representa{' '}
+                                            <strong>R$ {fmt(parseFloat(tempConfig.income) * investmentPercent / 100)}/mês</strong> para investimentos.
+                                        </span>
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── BLOCO 3: ALERTAS ── */}
+                {activeSection === 'alertas' && (
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                        <h3 className={`${sectionTitle} ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+                            <Bell className="w-4 h-4" /> Alertas & Notificações
+                        </h3>
+
+                        <div className="space-y-3">
+                            {[
+                                {
+                                    key: 'ceiling',
+                                    label: 'Alerta de Teto por Categoria',
+                                    desc: 'Aviso quando você atingir 80% do limite definido em uma categoria.',
+                                    icon: Target,
+                                },
+                                {
+                                    key: 'weeklyReport',
+                                    label: 'Resumo Semanal',
+                                    desc: 'Relatório de saúde financeira todo domingo.',
+                                    icon: TrendingUp,
+                                },
+                            ].map(item => {
+                                const Icon = item.icon;
+                                const active = !!alerts[item.key];
+                                return (
+                                    <button
+                                        key={item.key}
+                                        type="button"
+                                        onClick={() => setAlerts(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
+                                        className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all ${
+                                            active
+                                                ? 'border-emerald-500 bg-emerald-500/10'
+                                                : isDark
+                                                    ? 'border-white/10 bg-white/5 hover:border-white/20'
+                                                    : 'border-slate-200 bg-white hover:border-slate-300'
+                                        }`}
+                                    >
+                                        <div className={`p-2.5 rounded-xl shrink-0 ${active ? 'bg-emerald-500 text-white' : (isDark ? 'bg-white/10 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
+                                            <Icon className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`font-black text-xs ${active ? 'text-emerald-500' : (isDark ? 'text-white' : 'text-slate-800')}`}>
+                                                {item.label}
+                                            </p>
+                                            <p className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                                {item.desc}
+                                            </p>
+                                        </div>
+                                        <div className={`w-10 h-6 rounded-full flex items-center px-1 transition-all shrink-0 ${
+                                            active ? 'bg-emerald-500 justify-end' : isDark ? 'bg-white/10 justify-start' : 'bg-slate-200 justify-start'
+                                        }`}>
+                                            <div className="w-4 h-4 bg-white rounded-full shadow" />
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* ── BLOCO 4: MARGENS POR CATEGORIA ── */}
+                {activeSection === 'margens' && (
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                        <h3 className={`${sectionTitle} ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>
+                            <Target className="w-4 h-4" /> Margem de Segurança por Categoria
+                        </h3>
+                        <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Define um teto mensal por categoria. A Alívia avisa quando você atingir 80% e sinaliza o ritmo dos gastos.
+                            Deixe em branco para desativar o limite naquela categoria.
+                        </p>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {CATEGORIES.expense.map(cat => {
+                                const Icon = cat.icon;
+                                return (
+                                    <div key={cat.id} className={`flex items-center justify-between p-3 rounded-xl border ${card}`}>
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <Icon className={`w-4 h-4 shrink-0 ${cat.color}`} />
+                                            <span className={`text-xs font-bold truncate ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{cat.label}</span>
+                                        </div>
+                                        <div className="relative shrink-0">
+                                            <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-black ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>R$</span>
+                                            <input
+                                                type="number"
+                                                placeholder="0,00"
+                                                value={tempConfig.categoryBudgets?.[cat.id] || ''}
+                                                onChange={(e) => {
+                                                    const newBudgets = { ...(tempConfig.categoryBudgets || {}), [cat.id]: e.target.value };
+                                                    setTempConfig({ ...tempConfig, categoryBudgets: newBudgets });
+                                                }}
+                                                className={`w-24 pl-8 pr-2 py-1.5 text-right text-xs font-bold rounded-lg border focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                                                    isDark ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'
+                                                }`}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Save button */}
+                <div className={`pt-6 border-t ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+                    <button
+                        type="submit"
+                        disabled={isSaving}
+                        className="w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl flex items-center justify-center gap-3 bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20 disabled:opacity-50 active:scale-95"
+                    >
+                        {isSaving ? (
+                            <>
+                                <Loader2 className="w-5 h-5 animate-spin" /> Salvando...
+                            </>
+                        ) : (
+                            <>
+                                <Save className="w-5 h-5" /> Salvar Configurações
+                            </>
+                        )}
+                    </button>
+                </div>
             </form>
         </div>
     );
-};
-
-export default AliviaConfigForm;
+}

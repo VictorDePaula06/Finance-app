@@ -154,6 +154,18 @@ function Dashboard() {
     return () => window.removeEventListener('onboarding-complete', handler);
   }, []);
 
+  // Eventos de navegação cross-component (AliviaConfigForm → aba específica)
+  useEffect(() => {
+    const handler = (e) => {
+      if (typeof e.detail === 'string') {
+        setActiveTab(e.detail);
+        setActiveModule('gastos'); // navegação dentro do módulo de gastos
+      }
+    };
+    window.addEventListener('navigate-tab', handler);
+    return () => window.removeEventListener('navigate-tab', handler);
+  }, []);
+
   // CDI agora vem do hook compartilhado useCdiRate (cache global). Não precisa fetch local.
 
   useEffect(() => {
