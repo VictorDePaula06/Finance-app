@@ -25,19 +25,20 @@ export async function createCheckoutSession(uid, priceId, onFinish) {
             const { url, error } = data;
 
             if (error) {
-                console.error(`Stripe Extension Error: ${error.message}`);
+                const errMsg = error.message || 'Erro desconhecido';
+                console.error(`Stripe Extension Error: ${errMsg}`);
 
                 // Trata erro específico de cliente inexistente (geralmente troca de ambiente Teste/Live)
-                if (error.message.toLowerCase().includes('no such customer')) {
+                if (errMsg.toLowerCase().includes('no such customer')) {
                     try {
                         await deleteDoc(doc(db, 'customers', uid));
                         alert("Ocorreu um erro de sincronização com o Stripe. Limpamos seu perfil de pagamento antigo. Por favor, tente clicar em 'Ativar Minha Conta' novamente.");
                     } catch (delErr) {
                         console.error("Erro ao limpar perfil Stripe:", delErr);
-                        alert(`Erro do Stripe: ${error.message}`);
+                        alert(`Erro do Stripe: ${errMsg}`);
                     }
                 } else {
-                    alert(`Erro do Stripe: ${error.message}`);
+                    alert(`Erro do Stripe: ${errMsg}`);
                 }
 
                 if (onFinish) onFinish();

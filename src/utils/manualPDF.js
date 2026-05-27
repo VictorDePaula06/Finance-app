@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import { version as appVersion } from '../../package.json';
 
 export const generateManualPDF = async () => {
     const doc = new jsPDF();
@@ -104,7 +105,7 @@ export const generateManualPDF = async () => {
             doc.setFontSize(9);
             doc.setTextColor(...colors.lightText);
             doc.setFont("helvetica", "normal");
-            doc.text(`Alívia - Manual de Tranquilidade v7.0`, 14, 287);
+            doc.text(`Alívia - Manual de Tranquilidade v${appVersion}`, 14, 287);
             doc.text(`Página ${i} de ${pageCount}`, 175, 287);
         }
     };

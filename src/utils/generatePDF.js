@@ -18,7 +18,8 @@ export const generatePDF = async (transactions, selectedMonth_YYYY_MM, logoSrc, 
     // --- Data Preparation ---
     // Filter transactions for the selected month
     const filtered = transactions.filter(t => {
-        const tMonth = t.month ? t.month : t.date.slice(0, 7);
+        // Robust month extraction — antes podia crashar se t.month e t.date fossem ambos undefined
+        const tMonth = t.month || (typeof t.date === 'string' ? t.date.slice(0, 7) : '');
         return tMonth === selectedMonth_YYYY_MM;
     }).sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -227,9 +228,14 @@ export const generatePDF = async (transactions, selectedMonth_YYYY_MM, logoSrc, 
         const catList = t.type === 'income' ? CATEGORIES.income : CATEGORIES.expense;
         const foundCat = catList.find(c => c.id === t.category) || catList.find(c => c.id === 'other');
 
+        // Fix: campo correto é `totalInstallments` (estava `installments`, sempre falsy → não mostrava parcelas no PDF)
+        const desc = t.description || 'Sem descrição';
+        const installmentSuffix = t.totalInstallments
+            ? ` (${t.currentInstallment || 1}/${t.totalInstallments})`
+            : '';
         return [
             new Date(t.date).getDate().toString().padStart(2, '0'), // Just the day
-            t.description + (t.isFixed ? ' (Fixa)' : '') + (t.installments ? ` (${t.currentInstallment}/${t.installments})` : ''),
+            desc + (t.isFixed ? ' (Fixa)' : '') + installmentSuffix,
             foundCat ? foundCat.label : 'Geral',
             t.type === 'income' ? 'Recebimento' : 'Lançamento',
             `R$ ${Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`

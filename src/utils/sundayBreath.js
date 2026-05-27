@@ -9,13 +9,17 @@ export const generateSundayBreath = (transactions, manualConfig) => {
     const lastWeek = new Date();
     lastWeek.setDate(today.getDate() - 7);
 
-    const weekTxs = transactions.filter(t => new Date(t.date) >= lastWeek);
-    
+    const weekTxs = (transactions || []).filter(t => {
+        if (!t || !t.date) return false;
+        const d = new Date(t.date);
+        return isFinite(d.getTime()) && d >= lastWeek;
+    });
+
     // Positives to highlight
     const savingsTxs = weekTxs.filter(t => t.category === 'investment' || t.category === 'vault');
     const incomeTxs = weekTxs.filter(t => t.type === 'income');
-    const totalSaved = savingsTxs.reduce((acc, t) => acc + parseFloat(t.amount), 0);
-    const totalIncome = incomeTxs.reduce((acc, t) => acc + parseFloat(t.amount), 0);
+    const totalSaved = savingsTxs.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    const totalIncome = incomeTxs.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
     return {
         hasActivity: weekTxs.length > 0,

@@ -46,7 +46,7 @@ export const calculateStatsContext = (transactions, manualConfig, isPanic = fals
     const today = new Date();
     const currentMonth = today.toLocaleDateString('en-CA').slice(0, 7); // YYYY-MM (Local)
 
-    const currentTransactions = transactions.filter(t => t.date.startsWith(currentMonth));
+    const currentTransactions = transactions.filter(t => t.date && t.date.startsWith && t.date.startsWith(currentMonth));
     
     // Total Flow (All movements)
     const totalIncome = currentTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
@@ -112,11 +112,12 @@ export const calculateStatsContext = (transactions, manualConfig, isPanic = fals
 
     const cumulativeBalance = calculateCumulativeBalance(transactions, currentMonth);
 
-    const jarsTotal = jars.reduce((a, j) => a + (j.balance || 0), 0);
+    const jarsTotal = jars.reduce((a, j) => a + (parseFloat(j.balance) || 0), 0);
     const investmentsTotal = investments.reduce((acc, a) => {
-        const price = a.manualCurrentPrice || a.purchasePrice || 0;
+        const price = parseFloat(a.manualCurrentPrice || a.purchasePrice) || 0;
+        const qty = parseFloat(a.quantity) || 0;
         const usdMultiplier = a.isUSD ? 5.0 : 1; // Approx for AI context
-        return acc + (a.quantity * price * usdMultiplier);
+        return acc + (qty * price * usdMultiplier);
     }, 0);
     const patrimonioTotal = jarsTotal + investmentsTotal;
 
@@ -132,7 +133,7 @@ CONTEXTO FINANCEIRO DO USUÁRIO (Mês: ${currentMonth}):
   - SALDO EM CARTEIRA (TOTAL ACUMULADO HOJE): R$ ${cumulativeBalance.toFixed(2)}
   - CATEGORIAS DE DESPESA DISPONÍVEIS: ${expenseCategories}
   - CATEGORIAS DE RECEITA DISPONÍVEIS: ${incomeCategories}
-  - Composição do Saldo Atual: R$ ${previousBalance.toFixed(2)} (Sobra Anterior) + R$ ${currentBalance.toFixed(2)} (Ganhos/Gastos Reais de Abril)
+  - Composição do Saldo Atual: R$ ${previousBalance.toFixed(2)} (Sobra Anterior) + R$ ${currentBalance.toFixed(2)} (Ganhos/Gastos Reais de ${today.toLocaleDateString('pt-BR', { month: 'long' })})
   
   - Ganhos Reais Lançados no Mês: R$ ${realIncome.toFixed(2)}
   - Gastos Reais Lançados no Mês (Consumo): R$ ${realExpense.toFixed(2)}
@@ -251,7 +252,7 @@ export const sendMessageToGemini = async (history, message, context) => {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        const cleanHistory = history.filter(msg => !msg.text.includes('{"action":'));
+        const cleanHistory = history.filter(msg => msg.text && !msg.text.includes('{"action":'));
 
         const chat = model.startChat({
             history: [
@@ -298,7 +299,7 @@ CONFIGURAÇÃO ATUAL:
 - Renda Prevista: R$ ${monthlyIncome}
 - Gastos Fixos: R$ ${fixedExpenses}
 - Assinaturas/Base do Cartão:
-${(manualConfig?.recurringSubs || []).map(s => `  * ${s.name}: R$ ${parseFloat(s.amount).toFixed(2)}${s.totalInstallments > 0 ? ` (Parcela ${s.currentInstallment} de ${s.totalInstallments})` : ''}`).join('\n') || '  (Nenhuma assinura configurada)'}
+${(manualConfig?.recurringSubs || []).map(s => `  * ${s.name}: R$ ${parseFloat(s.amount).toFixed(2)}${s.totalInstallments > 0 ? ` (Parcela ${s.currentInstallment} de ${s.totalInstallments})` : ''}`).join('\n') || '  (Nenhuma assinatura configurada)'}
 
 SUA TAREFA:
 1. Apresente o balanço do mês de forma direta.
