@@ -46,6 +46,7 @@ import TermsAcceptanceModal from './components/TermsAcceptanceModal';
 import CookieConsent from './components/CookieConsent';
 import FixedExpensesTab from './components/FixedExpensesTab';
 import { useCdiRate } from './utils/marketRates';
+import PremiumPaywall from './components/PremiumPaywall';
 
 // CONFIGURAÇÃO MASTER
 const MASTER_EMAIL = 'financealivia@gmail.com';
@@ -400,10 +401,11 @@ function Dashboard() {
 
   if (activeModule === 'hub') {
     return (
-      <Hub 
+      <Hub
         onSelectModule={(mod) => {
+          // Patrimônio: Free e Premium acessam (Free com limites); Standard ainda bloqueado.
           if (mod === 'patrimonio' && planLevel === 'standard') {
-            alert('O módulo de Patrimônio é exclusivo para assinantes Premium.');
+            alert('O módulo de Patrimônio é exclusivo para assinantes Premium. O Plano Standard cobre apenas o Controle de Gastos.');
             return;
           }
           setActiveModule(mod);
@@ -626,7 +628,7 @@ function Dashboard() {
           )}
 
           { activeTab === 'patrimonio' && (
-            planLevel === 'premium' || isAdmin ? (
+            planLevel === 'premium' || planLevel === 'free' || isAdmin ? (
               <PatrimonioTab
                 transactions={transactions}
                 manualConfig={manualConfig}
@@ -635,15 +637,31 @@ function Dashboard() {
             ) : <div className="p-12 text-center font-bold text-slate-500">Este módulo requer o plano Premium.</div>
           )}
 
-          { activeTab === 'metas' && (planLevel === 'premium' || isAdmin ? <GoalTracker /> : null)}
+          { activeTab === 'metas' && (planLevel === 'premium' || planLevel === 'free' || isAdmin ? <GoalTracker /> : null)}
 
-          { activeTab === 'evolucao' && (planLevel === 'premium' || isAdmin ? <EvolucaoPatrimonialTab /> : null) }
+          { activeTab === 'evolucao' && (
+            planLevel === 'premium' || isAdmin ? (
+              <EvolucaoPatrimonialTab />
+            ) : (
+              <PremiumPaywall
+                title="Evolução Patrimonial"
+                description="Acompanhe o desempenho real do seu patrimônio comparado ao IBOVESPA, S&P 500 e CDI ao longo do tempo."
+                icon={TrendingUp}
+                features={[
+                  'Gráfico de retorno acumulado com benchmarks reais (Yahoo Finance)',
+                  'Performance vs CDI, IBOVESPA e S&P 500',
+                  'Comparação por período: 1m, 3m, 6m, 1 ano',
+                  'Análise de rentabilidade dos seus ativos',
+                ]}
+              />
+            )
+          )}
 
           { activeTab === 'cartoes' && <CardsTab transactions={transactions} setActiveTab={setActiveTab} walletStats={walletStats} /> }
-          
-          { activeTab === 'reserva' && (planLevel === 'premium' || isAdmin ? <EmergencyReserveTab /> : null) }
-          
-          { activeTab === 'investimentos' && (planLevel === 'premium' || isAdmin ? <InvestmentsTab /> : null) }
+
+          { activeTab === 'reserva' && (planLevel === 'premium' || planLevel === 'free' || isAdmin ? <EmergencyReserveTab /> : null) }
+
+          { activeTab === 'investimentos' && (planLevel === 'premium' || planLevel === 'free' || isAdmin ? <InvestmentsTab /> : null) }
 
           {activeTab === 'analise' && (
             <AnalysisTab transactions={transactions} cards={cards} subscriptions={subscriptions} />

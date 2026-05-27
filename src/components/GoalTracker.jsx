@@ -5,6 +5,7 @@ import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc, orderBy } from 'firebase/firestore';
 import { useCdiRate, useUsdRate } from '../utils/marketRates';
+import TrialLimitModal from './TrialLimitModal';
 
 const fmt = (v) => Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const CDI_MEDIO_10A = 11.15;
@@ -74,7 +75,10 @@ function AssetPicker({ jars, investments, selectedJarIds, selectedInvIds, onTogg
 export default function GoalTracker() {
     const { theme } = useTheme();
     const isDark = theme !== 'light';
-    const { currentUser } = useAuth();
+    const { currentUser, planLevel } = useAuth();
+    const isFreePlan = planLevel === 'free';
+    const FREE_GOAL_LIMIT = 1;
+    const [showLimitModal, setShowLimitModal] = useState(false);
 
     const [goals, setGoals] = useState([]);
     const [jars, setJars] = useState([]);
@@ -310,8 +314,13 @@ export default function GoalTracker() {
                     </div>
                 </div>
                 <div className="ml-auto flex items-center gap-3">
-                    <button 
+                    <button
                         onClick={() => {
+                            const activeGoalsCount = goals.filter(g => g.status === 'active').length;
+                            if (isFreePlan && activeGoalsCount >= FREE_GOAL_LIMIT) {
+                                setShowLimitModal(true);
+                                return;
+                            }
                             setIsAdding(true);
                         }}
                         className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
@@ -747,6 +756,12 @@ export default function GoalTracker() {
                     </div>
                 </div>
             )}
+
+            <TrialLimitModal
+                isOpen={showLimitModal}
+                onClose={() => setShowLimitModal(false)}
+                limitMessage={`Você atingiu o limite de ${FREE_GOAL_LIMIT} meta ativa do Plano Gratuito. Faça upgrade para Premium e crie quantas metas quiser.`}
+            />
         </div>
     );
 }

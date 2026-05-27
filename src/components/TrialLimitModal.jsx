@@ -13,9 +13,10 @@ import { useAuth } from '../contexts/AuthContext';
  *  - limitMessage {string}  ex: "Você atingiu o limite de 2 recebimentos."
  */
 export default function TrialLimitModal({ isOpen, onClose, limitMessage }) {
-    const { currentUser } = useAuth();
+    const { currentUser, planLevel } = useAuth();
     const [isRedirecting, setIsRedirecting] = useState(false);
     const [redirectingPlan, setRedirectingPlan] = useState(null);
+    const isFreePlan = planLevel === 'free';
 
     if (!isOpen) return null;
 
@@ -58,7 +59,7 @@ export default function TrialLimitModal({ isOpen, onClose, limitMessage }) {
                             <Lock className="w-5 h-5 text-amber-400" />
                         </div>
                         <div>
-                            <h3 className="text-sm font-black text-white">Limite do Período de Teste</h3>
+                            <h3 className="text-sm font-black text-white">{isFreePlan ? 'Limite do Plano Gratuito' : 'Limite do Período de Teste'}</h3>
                             <p className="text-xs text-amber-300/80 mt-0.5 leading-snug">{limitMessage}</p>
                         </div>
                     </div>
@@ -92,7 +93,7 @@ export default function TrialLimitModal({ isOpen, onClose, limitMessage }) {
                                 </div>
                             </div>
                             <div className="text-right shrink-0">
-                                <p className="text-lg font-black text-blue-400">R$ 14,90</p>
+                                <p className="text-lg font-black text-blue-400">R$ 9,90</p>
                                 <p className="text-[10px] text-slate-500">/mês</p>
                                 {redirectingPlan === 'standard' && (
                                     <div className="mt-1 w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin mx-auto" />
@@ -124,7 +125,7 @@ export default function TrialLimitModal({ isOpen, onClose, limitMessage }) {
                                 </div>
                             </div>
                             <div className="text-right shrink-0">
-                                <p className="text-lg font-black text-emerald-400">R$ 29,90</p>
+                                <p className="text-lg font-black text-emerald-400">R$ 19,90</p>
                                 <p className="text-[10px] text-slate-500">/mês</p>
                                 {redirectingPlan === 'premium' && (
                                     <div className="mt-1 w-4 h-4 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin mx-auto" />
@@ -137,7 +138,7 @@ export default function TrialLimitModal({ isOpen, onClose, limitMessage }) {
                         onClick={onClose}
                         className="w-full py-2.5 rounded-xl bg-white/5 text-slate-500 text-xs font-bold hover:bg-white/10 hover:text-slate-300 transition-all"
                     >
-                        Continuar no período de teste
+                        {isFreePlan ? 'Continuar no Plano Gratuito' : 'Continuar no período de teste'}
                     </button>
                 </div>
             </div>

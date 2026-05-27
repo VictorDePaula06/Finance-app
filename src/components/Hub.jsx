@@ -11,6 +11,8 @@ export default function Hub({ onSelectModule }) {
   const { currentUser, planLevel, isAdmin } = useAuth();
   const [showUpgrade, setShowUpgrade] = useState(false);
   const isDark = theme !== 'light';
+  // Standard ainda fica bloqueado (paga só pelo Controle de Gastos sem limites).
+  // Free e Premium acessam — Free com limites estratégicos (preview/funil de conversão).
   const isStandard = planLevel === 'standard';
 
   const firstName = currentUser?.displayName?.split(' ')[0] || 'você';

@@ -31,13 +31,17 @@ import { db } from '../services/firebase';
 import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { getCdiRate, getUsdRate } from '../utils/marketRates';
+import TrialLimitModal from './TrialLimitModal';
 import { ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Tooltip as ReTooltip } from 'recharts';
 import { BarChart3, Layers, List, Sparkles } from 'lucide-react';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
 
 export default function InvestmentsTab() {
     const { theme } = useTheme();
-    const { currentUser } = useAuth();
+    const { currentUser, planLevel } = useAuth();
+    const isFreePlan = planLevel === 'free';
+    const FREE_INVESTMENT_LIMIT = 3;
+    const [showLimitModal, setShowLimitModal] = useState(false);
     const [investments, setInvestments] = useState([]);
     const [reserves, setReserves] = useState([]);
     const [cdiRate, setCdiRate] = useState(10.65);
@@ -848,8 +852,12 @@ export default function InvestmentsTab() {
                         >
                             Moeda ({viewInUSD ? '$' : 'R$'})
                         </button>
-                        <button  
+                        <button
                             onClick={() => {
+                                if (isFreePlan && investments.length >= FREE_INVESTMENT_LIMIT) {
+                                    setShowLimitModal(true);
+                                    return;
+                                }
                                 setIsEditing(null);
                                 setNewAsset({ type: 'crypto', name: 'Bitcoin', symbol: 'BTC', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false });
                                 setIsAdding(true);
@@ -1728,6 +1736,12 @@ export default function InvestmentsTab() {
                     <span className="text-emerald-500/60 mt-2 block font-black">Alívia - Gestão Patrimonial Inteligente</span>
                 </p>
             </div>
+
+            <TrialLimitModal
+                isOpen={showLimitModal}
+                onClose={() => setShowLimitModal(false)}
+                limitMessage={`Você atingiu o limite de ${FREE_INVESTMENT_LIMIT} investimentos do Plano Gratuito. Faça upgrade para Premium e cadastre quantos ativos quiser.`}
+            />
         </div>
     );
 }

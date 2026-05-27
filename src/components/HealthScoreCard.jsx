@@ -1,12 +1,17 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, Info, TrendingUp, AlertTriangle, CheckCircle2, X, Wallet, ShieldCheck, Target, Pencil, Check } from 'lucide-react';
+import { Activity, Info, TrendingUp, AlertTriangle, CheckCircle2, X, Wallet, ShieldCheck, Target, Pencil, Check, Lock, Sparkles } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import UpgradeModal from './UpgradeModal';
 
 export default function HealthScoreCard({ scoreData, baseIncome = 0, onUpdateBaseIncome }) {
     const { theme } = useTheme();
+    const { planLevel } = useAuth();
+    const isFreePlan = planLevel === 'free';
     // IMPORTANT: All hooks must be called before any early return (Rules of Hooks).
     const [showLogic, setShowLogic] = useState(false);
+    const [showUpgrade, setShowUpgrade] = useState(false);
     const [editingIncome, setEditingIncome] = useState(false);
     const [incomeInput, setIncomeInput] = useState('');
 
@@ -271,11 +276,16 @@ export default function HealthScoreCard({ scoreData, baseIncome = 0, onUpdateBas
                     </div>
 
                     <button
-                        onClick={() => setShowLogic(true)}
-                        className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-500 transition-colors group"
+                        onClick={() => isFreePlan ? setShowUpgrade(true) : setShowLogic(true)}
+                        className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-colors group ${
+                            isFreePlan ? 'text-amber-500 hover:text-amber-600' : 'text-slate-500 hover:text-blue-500'
+                        }`}
                     >
-                        <Info className="w-3.5 h-3.5" />
-                        <span className="border-b border-transparent group-hover:border-blue-500">Ver análise detalhada</span>
+                        {isFreePlan ? <Lock className="w-3.5 h-3.5" /> : <Info className="w-3.5 h-3.5" />}
+                        <span className={`border-b border-transparent ${isFreePlan ? 'group-hover:border-amber-500' : 'group-hover:border-blue-500'}`}>
+                            {isFreePlan ? 'Análise detalhada · Premium' : 'Ver análise detalhada'}
+                        </span>
+                        {isFreePlan && <Sparkles className="w-3 h-3" />}
                     </button>
                 </div>
 
@@ -308,6 +318,9 @@ export default function HealthScoreCard({ scoreData, baseIncome = 0, onUpdateBas
                     )}
                 </div>
             </div>
+
+            {/* Upgrade modal — quando Free tenta ver a análise detalhada */}
+            <UpgradeModal isOpen={showUpgrade} onClose={() => setShowUpgrade(false)} />
         </div>
     );
 }

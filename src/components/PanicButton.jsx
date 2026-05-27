@@ -1,9 +1,15 @@
 
 import React, { useState } from 'react';
 import { Octagon, X, MessageCircle, HeartPulse, Sparkles } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function PanicButton({ onPanicClick }) {
     const [isOpen, setIsOpen] = useState(false);
+    const { planLevel, isAdmin } = useAuth();
+
+    // Modo Pânico é parte da experiência Premium (depende da IA Alívia).
+    // Free/Standard nem veem o botão flutuante.
+    if (planLevel !== 'premium' && !isAdmin) return null;
 
     return (
         <>

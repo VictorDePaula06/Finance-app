@@ -31,7 +31,10 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
     const initialSyncDone = useRef(false);
     const prevMessagesLength = useRef(messages.length);
 
-    const { currentUser, saveUserPreferences, getUserPreferences, saveChatHistory, getChatHistory, userPrefs } = useAuth();
+    const { currentUser, saveUserPreferences, getUserPreferences, saveChatHistory, getChatHistory, userPrefs, planLevel, isAdmin } = useAuth();
+
+    // IA é exclusiva do Premium. Free/Standard nem renderizam o botão flutuante.
+    const canUseAI = planLevel === 'premium' || isAdmin;
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -533,6 +536,9 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
             </span>
         </button>
     );
+
+    // IA Alívia: exclusiva do Premium. Não renderiza nem o botão flutuante para Free/Standard.
+    if (!canUseAI) return null;
 
     return createPortal(chatContent, document.body);
 }

@@ -28,6 +28,8 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
   const { currentUser, logout, isAdmin, isPremium, isTrial, isLifetime, subType, planLevel } = useAuth();
   const { theme } = useTheme();
 
+  const isFreePlan = planLevel === 'free';
+
   const menuItems = [
     // Gastos Module
     { id: 'visao', label: 'Visão Geral', icon: LayoutDashboard, module: 'gastos' },
@@ -36,13 +38,13 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
     { id: 'gastos', label: 'Lançamentos', icon: TrendingDown, module: 'gastos' },
     { id: 'cartoes', label: 'Cartões', icon: CreditCard, module: 'gastos' },
     { id: 'analise', label: 'Análise de Gastos', icon: TrendingUp, module: 'gastos' },
-    
-    // Patrimônio Module
+
+    // Patrimônio Module — itens marcados com premiumOnly mostram badge "Premium" pro Free
     { id: 'patrimonio', label: 'Patrimônio', icon: Landmark, module: 'patrimonio' },
     { id: 'reserva', label: 'Reserva Emergência', icon: ShieldCheck, module: 'patrimonio' },
     { id: 'investimentos', label: 'Investimentos', icon: PieChart, module: 'patrimonio' },
     { id: 'metas', label: 'Metas', icon: Target, module: 'patrimonio' },
-    { id: 'evolucao', label: 'Evolução Patrimonial', icon: BarChart3, module: 'patrimonio' },
+    { id: 'evolucao', label: 'Evolução Patrimonial', icon: BarChart3, module: 'patrimonio', premiumOnly: true },
 
     // Common
     { id: 'ajustes', label: 'Ajustes', icon: Settings, module: 'common' },
@@ -128,6 +130,15 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
                     theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/20 text-emerald-400'
                   }`}>
                     {item.badge}
+                  </span>
+                )}
+
+                {/* Badge "Premium" — só aparece para Free em itens premium-only */}
+                {item.premiumOnly && isFreePlan && (
+                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md flex items-center gap-1 ${
+                    theme === 'light' ? 'bg-amber-100 text-amber-600' : 'bg-amber-500/20 text-amber-400'
+                  }`}>
+                    PRO
                   </span>
                 )}
               </button>

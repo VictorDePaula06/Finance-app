@@ -16,6 +16,7 @@ import { db } from '../services/firebase';
 import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useCdiRate } from '../utils/marketRates';
+import TrialLimitModal from './TrialLimitModal';
 
 const RESERVE_TYPES = {
     tesouro: { label: 'Tesouro Selic', icon: Landmark, color: 'text-blue-500', bg: 'bg-blue-500/10' },
@@ -25,7 +26,10 @@ const RESERVE_TYPES = {
 
 export default function EmergencyReserveTab() {
     const { theme } = useTheme();
-    const { currentUser } = useAuth();
+    const { currentUser, planLevel } = useAuth();
+    const isFreePlan = planLevel === 'free';
+    const FREE_RESERVE_LIMIT = 1;
+    const [showLimitModal, setShowLimitModal] = useState(false);
     const [reserves, setReserves] = useState([]);
     const [isAdding, setIsAdding] = useState(false);
     const [isEditing, setIsEditing] = useState(null);
@@ -214,8 +218,12 @@ export default function EmergencyReserveTab() {
                 </div>
 
                 <div className="ml-auto flex items-center gap-3">
-                    <button 
+                    <button
                         onClick={() => {
+                            if (isFreePlan && reserves.length >= FREE_RESERVE_LIMIT) {
+                                setShowLimitModal(true);
+                                return;
+                            }
                             setIsEditing(null);
                             setFormData({ type: 'tesouro', name: '', balance: '', cdiPercent: '100' });
                             setIsAdding(true);
@@ -503,6 +511,11 @@ export default function EmergencyReserveTab() {
                     </div>
                 </div>
             )}
+            <TrialLimitModal
+                isOpen={showLimitModal}
+                onClose={() => setShowLimitModal(false)}
+                limitMessage={`Você atingiu o limite de ${FREE_RESERVE_LIMIT} cofrinho do Plano Gratuito. Faça upgrade para Premium e tenha cofrinhos ilimitados.`}
+            />
         </div>
     );
 }
