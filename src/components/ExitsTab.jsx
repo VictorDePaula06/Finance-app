@@ -26,6 +26,7 @@ import {
     Info
 } from 'lucide-react';
 import TrialLimitModal from './TrialLimitModal';
+import OverdraftWarningModal from './OverdraftWarningModal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
@@ -340,11 +341,12 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 await addDoc(collection(db, 'subscriptions'), subData);
             }
 
-            // VERIFICAÇÃO DE SALDO (Apenas para novos lançamentos, não para edições)
+            // VERIFICAÇÃO DE SALDO (Apenas para novos lançamentos, não para edições).
+            // Usa o OverdraftWarningModal padronizado em vez do step 'warning' inline.
             if (!editingId && val > availableBalance) {
-                setPendingSave({ type: 'expense', data: transactionData });
-                setIsSaving(false); // Destrava o botão para o aviso
-                setStep('warning');
+                setPendingSave({ type: 'expense', data: transactionData, amount: val, itemName: description || 'Esta despesa' });
+                setIsSaving(false);
+                setShowModal(false); // fecha o modal de despesa pra dar lugar ao aviso
                 return;
             }
 
@@ -560,19 +562,21 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 }
             }
 
-            // VERIFICAÇÃO DE SALDO
+            // VERIFICAÇÃO DE SALDO — usa OverdraftWarningModal padronizado
             if (!editingId && val > availableBalance) {
-                setPendingSave({ 
-                    type: 'investment', 
-                    transaction: transactionData, 
+                setPendingSave({
+                    type: 'investment',
+                    transaction: transactionData,
                     jar: jarDataToSave,
                     jarId: existingJarId,
                     inv: invDataToSave,
                     invId: existingInvId,
-                    destinationType
+                    destinationType,
+                    amount: val,
+                    itemName: description ? `Aporte: ${description}` : 'Este aporte'
                 });
-                setIsSaving(false); // Garante que destrave caso mostre o aviso
-                setStep('warning');
+                setIsSaving(false);
+                setShowModal(false);
                 return;
             }
 
@@ -614,10 +618,9 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const handleConfirmWarning = async () => {
         if (!pendingSave || isSaving) return;
         setIsSaving(true);
-        
+
         try {
             if (pendingSave.type === 'expense') {
-                // Se for parcelamento, NÃO adicionamos a transação direta para evitar duplicidade com a aba Cartões
                 if (!pendingSave.data.isInstallment) {
                     await addDoc(collection(db, 'transactions'), pendingSave.data);
                 } else {
@@ -625,7 +628,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 }
             } else if (pendingSave.type === 'investment') {
                 await addDoc(collection(db, 'transactions'), pendingSave.transaction);
-                
+
                 if (pendingSave.destinationType === 'jar') {
                     if (pendingSave.jarId) {
                         await updateDoc(doc(db, 'savings_jars', pendingSave.jarId), pendingSave.jar);
@@ -643,6 +646,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
             setIsSaving(false);
             setStep('success');
+            setShowModal(true); // reabre o modal pra mostrar a tela de sucesso
             setPendingSave(null);
         } catch (error) {
             console.error("Erro ao confirmar aviso:", error);
@@ -1701,49 +1705,26 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                         )}
 
                         {/* STEP: WARNING */}
-                        {step === 'warning' && (
-                            <div className="py-8 text-center space-y-8 animate-in slide-in-from-right-4 duration-500">
-                                <div className="mx-auto w-20 h-20 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center shadow-inner">
-                                    <TrendingDown className="w-10 h-10" />
-                                </div>
-
-                                <div className="space-y-3">
-                                    <h3 className={`text-2xl font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Atenção: Saldo Insuficiente!</h3>
-                                    <div className={`p-4 rounded-2xl text-left border ${
-                                        theme === 'light' ? 'bg-rose-50 border-rose-100' : 'bg-rose-500/5 border-rose-500/10'
-                                    }`}>
-                                        <p className={`text-xs font-bold leading-relaxed ${theme === 'light' ? 'text-rose-700' : 'text-rose-400'}`}>
-                                            Você está prestes a lançar uma saída de <span className="font-black text-sm">R$ {parseFloat(amount).toLocaleString('pt-BR')}</span>, mas seu saldo total em carteira é de apenas <span className="font-black text-sm text-emerald-500">R$ {availableBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>.
-                                            <br/><br/>
-                                            Lançar este valor fará com que você gaste mais do que possui disponível, o que pode gerar <span className="underline">endividamento</span>. Deseja prosseguir mesmo assim?
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col gap-3">
-                                    <button 
-                                        onClick={handleConfirmWarning}
-                                        className="w-full py-3 bg-rose-500 hover:bg-rose-400 text-white rounded-xl font-black text-sm shadow-lg shadow-rose-500/20 transition-all active:scale-95"
-                                    >
-                                        Sim, prosseguir mesmo assim
-                                    </button>
-                                    <button 
-                                        onClick={() => {
-                                            setStep(pendingSave.type === 'expense' ? 'expense' : 'investment');
-                                            setPendingSave(null);
-                                        }}
-                                        className={`w-full py-3 rounded-xl font-black text-sm transition-all active:scale-95 ${
-                                            theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'
-                                        }`}
-                                    >
-                                        Não, quero revisar
-                                    </button>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
             )}
+
+            {/* Aviso de endividamento — padronizado com FixedExpensesTab e CardsTab */}
+            <OverdraftWarningModal
+                isOpen={!!pendingSave}
+                amount={pendingSave?.amount || 0}
+                balance={availableBalance}
+                itemName={pendingSave?.itemName || (pendingSave?.type === 'investment' ? 'Este aporte' : 'Esta despesa')}
+                onCancel={() => {
+                    // Volta ao formulário (despesa ou aporte) com os dados preservados.
+                    if (pendingSave) {
+                        setStep(pendingSave.type === 'expense' ? 'expense' : 'investment');
+                        setShowModal(true);
+                    }
+                    setPendingSave(null);
+                }}
+                onConfirm={handleConfirmWarning}
+            />
 
             {/* Trial Limit Modal */}
             <TrialLimitModal
