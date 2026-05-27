@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { db } from '../services/firebase';
 import { version } from '../../package.json';
 import {
@@ -61,9 +61,13 @@ export default function AdminPanel({ onBack }) {
     const [pushMessage, setPushMessage] = useState({ title: '', body: '' });
     const [isSendingPush, setIsSendingPush] = useState(false);
 
+    const toastTimeoutRef = useRef(null);
     const showToast = (message, type = 'success') => {
+        // Limpa timeout anterior — antes, toast novo era apagado prematuramente
+        // pelo timeout do toast anterior se chamados em sequência.
+        if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
         setToast({ message, type });
-        setTimeout(() => setToast(null), 3000);
+        toastTimeoutRef.current = setTimeout(() => setToast(null), 3000);
     };
 
     const fetchUsers = async () => {
@@ -74,20 +78,22 @@ export default function AdminPanel({ onBack }) {
             const allUids = new Set();
             usersSnap.docs.forEach(d => allUids.add(d.id));
             customersSnap.docs.forEach(d => allUids.add(d.id));
-            const userList = [];
 
-            for (const uid of Array.from(allUids)) {
-                const userRef = doc(db, 'users', uid);
-                const userSnap = await getDoc(userRef);
+            // PARALELIZADO: antes eram 4 chamadas sequenciais POR usuário (N+1).
+            // Agora as 4 chamadas de cada usuário rodam em paralelo via Promise.all,
+            // e processamos todos os usuários em paralelo. Reduz tempo de carga
+            // de O(n) sequencial para O(1) em rede (limitado pela conexão).
+            const userList = await Promise.all(Array.from(allUids).map(async (uid) => {
+                const [userSnap, settingsSnap, customerSnap, subsSnap] = await Promise.all([
+                    getDoc(doc(db, 'users', uid)),
+                    getDoc(doc(db, 'users', uid, 'settings', 'general')),
+                    getDoc(doc(db, 'customers', uid)),
+                    getDocs(collection(db, 'customers', uid, 'subscriptions')),
+                ]);
+
                 const userData = userSnap.exists() ? userSnap.data() : {};
-                const settingsRef = doc(db, 'users', uid, 'settings', 'general');
-                const settingsSnap = await getDoc(settingsRef);
                 const settingsData = settingsSnap.exists() ? settingsSnap.data() : {};
-                const customerRef = doc(db, 'customers', uid);
-                const customerSnap = await getDoc(customerRef);
                 const customerData = customerSnap.exists() ? customerSnap.data() : {};
-                const subsRef = collection(db, 'customers', uid, 'subscriptions');
-                const subsSnap = await getDocs(subsRef);
                 const activeSubDoc = subsSnap.docs.find(d => ['active', 'trialing'].includes(d.data().status));
                 const stripeSubData = activeSubDoc ? activeSubDoc.data() : subsSnap.docs[0]?.data();
                 const manualStatus = settingsData.subscription?.status || userData.subscription?.status;
@@ -121,14 +127,22 @@ export default function AdminPanel({ onBack }) {
                 ].filter(Boolean);
 
                 const getTimestamp = (d) => {
-                    if (d.toDate) return d.toDate().getTime();
-                    if (d instanceof Date) return d.getTime();
-                    if (typeof d === 'number' && d < 10000000000) return d * 1000;
-                    return new Date(d).getTime();
+                    try {
+                        if (!d) return NaN;
+                        if (d.toDate) return d.toDate().getTime();
+                        if (d instanceof Date) return d.getTime();
+                        if (typeof d === 'number' && d < 10000000000) return d * 1000;
+                        const t = new Date(d).getTime();
+                        return isFinite(t) ? t : NaN;
+                    } catch { return NaN; }
                 };
 
-                const subDateRaw = datesToCompare.length > 0
-                    ? new Date(Math.max(...datesToCompare.map(getTimestamp)))
+                // Filtra NaN antes do Math.max — antes uma única data inválida
+                // contaminava o resultado inteiro (subDate virava Invalid Date,
+                // status do usuário ficava errado).
+                const validTimestamps = datesToCompare.map(getTimestamp).filter(t => isFinite(t));
+                const subDateRaw = validTimestamps.length > 0
+                    ? new Date(Math.max(...validTimestamps))
                     : (userData.createdAt || null);
 
                 const subDate = subDateRaw?.toDate ? subDateRaw.toDate() : (subDateRaw ? new Date(subDateRaw) : null);
@@ -176,7 +190,7 @@ export default function AdminPanel({ onBack }) {
                 // isEmailAdmin: email fixo nos security rules — não pode ser removido via UI
                 const isEmailAdmin = ADMIN_EMAILS.includes(userEmail);
 
-                userList.push({
+                return {
                     uid, email: userEmail,
                     isPremium: finalIsPremium, isStandard: finalIsStandard, isFree: finalIsFree,
                     subType, subStatus, isTrial,
@@ -190,17 +204,23 @@ export default function AdminPanel({ onBack }) {
                     isDeleted: userData.status === 'deleted' || !userSnap.exists(),
                     deletedAt: userData.deletedAt ? (userData.deletedAt.toDate ? userData.deletedAt.toDate().toLocaleDateString('pt-BR') : new Date(userData.deletedAt).toLocaleDateString('pt-BR')) : null,
                     hasAcceptedTerms: settingsData.hasAcceptedTerms || false
-                });
-            }
-            setUsers(userList);
+                };
+            }));
+
+            if (mountedRef.current) setUsers(userList);
         } catch (error) {
             console.error("Error fetching users:", error);
         } finally {
-            setLoading(false);
+            if (mountedRef.current) setLoading(false);
         }
     };
 
-    useEffect(() => { fetchUsers(); }, []);
+    const mountedRef = useRef(true);
+    useEffect(() => {
+        mountedRef.current = true;
+        fetchUsers();
+        return () => { mountedRef.current = false; };
+    }, []);
 
     const filteredUsers = useMemo(() => {
         let list = users.filter(u => u.email.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -308,17 +328,39 @@ export default function AdminPanel({ onBack }) {
         if (!pushMessage.title || !pushMessage.body) return showToast("Preencha título e mensagem", "error");
         setIsSendingPush(true);
         try {
-            const subs = users.flatMap(u => u.pushSubscriptions || []);
+            // Não envia push para excluídos ou bloqueados
+            const activeUsers = users.filter(u => !u.isDeleted && !u.isBlocked);
+            const subs = activeUsers.flatMap(u => u.pushSubscriptions || []);
+            if (subs.length === 0) {
+                showToast("Nenhum dispositivo ativo para enviar", "error");
+                return;
+            }
             const res = await fetch('https://alivia-push.vercel.app/api/send-push', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ subscriptions: subs, title: pushMessage.title, body: pushMessage.body })
             });
-            if (res.ok) { showToast("Notificação enviada!"); setPushMessage({ title: '', body: '' }); }
+            if (res.ok) { showToast(`Notificação enviada para ${subs.length} dispositivos!`); setPushMessage({ title: '', body: '' }); }
+            else { showToast("Erro no servidor de push", "error"); }
         } catch (error) {
             console.error("Push error:", error);
             showToast("Erro ao enviar push", "error");
         } finally { setIsSendingPush(false); }
+    };
+
+    // Firestore writeBatch tem hard limit de 500 ops. Helper que divide
+    // automaticamente em chunks e commita um por vez.
+    const FIRESTORE_BATCH_LIMIT = 450; // margem de segurança
+    const commitInBatches = async (refs) => {
+        for (let i = 0; i < refs.length; i += FIRESTORE_BATCH_LIMIT) {
+            const chunk = refs.slice(i, i + FIRESTORE_BATCH_LIMIT);
+            const batch = writeBatch(db);
+            chunk.forEach(({ op, ref, data }) => {
+                if (op === 'delete') batch.delete(ref);
+                else if (op === 'set') batch.set(ref, data, { merge: true });
+            });
+            await batch.commit();
+        }
     };
 
     const resetGlobalData = async () => {
@@ -330,21 +372,31 @@ export default function AdminPanel({ onBack }) {
                 setIsResettingGlobal(true);
                 setConfirmDialog(null);
                 try {
-                    const qT = await getDocs(collection(db, 'transactions'));
-                    const qG = await getDocs(collection(db, 'goals'));
-                    const batch = writeBatch(db);
-                    qT.docs.forEach(d => batch.delete(d.ref));
-                    qG.docs.forEach(d => batch.delete(d.ref));
-                    const usersSnap = await getDocs(collection(db, 'users'));
-                    for (const userDoc of usersSnap.docs) {
+                    // Coleta todas as ops em uma lista única e commita em chunks
+                    // de 450 — antes batch único podia estourar 500 e falhar.
+                    const [qT, qG, usersSnap] = await Promise.all([
+                        getDocs(collection(db, 'transactions')),
+                        getDocs(collection(db, 'goals')),
+                        getDocs(collection(db, 'users')),
+                    ]);
+
+                    const ops = [];
+                    qT.docs.forEach(d => ops.push({ op: 'delete', ref: d.ref }));
+                    qG.docs.forEach(d => ops.push({ op: 'delete', ref: d.ref }));
+                    usersSnap.docs.forEach(userDoc => {
                         const settingsRef = doc(db, 'users', userDoc.id, 'settings', 'general');
-                        batch.set(settingsRef, {
-                            manualConfig: { income: 0, fixedExpenses: 0, variableEstimate: 0, invested: 0, categoryBudgets: {}, recurringSubs: [] },
-                            hasSeenWelcome: false, hasSeenPatrimonyWelcome: false
-                        }, { merge: true });
-                    }
-                    await batch.commit();
-                    showToast("Dados resetados globalmente!");
+                        ops.push({
+                            op: 'set',
+                            ref: settingsRef,
+                            data: {
+                                manualConfig: { income: 0, fixedExpenses: 0, variableEstimate: 0, invested: 0, categoryBudgets: {}, recurringSubs: [] },
+                                hasSeenWelcome: false, hasSeenPatrimonyWelcome: false
+                            }
+                        });
+                    });
+
+                    await commitInBatches(ops);
+                    showToast(`Reset global concluído (${ops.length} ops).`);
                     fetchUsers();
                 } catch (error) {
                     console.error("Error resetting global data:", error);
@@ -362,14 +414,17 @@ export default function AdminPanel({ onBack }) {
             onConfirm: async () => {
                 setConfirmDialog(null);
                 try {
-                    const batch = writeBatch(db);
-                    const qT = query(collection(db, 'transactions'), where('userId', '==', user.uid));
-                    const snapT = await getDocs(qT);
-                    snapT.docs.forEach(d => batch.delete(d.ref));
-                    const qG = query(collection(db, 'goals'), where('userId', '==', user.uid));
-                    const snapG = await getDocs(qG);
-                    snapG.docs.forEach(d => batch.delete(d.ref));
-                    await batch.commit();
+                    // Queries em paralelo + commit em chunks de 450 (limite Firestore).
+                    // Antes: batch único podia falhar se usuário tivesse >500 transações.
+                    const [snapT, snapG] = await Promise.all([
+                        getDocs(query(collection(db, 'transactions'), where('userId', '==', user.uid))),
+                        getDocs(query(collection(db, 'goals'), where('userId', '==', user.uid))),
+                    ]);
+                    const ops = [
+                        ...snapT.docs.map(d => ({ op: 'delete', ref: d.ref })),
+                        ...snapG.docs.map(d => ({ op: 'delete', ref: d.ref })),
+                    ];
+                    await commitInBatches(ops);
                     await deleteDoc(doc(db, 'users', user.uid)).catch(() => {});
                     await deleteDoc(doc(db, 'customers', user.uid)).catch(() => {});
                     showToast("Usuário excluído!");
