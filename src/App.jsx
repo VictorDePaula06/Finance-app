@@ -57,6 +57,7 @@ function Dashboard() {
   const [goals, setGoals] = useState([]);
   const [cards, setCards] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
+  const [fixedExpensesList, setFixedExpensesList] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [activeModule, setActiveModule] = useState('hub');
   const [activeTab, setActiveTab] = useState('visao');
@@ -195,6 +196,12 @@ function Dashboard() {
       setSubscriptions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    // Listen to Fixed Expenses
+    const qFE = query(collection(db, 'fixed_expenses'), where('userId', '==', currentUser.uid));
+    const unsubFE = onSnapshot(qFE, (snapshot) => {
+      setFixedExpensesList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     // Listen to Savings Jars
     const qSavings = query(collection(db, 'savings_jars'), where('userId', '==', currentUser.uid));
     const unsubscribeSavings = onSnapshot(qSavings, { includeMetadataChanges: true }, (snapshot) => {
@@ -210,6 +217,7 @@ function Dashboard() {
       unsubscribeGoals();
       unsubC();
       unsubS();
+      unsubFE();
       unsubscribeSavings();
     };
   }, [currentUser]);
@@ -235,6 +243,21 @@ function Dashboard() {
       console.error("Erro ao adicionar transação via AI:", error);
       return false;
     }
+  };
+
+  const handleSetInitialBalance = async (amount) => {
+    if (!currentUser) return;
+    const now = new Date();
+    await addDoc(collection(db, 'transactions'), {
+      description: 'Saldo Inicial',
+      amount: parseFloat(amount),
+      type: 'income',
+      category: 'initial_balance',
+      date: now.toISOString(),
+      month: now.toISOString().slice(0, 7),
+      userId: currentUser.uid,
+      createdAt: Date.now(),
+    });
   };
 
   const handleAIChatDeleteTransaction = async (id) => {
@@ -361,7 +384,16 @@ function Dashboard() {
     return { totalGuarded, dailyYield, jarsWithBalance };
   }, [savingsJars, cdiRate]);
 
-  const healthScore = calculateHealthScore(transactions, manualConfig, investmentStats.jarsWithBalance);
+  // Auto-calculate fixed expenses: gastos fixos cadastrados + assinaturas do cartão
+  const autoFixedExpenses = useMemo(() => {
+    const fixed = fixedExpensesList.reduce((acc, e) => acc + (parseFloat(e.value) || 0), 0);
+    const subs = subscriptions
+      .filter(s => !s.isInstallment) // only recurring, not installments
+      .reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0);
+    return fixed + subs;
+  }, [fixedExpensesList, subscriptions]);
+
+  const healthScore = calculateHealthScore(transactions, { ...manualConfig, fixedExpenses: autoFixedExpenses || manualConfig.fixedExpenses }, investmentStats.jarsWithBalance);
 
   if (activeModule === 'hub') {
     return (
@@ -512,7 +544,7 @@ function Dashboard() {
 
           {activeTab === 'visao' && (
             <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <OverviewTab 
+              <OverviewTab
                 transactions={transactions}
                 savingsJars={savingsJars}
                 walletStats={walletStats}
@@ -523,6 +555,9 @@ function Dashboard() {
                 toggleHideBalance={toggleHideBalance}
                 setEditingJar={setEditingJar}
                 setJarDeleteConfirm={setJarDeleteConfirm}
+                baseIncome={parseFloat(manualConfig.income) || 0}
+                onUpdateBaseIncome={(val) => updateManualConfig({ ...manualConfig, income: val })}
+                onSetInitialBalance={handleSetInitialBalance}
               />
               
               {paceAlerts.length > 0 && <PaceAlerts paceAlerts={paceAlerts} />}

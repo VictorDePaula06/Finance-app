@@ -22,9 +22,13 @@ export const calculateHealthScore = (transactions, manualConfig, savingsJars = [
 
     // 1. Month Performance (20 points)
     // Filter logic aligned with App.jsx display logic
-    const income = monthTx
+    const incomeFromTx = monthTx
         .filter(t => t.type === 'income' && t.category !== 'initial_balance' && t.category !== 'carryover' && t.category !== 'vault_redemption')
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+
+    // Use transaction income if available, otherwise fall back to manual base income
+    const baseIncome = manualConfig && manualConfig.income ? parseFloat(manualConfig.income) : 0;
+    const income = incomeFromTx > 0 ? incomeFromTx : baseIncome;
 
     const expense = monthTx
         .filter(t => t.type === 'expense' && t.paymentMethod !== 'credito')
@@ -47,14 +51,14 @@ export const calculateHealthScore = (transactions, manualConfig, savingsJars = [
         if (NECESSITY_CATEGORIES.includes(t.category)) return 'necessity';
         return 'desire';
     };
-    const necessities = monthTx.filter(t => t.type === 'expense' && classifyExpense(t) === 'necessity').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    const desires = monthTx.filter(t => t.type === 'expense' && classifyExpense(t) === 'desire').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    const necessities = monthTx.filter(t => t.type === 'expense' && t.paymentMethod !== 'credito' && classifyExpense(t) === 'necessity').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    const desires = monthTx.filter(t => t.type === 'expense' && t.paymentMethod !== 'credito' && classifyExpense(t) === 'desire').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
     let allocationScore = 0;
     if (income > 0) {
         const necRatio = necessities / income;
         const desRatio = desires / income;
-        const savRatio = (income - actualExpense) / income;
+        const savRatio = savings / income;
 
         // 50/30/20 Rule benchmarks
         if (necRatio <= 0.55) allocationScore += 10;
@@ -150,16 +154,21 @@ export const calculateHealthScore = (transactions, manualConfig, savingsJars = [
             reserve: Math.round(reserveScore),
             data: {
                 monthlyIncome: income,
+                incomeSource: incomeFromTx > 0 ? 'transactions' : 'base',
                 actualExpense,
-                monthlyBalance: operatingSurplus, // Display the surplus (operating) as requested by user
+                necessitiesAmount: necessities,
+                desiresAmount: desires,
+                savingsAmount: savings,
+                monthlyBalance: operatingSurplus,
                 netCashFlow,
                 totalLiquidity,
                 totalPatrimonio,
+                reserveTotal: jarsSum,
                 fixedExpenses,
                 monthsCovered: fixedExpenses > 0 ? (totalLiquidity / fixedExpenses).toFixed(1) : "0.0",
                 necRatio: income > 0 ? (necessities / income * 100).toFixed(0) : "0",
                 desRatio: income > 0 ? (desires / income * 100).toFixed(0) : "0",
-                savRatio: income > 0 ? ((income - actualExpense) / income * 100).toFixed(0) : "0"
+                savRatio: income > 0 ? (savings / income * 100).toFixed(0) : "0"
             }
         }
     };

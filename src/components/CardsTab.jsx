@@ -1464,6 +1464,21 @@ const CardsTab = ({ transactions = [], setActiveTab }) => {
                     ))}
                 </select>
               </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Cartão Vinculado</label>
+                <select
+                  value={editingSub.cardId || ''}
+                  onChange={(e) => setEditingSub({...editingSub, cardId: e.target.value})}
+                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold appearance-none outline-none ${
+                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white'
+                  }`}
+                >
+                  <option value="" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Sem cartão (Avulsa)</option>
+                  {cards.map(c => (
+                    <option key={c.id} value={c.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{c.name} (•• {c.last4})</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="flex gap-3 pt-4">
               <button type="button" onClick={() => setEditingSub(null)} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>

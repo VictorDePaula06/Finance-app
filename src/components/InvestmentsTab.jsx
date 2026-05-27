@@ -70,6 +70,8 @@ export default function InvestmentsTab() {
         subType: '',
         aporteAmount: '',
         aporteQuantity: '',
+        aporteDate: new Date().toISOString().split('T')[0],
+        aporteRate: '',
         purchaseDate: new Date().toISOString().split('T')[0]
     });
 
@@ -622,7 +624,7 @@ export default function InvestmentsTab() {
             setIsAdding(false);
             setIsEditing(null);
             setIsAporting(null);
-            setNewAsset({ type: 'renda_fixa', name: '', symbol: '', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, cdiPercent: '', aporteAmount: '', aporteQuantity: '', purchaseDate: new Date().toISOString().split('T')[0] });
+            setNewAsset({ type: 'renda_fixa', name: '', symbol: '', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, cdiPercent: '', aporteAmount: '', aporteQuantity: '', aporteDate: new Date().toISOString().split('T')[0], aporteRate: '', purchaseDate: new Date().toISOString().split('T')[0] });
         } catch (error) {
             console.error("Error saving asset:", error);
         }
@@ -634,23 +636,40 @@ export default function InvestmentsTab() {
             const asset = investments.find(a => a.id === isAporting);
             if (!asset) return;
 
-            const q_new = parseBrazilianNumber(newAsset.aporteQuantity);
+            const isFixedIncome = asset.type === 'renda_fixa';
             const v_new = parseBrazilianNumber(newAsset.aporteAmount);
+            const aporteDate = newAsset.aporteDate || new Date().toISOString().split('T')[0];
 
-            const q_old = asset.quantity;
-            const p_old = asset.purchasePrice;
-
-            const q_total = q_old + q_new;
-            const p_avg = ((q_old * p_old) + v_new) / q_total;
-
-            await updateDoc(doc(db, 'investments', isAporting), {
-                quantity: q_total,
-                purchasePrice: p_avg,
-                updatedAt: new Date().toISOString()
-            });
+            if (isFixedIncome) {
+                const old_total = parseFloat(asset.totalApplied || asset.purchasePrice || 0);
+                const new_total = old_total + v_new;
+                const updates = {
+                    totalApplied: new_total,
+                    purchasePrice: new_total,
+                    updatedAt: new Date().toISOString()
+                };
+                // Recalculate purchaseRate as weighted average if new rate provided
+                const aporteRate = newAsset.aporteRate ? parseBrazilianNumber(newAsset.aporteRate) : null;
+                if (aporteRate && asset.purchaseRate) {
+                    const old_rate = parseFloat(asset.purchaseRate);
+                    updates.purchaseRate = String(((old_total * old_rate + v_new * aporteRate) / new_total).toFixed(4));
+                }
+                await updateDoc(doc(db, 'investments', isAporting), updates);
+            } else {
+                const q_new = parseBrazilianNumber(newAsset.aporteQuantity);
+                const q_old = asset.quantity;
+                const p_old = asset.purchasePrice;
+                const q_total = q_old + q_new;
+                const p_avg = q_total > 0 ? ((q_old * p_old) + v_new) / q_total : p_old;
+                await updateDoc(doc(db, 'investments', isAporting), {
+                    quantity: q_total,
+                    purchasePrice: p_avg,
+                    updatedAt: new Date().toISOString()
+                });
+            }
 
             setIsAporting(null);
-            setNewAsset({ type: 'renda_fixa', name: '', symbol: '', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, cdiPercent: '', aporteAmount: '', aporteQuantity: '', purchaseDate: new Date().toISOString().split('T')[0] });
+            setNewAsset({ type: 'renda_fixa', name: '', symbol: '', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, cdiPercent: '', aporteAmount: '', aporteQuantity: '', aporteDate: new Date().toISOString().split('T')[0], aporteRate: '', purchaseDate: new Date().toISOString().split('T')[0] });
         } catch (error) {
             console.error("Error processing aporte:", error);
         }
@@ -1035,8 +1054,16 @@ export default function InvestmentsTab() {
                                             <div className="flex items-center gap-4 md:gap-6 lg:gap-10">
 
                                                 <div className="hidden md:flex flex-col items-end">
-                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Valor Atual</span>
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                                        Valor Atual
+                                                        {asset.type === 'renda_fixa' && (
+                                                            <span className="ml-1 text-amber-500" title="Valor aproximado — renda fixa não tem cotação em tempo real">~</span>
+                                                        )}
+                                                    </span>
                                                     <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                                        {asset.type === 'renda_fixa' && (
+                                                            <span className="text-amber-500 mr-0.5">≈</span>
+                                                        )}
                                                         {dCur} {(asset.value * displayMultiplier).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
                                                     </span>
                                                 </div>
@@ -1071,6 +1098,13 @@ export default function InvestmentsTab() {
                                 })
                             )}
                         </div>
+
+                        {/* Nota de valor aproximado */}
+                        {filteredItemsForList.some(a => a.type === 'renda_fixa') && (
+                            <p className="text-[10px] font-medium text-amber-500/70 mt-3 flex items-center gap-1">
+                                <span className="font-black">≈</span> Valor aproximado — cotação de renda fixa pode variar com o fechamento do mercado. Para o valor exato, atualize o "Valor Atual Total" no ativo.
+                            </p>
+                        )}
                     </div>
 
                 </div>
@@ -1492,28 +1526,52 @@ export default function InvestmentsTab() {
                         </div>
 
                         <form onSubmit={handleAporte} className="space-y-4">
-                            <div>
-                                <div className="flex gap-4">
-                                    <div className="flex-1">
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">Quantidade</p>
-                                        <input
-                                            type="text"
-                                            inputMode="decimal"
-                                            required
-                                            value={newAsset.aporteQuantity}
-                                            onChange={(e) => setNewAsset({...newAsset, aporteQuantity: e.target.value})}
-                                            className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
-                                                theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/10 text-white focus:border-blue-500'
-                                            }`}
-                                            placeholder="0.00"
-                                        />
+                            <div className="space-y-3">
+                                {/* Quantidade — apenas para ativos que não são renda fixa */}
+                                {investments.find(a => a.id === isAporting)?.type !== 'renda_fixa' && (
+                                    <div className="flex gap-4">
+                                        <div className="flex-1">
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">Quantidade</p>
+                                            <input
+                                                type="text"
+                                                inputMode="decimal"
+                                                required
+                                                value={newAsset.aporteQuantity}
+                                                onChange={(e) => setNewAsset({...newAsset, aporteQuantity: e.target.value})}
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                                                    theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/10 text-white focus:border-blue-500'
+                                                }`}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">Custo Total ({newAsset.isUSD ? 'USD' : 'R$'})</p>
+                                            <div className="relative">
+                                                <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                    {newAsset.isUSD ? '$' : 'R$'}
+                                                </span>
+                                                <input
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    required
+                                                    value={newAsset.aporteAmount}
+                                                    onChange={(e) => setNewAsset({...newAsset, aporteAmount: e.target.value})}
+                                                    className={`w-full px-3 py-2.5 pl-9 rounded-xl border text-sm focus:outline-none transition-all ${
+                                                        theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/10 text-white focus:border-blue-500'
+                                                    }`}
+                                                    placeholder="0.00"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex-1">
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">Custo Total ({newAsset.isUSD ? 'USD' : 'R$'})</p>
+                                )}
+
+                                {/* Valor aplicado — apenas para renda fixa */}
+                                {investments.find(a => a.id === isAporting)?.type === 'renda_fixa' && (
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">Valor Aplicado (R$)</p>
                                         <div className="relative">
-                                            <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
-                                                {newAsset.isUSD ? '$' : 'R$'}
-                                            </span>
+                                            <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>R$</span>
                                             <input
                                                 type="text"
                                                 inputMode="decimal"
@@ -1527,19 +1585,63 @@ export default function InvestmentsTab() {
                                             />
                                         </div>
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-3 mt-4 p-3 rounded-xl bg-blue-500/5 border border-blue-500/10">
+                                )}
+
+                                {/* Data do aporte */}
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">Data da Compra</p>
                                     <input
-                                        type="checkbox"
-                                        id="isUSD-aporte"
-                                        checked={newAsset.isUSD}
-                                        onChange={(e) => setNewAsset({...newAsset, isUSD: e.target.checked})}
-                                        className="w-5 h-5 rounded-lg border-slate-300 text-blue-500 focus:ring-blue-500/40 cursor-pointer"
+                                        type="date"
+                                        required
+                                        value={newAsset.aporteDate}
+                                        onChange={(e) => setNewAsset({...newAsset, aporteDate: e.target.value})}
+                                        className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                                            theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/10 text-white focus:border-blue-500'
+                                        }`}
                                     />
-                                    <label htmlFor="isUSD-aporte" className={`text-xs font-bold cursor-pointer ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
-                                        Este aporte foi feito em Dólar (USD)
-                                    </label>
                                 </div>
+
+                                {/* Taxa na compra — apenas para Tesouro */}
+                                {(() => {
+                                    const asset = investments.find(a => a.id === isAporting);
+                                    return asset?.type === 'renda_fixa' && asset?.subType === 'Tesouro';
+                                })() && (
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">
+                                            Taxa na Compra (%) <span className="normal-case font-normal text-slate-500">— opcional</span>
+                                        </p>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={newAsset.aporteRate}
+                                                onChange={(e) => setNewAsset({...newAsset, aporteRate: e.target.value})}
+                                                className={`w-full px-3 py-2.5 pr-9 rounded-xl border text-sm focus:outline-none transition-all ${
+                                                    theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/10 text-white focus:border-blue-500'
+                                                }`}
+                                                placeholder={`Ex: ${investments.find(a => a.id === isAporting)?.purchaseRate || '7.12'}`}
+                                            />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500">%</span>
+                                        </div>
+                                        <p className="text-[9px] text-slate-400 mt-1 ml-1">Usada para recalcular a taxa média ponderada da posição</p>
+                                    </div>
+                                )}
+
+                                {/* USD checkbox — apenas para não renda fixa */}
+                                {investments.find(a => a.id === isAporting)?.type !== 'renda_fixa' && (
+                                    <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/10">
+                                        <input
+                                            type="checkbox"
+                                            id="isUSD-aporte"
+                                            checked={newAsset.isUSD}
+                                            onChange={(e) => setNewAsset({...newAsset, isUSD: e.target.checked})}
+                                            className="w-5 h-5 rounded-lg border-slate-300 text-blue-500 focus:ring-blue-500/40 cursor-pointer"
+                                        />
+                                        <label htmlFor="isUSD-aporte" className={`text-xs font-bold cursor-pointer ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
+                                            Este aporte foi feito em Dólar (USD)
+                                        </label>
+                                    </div>
+                                )}
                             </div>
 
                             <div className={`p-3 rounded-xl border text-center ${theme === 'light' ? 'bg-blue-50 border-blue-100' : 'bg-blue-500/5 border-blue-500/10'}`}>

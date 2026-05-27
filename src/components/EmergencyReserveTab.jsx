@@ -274,9 +274,11 @@ export default function EmergencyReserveTab() {
 
                                     <div className="flex items-center gap-10">
                                         <div className="hidden md:flex flex-col items-end">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Saldo Atual</span>
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                                Saldo Atual <span className="text-amber-500" title="Valor estimado com base no CDI — pode não bater exatamente com o saldo no banco">~</span>
+                                            </span>
                                             <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-emerald-400'}`}>
-                                                R$ {dynamicBalance.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                                <span className="text-amber-500 mr-0.5">≈</span>R$ {dynamicBalance.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                             </span>
                                         </div>
                                         <div className="hidden md:flex flex-col items-end w-24">
@@ -337,6 +339,11 @@ export default function EmergencyReserveTab() {
                         })
                     )}
                 </div>
+                {reserves.length > 0 && (
+                    <p className="text-[10px] font-medium text-amber-500/70 mt-3 flex items-center gap-1">
+                        <span className="font-black">≈</span> Valor estimado com base na taxa CDI — o saldo real no banco pode ser ligeiramente diferente por causa de IOF, IR e variações diárias da taxa.
+                    </p>
+                )}
             </div>
 
             {/* Modal Setting Goal */}

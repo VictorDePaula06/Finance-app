@@ -1541,6 +1541,18 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                             </div>
                                         </div>
 
+                                        {/* Wallet impact preview */}
+                                        {amount > 0 && walletStats?.balance !== undefined && (
+                                            <div className={`p-3 rounded-xl border flex items-center justify-between ${theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-white/5 border-white/5'}`}>
+                                                <span className={`text-[10px] font-black uppercase tracking-wider ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                                                    Saldo em carteira após aporte
+                                                </span>
+                                                <span className="text-sm font-black text-rose-400">
+                                                    R$ {Math.max(0, (walletStats.balance - (parseFloat(amount) || 0))).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                        )}
+
                                         <button
                                             type="submit" disabled={isSaving}
                                             className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-black text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
