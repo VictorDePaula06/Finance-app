@@ -754,46 +754,65 @@ export default function AdminPanel({ onBack }) {
                 </div>
             )}
 
-            {/* ── Sticky Header ── */}
-            <header className="sticky top-0 z-[100] bg-slate-950/90 backdrop-blur-xl border-b border-white/[0.06] px-6 py-4 flex items-center gap-4 shrink-0">
-                <button
-                    onClick={onBack}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all shrink-0"
-                >
-                    <ArrowLeft className="w-4 h-4" />
-                </button>
-                <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-white/5 shrink-0">
-                        <Shield className="w-4 h-4 text-slate-400" />
+            {/* ════════════════════════════════════════════════════════════
+                HEADER STICKY
+                ════════════════════════════════════════════════════════════ */}
+            <header className="sticky top-0 z-[100] bg-slate-950/95 backdrop-blur-xl border-b border-white/[0.06] shrink-0">
+                <div className="max-w-7xl mx-auto px-6 lg:px-10 py-5 flex items-center gap-5">
+                    <button
+                        onClick={onBack}
+                        className="p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/10 text-slate-400 hover:text-white transition-all shrink-0 border border-white/[0.06]"
+                        title="Voltar para o app"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                    </button>
+
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/15 to-blue-500/10 border border-emerald-500/20 shrink-0">
+                            <Shield className="w-4 h-4 text-emerald-400" />
+                        </div>
+                        <div className="min-w-0">
+                            <h1 className="text-base sm:text-lg font-bold text-white tracking-tight leading-tight">
+                                Painel Administrativo
+                            </h1>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                                Gestão e operação da Alívia
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <h1 className="text-base font-black text-white leading-tight">Painel de Controle</h1>
-                        <p className="text-xs text-slate-500">Administração do sistema</p>
-                    </div>
-                </div>
-                <div className="ml-auto">
-                    <div className={`px-3 py-1.5 rounded-lg border text-xs font-bold ${
-                        loading
-                            ? 'bg-white/5 border-white/10 text-slate-500'
-                            : 'bg-white/5 border-white/10 text-slate-400'
-                    }`}>
-                        {loading ? 'Carregando...' : `${stats.total} usuários`}
+
+                    <div className="ml-auto flex items-center gap-2">
+                        {!loading && (
+                            <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                <span className="text-[11px] font-semibold text-slate-300 tabular-nums">{stats.total} usuários</span>
+                            </div>
+                        )}
+                        {loading && (
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+                                <div className="w-3 h-3 border-2 border-slate-600 border-t-emerald-400 rounded-full animate-spin" />
+                                <span className="text-[11px] font-semibold text-slate-500">Carregando</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </header>
 
-            {/* ── Body: Sidebar + Main ── */}
+            {/* ════════════════════════════════════════════════════════════
+                BODY: SIDEBAR + MAIN
+                ════════════════════════════════════════════════════════════ */}
             <div className="flex flex-1 min-h-0">
 
-                {/* Left Sidebar */}
-                <aside className="w-56 shrink-0 border-r border-white/[0.06] bg-slate-950 flex flex-col">
-                    <nav className="flex-1 p-3 pt-5 overflow-y-auto custom-scrollbar">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 mb-3 px-3">Módulos</p>
+                {/* ─── SIDEBAR ─── */}
+                <aside className="hidden md:flex w-60 shrink-0 border-r border-white/[0.06] bg-slate-950/60 flex-col">
+                    <nav className="flex-1 p-4 overflow-y-auto custom-scrollbar">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 mb-3 px-2">
+                            Navegação
+                        </p>
 
-                        {/* Tab Buttons */}
                         {[
-                            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
-                            { id: 'users',     label: 'Usuários',  icon: Users,           badge: stats.total },
+                            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, desc: 'Visão geral' },
+                            { id: 'users',     label: 'Usuários',  icon: Users,           desc: `${stats.total} cadastrados` },
                         ].map(item => {
                             const Icon = item.icon;
                             const isActive = activeTab === item.id;
@@ -801,51 +820,56 @@ export default function AdminPanel({ onBack }) {
                                 <button
                                     key={item.id}
                                     onClick={() => setActiveTab(item.id)}
-                                    className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all text-sm font-bold text-left mb-1 ${
+                                    className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-xl transition-all text-left mb-1 group ${
                                         isActive
-                                            ? 'bg-emerald-500/10 text-emerald-400'
-                                            : 'text-slate-500 hover:bg-white/5 hover:text-slate-200'
+                                            ? 'bg-emerald-500/[0.08] text-emerald-400'
+                                            : 'text-slate-500 hover:bg-white/[0.04] hover:text-slate-200'
                                     }`}
                                 >
-                                    <div className="flex items-center gap-3">
-                                        <Icon className="w-4 h-4 shrink-0" />
-                                        {item.label}
+                                    <div className={`p-1.5 rounded-lg shrink-0 transition-all ${
+                                        isActive ? 'bg-emerald-500/15' : 'bg-white/[0.03] group-hover:bg-white/[0.06]'
+                                    }`}>
+                                        <Icon className="w-3.5 h-3.5" />
                                     </div>
-                                    {item.badge !== null && (
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                                            isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-slate-600'
-                                        }`}>
-                                            {item.badge}
-                                        </span>
-                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold leading-tight">{item.label}</p>
+                                        <p className={`text-[10px] mt-0.5 ${isActive ? 'text-emerald-500/70' : 'text-slate-600'}`}>
+                                            {item.desc}
+                                        </p>
+                                    </div>
                                 </button>
                             );
                         })}
 
-                        {/* Quick Stats */}
-                        <div className="mt-4 pt-4 border-t border-white/[0.06]">
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 mb-3 px-3">Resumo</p>
+                        {/* Resumo rápido */}
+                        <div className="mt-6 pt-6 border-t border-white/[0.05]">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 mb-3 px-2">
+                                Distribuição
+                            </p>
                             {loading ? (
-                                <div className="space-y-2 px-3">
-                                    {[1,2,3,4].map(i => (
+                                <div className="space-y-2 px-2">
+                                    {[1,2,3,4,5].map(i => (
                                         <div key={i} className="flex justify-between animate-pulse">
-                                            <div className="h-3 bg-slate-800 rounded w-16" />
-                                            <div className="h-3 bg-slate-800 rounded w-6" />
+                                            <div className="h-2.5 bg-slate-800 rounded w-16" />
+                                            <div className="h-2.5 bg-slate-800 rounded w-5" />
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="space-y-0.5">
+                                <div className="space-y-1">
                                     {[
-                                        { label: 'Premium',   val: stats.premium  },
-                                        { label: 'Standard',  val: stats.standard },
-                                        { label: 'Gratuito',  val: stats.free     },
-                                        { label: 'Admins',    val: stats.admins   },
-                                        { label: 'Excluídos', val: stats.deleted  },
+                                        { label: 'Premium',  val: stats.premium,  dot: 'bg-emerald-400' },
+                                        { label: 'Standard', val: stats.standard, dot: 'bg-blue-400'    },
+                                        { label: 'Gratuito', val: stats.free,     dot: 'bg-slate-500'   },
+                                        { label: 'Admins',   val: stats.admins,   dot: 'bg-amber-400'   },
+                                        { label: 'Excluídos',val: stats.deleted,  dot: 'bg-rose-500'    },
                                     ].map(s => (
-                                        <div key={s.label} className="flex items-center justify-between px-3 py-1.5">
-                                            <span className="text-xs text-slate-500">{s.label}</span>
-                                            <span className="text-xs font-bold text-slate-300">{s.val}</span>
+                                        <div key={s.label} className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.02]">
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+                                                <span className="text-xs text-slate-400 font-medium">{s.label}</span>
+                                            </div>
+                                            <span className="text-xs font-semibold text-slate-300 tabular-nums">{s.val}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -853,192 +877,228 @@ export default function AdminPanel({ onBack }) {
                         </div>
                     </nav>
 
-                    {/* Version */}
-                    <div className="p-4 border-t border-white/[0.06]">
-                        <p className="text-[9px] font-black text-slate-700 uppercase tracking-[0.3em] text-center">
-                            Alívia v{version}
+                    <div className="p-4 border-t border-white/[0.05]">
+                        <p className="text-[9px] font-bold text-slate-700 uppercase tracking-[0.3em] text-center">
+                            Alívia · v{version}
                         </p>
                     </div>
                 </aside>
 
-                {/* Main Content */}
+                {/* Sub-tabs mobile (já que sidebar fica oculta no mobile) */}
+                <div className="md:hidden sticky top-[73px] z-[90] bg-slate-950/95 backdrop-blur-xl border-b border-white/[0.06] flex">
+                    {[
+                        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+                        { id: 'users',     label: 'Usuários',  icon: Users },
+                    ].map(item => {
+                        const Icon = item.icon;
+                        const isActive = activeTab === item.id;
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={() => setActiveTab(item.id)}
+                                className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-semibold border-b-2 transition-all ${
+                                    isActive
+                                        ? 'text-emerald-400 border-emerald-500'
+                                        : 'text-slate-500 border-transparent'
+                                }`}
+                            >
+                                <Icon className="w-3.5 h-3.5" />
+                                {item.label}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* ─── MAIN ─── */}
                 <main className="flex-1 overflow-y-auto custom-scrollbar">
-                    <div className="p-6 max-w-5xl animate-in fade-in duration-500">
+                    <div className="max-w-5xl mx-auto p-6 md:p-10 animate-in fade-in duration-500">
 
-                        {/* ── Dashboard Tab ── */}
+                        {/* ════════════════════════════════════════════════
+                            DASHBOARD TAB
+                            ════════════════════════════════════════════════ */}
                         {activeTab === 'dashboard' && (
-                            <div className="space-y-6">
-                                {/* Stat Cards */}
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                    {[
-                                        { label: 'Total de Usuários', val: stats.total,   icon: Users      },
-                                        { label: 'Premium',           val: stats.premium, icon: Zap        },
-                                        { label: 'Standard',          val: stats.standard,icon: CreditCard },
-                                        { label: 'Gratuito',          val: stats.free,    icon: Gift       },
-                                        { label: 'Admins',            val: stats.admins,  icon: Shield     },
-                                        { label: 'Excluídos',         val: stats.deleted, icon: Trash2     },
-                                    ].map(item => (
-                                        <div key={item.label} className="p-5 rounded-2xl border border-white/[0.06] bg-slate-900/50 hover:border-white/10 transition-all">
-                                            <div className="p-2 rounded-xl bg-white/5 text-slate-400 w-fit mb-4">
-                                                <item.icon className="w-4 h-4" />
-                                            </div>
-                                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1">{item.label}</p>
-                                            <p className="text-2xl font-black text-white">{item.val}</p>
-                                        </div>
-                                    ))}
+                            <div className="space-y-10">
+                                {/* Section heading */}
+                                <div>
+                                    <h2 className="text-2xl font-bold text-white tracking-tight">Visão Geral</h2>
+                                    <p className="text-sm text-slate-500 mt-1">Métricas operacionais em tempo real.</p>
                                 </div>
 
-                                {/* Breakdown Row */}
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {/* MÉTRICAS PRIMÁRIAS */}
+                                <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                                     {[
-                                        { label: 'Prem. Mensal', val: stats.premiumMonthly  },
-                                        { label: 'Prem. Anual',  val: stats.premiumAnnual   },
-                                        { label: 'Std. Mensal',  val: stats.standardMonthly },
-                                        { label: 'Std. Anual',   val: stats.standardAnnual  },
+                                        { label: 'Total',     val: stats.total,    icon: Users,      color: 'text-slate-300', accent: 'bg-slate-500/10' },
+                                        { label: 'Premium',   val: stats.premium,  icon: Sparkles,   color: 'text-emerald-400', accent: 'bg-emerald-500/10' },
+                                        { label: 'Standard',  val: stats.standard, icon: CreditCard, color: 'text-blue-400',    accent: 'bg-blue-500/10' },
+                                        { label: 'Gratuito',  val: stats.free,     icon: Gift,       color: 'text-slate-400',   accent: 'bg-slate-500/10' },
                                     ].map(item => (
-                                        <div key={item.label} className="px-4 py-3 rounded-xl border border-white/[0.06] bg-white/[0.02] flex items-center justify-between">
-                                            <span className="text-xs text-slate-500">{item.label}</span>
-                                            <span className="text-sm font-bold text-white">{item.val}</span>
+                                        <div key={item.label} className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className={`p-2 rounded-lg ${item.accent}`}>
+                                                    <item.icon className={`w-4 h-4 ${item.color}`} />
+                                                </div>
+                                            </div>
+                                            <p className={`text-3xl font-bold tabular-nums ${item.color}`}>{item.val}</p>
+                                            <p className="text-xs text-slate-500 mt-1">{item.label}</p>
                                         </div>
                                     ))}
-                                </div>
+                                </section>
 
-                                {/* Quick Tools */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {/* Push Notification */}
-                                    <div className="bg-slate-900/50 border border-white/[0.06] rounded-2xl p-5">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <div className="p-2 rounded-xl bg-white/5 shrink-0">
-                                                <Zap className="w-4 h-4 text-slate-400" />
+                                {/* MÉTRICAS SECUNDÁRIAS */}
+                                <section>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Detalhamento por Ciclo</h3>
+                                        <span className="text-[10px] text-slate-600">{stats.admins} admins · {stats.deleted} excluídos</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+                                        {[
+                                            { label: 'Premium · Mensal', val: stats.premiumMonthly,  dot: 'bg-emerald-400' },
+                                            { label: 'Premium · Anual',  val: stats.premiumAnnual,   dot: 'bg-emerald-300' },
+                                            { label: 'Standard · Mensal',val: stats.standardMonthly, dot: 'bg-blue-400' },
+                                            { label: 'Standard · Anual', val: stats.standardAnnual,  dot: 'bg-blue-300' },
+                                        ].map(item => (
+                                            <div key={item.label} className="px-4 py-3 rounded-xl border border-white/[0.05] bg-white/[0.02] flex items-center justify-between">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${item.dot} shrink-0`} />
+                                                    <span className="text-[11px] text-slate-400 truncate">{item.label}</span>
+                                                </div>
+                                                <span className="text-sm font-semibold text-white tabular-nums">{item.val}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+
+                                {/* NOTIFICAÇÃO PUSH */}
+                                <section>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Comunicação</h3>
+                                    </div>
+                                    <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6">
+                                        <div className="flex items-center gap-3 mb-5">
+                                            <div className="p-2.5 rounded-xl bg-blue-500/10 shrink-0">
+                                                <Zap className="w-4 h-4 text-blue-400" />
                                             </div>
                                             <div>
-                                                <h2 className="text-sm font-black text-white">Notificação Push</h2>
-                                                <p className="text-xs text-slate-500">Enviar para todos os usuários</p>
+                                                <h2 className="text-base font-semibold text-white">Notificação Push</h2>
+                                                <p className="text-xs text-slate-500 mt-0.5">
+                                                    Enviada para todos os dispositivos ativos.
+                                                </p>
                                             </div>
                                         </div>
-                                        <div className="space-y-3">
-                                            <div>
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Título</label>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Ex: Nova funcionalidade!"
-                                                    className="w-full bg-slate-950 border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#5CCEEA]/50 text-white placeholder-slate-600 transition-colors"
-                                                    value={pushMessage.title}
-                                                    onChange={e => setPushMessage({ ...pushMessage, title: e.target.value })}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Mensagem</label>
-                                                <textarea
-                                                    placeholder="Corpo da notificação..."
-                                                    rows={3}
-                                                    className="w-full bg-slate-950 border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#5CCEEA]/50 text-white placeholder-slate-600 transition-colors resize-none"
-                                                    value={pushMessage.body}
-                                                    onChange={e => setPushMessage({ ...pushMessage, body: e.target.value })}
-                                                />
+
+                                        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-end">
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1.5 block">Título</label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Ex: Nova funcionalidade disponível"
+                                                        className="w-full bg-slate-950/60 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/40 focus:bg-slate-950 text-white placeholder-slate-600 transition-colors"
+                                                        value={pushMessage.title}
+                                                        onChange={e => setPushMessage({ ...pushMessage, title: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1.5 block">Mensagem</label>
+                                                    <textarea
+                                                        placeholder="Corpo da notificação"
+                                                        rows={2}
+                                                        className="w-full bg-slate-950/60 border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/40 focus:bg-slate-950 text-white placeholder-slate-600 transition-colors resize-none"
+                                                        value={pushMessage.body}
+                                                        onChange={e => setPushMessage({ ...pushMessage, body: e.target.value })}
+                                                    />
+                                                </div>
                                             </div>
                                             <button
                                                 onClick={sendPushToAll}
-                                                disabled={isSendingPush}
-                                                className="w-full py-3 rounded-xl bg-emerald-500 text-white text-sm font-bold hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-50"
+                                                disabled={isSendingPush || !pushMessage.title || !pushMessage.body}
+                                                className="lg:w-auto w-full px-6 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
                                             >
-                                                {isSendingPush ? 'Enviando...' : 'Disparar Notificação'}
+                                                {isSendingPush ? (
+                                                    <>
+                                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                        Enviando
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Zap className="w-4 h-4" />
+                                                        Disparar
+                                                    </>
+                                                )}
                                             </button>
                                         </div>
                                     </div>
-
-                                    {/* Global Reset */}
-                                    <div className="bg-slate-900/50 border border-white/[0.06] rounded-2xl p-5 flex flex-col">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <div className="p-2 rounded-xl bg-white/5 shrink-0">
-                                                <Trash2 className="w-4 h-4 text-slate-400" />
-                                            </div>
-                                            <div>
-                                                <h2 className="text-sm font-black text-white">Manutenção Global</h2>
-                                                <p className="text-xs text-slate-500">Zona de perigo — use com cautela</p>
-                                            </div>
-                                        </div>
-                                        <p className="text-xs text-slate-500 leading-relaxed flex-1 mb-5">
-                                            Reseta transações, metas e configurações de todos os usuários. Esta operação é <span className="text-rose-400 font-bold">irreversível</span> e deve ser usada apenas em manutenções planejadas.
-                                        </p>
-                                        <button
-                                            onClick={resetGlobalData}
-                                            disabled={isResettingGlobal}
-                                            className="w-full py-3 rounded-xl bg-rose-600 text-white text-sm font-bold hover:bg-rose-500 active:scale-95 transition-all disabled:opacity-50"
-                                        >
-                                            {isResettingGlobal ? 'Executando...' : 'Executar Reset Global'}
-                                        </button>
-                                    </div>
-                                </div>
+                                </section>
                             </div>
                         )}
 
-                        {/* ── Users Tab ── */}
+                        {/* ════════════════════════════════════════════════
+                            USERS TAB
+                            ════════════════════════════════════════════════ */}
                         {activeTab === 'users' && (
-                            <div className="space-y-5">
-                                {/* Header row: title + search */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="space-y-6">
+                                {/* Section header */}
+                                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                                     <div>
-                                        <h2 className="text-base font-black text-white">Gestão de Usuários</h2>
-                                        <p className="text-xs text-slate-500 mt-0.5">{filteredUsers.length} encontrados</p>
+                                        <h2 className="text-2xl font-bold text-white tracking-tight">Gestão de Usuários</h2>
+                                        <p className="text-sm text-slate-500 mt-1">
+                                            {filteredUsers.length === 1
+                                                ? '1 usuário encontrado'
+                                                : `${filteredUsers.length} usuários encontrados`}
+                                        </p>
                                     </div>
-                                    <div className="relative w-full sm:w-72">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                                    <div className="relative w-full sm:w-80">
+                                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
                                         <input
                                             type="text"
                                             placeholder="Buscar por e-mail..."
-                                            className="w-full bg-slate-900 border border-white/[0.08] rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-[#5CCEEA]/50 text-white placeholder-slate-600 transition-colors"
+                                            className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-emerald-500/40 focus:bg-slate-950 text-white placeholder-slate-600 transition-colors"
                                             value={searchTerm}
                                             onChange={e => setSearchTerm(e.target.value)}
                                         />
                                     </div>
                                 </div>
 
-                                {/* Sub-tabs */}
-                                <div className="flex gap-1.5 overflow-x-auto pb-1">
+                                {/* Filter chips */}
+                                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
                                     {[
-                                        { id: 'admins',    label: 'Admins',         count: stats.admins          },
-                                        { id: 'premium',   label: 'Plano Premium',  count: stats.premium         },
-                                        { id: 'standard',  label: 'Plano Standard', count: stats.standard        },
-                                        { id: 'sem_plano', label: 'Plano Gratuito',   count: stats.free          },
-                                        { id: 'excluidos', label: 'Excluídos',      count: stats.deleted         },
+                                        { id: 'admins',    label: 'Admins',         count: stats.admins   },
+                                        { id: 'premium',   label: 'Plano Premium',  count: stats.premium  },
+                                        { id: 'standard',  label: 'Plano Standard', count: stats.standard },
+                                        { id: 'sem_plano', label: 'Plano Gratuito', count: stats.free     },
+                                        { id: 'excluidos', label: 'Excluídos',      count: stats.deleted  },
                                     ].map(tab => (
                                         <button
                                             key={tab.id}
                                             onClick={() => setUserSubTab(tab.id)}
-                                            className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                                            className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
                                                 userSubTab === tab.id
-                                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                                    : 'bg-white/[0.04] text-slate-500 hover:bg-white/[0.08] hover:text-slate-300 border border-white/[0.06]'
+                                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                                    : 'bg-white/[0.03] text-slate-400 hover:bg-white/[0.06] hover:text-slate-200 border-white/[0.06]'
                                             }`}
                                         >
-                                            {tab.label} <span className="opacity-60 font-normal">({tab.count})</span>
+                                            {tab.label}
+                                            <span className={`text-[10px] tabular-nums px-1.5 py-0.5 rounded-full ${
+                                                userSubTab === tab.id ? 'bg-emerald-500/20' : 'bg-white/[0.05]'
+                                            }`}>
+                                                {tab.count}
+                                            </span>
                                         </button>
                                     ))}
                                 </div>
 
-                                {/* User List */}
+                                {/* Users list */}
                                 <div className="space-y-2">
-                                    {/* List Header */}
-                                    <div className="hidden sm:grid grid-cols-[1fr_160px_100px_48px] gap-4 px-4 py-2">
-                                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Usuário</p>
-                                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Plano</p>
-                                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Status</p>
-                                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] text-right">Ed.</p>
-                                    </div>
-
                                     {loading ? (
-                                        Array(5).fill(0).map((_, i) => (
-                                            <div key={i} className="bg-slate-900/50 border border-white/[0.06] rounded-xl p-4 animate-pulse">
+                                        Array(6).fill(0).map((_, i) => (
+                                            <div key={i} className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-4 animate-pulse">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-9 h-9 bg-slate-800 rounded-xl shrink-0" />
+                                                    <div className="w-10 h-10 bg-slate-800 rounded-xl shrink-0" />
                                                     <div className="flex-1 space-y-2">
                                                         <div className="h-3 bg-slate-800 rounded w-48" />
                                                         <div className="h-2.5 bg-slate-800 rounded w-32 opacity-50" />
                                                     </div>
-                                                    <div className="h-6 bg-slate-800 rounded-lg w-20" />
-                                                    <div className="h-6 bg-slate-800 rounded-lg w-16" />
-                                                    <div className="h-8 w-8 bg-slate-800 rounded-xl" />
+                                                    <div className="h-6 bg-slate-800 rounded-lg w-24" />
                                                 </div>
                                             </div>
                                         ))
@@ -1046,108 +1106,116 @@ export default function AdminPanel({ onBack }) {
                                         filteredUsers.map(user => (
                                             <div
                                                 key={user.uid}
-                                                className="bg-slate-900/50 border border-white/[0.06] rounded-xl px-4 py-3.5 hover:border-white/10 transition-all"
+                                                className="bg-white/[0.02] border border-white/[0.05] hover:border-white/[0.1] hover:bg-white/[0.04] rounded-xl px-5 py-4 transition-all group"
                                             >
-                                                <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_160px_100px_48px] gap-3 items-center">
-                                                    {/* Identity */}
-                                                    <div className="flex items-center gap-3 min-w-0">
-                                                        <div className="p-2 rounded-xl bg-white/5 text-slate-400 shrink-0">
+                                                <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
+
+                                                    {/* Avatar + identidade */}
+                                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                                                            user.isAdmin
+                                                                ? 'bg-amber-500/10 text-amber-400'
+                                                                : user.isDeleted
+                                                                    ? 'bg-rose-500/10 text-rose-400'
+                                                                    : 'bg-white/[0.04] text-slate-400'
+                                                        }`}>
                                                             {user.isAdmin ? <ShieldAlert className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <p className="text-sm font-bold text-white truncate leading-tight">{user.email}</p>
-                                                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                                                <span className="text-[10px] text-slate-600 flex items-center gap-1">
-                                                                    <Fingerprint className="w-2.5 h-2.5" /> {user.uid.slice(0, 8)}...
+                                                            <p className="text-sm font-semibold text-white truncate leading-tight">{user.email}</p>
+                                                            <div className="flex items-center gap-2.5 mt-1 flex-wrap">
+                                                                <span className="text-[10px] text-slate-500 flex items-center gap-1 font-mono">
+                                                                    <Fingerprint className="w-2.5 h-2.5" /> {user.uid.slice(0, 8)}
                                                                 </span>
-                                                                <span className="text-[10px] text-slate-600">· {user.createdAt}</span>
-                                                                {user.hasAcceptedTerms
-                                                                    ? <span className="text-[10px] text-emerald-500">✓ Termos</span>
-                                                                    : <span className="text-[10px] text-amber-500">! Termos</span>
-                                                                }
+                                                                <span className="text-[10px] text-slate-500">·</span>
+                                                                <span className="text-[10px] text-slate-500">desde {user.createdAt}</span>
+                                                                {user.hasAcceptedTerms ? (
+                                                                    <span className="text-[10px] text-emerald-500/80 flex items-center gap-0.5">
+                                                                        <Check className="w-2.5 h-2.5" /> Termos
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-[10px] text-amber-500/80 flex items-center gap-0.5">
+                                                                        <AlertCircle className="w-2.5 h-2.5" /> Termos pendentes
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
 
-                                                    {/* Plan Badge */}
-                                                    <div className="hidden sm:flex flex-col gap-1 justify-center">
-                                                        {/* Nome do plano */}
+                                                    {/* Plano (compacto) */}
+                                                    <div className="hidden sm:flex flex-col items-end gap-1.5 shrink-0">
                                                         {user.isLifetime ? (
-                                                            <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 text-[10px] font-bold border border-purple-500/20 w-fit">Vitalício</span>
+                                                            <span className="px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-300 text-[10px] font-semibold border border-purple-500/20">Vitalício</span>
                                                         ) : user.isPremium ? (
-                                                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20 w-fit">Plano Premium</span>
+                                                            <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-semibold border border-emerald-500/20">Premium</span>
                                                         ) : user.isStandard ? (
-                                                            <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 text-[10px] font-bold border border-blue-500/20 w-fit">Plano Standard</span>
+                                                            <span className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-300 text-[10px] font-semibold border border-blue-500/20">Standard</span>
                                                         ) : (
-                                                            <span className="px-2 py-0.5 rounded-md bg-white/5 text-slate-500 text-[10px] font-bold border border-white/10 w-fit">Gratuito</span>
+                                                            <span className="px-2.5 py-1 rounded-full bg-white/[0.04] text-slate-400 text-[10px] font-semibold border border-white/[0.08]">Gratuito</span>
                                                         )}
 
-                                                        {/* Ciclo + dias restantes */}
                                                         {!user.isLifetime && !user.isDeleted && (user.isPremium || user.isStandard) && (() => {
                                                             const cycle = user.subType === 'annual' ? 365 : 30;
-                                                            const pct   = user.daysLeft / cycle;
+                                                            const pct = user.daysLeft / cycle;
                                                             const daysCls = pct < 0.17
-                                                                ? 'text-rose-400 bg-rose-500/10 border-rose-500/20'
+                                                                ? 'text-rose-400'
                                                                 : pct < 0.40
-                                                                    ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-                                                                    : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+                                                                    ? 'text-amber-400'
+                                                                    : 'text-slate-500';
                                                             return (
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <span className="text-[9px] text-slate-500 font-medium">
-                                                                        {user.subType === 'annual' ? 'Anual' : 'Mensal'}
-                                                                    </span>
-                                                                    {user.daysLeft > 0 ? (
-                                                                        <span className={`text-[9px] font-black px-1.5 py-px rounded-md border ${daysCls}`}>
-                                                                            {user.daysLeft}d restantes
-                                                                        </span>
-                                                                    ) : (
-                                                                        <span className="text-[9px] font-bold text-rose-400">Expirado</span>
-                                                                    )}
-                                                                </div>
+                                                                <span className={`text-[9px] font-medium ${daysCls}`}>
+                                                                    {user.subType === 'annual' ? 'Anual' : 'Mensal'}
+                                                                    {user.daysLeft > 0 ? ` · ${user.daysLeft}d` : ' · expirado'}
+                                                                </span>
                                                             );
                                                         })()}
                                                     </div>
 
-                                                    {/* Status */}
-                                                    <div className="hidden sm:block">
+                                                    {/* Status pill */}
+                                                    <div className="hidden lg:block shrink-0">
                                                         {user.isDeleted ? (
-                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 text-slate-500 text-[10px] font-bold border border-white/10">
-                                                                <Trash2 className="w-3 h-3" /> Excluído
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.04] text-slate-400 text-[10px] font-semibold border border-white/[0.06]">
+                                                                <Trash2 className="w-2.5 h-2.5" /> Excluído
                                                             </div>
                                                         ) : user.isBlocked ? (
-                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-400 text-[10px] font-bold border border-rose-500/20">
-                                                                <Ban className="w-3 h-3" /> Bloqueado
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400 text-[10px] font-semibold border border-rose-500/20">
+                                                                <Ban className="w-2.5 h-2.5" /> Bloqueado
                                                             </div>
                                                         ) : user.isExpired ? (
-                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 text-slate-400 text-[10px] font-bold border border-white/10">
-                                                                <Clock className="w-3 h-3" /> Expirado
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-semibold border border-amber-500/20">
+                                                                <Clock className="w-2.5 h-2.5" /> Expirado
                                                             </div>
                                                         ) : user.isTrial ? (
-                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 text-slate-400 text-[10px] font-bold border border-white/10">
-                                                                <Zap className="w-3 h-3" /> Teste
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-semibold border border-blue-500/20">
+                                                                <Zap className="w-2.5 h-2.5" /> Teste
                                                             </div>
                                                         ) : (
-                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20">
-                                                                <Check className="w-3 h-3" /> Ativo
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold border border-emerald-500/20">
+                                                                <Check className="w-2.5 h-2.5" /> Ativo
                                                             </div>
                                                         )}
                                                     </div>
 
-                                                    {/* Edit button */}
-                                                    <div className="flex justify-end">
-                                                        <button
-                                                            onClick={() => { setEditingUser(user); setPendingUser({ ...user }); }}
-                                                            className="p-2 rounded-xl bg-white/5 hover:bg-[#5CCEEA]/10 hover:text-[#5CCEEA] text-slate-500 transition-all"
-                                                        >
-                                                            <Edit3 className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
+                                                    {/* Edit */}
+                                                    <button
+                                                        onClick={() => { setEditingUser(user); setPendingUser({ ...user }); }}
+                                                        className="p-2.5 rounded-xl bg-white/[0.04] hover:bg-emerald-500/10 hover:text-emerald-400 text-slate-400 transition-all border border-white/[0.06] hover:border-emerald-500/30 shrink-0"
+                                                        title="Editar permissões"
+                                                    >
+                                                        <Edit3 className="w-4 h-4" />
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="py-16 text-center">
-                                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.3em]">Nenhum usuário encontrado</p>
+                                        <div className="py-20 text-center">
+                                            <div className="inline-flex p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] mb-4">
+                                                <Search className="w-6 h-6 text-slate-600" />
+                                            </div>
+                                            <p className="text-sm font-semibold text-slate-400">Nenhum usuário encontrado</p>
+                                            <p className="text-xs text-slate-600 mt-1">
+                                                Tente outro filtro ou ajuste a busca.
+                                            </p>
                                         </div>
                                     )}
                                 </div>
