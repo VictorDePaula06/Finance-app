@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { isLifetimeEmail } from '../constants/admins';
 import logo from '../assets/logo.png';
 import { version } from '../../package.json';
 
@@ -198,7 +199,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
               </p>
               {/* Plano — linha dedicada abaixo do e-mail */}
               <div className="mt-1.5">
-                {(isLifetime || planLevel === 'lifetime' || currentUser?.email?.toLowerCase() === 'j.17jvictor@gmail.com' || currentUser?.email?.toLowerCase() === 'financealivia@gmail.com') ? (
+                {(isLifetime || planLevel === 'lifetime' || isLifetimeEmail(currentUser?.email)) ? (
                   <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black tracking-tight bg-purple-500/20 text-purple-400 border border-purple-500/20">
                     Vitalício
                   </span>

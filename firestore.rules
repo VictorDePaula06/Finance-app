@@ -1,71 +1,116 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Função para checar se o usuário logado é um dos 4 administradores master
+
+    // ─────────────────────────────────────────────────────────
+    // HELPERS
+    // ─────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
     function isAdmin() {
-      return request.auth != null && request.auth.token.email in [
-        'financealivia@gmail.com', 
-        'j.17jvictor@gmail.com', 
-        'matheusphelipe7@gmail.com', 
+      return isSignedIn() && request.auth.token.email in [
+        'financealivia@gmail.com',
+        'j.17jvictor@gmail.com',
+        'matheusphelipe7@gmail.com',
         'felipedb.clopes@gmail.com'
       ];
     }
 
-    // REGRA MESTRE: Admins têm acesso total a qualquer documento em qualquer coleção
+    // Verifica se o usuário é o dono do documento (campo userId === uid).
+    function ownsExisting() {
+      return isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
+    }
+
+    // Verifica se o NOVO conteúdo está sendo escrito como dono pelo usuário logado.
+    function ownsIncoming() {
+      return isSignedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // No update, garante que userId NÃO MUDA — impede que B sequestre doc do A
+    // passando userId=B no body, vulnerabilidade que existia na versão anterior.
+    function ownerStable() {
+      return resource.data.userId == request.resource.data.userId;
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // ACESSO TOTAL DE ADMINS
+    // (Compatível com Painel Admin — mantém prioridade)
+    // ─────────────────────────────────────────────────────────
     match /{path=**} {
       allow read, write: if isAdmin();
     }
 
-    // 1. DADOS FINANCEIROS (Transações, Metas, Cartões, Investimentos)
-    // Regra: O usuário só pode ler/escrever se for o dono do dado (userId).
+    // ─────────────────────────────────────────────────────────
+    // DADOS FINANCEIROS POR USUÁRIO (transactions, goals, cards,
+    // subscriptions, fixed_expenses, savings_jars, investments)
+    //
+    // Regras explícitas por operação — previne escalada de privilégio
+    // pelo OR genérico que existia antes.
+    // ─────────────────────────────────────────────────────────
     match /{collectionName}/{docId} {
-       allow read, write: if (request.auth != null && (
-         // Para novos documentos ou atualizações, o userId deve ser o do usuário logado
-         (request.resource != null && request.resource.data.userId == request.auth.uid) ||
-         // Para leitura ou exclusão de documentos existentes, o userId deve bater
-         (resource != null && resource.data.userId == request.auth.uid)
-       ));
+      allow read:   if ownsExisting();
+      allow create: if ownsIncoming();
+      // Update: dono original + dono incoming + userId não muda
+      allow update: if ownsExisting() && ownsIncoming() && ownerStable();
+      allow delete: if ownsExisting();
     }
-    
-    // 2. PERFIL DE USUÁRIO (users)
-    // Regra: O usuário só acessa o seu próprio documento de perfil pelo ID.
+
+    // ─────────────────────────────────────────────────────────
+    // PERFIL DE USUÁRIO
+    // ─────────────────────────────────────────────────────────
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      
-      // Permitir acesso às subcoleções de configurações e chat do próprio usuário
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+
       match /settings/{docId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
       }
       match /chat/{docId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
+      }
+      // Log de auditoria do aceite de termos (LGPD)
+      match /terms_log/{docId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() && request.auth.uid == userId;
+        // Imutável — não pode editar nem deletar log de aceite
+        allow update, delete: if false;
       }
     }
 
-    // 3. CONFIGURAÇÕES GLOBAIS (admin_configs)
-    // Regra: Proteção total. Somente os e-mails da lista isAdmin() podem acessar.
-    // (Já coberto pela regra mestre, mas mantido para clareza)
+    // ─────────────────────────────────────────────────────────
+    // CONFIGURAÇÕES GLOBAIS
+    // ─────────────────────────────────────────────────────────
     match /admin_configs/{docId} {
       allow read, write: if isAdmin();
     }
-    
-    // 4. INTEGRAÇÃO STRIPE (customers)
-    // Regra: O usuário acessa seus próprios dados de pagamento e assinaturas Stripe.
+
+    // ─────────────────────────────────────────────────────────
+    // INTEGRAÇÃO STRIPE (gerenciado pela extensão oficial)
+    // ─────────────────────────────────────────────────────────
     match /customers/{uid} {
-      allow read: if request.auth.uid == uid;
-      
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      // Apenas leitura no doc raiz — escrita feita pela extensão Stripe
+      // (que tem service account próprio).
+
       match /checkout_sessions/{id} {
-        allow read, write: if request.auth.uid == uid;
+        allow read, write: if isSignedIn() && request.auth.uid == uid;
       }
       match /subscriptions/{id} {
-        allow read: if request.auth.uid == uid;
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        // Apenas a extensão Stripe escreve aqui (não-cliente).
+      }
+      match /payments/{id} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
       }
     }
 
-    // 5. CONFIGURAÇÕES DE USUÁRIO (settings)
-    // Regra: O usuário acessa suas próprias configurações (planos, bloqueios, etc).
+    // ─────────────────────────────────────────────────────────
+    // CONFIGURAÇÕES DE USUÁRIO (coleção legacy)
+    // ─────────────────────────────────────────────────────────
     match /settings/{uid} {
-      allow read, write: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow read, write: if isSignedIn() && (request.auth.uid == uid || isAdmin());
     }
   }
 }

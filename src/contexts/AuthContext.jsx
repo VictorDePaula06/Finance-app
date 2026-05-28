@@ -10,6 +10,8 @@ import {
     GoogleAuthProvider
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
+import { log, maskEmail, maskUid } from '../utils/logger';
+import { isAdminEmail, isLifetimeEmail } from '../constants/admins';
 
 const AuthContext = createContext();
 
@@ -108,8 +110,8 @@ export function AuthProvider({ children }) {
 
                 await setDoc(userRef, updateData, { merge: true });
 
-                // Admin check
-                setIsAdmin(user.email === 'financealivia@gmail.com' || userData.isAdmin === true);
+                // Admin check — usa lista canônica em src/constants/admins.js
+                setIsAdmin(isAdminEmail(user.email) || userData.isAdmin === true);
             }
         });
         return () => unsubscribeAuth();
@@ -175,9 +177,7 @@ export function AuthProvider({ children }) {
             const userEmail = currentUser.email?.toLowerCase();
             const isManualLifetime = dataRef.current.prefs.subscription?.status === 'lifetime' ||
                                      dataRef.current.user.subscription?.status === 'lifetime' ||
-                                     userEmail === 'financealivia@gmail.com' ||
-                                     userEmail === 'j17victor@gmail.com' ||
-                                     userEmail === 'j.17jvictor@gmail.com';
+                                     isLifetimeEmail(userEmail);
             // Plano Gratuito permanente — escolha explícita do usuário (sem expiração).
             const isManualFree = dataRef.current.prefs.subscription?.status === 'free' ||
                                  dataRef.current.user.subscription?.status === 'free';
@@ -310,7 +310,7 @@ export function AuthProvider({ children }) {
                     }
                 }) : null);
 
-                console.log(`[Auth Sync] User: ${currentUser.email}`, newSubInfo);
+                log.info(`[Auth Sync] User: ${maskEmail(currentUser.email)}`, newSubInfo);
             }
 
             // 3. SCHEDULE NEXT CHECK (Precision Watchdog)
@@ -554,7 +554,7 @@ export function AuthProvider({ children }) {
     async function resetUserData(uid) {
         if (!uid) return;
         try {
-            console.log(`[Admin] Resetando dados para o usuário: ${uid}`);
+            log.info(`[Admin] Resetando dados para o usuário: ${maskUid(uid)}`);
             
             // 1. Transactions
             const qT = query(collection(db, 'transactions'), where('userId', '==', uid));
@@ -606,7 +606,7 @@ export function AuthProvider({ children }) {
     async function resetGastosData(uid) {
         if (!uid) return;
         try {
-            console.log(`[User] Resetando dados de Gastos para o usuário: ${uid}`);
+            log.info(`[User] Resetando dados de Gastos para o usuário: ${maskUid(uid)}`);
             
             const collectionsToClear = ['transactions', 'cards', 'subscriptions', 'fixed_expenses'];
             for (const colName of collectionsToClear) {
@@ -639,7 +639,7 @@ export function AuthProvider({ children }) {
     async function resetPatrimonioData(uid) {
         if (!uid) return;
         try {
-            console.log(`[User] Resetando dados de Patrimônio para o usuário: ${uid}`);
+            log.info(`[User] Resetando dados de Patrimônio para o usuário: ${maskUid(uid)}`);
             
             const collectionsToClear = ['goals', 'savings_jars', 'investments'];
             for (const colName of collectionsToClear) {
