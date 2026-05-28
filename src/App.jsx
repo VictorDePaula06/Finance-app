@@ -48,6 +48,7 @@ import FixedExpensesTab from './components/FixedExpensesTab';
 import { useCdiRate } from './utils/marketRates';
 import PremiumPaywall from './components/PremiumPaywall';
 import { CURRENT_TERMS_VERSION } from './components/TermsAcceptanceModal';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
 // CONFIGURAÇÃO MASTER
 const MASTER_EMAIL = 'financealivia@gmail.com';
@@ -916,102 +917,158 @@ import SubscriptionBlock from './components/SubscriptionBlock';
 import Contact from './components/Contact';
 import PatrimonioTab from './components/PatrimonioTab';
 
-function AppContent() {
-  const { currentUser, isPremium, getUserPreferences, saveUserPreferences, isDataLoaded, needsPlanSelection } = useAuth();
-  const { theme } = useTheme();
-  const [view, setView] = useState('landing');
-  const [renderTrigger, setRenderTrigger] = useState(0);
+// ─────────────────────────────────────────────────────────────────
+// ROTAS DA APLICAÇÃO
+//
+// Antes era um SPA com URL fixa e state interno (`view`). Agora cada
+// tela tem URL própria, navegável, compartilhável e indexável.
+//
+// Estrutura:
+//   /                       → Landing (publicado se não logado)
+//   /login                  → Login com Google
+//   /politica-privacidade   → Pública sempre
+//   /termos                 → Pública sempre
+//   /manual                 → Manual público / interno
+//   /contato                → Contato
+//   /planos                 → SubscriptionBlock (escolha de plano)
+//   /inicio                 → Hub (logado, escolhe módulo)
+//   /admin                  → AdminPanel (só admins)
+//   /*                      → catch-all (redireciona conforme estado)
+// ─────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    setRenderTrigger(prev => prev + 1);
-  }, [isPremium]);
+// Componente interno que tem acesso ao navigate via hook
+function AppRoutes() {
+  const { currentUser, isPremium, getUserPreferences, saveUserPreferences, isDataLoaded, needsPlanSelection, isAdmin, resetUserData } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
+  // Reset do usuário de teste master (admin)
   useEffect(() => {
-    if (currentUser && (view === 'landing' || view === 'login')) {
-      setView('dashboard');
+    if (currentUser && currentUser.email === MASTER_EMAIL) {
+      resetUserData(currentUser.uid);
     }
-  }, [currentUser, view]);
+  }, [currentUser?.uid]);
 
+  // Marca o primeiro acesso bem-vindo quando logado e entra no app
   useEffect(() => {
-    if (currentUser && view === 'dashboard') {
+    if (currentUser && location.pathname.startsWith('/inicio')) {
       getUserPreferences().then(prefs => {
         if (!prefs || !prefs.hasSeenWelcome) {
           saveUserPreferences({ hasSeenWelcome: true });
         }
       });
     }
-  }, [currentUser, view]);
+  }, [currentUser, location.pathname]);
 
-  // Logic to reset Admin Test User data
-  const { resetUserData, isAdmin } = useAuth();
+  // Listener legacy de `change-view` — agora redireciona pra navigate
+  // (mantém compatibilidade com componentes que ainda disparam o evento).
   useEffect(() => {
-    if (currentUser && currentUser.email === MASTER_EMAIL) {
-      console.log("[Admin] Test account detected. Resetting data...");
-      resetUserData(currentUser.uid);
-    }
-  }, [currentUser?.uid]);
-
-
-  useEffect(() => {
-    const handleViewChange = (e) => setView(e.detail);
-    
-    window.addEventListener('change-view', handleViewChange);
-    
-    return () => {
-      window.removeEventListener('change-view', handleViewChange);
+    const handler = (e) => {
+      const target = e.detail;
+      const map = {
+        landing:  '/',
+        login:    '/login',
+        privacy:  '/politica-privacidade',
+        terms:    '/termos',
+        manual:   '/manual',
+        contact:  '/contato',
+        dashboard:'/inicio',
+        admin:    '/admin',
+      };
+      if (map[target]) navigate(map[target]);
     };
-  }, []);
+    window.addEventListener('change-view', handler);
+    return () => window.removeEventListener('change-view', handler);
+  }, [navigate]);
 
-  if (view === 'login' && !currentUser) return <Login onBack={() => setView('landing')} />;
-  if (view === 'privacy') return <PrivacyPolicy onBack={() => setView(currentUser ? 'dashboard' : 'landing')} />;
-  if (view === 'terms') return <TermsOfUse onBack={() => setView(currentUser ? 'dashboard' : 'landing')} />;
-  if (view === 'manual') return <Manual onBack={() => setView(currentUser ? 'dashboard' : 'landing')} />;
-  if (view === 'contact') return <Contact onBack={() => setView(currentUser ? 'dashboard' : 'landing')} />;
-
-  if (currentUser) {
-    // Evita a piscada da tela de bloqueio enquanto os dados estão sendo buscados
-    if (!isDataLoaded) {
-      return (
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
-          <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-slate-400 text-sm font-medium">Carregando sua área financeira...</p>
-        </div>
-      );
-    }
-
-    const isNewAccount = currentUser?.metadata?.creationTime && 
-                         (new Date() - new Date(currentUser.metadata.creationTime)) < 10000;
-
-    if (isAdmin && view === 'admin') {
-      return <AdminPanel onBack={() => setView('dashboard')} />;
-    }
-
-    console.log("[App Content] Final Decision - isPremium:", isPremium, "isAdmin:", isAdmin, "isNewAccount:", isNewAccount, "needsPlanSelection:", needsPlanSelection);
-
-    // Prioridade: se o usuário nunca escolheu plano, sempre mostra a tela de seleção
-    // (admin via e-mail fixo é lifetime e não entra aqui).
-    if (needsPlanSelection && !isAdmin) {
-      return <SubscriptionBlock onAdminAccess={() => isAdmin && setView('admin')} />;
-    }
-
-    return isPremium || isAdmin || isNewAccount ? (
-      <>
-        <Dashboard />
-      </>
-    ) : (
-      <SubscriptionBlock onAdminAccess={() => isAdmin && setView('admin')} />
+  // Loading state — evita piscar a tela de planos enquanto dados sobem
+  if (currentUser && !isDataLoaded) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-slate-400 text-sm font-medium">Carregando sua área financeira...</p>
+      </div>
     );
   }
 
+  const isNewAccount = currentUser?.metadata?.creationTime &&
+                       (new Date() - new Date(currentUser.metadata.creationTime)) < 10000;
+  const hasAppAccess = isPremium || isAdmin || isNewAccount;
+
   return (
-    <LandingPage
-      onLogin={() => setView('login')}
-      onViewPrivacy={() => setView('privacy')}
-      onViewTerms={() => setView('terms')}
-      onViewManual={() => setView('manual')}
-      onViewContact={() => setView('contact')}
-    />
+    <Routes>
+      {/* ─── ROTAS PÚBLICAS ─── */}
+      <Route
+        path="/"
+        element={currentUser ? <Navigate to="/inicio" replace /> : (
+          <LandingPage
+            onLogin={() => navigate('/login')}
+            onViewPrivacy={() => navigate('/politica-privacidade')}
+            onViewTerms={() => navigate('/termos')}
+            onViewManual={() => navigate('/manual')}
+            onViewContact={() => navigate('/contato')}
+          />
+        )}
+      />
+      <Route
+        path="/login"
+        element={currentUser ? <Navigate to="/inicio" replace /> : <Login onBack={() => navigate('/')} />}
+      />
+      <Route
+        path="/politica-privacidade"
+        element={<PrivacyPolicy onBack={() => navigate(currentUser ? '/inicio' : '/')} />}
+      />
+      <Route
+        path="/termos"
+        element={<TermsOfUse onBack={() => navigate(currentUser ? '/inicio' : '/')} />}
+      />
+      <Route
+        path="/manual"
+        element={<Manual onBack={() => navigate(currentUser ? '/inicio' : '/')} />}
+      />
+      <Route
+        path="/contato"
+        element={<Contact onBack={() => navigate(currentUser ? '/inicio' : '/')} />}
+      />
+
+      {/* ─── ROTAS LOGADAS ─── */}
+      <Route
+        path="/planos"
+        element={
+          !currentUser ? <Navigate to="/login" replace />
+            : <SubscriptionBlock onAdminAccess={() => isAdmin && navigate('/admin')} />
+        }
+      />
+      <Route
+        path="/inicio/*"
+        element={
+          !currentUser ? <Navigate to="/login" replace />
+            : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace />
+            : !hasAppAccess ? <Navigate to="/planos" replace />
+            : <Dashboard />
+        }
+      />
+      {/* Compatibilidade: /dashboard → /inicio */}
+      <Route path="/dashboard/*" element={<Navigate to="/inicio" replace />} />
+
+      {/* ─── ROTAS ADMIN ─── */}
+      <Route
+        path="/admin/*"
+        element={
+          !currentUser ? <Navigate to="/login" replace />
+            : !isAdmin ? <Navigate to="/inicio" replace />
+            : <AdminPanel onBack={() => navigate('/inicio')} />
+        }
+      />
+
+      {/* Catch-all */}
+      <Route path="*" element={<Navigate to={currentUser ? '/inicio' : '/'} replace />} />
+    </Routes>
   );
+}
+
+function AppContent() {
+  return <AppRoutes />;
 }
 
 export default function App() {

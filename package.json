@@ -1,7 +1,7 @@
 {
   "name": "finance-app",
   "private": true,
-  "version": "8.10.3",
+  "version": "8.11.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -20,6 +20,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
+    "react-router-dom": "^6.30.3",
     "recharts": "^3.8.1"
   },
   "devDependencies": {
