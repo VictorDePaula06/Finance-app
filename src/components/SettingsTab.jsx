@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import {
   Settings, Shield, Moon, Sun, Key, Check, Loader2, Video,
   HelpCircle, Sparkles, Bookmark, X, CreditCard,
-  Trash2, AlertTriangle, RefreshCw, Pencil
+  Trash2, AlertTriangle, RefreshCw, Pencil, Download, FileText, Mail
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { validateApiKey } from '../services/gemini';
+import { downloadUserData } from '../utils/dataExport';
 import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
 import Manual from './Manual';
 import UpgradeModal from './UpgradeModal';
@@ -26,6 +27,21 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
   const [showResetPatrimonioConfirm, setShowResetPatrimonioConfirm] = useState(false);
   const [isResettingPatrimonio, setIsResettingPatrimonio] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+
+  // LGPD art. 18 V — portabilidade de dados
+  const handleExportData = async () => {
+    setIsExporting(true);
+    setExportError('');
+    try {
+      await downloadUserData(currentUser);
+    } catch (err) {
+      setExportError(err?.message || 'Erro ao exportar dados.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // AI key states
   const [apiKey, setApiKey] = useState(manualConfig.geminiKey || '');
@@ -116,8 +132,10 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
   // ── Section content renderers ──
 
   const renderProfile = () => (
-    <div className="animate-in fade-in duration-200">
+    <div className="animate-in fade-in duration-200 space-y-4">
       <SectionTitle icon={Shield} label="Perfil e Segurança" iconColor="text-emerald-500" />
+
+      {/* Identidade */}
       <div className={`flex items-center gap-4 p-4 rounded-xl border ${isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
         <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-2xl font-black text-emerald-500 shrink-0">
           {currentUser?.displayName?.charAt(0) || currentUser?.email?.charAt(0)}
@@ -136,6 +154,62 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
             {planLevel === 'lifetime' ? 'Vitalício' : planLevel === 'premium' ? 'Premium' : planLevel === 'standard' ? 'Standard' : 'Gratuito'}
           </p>
         </div>
+      </div>
+
+      {/* Seção LGPD — Direitos do Titular */}
+      <div className={`p-4 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/10' : 'bg-blue-50/50 border-blue-100'}`}>
+        <div className="flex items-center gap-2 mb-3">
+          <Shield className="w-4 h-4 text-blue-500" />
+          <h4 className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+            Seus Direitos (LGPD)
+          </h4>
+        </div>
+        <p className={`text-[11px] leading-relaxed mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+          Você tem direito de acessar, corrigir, exportar e excluir seus dados a qualquer momento (Lei 13.709/2018, art. 18).
+        </p>
+
+        {/* Baixar Meus Dados */}
+        <button
+          onClick={handleExportData}
+          disabled={isExporting}
+          className={`w-full px-4 py-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 border mb-2 ${
+            isDark
+              ? 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20 disabled:opacity-50'
+              : 'bg-white border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50'
+          }`}
+        >
+          {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+          {isExporting ? 'Preparando arquivo...' : 'Baixar Meus Dados (JSON)'}
+        </button>
+        {exportError && (
+          <p className="text-[10px] text-rose-500 mb-2 ml-1">{exportError}</p>
+        )}
+
+        {/* Ver política */}
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('change-view', { detail: 'privacy' }))}
+          className={`w-full px-4 py-2.5 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-2 border ${
+            isDark
+              ? 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          Ver Política de Privacidade
+        </button>
+
+        {/* Contato DPO */}
+        <a
+          href="mailto:dpo.alivia@gmail.com?subject=LGPD%20-%20Solicitação%20de%20Titular"
+          className={`w-full px-4 py-2.5 mt-2 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-2 border ${
+            isDark
+              ? 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          <Mail className="w-3.5 h-3.5" />
+          Falar com o DPO
+        </a>
       </div>
     </div>
   );
