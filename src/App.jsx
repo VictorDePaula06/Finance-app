@@ -48,7 +48,8 @@ import FixedExpensesTab from './components/FixedExpensesTab';
 import { useCdiRate } from './utils/marketRates';
 import PremiumPaywall from './components/PremiumPaywall';
 import { CURRENT_TERMS_VERSION } from './components/TermsAcceptanceModal';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
+import { TAB_SLUG_TO_ID, TAB_ID_TO_SLUG, DEFAULT_TAB_BY_MODULE, TAB_TO_MODULE, buildTabPath } from './constants/routes';
 
 // CONFIGURAÇÃO MASTER
 const MASTER_EMAIL = 'financealivia@gmail.com';
@@ -56,6 +57,30 @@ const MASTER_EMAIL = 'financealivia@gmail.com';
 function Dashboard() {
   const { currentUser, saveUserPreferences, getUserPreferences, userPrefs, planLevel, isAdmin } = useAuth();
   const { theme } = useTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Deriva module/tab da URL — fonte da verdade é a URL.
+  // /inicio              → module=hub
+  // /gastos/:tab         → module=gastos, tab=<id mapeado>
+  // /patrimonio/:tab     → module=patrimonio, tab=<id mapeado>
+  // /ajustes             → module=último visitado, tab=ajustes (overlay)
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const urlSegment = pathParts[0] || 'inicio';
+  const urlTabSlug = pathParts[1] || '';
+
+  const moduleFromUrl =
+    urlSegment === 'inicio'     ? 'hub'
+    : urlSegment === 'patrimonio' ? 'patrimonio'
+    : urlSegment === 'ajustes'    ? 'gastos' // mantém último módulo lógico
+    : 'gastos';
+
+  const tabFromUrl =
+    urlSegment === 'inicio'  ? 'visao'
+    : urlSegment === 'ajustes' ? 'ajustes'
+    : urlTabSlug ? (TAB_SLUG_TO_ID[urlTabSlug] || urlTabSlug)
+    : (DEFAULT_TAB_BY_MODULE[moduleFromUrl] || 'visao');
+
   const [transactions, setTransactions] = useState([]);
   const [savingsJars, setSavingsJars] = useState([]);
   const [goals, setGoals] = useState([]);
@@ -63,8 +88,45 @@ function Dashboard() {
   const [subscriptions, setSubscriptions] = useState([]);
   const [fixedExpensesList, setFixedExpensesList] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
-  const [activeModule, setActiveModule] = useState('hub');
-  const [activeTab, setActiveTab] = useState('visao');
+
+  // State interno sincronizado com a URL (single source of truth = URL)
+  const [activeModule, _setActiveModule] = useState(moduleFromUrl);
+  const [activeTab, _setActiveTab] = useState(tabFromUrl);
+
+  // Sincroniza URL → state quando a URL muda (ex: voltar do navegador)
+  useEffect(() => {
+    if (activeModule !== moduleFromUrl) _setActiveModule(moduleFromUrl);
+    if (activeTab !== tabFromUrl) _setActiveTab(tabFromUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moduleFromUrl, tabFromUrl]);
+
+  // Wrappers que navegam pela URL (a URL change vai atualizar o state via useEffect acima)
+  const setActiveModule = (mod) => {
+    if (mod === 'hub') {
+      navigate('/inicio');
+    } else {
+      const defaultTab = DEFAULT_TAB_BY_MODULE[mod] || 'visao';
+      navigate(buildTabPath(mod, defaultTab));
+    }
+  };
+  const setActiveTab = (tabId) => {
+    // Ajustes é overlay especial — URL própria /ajustes
+    if (tabId === 'ajustes') {
+      navigate('/ajustes');
+      return;
+    }
+    // Aba 'manual' é a antiga aba interna do Manual — vira /manual
+    if (tabId === 'manual') {
+      navigate('/manual');
+      return;
+    }
+    const mod = TAB_TO_MODULE[tabId] || activeModule || 'gastos';
+    if (mod === 'common' || mod === 'hub') {
+      navigate(buildTabPath('gastos', tabId));
+    } else {
+      navigate(buildTabPath(mod, tabId));
+    }
+  };
   const [showReservesList, setShowReservesList] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showMonthlyReview, setShowMonthlyReview] = useState(false);
@@ -435,10 +497,9 @@ function Dashboard() {
             alert('O módulo de Patrimônio é exclusivo para assinantes Premium. O Plano Standard cobre apenas o Controle de Gastos.');
             return;
           }
+          // setActiveModule (wrapper que navega) já leva pra aba default do módulo
           setActiveModule(mod);
-          if (mod === 'gastos') setActiveTab('visao');
-          else if (mod === 'patrimonio') setActiveTab('patrimonio');
-        }} 
+        }}
       />
     );
   }
@@ -1039,27 +1100,21 @@ function AppRoutes() {
             : <SubscriptionBlock onAdminAccess={() => isAdmin && navigate('/admin')} />
         }
       />
-      <Route
-        path="/inicio/*"
-        element={
-          !currentUser ? <Navigate to="/login" replace />
-            : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace />
-            : !hasAppAccess ? <Navigate to="/planos" replace />
-            : <Dashboard />
-        }
-      />
+      {/* Todas as rotas do Dashboard passam pelo mesmo guard.
+          Se o usuário não pode entrar, é redirecionado para /login ou /planos. */}
+      <Route path="/inicio"            element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <Dashboard />} />
+      <Route path="/gastos"            element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <Navigate to="/gastos/visao-geral" replace />} />
+      <Route path="/gastos/:tab"       element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <Dashboard />} />
+      <Route path="/patrimonio"        element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <Navigate to="/patrimonio/visao" replace />} />
+      <Route path="/patrimonio/:tab"   element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <Dashboard />} />
+      <Route path="/ajustes"           element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <Dashboard />} />
+
       {/* Compatibilidade: /dashboard → /inicio */}
       <Route path="/dashboard/*" element={<Navigate to="/inicio" replace />} />
 
       {/* ─── ROTAS ADMIN ─── */}
-      <Route
-        path="/admin/*"
-        element={
-          !currentUser ? <Navigate to="/login" replace />
-            : !isAdmin ? <Navigate to="/inicio" replace />
-            : <AdminPanel onBack={() => navigate('/inicio')} />
-        }
-      />
+      <Route path="/admin"           element={!currentUser ? <Navigate to="/login" replace /> : !isAdmin ? <Navigate to="/inicio" replace /> : <AdminPanel onBack={() => navigate('/inicio')} />} />
+      <Route path="/admin/:section"  element={!currentUser ? <Navigate to="/login" replace /> : !isAdmin ? <Navigate to="/inicio" replace /> : <AdminPanel onBack={() => navigate('/inicio')} />} />
 
       {/* Catch-all */}
       <Route path="*" element={<Navigate to={currentUser ? '/inicio' : '/'} replace />} />
