@@ -47,6 +47,7 @@ import CookieConsent from './components/CookieConsent';
 import FixedExpensesTab from './components/FixedExpensesTab';
 import { useCdiRate } from './utils/marketRates';
 import PremiumPaywall from './components/PremiumPaywall';
+import { CURRENT_TERMS_VERSION } from './components/TermsAcceptanceModal';
 
 // CONFIGURAÇÃO MASTER
 const MASTER_EMAIL = 'financealivia@gmail.com';
@@ -76,12 +77,37 @@ function Dashboard() {
   const [showAliviaConfig, setShowAliviaConfig] = useState(false);
   const [isAcceptingTerms, setIsAcceptingTerms] = useState(false);
 
-  const needsToAcceptTerms = userPrefs && userPrefs.hasAcceptedTerms !== true;
+  // LGPD: usuário precisa re-aceitar se nunca aceitou OU se a versão mudou.
+  const needsToAcceptTerms = userPrefs && (
+    userPrefs.hasAcceptedTerms !== true ||
+    userPrefs.termsVersion !== CURRENT_TERMS_VERSION
+  );
 
   const handleAcceptTerms = async () => {
     setIsAcceptingTerms(true);
     try {
-      await saveUserPreferences({ hasAcceptedTerms: true });
+      const acceptedAt = new Date().toISOString();
+      // Salva versão + timestamp nas preferências do usuário
+      await saveUserPreferences({
+        hasAcceptedTerms: true,
+        termsVersion: CURRENT_TERMS_VERSION,
+        termsAcceptedAt: acceptedAt,
+      });
+
+      // Cria log imutável de auditoria (LGPD art. 8º — comprovação de consentimento).
+      // A regra do Firestore impede update/delete nesta subcoleção.
+      if (currentUser?.uid) {
+        try {
+          await addDoc(collection(db, 'users', currentUser.uid, 'terms_log'), {
+            termsVersion: CURRENT_TERMS_VERSION,
+            acceptedAt,
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+          });
+        } catch (logErr) {
+          // Falha no log não bloqueia o usuário (best-effort).
+          console.warn('[Termos] log de auditoria falhou:', logErr?.message);
+        }
+      }
     } finally {
       setIsAcceptingTerms(false);
     }
