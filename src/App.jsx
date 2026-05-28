@@ -64,15 +64,27 @@ function Dashboard() {
   // /inicio              → module=hub
   // /gastos/:tab         → module=gastos, tab=<id mapeado>
   // /patrimonio/:tab     → module=patrimonio, tab=<id mapeado>
-  // /ajustes             → module=último visitado, tab=ajustes (overlay)
+  // /ajustes             → module=ÚLTIMO módulo visitado (gastos OU patrimonio),
+  //                        tab=ajustes — preserva o contexto da Sidebar.
   const pathParts = location.pathname.split('/').filter(Boolean);
   const urlSegment = pathParts[0] || 'inicio';
   const urlTabSlug = pathParts[1] || '';
 
+  // Recupera o último módulo "real" (gastos/patrimonio) onde o usuário esteve
+  // antes de entrar em uma rota transversal como /ajustes. Persistido em
+  // sessionStorage para sobreviver a reloads na mesma aba.
+  const getLastModule = () => {
+    try {
+      const stored = sessionStorage.getItem('lastModule');
+      return (stored === 'patrimonio' || stored === 'gastos') ? stored : 'gastos';
+    } catch { return 'gastos'; }
+  };
+
   const moduleFromUrl =
-    urlSegment === 'inicio'     ? 'hub'
+    urlSegment === 'inicio'      ? 'hub'
     : urlSegment === 'patrimonio' ? 'patrimonio'
-    : urlSegment === 'ajustes'    ? 'gastos' // mantém último módulo lógico
+    : urlSegment === 'gastos'     ? 'gastos'
+    : urlSegment === 'ajustes'    ? getLastModule() // preserva contexto
     : 'gastos';
 
   const tabFromUrl =
@@ -80,6 +92,15 @@ function Dashboard() {
     : urlSegment === 'ajustes' ? 'ajustes'
     : urlTabSlug ? (TAB_SLUG_TO_ID[urlTabSlug] || urlTabSlug)
     : (DEFAULT_TAB_BY_MODULE[moduleFromUrl] || 'visao');
+
+  // Persiste o último módulo "real" para o /ajustes saber a quem pertencer.
+  useEffect(() => {
+    if (moduleFromUrl === 'gastos' || moduleFromUrl === 'patrimonio') {
+      try {
+        sessionStorage.setItem('lastModule', moduleFromUrl);
+      } catch { /* sessionStorage indisponível */ }
+    }
+  }, [moduleFromUrl]);
 
   const [transactions, setTransactions] = useState([]);
   const [savingsJars, setSavingsJars] = useState([]);
