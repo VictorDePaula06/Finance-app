@@ -353,8 +353,12 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             }
 
             // VERIFICAÇÃO DE SALDO (Apenas para novos lançamentos, não para edições).
-            // Usa o OverdraftWarningModal padronizado em vez do step 'warning' inline.
-            if (!editingId && val > availableBalance) {
+            // IMPORTANTE: compras no CRÉDITO/parcelamento NÃO saem do saldo agora —
+            // só impactam a carteira quando a fatura é paga. Por isso o aviso de
+            // saldo insuficiente NÃO deve aparecer aqui para crédito; ele aparece
+            // no momento de pagar a fatura (na aba Cartões).
+            const impactsBalanceNow = paymentMethod !== 'credito' && !isInstallment;
+            if (!editingId && impactsBalanceNow && val > availableBalance) {
                 setPendingSave({ type: 'expense', data: transactionData, amount: val, itemName: description || 'Esta despesa' });
                 setIsSaving(false);
                 setShowModal(false); // fecha o modal de despesa pra dar lugar ao aviso
@@ -1436,9 +1440,22 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                             )}
                                         </div>
                                     )}
+
+                                    {/* Nota explicativa do crédito (não-parcelado) — deixa claro que
+                                        a compra entra na fatura e só sai do saldo ao pagá-la */}
+                                    {paymentMethod === 'credito' && cards.length > 0 && !isInstallment && (
+                                        <div className={`p-3 rounded-2xl border flex items-start gap-2.5 animate-in slide-in-from-top-2 ${
+                                            theme === 'light' ? 'bg-blue-50/60 border-blue-100' : 'bg-blue-500/[0.06] border-blue-500/15'
+                                        }`}>
+                                            <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                                            <p className={`text-[10px] leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
+                                                Esta compra entra na <strong className="font-black">fatura do cartão</strong> e <strong className="font-black">não desconta do seu saldo agora</strong>. O valor sai da carteira somente quando você pagar a fatura, na aba <strong className="font-black">Cartões</strong>.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
 
-                                <button 
+                                <button
                                     type="submit" disabled={isSaving}
                                     className="w-full py-3 bg-rose-500 hover:bg-rose-400 text-white rounded-xl font-black text-sm shadow-lg shadow-rose-500/20 transition-all active:scale-95"
                                 >
