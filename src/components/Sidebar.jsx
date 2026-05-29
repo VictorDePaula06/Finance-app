@@ -133,8 +133,8 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
         </div>
 
         {/* Navigation Links */}
-        <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto custom-scrollbar">
-          <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 px-3 opacity-60">
+        <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto custom-scrollbar">
+          <div className={`text-[10px] font-black uppercase tracking-[0.2em] mb-3 px-3 ${theme === 'light' ? 'text-slate-400' : 'text-slate-600'}`}>
             {activeModule === 'gastos' ? 'Controle de Gastos' : 'Construção de Patrimônio'}
           </div>
 
@@ -145,19 +145,31 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
               <button
                 key={item.id}
                 onClick={() => handleTabClick(item.id)}
-                className={`w-full flex items-center justify-between p-3 rounded-xl transition-all duration-300 group ${
-                  isActive 
-                    ? (theme === 'light' ? 'bg-emerald-50 text-emerald-600 shadow-sm' : 'bg-emerald-500/10 text-emerald-400')
-                    : (theme === 'light' ? 'text-slate-500 hover:bg-slate-50 hover:text-slate-800' : 'text-slate-500 hover:bg-white/5 hover:text-slate-200')
+                className={`relative w-full flex items-center justify-between pl-3 pr-3 py-2.5 rounded-xl transition-all duration-200 group ${
+                  isActive
+                    ? (theme === 'light' ? 'bg-emerald-50 text-emerald-700' : 'bg-emerald-500/10 text-emerald-400')
+                    : (theme === 'light' ? 'text-slate-500 hover:bg-slate-100/70 hover:text-slate-800' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100')
                 }`}
               >
+                {/* Indicador de aba ativa (barra à esquerda) */}
+                <span className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 rounded-r-full transition-all duration-300 ${
+                  isActive ? 'h-5 bg-emerald-500' : 'h-0 bg-transparent'
+                }`} />
+
                 <div className="flex items-center gap-3">
-                  <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
-                  <span className={`text-sm font-bold ${isActive ? 'translate-x-1' : ''} transition-transform`}>
+                  {/* Ícone em pílula */}
+                  <span className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${
+                    isActive
+                      ? (theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/15 text-emerald-400')
+                      : (theme === 'light' ? 'bg-slate-100/60 text-slate-400 group-hover:bg-slate-200/70' : 'bg-white/[0.03] text-slate-500 group-hover:bg-white/[0.07] group-hover:text-slate-300')
+                  }`}>
+                    <Icon className="w-4 h-4" />
+                  </span>
+                  <span className={`text-[13px] tracking-tight ${isActive ? 'font-bold' : 'font-semibold'}`}>
                     {item.label}
                   </span>
                 </div>
-                
+
                 {item.badge && (
                   <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${
                     theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/20 text-emerald-400'
@@ -168,7 +180,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
 
                 {/* Badge "Premium" — só aparece para Free em itens premium-only */}
                 {item.premiumOnly && isFreePlan && (
-                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md flex items-center gap-1 ${
+                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${
                     theme === 'light' ? 'bg-amber-100 text-amber-600' : 'bg-amber-500/20 text-amber-400'
                   }`}>
                     PRO

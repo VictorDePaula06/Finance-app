@@ -432,36 +432,46 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
 
     const chatContent = isOpen ? (
         <div className={`fixed bottom-4 inset-x-4 sm:inset-x-auto sm:bottom-6 sm:right-6 w-auto sm:w-full transition-all duration-300 md:duration-500 ease-in-out ${
-            isMaximized ? 'sm:max-w-2xl h-[85vh]' : 'sm:max-w-sm h-[500px]'
-        } glass-card z-[9999] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in ${
-            theme === 'light' ? '!bg-white/95 shadow-xl border-verde-respira/20' : '!bg-slate-900/98 border-slate-700'
+            isMaximized ? 'sm:max-w-2xl h-[85vh]' : 'sm:max-w-md h-[560px]'
+        } z-[9999] flex flex-col overflow-hidden rounded-[1.75rem] border shadow-2xl animate-in slide-in-from-bottom-10 fade-in ${
+            theme === 'light' ? 'bg-white border-slate-200 shadow-emerald-900/10' : 'bg-slate-900 border-white/10 shadow-black/40'
         }`}>
-            {/* Header */}
-            <div className={`p-4 border-b flex justify-between items-center ${
-                theme === 'light' ? 'bg-[#f0fdfa]/80 border-verde-respira/10' : 'bg-slate-800 border-slate-700'
+            {/* Header com gradiente sutil */}
+            <div className={`relative px-4 py-3.5 flex justify-between items-center shrink-0 border-b ${
+                theme === 'light'
+                    ? 'bg-gradient-to-r from-emerald-50 via-white to-blue-50 border-slate-100'
+                    : 'bg-gradient-to-r from-emerald-500/[0.08] via-slate-900 to-blue-500/[0.08] border-white/[0.06]'
             }`}>
-                <div className="flex items-center gap-3">
-                    <img src={aliviaFinal} alt="Alívia" className="w-12 h-12 object-cover rounded-full border-2 border-emerald-400 shadow-sm" />
-                    <div>
-                        <h3 className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>Sua Alívia</h3>
-                        <p className="text-xs text-emerald-400 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            Online
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="relative shrink-0">
+                        <img src={aliviaFinal} alt="Alívia" className="w-11 h-11 object-cover rounded-full border-2 border-emerald-400 shadow-md" />
+                        <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
+                    </div>
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                            <h3 className={`font-black text-[15px] tracking-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Alívia</h3>
+                            <span className={`text-[8px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded-md ${theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/15 text-emerald-400'}`}>
+                                IA
+                            </span>
+                        </div>
+                        <p className="text-[11px] text-emerald-500 font-medium flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Consultora financeira · Online
                         </p>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    <button 
-                        onClick={() => setIsMaximized(!isMaximized)} 
-                        className="hidden sm:block text-slate-400 hover:text-emerald-400 transition-colors" 
+                <div className="flex items-center gap-0.5 shrink-0">
+                    <button
+                        onClick={() => setIsMaximized(!isMaximized)}
+                        className={`hidden sm:flex p-2 rounded-xl transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50' : 'text-slate-500 hover:text-emerald-400 hover:bg-white/5'}`}
                         title={isMaximized ? "Recolher" : "Expandir"}
                     >
                         {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                     </button>
-                    <button onClick={clearHistory} className="text-slate-400 hover:text-rose-400 transition-colors" title="Limpar Histórico">
+                    <button onClick={clearHistory} className={`p-2 rounded-xl transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-500 hover:text-rose-400 hover:bg-white/5'}`} title="Limpar Histórico">
                         <Trash2 className="w-4 h-4" />
                     </button>
-                    <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white transition-colors">
+                    <button onClick={() => setIsOpen(false)} className={`p-2 rounded-xl transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-slate-700 hover:bg-slate-100' : 'text-slate-500 hover:text-white hover:bg-white/5'}`} title="Fechar">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -544,19 +554,27 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                 </div>
             ) : (
                 <>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                    <div className={`flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-track-transparent ${
+                        theme === 'light' ? 'bg-slate-50/50 scrollbar-thumb-slate-200' : 'bg-slate-950/30 scrollbar-thumb-slate-700'
+                    }`}>
                         {messages.length === 0 && (
-                            <div className="mt-6 flex flex-col items-center">
-                                <img src={aliviaFinal} alt="Alívia" className="w-20 h-20 mx-auto mb-3 rounded-full border-2 border-emerald-400 shadow-lg object-cover" />
-                                <p className={`text-sm text-center px-4 mb-1 font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
+                            <div className="mt-4 flex flex-col items-center">
+                                <div className="relative mb-3">
+                                    <div className="absolute inset-0 rounded-full bg-emerald-400/20 blur-xl" />
+                                    <img src={aliviaFinal} alt="Alívia" className="relative w-20 h-20 rounded-full border-2 border-emerald-400 shadow-lg object-cover" />
+                                </div>
+                                <p className={`text-base text-center px-4 mb-1 font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                                     Olá! Sou a Alívia 👋
                                 </p>
                                 <p className={`text-xs text-center px-6 mb-5 leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                                    Sua consultora financeira. Posso analisar seus gastos, lançar transações, projetar seu futuro e tirar dúvidas. Experimente:
+                                    Sua consultora financeira. Posso analisar seus gastos, lançar transações, projetar seu futuro e tirar dúvidas.
                                 </p>
 
-                                {/* Sugestões rápidas — guiam o usuário sobre o que perguntar */}
-                                <div className="w-full px-2 space-y-2">
+                                <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-2.5 self-start ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    Sugestões
+                                </p>
+                                {/* Sugestões rápidas */}
+                                <div className="w-full space-y-2">
                                     {[
                                         { icon: '📊', text: 'Como está minha saúde financeira este mês?' },
                                         { icon: '💸', text: 'Onde estou gastando mais?' },
@@ -567,87 +585,96 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                                             key={i}
                                             onClick={() => processMessage(s.text, false)}
                                             disabled={isLoading}
-                                            className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl border text-xs font-medium transition-all active:scale-95 disabled:opacity-50 ${
+                                            className={`group w-full text-left flex items-center gap-3 px-3.5 py-3 rounded-2xl border text-[13px] font-medium transition-all active:scale-[0.98] disabled:opacity-50 ${
                                                 theme === 'light'
-                                                    ? 'bg-white/60 border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50'
-                                                    : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-emerald-500/40 hover:bg-emerald-500/5'
+                                                    ? 'bg-white border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 shadow-sm'
+                                                    : 'bg-white/[0.03] border-white/[0.08] text-slate-300 hover:border-emerald-500/40 hover:bg-emerald-500/[0.06]'
                                             }`}
                                         >
                                             <span className="text-base shrink-0">{s.icon}</span>
-                                            <span>{s.text}</span>
+                                            <span className="flex-1">{s.text}</span>
+                                            <Send className={`w-3.5 h-3.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${theme === 'light' ? 'text-emerald-500' : 'text-emerald-400'}`} />
                                         </button>
                                     ))}
                                 </div>
                             </div>
                         )}
-                        {messages.map((msg, idx) => (
-                            <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm relative ${msg.role === 'user'
-                                    ? 'bg-[#5CCEEA] text-white rounded-br-none'
-                                    : theme === 'light'
-                                        ? 'bg-white/60 text-slate-800 border border-verde-respira/20 rounded-bl-none'
-                                        : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-none'
-                                    }`}>
-                                    <ReactMarkdown
-                                        components={{
-                                            p: ({ ...props }) => <p className="mb-2 last:mb-0" {...props} />,
-                                            ul: ({ ...props }) => <ul className="list-disc ml-4 mb-2" {...props} />,
-                                            li: ({ ...props }) => <li className="mb-1" {...props} />,
-                                            strong: ({ ...props }) => <strong className="font-bold text-blue-300" {...props} />
-                                        }}
-                                    >
-                                        {msg.text}
-                                    </ReactMarkdown>
-                                    
-                                    {msg.timestamp && (
-                                        <div className={`text-[9px] mt-1 opacity-60 flex justify-end gap-1 ${msg.role === 'user' ? 'text-white' : 'text-slate-500'}`}>
-                                            <span>
-                                                {new Date(msg.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                                            </span>
-                                            <span>•</span>
-                                            <span>
-                                                {new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                        </div>
+                        {messages.map((msg, idx) => {
+                            const isUser = msg.role === 'user';
+                            return (
+                                <div key={idx} className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
+                                    {/* Avatar da Alívia nas respostas dela */}
+                                    {!isUser && (
+                                        <img src={aliviaFinal} alt="" className="w-7 h-7 rounded-full border border-emerald-400/50 object-cover shrink-0 mb-1" />
                                     )}
+                                    <div className={`max-w-[80%] px-4 py-2.5 text-[13px] leading-relaxed shadow-sm ${isUser
+                                        ? 'bg-emerald-500 text-white rounded-2xl rounded-br-md'
+                                        : theme === 'light'
+                                            ? 'bg-white text-slate-700 border border-slate-200 rounded-2xl rounded-bl-md'
+                                            : 'bg-slate-800 text-slate-200 border border-white/[0.06] rounded-2xl rounded-bl-md'
+                                        }`}>
+                                        <ReactMarkdown
+                                            components={{
+                                                p: ({ ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                                                ul: ({ ...props }) => <ul className="list-disc ml-4 mb-2 space-y-0.5" {...props} />,
+                                                li: ({ ...props }) => <li className="mb-0.5" {...props} />,
+                                                strong: ({ ...props }) => <strong className={`font-bold ${isUser ? 'text-white' : 'text-emerald-500'}`} {...props} />
+                                            }}
+                                        >
+                                            {msg.text}
+                                        </ReactMarkdown>
+
+                                        {msg.timestamp && (
+                                            <div className={`text-[9px] mt-1 flex justify-end ${isUser ? 'text-white/60' : 'text-slate-400/70'}`}>
+                                                {new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                         {isLoading && (
-                            <div className="flex justify-start">
-                                <div className="bg-slate-800 border border-slate-700 rounded-2xl rounded-bl-none px-4 py-3 flex items-center gap-2">
-                                    <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
-                                    <span className="text-xs text-slate-400">Digitando...</span>
+                            <div className="flex items-end gap-2 justify-start">
+                                <img src={aliviaFinal} alt="" className="w-7 h-7 rounded-full border border-emerald-400/50 object-cover shrink-0 mb-1" />
+                                <div className={`rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1.5 ${
+                                    theme === 'light' ? 'bg-white border border-slate-200' : 'bg-slate-800 border border-white/[0.06]'
+                                }`}>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
                                 </div>
                             </div>
                         )}
                         <div ref={messagesEndRef} />
                     </div>
-                    <form onSubmit={handleSend} className={`p-3 border-t flex gap-2 ${
-                        theme === 'light' ? 'bg-[#f0fdfa]/50 border-verde-respira/10' : 'bg-slate-800/50 border-slate-700'
+                    <form onSubmit={handleSend} className={`p-3 border-t shrink-0 ${
+                        theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/[0.06]'
                     }`}>
-                        <input
-                            type="text"
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            placeholder="Digite sua mensagem..."
-                            className={`flex-1 border rounded-xl px-4 py-2 text-sm focus:outline-none transition-all ${
-                                theme === 'light'
-                                ? 'bg-white/40 border-slate-200 text-slate-800 focus:border-verde-respira'
-                                : 'bg-slate-900 border-slate-700 text-slate-200 focus:border-blue-500/50'
-                            }`}
-                        />
-                        <button
-                            type="submit"
-                            disabled={isLoading || !input.trim()}
-                            className={`p-2 rounded-xl transition-all shadow-md ${
-                                theme === 'light'
-                                ? 'bg-[#69C8B9] hover:bg-[#5CCEEA] text-white shadow-emerald-500/10'
-                                : 'bg-blue-600 hover:bg-blue-500 text-white'
-                            } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                            <Send className="w-5 h-5" />
-                        </button>
+                        <div className={`flex items-center gap-2 rounded-2xl border pl-4 pr-2 py-1.5 transition-all focus-within:ring-2 ${
+                            theme === 'light'
+                                ? 'bg-slate-50 border-slate-200 focus-within:border-emerald-400 focus-within:ring-emerald-500/10'
+                                : 'bg-white/[0.04] border-white/10 focus-within:border-emerald-500/50 focus-within:ring-emerald-500/10'
+                        }`}>
+                            <input
+                                type="text"
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                placeholder="Pergunte ou peça para lançar algo..."
+                                className={`flex-1 bg-transparent text-sm focus:outline-none ${
+                                    theme === 'light' ? 'text-slate-800 placeholder-slate-400' : 'text-slate-200 placeholder-slate-500'
+                                }`}
+                            />
+                            <button
+                                type="submit"
+                                disabled={isLoading || !input.trim()}
+                                className="p-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-md shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed active:scale-90"
+                            >
+                                <Send className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <p className={`text-[9px] text-center mt-2 ${theme === 'light' ? 'text-slate-400' : 'text-slate-600'}`}>
+                            A Alívia pode cometer erros. Confira informações importantes.
+                        </p>
                     </form>
                 </>
             )}
