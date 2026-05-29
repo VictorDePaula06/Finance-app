@@ -23,11 +23,17 @@ export const TAB_SLUG_TO_ID = {
     'cartoes':           'cartoes',
     'analise':           'analise',
     // Patrimônio
-    'visao':             'patrimonio',     // /patrimonio/visao
-    'reserva':           'reserva',
-    'investimentos':     'investimentos',
-    'metas':             'metas',
-    'evolucao':          'evolucao',
+    'visao':                    'patrimonio',     // /patrimonio/visao
+    'fluxo-patrimonial':        'fluxo',
+    'reserva':                  'reserva',
+    'investimentos':            'investimentos',
+    'bens-imoveis':             'bens',
+    'previdencia':              'previdencia',
+    'metas':                    'metas',
+    'evolucao':                 'evolucao',
+    'independencia-financeira': 'independencia',
+    'rebalanceamento':          'rebalanceamento',
+    'seguros-protecao':         'seguros',
     // Common
     'ajustes':           'ajustes',
 };
@@ -45,10 +51,16 @@ export const TAB_ID_TO_SLUG = {
     'analise':         'analise',
     // Patrimônio
     'patrimonio':      'visao',
+    'fluxo':           'fluxo-patrimonial',
     'reserva':         'reserva',
     'investimentos':   'investimentos',
+    'bens':            'bens-imoveis',
+    'previdencia':     'previdencia',
     'metas':           'metas',
     'evolucao':        'evolucao',
+    'independencia':   'independencia-financeira',
+    'rebalanceamento': 'rebalanceamento',
+    'seguros':         'seguros-protecao',
     // Common
     'ajustes':         'ajustes',
 };
@@ -69,12 +81,18 @@ export const TAB_TO_MODULE = {
     aportes:        'gastos',
     cartoes:        'gastos',
     analise:        'gastos',
-    patrimonio:     'patrimonio',
-    reserva:        'patrimonio',
-    investimentos:  'patrimonio',
-    metas:          'patrimonio',
-    evolucao:       'patrimonio',
-    ajustes:        'common',
+    patrimonio:      'patrimonio',
+    fluxo:           'patrimonio',
+    reserva:         'patrimonio',
+    investimentos:   'patrimonio',
+    bens:            'patrimonio',
+    previdencia:     'patrimonio',
+    metas:           'patrimonio',
+    evolucao:        'patrimonio',
+    independencia:   'patrimonio',
+    rebalanceamento: 'patrimonio',
+    seguros:         'patrimonio',
+    ajustes:         'common',
 };
 
 // Constrói URL pra módulo/aba

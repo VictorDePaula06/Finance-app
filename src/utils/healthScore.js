@@ -143,11 +143,19 @@ export const calculateHealthScore = (transactions, manualConfig, savingsJars = [
         bg = "bg-rose-500/10";
     }
 
+    // Quantos pilares ainda estão abaixo de 90% do seu máximo (áreas a melhorar).
+    const improvements = [
+        performanceScore < 20 * 0.9,
+        allocationScore < 30 * 0.9,
+        reserveScore < 50 * 0.9,
+    ].filter(Boolean).length;
+
     return {
         score: totalScore,
         feedback,
         color,
         bg,
+        improvements,
         breakdown: {
             performance: Math.round(performanceScore),
             allocation: allocationScore,
@@ -169,6 +177,132 @@ export const calculateHealthScore = (transactions, manualConfig, savingsJars = [
                 necRatio: income > 0 ? (necessities / income * 100).toFixed(0) : "0",
                 desRatio: income > 0 ? (desires / income * 100).toFixed(0) : "0",
                 savRatio: income > 0 ? (savings / income * 100).toFixed(0) : "0"
+            }
+        }
+    };
+};
+
+/**
+ * Saúde Patrimonial — score específico do módulo Construção de Patrimônio.
+ * Diferente do score de Gastos (que mede o fôlego mensal), aqui medimos a
+ * solidez do patrimônio em três pilares (total 100 pts):
+ *
+ *   1. Reserva de Emergência (40 pts) — meses de despesa cobertos (meta: 6 meses).
+ *   2. Aportes / Acúmulo      (30 pts) — taxa de poupança do mês (meta: 20% da renda).
+ *   3. Metas                  (30 pts) — progresso médio das metas ativas.
+ *
+ * @param {Array}  transactions   Lançamentos do usuário.
+ * @param {Object} manualConfig   Config financeira (income, fixedExpenses...).
+ * @param {Object} investmentStats { totalGuarded } — patrimônio líquido em reservas/investimentos.
+ * @param {Array}  goals          Metas ({ target, current, status }).
+ */
+export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = {}, investmentStats = {}, goals = []) => {
+    const today = new Date();
+    const currentMonth = today.toLocaleDateString('en-CA').slice(0, 7);
+
+    const getRobustMonth = (t) => {
+        if (t.month) return t.month;
+        if (!t.date) return "";
+        try {
+            if (typeof t.date === 'string') return t.date.slice(0, 7);
+            if (t.date.toDate) return t.date.toDate().toISOString().slice(0, 7);
+            if (t.date.seconds) return new Date(t.date.seconds * 1000).toISOString().slice(0, 7);
+        } catch { return ""; }
+        return "";
+    };
+
+    const monthTx = transactions.filter(t => getRobustMonth(t) === currentMonth);
+
+    const income = manualConfig?.income ? parseFloat(manualConfig.income) : 0;
+    const monthlyExpenses = manualConfig?.fixedExpenses
+        ? parseFloat(manualConfig.fixedExpenses)
+        : (income > 0 ? income * 0.7 : 0); // fallback: estima 70% da renda
+
+    const reserveTotal = parseFloat(investmentStats?.totalGuarded) || 0;
+
+    // 1. Reserva de Emergência (40 pts) — meta: 6 meses de despesas cobertos
+    let reserveScore = 0;
+    let monthsCovered = 0;
+    if (monthlyExpenses > 0) {
+        monthsCovered = reserveTotal / monthlyExpenses;
+        reserveScore = Math.min(40, (monthsCovered / 6) * 40);
+    }
+
+    // 2. Aportes / Acúmulo (30 pts) — meta: poupar/investir 20% da renda no mês
+    const investedThisMonth = monthTx
+        .filter(t => t.type === 'expense' && SAVINGS_CATEGORIES.includes(t.category))
+        .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    let savingsRate = 0;
+    let savingsScore = 0;
+    if (income > 0) {
+        savingsRate = investedThisMonth / income;
+        savingsScore = Math.min(30, (savingsRate / 0.20) * 30);
+    }
+
+    // 3. Metas (30 pts) — progresso médio das metas ativas
+    const activeGoals = goals.filter(g => g && g.status !== 'completed' && (parseFloat(g.target) || 0) > 0);
+    let goalsScore = 0;
+    let avgGoalProgress = 0;
+    if (activeGoals.length > 0) {
+        const sumProgress = activeGoals.reduce((acc, g) => {
+            const target = parseFloat(g.target) || 0;
+            const current = parseFloat(g.current) || 0;
+            return acc + (target > 0 ? Math.min(1, current / target) : 0);
+        }, 0);
+        avgGoalProgress = sumProgress / activeGoals.length;
+        goalsScore = avgGoalProgress * 30;
+    }
+
+    const totalScore = Math.min(100, Math.round(reserveScore + savingsScore + goalsScore));
+
+    // Feedback qualitativo (mesma escala de cores do score de Gastos)
+    let feedback = "Cadastre suas reservas e metas para ver sua saúde patrimonial.";
+    let color = "text-slate-400";
+    let bg = "bg-slate-400/10";
+
+    if (totalScore >= 90) {
+        feedback = "Patrimônio sólido! Sua independência financeira está bem encaminhada.";
+        color = "text-emerald-400";
+        bg = "bg-emerald-500/10";
+    } else if (totalScore >= 70) {
+        feedback = "Bom! Seu patrimônio está crescendo de forma saudável.";
+        color = "text-blue-400";
+        bg = "bg-blue-500/10";
+    } else if (totalScore >= 50) {
+        feedback = "Razoável. Reforce sua reserva e mantenha os aportes constantes.";
+        color = "text-yellow-400";
+        bg = "bg-yellow-500/10";
+    } else if (totalScore > 0) {
+        feedback = "Atenção! Priorize construir sua reserva de emergência.";
+        color = "text-rose-400";
+        bg = "bg-rose-500/10";
+    }
+
+    // Pilares abaixo de 90% do máximo = áreas a melhorar.
+    const improvements = [
+        reserveScore < 40 * 0.9,
+        savingsScore < 30 * 0.9,
+        goalsScore < 30 * 0.9,
+    ].filter(Boolean).length;
+
+    return {
+        score: totalScore,
+        feedback,
+        color,
+        bg,
+        improvements,
+        breakdown: {
+            reserve: Math.round(reserveScore),
+            savings: Math.round(savingsScore),
+            goals: Math.round(goalsScore),
+            data: {
+                reserveTotal,
+                monthlyExpenses,
+                monthsCovered: monthlyExpenses > 0 ? monthsCovered.toFixed(1) : "0.0",
+                investedThisMonth,
+                savingsRate: income > 0 ? (savingsRate * 100).toFixed(0) : "0",
+                activeGoals: activeGoals.length,
+                avgGoalProgress: (avgGoalProgress * 100).toFixed(0),
             }
         }
     };

@@ -3,12 +3,12 @@ import TransactionSection from './components/TransactionSection';
 import GoalTracker from './components/GoalTracker';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2, ShieldCheck, Sparkles } from 'lucide-react';
+import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2, ShieldCheck, Sparkles, Activity, Home, Briefcase, AlertTriangle, Umbrella } from 'lucide-react';
 import InstallPrompt from './components/InstallPrompt';
 import logo from './assets/logo.png';
 import AdminPanel from './components/AdminPanel';
 import HealthScoreCard from './components/HealthScoreCard';
-import { calculateHealthScore } from './utils/healthScore';
+import { calculateHealthScore, calculatePatrimonyHealthScore } from './utils/healthScore';
 import { db } from './services/firebase';
 import { collection, query, where, orderBy, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import Manual from './components/Manual';
@@ -27,6 +27,7 @@ import Hub from './components/Hub';
 import Sidebar from './components/Sidebar';
 import PatrimonyWelcome from './components/PatrimonyWelcome';
 import EvolucaoPatrimonialTab from './components/EvolucaoPatrimonialTab';
+import PatrimonioPlaceholderTab from './components/PatrimonioPlaceholderTab';
 import SettingsTab from './components/SettingsTab';
 import AIChat from './components/AIChat';
 import AliviaMiniInsight from './components/AliviaMiniInsight';
@@ -507,7 +508,13 @@ function Dashboard() {
     return fixed + subs;
   }, [fixedExpensesList, subscriptions]);
 
-  const healthScore = calculateHealthScore(transactions, { ...manualConfig, fixedExpenses: autoFixedExpenses || manualConfig.fixedExpenses }, investmentStats.jarsWithBalance);
+  const effectiveConfig = { ...manualConfig, fixedExpenses: autoFixedExpenses || manualConfig.fixedExpenses };
+  // Saúde de Gastos — mede o fôlego mensal (performance, alocação 50/30/20, reserva).
+  const healthScore = calculateHealthScore(transactions, effectiveConfig, investmentStats.jarsWithBalance);
+  // Saúde Patrimonial — função própria (reserva em meses, aportes, progresso de metas).
+  const patrimonyHealthScore = calculatePatrimonyHealthScore(transactions, effectiveConfig, investmentStats, goals);
+  // O card da sidebar usa a saúde do módulo ativo.
+  const sidebarHealthScore = activeModule === 'patrimonio' ? patrimonyHealthScore : healthScore;
 
   if (activeModule === 'hub') {
     return (
@@ -529,7 +536,7 @@ function Dashboard() {
     <div className={`sidebar-layout transition-colors duration-500 ${
       theme === 'light' ? 'theme-light' : 'theme-dark'
     }`}>
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} activeModule={activeModule} setActiveModule={setActiveModule} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} activeModule={activeModule} setActiveModule={setActiveModule} healthScore={sidebarHealthScore} />
 
       <main className="main-content relative z-10 p-4 md:p-12 overflow-x-hidden">
         <InstallPrompt />
@@ -764,6 +771,66 @@ function Dashboard() {
                 ]}
               />
             )
+          )}
+
+          {/* ── NOVAS ABAS DO PATRIMÔNIO (placeholders — estrutura sem conteúdo) ── */}
+          { activeTab === 'fluxo' && (
+            <PatrimonioPlaceholderTab
+              title="Fluxo Patrimonial"
+              subtitle="Acompanhe a movimentação do seu patrimônio ao longo do tempo"
+              icon={Activity}
+              description="Em breve você poderá visualizar entradas, saídas e a evolução consolidada do seu patrimônio em um só lugar."
+            />
+          )}
+
+          { activeTab === 'bens' && (
+            <PatrimonioPlaceholderTab
+              title="Bens & Imóveis"
+              subtitle="Cadastre e acompanhe seus bens patrimoniais"
+              icon={Home}
+              badge="Novo"
+              description="Em breve você poderá registrar imóveis, veículos e outros bens, acompanhando valorização e participação no patrimônio total."
+            />
+          )}
+
+          { activeTab === 'previdencia' && (
+            <PatrimonioPlaceholderTab
+              title="Previdência"
+              subtitle="Planeje sua aposentadoria e previdência privada"
+              icon={Briefcase}
+              badge="Novo"
+              description="Em breve você poderá consolidar seus planos de previdência (PGBL, VGBL) e projetar sua renda na aposentadoria."
+            />
+          )}
+
+          { activeTab === 'independencia' && (
+            <PatrimonioPlaceholderTab
+              title="Independência Financeira"
+              subtitle="Trace o caminho até a sua liberdade financeira"
+              icon={TrendingUp}
+              badge="Novo"
+              description="Em breve você poderá simular cenários, calcular seu número da independência e acompanhar o progresso rumo à liberdade financeira."
+            />
+          )}
+
+          { activeTab === 'rebalanceamento' && (
+            <PatrimonioPlaceholderTab
+              title="Rebalanceamento"
+              subtitle="Mantenha sua carteira alinhada à sua estratégia"
+              icon={AlertTriangle}
+              badge="Ação"
+              description="Em breve você receberá sugestões de rebalanceamento para manter a alocação da sua carteira de acordo com seus objetivos."
+            />
+          )}
+
+          { activeTab === 'seguros' && (
+            <PatrimonioPlaceholderTab
+              title="Seguros & Proteção"
+              subtitle="Proteja seu patrimônio e sua família"
+              icon={Umbrella}
+              badge="Novo"
+              description="Em breve você poderá organizar suas apólices de seguro e avaliar a cobertura de proteção do seu patrimônio."
+            />
           )}
 
           { activeTab === 'cartoes' && <CardsTab transactions={transactions} setActiveTab={setActiveTab} walletStats={walletStats} /> }

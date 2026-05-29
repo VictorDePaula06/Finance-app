@@ -20,7 +20,13 @@ import {
   Home,
   ArrowLeftRight,
   ChevronDown,
-  Gem
+  Gem,
+  Star,
+  Briefcase,
+  Activity,
+  CheckCircle2,
+  AlertTriangle,
+  Umbrella
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -28,11 +34,26 @@ import { isLifetimeEmail } from '../constants/admins';
 import logo from '../assets/logo.png';
 import { version } from '../../package.json';
 
-const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, setActiveModule }) => {
+const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, setActiveModule, healthScore }) => {
   const { currentUser, logout, isAdmin, isPremium, isTrial, isLifetime, subType, planLevel } = useAuth();
   const { theme } = useTheme();
 
   const isFreePlan = planLevel === 'free';
+
+  // ── Saúde Financeira (card do topo) ──
+  // Deriva o status qualitativo e a contagem de "melhorias" (componentes do
+  // score que ainda não atingiram o máximo: performance/20, alocação/30, reserva/50).
+  const hsScore = healthScore?.score ?? 0;
+  const hsHasData = !!healthScore && hsScore > 0;
+  const hsStatus = hsScore >= 90 ? 'Excelente'
+    : hsScore >= 70 ? 'Bom'
+    : hsScore >= 50 ? 'Razoável'
+    : hsScore > 0 ? 'Atenção'
+    : 'Sem dados';
+  const hsColor = healthScore?.color || 'text-slate-400';
+  const hsImprovements = healthScore?.improvements ?? 0;
+  // Label do card varia por módulo: Gastos → "Saúde Financeira"; Patrimônio → "Saúde Patrimonial".
+  const hsLabel = activeModule === 'patrimonio' ? 'Saúde Patrimonial' : 'Saúde Financeira';
 
   // Estrutura de navegação por módulo: cada entrada é um item direto ({type:'item'})
   // ou um grupo colapsável ({type:'group', children:[...]}). Itens diretos ficam
@@ -59,21 +80,34 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
       { type: 'item', id: 'analise', label: 'Análise de Gastos', icon: TrendingUp },
     ],
     patrimonio: [
+      { type: 'section', label: 'Visão' },
       { type: 'item', id: 'patrimonio', label: 'Visão Geral', icon: LayoutDashboard },
+      { type: 'item', id: 'fluxo', label: 'Fluxo Patrimonial', icon: Activity },
+
+      { type: 'section', label: 'Meu Patrimônio' },
       {
-        type: 'group', id: 'grp_ativos', label: 'Meus Ativos', icon: Gem,
+        type: 'group', id: 'grp_ativos', label: 'Meu Patrimônio', icon: Star,
         children: [
-          { id: 'reserva', label: 'Reserva Emergência', icon: ShieldCheck },
+          { id: 'reserva', label: 'Reserva de Emergência', icon: ShieldCheck },
           { id: 'investimentos', label: 'Investimentos', icon: PieChart },
+          { id: 'bens', label: 'Bens & Imóveis', icon: Home, badge: 'Novo' },
+          { id: 'previdencia', label: 'Previdência', icon: Briefcase, badge: 'Novo' },
         ],
       },
+
+      { type: 'section', label: 'Planejamento' },
       {
         type: 'group', id: 'grp_plan', label: 'Planejamento', icon: Target,
         children: [
-          { id: 'metas', label: 'Metas', icon: Target },
+          { id: 'metas', label: 'Metas', icon: CheckCircle2 },
           { id: 'evolucao', label: 'Evolução Patrimonial', icon: BarChart3, premiumOnly: true },
+          { id: 'independencia', label: 'Independência Financeira', icon: TrendingUp, badge: 'Novo' },
+          { id: 'rebalanceamento', label: 'Rebalanceamento', icon: AlertTriangle, badge: 'Ação' },
         ],
       },
+
+      { type: 'section', label: 'Proteção' },
+      { type: 'item', id: 'seguros', label: 'Seguros & Proteção', icon: Umbrella, badge: 'Novo' },
     ],
   };
 
@@ -111,10 +145,12 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
       <button
         key={item.id}
         onClick={() => handleTabClick(item.id)}
-        className={`relative w-full flex items-center justify-between ${isChild ? 'pl-3' : 'pl-3'} pr-3 py-2.5 rounded-xl transition-all duration-200 group ${
+        className={`relative w-full flex items-center justify-between ${isChild ? 'pl-3' : 'pl-3'} pr-3 py-1.5 rounded-xl border transition-all duration-300 group ${
           isActive
-            ? (theme === 'light' ? 'bg-emerald-50 text-emerald-700' : 'bg-emerald-500/10 text-emerald-400')
-            : (theme === 'light' ? 'text-slate-500 hover:bg-slate-100/70 hover:text-slate-800' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100')
+            ? (theme === 'light'
+                ? 'bg-gradient-to-r from-emerald-50 via-emerald-50/60 to-transparent border-emerald-100 text-emerald-700 shadow-sm'
+                : 'bg-gradient-to-r from-emerald-500/[0.14] via-emerald-500/[0.05] to-transparent border-emerald-500/20 text-emerald-300 shadow-lg shadow-emerald-500/10')
+            : (theme === 'light' ? 'border-transparent text-slate-500 hover:bg-slate-100/70 hover:text-slate-800' : 'border-transparent text-slate-400 hover:bg-white/[0.04] hover:text-slate-100')
         }`}
       >
         {/* Indicador de aba ativa (barra à esquerda) */}
@@ -122,25 +158,25 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
           isActive ? 'h-5 bg-emerald-500' : 'h-0 bg-transparent'
         }`} />
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {isChild ? (
             // Sub-item: ícone menor, sem pílula (hierarquia visual)
-            <span className="flex items-center justify-center w-8 h-8">
+            <span className="flex items-center justify-center w-7 h-7">
               <Icon className={`w-4 h-4 transition-colors ${
                 isActive ? (theme === 'light' ? 'text-emerald-600' : 'text-emerald-400') : 'text-slate-400 group-hover:text-current'
               }`} />
             </span>
           ) : (
             // Item direto: ícone em pílula
-            <span className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${
+            <span className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-300 ${
               isActive
-                ? (theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/15 text-emerald-400')
+                ? (theme === 'light' ? 'bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-600 shadow-sm' : 'bg-gradient-to-br from-emerald-500/25 to-emerald-500/10 text-emerald-300 shadow-md shadow-emerald-500/20')
                 : (theme === 'light' ? 'bg-slate-100/60 text-slate-400 group-hover:bg-slate-200/70' : 'bg-white/[0.03] text-slate-500 group-hover:bg-white/[0.07] group-hover:text-slate-300')
             }`}>
               <Icon className="w-4 h-4" />
             </span>
           )}
-          <span className={`text-[13px] tracking-tight ${isActive ? 'font-bold' : isChild ? 'font-medium' : 'font-semibold'}`}>
+          <span className={`tracking-tight text-left whitespace-nowrap ${isChild ? 'text-[11px]' : 'text-[13px]'} ${isActive ? 'font-bold' : isChild ? 'font-medium' : 'font-semibold'}`}>
             {item.label}
           </span>
         </div>
@@ -151,6 +187,17 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
             theme === 'light' ? 'bg-amber-100 text-amber-600' : 'bg-amber-500/20 text-amber-400'
           }`}>
             PRO
+          </span>
+        )}
+
+        {/* Badge custom — "Novo" (violeta) ou "Ação" (laranja) */}
+        {item.badge && (
+          <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
+            item.badge === 'Ação'
+              ? (theme === 'light' ? 'bg-orange-100 text-orange-600' : 'bg-orange-500/20 text-orange-400')
+              : (theme === 'light' ? 'bg-violet-100 text-violet-600' : 'bg-violet-500/20 text-violet-400')
+          }`}>
+            {item.badge}
           </span>
         )}
       </button>
@@ -183,7 +230,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
 
         {/* Logo Section */}
         <div
-          className="pt-8 px-6 pb-2 flex flex-col items-center justify-center cursor-pointer select-none"
+          className="pt-5 px-6 pb-1 flex flex-col items-center justify-center cursor-pointer select-none"
           onDoubleClick={() => {
             if (isAdmin) {
               window.dispatchEvent(new CustomEvent('change-view', { detail: 'admin' }));
@@ -193,16 +240,16 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
           <img
             src={logo}
             alt="Alívia Logo"
-            className={`w-40 h-40 object-contain drop-shadow-[0_0_40px_rgba(16,185,129,0.15)] transition-all hover:scale-105 duration-700`}
+            className={`w-20 h-20 object-contain drop-shadow-[0_0_30px_rgba(16,185,129,0.18)] transition-all hover:scale-105 duration-700`}
           />
         </div>
 
         {/* Botão "Trocar Módulo" — pílula refinada com tipografia uppercase tracking-widest
             totalmente distinta dos itens de menu (que usam text-sm font-bold) */}
-        <div className="px-5 pb-5">
+        <div className="px-4 pb-3">
           <button
             onClick={() => setActiveModule('hub')}
-            className={`group relative w-full overflow-hidden flex items-center justify-center gap-2.5 px-4 py-3 rounded-2xl border transition-all duration-500 hover:scale-[1.02] active:scale-95 ${
+            className={`group relative w-full overflow-hidden flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-2xl border transition-all duration-500 hover:scale-[1.02] active:scale-95 ${
               theme === 'light'
                 ? 'bg-gradient-to-r from-emerald-50 via-white to-blue-50 border-emerald-100/80 hover:border-emerald-300 hover:shadow-lg hover:shadow-emerald-100'
                 : 'bg-gradient-to-r from-emerald-500/[0.04] via-transparent to-blue-500/[0.04] border-white/5 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5'
@@ -227,13 +274,77 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
           </button>
         </div>
 
+        {/* Card de Saúde Financeira — resumo compacto do score com identidade Alívia */}
+        {healthScore && (
+          <div className="px-4 pb-2.5">
+            <div className={`relative overflow-hidden rounded-xl border px-3.5 py-2.5 transition-all duration-500 ${
+              theme === 'light'
+                ? 'bg-gradient-to-br from-emerald-50 via-white to-white border-emerald-100/80'
+                : 'bg-gradient-to-br from-emerald-500/[0.08] via-emerald-500/[0.02] to-transparent border-white/5'
+            }`}>
+              {/* Glow decorativo */}
+              <div className="absolute -top-10 -right-8 w-24 h-24 bg-emerald-500/10 blur-3xl rounded-full pointer-events-none" />
+
+              <div className="relative">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Activity className="w-3 h-3 text-emerald-500" />
+                  <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {hsLabel}
+                  </span>
+                </div>
+
+                <div className="flex items-end justify-between gap-2 mb-1.5">
+                  <div className="flex items-end gap-1">
+                    <span className={`text-2xl font-black leading-none ${hsColor}`}>{hsScore}</span>
+                    <span className="text-[9px] font-bold text-slate-500 mb-0.5">/ 100</span>
+                  </div>
+                  <div className="flex items-baseline gap-1 leading-none">
+                    <span className={`text-[11px] font-black ${hsColor}`}>{hsStatus}</span>
+                    {hsHasData && hsImprovements > 0 && (
+                      <span className="text-[9px] font-medium text-slate-500">· {hsImprovements} {hsImprovements === 1 ? 'melhoria' : 'melhorias'}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Barra de progresso */}
+                <div className={`w-full h-1.5 rounded-full overflow-hidden ${theme === 'light' ? 'bg-slate-100' : 'bg-white/10'}`}>
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-1000 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
+                    style={{ width: `${Math.max(4, Math.min(100, hsScore))}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Navigation Links */}
-        <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto custom-scrollbar">
-          <div className={`text-[10px] font-black uppercase tracking-[0.2em] mb-3 px-3 ${theme === 'light' ? 'text-slate-400' : 'text-slate-600'}`}>
+        <nav className="flex-1 px-3 py-1 space-y-0.5 overflow-y-auto custom-scrollbar">
+          <div className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1.5 px-3 ${theme === 'light' ? 'text-slate-400' : 'text-slate-600'}`}>
             {activeModule === 'gastos' ? 'Controle de Gastos' : 'Construção de Patrimônio'}
           </div>
 
-          {navEntries.map((entry) => {
+          {navEntries.map((entry, idx) => {
+            // ── CABEÇALHO DE SEÇÃO ──
+            if (entry.type === 'section') {
+              return (
+                <div
+                  key={`section-${entry.label}-${idx}`}
+                  className="flex items-center gap-2 px-3 pt-2.5 pb-1 select-none"
+                >
+                  <span className="h-1 w-1 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]" />
+                  <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${
+                    theme === 'light' ? 'text-slate-400' : 'text-slate-500'
+                  }`}>
+                    {entry.label}
+                  </span>
+                  <span className={`flex-1 h-px ${
+                    theme === 'light' ? 'bg-gradient-to-r from-slate-200/80 to-transparent' : 'bg-gradient-to-r from-white/[0.07] to-transparent'
+                  }`} />
+                </div>
+              );
+            }
+
             // ── ITEM DIRETO ──
             if (entry.type === 'item') {
               return renderNavItem(entry);
@@ -248,14 +359,14 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
               <div key={entry.id} className="select-none">
                 <button
                   onClick={() => toggleGroup(entry.id)}
-                  className={`w-full flex items-center justify-between pl-3 pr-2.5 py-2.5 rounded-xl transition-all duration-200 group ${
+                  className={`w-full flex items-center justify-between pl-3 pr-2.5 py-1.5 rounded-xl transition-all duration-200 group ${
                     hasActiveChild && !isExpanded
                       ? (theme === 'light' ? 'text-emerald-700' : 'text-emerald-400')
                       : (theme === 'light' ? 'text-slate-500 hover:bg-slate-100/70 hover:text-slate-800' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100')
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${
+                  <div className="flex items-center gap-2.5">
+                    <span className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 ${
                       hasActiveChild
                         ? (theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/15 text-emerald-400')
                         : (theme === 'light' ? 'bg-slate-100/60 text-slate-400 group-hover:bg-slate-200/70' : 'bg-white/[0.03] text-slate-500 group-hover:bg-white/[0.07] group-hover:text-slate-300')
@@ -274,7 +385,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
                   isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
                 }`}>
                   <div className="overflow-hidden">
-                    <div className="pl-4 pt-0.5 space-y-0.5">
+                    <div className="pl-3 pt-0.5 space-y-0.5">
                       {entry.children.map(child => renderNavItem(child, true))}
                     </div>
                   </div>
@@ -284,18 +395,18 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
           })}
 
           {/* Ajustes — item fixo, separado, acessível de qualquer módulo */}
-          <div className={`pt-2 mt-2 border-t ${theme === 'light' ? 'border-slate-100' : 'border-white/5'}`}>
+          <div className={`pt-1.5 mt-1.5 border-t ${theme === 'light' ? 'border-slate-100' : 'border-white/5'}`}>
             {renderNavItem({ id: 'ajustes', label: 'Ajustes', icon: Settings })}
           </div>
 
         </nav>
 
         {/* User Profile Section */}
-        <div className={`p-4 border-t mt-auto ${theme === 'light' ? 'border-slate-100' : 'border-white/5'}`}>
-          <div className={`p-3 rounded-2xl border flex items-center gap-3 transition-all ${
+        <div className={`px-4 pt-2.5 pb-3 border-t mt-auto ${theme === 'light' ? 'border-slate-100' : 'border-white/5'}`}>
+          <div className={`p-2.5 rounded-2xl border flex items-center gap-3 transition-all ${
             theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5 shadow-sm'
           }`}>
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shrink-0 ${
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black shrink-0 ${
               theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/20 text-emerald-400'
             }`}>
               {currentUser?.displayName?.charAt(0) || currentUser?.email?.charAt(0) || 'U'}
@@ -348,7 +459,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
           </div>
           
           {/* System Version */}
-          <div className="mt-4 text-center">
+          <div className="mt-2 text-center">
             <p className={`text-[9px] font-black uppercase tracking-[0.3em] opacity-20 ${
               theme === 'light' ? 'text-slate-400' : 'text-slate-500'
             }`}>
