@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Target,
@@ -18,8 +18,9 @@ import {
   ArrowUpCircle,
   BarChart3,
   Home,
-  LayoutGrid,
-  ArrowLeftRight
+  ArrowLeftRight,
+  ChevronDown,
+  Gem
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -33,33 +34,120 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
 
   const isFreePlan = planLevel === 'free';
 
-  const menuItems = [
-    // Gastos Module
-    { id: 'visao', label: 'Visão Geral', icon: LayoutDashboard, module: 'gastos' },
-    { id: 'entradas', label: 'Recebimentos', icon: ArrowUpCircle, module: 'gastos' },
-    { id: 'fixas', label: 'Contas Fixas', icon: Home, module: 'gastos' },
-    { id: 'gastos', label: 'Lançamentos', icon: TrendingDown, module: 'gastos' },
-    { id: 'cartoes', label: 'Cartões', icon: CreditCard, module: 'gastos' },
-    { id: 'analise', label: 'Análise de Gastos', icon: TrendingUp, module: 'gastos' },
+  // Estrutura de navegação por módulo: cada entrada é um item direto ({type:'item'})
+  // ou um grupo colapsável ({type:'group', children:[...]}). Itens diretos ficam
+  // sempre visíveis; grupos organizam o que é relacionado.
+  const navByModule = {
+    gastos: [
+      { type: 'item', id: 'visao', label: 'Visão Geral', icon: LayoutDashboard },
+      {
+        type: 'group', id: 'grp_mov', label: 'Movimentações', icon: Wallet,
+        children: [
+          { id: 'entradas', label: 'Recebimentos', icon: ArrowUpCircle },
+          { id: 'gastos', label: 'Lançamentos', icon: TrendingDown },
+          { id: 'fixas', label: 'Contas Fixas', icon: Home },
+          { id: 'cartoes', label: 'Cartões', icon: CreditCard },
+        ],
+      },
+      { type: 'item', id: 'analise', label: 'Análise de Gastos', icon: TrendingUp },
+    ],
+    patrimonio: [
+      { type: 'item', id: 'patrimonio', label: 'Visão Geral', icon: LayoutDashboard },
+      {
+        type: 'group', id: 'grp_ativos', label: 'Meus Ativos', icon: Gem,
+        children: [
+          { id: 'reserva', label: 'Reserva Emergência', icon: ShieldCheck },
+          { id: 'investimentos', label: 'Investimentos', icon: PieChart },
+        ],
+      },
+      {
+        type: 'group', id: 'grp_plan', label: 'Planejamento', icon: Target,
+        children: [
+          { id: 'metas', label: 'Metas', icon: Target },
+          { id: 'evolucao', label: 'Evolução Patrimonial', icon: BarChart3, premiumOnly: true },
+        ],
+      },
+    ],
+  };
 
-    // Patrimônio Module — itens marcados com premiumOnly mostram badge "Premium" pro Free
-    { id: 'patrimonio', label: 'Patrimônio', icon: Landmark, module: 'patrimonio' },
-    { id: 'reserva', label: 'Reserva Emergência', icon: ShieldCheck, module: 'patrimonio' },
-    { id: 'investimentos', label: 'Investimentos', icon: PieChart, module: 'patrimonio' },
-    { id: 'metas', label: 'Metas', icon: Target, module: 'patrimonio' },
-    { id: 'evolucao', label: 'Evolução Patrimonial', icon: BarChart3, module: 'patrimonio', premiumOnly: true },
+  const navEntries = navByModule[activeModule] || navByModule.gastos;
 
-    // Common
-    { id: 'ajustes', label: 'Ajustes', icon: Settings, module: 'common' },
-  ];
+  // Descobre em qual grupo está a aba ativa, para abri-lo automaticamente.
+  const groupOfActive = navEntries.find(
+    e => e.type === 'group' && e.children.some(c => c.id === activeTab)
+  );
 
-  const visibleItems = menuItems.filter(item => item.module === activeModule || item.module === 'common');
+  const [openGroups, setOpenGroups] = useState({});
+
+  // Abre automaticamente o grupo que contém a aba ativa (e ao trocar de módulo).
+  useEffect(() => {
+    if (groupOfActive) {
+      setOpenGroups(prev => ({ ...prev, [groupOfActive.id]: true }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, activeModule]);
+
+  const toggleGroup = (id) => setOpenGroups(prev => ({ ...prev, [id]: !prev[id] }));
 
   const handleTabClick = (id) => {
     setActiveTab(id);
     if (window.innerWidth < 1024) {
       setIsOpen(false);
     }
+  };
+
+  // Renderiza um item de navegação (direto ou sub-item de grupo).
+  const renderNavItem = (item, isChild = false) => {
+    const Icon = item.icon;
+    const isActive = activeTab === item.id;
+    return (
+      <button
+        key={item.id}
+        onClick={() => handleTabClick(item.id)}
+        className={`relative w-full flex items-center justify-between ${isChild ? 'pl-3' : 'pl-3'} pr-3 py-2.5 rounded-xl transition-all duration-200 group ${
+          isActive
+            ? (theme === 'light' ? 'bg-emerald-50 text-emerald-700' : 'bg-emerald-500/10 text-emerald-400')
+            : (theme === 'light' ? 'text-slate-500 hover:bg-slate-100/70 hover:text-slate-800' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100')
+        }`}
+      >
+        {/* Indicador de aba ativa (barra à esquerda) */}
+        <span className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 rounded-r-full transition-all duration-300 ${
+          isActive ? 'h-5 bg-emerald-500' : 'h-0 bg-transparent'
+        }`} />
+
+        <div className="flex items-center gap-3">
+          {isChild ? (
+            // Sub-item: ícone menor, sem pílula (hierarquia visual)
+            <span className="flex items-center justify-center w-8 h-8">
+              <Icon className={`w-4 h-4 transition-colors ${
+                isActive ? (theme === 'light' ? 'text-emerald-600' : 'text-emerald-400') : 'text-slate-400 group-hover:text-current'
+              }`} />
+            </span>
+          ) : (
+            // Item direto: ícone em pílula
+            <span className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${
+              isActive
+                ? (theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/15 text-emerald-400')
+                : (theme === 'light' ? 'bg-slate-100/60 text-slate-400 group-hover:bg-slate-200/70' : 'bg-white/[0.03] text-slate-500 group-hover:bg-white/[0.07] group-hover:text-slate-300')
+            }`}>
+              <Icon className="w-4 h-4" />
+            </span>
+          )}
+          <span className={`text-[13px] tracking-tight ${isActive ? 'font-bold' : isChild ? 'font-medium' : 'font-semibold'}`}>
+            {item.label}
+          </span>
+        </div>
+
+        {/* Badge "Premium" — só aparece para Free em itens premium-only */}
+        {item.premiumOnly && isFreePlan && (
+          <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${
+            theme === 'light' ? 'bg-amber-100 text-amber-600' : 'bg-amber-500/20 text-amber-400'
+          }`}>
+            PRO
+          </span>
+        )}
+      </button>
+    );
   };
 
   return (
@@ -138,57 +226,60 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
             {activeModule === 'gastos' ? 'Controle de Gastos' : 'Construção de Patrimônio'}
           </div>
 
-          {visibleItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
+          {navEntries.map((entry) => {
+            // ── ITEM DIRETO ──
+            if (entry.type === 'item') {
+              return renderNavItem(entry);
+            }
+
+            // ── GRUPO COLAPSÁVEL ──
+            const GroupIcon = entry.icon;
+            const isExpanded = !!openGroups[entry.id];
+            const hasActiveChild = entry.children.some(c => c.id === activeTab);
+
             return (
-              <button
-                key={item.id}
-                onClick={() => handleTabClick(item.id)}
-                className={`relative w-full flex items-center justify-between pl-3 pr-3 py-2.5 rounded-xl transition-all duration-200 group ${
-                  isActive
-                    ? (theme === 'light' ? 'bg-emerald-50 text-emerald-700' : 'bg-emerald-500/10 text-emerald-400')
-                    : (theme === 'light' ? 'text-slate-500 hover:bg-slate-100/70 hover:text-slate-800' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100')
-                }`}
-              >
-                {/* Indicador de aba ativa (barra à esquerda) */}
-                <span className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 rounded-r-full transition-all duration-300 ${
-                  isActive ? 'h-5 bg-emerald-500' : 'h-0 bg-transparent'
-                }`} />
+              <div key={entry.id} className="select-none">
+                <button
+                  onClick={() => toggleGroup(entry.id)}
+                  className={`w-full flex items-center justify-between pl-3 pr-2.5 py-2.5 rounded-xl transition-all duration-200 group ${
+                    hasActiveChild && !isExpanded
+                      ? (theme === 'light' ? 'text-emerald-700' : 'text-emerald-400')
+                      : (theme === 'light' ? 'text-slate-500 hover:bg-slate-100/70 hover:text-slate-800' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100')
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${
+                      hasActiveChild
+                        ? (theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/15 text-emerald-400')
+                        : (theme === 'light' ? 'bg-slate-100/60 text-slate-400 group-hover:bg-slate-200/70' : 'bg-white/[0.03] text-slate-500 group-hover:bg-white/[0.07] group-hover:text-slate-300')
+                    }`}>
+                      <GroupIcon className="w-4 h-4" />
+                    </span>
+                    <span className="text-[13px] font-bold tracking-tight">{entry.label}</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''} ${
+                    theme === 'light' ? 'text-slate-400' : 'text-slate-500'
+                  }`} />
+                </button>
 
-                <div className="flex items-center gap-3">
-                  {/* Ícone em pílula */}
-                  <span className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${
-                    isActive
-                      ? (theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/15 text-emerald-400')
-                      : (theme === 'light' ? 'bg-slate-100/60 text-slate-400 group-hover:bg-slate-200/70' : 'bg-white/[0.03] text-slate-500 group-hover:bg-white/[0.07] group-hover:text-slate-300')
-                  }`}>
-                    <Icon className="w-4 h-4" />
-                  </span>
-                  <span className={`text-[13px] tracking-tight ${isActive ? 'font-bold' : 'font-semibold'}`}>
-                    {item.label}
-                  </span>
+                {/* Sub-itens — animação de altura via grid */}
+                <div className={`grid transition-all duration-300 ease-in-out ${
+                  isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                }`}>
+                  <div className="overflow-hidden">
+                    <div className="pl-4 pt-0.5 space-y-0.5">
+                      {entry.children.map(child => renderNavItem(child, true))}
+                    </div>
+                  </div>
                 </div>
-
-                {item.badge && (
-                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${
-                    theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/20 text-emerald-400'
-                  }`}>
-                    {item.badge}
-                  </span>
-                )}
-
-                {/* Badge "Premium" — só aparece para Free em itens premium-only */}
-                {item.premiumOnly && isFreePlan && (
-                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${
-                    theme === 'light' ? 'bg-amber-100 text-amber-600' : 'bg-amber-500/20 text-amber-400'
-                  }`}>
-                    PRO
-                  </span>
-                )}
-              </button>
+              </div>
             );
           })}
+
+          {/* Ajustes — item fixo, separado, acessível de qualquer módulo */}
+          <div className={`pt-2 mt-2 border-t ${theme === 'light' ? 'border-slate-100' : 'border-white/5'}`}>
+            {renderNavItem({ id: 'ajustes', label: 'Ajustes', icon: Settings })}
+          </div>
 
         </nav>
 
