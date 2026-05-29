@@ -701,38 +701,16 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
     return (
         <div className="max-w-5xl mx-auto space-y-6 pb-20 px-2 sm:px-4 md:px-0">
-            {/* Header */}
+            {/* Header — título reflete a sub-aba atual (navegação fica na sidebar) */}
             <div className="flex items-center justify-center pt-8 pb-4">
-                <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Gestão de Lançamentos</h2>
+                <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                    {subTab === 'reservas' ? 'Gestão de Aportes' : 'Gestão de Lançamentos'}
+                </h2>
             </div>
 
             {/* Navigation Row */}
             <div className="flex flex-col items-center gap-4 mb-8">
-                {/* Tabs on top */}
-                <div className="flex gap-6 border-b border-slate-700/50">
-                    <button
-                        onClick={() => setActiveTab ? setActiveTab('gastos') : setSubTab('despesas')}
-                        className={`pb-3 px-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-                            subTab === 'despesas'
-                            ? 'border-rose-400 text-rose-400'
-                            : 'border-transparent text-slate-500 hover:text-slate-300'
-                        }`}
-                    >
-                        Despesas
-                    </button>
-                    <button
-                        onClick={() => setActiveTab ? setActiveTab('aportes') : setSubTab('reservas')}
-                        className={`pb-3 px-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-                            subTab === 'reservas'
-                            ? 'border-blue-400 text-blue-400'
-                            : 'border-transparent text-slate-500 hover:text-slate-300'
-                        }`}
-                    >
-                        Aportes
-                    </button>
-                </div>
-
-                {/* Month Selector below */}
+                {/* Month Selector */}
                 <div className={`flex items-center rounded-lg border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
                     <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
                         <ChevronLeft className="w-4 h-4" />

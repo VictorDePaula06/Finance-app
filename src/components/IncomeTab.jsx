@@ -324,38 +324,16 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
 
     return (
         <div className="max-w-5xl mx-auto space-y-6 pb-20">
-            {/* Header */}
+            {/* Header — título reflete a sub-aba atual (navegação fica na sidebar) */}
             <div className="flex items-center justify-center pt-8 pb-4">
-                <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Gestão de Recebimentos</h2>
+                <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                    {subTab === 'resgates' ? 'Gestão de Resgates' : 'Gestão de Recebimentos'}
+                </h2>
             </div>
 
             {/* Navigation Row */}
             <div className="flex flex-col items-center gap-4 mb-8">
-                {/* Tabs on top */}
-                <div className="flex gap-6 border-b border-slate-700/50">
-                    <button
-                        onClick={() => setActiveTab ? setActiveTab('entradas') : setSubTab('recebimentos')}
-                        className={`pb-3 px-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-                            subTab === 'recebimentos'
-                            ? 'border-emerald-400 text-emerald-400'
-                            : 'border-transparent text-slate-500 hover:text-slate-300'
-                        }`}
-                    >
-                        Recebimentos
-                    </button>
-                    <button
-                        onClick={() => setActiveTab ? setActiveTab('resgates') : setSubTab('resgates')}
-                        className={`pb-3 px-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-                            subTab === 'resgates'
-                            ? 'border-emerald-400 text-emerald-400'
-                            : 'border-transparent text-slate-500 hover:text-slate-300'
-                        }`}
-                    >
-                        Resgates
-                    </button>
-                </div>
-
-                {/* Month Selector below */}
+                {/* Month Selector */}
                 <div className={`flex items-center rounded-lg border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
                     <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
                         <ChevronLeft className="w-4 h-4" />
