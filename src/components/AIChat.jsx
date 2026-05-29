@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { MessageSquare, X, Send, Bot, User, Sparkles, AlertCircle, Key, Trash2, Loader2, Video, ChevronDown, CheckCircle, Maximize2, Minimize2 } from 'lucide-react';
 import { db } from '../services/firebase';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, addDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { sendMessageToGemini, isGeminiConfigured, validateApiKey, calculateStatsContext } from '../services/gemini';
@@ -227,12 +227,38 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                                 ...command.data,
                                 amount: parseFloat(sanitizeAIValue(command.data.amount)) || 0
                             };
+
+                            // Se for gasto no crédito, casa o cartão pelo nome citado
+                            if (sanitizedData.paymentMethod === 'credito') {
+                                let cardId = '';
+                                if (command.data.cardName) {
+                                    const match = cards.find(c =>
+                                        (c.name || '').toLowerCase().includes(String(command.data.cardName).toLowerCase())
+                                    );
+                                    if (match) cardId = match.id;
+                                } else if (cards.length === 1) {
+                                    cardId = cards[0].id; // único cartão = óbvio
+                                }
+                                if (!cardId && cards.length === 0) {
+                                    displayMessage += `\n\n⚠️ Você pediu um gasto no crédito mas não tem cartão cadastrado. Cadastre um na aba **Cartões**.`;
+                                    setMessages(prev => [...prev, { role: 'model', text: displayMessage, timestamp: new Date().toISOString() }]);
+                                    setIsLoading(false);
+                                    clearTimeout(safetyReset);
+                                    return;
+                                }
+                                sanitizedData.selectedCardId = cardId;
+                            }
+                            delete sanitizedData.cardName;
+
                             const success = await Promise.race([
                                 onAddTransaction(sanitizedData),
                                 new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout ao salvar transação")), 15000))
                             ]);
                             if (success) {
-                                displayMessage += `\n\n✅ **Transação Salva:** ${sanitizedData.description} (R$ ${sanitizedData.amount.toLocaleString('pt-BR')})`;
+                                const formaTxt = sanitizedData.paymentMethod === 'credito'
+                                    ? ` no cartão ${cards.find(c => c.id === sanitizedData.selectedCardId)?.name || ''}`.trimEnd()
+                                    : '';
+                                displayMessage += `\n\n✅ **Lançamento salvo:** ${sanitizedData.description} (R$ ${sanitizedData.amount.toLocaleString('pt-BR')})${formaTxt}`;
                             } else {
                                 displayMessage += `\n\n❌ **Erro:** Não foi possível salvar a transação.`;
                             }
@@ -277,6 +303,72 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                                 displayMessage += `\n\n⚙️ **Configuração Atualizada:**\n${updates.map(u => `- ${u}`).join('\n')}`;
                             } else {
                                 displayMessage = "O patrimônio já está atualizado com esse valor.";
+                            }
+                        }
+                    } else if (command.action === 'add_fixed_expense') {
+                        // Conta fixa → coleção fixed_expenses (aba Contas Fixas)
+                        if (currentUser) {
+                            const d = command.data || {};
+                            const val = parseFloat(sanitizeAIValue(d.value || d.amount)) || 0;
+                            await addDoc(collection(db, 'fixed_expenses'), {
+                                name: d.name || d.description || 'Conta Fixa',
+                                value: val,
+                                day: parseInt(d.day) || 1,
+                                category: d.category || 'housing',
+                                priority: d.priority || 'essential',
+                                isVariable: !!d.isVariable,
+                                userId: currentUser.uid,
+                                createdAt: Date.now(),
+                            });
+                            displayMessage += `\n\n✅ **Conta Fixa cadastrada:** ${d.name || d.description} (R$ ${val.toLocaleString('pt-BR')}) na aba Contas Fixas.`;
+                        }
+                    } else if (command.action === 'add_subscription' || command.action === 'add_installment') {
+                        // Assinatura ou parcelamento → coleção subscriptions (aba Cartões)
+                        if (currentUser) {
+                            const d = command.data || {};
+                            const isInst = command.action === 'add_installment';
+                            const val = parseFloat(sanitizeAIValue(d.value || d.amount)) || 0;
+
+                            // Tenta casar o cartão pelo nome citado (ex: "nubank")
+                            let cardId = '';
+                            if (d.cardName) {
+                                const match = cards.find(c =>
+                                    (c.name || '').toLowerCase().includes(String(d.cardName).toLowerCase())
+                                );
+                                if (match) cardId = match.id;
+                            }
+                            // Se a IA pediu cartão mas não há nenhum, avisa
+                            const wantsCard = isInst || d.cardName || d.onCard;
+                            if (wantsCard && !cardId && cards.length === 0) {
+                                displayMessage += `\n\n⚠️ Você ainda não tem cartão cadastrado. Cadastre um na aba **Cartões** e tente novamente.`;
+                            } else {
+                                const totalInstallments = isInst ? (parseInt(d.installments || d.totalInstallments) || 2) : null;
+                                let finalDay = parseInt(d.day) || 1;
+                                if (cardId) {
+                                    const linkedCard = cards.find(c => c.id === cardId);
+                                    if (linkedCard?.dueDay) finalDay = linkedCard.dueDay;
+                                }
+                                await addDoc(collection(db, 'subscriptions'), {
+                                    name: d.name || d.description || (isInst ? 'Parcelamento' : 'Assinatura'),
+                                    value: val,
+                                    day: finalDay,
+                                    cardId: cardId || '',
+                                    category: d.category || (isInst ? 'shopping' : 'subscriptions'),
+                                    priority: d.priority || 'comfort',
+                                    type: isInst ? 'installment' : 'recurring',
+                                    isInstallment: isInst,
+                                    totalInstallments,
+                                    currentInstallment: isInst ? 1 : null,
+                                    installmentMode: isInst ? 'per' : null,
+                                    userId: currentUser.uid,
+                                    createdAt: Date.now(),
+                                });
+                                const onde = cardId
+                                    ? `no cartão ${cards.find(c => c.id === cardId)?.name}`
+                                    : 'como avulsa';
+                                displayMessage += isInst
+                                    ? `\n\n✅ **Parcelamento criado:** ${d.name || d.description} em ${totalInstallments}x de R$ ${val.toLocaleString('pt-BR')} ${onde} (aba Cartões).`
+                                    : `\n\n✅ **Assinatura criada:** ${d.name || d.description} (R$ ${val.toLocaleString('pt-BR')}/mês) ${onde} (aba Cartões).`;
                             }
                         }
                     }

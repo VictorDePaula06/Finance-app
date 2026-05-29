@@ -318,35 +318,76 @@ Ao lançar gastos, mapeie a descrição para o ID de categoria mais próximo (Ex
 REGRAS DE COMANDO (JSON):
 Se precisar realizar uma ação no sistema, use UM ÚNICO bloco JSON no final da resposta.
 
-1. **Lançar Gasto/Renda (NÃO INVESTIMENTO)**: Para despesas ou ganhos do dia a dia:
+⚠️ ESCOLHA DA AÇÃO CERTA — LEIA COM ATENÇÃO:
+A coisa MAIS importante é mandar cada lançamento para o LUGAR CORRETO do app.
+NÃO use "add_transaction" para tudo. Analise o que o usuário pediu:
+
+  • "conta fixa", "conta de internet/luz/água/aluguel/mensalidade", "todo mês" → use **add_fixed_expense**
+  • "assinatura", "Netflix/Spotify/plano recorrente", "assinatura no cartão" → use **add_subscription**
+  • "parcelei", "comprei em Nx", "X vezes no cartão", "parcelamento" → use **add_installment**
+  • gasto/ganho avulso do dia a dia (mercado, uber, salário, etc.) → use **add_transaction**
+
+Se o usuário mencionar um cartão (ex: "no nubank", "no cartão"), inclua "cardName".
+
+1. **add_transaction** — gasto/renda avulso do dia a dia (NÃO recorrente, NÃO parcelado):
 \`\`\`json
-{ 
-  "action": "add_transaction", 
-  "data": { 
-    "description": "Descrição curta", 
-    "amount": "123.45", 
-    "type": "expense|income", 
+{ "action": "add_transaction", "data": {
+    "description": "Descrição curta",
+    "amount": "123.45",
+    "type": "expense|income",
     "category": "ID_DA_CATEGORIA",
-    "date": "YYYY-MM-DD (Opcional, use se o usuário especificar uma data)"
-  } 
-}
+    "paymentMethod": "pix|debito|credito|dinheiro (opcional; use 'credito' se foi no cartão)",
+    "cardName": "nome do cartão citado (opcional, só se paymentMethod=credito)",
+    "date": "YYYY-MM-DD (opcional)"
+} }
 \`\`\`
 
-2. **Ajustar Configurações (Patrimônio/Renda/Gastos)**: Se o usuário pedir para corrigir valores configurados (Ex: "meu saldo inicial é X", "minha renda é X", "meus gastos fixos são X"):
+2. **add_fixed_expense** — conta fixa recorrente (vai para a aba Contas Fixas):
 \`\`\`json
-{ 
-  "action": "update_manual_config", 
-  "data": { 
-    "invested": "VALOR_ABSOLUTO (opcional)",
-    "income": "VALOR_ABSOLUTO (opcional)",
-    "fixedExpenses": "VALOR_ABSOLUTO (opcional)"
-  } 
-}
+{ "action": "add_fixed_expense", "data": {
+    "name": "Ex: Internet",
+    "value": "99.90",
+    "day": "dia de vencimento (1-31, opcional)",
+    "category": "ID_DA_CATEGORIA",
+    "isVariable": false
+} }
+\`\`\`
+(use "isVariable": true para luz, gás, água — contas que mudam de valor todo mês)
+
+3. **add_subscription** — assinatura recorrente (vai para a aba Cartões):
+\`\`\`json
+{ "action": "add_subscription", "data": {
+    "name": "Ex: Netflix",
+    "value": "39.90",
+    "category": "subscriptions",
+    "cardName": "nome do cartão (opcional)",
+    "day": "dia da cobrança (opcional, se não tiver cartão)"
+} }
+\`\`\`
+
+4. **add_installment** — compra parcelada (vai para a aba Cartões):
+\`\`\`json
+{ "action": "add_installment", "data": {
+    "name": "Ex: Notebook",
+    "value": "VALOR_DE_CADA_PARCELA",
+    "installments": "12",
+    "category": "shopping",
+    "cardName": "nome do cartão (opcional)"
+} }
+\`\`\`
+(IMPORTANTE: "value" é o valor de CADA parcela. Se o usuário disser o valor total, divida pelo nº de parcelas você mesmo.)
+
+5. **update_manual_config** — corrigir valores configurados (renda, gastos fixos, patrimônio):
+\`\`\`json
+{ "action": "update_manual_config", "data": {
+    "invested": "opcional", "income": "opcional", "fixedExpenses": "opcional"
+} }
 \`\`\`
 
 REGRAS TÉCNICAS:
 - **Formato do Valor**: Use somente números decimais (Ex: "4500.00"). NUNCA use pontos de milhar (Ex: NUNCA use "4.500,00").
 - **Isolamento**: O bloco JSON deve estar OBRIGATORIAMENTE entre crases ( \`\`\`json ... \`\`\` ) e ser a ÚLTIMA coisa na mensagem.
+- **Uma ação por vez**: se o usuário pedir várias coisas, faça a principal e peça pra confirmar as outras em seguida.
 
 ${isPanic ? `
 --------------------------------------------------
