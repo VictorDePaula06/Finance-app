@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { db } from '../services/firebase';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,7 +8,7 @@ import { CATEGORIES } from '../constants/categories';
 import TrialLimitModal from './TrialLimitModal';
 import { useCdiRate, useUsdRate } from '../utils/marketRates';
 
-export default function IncomeTab({ transactions, savingsJars, walletStats, hideBalance, toggleHideBalance }) {
+export default function IncomeTab({ transactions, savingsJars, walletStats, hideBalance, toggleHideBalance, initialSubTab, setActiveTab }) {
     const { theme } = useTheme();
     const { currentUser, isTrial, planLevel } = useAuth();
 
@@ -32,7 +32,13 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
     const [selectedJarId, setSelectedJarId] = useState('');
     const [isRescuing, setIsRescuing] = useState(false);
     const cdiRate = useCdiRate();
-    const [subTab, setSubTab] = useState('recebimentos'); // 'recebimentos' | 'resgates'
+    const [subTab, setSubTab] = useState(initialSubTab || 'recebimentos'); // 'recebimentos' | 'resgates'
+
+    // Sincroniza com a sub-aba vinda da sidebar/URL (ex: clicar em "Resgates")
+    useEffect(() => {
+        if (initialSubTab && initialSubTab !== subTab) setSubTab(initialSubTab);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialSubTab]);
     const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
     const [showIncomeModal, setShowIncomeModal] = useState(false);
     const [incomeStep, setIncomeStep] = useState('form'); // 'form' | 'confirm'
@@ -327,21 +333,21 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
             <div className="flex flex-col items-center gap-4 mb-8">
                 {/* Tabs on top */}
                 <div className="flex gap-6 border-b border-slate-700/50">
-                    <button 
-                        onClick={() => setSubTab('recebimentos')}
+                    <button
+                        onClick={() => setActiveTab ? setActiveTab('entradas') : setSubTab('recebimentos')}
                         className={`pb-3 px-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-                            subTab === 'recebimentos' 
-                            ? 'border-emerald-400 text-emerald-400' 
+                            subTab === 'recebimentos'
+                            ? 'border-emerald-400 text-emerald-400'
                             : 'border-transparent text-slate-500 hover:text-slate-300'
                         }`}
                     >
                         Recebimentos
                     </button>
-                    <button 
-                        onClick={() => setSubTab('resgates')}
+                    <button
+                        onClick={() => setActiveTab ? setActiveTab('resgates') : setSubTab('resgates')}
                         className={`pb-3 px-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-                            subTab === 'resgates' 
-                            ? 'border-emerald-400 text-emerald-400' 
+                            subTab === 'resgates'
+                            ? 'border-emerald-400 text-emerald-400'
                             : 'border-transparent text-slate-500 hover:text-slate-300'
                         }`}
                     >

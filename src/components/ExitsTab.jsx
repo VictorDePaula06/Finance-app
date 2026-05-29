@@ -34,7 +34,7 @@ import { db } from '../services/firebase';
 import { collection, addDoc, deleteDoc, doc, updateDoc, query, where, onSnapshot } from 'firebase/firestore';
 import { CATEGORIES } from '../constants/categories';
 
-export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.65, cards = [], subscriptions = [], walletStats, hideBalance, toggleHideBalance, setActiveTab }) {
+export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.65, cards = [], subscriptions = [], walletStats, hideBalance, toggleHideBalance, setActiveTab, initialSubTab }) {
     const { theme } = useTheme();
     const { currentUser, planLevel, isAdmin, isTrial } = useAuth();
 
@@ -49,7 +49,13 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const [isSaving, setIsSaving] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [editingIsSubscription, setEditingIsSubscription] = useState(false);
-    const [subTab, setSubTab] = useState('despesas'); // 'despesas' | 'reservas'
+    const [subTab, setSubTab] = useState(initialSubTab || 'despesas'); // 'despesas' | 'reservas'
+
+    // Sincroniza com a sub-aba vinda da sidebar/URL (ex: clicar em "Aportes")
+    useEffect(() => {
+        if (initialSubTab && initialSubTab !== subTab) setSubTab(initialSubTab);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialSubTab]);
     const [isInstallment, setIsInstallment] = useState(false);
     const [installments, setInstallments] = useState('2');
     const [isRecurring, setIsRecurring] = useState(false);
@@ -704,21 +710,21 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             <div className="flex flex-col items-center gap-4 mb-8">
                 {/* Tabs on top */}
                 <div className="flex gap-6 border-b border-slate-700/50">
-                    <button 
-                        onClick={() => setSubTab('despesas')}
+                    <button
+                        onClick={() => setActiveTab ? setActiveTab('gastos') : setSubTab('despesas')}
                         className={`pb-3 px-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-                            subTab === 'despesas' 
-                            ? 'border-rose-400 text-rose-400' 
+                            subTab === 'despesas'
+                            ? 'border-rose-400 text-rose-400'
                             : 'border-transparent text-slate-500 hover:text-slate-300'
                         }`}
                     >
                         Despesas
                     </button>
-                    <button 
-                        onClick={() => setSubTab('reservas')}
+                    <button
+                        onClick={() => setActiveTab ? setActiveTab('aportes') : setSubTab('reservas')}
                         className={`pb-3 px-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-                            subTab === 'reservas' 
-                            ? 'border-blue-400 text-blue-400' 
+                            subTab === 'reservas'
+                            ? 'border-blue-400 text-blue-400'
                             : 'border-transparent text-slate-500 hover:text-slate-300'
                         }`}
                     >

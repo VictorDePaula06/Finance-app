@@ -16,8 +16,10 @@ export const TAB_SLUG_TO_ID = {
     // Gastos
     'visao-geral':       'visao',
     'recebimentos':      'entradas',
+    'resgates':          'resgates',     // sub-aba de Entradas (IncomeTab)
     'contas-fixas':      'fixas',
     'lancamentos':       'gastos',
+    'aportes':           'aportes',      // sub-aba de Lançamentos (ExitsTab)
     'cartoes':           'cartoes',
     'analise':           'analise',
     // Patrimônio
@@ -35,8 +37,10 @@ export const TAB_ID_TO_SLUG = {
     // Gastos
     'visao':           'visao-geral',
     'entradas':        'recebimentos',
+    'resgates':        'resgates',
     'fixas':           'contas-fixas',
     'gastos':          'lancamentos',
+    'aportes':         'aportes',
     'cartoes':         'cartoes',
     'analise':         'analise',
     // Patrimônio
@@ -59,8 +63,10 @@ export const DEFAULT_TAB_BY_MODULE = {
 export const TAB_TO_MODULE = {
     visao:          'gastos',
     entradas:       'gastos',
+    resgates:       'gastos',
     fixas:          'gastos',
     gastos:         'gastos',
+    aportes:        'gastos',
     cartoes:        'gastos',
     analise:        'gastos',
     patrimonio:     'patrimonio',

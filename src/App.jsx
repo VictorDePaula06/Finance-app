@@ -776,15 +776,17 @@ function Dashboard() {
             <AnalysisTab transactions={transactions} cards={cards} subscriptions={subscriptions} />
           )}
 
-          {activeTab === 'entradas' && (
+          {/* Entradas: 'entradas' = Recebimentos, 'resgates' = sub-aba Resgates */}
+          {(activeTab === 'entradas' || activeTab === 'resgates') && (
             <div className="space-y-10">
-
-              <IncomeTab 
-                transactions={transactions} 
-                savingsJars={savingsJars} 
+              <IncomeTab
+                transactions={transactions}
+                savingsJars={savingsJars}
                 walletStats={walletStats}
                 hideBalance={hideBalance}
                 toggleHideBalance={toggleHideBalance}
+                initialSubTab={activeTab === 'resgates' ? 'resgates' : 'recebimentos'}
+                setActiveTab={setActiveTab}
               />
             </div>
           )}
@@ -801,7 +803,8 @@ function Dashboard() {
             </div>
           )}
 
-          {activeTab === 'gastos' && (
+          {/* Lançamentos: 'gastos' = Despesas, 'aportes' = sub-aba Aportes */}
+          {(activeTab === 'gastos' || activeTab === 'aportes') && (
             <div className="space-y-10">
               <ExitsTab
                 transactions={transactions}
@@ -813,6 +816,7 @@ function Dashboard() {
                 hideBalance={hideBalance}
                 toggleHideBalance={toggleHideBalance}
                 setActiveTab={setActiveTab}
+                initialSubTab={activeTab === 'aportes' ? 'reservas' : 'despesas'}
               />
             </div>
           )}

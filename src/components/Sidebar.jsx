@@ -41,10 +41,17 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
     gastos: [
       { type: 'item', id: 'visao', label: 'Visão Geral', icon: LayoutDashboard },
       {
-        type: 'group', id: 'grp_mov', label: 'Movimentações', icon: Wallet,
+        type: 'group', id: 'grp_entradas', label: 'Entradas', icon: ArrowUpCircle,
         children: [
           { id: 'entradas', label: 'Recebimentos', icon: ArrowUpCircle },
-          { id: 'gastos', label: 'Lançamentos', icon: TrendingDown },
+          { id: 'resgates', label: 'Resgates', icon: Landmark },
+        ],
+      },
+      {
+        type: 'group', id: 'grp_lancamentos', label: 'Lançamentos', icon: TrendingDown,
+        children: [
+          { id: 'gastos', label: 'Despesas', icon: TrendingDown },
+          { id: 'aportes', label: 'Aportes', icon: PiggyBank },
           { id: 'fixas', label: 'Contas Fixas', icon: Home },
           { id: 'cartoes', label: 'Cartões', icon: CreditCard },
         ],
