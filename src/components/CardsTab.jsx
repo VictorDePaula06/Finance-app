@@ -127,10 +127,44 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
     setDeleteConfirm(null);
   };
 
+  // Carrega TODOS os campos relevantes do doc no estado de edição.
+  // Antes, cardId/priority/dados de parcela ficavam de fora — o modal
+  // abria sem cartão vinculado e sem prioridade, e não diferenciava
+  // parcelamento de assinatura.
+  const openEditSub = (sub) => {
+    setEditingSub({
+      id: sub.id,
+      name: sub.name,
+      value: sub.value,
+      day: sub.day,
+      category: sub.category || 'other',
+      cardId: sub.cardId || '',
+      priority: sub.priority || 'comfort',
+      type: sub.type || 'recurring',
+      isInstallment: sub.type === 'installment' || !!sub.isInstallment,
+      currentInstallment: sub.currentInstallment,
+      totalInstallments: sub.totalInstallments,
+    });
+  };
+
+  const openEditTransaction = (exp) => {
+    const d = new Date(exp.date);
+    const formattedDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    setEditingTransaction({
+      id: exp.id,
+      description: exp.description,
+      amount: exp.amount,
+      category: exp.category || 'other',
+      date: formattedDate,
+      cardId: exp.selectedCardId || '',
+      priority: exp.priority || 'comfort',
+    });
+  };
+
   const handleUpdateTransaction = async (e) => {
     e.preventDefault();
     if (!editingTransaction?.description || !editingTransaction?.amount) return;
-    
+
     let formattedDate = editingTransaction.date;
     if (formattedDate && formattedDate.includes('-')) {
         const [y, m, d] = formattedDate.split('-').map(Number);
@@ -142,6 +176,8 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
         description: editingTransaction.description,
         amount: parseFloat(editingTransaction.amount),
         category: editingTransaction.category || 'other',
+        priority: editingTransaction.priority || 'comfort',
+        selectedCardId: editingTransaction.cardId || null,
         date: formattedDate
     });
     setEditingTransaction(null);
@@ -150,18 +186,19 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
   const handleUpdateSub = async (e) => {
     e.preventDefault();
     if (!editingSub?.name || !editingSub?.value) return;
-    
+
     let finalDay = editingSub.day;
     if (editingSub.cardId) {
         const linkedCard = cards.find(c => c.id === editingSub.cardId);
         if (linkedCard) finalDay = linkedCard.dueDay;
     }
-    
+
     await updateDoc(doc(db, 'subscriptions', editingSub.id), {
         name: editingSub.name,
         value: parseFloat(editingSub.value),
         day: parseInt(finalDay) || 1,
         category: editingSub.category || 'other',
+        priority: editingSub.priority || 'comfort',
         cardId: editingSub.cardId || ''
     });
     setEditingSub(null);
@@ -669,7 +706,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
                     <Tag className="w-6 h-6 text-purple-500" />
                   </div>
                   <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
-                    <button onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day, category: sub.category || 'other' })} className={`p-2 rounded-lg transition-colors mr-1 ${
+                    <button onClick={() => openEditSub(sub)} className={`p-2 rounded-lg transition-colors mr-1 ${
                       theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-emerald-600' : 'hover:bg-white/5 text-slate-500 hover:text-emerald-400'
                     }`}>
                       <Pencil className="w-4 h-4" />
@@ -769,7 +806,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
                     <Hash className="w-6 h-6 text-rose-500" />
                   </div>
                   <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
-                    <button onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day, category: sub.category || 'other' })} className={`p-2 rounded-lg transition-colors mr-1 ${
+                    <button onClick={() => openEditSub(sub)} className={`p-2 rounded-lg transition-colors mr-1 ${
                       theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-emerald-600' : 'hover:bg-white/5 text-slate-500 hover:text-emerald-400'
                     }`}>
                       <Pencil className="w-4 h-4" />
@@ -1501,18 +1538,8 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
                                 R$ {parseFloat(exp.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                               </span>
                               <div className="flex gap-0.5">
-                                <button 
-                                  onClick={() => {
-                                    const d = new Date(exp.date);
-                                    const formattedDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-                                    setEditingTransaction({
-                                      id: exp.id,
-                                      description: exp.description,
-                                      amount: exp.amount,
-                                      category: exp.category || 'other',
-                                      date: formattedDate
-                                    });
-                                  }}
+                                <button
+                                  onClick={() => openEditTransaction(exp)}
                                   className={`p-2 rounded-lg transition-colors ${
                                     theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-slate-600' : 'hover:bg-white/5 text-slate-500 hover:text-slate-300'
                                   }`}
@@ -1560,7 +1587,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
                               </span>
                               <div className="flex gap-0.5">
                                 <button 
-                                  onClick={() => setEditingSub({ id: sub.id, name: sub.name, value: sub.value, day: sub.day, category: sub.category || 'other' })}
+                                  onClick={() => openEditSub(sub)}
                                   className={`p-2 rounded-lg transition-colors ${
                                     theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-slate-600' : 'hover:bg-white/10 text-slate-500 hover:text-slate-300'
                                   }`}
@@ -1736,23 +1763,31 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
       )}
 
       {/* MODAL: EDIT TRANSACTION */}
-      {editingTransaction && (
-        <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
-          <form onSubmit={handleUpdateTransaction} className={`border rounded-[3rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 ${
-            theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl shadow-emerald-500/10'
-          }`}>
-            <h3 className={`text-xl font-bold tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Editar Gasto</h3>
-            <div className="space-y-4">
+      {editingTransaction && (() => {
+        const inputCls = `w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
+          theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 text-slate-800' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+        }`;
+        const PRIORITY_OPTS = [
+          { id: 'essential',   label: 'Essencial', color: 'emerald' },
+          { id: 'comfort',     label: 'Conforto',  color: 'amber'   },
+          { id: 'superfluous', label: 'Supérfluo', color: 'rose'    },
+        ];
+        return (
+          <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+            <form onSubmit={handleUpdateTransaction} className={`border rounded-[3rem] w-full max-w-sm p-8 space-y-5 animate-in zoom-in-95 duration-300 max-h-[92vh] overflow-y-auto custom-scrollbar ${
+              theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl shadow-emerald-500/10'
+            }`}>
+              <h3 className={`text-xl font-bold tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Editar Gasto</h3>
+
               <input
                 type="text"
                 placeholder="Descrição"
                 required
                 value={editingTransaction.description}
                 onChange={(e) => setEditingTransaction({...editingTransaction, description: e.target.value})}
-                className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
-                  theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 text-slate-800' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
-                }`}
+                className={inputCls}
               />
+
               <div className="grid grid-cols-2 gap-4">
                 <input
                   type="number"
@@ -1761,144 +1796,288 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
                   required
                   value={editingTransaction.amount}
                   onChange={(e) => setEditingTransaction({...editingTransaction, amount: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 text-slate-800' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
-                  }`}
+                  className={inputCls}
                 />
                 <input
                   type="date"
                   required
                   value={editingTransaction.date}
                   onChange={(e) => setEditingTransaction({...editingTransaction, date: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 text-slate-800 [color-scheme:light]' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white [color-scheme:dark]'
-                  }`}
+                  className={`${inputCls} ${theme === 'light' ? '[color-scheme:light]' : '[color-scheme:dark]'}`}
                 />
               </div>
-              <select
-                required
-                value={editingTransaction.category || 'other'}
-                onChange={(e) => setEditingTransaction({...editingTransaction, category: e.target.value})}
-                className={`w-full p-4 rounded-2xl border font-bold text-sm transition-all outline-none appearance-none cursor-pointer ${
-                  theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 text-slate-800' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
-                }`}
-              >
-                  {CATEGORIES.expense.map(cat => (
-                      <option key={cat.id} value={cat.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{cat.label}</option>
-                  ))}
-              </select>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={() => setEditingTransaction(null)} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
-              <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-emerald-500 text-white shadow-lg shadow-emerald-500/20">Salvar Alterações</button>
-            </div>
-          </form>
-        </div>
-      )}
 
-      {/* MODAL: EDIT SUB */}
-      {editingSub && (
-        <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
-          <form onSubmit={handleUpdateSub} className={`border rounded-[3rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 shadow-2xl ${
-            theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/10 shadow-purple-500/10'
-          }`}>
-            <div className="text-center space-y-2 mb-6">
-              <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/20">
-                <Repeat className="w-8 h-8 text-purple-500" />
-              </div>
-              <h3 className={`text-xl font-medium uppercase tracking-widest ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                  Editar Assinatura
-              </h3>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                Ajuste os dados da cobrança recorrente
-              </p>
-            </div>
-
-            <div className="space-y-5">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Nome da Assinatura</label>
-                <input
-                  type="text"
-                  placeholder="ex: Netflix, Spotify"
-                  required
-                  value={editingSub.name}
-                  onChange={(e) => setEditingSub({...editingSub, name: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
-                  }`}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Valor</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="R$ 0,00"
-                    required
-                    value={editingSub.value}
-                    onChange={(e) => setEditingSub({...editingSub, value: e.target.value})}
-                    className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                      theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
-                    }`}
-                  />
-                </div>
-                {!editingSub.cardId && (
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Dia da Cobrança</label>
-                    <input
-                      type="number"
-                      placeholder="1-31"
-                      min="1"
-                      max="31"
-                      required={!editingSub.cardId}
-                      value={editingSub.day}
-                      onChange={(e) => setEditingSub({...editingSub, day: e.target.value})}
-                      className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
-                        theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white placeholder-slate-500'
-                      }`}
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Categoria</label>
-                <select
-                  required
-                  value={editingSub.category || 'other'}
-                  onChange={(e) => setEditingSub({...editingSub, category: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold appearance-none outline-none ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white'
-                  }`}
-                >
-                    {CATEGORIES.expense.map(cat => (
-                        <option key={cat.id} value={cat.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{cat.label}</option>
-                    ))}
-                </select>
-              </div>
+              {/* Cartão Vinculado — agora aparece carregado */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Cartão Vinculado</label>
                 <select
-                  value={editingSub.cardId || ''}
-                  onChange={(e) => setEditingSub({...editingSub, cardId: e.target.value})}
-                  className={`w-full p-4 rounded-2xl border transition-all text-sm font-bold appearance-none outline-none ${
-                    theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-slate-800' : 'bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 text-white'
-                  }`}
+                  value={editingTransaction.cardId || ''}
+                  onChange={(e) => setEditingTransaction({...editingTransaction, cardId: e.target.value})}
+                  className={`${inputCls} outline-none appearance-none cursor-pointer`}
                 >
-                  <option value="" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Sem cartão (Avulsa)</option>
+                  <option value="" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>Sem cartão</option>
                   {cards.map(c => (
                     <option key={c.id} value={c.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{c.name} (•• {c.last4})</option>
                   ))}
                 </select>
               </div>
-            </div>
-            <div className="flex gap-3 pt-4">
-              <button type="button" onClick={() => setEditingSub(null)} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
-              <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-purple-500 hover:bg-purple-600 transition-all text-white shadow-lg shadow-purple-500/20">Salvar Alterações</button>
-            </div>
-          </form>
-        </div>
-      )}
+
+              {/* Categoria */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Categoria</label>
+                <select
+                  required
+                  value={editingTransaction.category || 'other'}
+                  onChange={(e) => {
+                    const newCat = e.target.value;
+                    const catDef = CATEGORIES.expense.find(c => c.id === newCat);
+                    setEditingTransaction({
+                      ...editingTransaction,
+                      category: newCat,
+                      priority: catDef?.defaultPriority || editingTransaction.priority,
+                    });
+                  }}
+                  className={`${inputCls} outline-none appearance-none cursor-pointer`}
+                >
+                  {CATEGORIES.expense.map(cat => (
+                    <option key={cat.id} value={cat.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Prioridade */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Prioridade</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {PRIORITY_OPTS.map(opt => {
+                    const isSelected = editingTransaction.priority === opt.id;
+                    const selBg = opt.color === 'emerald'
+                      ? (theme === 'light' ? 'bg-emerald-50 border-emerald-400' : 'bg-emerald-500/10 border-emerald-500/40')
+                      : opt.color === 'rose'
+                        ? (theme === 'light' ? 'bg-rose-50 border-rose-400' : 'bg-rose-500/10 border-rose-500/40')
+                        : (theme === 'light' ? 'bg-amber-50 border-amber-400' : 'bg-amber-500/10 border-amber-500/40');
+                    const selText = opt.color === 'emerald' ? 'text-emerald-600'
+                      : opt.color === 'rose' ? 'text-rose-600'
+                      : 'text-amber-600';
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setEditingTransaction({...editingTransaction, priority: opt.id})}
+                        className={`p-2 rounded-xl border text-center transition-all ${
+                          isSelected
+                            ? selBg
+                            : (theme === 'light' ? 'bg-slate-50 border-slate-100 hover:border-slate-200' : 'bg-white/5 border-white/5 hover:border-white/10')
+                        }`}
+                      >
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${
+                          isSelected ? selText : (theme === 'light' ? 'text-slate-500' : 'text-slate-400')
+                        }`}>{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setEditingTransaction(null)} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
+                <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20">Salvar Alterações</button>
+              </div>
+            </form>
+          </div>
+        );
+      })()}
+
+      {/* MODAL: EDIT SUB (assinatura ou parcelamento) */}
+      {editingSub && (() => {
+        // Diferencia visual e textualmente parcelamento vs assinatura.
+        // Antes: o mesmo modal abria pra ambos como "Editar Assinatura".
+        const isInst = editingSub.isInstallment;
+        const accent = isInst ? 'rose' : 'purple';
+        const accentBg = isInst ? 'bg-rose-500/10 border-rose-500/20' : 'bg-purple-500/10 border-purple-500/20';
+        const accentText = isInst ? 'text-rose-500' : 'text-purple-500';
+        const accentRing = isInst
+          ? 'focus:border-rose-500/50 focus:ring-rose-500/10'
+          : 'focus:border-purple-500/50 focus:ring-purple-500/10';
+        const accentBtn = isInst
+          ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20'
+          : 'bg-purple-500 hover:bg-purple-600 shadow-purple-500/20';
+        const ModalIcon = isInst ? Hash : Repeat;
+        const inputCls = `w-full p-4 rounded-2xl border transition-all text-sm font-bold ${
+          theme === 'light'
+            ? `bg-slate-50 focus:bg-white border-slate-100 focus:ring-4 ${accentRing} text-slate-800`
+            : `bg-slate-800/50 focus:bg-slate-800 border-white/5 focus:ring-4 ${accentRing} text-white placeholder-slate-500`
+        }`;
+        const PRIORITY_OPTS = [
+          { id: 'essential',   label: 'Essencial', color: 'emerald' },
+          { id: 'comfort',     label: 'Conforto',  color: 'amber'   },
+          { id: 'superfluous', label: 'Supérfluo', color: 'rose'    },
+        ];
+
+        return (
+          <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+            <form onSubmit={handleUpdateSub} className={`border rounded-[3rem] w-full max-w-sm p-8 space-y-6 animate-in zoom-in-95 duration-300 shadow-2xl max-h-[92vh] overflow-y-auto custom-scrollbar ${
+              theme === 'light' ? 'bg-white border-slate-100' : `bg-slate-900 border-white/10 ${isInst ? 'shadow-rose-500/10' : 'shadow-purple-500/10'}`
+            }`}>
+              <div className="text-center space-y-2">
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-2 border ${accentBg}`}>
+                  <ModalIcon className={`w-8 h-8 ${accentText}`} />
+                </div>
+                <h3 className={`text-xl font-medium uppercase tracking-widest ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                  {isInst ? 'Editar Parcelamento' : 'Editar Assinatura'}
+                </h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                  {isInst
+                    ? `Parcela ${editingSub.currentInstallment || 1} de ${editingSub.totalInstallments || '?'}`
+                    : 'Ajuste os dados da cobrança recorrente'}
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                {/* Nome */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">
+                    {isInst ? 'Descrição da Compra' : 'Nome da Assinatura'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={isInst ? 'ex: Notebook, Geladeira' : 'ex: Netflix, Spotify'}
+                    required
+                    value={editingSub.name}
+                    onChange={(e) => setEditingSub({...editingSub, name: e.target.value})}
+                    className={inputCls}
+                  />
+                </div>
+
+                {/* Valor + Dia (se sem cartão) */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">
+                      {isInst ? 'Valor / Parcela' : 'Valor'}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="R$ 0,00"
+                      required
+                      value={editingSub.value}
+                      onChange={(e) => setEditingSub({...editingSub, value: e.target.value})}
+                      className={inputCls}
+                    />
+                  </div>
+                  {!editingSub.cardId && (
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Dia da Cobrança</label>
+                      <input
+                        type="number"
+                        placeholder="1-31"
+                        min="1"
+                        max="31"
+                        required={!editingSub.cardId}
+                        value={editingSub.day}
+                        onChange={(e) => setEditingSub({...editingSub, day: e.target.value})}
+                        className={inputCls}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Cartão Vinculado — agora carregado corretamente do doc */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Cartão Vinculado</label>
+                  <select
+                    value={editingSub.cardId || ''}
+                    onChange={(e) => setEditingSub({...editingSub, cardId: e.target.value})}
+                    className={`${inputCls} appearance-none outline-none`}
+                  >
+                    <option value="" className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>
+                      {isInst ? 'Sem cartão (Avulso)' : 'Sem cartão (Avulsa)'}
+                    </option>
+                    {cards.map(c => (
+                      <option key={c.id} value={c.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>
+                        {c.name} (•• {c.last4})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Categoria */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Categoria</label>
+                  <select
+                    required
+                    value={editingSub.category || 'other'}
+                    onChange={(e) => {
+                      const newCat = e.target.value;
+                      const catDef = CATEGORIES.expense.find(c => c.id === newCat);
+                      setEditingSub({
+                        ...editingSub,
+                        category: newCat,
+                        priority: catDef?.defaultPriority || editingSub.priority,
+                      });
+                    }}
+                    className={`${inputCls} appearance-none outline-none`}
+                  >
+                    {CATEGORIES.expense.map(cat => (
+                      <option key={cat.id} value={cat.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{cat.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Prioridade — agora editável */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Prioridade</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {PRIORITY_OPTS.map(opt => {
+                      const isSelected = editingSub.priority === opt.id;
+                      const selBg = opt.color === 'emerald'
+                        ? (theme === 'light' ? 'bg-emerald-50 border-emerald-400' : 'bg-emerald-500/10 border-emerald-500/40')
+                        : opt.color === 'rose'
+                          ? (theme === 'light' ? 'bg-rose-50 border-rose-400' : 'bg-rose-500/10 border-rose-500/40')
+                          : (theme === 'light' ? 'bg-amber-50 border-amber-400' : 'bg-amber-500/10 border-amber-500/40');
+                      const selText = opt.color === 'emerald' ? 'text-emerald-600'
+                        : opt.color === 'rose' ? 'text-rose-600'
+                        : 'text-amber-600';
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setEditingSub({...editingSub, priority: opt.id})}
+                          className={`p-2 rounded-xl border text-center transition-all ${
+                            isSelected
+                              ? selBg
+                              : (theme === 'light' ? 'bg-slate-50 border-slate-100 hover:border-slate-200' : 'bg-white/5 border-white/5 hover:border-white/10')
+                          }`}
+                        >
+                          <span className={`text-[9px] font-black uppercase tracking-widest ${
+                            isSelected ? selText : (theme === 'light' ? 'text-slate-500' : 'text-slate-400')
+                          }`}>{opt.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingSub(null)}
+                  className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all text-white shadow-lg ${accentBtn}`}
+                >
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+        );
+      })()}
     </div>
   );
 };
