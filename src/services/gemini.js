@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { CATEGORIES } from '../constants/categories.js';
 import { calculateFutureProjections, calculateCumulativeBalance } from '../utils/financialLogic.js';
+import { calculateHealthScore } from '../utils/healthScore.js';
 
 export const isGeminiConfigured = () => {
     return !!localStorage.getItem('user_gemini_api_key');
@@ -42,7 +43,14 @@ const withRetry = async (fn, retries = 5, delay = 2000) => {
     }
 };
 
-export const calculateStatsContext = (transactions, manualConfig, isPanic = false, jars = [], investments = [], onboarding = {}) => {
+export const calculateStatsContext = (transactions, manualConfig, isPanic = false, jars = [], investments = [], onboarding = {}, extra = {}) => {
+    // extra = { cards, fixedExpenses, goals, subscriptions, planLevel }
+    const cards = extra.cards || [];
+    const fixedExpensesList = extra.fixedExpenses || [];
+    const goals = extra.goals || [];
+    const subscriptions = extra.subscriptions || [];
+    const planLevel = extra.planLevel || 'free';
+
     const today = new Date();
     const currentMonth = today.toLocaleDateString('en-CA').slice(0, 7); // YYYY-MM (Local)
 
@@ -127,6 +135,58 @@ export const calculateStatsContext = (transactions, manualConfig, isPanic = fals
     const expenseCategories = CATEGORIES.expense.map(c => `${c.id} (${c.label})`).join(', ');
     const incomeCategories = CATEGORIES.income.map(c => `${c.id} (${c.label})`).join(', ');
 
+    // ── HEALTH SCORE (mesmo cálculo do painel) ──
+    let healthScoreText = 'Não calculado.';
+    try {
+        const hs = calculateHealthScore(transactions, manualConfig, jars);
+        healthScoreText = `Nota ${hs.score}/100 — "${hs.feedback}". Detalhe: Performance ${hs.breakdown?.performance ?? 0}/20, Alocação ${hs.breakdown?.allocation ?? 0}/30, Reserva ${hs.breakdown?.reserve ?? 0}/50. Cobertura: ${hs.breakdown?.data?.monthsCovered ?? '0'} meses de gastos fixos.`;
+    } catch { /* mantém fallback */ }
+
+    // ── CARTÕES E FATURAS ──
+    const cardsText = cards.length > 0
+        ? cards.map(c => {
+            const unpaid = transactions
+                .filter(t => t.selectedCardId === c.id && t.invoiceStatus === 'unpaid')
+                .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+            const cardSubs = subscriptions
+                .filter(s => s.cardId === c.id)
+                .reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0);
+            const fatura = unpaid + cardSubs;
+            return `  - ${c.name || c.brand} (final ${c.last4 || '----'}): fatura aberta ≈ R$ ${fatura.toFixed(2)} • vence dia ${c.dueDay || '?'}`;
+        }).join('\n')
+        : '  - Nenhum cartão cadastrado.';
+
+    // ── CONTAS FIXAS ──
+    const fixedText = fixedExpensesList.length > 0
+        ? fixedExpensesList.map(f => {
+            const pago = f.lastPaidMonth === currentMonth;
+            const tipo = f.isVariable ? 'variável' : 'fixo';
+            return `  - ${f.name}: R$ ${(parseFloat(f.value) || 0).toFixed(2)} (${tipo}) • vence dia ${f.day || '?'} • ${pago ? 'PAGA este mês' : 'pendente'}`;
+        }).join('\n')
+        : '  - Nenhuma conta fixa cadastrada.';
+
+    // ── PARCELAMENTOS ATIVOS ──
+    const installments = subscriptions.filter(s => s.type === 'installment');
+    const installmentsText = installments.length > 0
+        ? installments.map(s => {
+            const paid = Math.max(0, (s.currentInstallment || 1) - 1);
+            const total = s.totalInstallments || 1;
+            const remaining = total - paid;
+            return `  - ${s.name}: ${paid}/${total} parcelas pagas • faltam ${remaining} (R$ ${(remaining * (parseFloat(s.value) || 0)).toFixed(2)})`;
+        }).join('\n')
+        : '  - Nenhum parcelamento ativo.';
+
+    // ── METAS ──
+    const activeGoals = goals.filter(g => g.status === 'active');
+    const goalsText = activeGoals.length > 0
+        ? activeGoals.map(g => {
+            const current = parseFloat(g.current) || 0;
+            const target = parseFloat(g.target) || 0;
+            const pct = target > 0 ? ((current / target) * 100).toFixed(0) : 0;
+            return `  - ${g.title}: R$ ${current.toFixed(2)} de R$ ${target.toFixed(2)} (${pct}%)${g.deadline ? ` • prazo ${g.deadline}` : ''}`;
+        }).join('\n')
+        : '  - Nenhuma meta ativa.';
+
     return `
 CONTEXTO FINANCEIRO DO USUÁRIO (Mês: ${currentMonth}):
 - DADOS DO DASHBOARD (A VERDADE ABSOLUTA):
@@ -155,12 +215,29 @@ CONTEXTO FINANCEIRO DO USUÁRIO (Mês: ${currentMonth}):
   (Baseado no Saldo Atual + Expectativa de Renda - Expectativa de Gastos/Parcelas/Base do Cartão)
 ${projectionsText}
 
+- SAÚDE FINANCEIRA (HEALTH SCORE):
+  ${healthScoreText}
+
+- CARTÕES E FATURAS:
+${cardsText}
+
+- CONTAS FIXAS:
+${fixedText}
+
+- PARCELAMENTOS ATIVOS:
+${installmentsText}
+
+- METAS FINANCEIRAS:
+${goalsText}
+
 - CONSTRUÇÃO DE PATRIMÔNIO E RESERVAS:
   - Patrimônio Total Consolidado: R$ ${patrimonioTotal.toFixed(2)}
   - Total em Reservas: R$ ${jarsTotal.toFixed(2)}
 ${jarsText}
   - Total em Investimentos: R$ ${investmentsTotal.toFixed(2)} (Valor aproximado)
 ${invText}
+
+- PLANO ATUAL DO USUÁRIO: ${planLevel === 'premium' ? 'Premium (acesso total)' : planLevel === 'standard' ? 'Standard (só Controle de Gastos)' : planLevel === 'lifetime' ? 'Vitalício (acesso total)' : 'Gratuito (com limites)'}
 
 - CONFIGURAÇÃO PERSONALIZADA DA ALÍVIA (definida pelo usuário no botão "Configurar Alívia"):
   • Objetivos Financeiros: ${onboarding.objectives && onboarding.objectives.length > 0 ? onboarding.objectives.join(', ') : 'Não especificado'}
@@ -192,7 +269,33 @@ ${categoryStats || "Nenhum gasto de consumo registrado ainda."}
 ${recentTx}
 
 INSTRUÇÕES DE IDENTIDADE E COMPORTAMENTO:
-Você é a **Alívia**, uma guia financeira de altíssima performance. Sua missão é dar clareza técnica e segurança.
+Você é a **Alívia**, a consultora financeira inteligente DENTRO do aplicativo Alívia. Você conhece o app por completo e ajuda o usuário tanto com análises quanto a USAR a plataforma. Sua missão é dar clareza técnica, segurança e orientar a navegação.
+
+GUIA COMPLETO DA PLATAFORMA (use para orientar o usuário onde fazer cada coisa):
+A Alívia tem 2 módulos principais, acessíveis pela tela inicial:
+
+📊 MÓDULO "CONTROLE DE GASTOS":
+  - **Visão Geral**: dashboard com saldo, fluxo de caixa, health score e últimos recebimentos.
+  - **Recebimentos**: onde lançar entradas (salário, freelance). Também tem a aba "Resgates" (tirar dinheiro de reservas para a carteira).
+  - **Contas Fixas**: cadastrar despesas recorrentes (aluguel, luz, internet). Tipo "valor fixo" ou "valor variável" (luz/gás/água pedem o valor real ao pagar).
+  - **Lançamentos**: registrar gastos do dia a dia. Tem opção de parcelamento, recorrência e pagamento por cartão. Também tem a aba "Aportes" (guardar dinheiro).
+  - **Cartões**: cadastrar cartões, assinaturas e parcelamentos. Aqui se paga a fatura.
+  - **Análise de Gastos**: gráficos por categoria, comparação entre meses, exportar PDF.
+
+🏛️ MÓDULO "CONSTRUÇÃO DE PATRIMÔNIO":
+  - **Patrimônio**: visão consolidada de reservas + investimentos.
+  - **Reserva de Emergência**: cofrinhos com rendimento CDI.
+  - **Investimentos**: cadastrar ativos (Tesouro, CDB, ações, ETFs, FIIs, cripto) com cotação ao vivo.
+  - **Metas**: criar objetivos financeiros com simulador de quanto investir/mês.
+  - **Evolução Patrimonial**: gráfico de retorno vs CDI, IBOVESPA e S&P 500.
+
+⚙️ OUTROS:
+  - **Configurar Alívia**: define renda, gastos fixos, perfil de investidor, objetivos, alertas e tetos por categoria.
+  - **Botão do Pânico**: ajuda emocional em momentos de ansiedade financeira.
+
+REGRAS SOBRE CRÉDITO (IMPORTANTE): compras no cartão de crédito NÃO saem do saldo no momento do lançamento — só quando a fatura é paga (na aba Cartões). Já compras no PIX/débito saem do saldo imediatamente. Considere isso nas análises de liquidez.
+
+QUANDO O USUÁRIO PERGUNTAR "onde faço X" ou "como faço Y": oriente-o passo a passo citando o módulo e a aba exatos do guia acima.
 
 DIRETRIZES DE ANÁLISE (INTELIGÊNCIA REAL):
 1. **Compras Parceladas**: Se o usuário perguntar sobre uma compra parcelada, não se desespere pelo valor total se o saldo atual for baixo. Calcule se a PARCELA cabe na "sobra mensal" (Renda - Fixos - Variáveis).
@@ -274,7 +377,7 @@ export const sendMessageToGemini = async (history, message, context) => {
             history: [
                 { role: "user", parts: [{ text: "System Prompt: " + context }] },
                 { role: "model", parts: [{ text: "Entendido. Serei sua Alívia financeira." }] },
-                ...cleanHistory.slice(-3).map(msg => ({
+                ...cleanHistory.slice(-8).map(msg => ({
                     role: msg.role === 'user' ? 'user' : 'model',
                     parts: [{ text: msg.text }]
                 }))
