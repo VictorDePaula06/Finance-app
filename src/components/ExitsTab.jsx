@@ -23,7 +23,8 @@ import {
     Wallet,
     Eye,
     EyeOff,
-    Info
+    Info,
+    CreditCard
 } from 'lucide-react';
 import TrialLimitModal from './TrialLimitModal';
 import OverdraftWarningModal from './OverdraftWarningModal';
@@ -33,7 +34,7 @@ import { db } from '../services/firebase';
 import { collection, addDoc, deleteDoc, doc, updateDoc, query, where, onSnapshot } from 'firebase/firestore';
 import { CATEGORIES } from '../constants/categories';
 
-export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.65, cards = [], subscriptions = [], walletStats, hideBalance, toggleHideBalance }) {
+export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.65, cards = [], subscriptions = [], walletStats, hideBalance, toggleHideBalance, setActiveTab }) {
     const { theme } = useTheme();
     const { currentUser, planLevel, isAdmin, isTrial } = useAuth();
 
@@ -54,6 +55,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const [isRecurring, setIsRecurring] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState('pix');
     const [selectedCardId, setSelectedCardId] = useState('');
+    const [cardError, setCardError] = useState('');
     const [installmentMode, setInstallmentMode] = useState('total'); // 'total' | 'per_installment'
 
     // Form States
@@ -273,6 +275,8 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         setInstallments('2');
         setIsRecurring(false);
         setPaymentMethod('pix');
+        setSelectedCardId('');
+        setCardError('');
         setInstallmentMode('total');
         setPriority('comfort');
         setEditingId(null);
@@ -286,11 +290,17 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         if (!val || val <= 0) { setAmountError('Informe um valor válido maior que zero.'); return; }
         setAmountError('');
         
+        // Validação de cartão — mensagem clara inline em vez de alert genérico
         if (paymentMethod === 'credito' && !selectedCardId) {
-            alert('Por favor, selecione um cartão de crédito.');
+            setCardError(
+                cards.length === 0
+                    ? 'Você ainda não cadastrou nenhum cartão. Cadastre um para lançar gastos no crédito.'
+                    : 'Selecione em qual cartão essa compra foi feita.'
+            );
             return;
         }
-        
+        setCardError('');
+
         setIsSaving(true);
 
         try {
@@ -1365,20 +1375,65 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                     {/* Select Card if Credit Card is active */}
                                     {paymentMethod === 'credito' && (
                                         <div className="animate-in slide-in-from-top-4">
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Vincular ao Cartão</label>
-                                            <select 
-                                                required={paymentMethod === 'credito'}
-                                                value={selectedCardId} 
-                                                onChange={e => setSelectedCardId(e.target.value)}
-                                                className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all appearance-none ${
-                                                    theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800' : 'bg-slate-800 border-white/5 text-white'
-                                                }`}
-                                            >
-                                                <option value="">Selecione um cartão</option>
-                                                {cards.map(card => (
-                                                    <option key={card.id} value={card.id}>{card.name} (•• {card.last4})</option>
-                                                ))}
-                                            </select>
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Em qual cartão foi a compra?</label>
+
+                                            {cards.length === 0 ? (
+                                                /* Sem cartão cadastrado — guia o usuário leigo a cadastrar */
+                                                <div className={`p-4 rounded-2xl border ${
+                                                    theme === 'light' ? 'bg-amber-50 border-amber-200' : 'bg-amber-500/10 border-amber-500/20'
+                                                }`}>
+                                                    <div className="flex items-start gap-3 mb-3">
+                                                        <CreditCard className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                                                        <p className={`text-xs font-bold leading-relaxed ${theme === 'light' ? 'text-amber-800' : 'text-amber-300'}`}>
+                                                            Você ainda não tem nenhum cartão cadastrado. Para registrar uma compra no crédito, primeiro cadastre o seu cartão (leva 30 segundos).
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            resetForm();
+                                                            if (typeof setActiveTab === 'function') setActiveTab('cartoes');
+                                                        }}
+                                                        className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2"
+                                                    >
+                                                        <Plus className="w-3.5 h-3.5" /> Cadastrar Meu Cartão
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <select
+                                                        value={selectedCardId}
+                                                        onChange={e => { setSelectedCardId(e.target.value); if (cardError) setCardError(''); }}
+                                                        className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all appearance-none ${
+                                                            cardError
+                                                              ? 'border-rose-500 bg-rose-500/5 text-rose-500 focus:border-rose-500'
+                                                              : (theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-800 focus:border-rose-500' : 'bg-slate-800 border-white/5 text-white focus:border-rose-500')
+                                                        }`}
+                                                    >
+                                                        <option value="">Selecione um cartão</option>
+                                                        {cards.map(card => (
+                                                            <option key={card.id} value={card.id}>{card.name} (•• {card.last4})</option>
+                                                        ))}
+                                                    </select>
+
+                                                    {cardError ? (
+                                                        <p className="text-[10px] font-bold text-rose-500 mt-1.5 ml-1 flex items-center gap-1">
+                                                            <span>⚠</span> {cardError}
+                                                        </p>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                resetForm();
+                                                                if (typeof setActiveTab === 'function') setActiveTab('cartoes');
+                                                            }}
+                                                            className="text-[10px] font-bold text-slate-400 hover:text-rose-500 mt-1.5 ml-1 transition-colors flex items-center gap-1"
+                                                        >
+                                                            <Plus className="w-3 h-3" /> Cadastrar outro cartão
+                                                        </button>
+                                                    )}
+                                                </>
+                                            )}
                                         </div>
                                     )}
                                 </div>

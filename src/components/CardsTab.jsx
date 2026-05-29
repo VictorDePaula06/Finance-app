@@ -795,8 +795,14 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {subscriptions.filter(s => s.type === 'installment').map(sub => {
             const linkedCard = cards.find(c => c.id === sub.cardId);
-            const remaining = (sub.totalInstallments || 0) - (sub.currentInstallment || 0) + 1;
-            const progress = ((sub.currentInstallment || 1) / (sub.totalInstallments || 1)) * 100;
+            const total = sub.totalInstallments || 1;
+            // currentInstallment = a parcela que ESTÁ sendo paga agora (próxima a quitar).
+            // Logo, parcelas já pagas = currentInstallment - 1.
+            const paid = Math.max(0, (sub.currentInstallment || 1) - 1);
+            const remaining = total - paid;             // quantas ainda faltam (inclui a atual)
+            const progress = (paid / total) * 100;       // barra reflete o que JÁ foi pago
+            const valuePerInstallment = parseFloat(sub.value) || 0;
+            const remainingValue = remaining * valuePerInstallment;
             return (
               <div key={sub.id} className={`p-5 rounded-2xl border group relative transition-all hover:shadow-xl hover:-translate-y-1 ${
                 theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-800/60'
@@ -839,21 +845,40 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
 
                 <div className="space-y-1">
                   <h4 className={`font-bold text-base ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{sub.name}</h4>
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
-                      Parcela {sub.currentInstallment} de {sub.totalInstallments}
-                    </p>
-                    <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider bg-rose-500/10 px-2 py-0.5 rounded-full">
-                      Faltam {remaining}
-                    </span>
-                  </div>
-                  
-                  {/* Progress Bar */}
-                  <div className="w-full h-1.5 bg-slate-500/10 rounded-full mt-2 overflow-hidden">
-                    <div 
-                      className="h-full bg-rose-500 transition-all duration-1000" 
-                      style={{ width: `${progress}%` }}
-                    ></div>
+
+                  {/* Progresso de parcelas — claro e direto */}
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <p className={`text-lg font-black leading-none ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                          {paid}<span className="text-sm font-bold text-slate-400">/{total}</span>
+                        </p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-1">parcelas pagas</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-black text-rose-500 leading-none">
+                          Faltam {remaining}
+                        </p>
+                        <p className="text-[10px] font-bold text-rose-400/80 mt-1">
+                          R$ {remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Barra: porção verde = pago, restante = a pagar */}
+                    <div className="w-full h-2.5 bg-slate-500/15 rounded-full overflow-hidden flex">
+                      <div
+                        className="h-full bg-emerald-500 transition-all duration-1000 rounded-full"
+                        style={{ width: `${progress}%` }}
+                        title={`${paid} pagas`}
+                      ></div>
+                    </div>
+                    <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-wider">
+                      <span className="text-emerald-500">{Math.round(progress)}% quitado</span>
+                      {remaining === 1 && (
+                        <span className="text-amber-500">última parcela!</span>
+                      )}
+                    </div>
                   </div>
 
                   {!sub.cardId && (

@@ -803,15 +803,16 @@ function Dashboard() {
 
           {activeTab === 'gastos' && (
             <div className="space-y-10">
-              <ExitsTab 
-                transactions={transactions} 
-                savingsJars={investmentStats.jarsWithBalance} 
-                cdiRate={cdiRate} 
+              <ExitsTab
+                transactions={transactions}
+                savingsJars={investmentStats.jarsWithBalance}
+                cdiRate={cdiRate}
                 cards={cards}
                 subscriptions={subscriptions}
                 walletStats={walletStats}
                 hideBalance={hideBalance}
                 toggleHideBalance={toggleHideBalance}
+                setActiveTab={setActiveTab}
               />
             </div>
           )}
