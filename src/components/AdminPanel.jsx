@@ -35,7 +35,8 @@ import {
     Edit3,
     Info,
     Gift,
-    Save
+    Save,
+    Sparkles
 } from 'lucide-react';
 
 export default function AdminPanel({ onBack }) {
