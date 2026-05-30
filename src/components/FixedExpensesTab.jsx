@@ -56,6 +56,8 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
   const [payingExpense, setPayingExpense] = useState(null);
   // Valor real do mês (usado quando paying uma conta variável)
   const [actualValue, setActualValue] = useState('');
+  // Data do pagamento (editável; padrão = hoje), formato YYYY-MM-DD
+  const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [showHelp, setShowHelp] = useState(false);
   // Aviso de endividamento — armazena o pagamento pendente até o usuário confirmar.
   const [overdraftPending, setOverdraftPending] = useState(null);
@@ -119,15 +121,19 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
   // Executa o pagamento de fato (chamado depois da checagem de saldo).
   const executePayExpense = async (expense, paidAmount) => {
     try {
-      const today = new Date();
+      // Data do pagamento escolhida pelo usuário (padrão: hoje). Preserva o horário
+      // atual para manter ordenação por createdAt/hora dentro do dia.
+      const now = new Date();
+      const [y, m, d] = (payDate || now.toISOString().slice(0, 10)).split('-').map(Number);
+      const payDateTime = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
       const transactionData = {
         description: expense.name,
         amount: paidAmount,
         type: 'expense',
         category: expense.category || 'housing',
-        date: today.toISOString(),
+        date: payDateTime.toISOString(),
         userId: currentUser.uid,
-        month: today.toISOString().slice(0, 7),
+        month: payDateTime.toISOString().slice(0, 7),
         createdAt: Date.now(),
         isFixed: true,
         paymentMethod: 'pix',
@@ -137,7 +143,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
       await addDoc(collection(db, 'transactions'), transactionData);
 
       // Marca como paga e, se for variável, registra o último valor pago como referência futura.
-      const lastPaidMonth = today.toISOString().slice(0, 7);
+      const lastPaidMonth = payDateTime.toISOString().slice(0, 7);
       const updateData = { lastPaidMonth };
       if (expense.isVariable) {
         updateData.lastPaidValue = paidAmount;
@@ -319,6 +325,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
                       <button
                           onClick={() => {
                               setActualValue(expense.isVariable ? '' : String(expense.value || ''));
+                              setPayDate(new Date().toISOString().slice(0, 10));
                               setPayingExpense(expense);
                           }}
                           className={`w-full py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider text-white flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 ${
@@ -404,10 +411,22 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
                               </p>
                           )}
 
+                          <div className="text-left">
+                              <label className={`text-[9px] font-bold uppercase tracking-widest block mb-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Data do pagamento</label>
+                              <input
+                                  type="date"
+                                  value={payDate}
+                                  onChange={(e) => setPayDate(e.target.value)}
+                                  className={`w-full px-3 py-2 rounded-xl border text-xs font-bold focus:outline-none focus:ring-2 transition-all ${
+                                      expense.isVariable ? 'focus:ring-amber-500/30' : 'focus:ring-blue-500/30'
+                                  } ${theme === 'light' ? 'bg-white border-slate-200 text-slate-800' : 'bg-white/5 border-white/10 text-white'}`}
+                              />
+                          </div>
+
                           <div className="flex flex-col gap-2 pt-1">
                               <button
                                   onClick={() => handlePayExpense(expense)}
-                                  disabled={expense.isVariable && (!actualValue || parseFloat(actualValue) <= 0)}
+                                  disabled={(expense.isVariable && (!actualValue || parseFloat(actualValue) <= 0)) || !payDate}
                                   className={`w-full py-2 rounded-lg text-white font-bold text-xs uppercase tracking-wider shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
                                       expense.isVariable
                                         ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20'
