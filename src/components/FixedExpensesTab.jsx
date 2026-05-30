@@ -332,9 +332,11 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
                           <DollarSign className="w-4 h-4" /> {expense.isVariable ? 'Informar e Pagar' : 'Pagar Conta'}
                       </button>
                   ) : (
-                      <div className="w-full py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider bg-emerald-500/10 text-emerald-500 flex items-center justify-center gap-2 relative">
-                          <CheckCircle2 className="w-4 h-4" /> Conta Paga
-                          <button onClick={() => setUndoConfirm(expense)} className="absolute right-4 text-[10px] text-emerald-600 hover:text-emerald-700 underline normal-case">Estornar</button>
+                      <div className="w-full py-2 rounded-lg bg-emerald-500/10 flex flex-col items-center justify-center gap-1">
+                          <span className="font-bold text-xs uppercase tracking-wider text-emerald-500 flex items-center justify-center gap-2">
+                              <CheckCircle2 className="w-4 h-4" /> Conta Paga
+                          </span>
+                          <button onClick={() => setUndoConfirm(expense)} className="text-[10px] text-emerald-600 hover:text-emerald-700 underline normal-case">Estornar</button>
                       </div>
                   )}
               </div>
