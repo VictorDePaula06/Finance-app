@@ -2,12 +2,10 @@ import React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import PeriodAnalysis from './PeriodAnalysis';
 import SpendingGoals from './SpendingGoals';
-import CardMovements from './CardMovements';
 import MonthlyComparative from './MonthlyComparative';
 
 const VIEW_TITLES = {
   periodo: 'Gastos por Período',
-  cartoes: 'Movimentações Cartões',
   metas: 'Metas de Gasto',
   comparativo: 'Comparativo',
 };
@@ -26,9 +24,6 @@ const AnalysisTab = ({ transactions = [], cards = [], subscriptions = [], manual
 
       {view === 'periodo' && (
         <PeriodAnalysis transactions={transactions} cards={cards} subscriptions={subscriptions} theme={theme} />
-      )}
-      {view === 'cartoes' && (
-        <CardMovements transactions={transactions} cards={cards} subscriptions={subscriptions} theme={theme} />
       )}
       {view === 'metas' && (
         <SpendingGoals transactions={transactions} cards={cards} subscriptions={subscriptions} manualConfig={manualConfig} onUpdateConfig={onUpdateConfig} theme={theme} />

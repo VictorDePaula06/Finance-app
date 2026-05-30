@@ -793,7 +793,7 @@ function Dashboard() {
 
           { activeTab === 'investimentos' && (planLevel === 'premium' || planLevel === 'free' || isAdmin ? <InvestmentsTab /> : null) }
 
-          {['analise', 'analise_cartoes', 'analise_metas', 'analise_comparativo'].includes(activeTab) && (
+          {['analise', 'analise_metas', 'analise_comparativo'].includes(activeTab) && (
             <AnalysisTab
               transactions={transactions}
               cards={cards}
@@ -801,8 +801,7 @@ function Dashboard() {
               manualConfig={manualConfig}
               onUpdateConfig={updateManualConfig}
               initialView={
-                activeTab === 'analise_cartoes' ? 'cartoes'
-                : activeTab === 'analise_metas' ? 'metas'
+                activeTab === 'analise_metas' ? 'metas'
                 : activeTab === 'analise_comparativo' ? 'comparativo'
                 : 'periodo'
               }

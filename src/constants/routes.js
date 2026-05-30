@@ -22,7 +22,6 @@ export const TAB_SLUG_TO_ID = {
     'aportes':           'aportes',      // sub-aba de Lançamentos (ExitsTab)
     'cartoes':           'cartoes',
     'analise':                'analise',
-    'analise-cartoes':        'analise_cartoes',
     'analise-metas':          'analise_metas',
     'analise-comparativo':    'analise_comparativo',
     // Patrimônio
@@ -52,7 +51,6 @@ export const TAB_ID_TO_SLUG = {
     'aportes':         'aportes',
     'cartoes':         'cartoes',
     'analise':              'analise',
-    'analise_cartoes':      'analise-cartoes',
     'analise_metas':        'analise-metas',
     'analise_comparativo':  'analise-comparativo',
     // Patrimônio
@@ -87,7 +85,6 @@ export const TAB_TO_MODULE = {
     aportes:        'gastos',
     cartoes:        'gastos',
     analise:             'gastos',
-    analise_cartoes:     'gastos',
     analise_metas:       'gastos',
     analise_comparativo: 'gastos',
     patrimonio:      'patrimonio',

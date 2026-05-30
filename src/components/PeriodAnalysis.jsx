@@ -2,8 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis } from 'recharts';
 import { Filter, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Target, Sparkles, FileDown, Receipt, Shield, Flame, ListChecks, Wallet, CreditCard, Banknote, QrCode, FileText, RotateCcw } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
-import MonthlyReviewModal from './MonthlyReviewModal';
-import { generateMonthlyReview } from '../services/gemini';
 import { Loader2 } from 'lucide-react';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
 import { generatePDF } from '../utils/generatePDF';
@@ -36,7 +34,6 @@ const PAYMENT_ORDER = ['credito', 'debito', 'pix', 'dinheiro', 'boleto', 'outro'
 const PERIOD_MODES = [
   { id: 'dia', label: 'Dia' },
   { id: 'mes', label: 'Mês' },
-  { id: 'trimestre', label: 'Trimestre' },
   { id: 'ano', label: 'Ano' },
   { id: 'custom', label: 'Personalizado' },
 ];
@@ -109,11 +106,9 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
   const [selPriorities, setSelPriorities] = useState([]); // vazio = todas
   const [selPayments, setSelPayments] = useState([]);      // vazio = todos
   const [chartMode, setChartMode] = useState('acumulado'); // 'diario' | 'acumulado'
+  const [creditMode, setCreditMode] = useState('fatura');  // 'fatura' (atual) | 'mes' — só quando filtra crédito
   const [showAll, setShowAll] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
-  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
-  const [aiReviewText, setAiReviewText] = useState('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const range = useMemo(() => rangeFor(mode, anchor, custom), [mode, anchor, custom]);
   const prevRange = useMemo(() => prevRangeFor(mode, anchor, custom), [mode, anchor, custom]);
@@ -131,7 +126,52 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
   const isExpense = (t) => t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category);
   const isIncome = (t) => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category);
 
-  const periodExpenses = useMemo(() => transactions.filter(t => isExpense(t) && inR(t, startStr, endStr)), [transactions, startStr, endStr]);
+  // Quando o filtro de pagamento "Crédito" está ativo, o usuário escolhe se conta
+  // a FATURA ATUAL (mesma da aba Cartões) ou apenas o crédito lançado no período.
+  const creditFilterActive = selPayments.includes('credito');
+
+  // Itens da fatura atual (em aberto) — réplica da lógica da aba Cartões:
+  // compras no crédito ainda não pagas + assinaturas/parcelas do ciclo aberto.
+  const currentInvoiceItems = useMemo(() => {
+    const closingOf = (id) => { const c = cards.find(x => x.id === id); if (!c) return 25; return c.closingDay || ((c.dueDay - 7 > 0) ? c.dueDay - 7 : 25); };
+    const getInvoiceMonth = (dateStr, closingDay) => {
+      const d = new Date(dateStr); if (isNaN(d.getTime())) return '';
+      let month = d.getMonth(), year = d.getFullYear();
+      if (d.getDate() >= closingDay) { month += 1; if (month > 11) { month = 0; year += 1; } }
+      return `${year}-${pad(month + 1)}`;
+    };
+    const now = new Date();
+    const purchases = transactions.filter(t => isExpense(t) && t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid');
+    const subs = subscriptions.filter(s => s.cardId).map(s => {
+      const closing = closingOf(s.cardId);
+      const currInv = getInvoiceMonth(now.toISOString(), closing);
+      const subDay = parseInt(s.day) || 1;
+      const chargeDate = new Date(now.getFullYear(), now.getMonth(), subDay, 12, 0, 0);
+      const chargeInv = getInvoiceMonth(chargeDate.toISOString(), closing);
+      const isOpen = s.lastPaidMonth !== currInv && chargeInv <= currInv;
+      if (!isOpen) return null;
+      return {
+        id: `sub-${s.id}`,
+        description: `${s.name} ${s.type === 'installment' ? '(parcela)' : '(assinatura)'}`,
+        category: s.category || (s.type === 'installment' ? 'shopping' : 'subscriptions'),
+        amount: parseFloat(s.value) || 0,
+        date: keyLocal(chargeDate),
+        paymentMethod: 'credito',
+        priority: s.priority,
+      };
+    }).filter(Boolean);
+    return [...purchases, ...subs];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, subscriptions, cards]);
+
+  const periodExpenses = useMemo(() => {
+    const nonCredit = transactions.filter(t => isExpense(t) && t.paymentMethod !== 'credito' && inR(t, startStr, endStr));
+    const credit = (creditFilterActive && creditMode === 'fatura')
+      ? currentInvoiceItems
+      : transactions.filter(t => isExpense(t) && t.paymentMethod === 'credito' && inR(t, startStr, endStr));
+    return [...nonCredit, ...credit];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, startStr, endStr, creditFilterActive, creditMode, currentInvoiceItems]);
   const periodIncomeItems = useMemo(() => transactions.filter(t => isIncome(t) && inR(t, startStr, endStr)), [transactions, startStr, endStr]);
 
   // Formas de pagamento que realmente aparecem no período (para montar os chips)
@@ -223,13 +263,6 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
     } catch (e) { console.error(e); alert('Erro ao gerar PDF.'); }
     finally { setIsExportingPDF(false); }
   };
-  const handleAI = async () => {
-    setIsAnalyzing(true);
-    try {
-      const review = await generateMonthlyReview(rangeLabel, { income, expense: totalExpense, balance, topCategory: byCategory[0]?.id }, {});
-      setAiReviewText(review); setIsAIModalOpen(true);
-    } catch (e) { console.error(e); } finally { setIsAnalyzing(false); }
-  };
 
   const card = isDark ? 'bg-[#1e2330] border-slate-700/50' : 'bg-white border-slate-100 shadow-sm';
   const txt = isDark ? 'text-white' : 'text-slate-800';
@@ -319,6 +352,29 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
                   </button>
                 );
               })}
+            </div>
+          )}
+
+          {/* Crédito: fatura atual x apenas o mês (aparece ao selecionar Crédito) */}
+          {creditFilterActive && (
+            <div className={`mt-1 p-2.5 rounded-xl border ${isDark ? 'border-violet-500/30 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
+              <span className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest mb-2 ${isDark ? 'text-violet-300' : 'text-violet-600'}`}>
+                <CreditCard className="w-3 h-3" /> Crédito — o que contar?
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[['fatura', 'Fatura atual'], ['mes', 'Apenas o mês']].map(([id, lbl]) => {
+                  const active = creditMode === id;
+                  return (
+                    <button key={id} onClick={() => setCreditMode(id)}
+                      className={`px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all ${active ? 'bg-violet-500 text-white shadow-sm' : (isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200')}`}>
+                      {lbl}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className={`text-[9px] leading-snug mt-1.5 ${sub}`}>
+                {creditMode === 'fatura' ? 'Mostra a fatura em aberto (mesma da aba Cartões), independente do período.' : 'Mostra apenas o crédito lançado dentro do período selecionado.'}
+              </p>
             </div>
           )}
         </div>
@@ -514,20 +570,9 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
                 </div>
               );
             })()}
-
-            <button onClick={handleAI} disabled={isAnalyzing}
-              className={`w-full p-4 rounded-2xl border-2 border-dashed transition-all flex items-center justify-center gap-3 group ${isDark ? 'border-white/10 text-blue-400 hover:bg-blue-500/5 hover:border-blue-500/50' : 'border-blue-200 text-blue-500 hover:bg-blue-50 hover:border-blue-400'} ${isAnalyzing ? 'opacity-70 cursor-not-allowed' : ''}`}>
-              <div className="p-2 bg-blue-500/10 rounded-xl group-hover:scale-110 transition-transform">{isAnalyzing ? <Loader2 className="w-5 h-5 text-blue-500 animate-spin" /> : <Sparkles className="w-5 h-5 text-blue-500" />}</div>
-              <div className="text-left">
-                <p className="text-xs font-bold uppercase tracking-widest">{isAnalyzing ? 'Analisando...' : 'Análise Profunda com IA'}</p>
-                <p className="text-[9px] font-medium opacity-60">Gerar relatório detalhado com a Alívia</p>
-              </div>
-            </button>
           </>
         )}
       </div>
-
-      <MonthlyReviewModal isOpen={isAIModalOpen} onClose={() => setIsAIModalOpen(false)} reviewText={aiReviewText} monthName={rangeLabel} stats={{ income, expense: totalExpense, balance }} theme={theme} />
     </div>
   );
 }

@@ -82,7 +82,6 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
         type: 'group', id: 'grp_analise', label: 'Análise de Gastos', icon: TrendingUp,
         children: [
           { id: 'analise', label: 'Gastos por Período', icon: BarChart3 },
-          { id: 'analise_cartoes', label: 'Movimentações Cartões', icon: CreditCard },
           { id: 'analise_metas', label: 'Metas de Gasto', icon: Target },
           { id: 'analise_comparativo', label: 'Comparativo', icon: PieChart },
         ],
