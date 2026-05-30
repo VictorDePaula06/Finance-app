@@ -4,6 +4,7 @@ import {
   Plus,
   Trash2,
   ChevronRight,
+  ChevronDown,
   Calendar,
   DollarSign,
   Tag,
@@ -71,6 +72,10 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
 
   // Aviso de endividamento — { type: 'installment' | 'invoice', amount, itemName, payload }
   const [overdraftPending, setOverdraftPending] = useState(null);
+
+  // Colapso de cada seção (mostra o total mesmo minimizado)
+  const [collapsed, setCollapsed] = useState({ cards: false, subs: false, installments: false });
+  const toggleSection = (key) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
 
   useEffect(() => {
     if (!currentUser) return;
@@ -442,33 +447,101 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
 
   const getUnlinkedSubs = () => subscriptions.filter(s => !s.cardId);
 
+  // ── Resumo (KPIs do topo) ──
+  const fmt = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const recurringSubs = subscriptions.filter(s => s.type !== 'installment');
+  const installmentSubs = subscriptions.filter(s => s.type === 'installment');
+  const monthlySubsTotal = recurringSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+  const monthlyInstallTotal = installmentSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+  const unpaidInvoiceTotal = transactions
+    .filter(t => t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid')
+    .reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+  const monthlyCommitment = monthlySubsTotal + monthlyInstallTotal;
+  const isDark = theme !== 'light';
+  const kpiCardBg = isDark ? 'bg-[#1e2330] border-slate-800/60' : 'bg-white border-slate-100 shadow-sm';
+
+  const KPIS = [
+    { label: 'Faturas em aberto', value: unpaidInvoiceTotal, icon: CreditCard, accent: 'rose', hint: `${cards.length} ${cards.length === 1 ? 'cartão' : 'cartões'}` },
+    { label: 'Assinaturas / mês', value: monthlySubsTotal, icon: Calendar, accent: 'purple', hint: `${recurringSubs.length} ${recurringSubs.length === 1 ? 'ativa' : 'ativas'}` },
+    { label: 'Parcelas / mês', value: monthlyInstallTotal, icon: Hash, accent: 'amber', hint: `${installmentSubs.length} ${installmentSubs.length === 1 ? 'parcelamento' : 'parcelamentos'}` },
+    { label: 'Comprometido / mês', value: monthlyCommitment, icon: Repeat, accent: 'emerald', hint: 'assinaturas + parcelas' },
+  ];
+  const KPI_ACCENT = {
+    rose: { text: 'text-rose-500', soft: isDark ? 'bg-rose-500/10' : 'bg-rose-50' },
+    purple: { text: 'text-purple-500', soft: isDark ? 'bg-purple-500/10' : 'bg-purple-50' },
+    amber: { text: 'text-amber-500', soft: isDark ? 'bg-amber-500/10' : 'bg-amber-50' },
+    emerald: { text: 'text-emerald-500', soft: isDark ? 'bg-emerald-500/10' : 'bg-emerald-50' },
+  };
+
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      
-      {/* SECTION: CARDS */}
-      <section className="space-y-6">
-        <div className="flex items-center justify-between px-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-500/10 rounded-xl">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+
+      {/* RESUMO — KPIs do topo */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        {KPIS.map((k) => {
+          const a = KPI_ACCENT[k.accent];
+          const Icon = k.icon;
+          return (
+            <div key={k.label} className={`p-4 md:p-5 rounded-2xl border ${kpiCardBg}`}>
+              <div className="flex items-center gap-2.5 mb-3">
+                <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${a.soft}`}>
+                  <Icon className={`w-4 h-4 ${a.text}`} />
+                </span>
+                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 leading-tight">{k.label}</span>
+              </div>
+              <p className={`text-xl md:text-2xl font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                <span className="text-sm font-bold text-slate-400 mr-0.5">R$</span>{fmt(k.value)}
+              </p>
+              <p className="text-[10px] font-medium text-slate-500 mt-1">{k.hint}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* SECTION: CARDS — painel destacado (azul) */}
+      <section className={`space-y-5 rounded-3xl border p-5 md:p-6 ${
+        theme === 'light'
+          ? 'bg-gradient-to-br from-blue-50/80 via-white to-white border-blue-100'
+          : 'bg-gradient-to-br from-blue-500/[0.07] via-[#1a1f2b] to-[#161b27] border-blue-500/15'
+      }`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-wrap">
+            <div className="p-2 bg-blue-500/10 rounded-xl shrink-0">
               <CreditCard className="w-6 h-6 text-blue-500" />
             </div>
-            <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Meus Cartões</h2>
+            <h2 className={`text-lg font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Meus Cartões</h2>
+            <button
+              onClick={() => {
+                if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) {
+                  openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`);
+                  return;
+                }
+                setIsAddingCard(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-[11px] font-black uppercase tracking-wider shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.03] active:scale-95 transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" /> Novo Cartão
+            </button>
           </div>
-          <button
-            onClick={() => {
-              if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) {
-                openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`);
-                return;
-              }
-              setIsAddingCard(true);
-            }}
-            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"
-          >
-            <Plus className="w-4 h-4" /> Novo Cartão
-          </button>
+          <div className="flex items-center gap-3 shrink-0">
+            {collapsed.cards && (
+              <span className={`hidden sm:inline-flex items-baseline gap-1.5 text-sm font-black tabular-nums ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>
+                R$ {fmt(unpaidInvoiceTotal)}
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">em faturas</span>
+              </span>
+            )}
+            <button
+              onClick={() => toggleSection('cards')}
+              title={collapsed.cards ? 'Expandir' : 'Minimizar'}
+              className={`p-2 rounded-xl transition-colors ${theme === 'light' ? 'hover:bg-slate-100 text-slate-500' : 'hover:bg-white/10 text-slate-400'}`}
+            >
+              <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${collapsed.cards ? '-rotate-90' : ''}`} />
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {!collapsed.cards && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {cards.map(card => {
             const cardSubs = getCardSubs(card.id);
             const { current: currentExpenses, previous: previousExpenses, all: unpaidExpenses, currentInvoiceMonth, closingDay } = getUnpaidExpensesByPeriod(card);
@@ -503,7 +576,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
                 theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-800/60 shadow-2xl'
               }`}>
                 {/* Visual Card Element */}
-                <div className={`w-full aspect-[1.6/1] rounded-3xl p-6 flex flex-col justify-between text-white shadow-2xl relative overflow-hidden transition-transform group-hover:scale-[1.02] duration-500 ${card.color}`}>
+                <div className={`w-full aspect-[1.6/1] rounded-2xl p-4 flex flex-col justify-between text-white shadow-2xl relative overflow-hidden transition-transform group-hover:scale-[1.02] duration-500 ${card.color}`}>
                   {/* Card Gloss/Texture Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50"></div>
                   <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-3xl"></div>
@@ -511,7 +584,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
                   <div className="relative z-10 flex justify-between items-start">
                     <div className="space-y-1">
                       <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">{card.brand}</p>
-                      <h3 className="text-xl font-black tracking-tight drop-shadow-md">{card.name}</h3>
+                      <h3 className="text-lg font-black tracking-tight drop-shadow-md">{card.name}</h3>
                     </div>
                     <div className="p-2 bg-white/20 backdrop-blur-md rounded-xl">
                         <CreditCard className="w-6 h-6" />
@@ -536,7 +609,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
                     </div>
                     <div className="text-right">
                       <p className="text-[9px] uppercase font-black opacity-60 mb-0.5">Fatura de {new Date(currentInvoiceMonth + '-15').toLocaleDateString('pt-BR', { month: 'long' })}</p>
-                      <p className="text-xl font-black tabular-nums">R$ {totalInvoice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                      <p className="text-lg font-black tabular-nums">R$ {totalInvoice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>
                   </div>
                 </div>
@@ -651,50 +724,85 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
           })()}
 
           {cards.length === 0 && !isAddingCard && (
-            <div className={`aspect-[1.6/1] md:aspect-auto rounded-2xl border-2 border-dashed flex flex-col items-center justify-center p-8 opacity-40 hover:opacity-100 transition-all cursor-pointer ${
-              theme === 'light' ? 'border-slate-200 text-slate-400' : 'border-slate-700 text-slate-500'
-            }`} onClick={() => {
-              if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; }
-              setIsAddingCard(true);
-            }}>
-              <CreditCard className="w-10 h-10 mb-3" />
-              <p className="font-bold">Cadastrar Primeiro Cartão</p>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; }
+                setIsAddingCard(true);
+              }}
+              className={`group/empty min-h-[220px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center text-center p-8 transition-all hover:border-blue-500/50 ${
+                theme === 'light' ? 'border-slate-200 hover:bg-blue-50/40' : 'border-slate-700 hover:bg-blue-500/[0.04]'
+              }`}
+            >
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover/empty:scale-110 ${
+                theme === 'light' ? 'bg-blue-50 text-blue-500' : 'bg-blue-500/10 text-blue-400'
+              }`}>
+                <CreditCard className="w-7 h-7" />
+              </div>
+              <p className={`font-bold text-sm ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>Cadastrar primeiro cartão</p>
+              <p className="text-[11px] text-slate-500 mt-1 max-w-[200px]">Adicione seus cartões para acompanhar faturas e gastos.</p>
+              <span className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-blue-500">
+                <Plus className="w-3.5 h-3.5" /> Novo cartão
+              </span>
+            </button>
           )}
         </div>
+        )}
       </section>
 
-      {/* SECTION: ASSINATURAS AVULSAS */}
-      <section className="space-y-6">
-        <div className="flex items-center justify-between px-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-500/10 rounded-xl">
+      {/* SEÇÕES LADO A LADO: ASSINATURAS + PARCELAMENTOS */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+      {/* ASSINATURAS AVULSAS — painel roxo */}
+      <section className={`space-y-5 rounded-3xl border p-5 md:p-6 ${
+        theme === 'light'
+          ? 'bg-gradient-to-br from-purple-50/70 via-white to-white border-purple-100'
+          : 'bg-gradient-to-br from-purple-500/[0.06] via-[#1a1f2b] to-[#161b27] border-purple-500/15'
+      }`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-wrap">
+            <div className="p-2 bg-purple-500/10 rounded-xl shrink-0">
               <Calendar className="w-6 h-6 text-purple-500" />
             </div>
-            <div>
-              <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Assinaturas Avulsas</h2>
-              {subscriptions.filter(s => s.type !== 'installment').length > 0 && (
+            <div className="min-w-0">
+              <h2 className={`text-lg font-medium tracking-wide uppercase truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Assinaturas Avulsas</h2>
+              {!collapsed.subs && recurringSubs.length > 0 && (
                 <p className="text-[10px] font-bold text-purple-500 mt-0.5">
-                  Total mensal: R$ {subscriptions.filter(s => s.type !== 'installment').reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} • {subscriptions.filter(s => s.type !== 'installment').length} {subscriptions.filter(s => s.type !== 'installment').length === 1 ? 'assinatura' : 'assinaturas'}
+                  Total mensal: R$ {fmt(monthlySubsTotal)} • {recurringSubs.length} {recurringSubs.length === 1 ? 'assinatura' : 'assinaturas'}
                 </p>
               )}
             </div>
+            <button
+              onClick={() => {
+                if (isLimited && subscriptions.length >= TRIAL_SUBS_LIMIT) {
+                  openTrialModal(`Você atingiu o limite de ${TRIAL_SUBS_LIMIT} assinaturas do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`);
+                  return;
+                }
+                setIsAddingSub(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 text-white text-[11px] font-black uppercase tracking-wider shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.03] active:scale-95 transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" /> Nova
+            </button>
           </div>
-          <button
-            onClick={() => {
-              if (isLimited && subscriptions.length >= TRIAL_SUBS_LIMIT) {
-                openTrialModal(`Você atingiu o limite de ${TRIAL_SUBS_LIMIT} assinaturas do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`);
-                return;
-              }
-              setIsAddingSub(true);
-            }}
-            className="flex items-center gap-2 px-5 py-2.5 bg-purple-500 text-white rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-purple-600 transition-all shadow-lg shadow-purple-500/20"
-          >
-            <Plus className="w-4 h-4" /> Nova Assinatura
-          </button>
+          <div className="flex items-center gap-3 shrink-0">
+            {collapsed.subs && (
+              <span className={`hidden sm:inline-flex items-baseline gap-1 text-sm font-black tabular-nums ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>
+                R$ {fmt(monthlySubsTotal)}<span className="text-[10px] font-bold text-slate-500">/mês</span>
+              </span>
+            )}
+            <button
+              onClick={() => toggleSection('subs')}
+              title={collapsed.subs ? 'Expandir' : 'Minimizar'}
+              className={`p-2 rounded-xl transition-colors ${theme === 'light' ? 'hover:bg-slate-100 text-slate-500' : 'hover:bg-white/10 text-slate-400'}`}
+            >
+              <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${collapsed.subs ? '-rotate-90' : ''}`} />
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {!collapsed.subs && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {subscriptions.filter(s => s.type !== 'installment').map(sub => {
             const linkedCard = cards.find(c => c.id === sub.cardId);
             return (
@@ -761,38 +869,71 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             );
           })}
           {subscriptions.filter(s => s.type !== 'installment').length === 0 && (
-            <div className={`col-span-full py-12 text-center rounded-2xl border-2 border-dashed ${theme === 'light' ? 'border-slate-100 text-slate-400' : 'border-white/5 text-slate-600'}`}>
-              <p className="text-xs font-bold uppercase tracking-widest">Nenhuma assinatura avulsa cadastrada.</p>
+            <div className={`col-span-full flex flex-col items-center justify-center text-center py-12 px-6 rounded-2xl border-2 border-dashed ${theme === 'light' ? 'border-slate-200' : 'border-white/5'}`}>
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${theme === 'light' ? 'bg-purple-50 text-purple-500' : 'bg-purple-500/10 text-purple-400'}`}>
+                <Calendar className="w-7 h-7" />
+              </div>
+              <p className={`font-bold text-sm ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>Nenhuma assinatura cadastrada</p>
+              <p className="text-[11px] text-slate-500 mt-1 max-w-xs">Cadastre serviços recorrentes (streaming, academia...) para não esquecer nenhuma cobrança.</p>
+              <button
+                onClick={() => {
+                  if (isLimited && subscriptions.length >= TRIAL_SUBS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_SUBS_LIMIT} assinaturas do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; }
+                  setIsAddingSub(true);
+                }}
+                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500 text-white font-bold text-[11px] uppercase tracking-wider hover:bg-purple-600 transition-all shadow-lg shadow-purple-500/20"
+              >
+                <Plus className="w-3.5 h-3.5" /> Nova assinatura
+              </button>
             </div>
           )}
         </div>
+        )}
       </section>
 
-      {/* SECTION: PARCELAMENTOS */}
-      <section className="space-y-6">
-        <div className="flex items-center justify-between px-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-rose-500/10 rounded-xl">
+      {/* PARCELAMENTOS — painel rosa */}
+      <section className={`space-y-5 rounded-3xl border p-5 md:p-6 ${
+        theme === 'light'
+          ? 'bg-gradient-to-br from-rose-50/70 via-white to-white border-rose-100'
+          : 'bg-gradient-to-br from-rose-500/[0.06] via-[#1a1f2b] to-[#161b27] border-rose-500/15'
+      }`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-wrap">
+            <div className="p-2 bg-rose-500/10 rounded-xl shrink-0">
               <Hash className="w-6 h-6 text-rose-500" />
             </div>
-            <div>
-              <h2 className={`text-xl font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Parcelamentos Ativos</h2>
-              {subscriptions.filter(s => s.type === 'installment').length > 0 && (
+            <div className="min-w-0">
+              <h2 className={`text-lg font-medium tracking-wide uppercase truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Parcelamentos Ativos</h2>
+              {!collapsed.installments && installmentSubs.length > 0 && (
                 <p className="text-[10px] font-bold text-rose-500 mt-0.5">
-                  Total mensal: R$ {subscriptions.filter(s => s.type === 'installment').reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} • {subscriptions.filter(s => s.type === 'installment').length} {subscriptions.filter(s => s.type === 'installment').length === 1 ? 'parcelamento' : 'parcelamentos'}
+                  Total mensal: R$ {fmt(monthlyInstallTotal)} • {installmentSubs.length} {installmentSubs.length === 1 ? 'parcelamento' : 'parcelamentos'}
                 </p>
               )}
             </div>
+            <button
+              onClick={() => setIsAddingInstallment(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 text-white text-[11px] font-black uppercase tracking-wider shadow-lg shadow-rose-500/25 hover:shadow-rose-500/40 hover:scale-[1.03] active:scale-95 transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" /> Novo
+            </button>
           </div>
-          <button
-            onClick={() => setIsAddingInstallment(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-rose-500/20"
-          >
-            <Plus className="w-4 h-4" /> Novo Parcelamento
-          </button>
+          <div className="flex items-center gap-3 shrink-0">
+            {collapsed.installments && (
+              <span className={`hidden sm:inline-flex items-baseline gap-1 text-sm font-black tabular-nums ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>
+                R$ {fmt(monthlyInstallTotal)}<span className="text-[10px] font-bold text-slate-500">/mês</span>
+              </span>
+            )}
+            <button
+              onClick={() => toggleSection('installments')}
+              title={collapsed.installments ? 'Expandir' : 'Minimizar'}
+              className={`p-2 rounded-xl transition-colors ${theme === 'light' ? 'hover:bg-slate-100 text-slate-500' : 'hover:bg-white/10 text-slate-400'}`}
+            >
+              <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${collapsed.installments ? '-rotate-90' : ''}`} />
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {!collapsed.installments && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {subscriptions.filter(s => s.type === 'installment').map(sub => {
             const linkedCard = cards.find(c => c.id === sub.cardId);
             const total = sub.totalInstallments || 1;
@@ -941,12 +1082,25 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             );
           })}
           {subscriptions.filter(s => s.type === 'installment').length === 0 && (
-            <div className={`col-span-full py-12 text-center rounded-2xl border-2 border-dashed ${theme === 'light' ? 'border-slate-100 text-slate-400' : 'border-white/5 text-slate-600'}`}>
-              <p className="text-xs font-bold uppercase tracking-widest">Nenhum parcelamento ativo.</p>
+            <div className={`col-span-full flex flex-col items-center justify-center text-center py-12 px-6 rounded-2xl border-2 border-dashed ${theme === 'light' ? 'border-slate-200' : 'border-white/5'}`}>
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${theme === 'light' ? 'bg-rose-50 text-rose-500' : 'bg-rose-500/10 text-rose-400'}`}>
+                <Hash className="w-7 h-7" />
+              </div>
+              <p className={`font-bold text-sm ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>Nenhum parcelamento ativo</p>
+              <p className="text-[11px] text-slate-500 mt-1 max-w-xs">Acompanhe compras parceladas e veja quantas parcelas faltam para quitar.</p>
+              <button
+                onClick={() => setIsAddingInstallment(true)}
+                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-500 text-white font-bold text-[11px] uppercase tracking-wider hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20"
+              >
+                <Plus className="w-3.5 h-3.5" /> Novo parcelamento
+              </button>
             </div>
           )}
         </div>
+        )}
       </section>
+
+      </div>{/* fim da linha Assinaturas + Parcelamentos */}
 
       {/* MODAL: ADD CARD */}
       {isAddingCard && (

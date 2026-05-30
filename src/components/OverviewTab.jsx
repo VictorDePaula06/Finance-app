@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Eye, EyeOff, Settings, Pencil, Check, X } from 'lucide-react';
-import HealthScoreCard from './HealthScoreCard';
+import FinancialHealthIndex from './FinancialHealthIndex';
 import { CATEGORIES } from '../constants/categories';
 
 export default function OverviewTab({
@@ -9,17 +9,14 @@ export default function OverviewTab({
     savingsJars,
     walletStats,
     investmentStats,
-    healthScore,
+    healthIndex,
+    manualConfig,
+    onUpdateConfig,
     theme,
     hideBalance,
     toggleHideBalance,
-    setEditingJar,
-    setJarDeleteConfirm,
-    baseIncome,
-    onUpdateBaseIncome,
     onSetInitialBalance
 }) {
-    const [cashFlowPeriod, setCashFlowPeriod] = useState('30d');
     const [incomesPeriod, setIncomesPeriod] = useState(() => localStorage.getItem('alivia_incomes_period') || 'month');
     const [showIncomesConfig, setShowIncomesConfig] = useState(false);
     const [editingWallet, setEditingWallet] = useState(false);
@@ -106,51 +103,6 @@ export default function OverviewTab({
         return data;
     }, [savingsJars]);
 
-    // Prepare data for "Visão Geral do Fluxo de Caixa"
-    const cashFlowData = useMemo(() => {
-        const data = [];
-        const today = new Date();
-        const days = cashFlowPeriod === '30d' ? 30 : 7;
-        
-        for (let i = days - 1; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(today.getDate() - i);
-            const targetYear = d.getFullYear();
-            const targetMonth = d.getMonth();
-            const targetDate = d.getDate();
-            const displayDate = d.toLocaleDateString('pt-BR', { day: '2-digit' });
-
-            const isSameDate = (txDate) => {
-                if (!txDate) return false;
-                const txD = new Date(txDate);
-                if (isNaN(txD.getTime())) return false;
-                return txD.getFullYear() === targetYear && txD.getMonth() === targetMonth && txD.getDate() === targetDate;
-            };
-
-            // Exclui categorias especiais que distorcem o fluxo (saldo inicial, carryover, resgates de cofrinho)
-            const dayIncomes = transactions.filter(t =>
-                t.type === 'income'
-                && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category)
-                && isSameDate(t.date)
-            ).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-            // Exclui investimentos (não são gasto) e compras no crédito (já contam via fatura)
-            const dayExpenses = transactions.filter(t =>
-                t.type === 'expense'
-                && t.category !== 'investment'
-                && t.category !== 'vault'
-                && t.paymentMethod !== 'credito'
-                && isSameDate(t.date)
-            ).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-
-            data.push({
-                name: displayDate,
-                Entradas: dayIncomes,
-                Saídas: dayExpenses
-            });
-        }
-        return data;
-    }, [transactions, cashFlowPeriod]);
-
     // Prepare data for "Últimos Recebimentos"
     const filteredIncomes = useMemo(() => {
         const today = new Date();
@@ -191,8 +143,8 @@ export default function OverviewTab({
     const subTextColor = theme === 'light' ? 'text-slate-500' : 'text-slate-400';
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* ROW 1: Ativos e Saldos | Lançamentos e Reservas */}
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {/* ROW 1: Ativos e Saldos | Lançamentos e Reservas (no topo) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
                 {/* Ativos e Saldos */}
@@ -334,70 +286,20 @@ export default function OverviewTab({
 
             </div>
 
-            {/* ROW 2: Visão Geral do Fluxo de Caixa | Últimos Recebimentos */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                
-                {/* Fluxo de Caixa */}
-                <div className="xl:col-span-2">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className={`text-base font-medium uppercase tracking-wider ${textColor}`}>Visão Geral do Fluxo de Caixa</h3>
-                        <select 
-                            value={cashFlowPeriod}
-                            onChange={(e) => setCashFlowPeriod(e.target.value)}
-                            className={`text-xs bg-transparent border rounded-lg px-2 py-1 outline-none ${theme === 'light' ? 'border-slate-200 text-slate-600' : 'border-white/10 text-slate-300'}`}
-                        >
-                            <option value="7d">Últimos 7 dias</option>
-                            <option value="30d">Últimos 30 dias</option>
-                        </select>
-                    </div>
-                    <div className={`p-6 rounded-2xl flex flex-col ${cardBg}`} style={{ height: '340px' }}>
-                        <div className="flex items-center justify-center gap-6 mb-4">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-2 bg-emerald-500 rounded-full"></div>
-                                <span className={`text-xs font-medium ${subTextColor}`}>Entradas</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-2 bg-rose-500 rounded-full"></div>
-                                <span className={`text-xs font-medium ${subTextColor}`}>Saídas</span>
-                            </div>
-                        </div>
-                        <div className="flex-1 w-full min-h-0">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={cashFlowData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme === 'light' ? '#f1f5f9' : '#1e293b'} />
-                                    <XAxis 
-                                        dataKey="name" 
-                                        axisLine={false} 
-                                        tickLine={false} 
-                                        tick={{ fontSize: 10, fill: theme === 'light' ? '#64748b' : '#94a3b8' }} 
-                                        dy={10}
-                                    />
-                                    <YAxis 
-                                        axisLine={false} 
-                                        tickLine={false} 
-                                        tick={{ fontSize: 10, fill: theme === 'light' ? '#64748b' : '#94a3b8' }}
-                                    />
-                                    <Tooltip 
-                                        contentStyle={{ backgroundColor: theme === 'light' ? '#fff' : '#0f172a', borderColor: theme === 'light' ? '#e2e8f0' : '#1e293b', borderRadius: '12px' }}
-                                        itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                                        formatter={(val) => formatCurrency(val)}
-                                        labelStyle={{ color: theme === 'light' ? '#64748b' : '#94a3b8', marginBottom: '4px' }}
-                                    />
-                                    <Line type="monotone" dataKey="Entradas" stroke="#10B981" strokeWidth={2} dot={{ r: 3, fill: '#10B981', strokeWidth: 0 }} activeDot={{ r: 5 }} />
-                                    <Line type="monotone" dataKey="Saídas" stroke="#F43F5E" strokeWidth={2} dot={{ r: 3, fill: '#F43F5E', strokeWidth: 0 }} activeDot={{ r: 5 }} />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                        <div className="mt-4 pt-4 border-t border-slate-500/10">
-                            <span className={`text-xs font-medium ${subTextColor}`}>Ganho Diário: <span className="text-emerald-500 font-bold">+ {formatCurrency(investmentStats.dailyYield)} /dia</span></span>
-                        </div>
-                    </div>
-                </div>
+            {/* ROW 2: Índice de Saúde Financeira */}
+            <FinancialHealthIndex
+                data={healthIndex}
+                config={manualConfig}
+                onUpdateConfig={onUpdateConfig}
+            />
+
+            {/* ROW 3: Últimos Recebimentos */}
+            <div className="grid grid-cols-1 gap-6">
 
                 {/* Últimos Recebimentos */}
-                <div className="xl:col-span-1">
+                <div>
                     <h3 className={`text-base font-medium uppercase tracking-wider mb-4 ${textColor}`}>Últimos Recebimentos</h3>
-                    <div className={`p-6 rounded-2xl flex flex-col justify-between ${cardBg}`} style={{ height: '340px' }}>
+                    <div className={`p-6 rounded-2xl flex flex-col justify-between ${cardBg}`} style={{ minHeight: '340px' }}>
                         <div>
                             <div className="flex items-center justify-between mb-6 relative">
                                 <span className={`text-sm font-medium ${textColor}`}>Atividade de Recebimentos</span>
@@ -468,11 +370,6 @@ export default function OverviewTab({
                     </div>
                 </div>
 
-            </div>
-
-            {/* ROW 3: Health Score (already formatted closely to the image) */}
-            <div className="mt-8">
-                <HealthScoreCard scoreData={healthScore} baseIncome={baseIncome} onUpdateBaseIncome={onUpdateBaseIncome} />
             </div>
 
         </div>

@@ -8,7 +8,7 @@ import InstallPrompt from './components/InstallPrompt';
 import logo from './assets/logo.png';
 import AdminPanel from './components/AdminPanel';
 import HealthScoreCard from './components/HealthScoreCard';
-import { calculateHealthScore, calculatePatrimonyHealthScore } from './utils/healthScore';
+import { calculateHealthIndex, calculatePatrimonyHealthScore } from './utils/healthScore';
 import { db } from './services/firebase';
 import { collection, query, where, orderBy, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import Manual from './components/Manual';
@@ -30,7 +30,6 @@ import EvolucaoPatrimonialTab from './components/EvolucaoPatrimonialTab';
 import PatrimonioPlaceholderTab from './components/PatrimonioPlaceholderTab';
 import SettingsTab from './components/SettingsTab';
 import AIChat from './components/AIChat';
-import AliviaMiniInsight from './components/AliviaMiniInsight';
 import PaceAlerts from './components/PaceAlerts';
 import { calculateSpendingPace } from './utils/financialLogic';
 import AnalysisTab from './components/AnalysisTab';
@@ -509,12 +508,12 @@ function Dashboard() {
   }, [fixedExpensesList, subscriptions]);
 
   const effectiveConfig = { ...manualConfig, fixedExpenses: autoFixedExpenses || manualConfig.fixedExpenses };
-  // Saúde de Gastos — mede o fôlego mensal (performance, alocação 50/30/20, reserva).
-  const healthScore = calculateHealthScore(transactions, effectiveConfig, investmentStats.jarsWithBalance);
+  // Índice de Saúde Financeira (Gastos) — reformulado e configurável (sobra, reserva, supérfluos).
+  const healthIndex = calculateHealthIndex(transactions, effectiveConfig, investmentStats.totalGuarded);
   // Saúde Patrimonial — função própria (reserva em meses, aportes, progresso de metas).
   const patrimonyHealthScore = calculatePatrimonyHealthScore(transactions, effectiveConfig, investmentStats, goals);
   // O card da sidebar usa a saúde do módulo ativo.
-  const sidebarHealthScore = activeModule === 'patrimonio' ? patrimonyHealthScore : healthScore;
+  const sidebarHealthScore = activeModule === 'patrimonio' ? patrimonyHealthScore : healthIndex;
 
   if (activeModule === 'hub') {
     return (
@@ -543,124 +542,77 @@ function Dashboard() {
         
         <div className="max-w-6xl mx-auto space-y-10 pb-32">
           
-          {/* GLOBAL HEADER BAR - Persistent on Mobile, Conditional on Desktop */}
-          <div className={`p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border animate-in fade-in slide-in-from-top-4 duration-700 
-            ${activeTab === 'visao' ? 'flex flex-col gap-6' : 'flex items-center justify-between lg:hidden'} 
-            ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}
-          `}>
-            <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
-                {/* Mobile Menu Button Integrated */}
-                <button 
-                  onClick={() => setIsSidebarOpen(true)}
-                  className={`p-2.5 rounded-xl lg:hidden border ${
-                    theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-600' : 'bg-white/5 border-white/5 text-white'
-                  }`}
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
-                  </svg>
-                </button>
+          {/* TOP BAR — barra slim de ações. Fora da Visão Geral, vira o cabeçalho
+              mobile com título + menu; na Visão Geral é só uma faixa de ações. */}
+          <div className={`animate-in fade-in slide-in-from-top-4 duration-700 ${
+            activeTab === 'visao'
+              ? 'flex items-center justify-between gap-2'
+              : `flex items-center justify-between lg:hidden p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`
+          }`}>
+            <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
+              {/* Botão de menu (mobile) */}
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className={`p-2.5 rounded-xl lg:hidden border ${
+                  theme === 'light' ? 'bg-slate-50 border-slate-100 text-slate-600' : 'bg-white/5 border-white/5 text-white'
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+                </svg>
+              </button>
 
-                <div className="flex items-center gap-3 min-w-0">
-                  {activeTab === 'visao' && (
-                    <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center text-xl md:text-2xl font-black shrink-0 ${
-                      theme === 'light' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-500/20 text-emerald-400'
-                    }`}>
-                      👋
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <h2 className={`text-base md:text-2xl font-black truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                      {activeTab === 'visao' ? (
-                        <>Olá, <span className="text-emerald-500">{currentUser?.displayName?.split(' ')[0] || 'Joao'}</span> {window.location.hostname === 'localhost' && <span className="ml-2 text-[10px] bg-amber-500/20 text-amber-500 px-2 py-0.5 rounded-full uppercase tracking-widest border border-amber-500/20">Modo Dev</span>}</>
-                      ) : (
-                        <span className="capitalize text-emerald-500">{activeTab}</span>
-                      )}
-                    </h2>
-                    <p className="text-[9px] md:text-xs text-slate-500 font-mono opacity-80 truncate">
-                      {activeTab === 'visao' ? currentUser?.email : 'Alívia Financeira'}
-                    </p>
-                  </div>
+              {/* Título — só fora da Visão Geral */}
+              {activeTab !== 'visao' && (
+                <div className="min-w-0">
+                  <h2 className={`text-base md:text-2xl font-black truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                    <span className="capitalize text-emerald-500">{activeTab}</span>
+                  </h2>
+                  <p className="text-[9px] md:text-xs text-slate-500 font-mono opacity-80 truncate">Alívia Financeira</p>
                 </div>
-              </div>
+              )}
+            </div>
 
-              <div className="hidden lg:flex flex-1">
-                <AliviaMiniInsight transactions={transactions} theme={theme} />
-              </div>
-
-              <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-                <button 
-                  onClick={() => {
-                    setActiveTab('manual');
-                    setTimeout(() => window.dispatchEvent(new CustomEvent('manual-section', { detail: 'billing' })), 100);
-                  }}
-                  className={`p-2 md:p-3 rounded-xl md:rounded-2xl border transition-all hover:scale-110 active:scale-95 ${
-                    theme === 'light' ? 'bg-white border-slate-100 text-slate-400 hover:text-blue-500 shadow-sm' : 'bg-white/5 border-white/5 text-slate-500 hover:text-blue-400'
-                  }`}
-                  title="Gerenciar Assinatura"
-                >
-                  <CreditCard className="w-4 h-4 md:w-5 md:h-5" />
-                </button>
-                <button 
-                  onClick={() => setActiveTab('manual')}
+            <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+              {/* Configurar Alívia — preserva acesso à configuração financeira */}
+              {activeTab === 'visao' && (
+                <button
+                  onClick={() => setShowAliviaConfig(true)}
                   className={`p-2 md:p-3 rounded-xl md:rounded-2xl border transition-all hover:scale-110 active:scale-95 ${
                     theme === 'light' ? 'bg-white border-slate-100 text-slate-400 hover:text-emerald-500 shadow-sm' : 'bg-white/5 border-white/5 text-slate-500 hover:text-emerald-400'
                   }`}
-                  title="Manual do Sistema"
+                  title="Configurar Alívia"
                 >
-                  <BookOpen className="w-4 h-4 md:w-5 md:h-5" />
+                  <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
                 </button>
-                <div className="hidden md:block w-px h-8 bg-slate-500/20 mx-1"></div>
-                <div className="scale-75 md:scale-100 flex items-center gap-1">
-                  <ReloadPrompt />
-                  <PushSetup />
-                </div>
+              )}
+              <button
+                onClick={() => {
+                  setActiveTab('manual');
+                  setTimeout(() => window.dispatchEvent(new CustomEvent('manual-section', { detail: 'billing' })), 100);
+                }}
+                className={`p-2 md:p-3 rounded-xl md:rounded-2xl border transition-all hover:scale-110 active:scale-95 ${
+                  theme === 'light' ? 'bg-white border-slate-100 text-slate-400 hover:text-blue-500 shadow-sm' : 'bg-white/5 border-white/5 text-slate-500 hover:text-blue-400'
+                }`}
+                title="Gerenciar Assinatura"
+              >
+                <CreditCard className="w-4 h-4 md:w-5 md:h-5" />
+              </button>
+              <button
+                onClick={() => setActiveTab('manual')}
+                className={`p-2 md:p-3 rounded-xl md:rounded-2xl border transition-all hover:scale-110 active:scale-95 ${
+                  theme === 'light' ? 'bg-white border-slate-100 text-slate-400 hover:text-emerald-500 shadow-sm' : 'bg-white/5 border-white/5 text-slate-500 hover:text-emerald-400'
+                }`}
+                title="Manual do Sistema"
+              >
+                <BookOpen className="w-4 h-4 md:w-5 md:h-5" />
+              </button>
+              <div className="hidden md:block w-px h-8 bg-slate-500/20 mx-1"></div>
+              <div className="scale-75 md:scale-100 flex items-center gap-1">
+                <ReloadPrompt />
+                <PushSetup />
               </div>
             </div>
-            
-            {activeTab === 'visao' && (
-              <div className="block lg:hidden w-full mt-2">
-                <AliviaMiniInsight transactions={transactions} theme={theme} />
-              </div>
-            )}
-
-            {activeTab === 'visao' && (
-              <div className={`pt-6 border-t flex flex-col md:flex-row items-center justify-between gap-4 ${
-                theme === 'light' ? 'border-slate-100' : 'border-white/5'
-              }`}>
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${
-                    manualConfig.income ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'
-                  }`}>
-                    {manualConfig.income ? <ShieldCheck className="w-4 h-4" /> : <HelpCircle className="w-4 h-4" />}
-                  </div>
-                  <div>
-                    <p className={`text-[10px] font-black uppercase tracking-widest ${
-                      manualConfig.income ? 'text-emerald-500' : 'text-amber-500'
-                    }`}>
-                      {manualConfig.income ? 'Configuração Ativada' : 'Configuração Pendente'}
-                    </p>
-                    <p className={`text-xs font-bold ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                      {manualConfig.income 
-                        ? 'Sua inteligência financeira está calibrada e pronta.' 
-                        : 'Você ainda não fez sua configuração financeira.'}
-                    </p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowAliviaConfig(true)}
-                  className={`px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 ${
-                    manualConfig.income
-                      ? (theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10')
-                      : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  {manualConfig.income ? 'Editar Configuração' : 'Configurar Alívia'}
-                </button>
-              </div>
-            )}
           </div>
 
           {activeTab === 'visao' && (
@@ -670,7 +622,9 @@ function Dashboard() {
                 savingsJars={savingsJars}
                 walletStats={walletStats}
                 investmentStats={investmentStats}
-                healthScore={healthScore}
+                healthIndex={healthIndex}
+                manualConfig={manualConfig}
+                onUpdateConfig={updateManualConfig}
                 theme={theme}
                 hideBalance={hideBalance}
                 toggleHideBalance={toggleHideBalance}

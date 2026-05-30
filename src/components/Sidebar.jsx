@@ -40,16 +40,17 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
 
   const isFreePlan = planLevel === 'free';
 
-  // ── Saúde Financeira (card do topo) ──
-  // Deriva o status qualitativo e a contagem de "melhorias" (componentes do
-  // score que ainda não atingiram o máximo: performance/20, alocação/30, reserva/50).
+  // ── Saúde (card do topo) ──
+  // Usa o statusLabel/improvements já calculados pela função de saúde do módulo.
   const hsScore = healthScore?.score ?? 0;
   const hsHasData = !!healthScore && hsScore > 0;
-  const hsStatus = hsScore >= 90 ? 'Excelente'
-    : hsScore >= 70 ? 'Bom'
-    : hsScore >= 50 ? 'Razoável'
-    : hsScore > 0 ? 'Atenção'
-    : 'Sem dados';
+  const hsStatus = healthScore?.statusLabel || (
+    hsScore >= 80 ? 'Excelente'
+    : hsScore >= 60 ? 'Bom'
+    : hsScore >= 40 ? 'Atenção'
+    : hsScore > 0 ? 'Crítico'
+    : 'Sem dados'
+  );
   const hsColor = healthScore?.color || 'text-slate-400';
   const hsImprovements = healthScore?.improvements ?? 0;
   // Label do card varia por módulo: Gastos → "Saúde Financeira"; Patrimônio → "Saúde Patrimonial".
