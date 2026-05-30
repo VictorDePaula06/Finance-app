@@ -72,10 +72,10 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
       {
         type: 'group', id: 'grp_lancamentos', label: 'Lançamentos', icon: TrendingDown,
         children: [
-          { id: 'gastos', label: 'Despesas', icon: TrendingDown },
-          { id: 'aportes', label: 'Aportes', icon: PiggyBank },
           { id: 'fixas', label: 'Contas Fixas', icon: Home },
+          { id: 'gastos', label: 'Despesas', icon: TrendingDown },
           { id: 'cartoes', label: 'Cartões', icon: CreditCard },
+          { id: 'aportes', label: 'Aportes', icon: PiggyBank },
         ],
       },
       {
