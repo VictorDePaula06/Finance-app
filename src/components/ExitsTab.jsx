@@ -708,23 +708,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 </h2>
             </div>
 
-            {/* Navigation Row */}
-            <div className="flex flex-col items-center gap-4 mb-8">
-                {/* Month Selector */}
-                <div className={`flex items-center rounded-lg border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
-                    <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
-                        <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <span className={`px-4 text-[10px] font-bold uppercase min-w-[140px] text-center ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
-                        {monthLabel}
-                    </span>
-                    <button onClick={handleNextMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
-                        <ChevronRight className="w-4 h-4" />
-                    </button>
-                </div>
-            </div>
-
-            {/* Cards Row */}
+            {/* Cards Row — ACIMA do seletor de mês */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {/* Saldo em Carteira */}
                 <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
@@ -777,6 +761,21 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     <div className={`text-2xl font-bold ${subTab === 'despesas' ? 'text-rose-400' : 'text-blue-400'}`}>
                         {formatCurrency(subTab === 'despesas' ? totalExpensesMonthVal : totalInvestmentsMonthVal)}
                     </div>
+                </div>
+            </div>
+
+            {/* Month Selector — ABAIXO dos cards */}
+            <div className="flex flex-col items-center gap-4 mb-2">
+                <div className={`flex items-center rounded-lg border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
+                    <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
+                        <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className={`px-4 text-[10px] font-bold uppercase min-w-[140px] text-center ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
+                        {monthLabel}
+                    </span>
+                    <button onClick={handleNextMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
+                        <ChevronRight className="w-4 h-4" />
+                    </button>
                 </div>
             </div>
 

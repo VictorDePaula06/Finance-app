@@ -331,9 +331,76 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                 </h2>
             </div>
 
-            {/* Navigation Row */}
-            <div className="flex flex-col items-center gap-4 mb-8">
-                {/* Month Selector */}
+            {/* Cards Row — comum às sub-abas, ACIMA do seletor de mês */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Saldo em Carteira */}
+                <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="text-blue-400">
+                                <Wallet className="w-4 h-4" />
+                            </div>
+                            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Saldo em Carteira</span>
+                        </div>
+                        <button onClick={toggleHideBalance} className={`text-slate-500 hover:text-white transition-colors ${theme === 'light' ? 'hover:text-slate-800' : ''}`}>
+                            {hideBalance ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                    </div>
+                    <div className={`text-2xl font-bold ${hideBalance ? 'blur-md' : ''} ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                        {hideBalance ? 'R$ 0,00' : formatCurrency(walletStats?.balance)}
+                    </div>
+                </div>
+
+                {/* Recebimentos no Mês */}
+                <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                    <div className="flex items-center gap-2">
+                        <div className="text-emerald-400">
+                            <TrendingUp className="w-4 h-4" />
+                        </div>
+                        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Recebimentos no Mês</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="flex gap-0.5 items-end text-emerald-500 pb-1">
+                            <div className="w-1 h-2 bg-emerald-500 rounded-sm"></div>
+                            <div className="w-1 h-3 bg-emerald-500 rounded-sm"></div>
+                            <div className="w-1 h-4 bg-emerald-500 rounded-sm"></div>
+                        </div>
+                        <div className="text-2xl font-bold text-emerald-400">
+                            {formatCurrency(totalIncomeMonth)}
+                        </div>
+                    </div>
+                </div>
+
+                {/* 3º card: Resgates (na aba Resgates) ou Lançamentos (na aba Recebimentos) */}
+                {subTab === 'resgates' ? (
+                    <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                        <div className="flex items-center gap-2">
+                            <div className="text-blue-400">
+                                <Landmark className="w-4 h-4" />
+                            </div>
+                            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Resgates no Mês</span>
+                        </div>
+                        <div className="text-2xl font-bold text-blue-400">
+                            {formatCurrency(totalRedemptionMonth)}
+                        </div>
+                    </div>
+                ) : (
+                    <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                        <div className="flex items-center gap-2">
+                            <div className="text-rose-400">
+                                <TrendingDown className="w-4 h-4" />
+                            </div>
+                            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Lançamentos no Mês</span>
+                        </div>
+                        <div className="text-2xl font-bold text-rose-400">
+                            {formatCurrency(totalExpensesMonth)}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Month Selector — ABAIXO dos cards */}
+            <div className="flex flex-col items-center gap-4 mb-2">
                 <div className={`flex items-center rounded-lg border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
                     <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
                         <ChevronLeft className="w-4 h-4" />
@@ -349,60 +416,6 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
 
             {subTab === 'recebimentos' ? (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    {/* Cards Row */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Saldo em Carteira */}
-                        <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="text-blue-400">
-                                        <Wallet className="w-4 h-4" />
-                                    </div>
-                                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Saldo em Carteira</span>
-                                </div>
-                                <button onClick={toggleHideBalance} className={`text-slate-500 hover:text-white transition-colors ${theme === 'light' ? 'hover:text-slate-800' : ''}`}>
-                                    {hideBalance ? <EyeOff size={16} /> : <Eye size={16} />}
-                                </button>
-                            </div>
-                            <div className={`text-2xl font-bold ${hideBalance ? 'blur-md' : ''} ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                {hideBalance ? 'R$ 0,00' : formatCurrency(walletStats?.balance)}
-                            </div>
-                        </div>
-
-                        {/* Recebimentos no Mês */}
-                        <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
-                            <div className="flex items-center gap-2">
-                                <div className="text-emerald-400">
-                                    <TrendingUp className="w-4 h-4" />
-                                </div>
-                                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Recebimentos no Mês</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="flex gap-0.5 items-end text-emerald-500 pb-1">
-                                    <div className="w-1 h-2 bg-emerald-500 rounded-sm"></div>
-                                    <div className="w-1 h-3 bg-emerald-500 rounded-sm"></div>
-                                    <div className="w-1 h-4 bg-emerald-500 rounded-sm"></div>
-                                </div>
-                                <div className="text-2xl font-bold text-emerald-400">
-                                    {formatCurrency(totalIncomeMonth)}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Lançamentos no Mês */}
-                        <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
-                            <div className="flex items-center gap-2">
-                                <div className="text-rose-400">
-                                    <TrendingDown className="w-4 h-4" />
-                                </div>
-                                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Lançamentos no Mês</span>
-                            </div>
-                            <div className="text-2xl font-bold text-rose-400">
-                                {formatCurrency(totalExpensesMonth)}
-                            </div>
-                        </div>
-                    </div>
-
                     {/* Table Row */}
                     <div className={`p-8 rounded-2xl ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
