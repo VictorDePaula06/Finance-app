@@ -89,11 +89,8 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
       },
     ],
     patrimonio: [
-      { type: 'section', label: 'Visão' },
       { type: 'item', id: 'patrimonio', label: 'Visão Geral', icon: LayoutDashboard },
       { type: 'item', id: 'fluxo', label: 'Fluxo Patrimonial', icon: Activity },
-
-      { type: 'section', label: 'Meu Patrimônio' },
       {
         type: 'group', id: 'grp_ativos', label: 'Meu Patrimônio', icon: Star,
         children: [
@@ -103,8 +100,6 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
           { id: 'previdencia', label: 'Previdência', icon: Briefcase, badge: 'Novo' },
         ],
       },
-
-      { type: 'section', label: 'Planejamento' },
       {
         type: 'group', id: 'grp_plan', label: 'Planejamento', icon: Target,
         children: [
@@ -114,8 +109,6 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
           { id: 'rebalanceamento', label: 'Rebalanceamento', icon: AlertTriangle, badge: 'Ação' },
         ],
       },
-
-      { type: 'section', label: 'Proteção' },
       { type: 'item', id: 'seguros', label: 'Seguros & Proteção', icon: Umbrella, badge: 'Novo' },
     ],
   };
