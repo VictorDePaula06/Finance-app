@@ -148,9 +148,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
       setPayingExpense(null);
       setActualValue('');
       setOverdraftPending(null);
-      if (typeof setActiveTab === 'function') {
-        setActiveTab('gastos');
-      }
+      // Permanece na tela de Contas Fixas após o pagamento.
     } catch (err) {
       console.error("Erro ao pagar conta fixa:", err);
     }
