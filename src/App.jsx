@@ -628,6 +628,9 @@ function Dashboard() {
                 theme={theme}
                 hideBalance={hideBalance}
                 toggleHideBalance={toggleHideBalance}
+                cards={cards}
+                subscriptions={subscriptions}
+                setActiveTab={setActiveTab}
                 setEditingJar={setEditingJar}
                 setJarDeleteConfirm={setJarDeleteConfirm}
                 baseIncome={parseFloat(manualConfig.income) || 0}
