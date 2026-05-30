@@ -13,6 +13,11 @@ const pad = (n) => String(n).padStart(2, '0');
 const keyLocal = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const tdate = (t) => (t.date ? t.date.slice(0, 10) : (t.month ? `${t.month}-01` : ''));
 const amount = (t) => parseFloat(t.amount) || 0;
+const fmtDay = (t) => {
+  const s = tdate(t); if (!s) return '—';
+  const d = new Date(`${s}T00:00:00`);
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+};
 
 const PRIORITY_META = {
   essential: { label: 'Essencial', color: '#10b981', icon: Shield },
@@ -362,7 +367,7 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
                 <CreditCard className="w-3 h-3" /> Crédito — o que contar?
               </span>
               <div className="grid grid-cols-2 gap-1.5">
-                {[['fatura', 'Fatura atual'], ['mes', 'Apenas o mês']].map(([id, lbl]) => {
+                {[['fatura', 'Fatura atual'], ['mes', 'Período selecionado']].map(([id, lbl]) => {
                   const active = creditMode === id;
                   return (
                     <button key={id} onClick={() => setCreditMode(id)}
@@ -410,7 +415,7 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
         ) : (
           <>
             {/* Evolução + painéis laterais */}
-            <div className="grid grid-cols-1 xl:grid-cols-[1.6fr_1fr] gap-5">
+            <div className="grid grid-cols-1 xl:grid-cols-[1.55fr_1fr] gap-5 items-start">
               <div className={`p-5 rounded-2xl border ${card}`}>
                 <div className="flex items-center justify-between mb-4">
                   <h4 className={`text-sm font-bold uppercase tracking-wider ${txt}`}>Evolução no período</h4>
@@ -494,7 +499,7 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
             </div>
 
             {/* Maiores gastos + Distribuição por prioridade */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 xl:grid-cols-[1.55fr_1fr] gap-5 items-start">
               <div className={`p-5 md:p-6 rounded-2xl border ${card}`}>
                 <div className="flex items-center justify-between mb-4">
                   <h4 className={`text-sm font-bold uppercase tracking-wider ${txt}`}>Maiores gastos</h4>
@@ -513,7 +518,7 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
                           <div className="min-w-0 flex-1">
                             <p className={`text-[13px] font-bold truncate ${txt}`}>{t.description || 'Sem descrição'}</p>
                             <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                              <span className="text-[10px] text-slate-400">{t.date ? new Date(t.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'} · {cat?.label || 'Outro'}</span>
+                              <span className="text-[10px] text-slate-400">{fmtDay(t)} · {cat?.label || 'Outro'}</span>
                               <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded-md" style={{ background: `${pm.color}1f`, color: pm.color }}>{pm.label}</span>
                               <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded-md" style={{ background: `${pr.color}1f`, color: pr.color }}>{pr.label}</span>
                             </div>
