@@ -24,13 +24,8 @@ const LIGHTS = [
     { state: 'excelente', color: '#10b981' },
 ];
 
-// Presets para pré-visualizar os 4 estados (não altera os dados reais).
-const STATE_PREVIEW = {
-    excelente: { score: 90, accent: 'emerald', statusLabel: 'Excelente', badge: 'Sua saúde financeira está excelente', heading: 'Mandou bem! Sua saúde financeira está excelente. 🎉', description: 'Você está no controle: gasta com equilíbrio, guarda e ainda sobra. Continue assim.' },
-    bom:       { score: 68, accent: 'yellow',  statusLabel: 'Bom',       badge: 'Sua saúde financeira está boa',       heading: 'Quase lá! Tem uma coisa que vale ajustar. 📌', description: 'No geral você está bem. Mas sua reserva de emergência ainda não chegou no ideal — vale focar nisso.' },
-    atencao:   { score: 42, accent: 'orange',  statusLabel: 'Atenção',   badge: 'Sua saúde financeira pede atenção',   heading: 'Atenção! Alguns pontos precisam de cuidado. ⚠️', description: 'Sua saúde financeira pede ajustes, principalmente na sua reserva de emergência. Vamos organizar isso.' },
-    critico:   { score: 18, accent: 'rose',    statusLabel: 'Crítico',   badge: 'Sua saúde financeira está crítica',   heading: 'Hora de agir. Sua saúde financeira está crítica. 🚨', description: 'Vários pontos precisam de atenção urgente, começando pela sua reserva de emergência.' },
-};
+// Cor de cada estado (para a escala de exibição).
+const STATE_ACCENT = { excelente: 'emerald', bom: 'yellow', atencao: 'orange', critico: 'rose' };
 
 // ── Gauge circular ──────────────────────────────────────────────────────────
 function ScoreGauge({ score, ringColor, isDark }) {
@@ -81,24 +76,12 @@ function TrafficLight({ activeState, statusLabel, accentText }) {
 export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig }) {
     const { theme } = useTheme();
     const isDark = theme !== 'light';
-    const [previewState, setPreviewState] = useState(null);
     const [showConfig, setShowConfig] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
 
     if (!data) return null;
 
-    // Mescla preview (se ativo) sobre os dados reais.
-    const preview = previewState ? STATE_PREVIEW[previewState] : null;
-    const view = {
-        score: preview ? preview.score : data.score,
-        accent: preview ? preview.accent : data.accent,
-        statusLabel: preview ? preview.statusLabel : data.statusLabel,
-        badge: preview ? preview.badge : data.badge,
-        heading: preview ? preview.heading : data.heading,
-        description: preview ? preview.description : data.description,
-        state: previewState || data.state,
-    };
-    const acc = ACCENT[view.accent] || ACCENT.slate;
+    const acc = ACCENT[data.accent] || ACCENT.slate;
 
     const { surplus, reserve, superfluous } = data.pillars;
     const cardBg = isDark ? 'bg-[#161b27] border-white/5' : 'bg-white border-slate-100 shadow-sm';
@@ -122,7 +105,7 @@ export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig
             {/* Cabeçalho */}
             <div className="flex items-center justify-center gap-2 relative">
                 <p className={`text-[10px] font-black uppercase tracking-[0.25em] ${sub} text-center`}>
-                    Índice de Saúde Financeira — clique para ver os 4 estados
+                    Índice de Saúde Financeira
                 </p>
                 <button
                     onClick={() => setShowConfig(true)}
@@ -137,26 +120,21 @@ export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig
             <div className={`relative overflow-hidden rounded-[2rem] border ${cardBg} ${acc.border} shadow-lg ${acc.glow}`}>
                 {/* faixa de acento no topo */}
                 <div className="absolute top-0 left-0 right-0 h-1" style={{ background: acc.ring }} />
-                {preview && (
-                    <div className="absolute top-3 right-4 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-black/30 text-slate-300 z-10">
-                        Pré-visualização
-                    </div>
-                )}
 
                 {/* Topo: semáforo + texto + gauge */}
                 <div className="p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
-                    <TrafficLight activeState={view.state} statusLabel={view.statusLabel} accentText={acc.text} />
+                    <TrafficLight activeState={data.state} statusLabel={data.statusLabel} accentText={acc.text} />
 
                     <div className="flex-1 min-w-0 text-center md:text-left">
                         <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${acc.soft} ${acc.text} mb-3`}>
                             <span className={`w-1.5 h-1.5 rounded-full`} style={{ background: acc.ring }} />
-                            {view.badge}
+                            {data.badge}
                         </span>
-                        <h2 className={`text-xl md:text-2xl font-black leading-tight ${txt}`}>{view.heading}</h2>
-                        <p className={`text-sm mt-2 ${sub} leading-relaxed max-w-xl`}>{view.description}</p>
+                        <h2 className={`text-xl md:text-2xl font-black leading-tight ${txt}`}>{data.heading}</h2>
+                        <p className={`text-sm mt-2 ${sub} leading-relaxed max-w-xl`}>{data.description}</p>
                     </div>
 
-                    <ScoreGauge score={view.score} ringColor={acc.ring} isDark={isDark} />
+                    <ScoreGauge score={data.score} ringColor={acc.ring} isDark={isDark} />
                 </div>
 
                 {/* Pilares */}
@@ -204,7 +182,7 @@ export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig
                 {/* Rodapé */}
                 <div className={`flex items-center justify-between gap-3 px-6 py-3.5 border-t ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
                     <span className={`text-[11px] font-medium ${sub} flex items-center gap-1.5`}>
-                        <Clock className="w-3.5 h-3.5" /> Atualizado hoje às {updatedLabel} · Renda base: {fmtCurrency(data.income)}
+                        <Clock className="w-3.5 h-3.5" /> Atualizado hoje às {updatedLabel} · {data.incomeSource === 'launched' ? 'Renda do mês' : 'Renda base'}: {fmtCurrency(data.income)}
                     </span>
                     <button onClick={() => setShowDetails(v => !v)} className={`text-[11px] font-bold flex items-center gap-1 ${acc.text} hover:underline`}>
                         Ver análise completa <ArrowRight className="w-3.5 h-3.5" />
@@ -228,25 +206,26 @@ export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig
                 )}
             </div>
 
-            {/* Botões dos 4 estados */}
+            {/* Escala de estados — apenas exibição (destaca o estado atual) */}
             <div className="flex flex-wrap items-center justify-center gap-2">
                 {[
-                    { st: 'excelente', label: 'Excelente', pts: 90 },
-                    { st: 'bom', label: 'Bom', pts: 68 },
-                    { st: 'atencao', label: 'Atenção', pts: 42 },
-                    { st: 'critico', label: 'Crítico', pts: 18 },
+                    { st: 'excelente', label: 'Excelente', range: '80–100' },
+                    { st: 'bom', label: 'Bom', range: '60–79' },
+                    { st: 'atencao', label: 'Atenção', range: '40–59' },
+                    { st: 'critico', label: 'Crítico', range: '0–39' },
                 ].map(b => {
-                    const a = ACCENT[STATE_PREVIEW[b.st].accent];
-                    const active = previewState === b.st;
+                    const a = ACCENT[STATE_ACCENT[b.st]];
+                    const active = data.state === b.st;
                     return (
-                        <button
+                        <div
                             key={b.st}
-                            onClick={() => setPreviewState(active ? null : b.st)}
-                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all active:scale-95 ${a.soft} ${a.text} ${active ? `${a.border} shadow-md ${a.glow}` : 'border-transparent'}`}
+                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all ${
+                                active ? `${a.soft} ${a.text} ${a.border} shadow-md ${a.glow}` : `border-transparent ${isDark ? 'text-slate-500' : 'text-slate-400'}`
+                            }`}
                         >
-                            <span className="w-2 h-2 rounded-full" style={{ background: a.ring }} />
-                            {b.label} ({b.pts} pts)
-                        </button>
+                            <span className="w-2 h-2 rounded-full" style={{ background: active ? a.ring : (isDark ? '#475569' : '#cbd5e1') }} />
+                            {b.label} <span className="opacity-60 font-medium">({b.range} pts)</span>
+                        </div>
                     );
                 })}
             </div>
@@ -291,31 +270,26 @@ function PillarCell({ isDark, icon: Icon, title, status, value, target, message,
     );
 }
 
-function ConfigModal({ isDark, config, onClose, onSave }) {
-    const hc = { ...DEFAULT_HEALTH_CONFIG, ...(config.healthConfig || {}) };
-    const [income, setIncome] = useState(config.income ? String(config.income) : '');
-    const [reserveTarget, setReserveTarget] = useState(String(hc.reserveTargetMonths));
-    const [superfluousCap, setSuperfluousCap] = useState(String(hc.superfluousCap));
-    const [surplusTarget, setSurplusTarget] = useState(String(hc.surplusTargetPct));
-
-    const num = (v, fb) => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? fb : n; };
-
-    const handleSave = () => {
-        onSave({
-            ...config,
-            income: num(income, config.income || 0),
-            healthConfig: {
-                reserveTargetMonths: Math.max(1, num(reserveTarget, 6)),
-                superfluousCap: Math.max(1, num(superfluousCap, 30)),
-                surplusTargetPct: Math.max(1, num(surplusTarget, 20)),
-            },
-        });
-    };
-
-    const field = (label, hint, value, setValue, suffix) => (
+function UnitField({ isDark, label, hint, value, setValue, unit, setUnit, options }) {
+    const isMoney = unit === 'amount';
+    const suffix = options.find(o => o.id === unit)?.suffix;
+    return (
         <div>
-            <label className={`text-[10px] font-black uppercase tracking-widest block mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{label}</label>
+            <div className="flex items-center justify-between mb-1.5 gap-2">
+                <label className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{label}</label>
+                <div className={`flex gap-0.5 rounded-lg p-0.5 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                    {options.map(o => (
+                        <button
+                            key={o.id} type="button" onClick={() => setUnit(o.id)}
+                            className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${
+                                unit === o.id ? 'bg-emerald-500 text-white shadow' : (isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800')
+                            }`}
+                        >{o.short}</button>
+                    ))}
+                </div>
+            </div>
             <div className={`flex items-center gap-2 px-4 py-3 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                {isMoney && <span className="text-xs font-bold text-slate-500">R$</span>}
                 <input
                     type="text" inputMode="decimal" value={value} onChange={e => setValue(e.target.value)}
                     className={`flex-1 bg-transparent font-bold text-sm focus:outline-none ${isDark ? 'text-white' : 'text-slate-800'}`}
@@ -325,24 +299,71 @@ function ConfigModal({ isDark, config, onClose, onSave }) {
             {hint && <p className="text-[10px] text-slate-500 mt-1">{hint}</p>}
         </div>
     );
+}
+
+function ConfigModal({ isDark, config, onClose, onSave }) {
+    const hc = { ...DEFAULT_HEALTH_CONFIG, ...(config.healthConfig || {}) };
+    const [income, setIncome] = useState(config.income ? String(config.income) : '');
+    const [surplusUnit, setSurplusUnit] = useState(hc.surplusUnit);
+    const [surplusVal, setSurplusVal] = useState(String(hc.surplusUnit === 'amount' ? (hc.surplusTargetAmount || '') : hc.surplusTargetPct));
+    const [reserveUnit, setReserveUnit] = useState(hc.reserveUnit);
+    const [reserveVal, setReserveVal] = useState(String(hc.reserveUnit === 'amount' ? (hc.reserveTargetAmount || '') : hc.reserveTargetMonths));
+    const [superUnit, setSuperUnit] = useState(hc.superfluousUnit);
+    const [superVal, setSuperVal] = useState(String(hc.superfluousUnit === 'amount' ? (hc.superfluousCapAmount || '') : hc.superfluousCap));
+
+    const num = (v, fb) => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? fb : n; };
+
+    const handleSave = () => {
+        onSave({
+            ...config,
+            income: num(income, config.income || 0),
+            healthConfig: {
+                surplusUnit,
+                surplusTargetPct: surplusUnit === 'percent' ? Math.max(0, num(surplusVal, 20)) : hc.surplusTargetPct,
+                surplusTargetAmount: surplusUnit === 'amount' ? Math.max(0, num(surplusVal, 0)) : hc.surplusTargetAmount,
+                reserveUnit,
+                reserveTargetMonths: reserveUnit === 'months' ? Math.max(1, num(reserveVal, 6)) : hc.reserveTargetMonths,
+                reserveTargetAmount: reserveUnit === 'amount' ? Math.max(0, num(reserveVal, 0)) : hc.reserveTargetAmount,
+                superfluousUnit: superUnit,
+                superfluousCap: superUnit === 'percent' ? Math.max(1, num(superVal, 30)) : hc.superfluousCap,
+                superfluousCapAmount: superUnit === 'amount' ? Math.max(0, num(superVal, 0)) : hc.superfluousCapAmount,
+            },
+        });
+    };
 
     return (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose}>
             <div
-                className={`w-full max-w-md rounded-[2rem] border overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 ${isDark ? 'bg-[#161b27] border-white/10' : 'bg-white border-slate-200'}`}
+                className={`w-full max-w-md rounded-[2rem] border overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto custom-scrollbar ${isDark ? 'bg-[#161b27] border-white/10' : 'bg-white border-slate-200'}`}
                 onClick={e => e.stopPropagation()}
             >
-                <div className={`flex items-center justify-between px-6 py-5 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+                <div className={`flex items-center justify-between px-6 py-5 border-b sticky top-0 z-10 ${isDark ? 'bg-[#161b27] border-white/5' : 'bg-white border-slate-100'}`}>
                     <h3 className={`text-lg font-black flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
                         <Sparkles className="w-5 h-5 text-emerald-500" /> Configurar índice
                     </h3>
                     <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-rose-400"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="p-6 space-y-4">
-                    {field('Renda base mensal', 'Usada como base para todos os cálculos.', income, setIncome, 'R$')}
-                    {field('Meta de reserva', 'Quantos meses de despesa você quer guardar.', reserveTarget, setReserveTarget, 'meses')}
-                    {field('Teto de gastos supérfluos', 'Limite saudável de supérfluos sobre a renda.', superfluousCap, setSuperfluousCap, '%')}
-                    {field('Meta de sobra mensal', 'Quanto da renda você quer que sobre por mês.', surplusTarget, setSurplusTarget, '%')}
+                    <div>
+                        <label className={`text-[10px] font-black uppercase tracking-widest block mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Renda base mensal</label>
+                        <div className={`flex items-center gap-2 px-4 py-3 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                            <span className="text-xs font-bold text-slate-500">R$</span>
+                            <input type="text" inputMode="decimal" value={income} onChange={e => setIncome(e.target.value)} className={`flex-1 bg-transparent font-bold text-sm focus:outline-none ${isDark ? 'text-white' : 'text-slate-800'}`} />
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-1">Usada quando você ainda não lançou recebimentos no mês. Se houver renda lançada, ela tem prioridade.</p>
+                    </div>
+
+                    <UnitField isDark={isDark} label="Meta de sobra mensal" hint="Quanto você quer que sobre por mês." value={surplusVal} setValue={setSurplusVal}
+                        unit={surplusUnit} setUnit={setSurplusUnit}
+                        options={[{ id: 'percent', short: '%', suffix: '% da renda' }, { id: 'amount', short: 'R$', suffix: null }]} />
+
+                    <UnitField isDark={isDark} label="Meta de reserva de emergência" hint="O tamanho ideal da sua reserva." value={reserveVal} setValue={setReserveVal}
+                        unit={reserveUnit} setUnit={setReserveUnit}
+                        options={[{ id: 'months', short: 'Meses', suffix: 'meses' }, { id: 'amount', short: 'R$', suffix: null }]} />
+
+                    <UnitField isDark={isDark} label="Teto de gastos supérfluos" hint="Limite saudável de supérfluos." value={superVal} setValue={setSuperVal}
+                        unit={superUnit} setUnit={setSuperUnit}
+                        options={[{ id: 'percent', short: '%', suffix: '% da renda' }, { id: 'amount', short: 'R$', suffix: null }]} />
                 </div>
                 <div className={`flex gap-3 px-6 py-5 border-t ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
                     <button onClick={onClose} className={`flex-1 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest ${isDark ? 'bg-white/5 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>Cancelar</button>

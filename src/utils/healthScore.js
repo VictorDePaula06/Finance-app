@@ -197,15 +197,25 @@ export const calculateHealthScore = (transactions, manualConfig, savingsJars = [
  * @param {number} reserveTotal  Total guardado em reservas (R$).
  */
 export const DEFAULT_HEALTH_CONFIG = {
-    reserveTargetMonths: 6,   // meta de reserva (meses de despesa)
-    superfluousCap: 30,       // teto de gastos supérfluos (% da renda)
-    surplusTargetPct: 20,     // meta de sobra mensal (% da renda)
+    // Sobra mensal — meta em % da renda OU em R$
+    surplusUnit: 'percent',      // 'percent' | 'amount'
+    surplusTargetPct: 20,
+    surplusTargetAmount: 0,
+    // Reserva de emergência — meta em meses de despesa OU em R$ total
+    reserveUnit: 'months',       // 'months' | 'amount'
+    reserveTargetMonths: 6,
+    reserveTargetAmount: 0,
+    // Gastos supérfluos — teto em % da renda OU em R$
+    superfluousUnit: 'percent',  // 'percent' | 'amount'
+    superfluousCap: 30,
+    superfluousCapAmount: 0,
 };
 
 export const calculateHealthIndex = (transactions = [], config = {}, reserveTotal = 0) => {
     const today = new Date();
     const currentMonth = today.toLocaleDateString('en-CA').slice(0, 7);
     const hc = { ...DEFAULT_HEALTH_CONFIG, ...(config.healthConfig || {}) };
+    const fmtMoney = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     const getRobustMonth = (t) => {
         if (t.month) return t.month;
@@ -219,12 +229,13 @@ export const calculateHealthIndex = (transactions = [], config = {}, reserveTota
     };
     const monthTx = transactions.filter(t => getRobustMonth(t) === currentMonth);
 
-    // Renda: base manual tem prioridade (alinha com "renda base" do card); senão soma lançamentos.
+    // Renda: prioriza o que foi LANÇADO no mês; se não houver, usa a renda base configurada.
     const incomeFromTx = monthTx
         .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     const baseIncome = config?.income ? parseFloat(config.income) : 0;
-    const income = baseIncome > 0 ? baseIncome : incomeFromTx;
+    const income = incomeFromTx > 0 ? incomeFromTx : baseIncome;
+    const incomeSource = incomeFromTx > 0 ? 'launched' : 'base';
 
     // Sem renda definida → não dá pra calcular nada de forma honesta.
     if (income <= 0) {
@@ -234,12 +245,12 @@ export const calculateHealthIndex = (transactions = [], config = {}, reserveTota
             color: 'text-slate-400', accent: 'slate',
             badge: 'Configure sua renda base',
             heading: 'Vamos começar? 👋',
-            description: 'Informe sua renda base e lance seus gastos para calcular sua saúde financeira.',
-            improvements: 3, income: 0,
+            description: 'Informe sua renda base (ou lance seus recebimentos) para calcular sua saúde financeira.',
+            improvements: 3, income: 0, incomeSource,
             pillars: {
-                surplus: { ...zero(30), targetLabel: 'Meta: pelo menos R$ 1' },
-                reserve: { ...zero(40), targetLabel: `Meta: mínimo ${(config.healthConfig?.reserveTargetMonths) || DEFAULT_HEALTH_CONFIG.reserveTargetMonths} meses` },
-                superfluous: { ...zero(30), targetLabel: `Meta: até ${(config.healthConfig?.superfluousCap) || DEFAULT_HEALTH_CONFIG.superfluousCap}% da renda`, breakdown: { essential: 0, comfort: 0, superfluous: 0 } },
+                surplus: { ...zero(30), targetLabel: 'Meta: sobrar todo mês' },
+                reserve: { ...zero(40), targetLabel: 'Meta: montar reserva' },
+                superfluous: { ...zero(30), targetLabel: 'Meta: controlar supérfluos', breakdown: { essential: 0, comfort: 0, superfluous: 0 } },
             },
             config: hc, feedback: '', updatedAt: today,
         };
@@ -270,28 +281,68 @@ export const calculateHealthIndex = (transactions = [], config = {}, reserveTota
     const pct = (v) => income > 0 ? (v / income) * 100 : 0;
     const clamp01 = (n) => Math.max(0, Math.min(1, n));
 
-    // ── Pilar 1: Sobra no mês (30 pts) ──
-    const surplusRatio = income > 0 ? surplus / income : 0;
-    const surplusScore = surplus <= 0 ? 0 : clamp01(surplusRatio / (hc.surplusTargetPct / 100)) * 30;
-    const surplusStatus = surplus <= 0 ? 'bad'
-        : (surplusRatio >= hc.surplusTargetPct / 100 ? 'good' : 'warn');
+    // ── Pilar 1: Sobra no mês (30 pts) — meta em % da renda ou em R$ ──
+    const surplusTarget = hc.surplusUnit === 'amount'
+        ? (parseFloat(hc.surplusTargetAmount) || 0)
+        : income * ((parseFloat(hc.surplusTargetPct) || 0) / 100);
+    let surplusScore, surplusStatus;
+    if (surplus <= 0) {
+        surplusScore = 0; surplusStatus = 'bad';
+    } else if (surplusTarget <= 0) {
+        surplusScore = 30; surplusStatus = 'good';
+    } else {
+        surplusScore = clamp01(surplus / surplusTarget) * 30;
+        surplusStatus = surplus >= surplusTarget ? 'good' : (surplus >= surplusTarget * 0.5 ? 'warn' : 'bad');
+    }
+    const surplusTargetLabel = surplusTarget <= 0
+        ? 'Meta: sobrar todo mês'
+        : (hc.surplusUnit === 'amount'
+            ? `Meta: sobrar R$ ${fmtMoney(surplusTarget)}`
+            : `Meta: sobrar ${hc.surplusTargetPct}% (≈ R$ ${fmtMoney(surplusTarget)})`);
 
-    // ── Pilar 2: Reserva de emergência (40 pts) ──
+    // ── Pilar 2: Reserva de emergência (40 pts) — meta em meses ou em R$ ──
+    // Custo mensal de referência = gastos fixos cadastrados (autoFixedExpenses) ou,
+    // na falta, o que foi gasto no mês; por último, 70% da renda.
     const monthlyExpenses = config?.fixedExpenses ? parseFloat(config.fixedExpenses)
-        : (totalSpent > 0 ? totalSpent : (income > 0 ? income * 0.7 : 0));
+        : (totalSpent > 0 ? totalSpent : income * 0.7);
     const reserveMonths = monthlyExpenses > 0 ? reserveTotal / monthlyExpenses : 0;
-    const reserveScore = clamp01(reserveMonths / hc.reserveTargetMonths) * 40;
-    const reserveStatus = reserveMonths >= hc.reserveTargetMonths ? 'good'
-        : (reserveMonths >= hc.reserveTargetMonths * 0.5 ? 'warn' : 'bad');
+    let reserveScore, reserveStatus, reservePct, reserveTargetLabel;
+    if (hc.reserveUnit === 'amount') {
+        const targetAmt = parseFloat(hc.reserveTargetAmount) || 0;
+        const ratio = targetAmt > 0 ? clamp01(reserveTotal / targetAmt) : 1;
+        reserveScore = ratio * 40;
+        reservePct = ratio * 100;
+        reserveStatus = targetAmt <= 0 ? 'good'
+            : (reserveTotal >= targetAmt ? 'good' : (reserveTotal >= targetAmt * 0.5 ? 'warn' : 'bad'));
+        reserveTargetLabel = `Meta: R$ ${fmtMoney(targetAmt)} guardados`;
+    } else {
+        const targetM = parseFloat(hc.reserveTargetMonths) || 6;
+        const ratio = clamp01(reserveMonths / targetM);
+        reserveScore = ratio * 40;
+        reservePct = ratio * 100;
+        reserveStatus = reserveMonths >= targetM ? 'good'
+            : (reserveMonths >= targetM * 0.5 ? 'warn' : 'bad');
+        reserveTargetLabel = `Meta: mínimo ${targetM} meses`;
+    }
 
-    // ── Pilar 3: Gastos supérfluos (30 pts) ──
+    // ── Pilar 3: Gastos supérfluos (30 pts) — teto em % da renda ou em R$ ──
     const superfluousPct = pct(superfluous);
-    const cap = hc.superfluousCap;
-    // Pontuação total se ≤ 80% do teto; cai até 0 quando atinge 150% do teto.
-    const lo = cap * 0.8, hi = cap * 1.5;
-    const superfluousScore = clamp01((hi - superfluousPct) / (hi - lo)) * 30;
-    const superfluousStatus = superfluousPct <= lo ? 'good'
-        : (superfluousPct <= cap ? 'warn' : 'bad');
+    const capValue = hc.superfluousUnit === 'amount'
+        ? (parseFloat(hc.superfluousCapAmount) || 0)
+        : income * ((parseFloat(hc.superfluousCap) || 0) / 100);
+    const capDisplay = hc.superfluousUnit === 'amount' ? `R$ ${fmtMoney(capValue)}` : `${hc.superfluousCap}%`;
+    let superfluousScore, superfluousStatus;
+    if (capValue <= 0) {
+        superfluousScore = superfluous <= 0 ? 30 : 0;
+        superfluousStatus = superfluous <= 0 ? 'good' : 'bad';
+    } else {
+        const lo = capValue * 0.8, hi = capValue * 1.5;
+        superfluousScore = clamp01((hi - superfluous) / (hi - lo)) * 30;
+        superfluousStatus = superfluous <= lo ? 'good' : (superfluous <= capValue ? 'warn' : 'bad');
+    }
+    const superfluousTargetLabel = hc.superfluousUnit === 'amount'
+        ? `Meta: até R$ ${fmtMoney(capValue)}`
+        : `Meta: até ${hc.superfluousCap}% da renda`;
 
     const totalScore = Math.min(100, Math.round(surplusScore + reserveScore + superfluousScore));
 
@@ -334,35 +385,35 @@ export const calculateHealthIndex = (transactions = [], config = {}, reserveTota
             ? 'Sua sobra está apertada. Tente economizar um pouco mais neste mês.'
             : 'Cuidado. Você gastou mais do que ganhou neste mês.';
     const reserveMsg = reserveStatus === 'good'
-        ? `Excelente! Você tem ${fmtMonths(reserveMonths)} meses guardados — tranquilidade garantida.`
+        ? `Excelente! Sua reserva está no alvo (${fmtMonths(reserveMonths)} meses guardados) — tranquilidade garantida.`
         : reserveStatus === 'warn'
-            ? `Quase lá. Você tem ${fmtMonths(reserveMonths)} meses guardados. O ideal é ${hc.reserveTargetMonths}. Faltam ${fmtMonths(Math.max(0, hc.reserveTargetMonths - reserveMonths))} meses para ficar tranquilo.`
-            : `Atenção. Sua reserva cobre só ${fmtMonths(reserveMonths)} meses. Priorize construí-la até ${hc.reserveTargetMonths}.`;
+            ? `Quase lá. Sua reserva cobre ${fmtMonths(reserveMonths)} meses. ${reserveTargetLabel.replace('Meta: ', 'O ideal é ')}.`
+            : `Atenção. Sua reserva cobre só ${fmtMonths(reserveMonths)} meses. Priorize construí-la (${reserveTargetLabel.replace('Meta: ', '')}).`;
     const superfluousMsg = superfluousStatus === 'good'
-        ? `Ótimo! Apenas ${Math.round(superfluousPct)}% dos seus gastos foram supérfluos.`
+        ? `Ótimo! Seus supérfluos (${Math.round(superfluousPct)}% da renda) estão dentro do limite de ${capDisplay}.`
         : superfluousStatus === 'warn'
-            ? `Atenção. ${Math.round(superfluousPct)}% dos seus gastos foram supérfluos. Está quase no limite — vale revisar o que dá pra cortar.`
-            : `Cuidado. ${Math.round(superfluousPct)}% em supérfluos, acima da meta de ${cap}%. Hora de cortar.`;
+            ? `Atenção. Você gastou R$ ${fmtMoney(superfluous)} (${Math.round(superfluousPct)}%) em supérfluos — quase no limite de ${capDisplay}. Vale revisar.`
+            : `Cuidado. R$ ${fmtMoney(superfluous)} (${Math.round(superfluousPct)}%) em supérfluos, acima do limite de ${capDisplay}. Hora de cortar.`;
 
     const improvements = [surplusStatus, reserveStatus, superfluousStatus].filter(s => s !== 'good').length;
 
     return {
         score: totalScore,
         state, statusLabel, color, accent, badge, heading, description, improvements,
-        income,
+        income, incomeSource,
         pillars: {
             surplus: {
                 value: surplus, score: Math.round(surplusScore), max: 30, status: surplusStatus,
-                message: surplusMsg, targetLabel: `Meta: pelo menos R$ 1`,
+                message: surplusMsg, targetLabel: surplusTargetLabel,
             },
             reserve: {
-                months: reserveMonths, pct: clamp01(reserveMonths / hc.reserveTargetMonths) * 100,
+                months: reserveMonths, pct: reservePct,
                 score: Math.round(reserveScore), max: 40, status: reserveStatus,
-                message: reserveMsg, targetLabel: `Meta: mínimo ${hc.reserveTargetMonths} meses`,
+                message: reserveMsg, targetLabel: reserveTargetLabel,
             },
             superfluous: {
-                pct: superfluousPct, score: Math.round(superfluousScore), max: 30, status: superfluousStatus,
-                message: superfluousMsg, targetLabel: `Meta: até ${cap}% da renda`,
+                pct: superfluousPct, amount: superfluous, score: Math.round(superfluousScore), max: 30, status: superfluousStatus,
+                message: superfluousMsg, targetLabel: superfluousTargetLabel,
                 breakdown: {
                     essential: pct(essential),
                     comfort: pct(comfort),
