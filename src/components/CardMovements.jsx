@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { CreditCard, Filter, AlertTriangle, Receipt, Repeat, TrendingDown } from 'lucide-react';
+import { CreditCard, Filter, AlertTriangle, Receipt, Repeat, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
 
 const fmt = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -9,7 +9,6 @@ const PALETTE = ['#8b5cf6', '#f43f5e', '#f59e0b', '#3b82f6', '#10b981', '#ec4899
 export default function CardMovements({ transactions = [], cards = [], subscriptions = [], theme }) {
     const isDark = theme !== 'light';
     const [cardId, setCardId] = useState('all');
-    const [invoice, setInvoice] = useState('all');
 
     const closingOf = (id) => {
         const c = cards.find(x => x.id === id);
@@ -29,6 +28,29 @@ export default function CardMovements({ transactions = [], cards = [], subscript
         const s = new Date(y, m - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
         return s.charAt(0).toUpperCase() + s.slice(1);
     };
+    const addMonths = (key, n) => {
+        const [y, m] = key.split('-').map(Number);
+        const d = new Date(y, m - 1 + n, 1);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    };
+    const monthsBetween = (a, b) => {
+        const [ay, am] = a.split('-').map(Number);
+        const [by, bm] = b.split('-').map(Number);
+        return (by - ay) * 12 + (bm - am);
+    };
+
+    // Mês da fatura atual (em aberto) de referência para a navegação.
+    const currentInvoiceMonth = useMemo(() => {
+        const closing = cardId === 'all' ? 25 : closingOf(cardId);
+        return getInvoiceMonth(new Date().toISOString(), closing);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cardId, cards]);
+
+    // Fatura selecionada na navegação (YYYY-MM). Começa na fatura atual.
+    const [invoice, setInvoice] = useState(currentInvoiceMonth);
+    React.useEffect(() => { setInvoice(currentInvoiceMonth); }, [currentInvoiceMonth]);
+
+    const phase = invoice < currentInvoiceMonth ? 'past' : invoice > currentInvoiceMonth ? 'future' : 'open';
 
     // Todas as compras no crédito (com mês de fatura calculado).
     const creditTx = useMemo(() => {
@@ -38,30 +60,87 @@ export default function CardMovements({ transactions = [], cards = [], subscript
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [transactions, cards]);
 
-    const byCardFiltered = useMemo(
-        () => cardId === 'all' ? creditTx : creditTx.filter(t => t.selectedCardId === cardId),
-        [creditTx, cardId]
-    );
+    // Assinaturas/parcelamentos vinculados, convertidos em itens de fatura (mesma lógica da aba Cartões).
+    const subItems = useMemo(() => {
+        const now = new Date();
+        return subscriptions.filter(s => s.cardId).map(s => {
+            const closing = closingOf(s.cardId);
+            const currInv = getInvoiceMonth(now.toISOString(), closing);
+            const subDay = parseInt(s.day) || 1;
+            const chargeDate = new Date(now.getFullYear(), now.getMonth(), subDay, 12, 0, 0);
+            const chargeInv = getInvoiceMonth(chargeDate.toISOString(), closing);
+            // Entra na fatura em aberto se ainda não foi paga neste ciclo e já incidiu (não é fatura futura).
+            const isOpen = s.lastPaidMonth !== currInv && chargeInv <= currInv;
+            return {
+                id: `sub-${s.id}`,
+                description: `${s.name} ${s.type === 'installment' ? '(parcela)' : '(assinatura)'}`,
+                category: s.category || (s.type === 'installment' ? 'shopping' : 'subscriptions'),
+                amount: parseFloat(s.value) || 0,
+                date: chargeDate.toISOString(),
+                selectedCardId: s.cardId,
+                invoiceMonth: currInv,
+                invoiceStatus: isOpen ? 'unpaid' : 'paid',
+                isSub: true,
+            };
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [subscriptions, cards]);
 
-    const availableInvoices = useMemo(() => {
-        const set = [...new Set(byCardFiltered.map(t => t.invoiceMonth).filter(Boolean))];
-        return set.sort((a, b) => b.localeCompare(a));
-    }, [byCardFiltered]);
+    // Universo de itens (compras + assinaturas) já filtrado pelo cartão.
+    const allItems = useMemo(() => {
+        const merged = [...creditTx, ...subItems];
+        return cardId === 'all' ? merged : merged.filter(t => t.selectedCardId === cardId);
+    }, [creditTx, subItems, cardId]);
+
+    // Projeção de itens de uma fatura futura: recorrentes (todo mês) + parcelas restantes + compras de crédito já lançadas pra frente.
+    const projectFuture = useMemo(() => {
+        const offset = monthsBetween(currentInvoiceMonth, invoice); // >= 1 quando futuro
+        const subs = subscriptions.filter(s => s.cardId && (cardId === 'all' || s.cardId === cardId));
+        const projected = [];
+        subs.forEach(s => {
+            if (s.type === 'installment') {
+                // parcela atual está na fatura aberta; nas futuras avança currentInstallment + offset
+                const total = parseInt(s.totalInstallments) || 0;
+                const curr = parseInt(s.currentInstallment) || 1;
+                const num = curr + offset;
+                if (total > 0 && num <= total) {
+                    projected.push({
+                        id: `proj-${s.id}-${invoice}`,
+                        description: `${s.name} (parcela ${num}/${total})`,
+                        category: s.category || 'shopping',
+                        amount: parseFloat(s.value) || 0,
+                        date: new Date(`${invoice}-01T12:00:00`).toISOString(),
+                        selectedCardId: s.cardId, invoiceMonth: invoice, invoiceStatus: 'projected', isSub: true, isProjected: true,
+                    });
+                }
+            } else {
+                // recorrente: incide em toda fatura futura
+                projected.push({
+                    id: `proj-${s.id}-${invoice}`,
+                    description: `${s.name} (assinatura)`,
+                    category: s.category || 'subscriptions',
+                    amount: parseFloat(s.value) || 0,
+                    date: new Date(`${invoice}-01T12:00:00`).toISOString(),
+                    selectedCardId: s.cardId, invoiceMonth: invoice, invoiceStatus: 'projected', isSub: true, isProjected: true,
+                });
+            }
+        });
+        // compras no crédito já registradas que caem nessa fatura futura
+        const futurePurchases = allItems.filter(t => !t.isSub && t.invoiceMonth === invoice);
+        return [...futurePurchases, ...projected];
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [subscriptions, cardId, currentInvoiceMonth, invoice, allItems]);
 
     const items = useMemo(() => {
-        const list = invoice === 'all' ? byCardFiltered : byCardFiltered.filter(t => t.invoiceMonth === invoice);
+        let list;
+        if (phase === 'open') list = allItems.filter(t => t.invoiceStatus === 'unpaid');
+        else if (phase === 'past') list = allItems.filter(t => t.invoiceMonth === invoice && t.invoiceStatus === 'paid');
+        else list = projectFuture;
         return [...list].sort((a, b) => new Date(b.date) - new Date(a.date));
-    }, [byCardFiltered, invoice]);
-
-    // Assinaturas/parcelamentos vinculados ao cartão (informativo).
-    const linkedSubs = useMemo(() => {
-        let subs = subscriptions.filter(s => s.cardId);
-        if (cardId !== 'all') subs = subs.filter(s => s.cardId === cardId);
-        return subs;
-    }, [subscriptions, cardId]);
-    const subsTotal = linkedSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+    }, [allItems, invoice, phase, projectFuture]);
 
     const total = items.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+    const subsTotal = items.filter(t => t.isSub).reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
     const count = items.length;
     const avg = count > 0 ? total / count : 0;
 
@@ -91,7 +170,7 @@ export default function CardMovements({ transactions = [], cards = [], subscript
 
                 <div>
                     <label className={`text-[10px] font-bold uppercase tracking-widest block mb-1.5 ${sub}`}>Cartão</label>
-                    <select value={cardId} onChange={e => { setCardId(e.target.value); setInvoice('all'); }} className={selCls}>
+                    <select value={cardId} onChange={e => setCardId(e.target.value)} className={selCls}>
                         <option value="all">Todos os cartões</option>
                         {cards.map(c => <option key={c.id} value={c.id}>{c.name || c.brand} {c.last4 ? `•${c.last4}` : ''}</option>)}
                     </select>
@@ -99,24 +178,34 @@ export default function CardMovements({ transactions = [], cards = [], subscript
 
                 <div>
                     <label className={`text-[10px] font-bold uppercase tracking-widest block mb-1.5 ${sub}`}>Fatura</label>
-                    <select value={invoice} onChange={e => setInvoice(e.target.value)} className={selCls}>
-                        <option value="all">Todas as faturas</option>
-                        {availableInvoices.map(k => <option key={k} value={k}>{invoiceLabel(k)}</option>)}
-                    </select>
+                    <div className={`flex items-center justify-between rounded-xl border ${isDark ? 'bg-[#161b27] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                        <button onClick={() => setInvoice(addMonths(invoice, -1))} className="p-2 text-slate-400 hover:text-violet-400"><ChevronLeft className="w-4 h-4" /></button>
+                        <span className={`text-[11px] font-bold uppercase capitalize ${txt}`}>{invoiceLabel(invoice)}</span>
+                        <button onClick={() => setInvoice(addMonths(invoice, 1))} className="p-2 text-slate-400 hover:text-violet-400"><ChevronRight className="w-4 h-4" /></button>
+                    </div>
+                    <div className="mt-1.5 flex justify-center">
+                        <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${phase === 'open' ? 'bg-violet-500/15 text-violet-400' : phase === 'past' ? 'bg-slate-500/15 text-slate-400' : 'bg-amber-500/15 text-amber-400'}`}>
+                            {phase === 'open' ? 'Em aberto' : phase === 'past' ? 'Paga' : 'Prevista'}
+                        </span>
+                    </div>
                 </div>
 
                 <div className={`pt-3 mt-1 border-t space-y-2.5 ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
                     <div className="flex items-center justify-between">
-                        <span className={`text-[11px] ${sub}`}>Total da seleção</span>
+                        <span className={`text-[11px] ${sub}`}>{phase === 'open' ? 'Total em aberto' : phase === 'future' ? 'Total previsto' : 'Total da fatura'}</span>
                         <span className={`text-sm font-black ${txt}`}>R$ {fmt(total)}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                        <span className={`text-[11px] ${sub}`}>Movimentações</span>
-                        <span className={`text-sm font-black ${txt}`}>{count}</span>
+                        <span className={`text-[11px] ${sub}`}>Compras</span>
+                        <span className={`text-sm font-black ${txt}`}>R$ {fmt(total - subsTotal)}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                        <span className={`text-[11px] ${sub}`}>Assinaturas vinculadas</span>
+                        <span className={`text-[11px] ${sub}`}>Assinaturas / parcelas</span>
                         <span className="text-sm font-black text-purple-400">R$ {fmt(subsTotal)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <span className={`text-[11px] ${sub}`}>Itens</span>
+                        <span className={`text-sm font-black ${txt}`}>{count}</span>
                     </div>
                 </div>
             </div>
@@ -134,8 +223,8 @@ export default function CardMovements({ transactions = [], cards = [], subscript
                 {count === 0 ? (
                     <div className={`p-12 rounded-2xl border text-center ${card}`}>
                         <CreditCard className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-                        <p className={`font-bold ${txt}`}>Nenhuma movimentação no crédito</p>
-                        <p className={`text-sm ${sub}`}>Ajuste os filtros de cartão e fatura acima.</p>
+                        <p className={`font-bold ${txt}`}>{phase === 'open' ? 'Nenhuma fatura em aberto' : phase === 'future' ? 'Nada previsto nesta fatura' : 'Sem itens nesta fatura'}</p>
+                        <p className={`text-sm ${sub}`}>Navegue entre as faturas ou troque o cartão acima.</p>
                     </div>
                 ) : (
                     <>
@@ -149,7 +238,7 @@ export default function CardMovements({ transactions = [], cards = [], subscript
                                             <Pie data={byCategory} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} stroke="none">
                                                 {byCategory.map((e, i) => <Cell key={i} fill={e.color} />)}
                                             </Pie>
-                                            <Tooltip formatter={(v) => `R$ ${fmt(v)}`} contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: '12px' }} />
+                                            <Tooltip formatter={(v) => `R$ ${fmt(v)}`} contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: '12px' }} labelStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }} itemStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }} />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -180,7 +269,7 @@ export default function CardMovements({ transactions = [], cards = [], subscript
 
                         {/* Lista de movimentações */}
                         <div className={`p-5 md:p-6 rounded-2xl border ${card}`}>
-                            <h4 className={`text-sm font-bold uppercase tracking-wider mb-4 ${txt}`}>Movimentações {invoice !== 'all' ? `· ${invoiceLabel(invoice)}` : ''}</h4>
+                            <h4 className={`text-sm font-bold uppercase tracking-wider mb-4 ${txt}`}>Movimentações · {invoiceLabel(invoice)} {phase === 'open' ? '(em aberto)' : phase === 'future' ? '(prevista)' : '(paga)'}</h4>
                             <div className="space-y-1">
                                 <div className={`hidden sm:grid grid-cols-[1.5fr_1fr_1fr_1fr] pb-2 border-b text-[9px] font-bold uppercase tracking-wider ${sub} ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                                     <span>Descrição</span><span>Categoria</span><span className="text-center">Fatura</span><span className="text-right">Valor</span>
@@ -190,7 +279,10 @@ export default function CardMovements({ transactions = [], cards = [], subscript
                                     return (
                                         <div key={t.id} className="grid grid-cols-[1fr_auto] sm:grid-cols-[1.5fr_1fr_1fr_1fr] items-center gap-2 py-2.5 text-[12px]">
                                             <div className="min-w-0">
-                                                <p className={`font-medium truncate ${txt}`}>{t.description || 'Sem descrição'}</p>
+                                                <p className={`font-medium truncate flex items-center gap-1.5 ${txt}`}>
+                                                    {t.isSub && <Repeat className="w-3 h-3 text-purple-400 shrink-0" />}
+                                                    <span className="truncate">{t.description || 'Sem descrição'}</span>
+                                                </p>
                                                 <p className="text-[10px] text-slate-400">{new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
                                             </div>
                                             <span className={`hidden sm:inline text-[11px] ${sub}`}>{cat?.label || 'Outro'}</span>

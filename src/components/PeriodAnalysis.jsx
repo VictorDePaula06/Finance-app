@@ -12,17 +12,9 @@ import logo from '../assets/logo.png';
 const fmt = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const PALETTE = ['#f43f5e', '#f59e0b', '#3b82f6', '#8b5cf6', '#10b981', '#ec4899', '#14b8a6', '#eab308', '#64748b'];
 
-const SCOPES = [
-  { id: 'atual', label: 'Fatura atual' },
-  { id: 'antiga', label: 'Fatura anterior' },
-  { id: 'futura', label: 'Fatura futura (recorrentes)' },
-];
-
 export default function PeriodAnalysis({ transactions = [], cards = [], subscriptions = [], theme }) {
   const isDark = theme !== 'light';
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [includeCredit, setIncludeCredit] = useState(false);
-  const [scope, setScope] = useState('atual');
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [aiReviewText, setAiReviewText] = useState('');
@@ -35,50 +27,22 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
     return new Date(y, m - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   }, [selectedMonth]);
 
-  const closingOf = (id) => { const c = cards.find(x => x.id === id); if (!c) return 25; return c.closingDay || ((c.dueDay - 7 > 0) ? c.dueDay - 7 : 25); };
-  const getInvoiceMonth = (dateStr, closingDay) => {
-    const d = new Date(dateStr); if (isNaN(d.getTime())) return '';
-    let month = d.getMonth(), year = d.getFullYear();
-    if (d.getDate() >= closingDay) { month += 1; if (month > 11) { month = 0; year += 1; } }
-    return `${year}-${String(month + 1).padStart(2, '0')}`;
-  };
-
-  // Conjunto de despesas do relatório (à vista do mês + crédito conforme escopo).
+  // Fluxo de caixa: só o que saiu da carteira no mês — gastos à vista + pagamentos de fatura.
+  // Compras no crédito NÃO entram aqui (são consumo da fatura, vistas em Movimentações Cartões);
+  // o que aparece é o pagamento da fatura (credit_card_bill), que é a saída real de dinheiro.
   const expenseItems = useMemo(() => {
     const inMonth = (t) => (t.date?.slice(0, 7) || t.month) === selectedMonth;
-    // Despesas à vista (não-crédito) do mês selecionado.
-    const base = transactions
+    return transactions
       .filter(t => t.type === 'expense' && !['investment', 'vault'].includes(t.category) && t.paymentMethod !== 'credito' && inMonth(t))
-      .map(t => ({ id: t.id, description: t.description, category: t.category || 'other', amount: parseFloat(t.amount) || 0, date: t.date, kind: 'avista' }));
-
-    if (!includeCredit) return base;
-
-    const creditTx = transactions
-      .filter(t => t.type === 'expense' && t.paymentMethod === 'credito')
-      .map(t => ({ ...t, invoiceMonth: getInvoiceMonth(t.date || new Date().toISOString(), closingOf(t.selectedCardId)) }));
-
-    let creditSet = [];
-    if (scope === 'atual') {
-      creditSet = creditTx.filter(t => t.invoiceMonth === selectedMonth);
-    } else if (scope === 'antiga') {
-      creditSet = creditTx.filter(t => t.invoiceMonth && t.invoiceMonth < selectedMonth);
-    } else {
-      // futura: lançamentos de crédito com fatura à frente + recorrentes projetados (assinaturas/parcelamentos no cartão)
-      creditSet = creditTx.filter(t => t.invoiceMonth && t.invoiceMonth > selectedMonth);
-      subscriptions.filter(s => s.cardId).forEach(s => {
-        creditSet.push({
-          id: `sub-${s.id}`,
-          description: s.type === 'installment' ? `${s.name} (parcela)` : `${s.name} (assinatura)`,
-          category: s.type === 'installment' ? (s.category || 'other') : (s.category || 'subscriptions'),
-          amount: parseFloat(s.value) || 0,
-          date: new Date().toISOString(),
-          selectedCardId: s.cardId,
-        });
-      });
-    }
-    const creditMapped = creditSet.map(t => ({ id: t.id, description: t.description, category: t.category || 'other', amount: parseFloat(t.amount) || 0, date: t.date, kind: 'credito' }));
-    return [...base, ...creditMapped];
-  }, [transactions, subscriptions, cards, selectedMonth, includeCredit, scope]);
+      .map(t => ({
+        id: t.id,
+        description: t.description,
+        category: t.category || 'other',
+        amount: parseFloat(t.amount) || 0,
+        date: t.date,
+        kind: t.category === 'credit_card_bill' ? 'fatura' : 'avista',
+      }));
+  }, [transactions, selectedMonth]);
 
   const income = useMemo(() => transactions
     .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category) && (t.date?.slice(0, 7) || t.month) === selectedMonth)
@@ -99,7 +63,21 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
 
   const handleExportPDF = async () => {
     setIsExportingPDF(true);
-    try { await generatePDF(transactions, selectedMonth, logo, !includeCredit); }
+    try {
+      const incomeRows = transactions
+        .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category) && (t.date?.slice(0, 7) || t.month) === selectedMonth)
+        .map(t => ({ date: t.date, description: t.description, category: t.category, amount: parseFloat(t.amount) || 0, type: 'income' }));
+      const expenseRows = expenseItems.map(t => ({ date: t.date, description: t.description, category: t.category, amount: t.amount, type: 'expense', kind: t.kind }));
+      await generatePDF({
+        monthKey: selectedMonth,
+        monthLabel,
+        income,
+        expense: totalExpense,
+        balance,
+        byCategory,
+        rows: [...incomeRows, ...expenseRows],
+      }, logo);
+    }
     catch (e) { console.error(e); alert('Erro ao gerar PDF.'); }
     finally { setIsExportingPDF(false); }
   };
@@ -133,25 +111,9 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
           </div>
         </div>
 
-        {/* Incluir cartão */}
-        <div className={`flex items-center justify-between px-3 py-2.5 rounded-xl border ${isDark ? 'bg-[#161b27] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
-          <span className={`text-[11px] font-bold uppercase tracking-wider ${sub}`}>Incluir cartão</span>
-          <label className="inline-flex items-center cursor-pointer">
-            <input type="checkbox" className="sr-only peer" checked={includeCredit} onChange={(e) => setIncludeCredit(e.target.checked)} />
-            <div className="relative w-9 h-5 bg-slate-300 dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
-          </label>
-        </div>
-
-        {/* Fatura (só quando incluir cartão) */}
-        {includeCredit && (
-          <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-            <label className={`text-[10px] font-bold uppercase tracking-widest block mb-1.5 ${sub}`}>Fatura</label>
-            <select value={scope} onChange={e => setScope(e.target.value)}
-              className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold border outline-none cursor-pointer appearance-none ${isDark ? 'bg-[#161b27] border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}>
-              {SCOPES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-          </div>
-        )}
+        <p className={`text-[10px] leading-snug px-1 ${sub}`}>
+          Fluxo de caixa do mês: tudo que saiu da carteira — gastos à vista e pagamentos de fatura do cartão. As compras no crédito aparecem em Movimentações Cartões.
+        </p>
 
         <div className={`pt-3 mt-1 border-t space-y-2.5 ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
           <div className="flex items-center justify-between"><span className={`text-[11px] ${sub}`}>Ganhos</span><span className="text-sm font-black text-emerald-500">R$ {fmt(income)}</span></div>
@@ -177,7 +139,7 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
           <div className={`p-12 rounded-2xl border text-center ${card}`}>
             <Receipt className="w-10 h-10 text-slate-400 mx-auto mb-3" />
             <p className={`font-bold ${txt}`}>Nenhum gasto neste período</p>
-            <p className={`text-sm ${sub}`}>Ajuste o mês ou inclua o cartão nos filtros.</p>
+            <p className={`text-sm ${sub}`}>Ajuste o mês para ver o fluxo de caixa.</p>
           </div>
         ) : (
           <>
@@ -190,7 +152,7 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
                       <Pie data={byCategory} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} stroke="none">
                         {byCategory.map((e, i) => <Cell key={i} fill={e.color} />)}
                       </Pie>
-                      <Tooltip formatter={(v) => `R$ ${fmt(v)}`} contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: '12px' }} />
+                      <Tooltip formatter={(v) => `R$ ${fmt(v)}`} contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: '12px' }} labelStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }} itemStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -229,7 +191,7 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
                         <p className="text-[10px] text-slate-400">{t.date ? new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}</p>
                       </div>
                       <span className={`hidden sm:inline text-[11px] ${sub}`}>{cat?.label || 'Outro'}</span>
-                      <span className={`hidden sm:inline text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${t.kind === 'credito' ? 'bg-violet-500/15 text-violet-400' : 'bg-emerald-500/15 text-emerald-400'}`}>{t.kind === 'credito' ? 'Crédito' : 'À vista'}</span>
+                      <span className={`hidden sm:inline text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${t.kind === 'fatura' ? 'bg-violet-500/15 text-violet-400' : 'bg-emerald-500/15 text-emerald-400'}`}>{t.kind === 'fatura' ? 'Fatura' : 'À vista'}</span>
                       <span className="text-right font-bold text-rose-400 tabular-nums">R$ {fmt(t.amount)}</span>
                     </div>
                   );

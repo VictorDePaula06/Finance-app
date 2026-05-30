@@ -12,45 +12,25 @@ const loadImage = (src) => {
     });
 };
 
-export const generatePDF = async (transactions, selectedMonth_YYYY_MM, logoSrc, showRealFlow = false) => {
+export const generatePDF = async (data, logoSrc) => {
     const doc = new jsPDF();
 
     // --- Data Preparation ---
-    // Filter transactions for the selected month
-    const filtered = transactions.filter(t => {
-        // Robust month extraction — antes podia crashar se t.month e t.date fossem ambos undefined
-        const tMonth = t.month || (typeof t.date === 'string' ? t.date.slice(0, 7) : '');
-        return tMonth === selectedMonth_YYYY_MM;
-    }).sort((a, b) => new Date(b.date) - new Date(a.date));
+    // O relatório já vem calculado (fluxo de caixa) do PeriodAnalysis.
+    const {
+        monthKey,
+        monthLabel,
+        income = 0,
+        expense = 0,
+        balance = 0,
+        byCategory = [],
+        rows = [],
+    } = data || {};
 
-    // Calculate Totals based on view
-    let income, expense;
+    // Linhas ordenadas por data (mais recente primeiro).
+    const filtered = [...rows].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    if (showRealFlow) {
-        income = filtered
-            .filter(t => t.type === 'income' && t.category !== 'initial_balance' && t.category !== 'carryover' && t.category !== 'vault_redemption')
-            .reduce((acc, t) => acc + Number(t.amount), 0);
-        
-        expense = filtered
-            .filter(t => t.type === 'expense' && t.category !== 'investment' && t.category !== 'vault')
-            .reduce((acc, t) => acc + Number(t.amount), 0);
-    } else {
-        income = filtered
-            .filter(t => t.type === 'income')
-            .reduce((acc, t) => acc + Number(t.amount), 0);
-        
-        expense = filtered
-            .filter(t => t.type === 'expense')
-            .reduce((acc, t) => acc + Number(t.amount), 0);
-    }
-
-    const balance = income - expense;
-
-    // Dates
-    const [year, month] = selectedMonth_YYYY_MM.split('-');
-    const dateObj = new Date(year, month - 1);
-    const monthName = dateObj.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-    const formattedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+    const formattedMonth = monthLabel ? monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1) : monthKey;
 
     // --- PDF DRAWING ---
 
@@ -100,7 +80,7 @@ export const generatePDF = async (transactions, selectedMonth_YYYY_MM, logoSrc, 
     doc.setFontSize(8);
     doc.setTextColor(52, 211, 153); // Emerald 400
     doc.setFont("helvetica", "bold");
-    const flowText = showRealFlow ? "VISÃO: FLUXO REAL (CONSUMO)" : "VISÃO: FLUXO TOTAL (BRUTO)";
+    const flowText = "VISAO: FLUXO DE CAIXA";
     const textWidth = doc.getTextWidth(flowText);
     doc.text(flowText, 196 - textWidth, 34);
 
@@ -148,27 +128,9 @@ export const generatePDF = async (transactions, selectedMonth_YYYY_MM, logoSrc, 
     drawCard(14 + (cardWidth + gap) * 2, "Saldo Final", balance, balance >= 0 ? 'blue' : 'red');
 
     // --- CHART / CATEGORY BREAKDOWN ---
-    const categoryTotals = filtered
-        .filter(t => t.type === 'expense')
-        .reduce((acc, t) => {
-            const catId = t.category;
-            if (!acc[catId]) {
-                const catList = CATEGORIES.expense;
-                const foundCat = catList.find(c => c.id === catId) || catList.find(c => c.id === 'other');
-                acc[catId] = {
-                    id: catId,
-                    label: foundCat ? foundCat.label : 'Outro',
-                    amount: 0,
-                    color: foundCat ? foundCat.color.replace('text-', '') : 'slate-400' // rudimentary color mapping
-                };
-            }
-            acc[catId].amount += Number(t.amount);
-            return acc;
-        }, {});
-
-    const sortedCategories = Object.values(categoryTotals)
-        .sort((a, b) => b.amount - a.amount)
-        .slice(0, 5); // Start with top 5
+    const sortedCategories = byCategory
+        .map(c => ({ id: c.id, label: c.label, amount: c.value }))
+        .slice(0, 5); // Top 5
 
     if (sortedCategories.length > 0) {
         const startY = 85;

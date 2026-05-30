@@ -7,7 +7,7 @@ import { CATEGORIES } from '../constants/categories';
 const EXCLUDED = ['investment', 'vault', 'credit_card_bill', 'conta_fixa'];
 const fmt = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function SpendingGoals({ transactions = [], manualConfig = {}, onUpdateConfig, theme }) {
+export default function SpendingGoals({ transactions = [], cards = [], subscriptions = [], manualConfig = {}, onUpdateConfig, theme }) {
     const isDark = theme !== 'light';
     const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
     const [showModal, setShowModal] = useState(false);
@@ -22,10 +22,13 @@ export default function SpendingGoals({ transactions = [], manualConfig = {}, on
         return new Date(y, m - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
     }, [selectedMonth]);
 
+    // Gasto por categoria no mês — base de CAIXA (data da compra): conta o gasto no mês em que aconteceu,
+    // inclusive compras no crédito (pela data da compra, não pela fatura). credit_card_bill é transferência → fora.
     const spentByCat = useMemo(() => {
         const map = {};
         transactions
-            .filter(t => t.type === 'expense' && !['investment', 'vault'].includes(t.category) && ((t.date?.slice(0, 7)) === selectedMonth || t.month === selectedMonth))
+            .filter(t => t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category)
+                && (t.date?.slice(0, 7) || t.month) === selectedMonth)
             .forEach(t => { const c = t.category || 'other'; map[c] = (map[c] || 0) + (parseFloat(t.amount) || 0); });
         return map;
     }, [transactions, selectedMonth]);
@@ -130,7 +133,7 @@ export default function SpendingGoals({ transactions = [], manualConfig = {}, on
                                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={isDark ? '#1e293b' : '#f1f5f9'} />
                                     <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: isDark ? '#94a3b8' : '#64748b' }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
                                     <YAxis type="category" dataKey="label" width={90} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: isDark ? '#cbd5e1' : '#475569' }} />
-                                    <Tooltip formatter={(v) => `R$ ${fmt(v)}`} cursor={{ fill: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }} contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: '12px' }} />
+                                    <Tooltip formatter={(v) => `R$ ${fmt(v)}`} cursor={{ fill: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }} contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: '12px' }} labelStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }} itemStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }} />
                                     <Legend wrapperStyle={{ fontSize: 11 }} />
                                     <Bar dataKey="Teto" fill={isDark ? '#475569' : '#cbd5e1'} radius={[0, 4, 4, 0]} maxBarSize={16} />
                                     <Bar dataKey="Gasto" radius={[0, 4, 4, 0]} maxBarSize={16}>

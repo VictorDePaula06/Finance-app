@@ -31,10 +31,10 @@ const AnalysisTab = ({ transactions = [], cards = [], subscriptions = [], manual
         <CardMovements transactions={transactions} cards={cards} subscriptions={subscriptions} theme={theme} />
       )}
       {view === 'metas' && (
-        <SpendingGoals transactions={transactions} manualConfig={manualConfig} onUpdateConfig={onUpdateConfig} theme={theme} />
+        <SpendingGoals transactions={transactions} cards={cards} subscriptions={subscriptions} manualConfig={manualConfig} onUpdateConfig={onUpdateConfig} theme={theme} />
       )}
       {view === 'comparativo' && (
-        <MonthlyComparative transactions={transactions} theme={theme} />
+        <MonthlyComparative transactions={transactions} cards={cards} subscriptions={subscriptions} theme={theme} />
       )}
     </div>
   );

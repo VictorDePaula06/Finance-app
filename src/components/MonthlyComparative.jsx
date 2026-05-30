@@ -5,7 +5,7 @@ import { CATEGORIES } from '../constants/categories';
 
 const fmt = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function MonthlyComparative({ transactions = [], theme, includeCredit = false }) {
+export default function MonthlyComparative({ transactions = [], theme }) {
     const isDark = theme !== 'light';
     const [range, setRange] = useState(6); // 3 | 6 | 12
     const [reportMode, setReportMode] = useState('sintetico'); // 'sintetico' | 'analitico'
@@ -23,19 +23,21 @@ export default function MonthlyComparative({ transactions = [], theme, includeCr
         return arr;
     }, [range]);
 
+    // Gastos em base de CAIXA (data da compra): conta o gasto no mês em que aconteceu,
+    // inclusive compras no crédito. credit_card_bill é transferência → fora.
     const data = useMemo(() => {
         return months.map(mo => {
             const monthTx = transactions.filter(t => (t.date?.slice(0, 7) || t.month) === mo.key);
             const income = monthTx
                 .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
                 .reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
-            const expenseTxs = monthTx.filter(t => t.type === 'expense' && !['investment', 'vault'].includes(t.category) && (includeCredit || t.paymentMethod !== 'credito'));
+            const expenseTxs = monthTx.filter(t => t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category));
             const expense = expenseTxs.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
             const byCat = {};
             expenseTxs.forEach(t => { const c = t.category || 'other'; byCat[c] = (byCat[c] || 0) + (parseFloat(t.amount) || 0); });
             return { ...mo, Ganhos: income, Gastos: expense, Saldo: income - expense, byCat };
         });
-    }, [months, transactions, includeCredit]);
+    }, [months, transactions]);
 
     // Síntese do período
     const synth = useMemo(() => {
@@ -113,6 +115,7 @@ export default function MonthlyComparative({ transactions = [], theme, includeCr
                                 contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: '12px' }}
                                 formatter={(v) => `R$ ${fmt(v)}`}
                                 labelStyle={{ color: isDark ? '#94a3b8' : '#64748b', marginBottom: 4, textTransform: 'capitalize' }}
+                                itemStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }}
                                 cursor={{ fill: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }}
                             />
                             <Legend wrapperStyle={{ fontSize: 11 }} />

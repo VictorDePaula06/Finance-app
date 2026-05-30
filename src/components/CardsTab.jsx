@@ -453,15 +453,32 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
   const installmentSubs = subscriptions.filter(s => s.type === 'installment');
   const monthlySubsTotal = recurringSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
   const monthlyInstallTotal = installmentSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
-  const unpaidInvoiceTotal = transactions
-    .filter(t => t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid')
-    .reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
   const monthlyCommitment = monthlySubsTotal + monthlyInstallTotal;
+
+  // Soma real das faturas abertas — mesma lógica de cada cartão (transações + assinaturas vinculadas)
+  const _today = new Date();
+  const unpaidInvoiceTotal = cards.reduce((total, card) => {
+    const { all: unpaidExpenses, currentInvoiceMonth, closingDay } = getUnpaidExpensesByPeriod(card);
+    const cardSubs = getCardSubs(card.id).filter(s => {
+      if (s.lastPaidMonth === currentInvoiceMonth) return false;
+      const subDay = parseInt(s.day) || 1;
+      const chargeDate = new Date(_today.getFullYear(), _today.getMonth(), subDay, 12, 0, 0);
+      return getInvoiceMonth(chargeDate.toISOString(), closingDay) <= currentInvoiceMonth;
+    });
+    const expensesTotal = unpaidExpenses.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+    const subsTotal = cardSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+    return total + expensesTotal + subsTotal;
+  }, 0);
+
   const isDark = theme !== 'light';
   const kpiCardBg = isDark ? 'bg-[#1e2330] border-slate-800/60' : 'bg-white border-slate-100 shadow-sm';
 
+  const kpiInvoiceHint = cards.length === 0
+    ? 'nenhum cartão'
+    : cards.map(c => c.name).join(' + ');
+
   const KPIS = [
-    { label: 'Faturas em aberto', value: unpaidInvoiceTotal, icon: CreditCard, accent: 'rose', hint: `${cards.length} ${cards.length === 1 ? 'cartão' : 'cartões'}` },
+    { label: 'Faturas em aberto', value: unpaidInvoiceTotal, icon: CreditCard, accent: 'rose', hint: kpiInvoiceHint },
     { label: 'Assinaturas / mês', value: monthlySubsTotal, icon: Calendar, accent: 'purple', hint: `${recurringSubs.length} ${recurringSubs.length === 1 ? 'ativa' : 'ativas'}` },
     { label: 'Parcelas / mês', value: monthlyInstallTotal, icon: Hash, accent: 'amber', hint: `${installmentSubs.length} ${installmentSubs.length === 1 ? 'parcelamento' : 'parcelamentos'}` },
     { label: 'Comprometido / mês', value: monthlyCommitment, icon: Repeat, accent: 'emerald', hint: 'assinaturas + parcelas' },
@@ -541,7 +558,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
         </div>
 
         {!collapsed.cards && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {cards.map(card => {
             const cardSubs = getCardSubs(card.id);
             const { current: currentExpenses, previous: previousExpenses, all: unpaidExpenses, currentInvoiceMonth, closingDay } = getUnpaidExpensesByPeriod(card);
@@ -572,7 +589,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             const currentMonthName = new Date().toLocaleDateString('pt-BR', { month: 'long' });
             
             return (
-              <div key={card.id} className={`group relative p-4 rounded-2xl border transition-all duration-500 ${
+              <div key={card.id} className={`group relative p-4 rounded-2xl border transition-all duration-500 max-w-sm w-full mx-auto ${
                 theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-800/60 shadow-2xl'
               }`}>
                 {/* Visual Card Element */}
