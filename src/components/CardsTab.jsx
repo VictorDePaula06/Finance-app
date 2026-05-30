@@ -558,6 +558,13 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
         </div>
 
         {!collapsed.cards && (
+        <>
+        <div className={`flex items-start gap-3 p-3.5 rounded-2xl border ${theme === 'light' ? 'bg-blue-50/70 border-blue-100' : 'bg-blue-500/5 border-blue-500/20'}`}>
+          <AlertCircle className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+          <p className={`text-[11px] leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
+            <span className="font-bold">Como lançar no cartão:</span> as <span className="font-bold">despesas no crédito</span> devem ser lançadas pela aba <span className="font-bold">Despesas</span> (escolhendo a forma de pagamento Crédito) para constarem na fatura. Já as <span className="font-bold">assinaturas avulsas</span> e os <span className="font-bold">parcelamentos</span> podem ser cadastrados direto aqui na aba Cartões.
+          </p>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {cards.map(card => {
             const cardSubs = getCardSubs(card.id);
@@ -764,6 +771,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             </button>
           )}
         </div>
+        </>
         )}
       </section>
 
