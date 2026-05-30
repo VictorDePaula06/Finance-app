@@ -1709,7 +1709,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                 <div className="relative mx-auto w-24 h-24">
                                     <div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-ping opacity-20"></div>
                                     <div className="relative w-full h-full bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-xl shadow-emerald-500/30">
-                                        <TrendingUp className="w-10 h-10" />
+                                        <TrendingDown className="w-10 h-10" />
                                     </div>
                                 </div>
 
