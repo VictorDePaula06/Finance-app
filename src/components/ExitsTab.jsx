@@ -339,8 +339,9 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 installmentMode
             };
 
-            // If it's recurring or installment, also create a subscription entry for the Cards Tab
-            if (isRecurring || isInstallment) {
+            // If it's recurring or installment, also create a subscription entry for the Cards Tab.
+            // Só em NOVOS lançamentos — em edições isso duplicaria a assinatura/parcelamento.
+            if (!editingId && (isRecurring || isInstallment)) {
                 const subData = {
                     name: description,
                     value: transactionValue,
@@ -406,6 +407,17 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         if (t.isFixed || t.category === 'conta_fixa') {
             setFixedExpenseWarning(true);
             return;
+        }
+        // Parcelamento: editar abre a tela dedicada "Editar Parcelamento" na aba Cartões.
+        if (t.isSubscription) {
+            const subId = t.id.replace(/-\d{4}-\d{2}$/, '');
+            const subRef = subscriptions.find(s => s.id === subId);
+            if (subRef && (subRef.type === 'installment' || subRef.isInstallment)) {
+                window.__editInstallmentSubId = subId;
+                window.dispatchEvent(new CustomEvent('navigate-tab', { detail: 'cartoes' }));
+                window.dispatchEvent(new CustomEvent('edit-installment', { detail: subId }));
+                return;
+            }
         }
         // Para assinaturas/parcelamentos, a "transação" exibida é uma ocorrência gerada
         // (usa cardId e tem a descrição com sufixo "(n/total)"). Carregamos os dados a

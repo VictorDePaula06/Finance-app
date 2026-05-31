@@ -152,6 +152,22 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
     });
   };
 
+  // Abre o modal "Editar Parcelamento" quando a edição vem da aba Despesas.
+  // O id pendente é setado em window.__editInstallmentSubId antes de navegar para cá;
+  // tentamos abrir sempre que as assinaturas carregarem (retry até encontrar).
+  useEffect(() => {
+    const tryOpen = () => {
+      const id = window.__editInstallmentSubId;
+      if (!id) return;
+      const sub = subscriptions.find(s => s.id === id);
+      if (sub) { window.__editInstallmentSubId = null; openEditSub(sub); }
+    };
+    tryOpen();
+    const handler = (e) => { window.__editInstallmentSubId = e.detail; tryOpen(); };
+    window.addEventListener('edit-installment', handler);
+    return () => window.removeEventListener('edit-installment', handler);
+  }, [subscriptions]);
+
   const openEditTransaction = (exp) => {
     const d = new Date(exp.date);
     const formattedDate = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
