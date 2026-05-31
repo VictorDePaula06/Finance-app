@@ -407,25 +407,39 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             setFixedExpenseWarning(true);
             return;
         }
+        // Para assinaturas/parcelamentos, a "transação" exibida é uma ocorrência gerada
+        // (usa cardId e tem a descrição com sufixo "(n/total)"). Carregamos os dados a
+        // partir da subscription REAL para preencher o formulário corretamente.
+        let sub = null;
         if (t.isSubscription) {
             const realSubId = t.id.replace(/-\d{4}-\d{2}$/, '');
+            sub = subscriptions.find(s => s.id === realSubId) || null;
             setEditingId(realSubId);
             setEditingIsSubscription(true);
         } else {
             setEditingId(t.id);
             setEditingIsSubscription(false);
         }
-        setDescription((t.description || '').replace('Investimento: ', ''));
-        setAmount(String(t.amount ?? ''));
+
+        // Remove "Investimento: " e o sufixo de parcela "(1/12)" para não duplicar ao salvar.
+        const baseDescription = (sub?.name ?? t.description ?? '')
+            .replace('Investimento: ', '')
+            .replace(/\s*\(\d+\/\d+\)\s*$/, '');
+
+        setDescription(baseDescription);
+        setAmount(String((sub?.value ?? t.amount) ?? ''));
         setDate(new Date(t.date).toLocaleDateString('en-CA'));
-        setCategory(t.category);
-        setIsRecurring(t.isFixed || false);
-        setIsInstallment(t.isInstallment || false);
-        setInstallments(t.totalInstallments?.toString() || '2');
-        setPaymentMethod(t.paymentMethod || 'pix');
-        setSelectedCardId(t.selectedCardId || '');
-        setInstallmentMode(t.installmentMode || 'total');
-        setPriority(t.priority || CATEGORIES.expense.find(c => c.id === t.category)?.defaultPriority || 'comfort');
+        setCategory(sub?.category ?? t.category);
+        setIsRecurring(t.isFixed || sub?.type === 'recurring' || false);
+        const isInst = sub ? (sub.isInstallment || sub.type === 'installment') : (t.isInstallment || false);
+        setIsInstallment(isInst);
+        setInstallments((sub?.totalInstallments ?? t.totalInstallments)?.toString() || '2');
+        // Cartão: ocorrências usam cardId; lançamentos diretos usam selectedCardId.
+        const cardId = sub?.cardId || t.selectedCardId || t.cardId || '';
+        setPaymentMethod(cardId ? 'credito' : (t.paymentMethod || 'pix'));
+        setSelectedCardId(cardId);
+        setInstallmentMode(sub?.installmentMode ?? t.installmentMode ?? 'total');
+        setPriority(t.priority || CATEGORIES.expense.find(c => c.id === (sub?.category ?? t.category))?.defaultPriority || 'comfort');
         
         if (t.category === 'investment') {
             setStep('investment');
