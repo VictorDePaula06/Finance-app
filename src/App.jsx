@@ -3,7 +3,7 @@ import TransactionSection from './components/TransactionSection';
 import GoalTracker from './components/GoalTracker';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2, ShieldCheck, Sparkles, Activity, Home, Briefcase, AlertTriangle, Umbrella } from 'lucide-react';
+import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2, ShieldCheck, Sparkles, Activity, Home, Briefcase, AlertTriangle, Umbrella, Target } from 'lucide-react';
 import InstallPrompt from './components/InstallPrompt';
 import logo from './assets/logo.png';
 import AdminPanel from './components/AdminPanel';
@@ -648,8 +648,47 @@ function Dashboard() {
             </div>
           </div>
 
-          {activeTab === 'visao' && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          {activeTab === 'visao' && (() => {
+            // Visão Geral unificada (layout em 2 colunas) — ativa em produção.
+            const isLocalhost = true;
+            const fmtMoney = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            // Análise da Alívia (Visão Geral · Gastos): reserva, supérfluos, sobra do mês.
+            const aliviaCard = (() => {
+              const cm = new Date().toISOString().slice(0, 7);
+              const monthTxs = transactions.filter(t => t.month === cm || (t.date && String(t.date).startsWith(cm)));
+              const exp = monthTxs.filter(t => t.type === 'expense' && t.category !== 'investment' && t.paymentMethod !== 'credito');
+              const sum = (a) => a.reduce((x, t) => x + (parseFloat(t.amount) || 0), 0);
+              const essential = sum(exp.filter(t => (t.priority || 'comfort') === 'essential'));
+              const superf = sum(exp.filter(t => t.priority === 'superfluous'));
+              const totalExp = sum(exp);
+              const supPct = totalExp > 0 ? Math.round((superf / totalExp) * 100) : 0;
+              const reserveMonths = healthIndex?.pillars?.reserve?.months || 0;
+              const reserveAmount = investmentStats?.totalGuarded || 0;
+              const sobrou = (walletStats.income || 0) - (walletStats.expense || 0);
+              const accent = sobrou >= 0 && supPct <= 30 && reserveMonths >= 6 ? 'text-emerald-400' : (sobrou < 0 || supPct > 30) ? 'text-amber-400' : 'text-blue-400';
+              return (
+                <div className={`p-5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-700/50'}`}>
+                  <div className="flex items-start gap-3">
+                    <img src={aliviaFinal} alt="Alívia" className="w-11 h-11 object-cover rounded-full border-2 border-white/20 shadow-md shrink-0" />
+                    <div className="min-w-0">
+                      <span className={`text-[10px] font-black uppercase tracking-widest block mb-1 ${accent}`}>Alívia · análise do mês</span>
+                      <p className={`text-[12px] leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
+                        Este mês os gastos essenciais somaram <span className="font-bold">R$ {fmtMoney(essential)}</span> e os supérfluos <span className="font-bold">R$ {fmtMoney(superf)}</span> ({supPct}% dos gastos{supPct > 30 ? ' — acima do ideal de 30%' : ' — dentro do ideal'}).
+                      </p>
+                      <p className={`text-[12px] leading-relaxed mt-1.5 ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
+                        {sobrou >= 0 ? <>Você fechou o mês no positivo: sobraram <span className="font-bold text-emerald-500">R$ {fmtMoney(sobrou)}</span>.</> : <>Atenção: você gastou <span className="font-bold text-rose-500">R$ {fmtMoney(Math.abs(sobrou))}</span> a mais do que ganhou neste mês.</>}
+                      </p>
+                      <p className={`text-[12px] leading-relaxed mt-1.5 ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
+                        {reserveAmount > 0
+                          ? <>Sua reserva de emergência é de <span className="font-bold text-emerald-500">R$ {fmtMoney(reserveAmount)}</span> ({reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} {reserveMonths === 1 ? 'mês' : 'meses'} de cobertura){reserveMonths < 6 ? ' — mire ao menos 6 meses.' : ' — ótimo nível!'}</>
+                          : <>Você ainda não tem reserva de emergência registrada — comece a construir uma para mais tranquilidade.</>}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })();
+            const overview = (
               <OverviewTab
                 transactions={transactions}
                 savingsJars={savingsJars}
@@ -670,68 +709,107 @@ function Dashboard() {
                 onUpdateBaseIncome={(val) => updateManualConfig({ ...manualConfig, income: val })}
                 onSetInitialBalance={handleSetInitialBalance}
               />
-              
-              {paceAlerts.length > 0 && <PaceAlerts paceAlerts={paceAlerts} />}
+            );
 
-              <div className="grid grid-cols-1 gap-8">
-                {/* UPCOMING BILLS WIDGET */}
-                <div className={`p-8 rounded-[2.5rem] border ${
-                  theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'
-                }`}>
-                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-6 flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-blue-500" /> Próximos Compromissos
-                  </h3>
-                  <div className="space-y-4">
-                    {(() => {
-                        const consolidated = [
-                            ...subscriptions.filter(s => !s.cardId).map(s => ({
-                                id: s.id,
-                                name: s.name,
-                                value: parseFloat(s.value) || 0,
-                                day: s.day,
-                                type: 'sub'
-                            })),
-                            ...cards.map(card => {
-                                const cardUnpaidExpenses = transactions.filter(t => 
-                                    t.selectedCardId === card.id && t.invoiceStatus === 'unpaid'
-                                ).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-                                
-                                const cardSubs = subscriptions.filter(s => s.cardId === card.id)
-                                    .reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0);
-                                
-                                const total = cardUnpaidExpenses + cardSubs;
-                                return total > 0 ? {
-                                    id: card.id,
-                                    name: `Fatura ${card.name || card.brand}`,
-                                    value: total,
-                                    day: card.dueDay || 10,
-                                    type: 'card'
-                                } : null;
-                            }).filter(Boolean)
-                        ].sort((a, b) => a.day - b.day).slice(0, 4);
-
-                        return consolidated.map(item => (
-                            <div key={item.id} className={`flex items-center justify-between p-4 rounded-2xl ${theme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
-                              <div className="flex items-center gap-4">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[10px] font-black ${
-                                    item.type === 'card' ? 'bg-violet-500/10 text-violet-500' : 'bg-blue-500/10 text-blue-500'
-                                }`}>
-                                  {item.day}
-                                </div>
-                                <span className={`text-sm font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>{item.name}</span>
-                              </div>
-                              <span className="text-sm font-black text-emerald-500">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                        ));
-                    })()}
-                    {subscriptions.length === 0 && cards.length === 0 && (
-                      <p className="text-xs text-slate-500 italic text-center py-4">Nenhum compromisso para este mês.</p>
-                    )}
+            // Metas de Gasto — só categorias perto/acima do teto (relatório de Análise de Gastos).
+            const metasCard = (() => {
+              const budgets = manualConfig.categoryBudgets || {};
+              const cm = new Date().toISOString().slice(0, 7);
+              const spentByCat = {};
+              transactions
+                .filter(t => t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category) && ((t.date?.slice(0, 7)) || t.month) === cm)
+                .forEach(t => { const c = t.category || 'other'; spentByCat[c] = (spentByCat[c] || 0) + (parseFloat(t.amount) || 0); });
+              const withBudget = CATEGORIES.expense.filter(c => parseFloat(budgets[c.id]) > 0);
+              const rows = withBudget
+                .map(c => { const ceiling = parseFloat(budgets[c.id]) || 0; const spent = spentByCat[c.id] || 0; const ratio = ceiling > 0 ? spent / ceiling : 0; return { id: c.id, label: c.label, icon: c.icon, ceiling, spent, ratio }; })
+                .sort((a, b) => b.ratio - a.ratio);
+              return (
+                <div className={`flex-1 min-h-0 flex flex-col rounded-2xl border p-5 ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-700/50'}`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2"><Target className="w-4 h-4 text-rose-500" /> Metas de Gasto</h3>
+                    <button onClick={() => setActiveTab('analise_metas')} className="text-[10px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300">Ver tudo →</button>
                   </div>
+                  {withBudget.length === 0 ? (
+                    <p className="text-xs text-slate-500 italic text-center py-6">Defina tetos por categoria em <button onClick={() => setActiveTab('analise_metas')} className="text-blue-400 font-bold">Metas de Gasto</button>.</p>
+                  ) : (
+                    <div className="space-y-3 overflow-y-auto custom-scrollbar pr-1 flex-1 min-h-0">
+                      {rows.map(r => {
+                        const pct = Math.min(100, r.ratio * 100);
+                        const over = r.ratio >= 1;
+                        const col = over ? '#f43f5e' : r.ratio >= 0.8 ? '#f59e0b' : '#10b981';
+                        const Icon = r.icon;
+                        return (
+                          <div key={r.id}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="flex items-center gap-2 text-[12px] font-bold">{Icon && <Icon className="w-3.5 h-3.5" style={{ color: col }} />}<span className={theme === 'light' ? 'text-slate-700' : 'text-slate-200'}>{r.label}</span></span>
+                              <span className="text-[11px] font-bold" style={{ color: col }}>{Math.round(r.ratio * 100)}%{over ? ' · estourou' : ''}</span>
+                            </div>
+                            <div className={`w-full h-2 rounded-full overflow-hidden ${theme === 'light' ? 'bg-slate-100' : 'bg-white/10'}`}><div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: col }} /></div>
+                            <p className="text-[10px] text-slate-400 mt-1">R$ {(r.spent).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de R$ {(r.ceiling).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{over ? '' : ` · restam R$ ${(r.ceiling - r.spent).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })();
+
+            const compromissos = (
+              <div className={`rounded-2xl border ${isLocalhost ? 'p-5' : 'p-8 rounded-[2.5rem]'} ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`}>
+                <h3 className={`text-xs font-black uppercase tracking-widest text-slate-500 ${isLocalhost ? 'mb-4' : 'mb-6'} flex items-center gap-2`}>
+                  <Clock className="w-4 h-4 text-blue-500" /> Próximos Compromissos
+                </h3>
+                <div className={isLocalhost ? 'space-y-2.5' : 'space-y-4'}>
+                  {(() => {
+                      const consolidated = [
+                          ...subscriptions.filter(s => !s.cardId).map(s => ({ id: s.id, name: s.name, value: parseFloat(s.value) || 0, day: s.day, type: 'sub' })),
+                          ...cards.map(card => {
+                              const cardUnpaidExpenses = transactions.filter(t => t.selectedCardId === card.id && t.invoiceStatus === 'unpaid').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+                              const cardSubs = subscriptions.filter(s => s.cardId === card.id).reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0);
+                              const total = cardUnpaidExpenses + cardSubs;
+                              return total > 0 ? { id: card.id, name: `Fatura ${card.name || card.brand}`, value: total, day: card.dueDay || 10, type: 'card' } : null;
+                          }).filter(Boolean)
+                      ].sort((a, b) => a.day - b.day).slice(0, isLocalhost ? 5 : 4);
+
+                      return consolidated.map(item => (
+                          <div key={item.id} className={`flex items-center justify-between ${isLocalhost ? 'p-3' : 'p-4'} rounded-2xl ${theme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`${isLocalhost ? 'w-9 h-9' : 'w-10 h-10'} rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 ${item.type === 'card' ? 'bg-violet-500/10 text-violet-500' : 'bg-blue-500/10 text-blue-500'}`}>{item.day}</div>
+                              <span className={`text-sm font-bold truncate ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>{item.name}</span>
+                            </div>
+                            <span className="text-sm font-black text-emerald-500 shrink-0">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                      ));
+                  })()}
+                  {subscriptions.length === 0 && cards.length === 0 && (
+                    <p className="text-xs text-slate-500 italic text-center py-4">Nenhum compromisso para este mês.</p>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
+            );
+
+            if (isLocalhost) {
+              return (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                  <div className="min-w-0">{overview}</div>
+                  <div className="flex flex-col gap-4 min-w-0">
+                    {aliviaCard}
+                    {metasCard}
+                    {compromissos}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                {overview}
+                {paceAlerts.length > 0 && <PaceAlerts paceAlerts={paceAlerts} />}
+                <div className="grid grid-cols-1 gap-8">{compromissos}</div>
+              </div>
+            );
+          })()}
 
           { activeTab === 'patrimonio' && (
             planLevel === 'premium' || planLevel === 'free' || isAdmin ? (

@@ -140,6 +140,92 @@ export default function OverviewTab({
     const textColor = theme === 'light' ? 'text-slate-800' : 'text-white';
     const subTextColor = theme === 'light' ? 'text-slate-500' : 'text-slate-400';
 
+    // ===== LAYOUT da Visão Geral (saldo + Ganhos/Gastos/Reserva + Índice completo) =====
+    const useNewLayout = true;
+    if (useNewLayout) {
+        const isDark = theme !== 'light';
+        const card = isDark ? 'bg-[#1e2330] border-slate-700/50' : 'bg-white border-slate-100 shadow-sm';
+        const mIncome = walletStats.income || 0;
+        const mExpense = walletStats.expense || 0;
+        const afterInvoice = (walletStats.balance || 0) - (invoiceInfo.total || 0);
+        return (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-4">
+                {/* Hero do Saldo */}
+                <div className={`rounded-3xl border overflow-hidden ${card}`}>
+                    <div className="p-5">
+                        <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                    <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-400">Saldo Total em Carteira</span>
+                                    <button onClick={toggleHideBalance} className="text-slate-400 hover:text-blue-500 transition-colors">{hideBalance ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                                    {!editingWallet && (<button onClick={() => { setWalletInput((Number(walletStats?.balance) || 0).toFixed(2).replace('.', ',')); setEditingWallet(true); }} title="Ajustar saldo atual" className="text-slate-400 hover:text-emerald-400 transition-colors"><Pencil size={13} /></button>)}
+                                </div>
+                                {editingWallet ? (
+                                    <div className="flex items-center gap-1 mt-1">
+                                        <span className={`text-lg font-bold ${subTextColor}`}>R$</span>
+                                        <input autoFocus type="text" value={walletInput} onChange={e => setWalletInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { const v = parseFloat(walletInput.replace(',', '.')); if (!isNaN(v) && onSetInitialBalance) onSetInitialBalance(v); setEditingWallet(false); } if (e.key === 'Escape') setEditingWallet(false); }} className={`w-40 text-3xl font-bold bg-transparent border-b-2 border-emerald-500 focus:outline-none ${textColor}`} />
+                                        <button onClick={() => { const v = parseFloat(walletInput.replace(',', '.')); if (!isNaN(v) && onSetInitialBalance) onSetInitialBalance(v); setEditingWallet(false); }} className="text-emerald-400 hover:text-emerald-300 ml-1"><Check size={18} /></button>
+                                        <button onClick={() => setEditingWallet(false)} className="text-slate-500 hover:text-slate-300"><X size={16} /></button>
+                                    </div>
+                                ) : (
+                                    <div className={`text-3xl md:text-4xl font-black tracking-tight tabular-nums ${hideBalance ? 'blur-md select-none' : 'text-blue-400'}`}>{hideBalance ? 'R$ 0.000,00' : formatCurrency(walletStats.balance)}</div>
+                                )}
+                                <p className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 mt-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Saldo atual disponível em conta</p>
+                            </div>
+                            {/* Área à direita do saldo: banner de fatura (se houver) ou variação + mini-gráfico */}
+                            <div className="shrink-0 w-full sm:w-[56%] max-w-[380px]">
+                                {invoiceInfo.total > 0.005 ? (
+                                    <button onClick={() => setActiveTab && setActiveTab('cartoes')} className={`w-full text-left rounded-xl border p-3 transition-all hover:scale-[1.005] ${isDark ? 'bg-amber-500/[0.07] border-amber-500/30' : 'bg-amber-50 border-amber-200'}`}>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-500 min-w-0"><AlertTriangle className="w-3 h-3 shrink-0" /> <span className="truncate">Fatura Pendente · {invoiceInfo.label}</span></span>
+                                            <span className={`text-base font-black tabular-nums shrink-0 ${hideBalance ? 'blur-md select-none' : 'text-amber-500'}`}>{hideBalance ? 'R$ ••' : formatCurrency(invoiceInfo.total)}</span>
+                                        </div>
+                                        <p className={`text-[11px] mt-1 leading-snug ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Você lançou <span className="font-bold text-amber-500">{formatCurrency(invoiceInfo.total)}</span> no crédito — esse valor ainda não saiu da sua conta.</p>
+                                        <div className={`flex items-center justify-between gap-2 mt-2 pt-2 border-t text-[10px] ${isDark ? 'border-white/10' : 'border-amber-200/60'}`}>
+                                            <span className="text-slate-400">{invoiceInfo.dueDate && <>Vence em <span className="font-bold text-amber-500">{invoiceInfo.daysUntil} {invoiceInfo.daysUntil === 1 ? 'dia' : 'dias'}</span> · {invoiceInfo.dueDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</>}</span>
+                                            <span className="text-slate-400 shrink-0">Após pagar: <span className={`font-black ${afterInvoice >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{hideBalance ? 'R$ ••' : formatCurrency(afterInvoice)}</span></span>
+                                        </div>
+                                    </button>
+                                ) : (
+                                    <div className="flex items-center justify-end gap-3 h-full">
+                                        {pctMonth != null && isFinite(pctMonth) && (<span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${pctMonth >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}><TrendingUp className={`w-3.5 h-3.5 ${pctMonth < 0 ? 'rotate-180' : ''}`} />{pctMonth >= 0 ? '+' : ''}{pctMonth.toFixed(0)}% este mês</span>)}
+                                        <div className="w-28 h-12 hidden sm:block">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <AreaChart data={balanceHistoryData}>
+                                                    <defs><linearGradient id="colorBalanceV2" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10B981" stopOpacity={0.3} /><stop offset="95%" stopColor="#10B981" stopOpacity={0} /></linearGradient></defs>
+                                                    <Area type="monotone" dataKey="value" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#colorBalanceV2)" />
+                                                </AreaChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Ganhos / Gastos / Reservas */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className={`p-4 rounded-2xl border flex items-center gap-3 ${card}`}>
+                        <span className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}><TrendingUp className="w-5 h-5 text-emerald-500" /></span>
+                        <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">Ganhos no mês</p><p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-emerald-500'}`}>{hideBalance ? 'R$ ••' : formatCurrency(mIncome)}</p></div>
+                    </div>
+                    <div className={`p-4 rounded-2xl border flex items-center gap-3 ${card}`}>
+                        <span className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><CreditCard className="w-5 h-5 text-rose-500" /></span>
+                        <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">Gastos no mês</p><p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-rose-500'}`}>{hideBalance ? 'R$ ••' : formatCurrency(mExpense)}</p></div>
+                    </div>
+                    <div className={`p-4 rounded-2xl border flex items-center gap-3 ${card}`}>
+                        <span className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}><ShieldCheck className="w-5 h-5 text-emerald-500" /></span>
+                        <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">Reservas</p><p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-emerald-500'}`}>{hideBalance ? 'R$ ••' : formatCurrency(reserveAmount)}</p><p className="text-[9px] text-slate-400">{reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} {reserveMonths === 1 ? 'mês' : 'meses'} de cobertura</p></div>
+                    </div>
+                </div>
+
+                {/* Índice de Saúde Financeira (completo, com semáforo) */}
+                <FinancialHealthIndex data={healthIndex} config={manualConfig} onUpdateConfig={onUpdateConfig} />
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* ROW 1: Hero do Saldo Total em Carteira */}
