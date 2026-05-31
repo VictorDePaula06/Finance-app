@@ -28,6 +28,7 @@ import Sidebar from './components/Sidebar';
 import PatrimonyWelcome from './components/PatrimonyWelcome';
 import EvolucaoPatrimonialTab from './components/EvolucaoPatrimonialTab';
 import PatrimonioPlaceholderTab from './components/PatrimonioPlaceholderTab';
+import FluxoPatrimonialTab from './components/FluxoPatrimonialTab';
 import SettingsTab from './components/SettingsTab';
 import AIChat from './components/AIChat';
 import PaceAlerts from './components/PaceAlerts';
@@ -731,14 +732,7 @@ function Dashboard() {
           )}
 
           {/* ── NOVAS ABAS DO PATRIMÔNIO (placeholders — estrutura sem conteúdo) ── */}
-          { activeTab === 'fluxo' && (
-            <PatrimonioPlaceholderTab
-              title="Fluxo Patrimonial"
-              subtitle="Acompanhe a movimentação do seu patrimônio ao longo do tempo"
-              icon={Activity}
-              description="Em breve você poderá visualizar entradas, saídas e a evolução consolidada do seu patrimônio em um só lugar."
-            />
-          )}
+          { activeTab === 'fluxo' && <FluxoPatrimonialTab /> }
 
           { activeTab === 'bens' && (
             <PatrimonioPlaceholderTab
