@@ -466,15 +466,20 @@ export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = 
 
     const reserveTotal = parseFloat(investmentStats?.totalGuarded) || 0;
 
-    // 1. Reserva de Emergência (40 pts) — meta: 6 meses de despesas cobertos
+    // Metas configuráveis (Configurar Alívia › Saúde Patrimonial). Padrões: 6 meses, 20%.
+    const ph = manualConfig?.patrimonyHealth || {};
+    const reserveMonthsTarget = parseFloat(ph.reserveMonthsTarget) > 0 ? parseFloat(ph.reserveMonthsTarget) : 6;
+    const savingsRateTarget = parseFloat(ph.savingsRateTarget) > 0 ? parseFloat(ph.savingsRateTarget) / 100 : 0.20;
+
+    // 1. Reserva de Emergência (40 pts) — meta configurável em meses de despesas
     let reserveScore = 0;
     let monthsCovered = 0;
     if (monthlyExpenses > 0) {
         monthsCovered = reserveTotal / monthlyExpenses;
-        reserveScore = Math.min(40, (monthsCovered / 6) * 40);
+        reserveScore = Math.min(40, (monthsCovered / reserveMonthsTarget) * 40);
     }
 
-    // 2. Aportes / Acúmulo (30 pts) — meta: poupar/investir 20% da renda no mês
+    // 2. Aportes / Acúmulo (30 pts) — meta configurável (% da renda no mês)
     const investedThisMonth = monthTx
         .filter(t => t.type === 'expense' && SAVINGS_CATEGORIES.includes(t.category))
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
@@ -482,7 +487,7 @@ export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = 
     let savingsScore = 0;
     if (income > 0) {
         savingsRate = investedThisMonth / income;
-        savingsScore = Math.min(30, (savingsRate / 0.20) * 30);
+        savingsScore = Math.min(30, (savingsRate / savingsRateTarget) * 30);
     }
 
     // 3. Metas (30 pts) — progresso médio das metas ativas
@@ -551,6 +556,8 @@ export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = 
                 reserveTotal,
                 monthlyExpenses,
                 monthsCovered: monthlyExpenses > 0 ? monthsCovered.toFixed(1) : "0.0",
+                reserveMonthsTarget,
+                savingsRateTarget: Math.round(savingsRateTarget * 100),
                 investedThisMonth,
                 savingsRate: income > 0 ? (savingsRate * 100).toFixed(0) : "0",
                 activeGoals: activeGoals.length,
