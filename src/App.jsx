@@ -3,7 +3,7 @@ import TransactionSection from './components/TransactionSection';
 import GoalTracker from './components/GoalTracker';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2, ShieldCheck, Sparkles, Activity, Home, Briefcase, AlertTriangle, Umbrella, Target } from 'lucide-react';
+import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2, ShieldCheck, Sparkles, Activity, Home, Briefcase, AlertTriangle, Umbrella, Gauge } from 'lucide-react';
 import InstallPrompt from './components/InstallPrompt';
 import logo from './assets/logo.png';
 import AdminPanel from './components/AdminPanel';
@@ -726,26 +726,36 @@ function Dashboard() {
               return (
                 <div className={`flex-1 min-h-0 flex flex-col rounded-2xl border p-5 ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-700/50'}`}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2"><Target className="w-4 h-4 text-rose-500" /> Metas de Gasto</h3>
-                    <button onClick={() => setActiveTab('analise_metas')} className="text-[10px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300">Ver tudo →</button>
+                    <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}><Gauge className="w-4 h-4 text-indigo-400" /> Metas de Gasto</h3>
+                    <button onClick={() => setActiveTab('analise_metas')} className="text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-300">Ver tudo →</button>
                   </div>
                   {withBudget.length === 0 ? (
                     <p className="text-xs text-slate-500 italic text-center py-6">Defina tetos por categoria em <button onClick={() => setActiveTab('analise_metas')} className="text-blue-400 font-bold">Metas de Gasto</button>.</p>
                   ) : (
-                    <div className="space-y-3 overflow-y-auto custom-scrollbar pr-1 flex-1 min-h-0">
+                    <div className="space-y-4 overflow-y-auto custom-scrollbar pr-1 flex-1 min-h-0">
                       {rows.map(r => {
                         const pct = Math.min(100, r.ratio * 100);
                         const over = r.ratio >= 1;
-                        const col = over ? '#f43f5e' : r.ratio >= 0.8 ? '#f59e0b' : '#10b981';
+                        const near = !over && r.ratio >= 0.85;
+                        const col = over ? '#fb7185' : near ? '#fbbf24' : '#34d399';
                         const Icon = r.icon;
+                        const fmtv = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         return (
-                          <div key={r.id}>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="flex items-center gap-2 text-[12px] font-bold">{Icon && <Icon className="w-3.5 h-3.5" style={{ color: col }} />}<span className={theme === 'light' ? 'text-slate-700' : 'text-slate-200'}>{r.label}</span></span>
-                              <span className="text-[11px] font-bold" style={{ color: col }}>{Math.round(r.ratio * 100)}%{over ? ' · estourou' : ''}</span>
+                          <div key={r.id} className="space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="flex items-center gap-2 min-w-0">
+                                {Icon && <Icon className="w-4 h-4 shrink-0 text-slate-400" />}
+                                <span className={`text-[13px] font-medium truncate ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>{r.label}</span>
+                              </span>
+                              <span className="flex items-center gap-2 shrink-0">
+                                {over && <span className="text-[8px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-400">acima</span>}
+                                <span className="text-[12px] font-semibold tabular-nums" style={{ color: col }}>{Math.round(r.ratio * 100)}%</span>
+                              </span>
                             </div>
-                            <div className={`w-full h-2 rounded-full overflow-hidden ${theme === 'light' ? 'bg-slate-100' : 'bg-white/10'}`}><div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: col }} /></div>
-                            <p className="text-[10px] text-slate-400 mt-1">R$ {(r.spent).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de R$ {(r.ceiling).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{over ? '' : ` · restam R$ ${(r.ceiling - r.spent).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</p>
+                            <div className={`w-full h-1.5 rounded-full overflow-hidden ${theme === 'light' ? 'bg-slate-100' : 'bg-white/[0.06]'}`}>
+                              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(4, pct)}%`, background: col }} />
+                            </div>
+                            <p className="text-[10px] text-slate-400 tabular-nums">R$ {fmtv(r.spent)} <span className="opacity-50">de</span> R$ {fmtv(r.ceiling)}{!over && <span className="opacity-70"> · restam R$ {fmtv(r.ceiling - r.spent)}</span>}</p>
                           </div>
                         );
                       })}
