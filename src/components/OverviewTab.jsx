@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
-import { Eye, EyeOff, Pencil, Check, X, CreditCard, AlertTriangle, ChevronRight, TrendingUp } from 'lucide-react';
+import { Eye, EyeOff, Pencil, Check, X, CreditCard, AlertTriangle, ChevronRight, TrendingUp, ShieldCheck } from 'lucide-react';
 import FinancialHealthIndex from './FinancialHealthIndex';
+import aliviaFinal from '../assets/alivia/alivia-final.png';
 
 export default function OverviewTab({
     transactions,
     walletStats,
+    investmentStats = {},
     healthIndex,
     manualConfig,
     onUpdateConfig,
@@ -103,6 +105,38 @@ export default function OverviewTab({
     const monthBase = (walletStats.balance || 0) - monthDelta;
     const pctMonth = monthBase > 0 ? (monthDelta / monthBase) * 100 : null;
 
+    // Reserva de emergência e frase da Alívia (análise geral do mês).
+    const reserveAmount = investmentStats.totalGuarded || 0;
+    const reserveMonths = healthIndex?.pillars?.reserve?.months || 0;
+    const alivia = useMemo(() => {
+        const cur = new Date().toISOString().slice(0, 7);
+        const monthTxs = transactions.filter(t => t.month === cur || (t.date && t.date.startsWith(cur)));
+        const exp = monthTxs.filter(t => t.type === 'expense' && t.category !== 'investment' && t.paymentMethod !== 'credito');
+        const sum = (arr) => arr.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+        const essential = sum(exp.filter(t => (t.priority || 'comfort') === 'essential'));
+        const superfluous = sum(exp.filter(t => t.priority === 'superfluous'));
+        const totalExp = sum(exp);
+        const supPct = totalExp > 0 ? Math.round((superfluous / totalExp) * 100) : 0;
+        const months = reserveMonths;
+
+        let status = 'neutral';
+        if (totalExp === 0) {
+            return { status, message: 'Ainda não há gastos lançados neste mês para uma análise.' };
+        }
+        const reservePhrase = months >= 6
+            ? `sua reserva já cobre ${months.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} meses — ótimo nível`
+            : `sua reserva cobre só ${months.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} meses (mire 6+)`;
+        if (months >= 6 && supPct <= 30) status = 'positive';
+        else if (supPct > 30 || months < 3) status = 'warning';
+        const message = `Este mês os essenciais somaram ${formatCurrency(essential)} e os supérfluos ${formatCurrency(superfluous)} (${supPct}% dos gastos); ${reservePhrase}.`;
+        return { status, message };
+    }, [transactions, reserveMonths]);
+    const aliviaAccent = {
+        positive: 'text-emerald-400',
+        warning: 'text-amber-400',
+        neutral: 'text-slate-400',
+    }[alivia.status];
+
     const textColor = theme === 'light' ? 'text-slate-800' : 'text-white';
     const subTextColor = theme === 'light' ? 'text-slate-500' : 'text-slate-400';
 
@@ -112,7 +146,7 @@ export default function OverviewTab({
             <div className={`rounded-3xl border overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-700/50'}`}>
                 <div className="p-5">
                     <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
+                        <div className="shrink-0 min-w-0">
                             <div className="flex items-center gap-2 mb-1.5">
                                 <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-400">Saldo Total em Carteira</span>
                                 <button onClick={toggleHideBalance} className="text-slate-400 hover:text-blue-500 transition-colors">
@@ -166,6 +200,28 @@ export default function OverviewTab({
                             <p className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 mt-1.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Saldo atual disponível em conta
                             </p>
+                        </div>
+
+                        {/* Centro: Reserva de emergência + frase da Alívia */}
+                        <div className="hidden lg:flex items-stretch gap-3 flex-1 min-w-0">
+                            <div className={`shrink-0 w-44 rounded-2xl border px-4 py-3 flex flex-col justify-center ${theme === 'light' ? 'bg-emerald-50/70 border-emerald-200' : 'bg-emerald-500/[0.07] border-emerald-500/25'}`}>
+                                <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-emerald-400">
+                                    <ShieldCheck className="w-3.5 h-3.5" /> Reserva de emergência
+                                </span>
+                                <div className={`text-xl font-black tabular-nums mt-1 ${hideBalance ? 'blur-md select-none' : 'text-emerald-400'}`}>
+                                    {hideBalance ? 'R$ 0,00' : formatCurrency(reserveAmount)}
+                                </div>
+                                <span className="text-[10px] text-slate-400">
+                                    {reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} {reserveMonths === 1 ? 'mês' : 'meses'} de cobertura
+                                </span>
+                            </div>
+                            <div className={`flex-1 min-w-0 rounded-2xl border px-4 py-3 flex items-center gap-3 ${theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-white/[0.03] border-white/10'}`}>
+                                <img src={aliviaFinal} alt="Alívia" className="w-9 h-9 rounded-full object-cover border-2 border-white/15 shrink-0" />
+                                <div className="min-w-0">
+                                    <span className={`text-[9px] font-black uppercase tracking-widest ${aliviaAccent}`}>Alívia · resumo do mês</span>
+                                    <p className={`text-[11px] leading-snug line-clamp-3 ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>{alivia.message}</p>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="flex flex-col items-end gap-3 shrink-0">
