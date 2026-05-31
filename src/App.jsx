@@ -29,6 +29,7 @@ import PatrimonyWelcome from './components/PatrimonyWelcome';
 import EvolucaoPatrimonialTab from './components/EvolucaoPatrimonialTab';
 import PatrimonioPlaceholderTab from './components/PatrimonioPlaceholderTab';
 import FluxoPatrimonialTab from './components/FluxoPatrimonialTab';
+import BensImoveisTab from './components/BensImoveisTab';
 import SettingsTab from './components/SettingsTab';
 import AIChat from './components/AIChat';
 import PaceAlerts from './components/PaceAlerts';
@@ -734,15 +735,7 @@ function Dashboard() {
           {/* ── NOVAS ABAS DO PATRIMÔNIO (placeholders — estrutura sem conteúdo) ── */}
           { activeTab === 'fluxo' && <FluxoPatrimonialTab /> }
 
-          { activeTab === 'bens' && (
-            <PatrimonioPlaceholderTab
-              title="Bens & Imóveis"
-              subtitle="Cadastre e acompanhe seus bens patrimoniais"
-              icon={Home}
-              badge="Novo"
-              description="Em breve você poderá registrar imóveis, veículos e outros bens, acompanhando valorização e participação no patrimônio total."
-            />
-          )}
+          { activeTab === 'bens' && <BensImoveisTab /> }
 
           { activeTab === 'previdencia' && (
             <PatrimonioPlaceholderTab

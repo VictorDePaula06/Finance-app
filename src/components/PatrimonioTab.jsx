@@ -60,6 +60,8 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
   // ── state ──────────────────────────────────────────────────────────────────
   const [jars, setJars] = useState([]);
   const [investments, setInvestments] = useState([]);
+  const [tangibleAssets, setTangibleAssets] = useState([]);
+  const [includeBens, setIncludeBens] = useState(true);
   const cdiAnual = useCdiRate();
   const [hidePatrimonio, setHidePatrimonio] = useState(() => localStorage.getItem('hidePatrimonio') === 'true');
   const usdRateFromHook = useUsdRate();
@@ -235,6 +237,19 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
 
   useEffect(() => {
     if (!currentUser) return;
+    const q = query(collection(db, 'tangible_assets'), where('userId', '==', currentUser.uid));
+    return onSnapshot(q, snap => setTangibleAssets(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [currentUser]);
+
+  // Valor atual dos bens tangíveis (currentValue persistido pela aba Bens & Imóveis)
+  const bensTotal = useMemo(() => tangibleAssets.reduce((a, x) => {
+    if (x.currentValue != null) return a + (parseFloat(x.currentValue) || 0);
+    if (x.manualCurrentValue != null && x.manualCurrentValue !== '') return a + (parseFloat(x.manualCurrentValue) || 0);
+    return a + (parseFloat(x.fipeValue || x.acquisitionValue) || 0);
+  }, 0), [tangibleAssets]);
+
+  useEffect(() => {
+    if (!currentUser) return;
     const q = query(collection(db, 'goals'), where('userId', '==', currentUser.uid));
     return onSnapshot(q, snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -354,7 +369,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
     };
   }, [investments, livePrices, usdRate, tesouroData]);
 
-  const patrimonioTotal = jarsTotal + investmentsTotal;
+  const patrimonioTotal = jarsTotal + investmentsTotal + bensTotal;
 
   const handleAnalyze = async (force = false) => {
     if (!isGeminiConfigured()) return;
@@ -497,12 +512,14 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
           {patrimonioTotal > 0 && (
             <div className="space-y-2 pt-3 border-t border-white/[0.06]">
               <div className="flex rounded-full overflow-hidden h-2 bg-white/[0.06]">
-                <div style={{ width: `${jarsTotal / patrimonioTotal * 100}%` }} className="bg-emerald-500 transition-all duration-700 rounded-l-full" />
-                <div style={{ width: `${investmentsTotal / patrimonioTotal * 100}%` }} className="bg-purple-500 transition-all duration-700 rounded-r-full" />
+                <div style={{ width: `${jarsTotal / patrimonioTotal * 100}%` }} className="bg-emerald-500 transition-all duration-700" />
+                <div style={{ width: `${investmentsTotal / patrimonioTotal * 100}%` }} className="bg-purple-500 transition-all duration-700" />
+                <div style={{ width: `${bensTotal / patrimonioTotal * 100}%` }} className="bg-orange-500 transition-all duration-700" />
               </div>
-              <div className="flex justify-between text-[9px] font-black text-slate-400">
+              <div className="flex justify-between flex-wrap gap-x-3 text-[9px] font-black text-slate-400">
                 <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />Reserva — R$ {fmt(jarsTotal)} ({patrimonioTotal > 0 ? (jarsTotal/patrimonioTotal*100).toFixed(0) : 0}%)</span>
                 <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block" />Investimentos — R$ {fmt(investmentsTotal)} ({patrimonioTotal > 0 ? (investmentsTotal/patrimonioTotal*100).toFixed(0) : 0}%)</span>
+                {bensTotal > 0 && <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-orange-500 inline-block" />Bens — R$ {fmt(bensTotal)} ({patrimonioTotal > 0 ? (bensTotal/patrimonioTotal*100).toFixed(0) : 0}%)</span>}
               </div>
             </div>
           )}
@@ -559,6 +576,8 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
           'Fundos Imobiliários': '#14b8a6',
           'Criptomoedas': '#f59e0b',
           'Imóveis': '#f97316',
+          'Bens': '#f97316',
+          'Veículos': '#0ea5e9',
           'Outros': '#64748b',
         };
         const ASSET_COLORS = ['#10b981','#6366f1','#a855f7','#3b82f6','#14b8a6','#f59e0b','#f97316','#ec4899','#8b5cf6','#06b6d4','#84cc16','#ef4444','#22d3ee','#e879f9'];
@@ -584,6 +603,13 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
           const val = (inv.quantity || 1) * price * usdM;
           if (val > 0) items.push({ name: inv.name || inv.symbol || 'Ativo', category: CATEGORY_MAP[inv.type] || 'Outros', value: val });
         });
+        if (includeBens) {
+          tangibleAssets.forEach(b => {
+            const val = b.currentValue != null ? (parseFloat(b.currentValue) || 0)
+              : (b.manualCurrentValue != null && b.manualCurrentValue !== '' ? (parseFloat(b.manualCurrentValue) || 0) : (parseFloat(b.fipeValue || b.acquisitionValue) || 0));
+            if (val > 0) items.push({ name: b.address || b.model || (b.kind === 'imovel' ? 'Imóvel' : 'Veículo'), category: b.kind === 'veiculo' ? 'Veículos' : 'Imóveis', value: val });
+          });
+        }
 
         const totalValue = items.reduce((a, i) => a + i.value, 0);
 
@@ -630,6 +656,14 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
                     }`}
                   >
                     {includeReserve ? '✓ Reserva' : 'Sem Reserva'}
+                  </button>
+                  <button
+                    onClick={() => setIncludeBens(!includeBens)}
+                    className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border ${
+                      includeBens ? 'bg-orange-500/10 border-orange-500/30 text-orange-500' : isDark ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'
+                    }`}
+                  >
+                    {includeBens ? '✓ Bens' : 'Sem Bens'}
                   </button>
                   <div className={`flex rounded-lg border overflow-hidden ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                     <button onClick={() => setChartViewMode('category')} className={`flex items-center gap-1 px-2 py-1 text-[8px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'category' ? 'bg-emerald-500 text-white' : isDark ? 'text-slate-400' : 'text-slate-500'}`}>
