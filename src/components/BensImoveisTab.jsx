@@ -23,7 +23,20 @@ const PROPERTY_TYPES = [
   { id: 'sala_comercial', label: 'Sala Comercial' },
 ];
 const DEFAULT_APPRECIATION = 8; // % a.a. estimado (FipeZAP médio nacional) quando não há avaliação manual
-const FIPE_BASE = 'https://parallelum.com.br/fipe/api/v1/carros';
+const FIPE_DIRECT = 'https://parallelum.com.br/fipe/api/v1/carros';
+
+// Busca na FIPE via proxy serverless (/api/fipe) e, se falhar, direto no parallelum.
+async function fipeGet(path) {
+  try {
+    const r = await fetch(`/api/fipe?p=${encodeURIComponent(path)}`);
+    if (r.ok) return await r.json();
+    throw new Error(`proxy ${r.status}`);
+  } catch {
+    const r2 = await fetch(`${FIPE_DIRECT}/${path}`);
+    if (!r2.ok) throw new Error(`fipe ${r2.status}`);
+    return r2.json();
+  }
+}
 
 const yearsBetween = (dateStr) => {
   if (!dateStr) return 0;
@@ -327,25 +340,25 @@ function AssetModal({ isDark, inset, txt, sub, editing, onClose, userId }) {
 
   useEffect(() => {
     if (!isVeiculo) return;
-    fetch(`${FIPE_BASE}/marcas`).then(r => r.json()).then(setBrands).catch(() => setFipeError('Não foi possível carregar marcas FIPE. Você pode informar o valor manualmente.'));
+    setFipeError('');
+    fipeGet('marcas').then(d => setBrands(Array.isArray(d) ? d : [])).catch(() => setFipeError('Não foi possível carregar marcas FIPE. Você pode informar o valor manualmente.'));
   }, [isVeiculo]);
   useEffect(() => {
     if (!isVeiculo || !brandCode) return;
     setModels([]); setYears([]);
-    fetch(`${FIPE_BASE}/marcas/${brandCode}/modelos`).then(r => r.json()).then(d => setModels(d.modelos || [])).catch(() => {});
+    fipeGet(`marcas/${brandCode}/modelos`).then(d => setModels(d.modelos || [])).catch(() => {});
   }, [brandCode, isVeiculo]);
   useEffect(() => {
     if (!isVeiculo || !brandCode || !modelCode) return;
     setYears([]);
-    fetch(`${FIPE_BASE}/marcas/${brandCode}/modelos/${modelCode}/anos`).then(r => r.json()).then(setYears).catch(() => {});
+    fipeGet(`marcas/${brandCode}/modelos/${modelCode}/anos`).then(d => setYears(Array.isArray(d) ? d : [])).catch(() => {});
   }, [modelCode, brandCode, isVeiculo]);
 
   const fetchFipeValue = async () => {
     if (!brandCode || !modelCode || !yearCode) return;
     setFipeLoading(true); setFipeError('');
     try {
-      const r = await fetch(`${FIPE_BASE}/marcas/${brandCode}/modelos/${modelCode}/anos/${yearCode}`);
-      const d = await r.json();
+      const d = await fipeGet(`marcas/${brandCode}/modelos/${modelCode}/anos/${yearCode}`);
       const val = parseBR(d.Valor);
       setForm(f => ({
         ...f, fipeValue: val,
