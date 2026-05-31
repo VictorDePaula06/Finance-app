@@ -31,6 +31,7 @@ import PatrimonioPlaceholderTab from './components/PatrimonioPlaceholderTab';
 import FluxoPatrimonialTab from './components/FluxoPatrimonialTab';
 import BensImoveisTab from './components/BensImoveisTab';
 import SegurosTab from './components/SegurosTab';
+import IndependenciaTab from './components/IndependenciaTab';
 import SettingsTab from './components/SettingsTab';
 import AIChat from './components/AIChat';
 import PaceAlerts from './components/PaceAlerts';
@@ -748,15 +749,7 @@ function Dashboard() {
             />
           )}
 
-          { activeTab === 'independencia' && (
-            <PatrimonioPlaceholderTab
-              title="Independência Financeira"
-              subtitle="Trace o caminho até a sua liberdade financeira"
-              icon={TrendingUp}
-              badge="Novo"
-              description="Em breve você poderá simular cenários, calcular seu número da independência e acompanhar o progresso rumo à liberdade financeira."
-            />
-          )}
+          { activeTab === 'independencia' && <IndependenciaTab /> }
 
           { activeTab === 'rebalanceamento' && (
             <PatrimonioPlaceholderTab
