@@ -107,10 +107,10 @@ export default function OverviewTab({
     const subTextColor = theme === 'light' ? 'text-slate-500' : 'text-slate-400';
 
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* ROW 1: Hero do Saldo Total em Carteira */}
             <div className={`rounded-3xl border overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-700/50'}`}>
-                <div className="p-6 md:p-7">
+                <div className="p-5">
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1.5">
@@ -159,11 +159,11 @@ export default function OverviewTab({
                                     </button>
                                 </div>
                             ) : (
-                                <div className={`text-4xl md:text-[2.6rem] font-black tracking-tight tabular-nums ${hideBalance ? 'blur-md select-none' : 'text-blue-400'}`}>
+                                <div className={`text-3xl md:text-4xl font-black tracking-tight tabular-nums ${hideBalance ? 'blur-md select-none' : 'text-blue-400'}`}>
                                     {hideBalance ? 'R$ 0.000,00' : formatCurrency(walletStats.balance)}
                                 </div>
                             )}
-                            <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-400 mt-2">
+                            <p className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 mt-1.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Saldo atual disponível em conta
                             </p>
                         </div>
@@ -195,7 +195,7 @@ export default function OverviewTab({
                     {invoiceInfo.total > 0.005 && (
                         <button
                             onClick={() => setActiveTab && setActiveTab('cartoes')}
-                            className={`mt-5 w-full text-left flex items-center gap-4 p-3.5 md:p-4 rounded-2xl border transition-all hover:scale-[1.005] active:scale-[0.997] ${theme === 'light' ? 'bg-amber-50 border-amber-200' : 'bg-amber-500/[0.07] border-amber-500/30'}`}
+                            className={`mt-4 w-full text-left flex items-center gap-4 p-3 rounded-2xl border transition-all hover:scale-[1.005] active:scale-[0.997] ${theme === 'light' ? 'bg-amber-50 border-amber-200' : 'bg-amber-500/[0.07] border-amber-500/30'}`}
                         >
                             <span className={`hidden sm:flex w-11 h-9 rounded-lg items-center justify-center shrink-0 ${theme === 'light' ? 'bg-amber-100' : 'bg-amber-500/15'}`}>
                                 <CreditCard className="w-5 h-5 text-amber-500" />
@@ -227,20 +227,20 @@ export default function OverviewTab({
                 {/* Rodapé: Saldo atual · Fatura a vencer · Saldo após fatura */}
                 {invoiceInfo.total > 0.005 && (
                     <div className={`grid grid-cols-3 divide-x border-t ${theme === 'light' ? 'border-slate-100 divide-slate-100 bg-slate-50/50' : 'border-white/5 divide-white/5 bg-black/10'}`}>
-                        <div className="p-4 md:p-5">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Saldo atual</span>
-                            <div className={`text-base md:text-lg font-black tabular-nums mt-1 ${hideBalance ? 'blur-md select-none' : textColor}`}>{hideBalance ? 'R$ 0,00' : formatCurrency(walletStats.balance)}</div>
-                            <span className="text-[10px] text-slate-400">disponível agora</span>
+                        <div className="px-4 py-2.5 md:px-5">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Saldo atual</span>
+                            <div className={`text-sm md:text-base font-black tabular-nums ${hideBalance ? 'blur-md select-none' : textColor}`}>{hideBalance ? 'R$ 0,00' : formatCurrency(walletStats.balance)}</div>
+                            <span className="text-[9px] text-slate-400">disponível agora</span>
                         </div>
-                        <div className="p-4 md:p-5">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500">Fatura a vencer</span>
-                            <div className={`text-base md:text-lg font-black tabular-nums mt-1 text-amber-500 ${hideBalance ? 'blur-md select-none' : ''}`}>{hideBalance ? 'R$ 0,00' : `- ${formatCurrency(invoiceInfo.total)}`}</div>
-                            <span className="text-[10px] text-slate-400">{invoiceInfo.daysUntil > 0 ? `vence em ${invoiceInfo.daysUntil} ${invoiceInfo.daysUntil === 1 ? 'dia' : 'dias'}` : 'vence hoje'}</span>
+                        <div className="px-4 py-2.5 md:px-5">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-amber-500">Fatura a vencer</span>
+                            <div className={`text-sm md:text-base font-black tabular-nums text-amber-500 ${hideBalance ? 'blur-md select-none' : ''}`}>{hideBalance ? 'R$ 0,00' : `- ${formatCurrency(invoiceInfo.total)}`}</div>
+                            <span className="text-[9px] text-slate-400">{invoiceInfo.daysUntil > 0 ? `vence em ${invoiceInfo.daysUntil} ${invoiceInfo.daysUntil === 1 ? 'dia' : 'dias'}` : 'vence hoje'}</span>
                         </div>
-                        <div className="p-4 md:p-5">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">Saldo após fatura</span>
-                            <div className={`text-base md:text-lg font-black tabular-nums mt-1 ${hideBalance ? 'blur-md select-none' : (walletStats.balance - invoiceInfo.total >= 0 ? 'text-emerald-500' : 'text-rose-500')}`}>{hideBalance ? 'R$ 0,00' : formatCurrency(walletStats.balance - invoiceInfo.total)}</div>
-                            <span className="text-[10px] text-slate-400">estimativa pós-pagamento</span>
+                        <div className="px-4 py-2.5 md:px-5">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-500">Saldo após fatura</span>
+                            <div className={`text-sm md:text-base font-black tabular-nums ${hideBalance ? 'blur-md select-none' : (walletStats.balance - invoiceInfo.total >= 0 ? 'text-emerald-500' : 'text-rose-500')}`}>{hideBalance ? 'R$ 0,00' : formatCurrency(walletStats.balance - invoiceInfo.total)}</div>
+                            <span className="text-[9px] text-slate-400">estimativa pós-pagamento</span>
                         </div>
                     </div>
                 )}

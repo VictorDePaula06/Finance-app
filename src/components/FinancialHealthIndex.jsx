@@ -32,17 +32,17 @@ function ScoreGauge({ score, ringColor, isDark }) {
     const r = 46, c = 2 * Math.PI * r;
     const offset = c * (1 - Math.max(0, Math.min(100, score)) / 100);
     return (
-        <div className="relative w-28 h-28 shrink-0">
+        <div className="relative w-20 h-20 shrink-0">
             <svg viewBox="0 0 110 110" className="w-full h-full -rotate-90">
-                <circle cx="55" cy="55" r={r} fill="none" strokeWidth="9" stroke={isDark ? 'rgba(255,255,255,0.07)' : '#e2e8f0'} />
+                <circle cx="55" cy="55" r={r} fill="none" strokeWidth="8" stroke={isDark ? 'rgba(255,255,255,0.07)' : '#e2e8f0'} />
                 <circle
-                    cx="55" cy="55" r={r} fill="none" strokeWidth="9" strokeLinecap="round"
+                    cx="55" cy="55" r={r} fill="none" strokeWidth="8" strokeLinecap="round"
                     stroke={ringColor} strokeDasharray={c} strokeDashoffset={offset}
                     style={{ transition: 'stroke-dashoffset 1s ease, stroke 0.4s ease' }}
                 />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-                <span className={`text-3xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{score}</span>
+                <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{score}</span>
             </div>
         </div>
     );
@@ -51,14 +51,14 @@ function ScoreGauge({ score, ringColor, isDark }) {
 // ── Semáforo ────────────────────────────────────────────────────────────────
 function TrafficLight({ activeState, statusLabel, accentText }) {
     return (
-        <div className="flex flex-col items-center gap-2 shrink-0">
-            <div className="flex flex-col gap-1.5 p-1.5 rounded-2xl bg-black/30 border border-white/5">
+        <div className="flex flex-col items-center gap-1.5 shrink-0">
+            <div className="flex flex-col gap-1 p-1 rounded-xl bg-black/30 border border-white/5">
                 {LIGHTS.slice().reverse().map(light => {
                     const on = light.state === activeState;
                     return (
                         <div
                             key={light.state}
-                            className="w-5 h-5 rounded-full transition-all duration-500"
+                            className="w-3.5 h-3.5 rounded-full transition-all duration-500"
                             style={{
                                 backgroundColor: on ? light.color : 'rgba(120,120,120,0.18)',
                                 boxShadow: on ? `0 0 12px ${light.color}` : 'none',
@@ -101,7 +101,7 @@ export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig
     const seg = (v) => bdTotal > 0 ? (v / bdTotal) * 100 : 0;
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-2">
             {/* Cabeçalho */}
             <div className="flex items-center justify-center gap-2 relative">
                 <p className={`text-[10px] font-black uppercase tracking-[0.25em] ${sub} text-center`}>
@@ -117,21 +117,21 @@ export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig
             </div>
 
             {/* Card principal */}
-            <div className={`relative overflow-hidden rounded-[2rem] border ${cardBg} ${acc.border} shadow-lg ${acc.glow}`}>
+            <div className={`relative overflow-hidden rounded-3xl border ${cardBg} ${acc.border} shadow-lg ${acc.glow}`}>
                 {/* faixa de acento no topo */}
                 <div className="absolute top-0 left-0 right-0 h-1" style={{ background: acc.ring }} />
 
                 {/* Topo: semáforo + texto + gauge */}
-                <div className="p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
+                <div className="p-4 md:p-5 flex flex-col md:flex-row items-center gap-4">
                     <TrafficLight activeState={data.state} statusLabel={data.statusLabel} accentText={acc.text} />
 
                     <div className="flex-1 min-w-0 text-center md:text-left">
-                        <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${acc.soft} ${acc.text} mb-3`}>
+                        <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full ${acc.soft} ${acc.text} mb-1.5`}>
                             <span className={`w-1.5 h-1.5 rounded-full`} style={{ background: acc.ring }} />
                             {data.badge}
                         </span>
-                        <h2 className={`text-xl md:text-2xl font-black leading-tight ${txt}`}>{data.heading}</h2>
-                        <p className={`text-sm mt-2 ${sub} leading-relaxed max-w-xl`}>{data.description}</p>
+                        <h2 className={`text-base md:text-lg font-black leading-tight ${txt}`}>{data.heading}</h2>
+                        <p className={`text-xs mt-1 ${sub} leading-snug max-w-xl`}>{data.description}</p>
                     </div>
 
                     <ScoreGauge score={data.score} ringColor={acc.ring} isDark={isDark} />
@@ -180,7 +180,7 @@ export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig
                 </div>
 
                 {/* Rodapé */}
-                <div className={`flex items-center justify-between gap-3 px-6 py-3.5 border-t ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+                <div className={`flex items-center justify-between gap-3 px-5 py-2.5 border-t ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
                     <span className={`text-[11px] font-medium ${sub} flex items-center gap-1.5`}>
                         <Clock className="w-3.5 h-3.5" /> Atualizado hoje às {updatedLabel} · {data.incomeSource === 'launched' ? 'Renda do mês' : 'Renda base'}: {fmtCurrency(data.income)}
                     </span>
@@ -219,7 +219,7 @@ export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig
                     return (
                         <div
                             key={b.st}
-                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all ${
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all ${
                                 active ? `${a.soft} ${a.text} ${a.border} shadow-md ${a.glow}` : `border-transparent ${isDark ? 'text-slate-500' : 'text-slate-400'}`
                             }`}
                         >
@@ -255,17 +255,17 @@ function PillarCell({ isDark, icon: Icon, title, status, value, target, message,
     const sub = isDark ? 'text-slate-400' : 'text-slate-500';
     const txt = isDark ? 'text-white' : 'text-slate-800';
     return (
-        <div className={`p-5 ${borderR ? (isDark ? 'md:border-r border-white/5' : 'md:border-r border-slate-100') : ''}`}>
-            <div className="flex items-center justify-between mb-2">
+        <div className={`p-3.5 ${borderR ? (isDark ? 'md:border-r border-white/5' : 'md:border-r border-slate-100') : ''}`}>
+            <div className="flex items-center justify-between mb-1.5">
                 <span className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${sub}`}>
                     <Icon className="w-3.5 h-3.5" /> {title}
                 </span>
                 <span className={`w-2 h-2 rounded-full ${STATUS_DOT[status] || 'bg-slate-500'}`} />
             </div>
-            <p className={`text-xl font-black ${txt}`}>{value}</p>
-            <p className={`text-[11px] ${sub} mb-3`}>{target}</p>
+            <p className={`text-base font-black ${txt}`}>{value}</p>
+            <p className={`text-[10px] ${sub} mb-2`}>{target}</p>
             {children}
-            <p className={`text-[11px] mt-3 leading-relaxed ${sub}`}>{message}</p>
+            <p className={`text-[10px] mt-2 leading-snug ${sub}`}>{message}</p>
         </div>
     );
 }
