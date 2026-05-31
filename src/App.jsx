@@ -49,7 +49,7 @@ import OverviewTab from './components/OverviewTab';
 import TermsAcceptanceModal from './components/TermsAcceptanceModal';
 import CookieConsent from './components/CookieConsent';
 import FixedExpensesTab from './components/FixedExpensesTab';
-import { useCdiRate } from './utils/marketRates';
+import { useCdiRate, useUsdRate } from './utils/marketRates';
 import PremiumPaywall from './components/PremiumPaywall';
 import { CURRENT_TERMS_VERSION } from './components/TermsAcceptanceModal';
 import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
@@ -108,6 +108,7 @@ function Dashboard() {
 
   const [transactions, setTransactions] = useState([]);
   const [savingsJars, setSavingsJars] = useState([]);
+  const [investments, setInvestments] = useState([]);
   const [goals, setGoals] = useState([]);
   const [cards, setCards] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
@@ -160,6 +161,7 @@ function Dashboard() {
   const [previousMonthStats, setPreviousMonthStats] = useState({ income: 0, expense: 0, balance: 0, topCategory: '' });
   const [previousMonthName, setPreviousMonthName] = useState('');
   const cdiRate = useCdiRate();
+  const usdRate = useUsdRate();
   const [editingJar, setEditingJar] = useState(null);
   const [jarDeleteConfirm, setJarDeleteConfirm] = useState(null);
   const [showAliviaConfig, setShowAliviaConfig] = useState(false);
@@ -330,6 +332,12 @@ function Dashboard() {
       console.warn("[Dev] Erro de conexão ao buscar investimentos:", err);
     });
 
+    // Listen to Investments (carteira de ativos do módulo Patrimônio)
+    const qInv = query(collection(db, 'investments'), where('userId', '==', currentUser.uid));
+    const unsubInv = onSnapshot(qInv, (snapshot) => {
+      setInvestments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, () => {});
+
     return () => {
       unsubscribeTransactions();
       unsubscribeGoals();
@@ -337,6 +345,7 @@ function Dashboard() {
       unsubS();
       unsubFE();
       unsubscribeSavings();
+      unsubInv();
     };
   }, [currentUser]);
 
@@ -502,6 +511,26 @@ function Dashboard() {
     return { totalGuarded, dailyYield, jarsWithBalance };
   }, [savingsJars, cdiRate]);
 
+  // Resumo da carteira de investimentos (valor atual, custo, diversificação por classe)
+  const investmentsSummary = useMemo(() => {
+    let current = 0, cost = 0; const byClass = {};
+    investments.forEach(inv => {
+      let c, cur;
+      if (inv.type === 'renda_fixa') {
+        c = inv.totalApplied || (inv.quantity * inv.purchasePrice) || 0;
+        cur = inv.manualCurrentPrice || c;
+      } else {
+        const usdM = inv.isUSD ? (usdRate || 5) : 1;
+        c = (inv.quantity || 0) * (inv.purchasePrice || 0) * usdM;
+        cur = (inv.quantity || 0) * (inv.manualCurrentPrice || inv.purchasePrice || 0) * usdM;
+      }
+      current += cur; cost += c;
+      const cls = inv.type || 'outros';
+      byClass[cls] = (byClass[cls] || 0) + cur;
+    });
+    return { current, cost, byClass, count: investments.length };
+  }, [investments, usdRate]);
+
   // Auto-calculate fixed expenses: gastos fixos cadastrados + assinaturas do cartão
   const autoFixedExpenses = useMemo(() => {
     const fixed = fixedExpensesList.reduce((acc, e) => acc + (parseFloat(e.value) || 0), 0);
@@ -515,7 +544,7 @@ function Dashboard() {
   // Índice de Saúde Financeira (Gastos) — reformulado e configurável (sobra, reserva, supérfluos).
   const healthIndex = calculateHealthIndex(transactions, effectiveConfig, investmentStats.totalGuarded);
   // Saúde Patrimonial — função própria (reserva em meses, aportes, progresso de metas).
-  const patrimonyHealthScore = calculatePatrimonyHealthScore(transactions, effectiveConfig, investmentStats, goals);
+  const patrimonyHealthScore = calculatePatrimonyHealthScore(transactions, effectiveConfig, investmentStats, goals, investmentsSummary);
   // O card da sidebar usa a saúde do módulo ativo.
   const sidebarHealthScore = activeModule === 'patrimonio' ? patrimonyHealthScore : healthIndex;
 

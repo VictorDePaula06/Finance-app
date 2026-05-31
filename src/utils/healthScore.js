@@ -442,23 +442,7 @@ export const calculateHealthIndex = (transactions = [], config = {}, reserveTota
  * @param {Object} investmentStats { totalGuarded } — patrimônio líquido em reservas/investimentos.
  * @param {Array}  goals          Metas ({ target, current, status }).
  */
-export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = {}, investmentStats = {}, goals = []) => {
-    const today = new Date();
-    const currentMonth = today.toLocaleDateString('en-CA').slice(0, 7);
-
-    const getRobustMonth = (t) => {
-        if (t.month) return t.month;
-        if (!t.date) return "";
-        try {
-            if (typeof t.date === 'string') return t.date.slice(0, 7);
-            if (t.date.toDate) return t.date.toDate().toISOString().slice(0, 7);
-            if (t.date.seconds) return new Date(t.date.seconds * 1000).toISOString().slice(0, 7);
-        } catch { return ""; }
-        return "";
-    };
-
-    const monthTx = transactions.filter(t => getRobustMonth(t) === currentMonth);
-
+export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = {}, investmentStats = {}, goals = [], investmentsSummary = {}) => {
     const income = manualConfig?.income ? parseFloat(manualConfig.income) : 0;
     const monthlyExpenses = manualConfig?.fixedExpenses
         ? parseFloat(manualConfig.fixedExpenses)
@@ -466,79 +450,75 @@ export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = 
 
     const reserveTotal = parseFloat(investmentStats?.totalGuarded) || 0;
 
-    // Metas configuráveis (Configurar Alívia › Saúde Patrimonial). Padrões: 6 meses, 20%.
+    // Metas configuráveis (Configurar Alívia › Saúde Patrimonial). Padrão: 6 meses.
     const ph = manualConfig?.patrimonyHealth || {};
     const reserveMonthsTarget = parseFloat(ph.reserveMonthsTarget) > 0 ? parseFloat(ph.reserveMonthsTarget) : 6;
-    const savingsRateTarget = parseFloat(ph.savingsRateTarget) > 0 ? parseFloat(ph.savingsRateTarget) / 100 : 0.20;
 
-    // 1. Reserva de Emergência (40 pts) — meta configurável em meses de despesas
+    // Dados da carteira de investimentos
+    const invCurrent = parseFloat(investmentsSummary?.current) || 0;
+    const invCost = parseFloat(investmentsSummary?.cost) || 0;
+    const byClass = investmentsSummary?.byClass || {};
+    const invCount = investmentsSummary?.count || 0;
+
+    // ── PILAR 1: Reserva de Emergência (40 pts) — meses de despesa cobertos ──
     let reserveScore = 0;
     let monthsCovered = 0;
     if (monthlyExpenses > 0) {
         monthsCovered = reserveTotal / monthlyExpenses;
         reserveScore = Math.min(40, (monthsCovered / reserveMonthsTarget) * 40);
+    } else if (reserveTotal > 0) {
+        reserveScore = 20; // tem reserva mas sem custo de vida definido para medir cobertura
     }
 
-    // 2. Aportes / Acúmulo (30 pts) — meta configurável (% da renda no mês)
-    const investedThisMonth = monthTx
-        .filter(t => t.type === 'expense' && SAVINGS_CATEGORIES.includes(t.category))
-        .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    let savingsRate = 0;
-    let savingsScore = 0;
-    if (income > 0) {
-        savingsRate = investedThisMonth / income;
-        savingsScore = Math.min(30, (savingsRate / savingsRateTarget) * 30);
+    // ── PILAR 2: Diversificação dos investimentos (30 pts) ──
+    // Combina nº de classes de ativo e o quão equilibrada é a alocação (anti-concentração).
+    let diversificationScore = 0;
+    const classValues = Object.values(byClass).filter(v => v > 0);
+    const classCount = classValues.length;
+    let maxWeight = 0;
+    if (invCurrent > 0 && classCount > 0) {
+        maxWeight = Math.max(...classValues) / invCurrent;
+        const classFactor = Math.min(1, classCount / 4);          // 4+ classes = máximo
+        const balanceFactor = 1 - Math.max(0, (maxWeight - 0.5) / 0.5); // penaliza concentração > 50%
+        diversificationScore = 30 * classFactor * (0.5 + 0.5 * balanceFactor);
     }
 
-    // 3. Metas (30 pts) — progresso médio das metas ativas
-    const activeGoals = goals.filter(g => g && g.status !== 'completed' && (parseFloat(g.target) || 0) > 0);
-    let goalsScore = 0;
-    let avgGoalProgress = 0;
-    if (activeGoals.length > 0) {
-        const sumProgress = activeGoals.reduce((acc, g) => {
-            const target = parseFloat(g.target) || 0;
-            const current = parseFloat(g.current) || 0;
-            return acc + (target > 0 ? Math.min(1, current / target) : 0);
-        }, 0);
-        avgGoalProgress = sumProgress / activeGoals.length;
-        goalsScore = avgGoalProgress * 30;
+    // ── PILAR 3: Rentabilidade dos investimentos (30 pts) ──
+    // Retorno acumulado sobre o custo. -5% → 0 pts; +15% ou mais → 30 pts.
+    let profitabilityScore = 0;
+    let returnPct = 0;
+    if (invCost > 0) {
+        returnPct = (invCurrent - invCost) / invCost;
+        profitabilityScore = Math.max(0, Math.min(1, (returnPct + 0.05) / 0.20)) * 30;
     }
 
-    const totalScore = Math.min(100, Math.round(reserveScore + savingsScore + goalsScore));
+    const totalScore = Math.min(100, Math.round(reserveScore + diversificationScore + profitabilityScore));
 
-    // Feedback qualitativo (mesma escala de cores do score de Gastos)
-    let feedback = "Cadastre suas reservas e metas para ver sua saúde patrimonial.";
+    // Feedback qualitativo (mesma escala de cores)
+    let feedback = "Cadastre sua reserva e seus investimentos para ver sua saúde patrimonial.";
     let color = "text-slate-400";
     let bg = "bg-slate-400/10";
     let statusLabel = "Sem dados";
 
     if (totalScore >= 90) {
-        feedback = "Patrimônio sólido! Sua independência financeira está bem encaminhada.";
-        color = "text-emerald-400";
-        bg = "bg-emerald-500/10";
-        statusLabel = "Excelente";
+        feedback = "Patrimônio sólido! Reserva firme, carteira diversificada e rendendo bem.";
+        color = "text-emerald-400"; bg = "bg-emerald-500/10"; statusLabel = "Excelente";
     } else if (totalScore >= 70) {
-        feedback = "Bom! Seu patrimônio está crescendo de forma saudável.";
-        color = "text-blue-400";
-        bg = "bg-blue-500/10";
-        statusLabel = "Bom";
+        feedback = "Bom! Seu patrimônio está bem estruturado e crescendo de forma saudável.";
+        color = "text-blue-400"; bg = "bg-blue-500/10"; statusLabel = "Bom";
     } else if (totalScore >= 50) {
-        feedback = "Razoável. Reforce sua reserva e mantenha os aportes constantes.";
-        color = "text-yellow-400";
-        bg = "bg-yellow-500/10";
-        statusLabel = "Razoável";
+        feedback = "Razoável. Reforce a reserva, diversifique mais e acompanhe a rentabilidade.";
+        color = "text-yellow-400"; bg = "bg-yellow-500/10"; statusLabel = "Razoável";
     } else if (totalScore > 0) {
-        feedback = "Atenção! Priorize construir sua reserva de emergência.";
-        color = "text-rose-400";
-        bg = "bg-rose-500/10";
-        statusLabel = "Atenção";
+        feedback = "Atenção! Priorize a reserva e diversifique seus investimentos.";
+        color = "text-rose-400"; bg = "bg-rose-500/10"; statusLabel = "Atenção";
     }
 
     // Pilares abaixo de 90% do máximo = áreas a melhorar.
     const improvements = [
         reserveScore < 40 * 0.9,
-        savingsScore < 30 * 0.9,
-        goalsScore < 30 * 0.9,
+        diversificationScore < 30 * 0.9,
+        profitabilityScore < 30 * 0.9,
     ].filter(Boolean).length;
 
     return {
@@ -548,20 +528,24 @@ export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = 
         bg,
         statusLabel,
         improvements,
+        pillars: [
+            { key: 'reserve', label: 'Reserva de emergência', score: Math.round(reserveScore), max: 40 },
+            { key: 'diversification', label: 'Diversificação', score: Math.round(diversificationScore), max: 30 },
+            { key: 'profitability', label: 'Rentabilidade', score: Math.round(profitabilityScore), max: 30 },
+        ],
         breakdown: {
             reserve: Math.round(reserveScore),
-            savings: Math.round(savingsScore),
-            goals: Math.round(goalsScore),
+            diversification: Math.round(diversificationScore),
+            profitability: Math.round(profitabilityScore),
             data: {
                 reserveTotal,
                 monthlyExpenses,
                 monthsCovered: monthlyExpenses > 0 ? monthsCovered.toFixed(1) : "0.0",
                 reserveMonthsTarget,
-                savingsRateTarget: Math.round(savingsRateTarget * 100),
-                investedThisMonth,
-                savingsRate: income > 0 ? (savingsRate * 100).toFixed(0) : "0",
-                activeGoals: activeGoals.length,
-                avgGoalProgress: (avgGoalProgress * 100).toFixed(0),
+                classCount,
+                maxWeight: Math.round(maxWeight * 100),
+                invCount,
+                returnPct: invCost > 0 ? (returnPct * 100).toFixed(1) : "0.0",
             }
         }
     };

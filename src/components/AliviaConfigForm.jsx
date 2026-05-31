@@ -404,20 +404,35 @@ export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose
                 {activeSection === 'saude' && (() => {
                     const ph = tempConfig.patrimonyHealth || {};
                     const reserveMonthsTarget = ph.reserveMonthsTarget ?? 6;
-                    const savingsRateTarget = ph.savingsRateTarget ?? 20;
-                    const setPH = (patch) => setTempConfig({ ...tempConfig, patrimonyHealth: { reserveMonthsTarget, savingsRateTarget, ...patch } });
+                    const setPH = (patch) => setTempConfig({ ...tempConfig, patrimonyHealth: { ...ph, reserveMonthsTarget, ...patch } });
                     const income = parseFloat(tempConfig.income) || 0;
                     const monthlyExpenses = fixedExpensesSum > 0 ? fixedExpensesSum : (income > 0 ? income * 0.7 : 0);
+                    const pillars = [
+                        { label: 'Reserva de emergência', pts: 40, desc: 'Sua reserva cobre os meses de despesa definidos abaixo.' },
+                        { label: 'Diversificação', pts: 30, desc: 'Quantas classes de ativo você tem e o quão equilibrada é a alocação (evitar concentração).' },
+                        { label: 'Rentabilidade', pts: 30, desc: 'Retorno acumulado dos seus investimentos sobre o valor investido.' },
+                    ];
                     return (
                         <div className="space-y-6 animate-in fade-in duration-300">
                             <h3 className={`${sectionTitle} ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
                                 <ShieldCheck className="w-4 h-4" /> Saúde Patrimonial
                             </h3>
                             <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                                Define as metas que a Alívia usa para calcular o índice de <strong>Saúde Patrimonial</strong> (o medidor no topo da barra lateral). O índice considera 3 pilares: reserva de emergência (40 pts), ritmo de aportes (30 pts) e progresso das suas metas (30 pts).
+                                O índice de <strong>Saúde Patrimonial</strong> (medidor no topo da barra lateral) é composto por 3 pilares, calculados automaticamente a partir dos seus dados do módulo de Patrimônio:
                             </p>
+                            <div className="space-y-2">
+                                {pillars.map(p => (
+                                    <div key={p.label} className={`p-3 rounded-xl border flex items-start gap-3 ${card}`}>
+                                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 shrink-0">{p.pts} pts</span>
+                                        <div>
+                                            <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{p.label}</p>
+                                            <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{p.desc}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
 
-                            {/* Meta de reserva (meses) */}
+                            {/* Único parâmetro configurável: meta de reserva */}
                             <div className={`p-5 rounded-2xl border ${card}`}>
                                 <div className="flex items-center justify-between mb-1">
                                     <label className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Reserva ideal</label>
@@ -427,23 +442,11 @@ export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose
                                     onChange={(e) => setPH({ reserveMonthsTarget: parseInt(e.target.value) })}
                                     className="w-full accent-emerald-500" />
                                 <p className={`text-[10px] mt-2 leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                                    Quantos meses de despesas sua reserva deve cobrir para nota máxima nesse pilar.
+                                    Quantos meses de despesas sua reserva deve cobrir para nota máxima no pilar de reserva.
                                     {monthlyExpenses > 0 && <> Com seu custo de vida atual, a meta equivale a <strong>R$ {fmt(reserveMonthsTarget * monthlyExpenses)}</strong>.</>}
                                 </p>
-                            </div>
-
-                            {/* Meta de aporte (%) */}
-                            <div className={`p-5 rounded-2xl border ${card}`}>
-                                <div className="flex items-center justify-between mb-1">
-                                    <label className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Meta de aporte mensal</label>
-                                    <span className="text-2xl font-black text-blue-500">{savingsRateTarget}%</span>
-                                </div>
-                                <input type="range" min={5} max={50} step={1} value={savingsRateTarget}
-                                    onChange={(e) => setPH({ savingsRateTarget: parseInt(e.target.value) })}
-                                    className="w-full accent-blue-500" />
                                 <p className={`text-[10px] mt-2 leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                                    Percentual da renda que você quer aportar por mês para nota máxima no pilar de aportes.
-                                    {income > 0 && <> Hoje representa <strong>R$ {fmt(income * savingsRateTarget / 100)}/mês</strong>.</>}
+                                    Diversificação e rentabilidade são medidas automaticamente a partir da sua carteira de investimentos — quanto mais classes de ativo equilibradas e melhor o retorno, maior a nota.
                                 </p>
                             </div>
                         </div>
