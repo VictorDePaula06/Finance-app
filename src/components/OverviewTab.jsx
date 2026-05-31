@@ -153,7 +153,9 @@ export default function OverviewTab({
                 {/* Hero do Saldo */}
                 <div className={`rounded-3xl border overflow-hidden ${card}`}>
                     <div className="p-5">
-                        <div className="flex items-start justify-between gap-4">
+                        {/* Saldo + info: empilhado no mobile, lado a lado no sm+ */}
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                            {/* Saldo */}
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2 mb-1.5">
                                     <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-400">Saldo Total em Carteira</span>
@@ -172,8 +174,9 @@ export default function OverviewTab({
                                 )}
                                 <p className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 mt-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Saldo atual disponível em conta</p>
                             </div>
-                            {/* Área à direita do saldo: banner de fatura (se houver) ou variação + mini-gráfico */}
-                            <div className="shrink-0 w-full sm:w-[56%] max-w-[380px]">
+
+                            {/* Área de fatura ou variação — ocupa largura total no mobile */}
+                            <div className="w-full sm:w-[56%] sm:shrink-0 sm:max-w-[380px]">
                                 {invoiceInfo.total > 0.005 ? (
                                     <button onClick={() => setActiveTab && setActiveTab('cartoes')} className={`w-full text-left rounded-xl border p-3 transition-all hover:scale-[1.005] ${isDark ? 'bg-amber-500/[0.07] border-amber-500/30' : 'bg-amber-50 border-amber-200'}`}>
                                         <div className="flex items-center justify-between gap-2">
@@ -187,7 +190,7 @@ export default function OverviewTab({
                                         </div>
                                     </button>
                                 ) : (
-                                    <div className="flex items-center justify-end gap-3 h-full">
+                                    <div className="flex items-center justify-start sm:justify-end gap-3 mt-1 sm:mt-0 sm:h-full">
                                         {pctMonth != null && isFinite(pctMonth) && (<span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${pctMonth >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}><TrendingUp className={`w-3.5 h-3.5 ${pctMonth < 0 ? 'rotate-180' : ''}`} />{pctMonth >= 0 ? '+' : ''}{pctMonth.toFixed(0)}% este mês</span>)}
                                         <div className="w-28 h-12 hidden sm:block">
                                             <ResponsiveContainer width="100%" height="100%">

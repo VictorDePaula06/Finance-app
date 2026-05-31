@@ -542,39 +542,42 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                 </div>
                             ) : (
                                 recentRedemptions.map(inc => (
-                                    <div key={inc.id} className={`flex items-center justify-between p-5 rounded-xl border transition-all hover:shadow-lg ${
+                                    <div key={inc.id} className={`flex items-center gap-3 p-4 rounded-xl border transition-all hover:shadow-lg ${
                                         theme === 'light' ? 'bg-blue-50/30 border-blue-100/50 hover:bg-blue-50 hover:border-blue-200' : 'bg-blue-500/5 border-blue-500/10 hover:bg-blue-500/10'
                                     }`}>
-                                        <div className="flex items-center gap-4">
-                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-inner ${
-                                                theme === 'light' ? 'bg-white' : 'bg-slate-900'
-                                            }`}>
-                                                <Landmark className={`w-6 h-6 text-blue-500`} />
-                                            </div>
-                                            <div>
-                                                <h4 className={`text-[13px] ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                        {/* Ícone */}
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner ${
+                                            theme === 'light' ? 'bg-white' : 'bg-slate-900'
+                                        }`}>
+                                            <Landmark className="w-5 h-5 text-blue-500" />
+                                        </div>
+
+                                        {/* Conteúdo */}
+                                        <div className="flex-1 min-w-0">
+                                            {/* Linha 1: descrição + valor */}
+                                            <div className="flex items-baseline justify-between gap-2">
+                                                <h4 className={`text-[13px] font-medium truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                                                     {inc.description}
                                                 </h4>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    <p className={`text-[11px] font-bold ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
-                                                        {new Date(inc.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
-                                                    </p>
-                                                    <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500 text-white">Sucesso</span>
-                                                </div>
+                                                <span className="text-[14px] font-bold text-blue-400 shrink-0 tabular-nums">
+                                                    + {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(inc.amount))}
+                                                </span>
                                             </div>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <span className="font-bold text-lg text-blue-500">
-                                                + R$ {parseFloat(inc.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                            </span>
-                                            <button 
-                                                onClick={() => handleDelete(inc.id)}
-                                                className={`p-2.5 rounded-xl transition-colors ${
-                                                    theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
-                                                }`}
-                                            >
-                                                <Trash2 className="w-5 h-5" />
-                                            </button>
+                                            {/* Linha 2: data + badge + delete */}
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <p className={`text-[11px] font-medium ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                    {new Date(inc.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}
+                                                </p>
+                                                <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500 text-white">Sucesso</span>
+                                                <button
+                                                    onClick={() => handleDelete(inc.id)}
+                                                    className={`ml-auto p-1.5 rounded-lg transition-colors ${
+                                                        theme === 'light' ? 'text-slate-300 hover:text-rose-500 hover:bg-rose-50' : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
+                                                    }`}
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))

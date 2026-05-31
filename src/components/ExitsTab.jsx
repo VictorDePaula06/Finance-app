@@ -957,80 +957,91 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                         const priorityColor = t.priority === 'essential' ? 'bg-emerald-500/20 text-emerald-400' : t.priority === 'superfluous' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400';
 
                                         return (
-                                            <div key={t.id} className={`grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_1fr_1fr_1fr_1fr] items-center py-4 px-2 hover:bg-white/5 rounded-xl transition-colors group gap-2 sm:gap-4 border-b sm:border-b-0 ${theme === 'light' ? 'border-slate-100' : 'border-slate-700/30'}`}>
-                                                {/* Description & Mobile Info */}
-                                                <div className="flex items-center gap-4 min-w-0">
-                                                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-rose-500/20 text-rose-400 shrink-0">
+                                            <div key={t.id} className={`rounded-xl transition-colors group border-b sm:border-b-0 ${theme === 'light' ? 'border-slate-100 hover:bg-slate-50' : 'border-slate-700/30 hover:bg-white/5'}`}>
+
+                                                {/* ── MOBILE CARD (< sm) ── */}
+                                                <div className="flex items-start gap-3 px-2 py-3 sm:hidden">
+                                                    <div className="w-9 h-9 rounded-full flex items-center justify-center bg-rose-500/20 text-rose-400 shrink-0 mt-0.5">
                                                         <Icon className="w-4 h-4" />
                                                     </div>
-                                                    <div className="flex flex-col min-w-0">
-                                                        <span className={`text-[13px] truncate ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>{t.description}</span>
-                                                        
-                                                        {/* Mobile Info Row */}
-                                                        <div className="flex flex-wrap items-center gap-1.5 mt-1 sm:hidden">
-                                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{cat.label}</span>
-                                                            <span className="text-slate-400 text-[10px]">•</span>
-                                                            <span className="text-[11px] text-slate-400">
-                                                                {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}
-                                                            </span>
-                                                            <span className="text-slate-400 text-[10px]">•</span>
-                                                            <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-slate-700/50 text-slate-300">
-                                                                {paymentLabel}
-                                                            </span>
-                                                            <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md ${priorityColor}`}>
-                                                                {priorityLabel}
+                                                    <div className="flex-1 min-w-0">
+                                                        {/* Linha 1: descrição + valor */}
+                                                        <div className="flex items-baseline justify-between gap-2">
+                                                            <span className={`text-[13px] font-medium leading-snug ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>{t.description}</span>
+                                                            <span className={`text-[13px] font-semibold text-rose-400 shrink-0 tabular-nums ${t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' ? 'opacity-70' : ''}`}>
+                                                                - {formatCurrency(parseFloat(t.amount))}
                                                             </span>
                                                         </div>
-                                                        
-                                                        {/* Desktop Category */}
-                                                        <span className="hidden sm:block text-[9px] font-bold text-slate-500 uppercase tracking-widest">{cat.label}</span>
+                                                        {/* Linha 2: categoria · data · badges · ações */}
+                                                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{cat.label}</span>
+                                                            <span className="text-slate-600 text-[10px]">·</span>
+                                                            <span className="text-[10px] text-slate-400">
+                                                                {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}
+                                                            </span>
+                                                            <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-slate-700/50 text-slate-300">{paymentLabel}</span>
+                                                            <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md ${priorityColor}`}>{priorityLabel}</span>
+                                                            {t.paymentMethod === 'credito' && (
+                                                                t.invoiceStatus === 'paid'
+                                                                    ? <span className="text-[9px] font-black text-emerald-500 uppercase bg-emerald-500/10 px-1.5 py-0.5 rounded-sm">Fatura Paga</span>
+                                                                    : <span className="text-[9px] font-black text-slate-500 uppercase">Fatura Aberta</span>
+                                                            )}
+                                                            <div className="ml-auto flex gap-0.5">
+                                                                <button onClick={() => handleEdit(t)} className="p-1.5 text-slate-500 hover:text-emerald-400 transition-colors rounded-md"><Pencil className="w-3.5 h-3.5" /></button>
+                                                                <button onClick={() => handleDelete(t)} className="p-1.5 text-slate-500 hover:text-rose-400 transition-colors rounded-md"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
 
-                                                {/* Date - Hidden on Mobile */}
-                                                <div className={`text-[13px] hidden sm:block ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
-                                                    {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}.
-                                                </div>
-
-                                                {/* Payment - Hidden on Mobile */}
-                                                <div className="flex flex-col items-start justify-center hidden sm:flex">
-                                                    <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-300">
-                                                        {paymentLabel}
-                                                    </span>
-                                                    {t.selectedCardId && (
-                                                        <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1 ml-1 truncate max-w-full">
-                                                            {cards?.find(c => c.id === t.selectedCardId)?.name || 'Cartão'}
-                                                        </span>
-                                                    )}
-                                                </div>
-
-                                                {/* Priority - Hidden on Mobile */}
-                                                <div className="flex items-center justify-start hidden sm:flex">
-                                                    <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-md ${priorityColor}`}>
-                                                        {priorityLabel}
-                                                    </span>
-                                                </div>
-
-                                                {/* Value & Actions */}
-                                                <div className="flex items-center justify-end gap-3 relative">
-                                                    <div className="text-right flex flex-col items-end">
-                                                        <span className={`text-[13px] font-medium text-rose-400 ${t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' ? 'opacity-70' : ''}`}>
-                                                            - {formatCurrency(parseFloat(t.amount))}
-                                                        </span>
-                                                        {t.paymentMethod === 'credito' && (
-                                                            t.invoiceStatus === 'paid' ? (
-                                                                <span className="text-[9px] font-black text-emerald-500 uppercase mt-0.5 bg-emerald-500/10 px-1.5 py-0.5 rounded-sm">Fatura Paga</span>
-                                                            ) : (
-                                                                <span className="text-[9px] font-black text-slate-500 uppercase mt-0.5">Fatura Aberta</span>
-                                                            )
+                                                {/* ── DESKTOP TABLE ROW (≥ sm) ── */}
+                                                <div className="hidden sm:grid sm:grid-cols-[2fr_1fr_1fr_1fr_1fr] sm:items-center py-4 px-2 gap-4">
+                                                    {/* Description */}
+                                                    <div className="flex items-center gap-4 min-w-0">
+                                                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-rose-500/20 text-rose-400 shrink-0">
+                                                            <Icon className="w-4 h-4" />
+                                                        </div>
+                                                        <div className="flex flex-col min-w-0">
+                                                            <span className={`text-[13px] truncate ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>{t.description}</span>
+                                                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{cat.label}</span>
+                                                        </div>
+                                                    </div>
+                                                    {/* Date */}
+                                                    <div className={`text-[13px] ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
+                                                        {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}.
+                                                    </div>
+                                                    {/* Payment */}
+                                                    <div className="flex flex-col items-start justify-center">
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-300">{paymentLabel}</span>
+                                                        {t.selectedCardId && (
+                                                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1 ml-1 truncate max-w-full">
+                                                                {cards?.find(c => c.id === t.selectedCardId)?.name || 'Cartão'}
+                                                            </span>
                                                         )}
                                                     </div>
-                                                    {/* Actions: always visible on mobile, slide-in on hover for desktop */}
-                                                    <div className={`sm:absolute sm:right-0 sm:translate-x-16 sm:opacity-0 sm:group-hover:translate-x-0 sm:group-hover:opacity-100 transition-all flex gap-1 sm:pl-2 ${theme === 'light' ? 'sm:bg-white' : 'sm:bg-[#1e2330]'}`}>
-                                                        <button onClick={() => handleEdit(t)} className={`p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Pencil className="w-4 h-4 sm:w-3 sm:h-3" /></button>
-                                                        <button onClick={() => handleDelete(t)} className={`p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Trash2 className="w-4 h-4 sm:w-3 sm:h-3" /></button>
+                                                    {/* Priority */}
+                                                    <div className="flex items-center justify-start">
+                                                        <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-md ${priorityColor}`}>{priorityLabel}</span>
+                                                    </div>
+                                                    {/* Value & Actions */}
+                                                    <div className="flex items-center justify-end gap-3 relative">
+                                                        <div className="text-right flex flex-col items-end">
+                                                            <span className={`text-[13px] font-medium text-rose-400 ${t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' ? 'opacity-70' : ''}`}>
+                                                                - {formatCurrency(parseFloat(t.amount))}
+                                                            </span>
+                                                            {t.paymentMethod === 'credito' && (
+                                                                t.invoiceStatus === 'paid'
+                                                                    ? <span className="text-[9px] font-black text-emerald-500 uppercase mt-0.5 bg-emerald-500/10 px-1.5 py-0.5 rounded-sm">Fatura Paga</span>
+                                                                    : <span className="text-[9px] font-black text-slate-500 uppercase mt-0.5">Fatura Aberta</span>
+                                                            )}
+                                                        </div>
+                                                        <div className={`absolute right-0 translate-x-16 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all flex gap-1 pl-2 ${theme === 'light' ? 'bg-white' : 'bg-[#1e2330]'}`}>
+                                                            <button onClick={() => handleEdit(t)} className={`p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Pencil className="w-3 h-3" /></button>
+                                                            <button onClick={() => handleDelete(t)} className={`p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Trash2 className="w-3 h-3" /></button>
+                                                        </div>
                                                     </div>
                                                 </div>
+
                                             </div>
                                         );
                                     })
