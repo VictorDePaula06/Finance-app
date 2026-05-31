@@ -30,6 +30,7 @@ import EvolucaoPatrimonialTab from './components/EvolucaoPatrimonialTab';
 import PatrimonioPlaceholderTab from './components/PatrimonioPlaceholderTab';
 import FluxoPatrimonialTab from './components/FluxoPatrimonialTab';
 import BensImoveisTab from './components/BensImoveisTab';
+import SegurosTab from './components/SegurosTab';
 import SettingsTab from './components/SettingsTab';
 import AIChat from './components/AIChat';
 import PaceAlerts from './components/PaceAlerts';
@@ -767,15 +768,7 @@ function Dashboard() {
             />
           )}
 
-          { activeTab === 'seguros' && (
-            <PatrimonioPlaceholderTab
-              title="Seguros & Proteção"
-              subtitle="Proteja seu patrimônio e sua família"
-              icon={Umbrella}
-              badge="Novo"
-              description="Em breve você poderá organizar suas apólices de seguro e avaliar a cobertura de proteção do seu patrimônio."
-            />
-          )}
+          { activeTab === 'seguros' && <SegurosTab manualConfig={manualConfig} /> }
 
           { activeTab === 'cartoes' && <CardsTab transactions={transactions} setActiveTab={setActiveTab} walletStats={walletStats} /> }
 
