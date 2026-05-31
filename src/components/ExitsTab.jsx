@@ -96,6 +96,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const [selectedCardFilter, setSelectedCardFilter] = useState('all');
     const [hidePaidInvoices, setHidePaidInvoices] = useState(false);
     const [fixedExpenseWarning, setFixedExpenseWarning] = useState(false);
+    const [installmentWarning, setInstallmentWarning] = useState(false);
 
     const PRIORITY_OPTIONS = [
         { id: 'essential', label: 'Essencial', icon: Shield, color: 'emerald', description: 'Necessidade básica' },
@@ -408,14 +409,13 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             setFixedExpenseWarning(true);
             return;
         }
-        // Parcelamento: editar abre a tela dedicada "Editar Parcelamento" na aba Cartões.
+        // Parcelamento NÃO é editado pela aba Despesas — orienta o usuário a usar
+        // a aba Cartões › Parcelamentos ativos (onde fica o editor dedicado).
         if (t.isSubscription) {
             const subId = t.id.replace(/-\d{4}-\d{2}$/, '');
             const subRef = subscriptions.find(s => s.id === subId);
             if (subRef && (subRef.type === 'installment' || subRef.isInstallment)) {
-                window.__editInstallmentSubId = subId;
-                window.dispatchEvent(new CustomEvent('navigate-tab', { detail: 'cartoes' }));
-                window.dispatchEvent(new CustomEvent('edit-installment', { detail: subId }));
+                setInstallmentWarning(true);
                 return;
             }
         }
@@ -1864,6 +1864,33 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                         <button onClick={() => setFixedExpenseWarning(false)} className="w-full py-3 bg-blue-500 text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-blue-500/20 active:scale-95">
                             Entendi
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {installmentWarning && (
+                <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className={`w-full max-w-sm rounded-2xl p-6 border text-center animate-in zoom-in-95 duration-300 ${
+                        theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
+                    }`}>
+                        <div className="w-16 h-16 bg-violet-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <CreditCard className="w-8 h-8 text-violet-500" />
+                        </div>
+                        <h3 className={`text-xl font-black mb-2 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Editar Parcelamento</h3>
+                        <p className="text-slate-500 text-xs font-bold leading-relaxed mb-8">
+                            Parcelamentos não são editados aqui na aba <strong className="text-rose-500">Despesas</strong>. Para alterar valor, cartão, parcelas ou prioridade, acesse a aba <strong className="text-violet-500">Cartões › Parcelamentos ativos</strong> e use o botão de editar do parcelamento. Assim seu histórico não é duplicado.
+                        </p>
+                        <div className="flex flex-col gap-2">
+                            <button
+                                onClick={() => { setInstallmentWarning(false); if (setActiveTab) setActiveTab('cartoes'); }}
+                                className="w-full py-3 bg-violet-500 text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-violet-500/20 active:scale-95"
+                            >
+                                Ir para Cartões
+                            </button>
+                            <button onClick={() => setInstallmentWarning(false)} className={`w-full py-2.5 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] ${theme === 'light' ? 'bg-slate-100 text-slate-600' : 'bg-white/10 text-slate-300'}`}>
+                                Fechar
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
