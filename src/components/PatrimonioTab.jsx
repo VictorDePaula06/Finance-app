@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Wallet, PiggyBank, TrendingUp, TrendingDown, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List, HelpCircle, ShieldCheck, Target, Home, Gem, Pencil, Trash2, Save, RefreshCw, Info } from 'lucide-react';
+import { Wallet, PiggyBank, TrendingUp, TrendingDown, ArrowUpCircle, ArrowDownCircle, Eye, EyeOff, BarChart3, Bot, Loader2, Sparkles, LayoutDashboard, LineChart, Layers, List, HelpCircle, ShieldCheck, Target, Home, Gem, Pencil, Trash2, Save, RefreshCw, Info, Settings } from 'lucide-react';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
 import AliviaConfigForm from './AliviaConfigForm';
-import EvolucaoPatrimonialTab from './EvolucaoPatrimonialTab';
+import { calculatePatrimonyHealthScore } from '../utils/healthScore';
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer, AreaChart, Area, LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from 'recharts';
 import ReactMarkdown from 'react-markdown';
 import { generatePatrimonyAnalysis, isGeminiConfigured } from '../services/gemini';
@@ -56,6 +56,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
   const { currentUser, userPrefs } = useAuth();
   const isDark = theme !== 'light';
   const [showPatrimonioConfig, setShowPatrimonioConfig] = useState(false);
+  const [configInitialSection, setConfigInitialSection] = useState(null);
 
   // ── state ──────────────────────────────────────────────────────────────────
   const [jars, setJars] = useState([]);
@@ -371,6 +372,25 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
 
   const patrimonioTotal = jarsTotal + investmentsTotal + bensTotal;
 
+  // Saúde Patrimonial (Reserva · Diversificação · Rentabilidade) — mesma fonte da sidebar.
+  const investmentsSummary = useMemo(() => {
+    const byClass = {};
+    investments.forEach(inv => {
+      const usdM = inv.isUSD ? usdRate : 1;
+      let cur;
+      if (inv.type === 'renda_fixa') cur = inv.manualCurrentPrice || inv.totalApplied || (inv.quantity * inv.purchasePrice) || 0;
+      else cur = (inv.quantity || 0) * (inv.manualCurrentPrice || inv.purchasePrice || 0) * usdM;
+      const cls = inv.type || 'outros';
+      byClass[cls] = (byClass[cls] || 0) + cur;
+    });
+    return { current: investmentsTotal, cost: investmentsCost, byClass, count: investments.length };
+  }, [investments, usdRate, investmentsTotal, investmentsCost]);
+
+  const patrimonyHealth = useMemo(
+    () => calculatePatrimonyHealthScore([], manualConfig, { totalGuarded: jarsTotal }, [], investmentsSummary),
+    [manualConfig, jarsTotal, investmentsSummary]
+  );
+
   const handleAnalyze = async (force = false) => {
     if (!isGeminiConfigured()) return;
     // Cache: only run every 12h unless forced
@@ -478,7 +498,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
     <div className="animate-in fade-in duration-700 pb-4">
       {/* Top bar */}
       <div className="flex items-center justify-end mb-4">
-        <button onClick={() => setShowPatrimonioConfig(true)} className={`px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 border ${isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100'}`}>
+        <button onClick={() => { setConfigInitialSection(null); setShowPatrimonioConfig(true); }} className={`px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 border ${isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100'}`}>
           <Sparkles className="w-3 h-3" /> Configurar Alívia
         </button>
       </div>
@@ -1046,9 +1066,69 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
         );
       })()}
 
-      {/* ── RETORNO ACUMULADO — Estilo Evolução Patrimonial ── */}
+      {/* ── SAÚDE PATRIMONIAL ── */}
       <div className="flex-1 min-h-0">
-        <EvolucaoPatrimonialTab hideHeader compact fill />
+        {(() => {
+          const h = patrimonyHealth;
+          const d = h.breakdown?.data || {};
+          const PILLAR_META = {
+            reserve: { color: '#10b981', desc: `Sua reserva cobre ${d.monthsCovered || '0.0'} de ${d.reserveMonthsTarget || 6} meses de despesa.` },
+            diversification: { color: '#3b82f6', desc: d.invCount > 0 ? `${d.classCount} classe(s) de ativo · maior peso ${d.maxWeight || 0}%.` : 'Cadastre investimentos para diversificar.' },
+            profitability: { color: '#a855f7', desc: d.invCount > 0 ? `Retorno acumulado de ${d.returnPct || 0}% sobre o investido.` : 'Sem investimentos para medir retorno.' },
+          };
+          const ring = h.score >= 70 ? '#10b981' : h.score >= 50 ? '#eab308' : h.score > 0 ? '#f43f5e' : '#64748b';
+          const C = 2 * Math.PI * 34;
+          return (
+            <div className={`rounded-2xl border h-full p-4 md:p-5 flex flex-col ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className={`p-2 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}><ShieldCheck className="w-4 h-4 text-emerald-500" /></div>
+                  <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Saúde Patrimonial</p>
+                </div>
+                <button onClick={() => { setConfigInitialSection('saude'); setShowPatrimonioConfig(true); }}
+                  className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 border transition-all ${isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100'}`}>
+                  <Settings className="w-3 h-3" /> Configurar
+                </button>
+              </div>
+
+              <div className="flex items-center gap-4 mb-4">
+                <div className="relative w-[84px] h-[84px] shrink-0">
+                  <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
+                    <circle cx="40" cy="40" r="34" fill="none" strokeWidth="7" stroke={isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0'} />
+                    <circle cx="40" cy="40" r="34" fill="none" strokeWidth="7" strokeLinecap="round" stroke={ring} strokeDasharray={C} strokeDashoffset={C * (1 - h.score / 100)} style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{h.score}</span>
+                    <span className="text-[8px] font-bold text-slate-500">/ 100</span>
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-base font-black ${h.color}`}>{h.statusLabel}</p>
+                  <p className={`text-[11px] leading-snug ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{h.feedback}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                {(h.pillars || []).map(p => {
+                  const meta = PILLAR_META[p.key] || {};
+                  const pct = p.max > 0 ? (p.score / p.max) * 100 : 0;
+                  return (
+                    <div key={p.key}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="flex items-center gap-2 text-[11px] font-bold"><span className="w-2 h-2 rounded-full" style={{ background: meta.color }} /><span className={isDark ? 'text-slate-200' : 'text-slate-700'}>{p.label}</span></span>
+                        <span className={`text-[10px] font-black ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{p.score}<span className="text-slate-500">/{p.max} pts</span></span>
+                      </div>
+                      <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: meta.color }} />
+                      </div>
+                      <p className="text-[9.5px] mt-1 text-slate-500">{meta.desc}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
         </div>{/* end right col */}
@@ -1063,9 +1143,10 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
           }`}>
             <AliviaConfigForm
               module="patrimonio"
+              initialSection={configInitialSection}
               manualConfig={manualConfig}
               onConfigChange={updateManualConfig}
-              onClose={() => setShowPatrimonioConfig(false)}
+              onClose={() => { setShowPatrimonioConfig(false); setConfigInitialSection(null); }}
             />
           </div>
         </div>

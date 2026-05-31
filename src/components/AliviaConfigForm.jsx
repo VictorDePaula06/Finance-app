@@ -41,7 +41,7 @@ const riskTextClasses = {
     purple:  'text-purple-500',
 };
 
-export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose, module = 'gastos' }) {
+export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose, module = 'gastos', initialSection = null }) {
     const { theme } = useTheme();
     const { saveUserPreferences, userPrefs, currentUser } = useAuth();
     const isDark = theme !== 'light';
@@ -51,7 +51,7 @@ export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose
     const [isSaving, setIsSaving] = useState(false);
     const [tempConfig, setTempConfig] = useState(manualConfig || {});
     // Aba inicial depende do módulo: Gastos abre em "Renda & Custos", Patrimônio em "Perfil Investidor"
-    const [activeSection, setActiveSection] = useState(isPatrimony ? 'perfil' : 'financeiro');
+    const [activeSection, setActiveSection] = useState(initialSection || (isPatrimony ? 'perfil' : 'financeiro'));
 
     // Onboarding fields (vinham do WelcomeJourney mas nunca eram editáveis depois)
     const [objectives, setObjectives] = useState([]);
