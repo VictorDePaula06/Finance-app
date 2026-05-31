@@ -171,13 +171,26 @@ export const calculateCumulativeBalance = (transactions, targetMonth) => {
         }
     }
 
+    // Reservas/aportes lançados pelo módulo Construção de Patrimônio NÃO afetam o
+    // saldo em carteira (só aportes feitos pela aba Aportes do Controle de Gastos afetam).
+    // Identifica por flag `source: 'patrimonio'` (novos) ou pela descrição (dados antigos).
+    const isPatrimonioReserve = (t) => {
+        if (t.source === 'patrimonio') return true;
+        const d = typeof t.description === 'string' ? t.description : '';
+        return /^(Criação de Reserva|Aporte Reserva|Resgate\/Ajuste Reserva):/.test(d);
+    };
+
     // Calcula a partir do reset (ou do início se não houver reset)
     return allPrev.slice(startIndex).reduce((acc, t) => {
         // Ignora TODAS as compras no crédito - apenas o "Pagamento de Fatura" (pix) afeta o saldo
         if (t.paymentMethod === 'credito') {
             return acc;
         }
-        
+        // Ignora reservas lançadas pelo módulo Patrimônio
+        if (isPatrimonioReserve(t)) {
+            return acc;
+        }
+
         const val = parseFloat(t.amount) || 0;
         if (t.type === 'income') {
             return acc + val;

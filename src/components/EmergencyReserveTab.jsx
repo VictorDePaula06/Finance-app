@@ -109,7 +109,9 @@ export default function EmergencyReserveTab() {
                         date: new Date().toISOString(),
                         userId: currentUser.uid,
                         month: new Date().toISOString().slice(0, 7),
-                        createdAt: Date.now()
+                        createdAt: Date.now(),
+                        // Reserva lançada pelo módulo Patrimônio NÃO afeta o saldo em carteira.
+                        source: 'patrimonio'
                     });
                 }
                 
@@ -125,7 +127,9 @@ export default function EmergencyReserveTab() {
                         date: new Date().toISOString(),
                         userId: currentUser.uid,
                         month: new Date().toISOString().slice(0, 7),
-                        createdAt: Date.now()
+                        createdAt: Date.now(),
+                        // Reserva lançada pelo módulo Patrimônio NÃO afeta o saldo em carteira.
+                        source: 'patrimonio'
                     });
                 }
 
