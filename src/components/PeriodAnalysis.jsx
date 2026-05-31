@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Filter, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Target, Sparkles, FileDown, Receipt, Shield, Flame, ListChecks, Wallet, CreditCard, Banknote, QrCode, FileText, RotateCcw } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
 import { Loader2 } from 'lucide-react';
@@ -13,6 +13,11 @@ const pad = (n) => String(n).padStart(2, '0');
 const keyLocal = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const tdate = (t) => (t.date ? t.date.slice(0, 10) : (t.month ? `${t.month}-01` : ''));
 const amount = (t) => parseFloat(t.amount) || 0;
+const fmtAxis = (v) => {
+  const n = Number(v) || 0; const abs = Math.abs(n); const sign = n < 0 ? '-' : '';
+  if (abs >= 1000) return `${sign}R$${(abs / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}k`;
+  return `${sign}R$${Math.round(abs)}`;
+};
 const fmtDay = (t) => {
   const s = tdate(t); if (!s) return '—';
   const d = new Date(`${s}T00:00:00`);
@@ -251,6 +256,7 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
       let ag = 0, ai = 0;
       buckets.forEach(b => { ag += b.gastos; ai += b.ganhos; b.gastos = ag; b.ganhos = ai; });
     }
+    buckets.forEach(b => { b.resultado = b.ganhos - b.gastos; });
     return buckets;
   }, [filteredItems, periodIncomeItems, range, chartMode]);
 
@@ -415,8 +421,8 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
         ) : (
           <>
             {/* Evolução + painéis laterais */}
-            <div className="grid grid-cols-1 xl:grid-cols-[1.55fr_1fr] gap-5 items-start">
-              <div className={`p-5 rounded-2xl border ${card}`}>
+            <div className="grid grid-cols-1 xl:grid-cols-[1.55fr_1fr] gap-5">
+              <div className={`p-5 rounded-2xl border flex flex-col ${card}`}>
                 <div className="flex items-center justify-between mb-4">
                   <h4 className={`text-sm font-bold uppercase tracking-wider ${txt}`}>Evolução no período</h4>
                   <div className={`flex rounded-lg p-0.5 ${inset}`}>
@@ -426,19 +432,28 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
                     ))}
                   </div>
                 </div>
-                <div className="w-full h-60">
+                <div className="w-full flex-1 min-h-[240px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={series} barGap={-6} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
+                    <LineChart data={series} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#ffffff0d' : '#0000000d'} vertical={false} />
                       <XAxis dataKey="label" tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={8} />
-                      <Tooltip cursor={{ fill: isDark ? '#ffffff08' : '#0000000a' }} formatter={(v, n) => [`R$ ${fmt(v)}`, n === 'gastos' ? 'Gastos' : 'Ganhos']} contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: '12px', fontSize: 12 }} labelStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }} />
-                      <Bar dataKey="ganhos" radius={[4, 4, 0, 0]} fill="#10b981" maxBarSize={22} />
-                      <Bar dataKey="gastos" radius={[4, 4, 0, 0]} fill="#f43f5e" maxBarSize={22} />
-                    </BarChart>
+                      <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} width={48} />
+                      <Tooltip cursor={{ stroke: isDark ? '#334155' : '#cbd5e1', strokeWidth: 1 }} formatter={(v, n) => [`R$ ${fmt(v)}`, n === 'gastos' ? 'Gastos' : n === 'ganhos' ? 'Ganhos' : 'Resultado líquido']} contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: '12px', fontSize: 12 }} labelStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }} />
+                      <Line type="monotone" dataKey="ganhos" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="gastos" stroke="#f43f5e" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="resultado" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 2.5, fill: '#3b82f6', strokeWidth: 0 }} activeDot={{ r: 4 }} />
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="flex items-center gap-4 mt-2 pl-1">
-                  <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500" /> Gastos</span>
-                  <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Ganhos</span>
+                <div className="flex items-center justify-between gap-3 mt-3 pl-1 flex-wrap">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400"><span className="w-3 h-1 rounded-full bg-emerald-500" /> Ganhos</span>
+                    <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400"><span className="w-3 h-1 rounded-full bg-rose-500" /> Gastos</span>
+                    <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400"><span className="w-2 h-2 rounded-full bg-blue-500" /> Resultado líquido</span>
+                  </div>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black tabular-nums ${balance >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                    {balance >= 0 ? '↑' : '↓'} R$ {fmt(Math.abs(balance))} de saldo
+                  </span>
                 </div>
               </div>
 
