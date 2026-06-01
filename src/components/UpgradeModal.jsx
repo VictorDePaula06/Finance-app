@@ -70,28 +70,30 @@ export default function UpgradeModal({ isOpen, onClose }) {
                 </div>
 
                 <div className="space-y-4 flex-1 mb-5">
-                    {FEATURE_GROUPS.map(group => (
-                        <div key={group.label}>
-                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">{group.label}</p>
-                            <ul className="space-y-1.5">
-                                {group.items.map((feat, i) => {
-                                    const { included, limited, tag } = featureState(feat, rank);
-                                    return (
-                                        <li key={i} className="flex items-start gap-2">
-                                            {included
-                                                ? <Check className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${a.check}`} />
-                                                : <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-300" />}
-                                            <span className={`text-[11.5px] font-medium leading-snug ${included ? 'text-slate-600' : 'text-slate-400'}`}>
-                                                {feat.text}
-                                                {limited && <span className="ml-1.5 align-middle text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">Limitado</span>}
-                                                {!included && tag && <span className={`ml-1.5 align-middle text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${tag === 'Premium' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'}`}>{tag}</span>}
-                                            </span>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        </div>
-                    ))}
+                    {FEATURE_GROUPS.map(group => {
+                        // Mostra apenas o que o plano OFERECE (itens incluídos).
+                        const items = group.items.filter(feat => featureState(feat, rank).included);
+                        if (items.length === 0) return null;
+                        return (
+                            <div key={group.label}>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">{group.label}</p>
+                                <ul className="space-y-1.5">
+                                    {items.map((feat, i) => {
+                                        const { limited } = featureState(feat, rank);
+                                        return (
+                                            <li key={i} className="flex items-start gap-2">
+                                                <Check className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${a.check}`} />
+                                                <span className="text-[11.5px] font-medium leading-snug text-slate-600">
+                                                    {feat.text}
+                                                    {limited && <span className="ml-1.5 align-middle text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">Limitado</span>}
+                                                </span>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
+                        );
+                    })}
                 </div>
 
                 <button
