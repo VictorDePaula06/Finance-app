@@ -48,11 +48,15 @@ export default function Hub({ onSelectModule }) {
         { text: 'Análises da AI Alívia sobre seus gastos', min: 'standard' },
         { text: 'Lançamentos pela AI Alívia', min: 'standard' },
     ];
-    // Patrimônio: incluído no Standard, porém com limites de quantidade (Premium é ilimitado).
+    // Patrimônio: Reservas/Saúde/Seguros disponíveis no Gratuito (com limites);
+    // planejamento avançado e análises da AI são exclusivos Premium.
     const patrimonioFeatures = [
         { text: 'Reservas, investimentos e bens', min: 'free', limitedBelow: 'premium' },
         { text: 'Saúde Patrimonial', min: 'free' },
-        { text: 'Fluxo patrimonial e independência financeira', min: 'standard', limitedBelow: 'premium' },
+        { text: 'Seguros e Proteção', min: 'free' },
+        { text: 'Fluxo patrimonial e independência financeira', min: 'premium' },
+        { text: 'Evolução patrimonial e benchmarks', min: 'premium' },
+        { text: 'Metas financeiras', min: 'premium' },
         { text: 'Análises da AI Alívia sobre seu patrimônio', min: 'premium' },
     ];
 
