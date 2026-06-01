@@ -42,7 +42,8 @@ const PLAN_FEATURES = {
             { icon: FileText,    text: 'Relatórios em PDF' },
             { icon: Cloud,       text: 'Sincronização nuvem + Mobile' },
             { icon: Globe,       text: 'Acesso Web & Mobile' },
-            { icon: LockIcon,    text: 'Sem módulo de Patrimônio' },
+            { icon: Landmark,    text: 'Módulo de Patrimônio (com limites)' },
+            { icon: LockIcon,    text: 'Sem IA Alívia / Health Score completo' },
         ],
     },
     premium: {

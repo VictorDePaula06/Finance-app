@@ -56,6 +56,8 @@ export default function EmergencyReserveTab() {
     const { theme } = useTheme();
     const { currentUser, planLevel } = useAuth();
     const isFreePlan = planLevel === 'free';
+    // Limite de quantidade de reservas vale para Gratuito e Standard (Premium é ilimitado).
+    const isReserveLimited = planLevel === 'free' || planLevel === 'standard';
     const FREE_RESERVE_LIMIT = 1;
     const [showLimitModal, setShowLimitModal] = useState(false);
     const [reserves, setReserves] = useState([]);
@@ -270,7 +272,7 @@ export default function EmergencyReserveTab() {
                 <div className="ml-auto flex items-center gap-3">
                     <button
                         onClick={() => {
-                            if (isFreePlan && reserves.length >= FREE_RESERVE_LIMIT) {
+                            if (isReserveLimited && reserves.length >= FREE_RESERVE_LIMIT) {
                                 setShowLimitModal(true);
                                 return;
                             }
@@ -642,7 +644,7 @@ export default function EmergencyReserveTab() {
             <TrialLimitModal
                 isOpen={showLimitModal}
                 onClose={() => setShowLimitModal(false)}
-                limitMessage={`Você atingiu o limite de ${FREE_RESERVE_LIMIT} cofrinho do Plano Gratuito. Faça upgrade para Premium e tenha cofrinhos ilimitados.`}
+                limitMessage={`Você atingiu o limite de ${FREE_RESERVE_LIMIT} reserva do seu plano (${planLevel === 'standard' ? 'Standard' : 'Gratuito'}). Faça upgrade para o Premium e tenha reservas ilimitadas.`}
             />
         </div>
     );

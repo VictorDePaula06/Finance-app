@@ -574,11 +574,7 @@ function Dashboard() {
     return (
       <Hub
         onSelectModule={(mod) => {
-          // Patrimônio: Free e Premium acessam (Free com limites); Standard ainda bloqueado.
-          if (mod === 'patrimonio' && planLevel === 'standard') {
-            alert('O módulo de Patrimônio é exclusivo para assinantes Premium. O Plano Standard cobre apenas o Controle de Gastos.');
-            return;
-          }
+          // Patrimônio: Free, Standard e Premium acessam (Free/Standard com limites).
           // setActiveModule (wrapper que navega) já leva pra aba default do módulo
           setActiveModule(mod);
         }}
@@ -844,7 +840,7 @@ function Dashboard() {
           })()}
 
           { activeTab === 'patrimonio' && (
-            planLevel === 'premium' || planLevel === 'free' || isAdmin ? (
+            planLevel === 'premium' || planLevel === 'standard' || planLevel === 'free' || isAdmin ? (
               <PatrimonioTab
                 transactions={transactions}
                 manualConfig={manualConfig}
@@ -853,10 +849,10 @@ function Dashboard() {
             ) : <div className="p-12 text-center font-bold text-slate-500">Este módulo requer o plano Premium.</div>
           )}
 
-          { activeTab === 'metas' && (planLevel === 'premium' || planLevel === 'free' || isAdmin ? <GoalTracker /> : null)}
+          { activeTab === 'metas' && (planLevel === 'premium' || planLevel === 'standard' || planLevel === 'free' || isAdmin ? <GoalTracker /> : null)}
 
           { activeTab === 'evolucao' && (
-            planLevel === 'premium' || isAdmin ? (
+            planLevel === 'premium' || planLevel === 'standard' || isAdmin ? (
               <EvolucaoPatrimonialTab />
             ) : (
               <PremiumPaywall
@@ -874,7 +870,7 @@ function Dashboard() {
           )}
 
           { activeTab === 'fluxo' && (
-            planLevel === 'premium' || isAdmin ? (
+            planLevel === 'premium' || planLevel === 'standard' || isAdmin ? (
               <FluxoPatrimonialTab />
             ) : (
               <PremiumPaywall
@@ -904,7 +900,7 @@ function Dashboard() {
           )}
 
           { activeTab === 'independencia' && (
-            planLevel === 'premium' || isAdmin ? (
+            planLevel === 'premium' || planLevel === 'standard' || isAdmin ? (
               <IndependenciaTab />
             ) : (
               <PremiumPaywall
@@ -922,7 +918,7 @@ function Dashboard() {
           )}
 
           { activeTab === 'rebalanceamento' && (
-            planLevel === 'premium' || isAdmin ? (
+            planLevel === 'premium' || planLevel === 'standard' || isAdmin ? (
               <PatrimonioPlaceholderTab
                 title="Rebalanceamento"
                 subtitle="Mantenha sua carteira alinhada à sua estratégia"
@@ -949,9 +945,9 @@ function Dashboard() {
 
           { activeTab === 'cartoes' && <CardsTab transactions={transactions} setActiveTab={setActiveTab} walletStats={walletStats} /> }
 
-          { activeTab === 'reserva' && (planLevel === 'premium' || planLevel === 'free' || isAdmin ? <EmergencyReserveTab /> : null) }
+          { activeTab === 'reserva' && (planLevel === 'premium' || planLevel === 'standard' || planLevel === 'free' || isAdmin ? <EmergencyReserveTab /> : null) }
 
-          { activeTab === 'investimentos' && (planLevel === 'premium' || planLevel === 'free' || isAdmin ? <InvestmentsTab /> : null) }
+          { activeTab === 'investimentos' && (planLevel === 'premium' || planLevel === 'standard' || planLevel === 'free' || isAdmin ? <InvestmentsTab /> : null) }
 
           {['analise', 'analise_metas', 'analise_comparativo'].includes(activeTab) && (
             <AnalysisTab

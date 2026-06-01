@@ -40,6 +40,8 @@ export default function InvestmentsTab() {
     const { theme } = useTheme();
     const { currentUser, planLevel } = useAuth();
     const isFreePlan = planLevel === 'free';
+    // Limite de quantidade de ativos vale para Gratuito e Standard (Premium é ilimitado).
+    const isInvestLimited = planLevel === 'free' || planLevel === 'standard';
     const FREE_INVESTMENT_LIMIT = 3;
     const [showLimitModal, setShowLimitModal] = useState(false);
     const [investments, setInvestments] = useState([]);
@@ -873,7 +875,7 @@ export default function InvestmentsTab() {
                         </button>
                         <button
                             onClick={() => {
-                                if (isFreePlan && investments.length >= FREE_INVESTMENT_LIMIT) {
+                                if (isInvestLimited && investments.length >= FREE_INVESTMENT_LIMIT) {
                                     setShowLimitModal(true);
                                     return;
                                 }
@@ -1778,7 +1780,7 @@ export default function InvestmentsTab() {
             <TrialLimitModal
                 isOpen={showLimitModal}
                 onClose={() => setShowLimitModal(false)}
-                limitMessage={`Você atingiu o limite de ${FREE_INVESTMENT_LIMIT} investimentos do Plano Gratuito. Faça upgrade para Premium e cadastre quantos ativos quiser.`}
+                limitMessage={`Você atingiu o limite de ${FREE_INVESTMENT_LIMIT} investimentos do seu plano (${planLevel === 'standard' ? 'Standard' : 'Gratuito'}). Faça upgrade para o Premium e cadastre quantos ativos quiser.`}
             />
         </div>
     );

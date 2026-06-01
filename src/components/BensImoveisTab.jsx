@@ -84,9 +84,10 @@ function valueSeries(asset) {
 
 export default function BensImoveisTab() {
   const { theme } = useTheme();
-  const { currentUser, planLevel, isTrial } = useAuth();
-  const isLimited = isTrial || planLevel === 'free';
-  const FREE_BENS_LIMIT = 2; // total de bens no Plano Gratuito
+  const { currentUser, planLevel } = useAuth();
+  // Limite de bens vale para Gratuito e Standard (Premium é ilimitado).
+  const isLimited = planLevel === 'free' || planLevel === 'standard';
+  const FREE_BENS_LIMIT = 2;
   const isDark = theme !== 'light';
 
   const [assets, setAssets] = useState([]);
@@ -149,7 +150,7 @@ export default function BensImoveisTab() {
   const [limitMsg, setLimitMsg] = useState(null);
   const openNew = (kind) => {
     if (isLimited && assets.length >= FREE_BENS_LIMIT) {
-      setLimitMsg(`Você atingiu o limite de ${FREE_BENS_LIMIT} bens do Plano Gratuito. Faça upgrade para o Premium e cadastre quantos bens quiser.`);
+      setLimitMsg(`Você atingiu o limite de ${FREE_BENS_LIMIT} bens do seu plano (${planLevel === 'standard' ? 'Standard' : 'Gratuito'}). Faça upgrade para o Premium e cadastre quantos bens quiser.`);
       return;
     }
     setEditing({ kind }); setShowModal(true);
