@@ -209,6 +209,8 @@ export const DEFAULT_HEALTH_CONFIG = {
     superfluousUnit: 'percent',  // 'percent' | 'amount'
     superfluousCap: 30,
     superfluousCapAmount: 0,
+    // Mostrar os dados da fatura do cartão em aberto dentro do índice.
+    includeInvoice: false,
 };
 
 export const calculateHealthIndex = (transactions = [], config = {}, reserveTotal = 0) => {
@@ -237,9 +239,12 @@ export const calculateHealthIndex = (transactions = [], config = {}, reserveTota
     const income = incomeFromTx > 0 ? incomeFromTx : baseIncome;
     const incomeSource = incomeFromTx > 0 ? 'launched' : 'base';
 
-    // Sem renda definida → não dá pra calcular nada de forma honesta.
+    // Sem renda definida → não dá pra calcular sobra/supérfluos, mas a RESERVA aplicada
+    // deve sempre constar (independe de renda e do mês).
     if (income <= 0) {
         const zero = (max) => ({ value: 0, months: 0, pct: 0, score: 0, max, status: 'bad', message: '', targetLabel: '' });
+        const fx = config?.fixedExpenses ? parseFloat(config.fixedExpenses) : 0;
+        const rMonths = fx > 0 ? reserveTotal / fx : 0;
         return {
             score: 0, state: 'semdados', statusLabel: 'Sem dados',
             color: 'text-slate-400', accent: 'slate',
@@ -249,7 +254,7 @@ export const calculateHealthIndex = (transactions = [], config = {}, reserveTota
             improvements: 3, income: 0, incomeSource,
             pillars: {
                 surplus: { ...zero(30), targetLabel: 'Meta: sobrar todo mês' },
-                reserve: { ...zero(40), targetLabel: 'Meta: montar reserva' },
+                reserve: { value: reserveTotal, months: rMonths, pct: 0, score: 0, max: 40, status: reserveTotal > 0 ? 'good' : 'bad', message: reserveTotal > 0 ? `Você tem R$ ${fmtMoney(reserveTotal)} guardados.` : '', targetLabel: 'Meta: montar reserva' },
                 superfluous: { ...zero(30), targetLabel: 'Meta: controlar supérfluos', breakdown: { essential: 0, comfort: 0, superfluous: 0 } },
             },
             config: hc, feedback: '', updatedAt: today,
@@ -407,7 +412,7 @@ export const calculateHealthIndex = (transactions = [], config = {}, reserveTota
                 message: surplusMsg, targetLabel: surplusTargetLabel,
             },
             reserve: {
-                months: reserveMonths, pct: reservePct,
+                value: reserveTotal, months: reserveMonths, pct: reservePct,
                 score: Math.round(reserveScore), max: 40, status: reserveStatus,
                 message: reserveMsg, targetLabel: reserveTargetLabel,
             },

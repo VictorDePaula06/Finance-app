@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Coins, ShieldCheck, ShoppingBag, Settings, Clock, ArrowRight, X, Sparkles } from 'lucide-react';
+import { Coins, ShieldCheck, ShoppingBag, Settings, Clock, ArrowRight, X, Sparkles, CreditCard, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { DEFAULT_HEALTH_CONFIG } from '../utils/healthScore';
 
@@ -73,7 +73,7 @@ function TrafficLight({ activeState, statusLabel, accentText }) {
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig }) {
+export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig, invoiceInfo = null }) {
     const { theme } = useTheme();
     const isDark = theme !== 'light';
     const [showConfig, setShowConfig] = useState(false);
@@ -137,6 +137,30 @@ export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig
                     <ScoreGauge score={data.score} ringColor={acc.ring} isDark={isDark} />
                 </div>
 
+                {/* Fatura do cartão em aberto (quando habilitado em Configurar índice) */}
+                {data.config?.includeInvoice && invoiceInfo && invoiceInfo.total > 0.005 && (
+                    <div className={`flex items-center gap-3 px-5 py-3 border-t ${isDark ? 'border-white/5 bg-violet-500/[0.05]' : 'border-slate-100 bg-violet-50/60'}`}>
+                        <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-violet-500/15' : 'bg-violet-100'}`}>
+                            <CreditCard className="w-4 h-4 text-violet-400" />
+                        </span>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-violet-400 flex items-center gap-1.5">
+                                <AlertTriangle className="w-3 h-3" /> Fatura em aberto
+                                {invoiceInfo.label && <span className={`font-medium normal-case tracking-normal ${sub}`}>· {invoiceInfo.label}</span>}
+                            </p>
+                            <p className={`text-[11px] ${sub}`}>
+                                {invoiceInfo.dueDate
+                                    ? <>Vence em <span className="font-bold text-violet-400">{invoiceInfo.daysUntil} {invoiceInfo.daysUntil === 1 ? 'dia' : 'dias'}</span> · {invoiceInfo.dueDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</>
+                                    : 'Lançamentos no crédito ainda não pagos.'}
+                            </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                            <p className="text-base font-black text-violet-400 tabular-nums">{fmtCurrency(invoiceInfo.total)}</p>
+                            <p className="text-[9px] text-slate-500">a pagar</p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Pilares */}
                 <div className={`grid grid-cols-1 md:grid-cols-3 border-t ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
                     {/* Pilar 1 — Sobra no mês */}
@@ -150,11 +174,12 @@ export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig
                         </div>
                     </PillarCell>
 
-                    {/* Pilar 2 — Reserva de emergência */}
+                    {/* Pilar 2 — Reserva de emergência (sempre a reserva aplicada atual) */}
                     <PillarCell
                         isDark={isDark} icon={ShieldCheck} title="Reserva de emergência" status={reserve.status}
-                        value={`${(reserve.months || 0).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} meses`}
-                        target={reserve.targetLabel} message={reserve.message} borderR
+                        value={fmtCurrency(reserve.value || 0)}
+                        target={`${(reserve.months || 0).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} meses · ${reserve.targetLabel}`}
+                        message={reserve.message} borderR
                     >
                         <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
                             <div className={`h-full rounded-full ${STATUS_DOT[reserve.status]}`} style={{ width: `${Math.max(4, Math.min(100, reserve.pct || 0))}%` }} />
@@ -310,6 +335,7 @@ function ConfigModal({ isDark, config, onClose, onSave }) {
     const [reserveVal, setReserveVal] = useState(String(hc.reserveUnit === 'amount' ? (hc.reserveTargetAmount || '') : hc.reserveTargetMonths));
     const [superUnit, setSuperUnit] = useState(hc.superfluousUnit);
     const [superVal, setSuperVal] = useState(String(hc.superfluousUnit === 'amount' ? (hc.superfluousCapAmount || '') : hc.superfluousCap));
+    const [includeInvoice, setIncludeInvoice] = useState(!!hc.includeInvoice);
 
     const num = (v, fb) => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? fb : n; };
 
@@ -318,6 +344,7 @@ function ConfigModal({ isDark, config, onClose, onSave }) {
             ...config,
             income: num(income, config.income || 0),
             healthConfig: {
+                includeInvoice,
                 surplusUnit,
                 surplusTargetPct: surplusUnit === 'percent' ? Math.max(0, num(surplusVal, 20)) : hc.surplusTargetPct,
                 surplusTargetAmount: surplusUnit === 'amount' ? Math.max(0, num(surplusVal, 0)) : hc.surplusTargetAmount,
@@ -344,6 +371,26 @@ function ConfigModal({ isDark, config, onClose, onSave }) {
                     <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-rose-400"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="p-6 space-y-4">
+                    {/* Apurar fatura do cartão em aberto */}
+                    <button
+                        type="button"
+                        onClick={() => setIncludeInvoice(v => !v)}
+                        className={`w-full flex items-center gap-3 p-4 rounded-2xl border text-left transition-all ${
+                            includeInvoice
+                                ? (isDark ? 'bg-violet-500/10 border-violet-500/30' : 'bg-violet-50 border-violet-200')
+                                : (isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200')
+                        }`}
+                    >
+                        <CreditCard className={`w-5 h-5 shrink-0 ${includeInvoice ? 'text-violet-400' : 'text-slate-400'}`} />
+                        <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Apurar fatura aberta do cartão</p>
+                            <p className="text-[10px] text-slate-500 leading-snug">Mostra os dados da fatura em aberto (cartão, valor e vencimento) dentro do índice.</p>
+                        </div>
+                        <div className={`w-10 h-6 rounded-full flex items-center px-1 transition-all shrink-0 ${includeInvoice ? 'bg-violet-500 justify-end' : (isDark ? 'bg-white/10 justify-start' : 'bg-slate-200 justify-start')}`}>
+                            <div className="w-4 h-4 bg-white rounded-full shadow" />
+                        </div>
+                    </button>
+
                     <div>
                         <label className={`text-[10px] font-black uppercase tracking-widest block mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Renda base mensal</label>
                         <div className={`flex items-center gap-2 px-4 py-3 rounded-2xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>

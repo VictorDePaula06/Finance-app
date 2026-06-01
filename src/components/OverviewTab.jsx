@@ -234,7 +234,7 @@ export default function OverviewTab({
                 </div>
 
                 {/* Índice de Saúde Financeira (completo, com semáforo) */}
-                <FinancialHealthIndex data={healthIndex} config={manualConfig} onUpdateConfig={onUpdateConfig} />
+                <FinancialHealthIndex data={healthIndex} config={manualConfig} onUpdateConfig={onUpdateConfig} invoiceInfo={invoiceInfo} />
             </div>
         );
     }
@@ -406,6 +406,7 @@ export default function OverviewTab({
                 data={healthIndex}
                 config={manualConfig}
                 onUpdateConfig={onUpdateConfig}
+                invoiceInfo={invoiceInfo}
             />
 
         </div>
