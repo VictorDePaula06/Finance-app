@@ -23,10 +23,10 @@ const PLAN_FEATURES = {
         items: [
             { icon: Wallet,      text: 'Controle de Gastos completo' },
             { icon: CreditCard,  text: 'Até 1 cartão cadastrado' },
-            { icon: FileText,    text: 'Até 10 lançamentos de despesa' },
-            { icon: Activity,    text: '2 recebimentos / 2 contas fixas' },
+            { icon: FileText,    text: 'Até 15 lançamentos de despesa/mês' },
+            { icon: Activity,    text: '5 recebimentos/mês · 2 contas fixas' },
             { icon: Cloud,       text: 'Sincronização na nuvem' },
-            { icon: LockIcon,    text: 'Sem módulo de Patrimônio' },
+            { icon: LockIcon,    text: 'Patrimônio limitado (1 reserva · 3 invest. · 2 bens)' },
             { icon: LockIcon,    text: 'Sem IA Alívia / Health Score completo' },
         ],
     },

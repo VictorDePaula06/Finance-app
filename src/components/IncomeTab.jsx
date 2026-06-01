@@ -14,7 +14,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
 
     // Limites aplicados ao trial e ao Plano Gratuito permanente
     const isLimited = isTrial || planLevel === 'free';
-    const TRIAL_INCOME_LIMIT = 2;
+    const TRIAL_INCOME_LIMIT = 5; // por mês (renova mensalmente)
     const [showTrialModal, setShowTrialModal] = useState(false);
 
     const [amount, setAmount] = useState('');
@@ -422,9 +422,11 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                             <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Recebimentos de {selectedMonthName}</h3>
                             <button
                                 onClick={() => {
+                                    const __cm = new Date().toISOString().slice(0, 7);
                                     const incomeCount = transactions.filter(t =>
                                         t.type === 'income' &&
-                                        !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category)
+                                        !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category) &&
+                                        ((t.month || (t.date ? String(t.date).slice(0, 7) : '')) === __cm)
                                     ).length;
                                     if (isLimited && incomeCount >= TRIAL_INCOME_LIMIT) {
                                         setShowTrialModal(true);
@@ -861,7 +863,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
             <TrialLimitModal
                 isOpen={showTrialModal}
                 onClose={() => setShowTrialModal(false)}
-                limitMessage={`Você atingiu o limite de ${TRIAL_INCOME_LIMIT} recebimentos do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`}
+                limitMessage={`Você atingiu o limite de ${TRIAL_INCOME_LIMIT} recebimentos por mês do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}. O limite renova no início do próximo mês.`}
             />
 
             {/* Delete Confirmation Modal */}

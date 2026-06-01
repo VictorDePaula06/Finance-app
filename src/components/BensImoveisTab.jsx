@@ -84,7 +84,9 @@ function valueSeries(asset) {
 
 export default function BensImoveisTab() {
   const { theme } = useTheme();
-  const { currentUser } = useAuth();
+  const { currentUser, planLevel, isTrial } = useAuth();
+  const isLimited = isTrial || planLevel === 'free';
+  const FREE_BENS_LIMIT = 2; // total de bens no Plano Gratuito
   const isDark = theme !== 'light';
 
   const [assets, setAssets] = useState([]);
@@ -144,7 +146,14 @@ export default function BensImoveisTab() {
   const sub = isDark ? 'text-slate-400' : 'text-slate-500';
   const inset = isDark ? 'bg-[#161b27] border-white/10' : 'bg-slate-50 border-slate-200';
 
-  const openNew = (kind) => { setEditing({ kind }); setShowModal(true); };
+  const [limitMsg, setLimitMsg] = useState(null);
+  const openNew = (kind) => {
+    if (isLimited && assets.length >= FREE_BENS_LIMIT) {
+      setLimitMsg(`Você atingiu o limite de ${FREE_BENS_LIMIT} bens do Plano Gratuito. Faça upgrade para o Premium e cadastre quantos bens quiser.`);
+      return;
+    }
+    setEditing({ kind }); setShowModal(true);
+  };
 
   return (
     <div className="max-w-full px-5 md:px-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
@@ -221,6 +230,17 @@ export default function BensImoveisTab() {
               <button onClick={() => setDeleteConfirm(null)} className={`flex-1 py-2.5 rounded-xl font-bold text-xs uppercase ${isDark ? 'bg-white/10 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>Cancelar</button>
               <button onClick={() => handleDelete(deleteConfirm.id)} className="flex-1 py-2.5 rounded-xl font-bold text-xs uppercase bg-rose-500 text-white">Excluir</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {limitMsg && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setLimitMsg(null)}>
+          <div className={`w-full max-w-sm rounded-3xl border p-6 text-center ${isDark ? 'bg-[#1e2330] border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-4"><Info className="w-7 h-7 text-amber-500" /></div>
+            <p className={`font-bold text-sm mb-2 ${txt}`}>Limite do Plano Gratuito</p>
+            <p className={`text-xs mb-5 ${sub}`}>{limitMsg}</p>
+            <button onClick={() => setLimitMsg(null)} className="w-full py-2.5 rounded-xl font-bold text-xs uppercase bg-emerald-500 text-white">Entendi</button>
           </div>
         </div>
       )}
