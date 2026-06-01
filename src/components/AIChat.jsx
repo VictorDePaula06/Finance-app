@@ -228,6 +228,15 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                                 amount: parseFloat(sanitizeAIValue(command.data.amount)) || 0
                             };
 
+                            // Respeita a prioridade DITA pelo usuário (essencial/conforto/supérfluo),
+                            // mesmo que a IA não tenha extraído ou que destoe do padrão da categoria.
+                            if (sanitizedData.type === 'expense') {
+                                const low = (inputMsg || '').toLowerCase();
+                                if (/(sup[ée]rfluo|dispens|besteira|f[úu]til|sup[ée]rfulo)/.test(low)) sanitizedData.priority = 'superfluous';
+                                else if (/(essenc|necess|obrigat|important|b[áa]sic)/.test(low)) sanitizedData.priority = 'essential';
+                                else if (/(conforto|qualidade de vida)/.test(low)) sanitizedData.priority = 'comfort';
+                            }
+
                             // Se for gasto no crédito, casa o cartão pelo nome citado
                             if (sanitizedData.paymentMethod === 'credito') {
                                 let cardId = '';

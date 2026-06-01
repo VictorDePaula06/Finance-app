@@ -336,6 +336,7 @@ Se o usuário mencionar um cartão (ex: "no nubank", "no cartão"), inclua "card
     "amount": "123.45",
     "type": "expense|income",
     "category": "ID_DA_CATEGORIA",
+    "priority": "essential|comfort|superfluous (opcional; SÓ para expense. Use o que o usuário disser: 'essencial'/'importante'/'necessário' → essential; 'conforto'/'qualidade de vida' → comfort; 'supérfluo'/'dispensável'/'besteira' → superfluous. Respeite SEMPRE a prioridade pedida, mesmo que pareça incomum para a categoria.)",
     "paymentMethod": "pix|debito|credito|dinheiro (opcional; use 'credito' se foi no cartão)",
     "cardName": "nome do cartão citado (opcional, só se paymentMethod=credito)",
     "date": "YYYY-MM-DD (opcional)"
