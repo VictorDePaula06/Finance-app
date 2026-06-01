@@ -34,38 +34,24 @@ export default function Hub({ onSelectModule }) {
         lifetime: { label: 'Vitalício',      cls: isDark ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-700 border-purple-200' },
     }[planLevel] || { label: 'Plano Gratuito', cls: isDark ? 'bg-slate-500/10 text-slate-400 border-slate-500/20' : 'bg-slate-100 text-slate-600 border-slate-200' };
 
-    const isPremiumPlan = planLevel === 'premium' || planLevel === 'lifetime' || isAdmin;
+    // Hierarquia de planos para liberar/bloquear recursos por item.
+    const PLAN_RANK = { free: 0, standard: 1, premium: 2, lifetime: 2 };
+    const userRank = isAdmin ? 2 : (PLAN_RANK[planLevel] ?? 0);
 
-    // Features adaptadas ao plano logado.
-    const gastosFeatures = planLevel === 'free'
-        ? [
-            'Lançamentos com categorização inteligente',
-            'Até 10 despesas e 5 recebimentos por mês',
-            'Até 1 cartão e análise mensal de gastos',
-        ]
-        : [
-            'Lançamentos ilimitados com categorização',
-            'Cartões e parcelamentos ilimitados',
-            'Relatórios em PDF, metas e análises mensais',
-        ];
-
-    const patrimonioFeatures = isPremiumPlan
-        ? [
-            'Reservas, investimentos e bens ilimitados',
-            'Fluxo, Independência, Rebalanceamento e Evolução',
-            'IA Alívia, Health Score e benchmarks reais (CDI/IBOV/S&P)',
-        ]
-        : isStandard
-            ? [
-                'Reservas, investimentos e bens (com limites)',
-                'Fluxo, Independência e Rebalanceamento liberados',
-                'Saúde Patrimonial e simulador de metas',
-            ]
-            : [
-                'Reserva, investimentos e bens (com limites)',
-                'Saúde Patrimonial e alocação consolidada',
-                'Planejamento avançado é exclusivo Premium',
-            ];
+    // Cada feature tem o plano mínimo (min) para estar incluída.
+    const gastosFeatures = [
+        { text: 'Controles de gastos gerais', min: 'free' },
+        { text: 'Pontos sobre sua Saúde Financeira', min: 'free' },
+        { text: 'Relatórios em PDF', min: 'standard' },
+        { text: 'Análises da AI Alívia sobre seus gastos', min: 'premium' },
+        { text: 'Lançamentos pela AI Alívia', min: 'premium' },
+    ];
+    const patrimonioFeatures = [
+        { text: 'Reservas, investimentos e bens', min: 'free' },
+        { text: 'Saúde Patrimonial', min: 'free' },
+        { text: 'Fluxo patrimonial e independência financeira', min: 'standard' },
+        { text: 'Análises da AI Alívia sobre seu patrimônio', min: 'premium' },
+    ];
 
     const modules = [
         {
@@ -285,16 +271,31 @@ export default function Hub({ onSelectModule }) {
                                     {/* DIVIDER */}
                                     <div className={`h-px w-full mb-4 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`} />
 
-                                    {/* FEATURES */}
+                                    {/* FEATURES — ✓ incluído no plano · cadeado quando exige upgrade */}
                                     <ul className="space-y-2 flex-1">
-                                        {mod.features.map((feat, i) => (
-                                            <li key={i} className="flex items-start gap-2">
-                                                <Check className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${styles.check}`} />
-                                                <span className={`text-[11px] md:text-xs leading-snug font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                                                    {feat}
-                                                </span>
-                                            </li>
-                                        ))}
+                                        {mod.features.map((feat, i) => {
+                                            const included = userRank >= (PLAN_RANK[feat.min] ?? 0);
+                                            const tag = feat.min === 'premium' ? 'Premium' : feat.min === 'standard' ? 'Standard' : null;
+                                            return (
+                                                <li key={i} className="flex items-start gap-2">
+                                                    {included
+                                                        ? <Check className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${styles.check}`} />
+                                                        : <LockIcon className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${isDark ? 'text-slate-600' : 'text-slate-400'}`} />}
+                                                    <span className={`text-[11px] md:text-xs leading-snug font-medium ${
+                                                        included ? (isDark ? 'text-slate-300' : 'text-slate-600') : (isDark ? 'text-slate-500' : 'text-slate-400')
+                                                    }`}>
+                                                        {feat.text}
+                                                        {!included && tag && (
+                                                            <span className={`ml-1.5 align-middle text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                                                                tag === 'Premium'
+                                                                    ? (isDark ? 'bg-amber-500/15 text-amber-400' : 'bg-amber-50 text-amber-600')
+                                                                    : (isDark ? 'bg-blue-500/15 text-blue-400' : 'bg-blue-50 text-blue-600')
+                                                            }`}>{tag}</span>
+                                                        )}
+                                                    </span>
+                                                </li>
+                                            );
+                                        })}
                                     </ul>
 
                                     {/* Lock reason no rodapé */}
