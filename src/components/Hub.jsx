@@ -16,6 +16,7 @@ import {
 import logo from '../assets/logo.png';
 import UpgradeModal from './UpgradeModal';
 import { version } from '../../package.json';
+import { PLAN_RANK, GASTOS_FEATURES, PATRIMONIO_FEATURES } from '../constants/planFeatures';
 
 export default function Hub({ onSelectModule }) {
     const { theme, toggleTheme } = useTheme();
@@ -34,31 +35,10 @@ export default function Hub({ onSelectModule }) {
         lifetime: { label: 'Vitalício',      cls: isDark ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-700 border-purple-200' },
     }[planLevel] || { label: 'Plano Gratuito', cls: isDark ? 'bg-slate-500/10 text-slate-400 border-slate-500/20' : 'bg-slate-100 text-slate-600 border-slate-200' };
 
-    // Hierarquia de planos para liberar/bloquear recursos por item.
-    const PLAN_RANK = { free: 0, standard: 1, premium: 2, lifetime: 2 };
+    // Hierarquia de planos para liberar/bloquear recursos por item (fonte compartilhada).
     const userRank = isAdmin ? 2 : (PLAN_RANK[planLevel] ?? 0);
-
-    // Cada feature tem o plano mínimo (min) para estar incluída e, opcionalmente,
-    // `limitedBelow`: incluída mas com limites enquanto o plano for menor que esse nível.
-    // Controle de Gastos é 100% a partir do Standard (sem selo Premium).
-    const gastosFeatures = [
-        { text: 'Controles de gastos gerais', min: 'free', limitedBelow: 'standard' },
-        { text: 'Pontos sobre sua Saúde Financeira', min: 'free' },
-        { text: 'Relatórios em PDF', min: 'standard' },
-        { text: 'Análises da AI Alívia sobre seus gastos', min: 'standard' },
-        { text: 'Lançamentos pela AI Alívia', min: 'standard' },
-    ];
-    // Patrimônio: Reservas/Saúde/Seguros disponíveis no Gratuito (com limites);
-    // planejamento avançado e análises da AI são exclusivos Premium.
-    const patrimonioFeatures = [
-        { text: 'Reservas, investimentos e bens', min: 'free', limitedBelow: 'premium' },
-        { text: 'Saúde Patrimonial', min: 'free' },
-        { text: 'Seguros e Proteção', min: 'free' },
-        { text: 'Fluxo patrimonial e independência financeira', min: 'premium' },
-        { text: 'Evolução patrimonial e benchmarks', min: 'premium' },
-        { text: 'Metas financeiras', min: 'premium' },
-        { text: 'Análises da AI Alívia sobre seu patrimônio', min: 'premium' },
-    ];
+    const gastosFeatures = GASTOS_FEATURES;
+    const patrimonioFeatures = PATRIMONIO_FEATURES;
 
     const modules = [
         {

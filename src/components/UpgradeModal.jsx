@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Sparkles, Check, ArrowRight, Lock, Loader2 } from 'lucide-react';
 import { createCheckoutSession } from '../services/stripe';
 import { useAuth } from '../contexts/AuthContext';
+import { PLAN_RANK, GASTOS_FEATURES, PATRIMONIO_FEATURES, featureState } from '../constants/planFeatures';
 
 const PRICE_IDS = {
     standard: {
@@ -15,39 +16,15 @@ const PRICE_IDS = {
 };
 
 const PLANS = {
-    standard: {
-        name: 'Standard',
-        tagline: 'Controle financeiro completo',
-        priceMonthly: '9,90',
-        priceAnnual: '7,90',
-        accent: 'blue',
-        features: [
-            'Controle de Gastos 100% sem limites',
-            'Cartões e parcelamentos ilimitados',
-            'Relatórios em PDF, metas e análises',
-            'Sincronização nuvem + Mobile',
-            'Módulo de Patrimônio (com limites)',
-        ],
-        notIncluded: ['IA Alívia / Health Score completo'],
-    },
-    premium: {
-        name: 'Premium',
-        tagline: 'A experiência completa da Alívia',
-        priceMonthly: '19,90',
-        priceAnnual: '15,90',
-        accent: 'emerald',
-        recommended: true,
-        features: [
-            'Tudo do Standard incluso',
-            'Patrimônio completo e ilimitado',
-            'Fluxo, Independência e Rebalanceamento',
-            'Evolução patrimonial + benchmarks (CDI/IBOV/S&P)',
-            'IA Alívia (Google Gemini) e Health Score completo',
-            'Modo Pânico + alertas avançados · Suporte prioritário',
-        ],
-        notIncluded: [],
-    },
+    standard: { name: 'Standard', tagline: 'Controle financeiro completo', priceMonthly: '9,90', priceAnnual: '7,90', accent: 'blue' },
+    premium: { name: 'Premium', tagline: 'A experiência completa da Alívia', priceMonthly: '19,90', priceAnnual: '15,90', accent: 'emerald', recommended: true },
 };
+
+// Grupos de recursos (mesma fonte da tela de início).
+const FEATURE_GROUPS = [
+    { label: 'Controle de Gastos', items: GASTOS_FEATURES },
+    { label: 'Construção de Patrimônio', items: PATRIMONIO_FEATURES },
+];
 
 export default function UpgradeModal({ isOpen, onClose }) {
     const { currentUser } = useAuth();
@@ -77,6 +54,7 @@ export default function UpgradeModal({ isOpen, onClose }) {
     const renderCard = (planKey) => {
         const plan = PLANS[planKey];
         const a = accentMap[plan.accent];
+        const rank = PLAN_RANK[planKey] ?? 0;
         const isLoadingThis = loadingPlan === planKey;
         const price = billing === 'monthly' ? plan.priceMonthly : plan.priceAnnual;
         return (
@@ -90,20 +68,32 @@ export default function UpgradeModal({ isOpen, onClose }) {
                     <span className="text-3xl font-black text-slate-900">R$ {price}</span>
                     <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">/mês{billing === 'annual' ? ' (anual)' : ''}</span>
                 </div>
-                <ul className="space-y-2.5 flex-1 mb-5">
-                    {plan.features.map((f, i) => (
-                        <li key={i} className="flex items-start gap-2">
-                            <Check className={`w-4 h-4 mt-0.5 shrink-0 ${a.check}`} />
-                            <span className="text-[12px] font-medium text-slate-600 leading-snug">{f}</span>
-                        </li>
+
+                <div className="space-y-4 flex-1 mb-5">
+                    {FEATURE_GROUPS.map(group => (
+                        <div key={group.label}>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">{group.label}</p>
+                            <ul className="space-y-1.5">
+                                {group.items.map((feat, i) => {
+                                    const { included, limited, tag } = featureState(feat, rank);
+                                    return (
+                                        <li key={i} className="flex items-start gap-2">
+                                            {included
+                                                ? <Check className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${a.check}`} />
+                                                : <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-300" />}
+                                            <span className={`text-[11.5px] font-medium leading-snug ${included ? 'text-slate-600' : 'text-slate-400'}`}>
+                                                {feat.text}
+                                                {limited && <span className="ml-1.5 align-middle text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">Limitado</span>}
+                                                {!included && tag && <span className={`ml-1.5 align-middle text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${tag === 'Premium' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'}`}>{tag}</span>}
+                                            </span>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
                     ))}
-                    {plan.notIncluded.map((f, i) => (
-                        <li key={`n${i}`} className="flex items-start gap-2 opacity-60">
-                            <Lock className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" />
-                            <span className="text-[12px] font-medium text-slate-400 leading-snug line-through">{f}</span>
-                        </li>
-                    ))}
-                </ul>
+                </div>
+
                 <button
                     onClick={() => handleCheckout(planKey)}
                     disabled={!!loadingPlan}
