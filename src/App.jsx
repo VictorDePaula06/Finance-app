@@ -419,20 +419,42 @@ function Dashboard() {
         if (prevTransactions.length > 0) {
           const income = prevTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (t.amount || 0), 0);
           const expense = prevTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + (t.amount || 0), 0);
-          
+
           const catTotals = {};
           prevTransactions.filter(t => t.type === 'expense').forEach(t => {
             catTotals[t.category] = (catTotals[t.category] || 0) + t.amount;
           });
-          
+
           let topCatId = 'other';
           let max = 0;
           Object.entries(catTotals).forEach(([id, val]) => {
             if (val > max) { max = val; topCatId = id; }
           });
-          
+
           const topCatLabel = CATEGORIES.expense.find(c => c.id === topCatId)?.label || 'Outros';
-          const stats = { income, expense, balance: income - expense, topCategory: topCatLabel };
+
+          // ── Dados CORRETOS (mesma lógica do saldo/visão geral) ──
+          const sumv = (arr) => arr.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+          const realExpenses = prevTransactions.filter(t => t.type === 'expense' && !['investment', 'vault'].includes(t.category) && t.paymentMethod !== 'credito');
+          const realIncomeV = sumv(prevTransactions.filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category)));
+          const realExpenseV = sumv(realExpenses);
+          const creditSpend = sumv(prevTransactions.filter(t => t.type === 'expense' && t.paymentMethod === 'credito'));
+          const invested = sumv(prevTransactions.filter(t => t.type === 'expense' && ['investment', 'vault'].includes(t.category)));
+          const catReal = {};
+          realExpenses.forEach(t => { catReal[t.category] = (catReal[t.category] || 0) + (parseFloat(t.amount) || 0); });
+          let rTopId = 'other', rMax = 0;
+          Object.entries(catReal).forEach(([id, v]) => { if (v > rMax) { rMax = v; rTopId = id; } });
+          const rTopLabel = CATEGORIES.expense.find(c => c.id === rTopId)?.label || 'Outros';
+          const superfluous = sumv(realExpenses.filter(t => t.priority === 'superfluous'));
+          const rich = {
+            income: realIncomeV, expense: realExpenseV, balance: realIncomeV - realExpenseV,
+            creditSpend, invested, superfluous,
+            topCategory: rTopLabel, topValue: rMax,
+            reserve: investmentStats?.totalGuarded || 0,
+            monthName: prevMonthNameFull,
+          };
+
+          const stats = { income, expense, balance: income - expense, topCategory: topCatLabel, rich };
           setPreviousMonthStats(stats);
           setPreviousMonthName(prevMonthNameFull);
           
