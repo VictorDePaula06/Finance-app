@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceDot } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Wallet, Target, CalendarCheck, Flag, Info, Rocket, Home } from 'lucide-react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -89,18 +89,23 @@ export default function IndependenciaTab() {
   const progress = fireTarget > 0 ? Math.min(100, (investido / fireTarget) * 100) : 0;
   const faltam = Math.max(0, fireTarget - investido);
 
-  // série do gráfico (anual)
+  // série do gráfico — por ano, separando "o que você guardou" de "o que rendeu (juros)".
   const series = useMemo(() => {
     const localMonths = monthsToReach(investido, aporte, rate, fireTarget, compound);
-    const horizonYears = Math.min(isFinite(localMonths) ? Math.ceil((localMonths / 12) * 1.2) + 1 : 50, 60);
+    let horizon = isFinite(localMonths) ? Math.ceil(localMonths / 12) + 2 : 40;
+    horizon = Math.min(Math.max(horizon, 4), 40);
     const r = (rate / 100) / 12;
-    const pts = []; let bal = investido; const baseYear = new Date().getFullYear();
-    pts.push({ year: baseYear, balance: Math.round(bal) });
-    for (let y = 1; y <= horizonYears; y++) {
-      for (let k = 0; k < 12; k++) bal = compound ? bal * (1 + r) + aporte : bal + aporte;
-      pts.push({ year: baseYear + y, balance: Math.round(bal) });
+    const baseYear = new Date().getFullYear();
+    const full = [];
+    let bal = investido, contrib = investido; // 'contrib' = total que você colocou (inclui o que já tem)
+    full.push({ year: baseYear, guardado: Math.round(contrib), rendeu: 0 });
+    for (let y = 1; y <= horizon; y++) {
+      for (let k = 0; k < 12; k++) { bal = compound ? bal * (1 + r) + aporte : bal + aporte; contrib += aporte; }
+      full.push({ year: baseYear + y, guardado: Math.round(contrib), rendeu: Math.max(0, Math.round(bal - contrib)) });
     }
-    return pts;
+    // limita a ~13 barras para não poluir
+    const step = Math.max(1, Math.ceil(horizon / 12));
+    return full.filter((p, i) => i === 0 || i === full.length - 1 || i % step === 0);
   }, [investido, aporte, rate, fireTarget, compound]);
 
   const crossYear = isFinite(months) ? new Date().getFullYear() + Math.round(months / 12) : null;
@@ -199,27 +204,27 @@ export default function IndependenciaTab() {
             ))}
           </div>
         </div>
-        <p className={`text-[11px] mb-3 ${sub}`}>A linha azul é o seu patrimônio crescendo; a linha verde tracejada é a sua meta. Onde elas se encontram, você chega na independência.</p>
+        <p className={`text-[11px] mb-3 ${sub}`}>Cada barra é um ano. A parte <b className="text-emerald-500">verde</b> é o dinheiro que <b>você guardou</b>; a parte <b className="text-blue-500">azul</b> é o que <b>rendeu sozinho</b> (juros). A linha tracejada é a sua meta — quando a barra a alcança, você chega na independência.</p>
         <div className="w-full h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={series} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
-              <defs>
-                <linearGradient id="fireFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
+            <BarChart data={series} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#ffffff0d' : '#0000000d'} vertical={false} />
-              <XAxis dataKey="year" tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} minTickGap={20} />
+              <XAxis dataKey="year" tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} minTickGap={4} />
               <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} width={52} />
-              <Tooltip formatter={(v) => [`R$ ${fmt(v)}`, 'Patrimônio']} contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: 12, fontSize: 12 }} labelStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }} />
+              <Tooltip content={<FireTooltip isDark={isDark} />} cursor={{ fill: isDark ? '#ffffff08' : '#0000000a' }} />
               <ReferenceLine y={fireTarget} stroke="#10b981" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: `Meta R$ ${fmt(fireTarget)}`, position: 'insideTopRight', fontSize: 10, fill: '#10b981' }} />
-              <Area type="monotone" dataKey="balance" stroke="#3b82f6" strokeWidth={2.5} fill="url(#fireFill)" />
-              {crossYear && !alreadyFI && <ReferenceDot x={crossYear} y={fireTarget} r={6} fill="#10b981" stroke="#fff" strokeWidth={2} />}
-            </AreaChart>
+              <Bar dataKey="guardado" stackId="a" name="Guardado por você" fill="#10b981" maxBarSize={34} />
+              <Bar dataKey="rendeu" stackId="a" name="Rendimento (juros)" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={34} />
+            </BarChart>
           </ResponsiveContainer>
         </div>
-        {crossYear && !alreadyFI && <p className="text-center text-[11px] text-emerald-500 font-bold mt-1">★ Independência por volta de {crossYear}</p>}
+        <div className="flex items-center justify-between flex-wrap gap-2 mt-2 pl-1">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Guardado por você</span>
+            <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400"><span className="w-2.5 h-2.5 rounded-sm bg-blue-500" /> Rendimento (juros)</span>
+          </div>
+          {crossYear && !alreadyFI && <span className="text-[11px] text-emerald-500 font-bold">★ Independência por volta de {crossYear}</span>}
+        </div>
       </div>
 
       {/* Simulador */}
@@ -228,7 +233,7 @@ export default function IndependenciaTab() {
         <p className={`text-[11px] mb-4 ${sub}`}>Arraste para ver como cada escolha muda a data da sua independência.</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <Slider label="Quanto você guarda por mês" value={aporte} min={0} max={10000} step={50} onChange={setAporte} fmtVal={v => `R$ ${fmt(v)}`} color="#10b981" isDark={isDark} sub={sub} />
-          <Slider label="Rendimento ao ano (acima da inflação)" value={rate} min={0} max={15} step={0.5} onChange={setRate} fmtVal={v => `${v}%`} color="#3b82f6" isDark={isDark} sub={sub} />
+          <Slider label="Rendimento ao ano (acima da inflação)" value={rate} min={0} max={20} step={0.5} onChange={setRate} fmtVal={v => `${v}%`} color="#3b82f6" isDark={isDark} sub={sub} />
           <Slider label="Renda desejada por mês" value={income} min={1000} max={30000} step={250} onChange={setIncome} fmtVal={v => `R$ ${fmt(v)}`} color="#f59e0b" isDark={isDark} sub={sub} />
         </div>
         <p className={`text-[12px] mt-4 text-center ${sub}`}>
@@ -274,6 +279,20 @@ export default function IndependenciaTab() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function FireTooltip({ active, payload, label, isDark }) {
+  if (!active || !payload?.length) return null;
+  const g = payload.find(p => p.dataKey === 'guardado')?.value || 0;
+  const r = payload.find(p => p.dataKey === 'rendeu')?.value || 0;
+  return (
+    <div className={`px-3 py-2 rounded-xl border shadow-xl text-xs ${isDark ? 'bg-[#0f172a] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
+      <p className="font-black mb-1">{label}</p>
+      <p className="text-emerald-400 font-bold">Guardado: R$ {fmt(g)}</p>
+      <p className="text-blue-400 font-bold">Rendimento: R$ {fmt(r)}</p>
+      <p className={`font-black mt-1 pt-1 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>Total: R$ {fmt(g + r)}</p>
     </div>
   );
 }
