@@ -70,6 +70,17 @@ export default function OverviewTab({
             if (d.getDate() >= closingDay) { month += 1; if (month > 11) { month = 0; year += 1; } }
             return `${year}-${String(month + 1).padStart(2, '0')}`;
         };
+        // Mesma regra da aba Cartões: assinatura/parcela entra na fatura se a cobrança do
+        // mês atual OU do mês anterior cai nesse ciclo (o ciclo pode começar no mês anterior).
+        const isSubInInvoice = (subDay, invoiceMonth, closingDay) => {
+            const [iy, im] = invoiceMonth.split('-').map(Number);
+            const prevM = im === 1 ? 12 : im - 1;
+            const prevY = im === 1 ? iy - 1 : iy;
+            const chargeCurr = new Date(iy, im - 1, subDay, 12, 0, 0);
+            const chargePrev = new Date(prevY, prevM - 1, subDay, 12, 0, 0);
+            return getInvoiceMonth(chargeCurr.toISOString(), closingDay) === invoiceMonth ||
+                   getInvoiceMonth(chargePrev.toISOString(), closingDay) === invoiceMonth;
+        };
         const now = new Date();
         const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         let total = 0; const pending = [];
@@ -80,8 +91,7 @@ export default function OverviewTab({
             const subs = (subscriptions || []).filter(s => s.cardId === card.id).filter(s => {
                 if (s.lastPaidMonth === currInv) return false;
                 const subDay = parseInt(s.day) || 1;
-                const chargeDate = new Date(now.getFullYear(), now.getMonth(), subDay, 12, 0, 0);
-                return getInvoiceMonth(chargeDate.toISOString(), closingDay) <= currInv;
+                return isSubInInvoice(subDay, currInv, closingDay);
             });
             const sum = unpaid.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0) + subs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
             if (sum > 0.005) {
