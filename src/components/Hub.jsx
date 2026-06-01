@@ -34,17 +34,46 @@ export default function Hub({ onSelectModule }) {
         lifetime: { label: 'Vitalício',      cls: isDark ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-700 border-purple-200' },
     }[planLevel] || { label: 'Plano Gratuito', cls: isDark ? 'bg-slate-500/10 text-slate-400 border-slate-500/20' : 'bg-slate-100 text-slate-600 border-slate-200' };
 
+    const isPremiumPlan = planLevel === 'premium' || planLevel === 'lifetime' || isAdmin;
+
+    // Features adaptadas ao plano logado.
+    const gastosFeatures = planLevel === 'free'
+        ? [
+            'Lançamentos com categorização inteligente',
+            'Até 10 despesas e 5 recebimentos por mês',
+            'Até 1 cartão e análise mensal de gastos',
+        ]
+        : [
+            'Lançamentos ilimitados com categorização',
+            'Cartões e parcelamentos ilimitados',
+            'Relatórios em PDF, metas e análises mensais',
+        ];
+
+    const patrimonioFeatures = isPremiumPlan
+        ? [
+            'Reservas, investimentos e bens ilimitados',
+            'Fluxo, Independência, Rebalanceamento e Evolução',
+            'IA Alívia, Health Score e benchmarks reais (CDI/IBOV/S&P)',
+        ]
+        : isStandard
+            ? [
+                'Reservas, investimentos e bens (com limites)',
+                'Fluxo, Independência e Rebalanceamento liberados',
+                'Saúde Patrimonial e simulador de metas',
+            ]
+            : [
+                'Reserva, investimentos e bens (com limites)',
+                'Saúde Patrimonial e alocação consolidada',
+                'Planejamento avançado é exclusivo Premium',
+            ];
+
     const modules = [
         {
             id: 'gastos',
             title: 'Controle de Gastos',
             tagline: 'Sua vida financeira do dia a dia',
             description: 'Organize entradas, despesas, contas fixas e cartões. Saiba para onde vai cada real e mantenha o orçamento sob controle.',
-            features: [
-                'Lançamentos com categorização inteligente',
-                'Gestão completa de cartões e parcelamentos',
-                'Análise mensal e relatórios em PDF',
-            ],
+            features: gastosFeatures,
             icon: Wallet,
             accent: 'blue',
             isLocked: false,
@@ -54,15 +83,11 @@ export default function Hub({ onSelectModule }) {
             title: 'Construção de Patrimônio',
             tagline: 'Sua jornada para a independência',
             description: 'Acompanhe reservas, investimentos e metas. Veja a evolução do seu patrimônio e a saúde financeira em tempo real.',
-            features: [
-                'Reservas de emergência com rendimento CDI',
-                'Portfólio de investimentos consolidado',
-                'Health Score e simulador de metas',
-            ],
+            features: patrimonioFeatures,
             icon: Landmark,
             accent: 'emerald',
-            isLocked: isStandard,
-            lockReason: isStandard ? 'Exclusivo para o plano Premium' : null,
+            isLocked: false,
+            lockReason: null,
         },
     ];
 
@@ -285,10 +310,13 @@ export default function Hub({ onSelectModule }) {
                         })}
                     </div>
 
-                    {/* Hint discreta para Free com Patrimônio disponível */}
-                    {planLevel === 'free' && (
+                    {/* Hint discreta por plano */}
+                    {(planLevel === 'free' || isStandard) && (
                         <p className={`text-center text-[10px] sm:text-xs mt-8 font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                            Você está no <strong>{planBadge.label}</strong>. Alguns recursos têm limites — faça upgrade quando quiser desbloquear tudo.
+                            Você está no <strong>{planBadge.label}</strong>. {planLevel === 'free'
+                                ? 'O Controle de Gastos e o Patrimônio têm limites, e o planejamento avançado (Fluxo, Independência, Rebalanceamento) é exclusivo Premium.'
+                                : 'O Controle de Gastos é ilimitado; o Patrimônio tem limites de quantidade. O Premium libera tudo (ilimitado + IA Alívia e Health Score completo).'}
+                            {' '}Faça upgrade quando quiser.
                         </p>
                     )}
                 </div>
