@@ -21,8 +21,8 @@ export default function TrialLimitModal({ isOpen, onClose, limitMessage }) {
     if (!isOpen) return null;
 
     const PRICE_IDS = {
-        standard: import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_MONTHLY || 'price_1TSMc3KAwb86obAG4jW02DAq',
-        premium:  import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY         || 'price_1T89UOKAwb86obAGotiiOngV',
+        standard: import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_MONTHLY || 'price_1TdDzSKAwb86obAGI0gTmdWL',
+        premium:  import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY         || 'price_1TdDwDKAwb86obAGnRhLwlIa',
     };
 
     const handleSubscribe = async (planKey) => {

@@ -100,8 +100,8 @@ export default function AdminPanel({ onBack }) {
                 const manualStatus = settingsData.subscription?.status || userData.subscription?.status;
                 const stripeActive = (stripeSubData?.status === 'active' || stripeSubData?.status === 'trialing');
 
-                const STANDARD_PRICES = ['price_1TSMc3KAwb86obAG4jW02DAq', 'price_1TSMctKAwb86obAGj4BZqYtl'];
-                const PREMIUM_PRICES = ['price_1T89UOKAwb86obAGotiiOngV', 'price_1T89UMKAwb86obAGbk0dSm4Z'];
+                const STANDARD_PRICES = ['price_1TdDzSKAwb86obAGI0gTmdWL', 'price_1TdE0LKAwb86obAGcpMPLgWw'];
+                const PREMIUM_PRICES = ['price_1TdDwDKAwb86obAGnRhLwlIa', 'price_1TdE1VKAwb86obAGh2h7m4o6'];
                 const stripePriceId = stripeSubData?.items?.[0]?.plan?.id;
 
                 let subStatus = 'free';

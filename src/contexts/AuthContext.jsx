@@ -187,15 +187,15 @@ export function AuthProvider({ children }) {
             const STANDARD_PRICES = [
                 import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_MONTHLY,
                 import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_YEARLY,
-                'price_1TSMc3KAwb86obAG4jW02DAq', // Hardcoded fallback
-                'price_1TSMctKAwb86obAGj4BZqYtl'
+                'price_1TdDzSKAwb86obAGI0gTmdWL', // Hardcoded fallback
+                'price_1TdE0LKAwb86obAGcpMPLgWw'
             ];
 
             const PREMIUM_PRICES = [
                 import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY,
                 import.meta.env.VITE_STRIPE_PRICE_ID_YEARLY,
-                'price_1T89UOKAwb86obAGotiiOngV',
-                'price_1T89UMKAwb86obAGbk0dSm4Z'
+                'price_1TdDwDKAwb86obAGnRhLwlIa',
+                'price_1TdE1VKAwb86obAGh2h7m4o6'
             ];
 
             const stripePriceId = stripeSub?.items?.[0]?.plan?.id;

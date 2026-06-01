@@ -6,12 +6,12 @@ import { PLAN_RANK, GASTOS_FEATURES, PATRIMONIO_FEATURES, featureState } from '.
 
 const PRICE_IDS = {
     standard: {
-        monthly: import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_MONTHLY || 'price_1TSMc3KAwb86obAG4jW02DAq',
-        annual: import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_YEARLY || 'price_1TSMctKAwb86obAGj4BZqYtl',
+        monthly: import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_MONTHLY || 'price_1TdDzSKAwb86obAGI0gTmdWL',
+        annual: import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_YEARLY || 'price_1TdE0LKAwb86obAGcpMPLgWw',
     },
     premium: {
-        monthly: import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY || 'price_1T89UOKAwb86obAGotiiOngV',
-        annual: import.meta.env.VITE_STRIPE_PRICE_ID_YEARLY || 'price_1T89UMKAwb86obAGbk0dSm4Z',
+        monthly: import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY || 'price_1TdDwDKAwb86obAGnRhLwlIa',
+        annual: import.meta.env.VITE_STRIPE_PRICE_ID_YEARLY || 'price_1TdE1VKAwb86obAGh2h7m4o6',
     },
 };
 
