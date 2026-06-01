@@ -38,18 +38,21 @@ export default function Hub({ onSelectModule }) {
     const PLAN_RANK = { free: 0, standard: 1, premium: 2, lifetime: 2 };
     const userRank = isAdmin ? 2 : (PLAN_RANK[planLevel] ?? 0);
 
-    // Cada feature tem o plano mínimo (min) para estar incluída.
+    // Cada feature tem o plano mínimo (min) para estar incluída e, opcionalmente,
+    // `limitedBelow`: incluída mas com limites enquanto o plano for menor que esse nível.
+    // Controle de Gastos é 100% a partir do Standard (sem selo Premium).
     const gastosFeatures = [
-        { text: 'Controles de gastos gerais', min: 'free' },
+        { text: 'Controles de gastos gerais', min: 'free', limitedBelow: 'standard' },
         { text: 'Pontos sobre sua Saúde Financeira', min: 'free' },
         { text: 'Relatórios em PDF', min: 'standard' },
-        { text: 'Análises da AI Alívia sobre seus gastos', min: 'premium' },
-        { text: 'Lançamentos pela AI Alívia', min: 'premium' },
+        { text: 'Análises da AI Alívia sobre seus gastos', min: 'standard' },
+        { text: 'Lançamentos pela AI Alívia', min: 'standard' },
     ];
+    // Patrimônio: incluído no Standard, porém com limites de quantidade (Premium é ilimitado).
     const patrimonioFeatures = [
-        { text: 'Reservas, investimentos e bens', min: 'free' },
+        { text: 'Reservas, investimentos e bens', min: 'free', limitedBelow: 'premium' },
         { text: 'Saúde Patrimonial', min: 'free' },
-        { text: 'Fluxo patrimonial e independência financeira', min: 'standard' },
+        { text: 'Fluxo patrimonial e independência financeira', min: 'standard', limitedBelow: 'premium' },
         { text: 'Análises da AI Alívia sobre seu patrimônio', min: 'premium' },
     ];
 
@@ -275,6 +278,7 @@ export default function Hub({ onSelectModule }) {
                                     <ul className="space-y-2 flex-1">
                                         {mod.features.map((feat, i) => {
                                             const included = userRank >= (PLAN_RANK[feat.min] ?? 0);
+                                            const limited = included && feat.limitedBelow && userRank < (PLAN_RANK[feat.limitedBelow] ?? 0);
                                             const tag = feat.min === 'premium' ? 'Premium' : feat.min === 'standard' ? 'Standard' : null;
                                             return (
                                                 <li key={i} className="flex items-start gap-2">
@@ -285,6 +289,11 @@ export default function Hub({ onSelectModule }) {
                                                         included ? (isDark ? 'text-slate-300' : 'text-slate-600') : (isDark ? 'text-slate-500' : 'text-slate-400')
                                                     }`}>
                                                         {feat.text}
+                                                        {limited && (
+                                                            <span className={`ml-1.5 align-middle text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                                                                isDark ? 'bg-slate-500/20 text-slate-300' : 'bg-slate-100 text-slate-500'
+                                                            }`}>Limitado</span>
+                                                        )}
                                                         {!included && tag && (
                                                             <span className={`ml-1.5 align-middle text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${
                                                                 tag === 'Premium'
