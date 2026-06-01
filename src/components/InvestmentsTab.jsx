@@ -57,6 +57,7 @@ export default function InvestmentsTab() {
     const [filter, setFilter] = useState('renda_fixa');
     const [viewInUSD, setViewInUSD] = useState(false);
     const [chartViewMode, setChartViewMode] = useState('category');
+    const [chartCategoryFilter, setChartCategoryFilter] = useState('all');
     const [expandedCategories, setExpandedCategories] = useState({});
     const [hoveredSlice, setHoveredSlice] = useState(null);
     const [selectedCategoryModal, setSelectedCategoryModal] = useState(null);
@@ -771,7 +772,25 @@ export default function InvestmentsTab() {
 
     const catMap = { renda_fixa: 0, acoes_etfs: 0, crypto: 0, fundos_imoveis: 0 };
     items.forEach(it => { catMap[it.category] += it.value; });
-    const chartItems = Object.entries(catMap).map(([name, value]) => ({ name, value, color: GROUP_COLORS[name] })).filter(i => i.value > 0);
+
+    // Gráfico: por Categoria ou por Ativo, com filtro opcional de categoria.
+    const ASSET_PALETTE = ['#6366f1', '#f59e0b', '#10b981', '#3b82f6', '#a855f7', '#ec4899', '#14b8a6', '#eab308', '#f97316', '#06b6d4', '#84cc16', '#ef4444', '#22d3ee', '#e879f9'];
+    const chartSource = chartCategoryFilter === 'all' ? items : items.filter(it => it.category === chartCategoryFilter);
+    const showByAsset = chartViewMode === 'asset' || chartCategoryFilter !== 'all';
+    let chartItems;
+    if (showByAsset) {
+        chartItems = [...chartSource]
+            .sort((a, b) => b.value - a.value)
+            .map((it, idx) => ({ name: it.name || it.symbol || 'Ativo', label: it.name || it.symbol || 'Ativo', value: it.value, color: ASSET_PALETTE[idx % ASSET_PALETTE.length] }));
+    } else {
+        const cm = {};
+        chartSource.forEach(it => { cm[it.category] = (cm[it.category] || 0) + it.value; });
+        chartItems = Object.entries(cm)
+            .map(([name, value]) => ({ name, label: GROUP_LABELS[name], value, color: GROUP_COLORS[name] }))
+            .filter(i => i.value > 0)
+            .sort((a, b) => b.value - a.value);
+    }
+    const chartTotal = chartItems.reduce((a, i) => a + i.value, 0);
 
     const handlePieEnter = (_, index) => setHoveredSlice(index);
     const handlePieLeave = () => setHoveredSlice(null);
@@ -872,10 +891,29 @@ export default function InvestmentsTab() {
 
             {/* Main Cards Dashboard */}
             <div className={`p-6 rounded-2xl border ${theme === 'light' ? 'bg-slate-900 border-slate-800' : 'bg-[#151822] border-white/5'}`}>
-                <div className="flex items-center gap-3 mb-6">
+                <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
                     <button onClick={fetchLivePrices} className="text-slate-400 hover:text-white transition-colors" title="Atualizar Preços">
                         <RefreshCw className={`w-4 h-4 ${isLoadingPrices ? 'animate-spin' : ''}`} />
                     </button>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {/* Toggle Categoria / Ativo */}
+                        <div className="flex rounded-xl border border-white/10 overflow-hidden">
+                            <button onClick={() => setChartViewMode('category')}
+                                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'category' && chartCategoryFilter === 'all' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-white'}`}>
+                                Categoria
+                            </button>
+                            <button onClick={() => setChartViewMode('asset')}
+                                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'asset' || chartCategoryFilter !== 'all' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-white'}`}>
+                                Ativo
+                            </button>
+                        </div>
+                        {/* Filtrar categoria */}
+                        <select value={chartCategoryFilter} onChange={(e) => setChartCategoryFilter(e.target.value)}
+                            className="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 text-slate-300 text-[10px] font-black uppercase tracking-widest focus:outline-none cursor-pointer">
+                            <option value="all" className="bg-slate-900">Todas as categorias</option>
+                            {Object.keys(GROUP_LABELS).map(k => <option key={k} value={k} className="bg-slate-900">{GROUP_LABELS[k]}</option>)}
+                        </select>
+                    </div>
                 </div>
                 
                 <div className="flex flex-col md:flex-row gap-8 items-center justify-between">
@@ -902,15 +940,15 @@ export default function InvestmentsTab() {
                             )}
                         </div>
                         
-                        <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-3 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
                             {chartItems.map((item, idx) => {
-                                const pct = totalInvestments > 0 ? (item.value / totalInvestments) * 100 : 0;
+                                const pct = chartTotal > 0 ? (item.value / chartTotal) * 100 : 0;
                                 return (
                                     <div key={idx} className="flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full" style={{ background: item.color }} />
-                                        <div className="flex flex-col">
+                                        <div className="w-3 h-3 rounded-full shrink-0" style={{ background: item.color }} />
+                                        <div className="flex flex-col min-w-0">
                                             <span className="text-[11px] font-bold text-slate-300" style={{ color: item.color }}>{pct.toFixed(2)}%</span>
-                                            <span className="text-[10px] text-slate-400">{GROUP_LABELS[item.name]}</span>
+                                            <span className="text-[10px] text-slate-400 truncate max-w-[140px]">{item.label}</span>
                                         </div>
                                     </div>
                                 );
