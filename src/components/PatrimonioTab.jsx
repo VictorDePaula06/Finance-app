@@ -57,6 +57,20 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
   const isDark = theme !== 'light';
   const [showPatrimonioConfig, setShowPatrimonioConfig] = useState(false);
   const [configInitialSection, setConfigInitialSection] = useState(null);
+  // Filtro do "Patrimônio Total Consolidado" (persistido) — quais blocos somam no total.
+  const [patrimonioFilter, setPatrimonioFilter] = useState(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('patrimonioFilter'));
+      if (s && typeof s === 'object') return { reserva: s.reserva !== false, investimentos: s.investimentos !== false, bens: s.bens !== false };
+    } catch { /* default abaixo */ }
+    return { reserva: true, investimentos: true, bens: true };
+  });
+  const togglePatrimonioFilter = (key) => setPatrimonioFilter(prev => {
+    const next = { ...prev, [key]: !prev[key] };
+    if (!next.reserva && !next.investimentos && !next.bens) return prev; // mantém ao menos um
+    localStorage.setItem('patrimonioFilter', JSON.stringify(next));
+    return next;
+  });
 
   // ── state ──────────────────────────────────────────────────────────────────
   const [jars, setJars] = useState([]);
@@ -371,6 +385,10 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
   }, [investments, livePrices, usdRate, tesouroData]);
 
   const patrimonioTotal = jarsTotal + investmentsTotal + bensTotal;
+  // Total exibido conforme o filtro (Reserva / Investimentos / Bens).
+  const displayedTotal = (patrimonioFilter.reserva ? jarsTotal : 0)
+    + (patrimonioFilter.investimentos ? investmentsTotal : 0)
+    + (patrimonioFilter.bens ? bensTotal : 0);
 
   // Rentabilidade das reservas que têm valor aplicado informado (posição atual − aplicado).
   const reservesProfit = useMemo(() => jars.reduce((acc, j) => {
@@ -521,9 +539,23 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
         <div className="absolute bottom-[-40%] left-[-10%] w-[40%] h-[100%] rounded-full blur-[100px] pointer-events-none opacity-[0.06] bg-purple-500" />
         <div className="relative">
           <div className="mb-4">
-            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-emerald-400/80 mb-1">Patrimônio Total Consolidado</p>
-            <p className={`text-3xl md:text-4xl font-black tracking-tight leading-none ${patrimonioTotal >= 0 ? 'text-white' : 'text-rose-400'}`}>
-              {fmtSigned(patrimonioTotal)}
+            <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-emerald-400/80">Patrimônio Total Consolidado</p>
+              <div className="flex items-center gap-1">
+                {[['reserva', 'Reserva', '#10b981'], ['investimentos', 'Investim.', '#a855f7'], ['bens', 'Bens', '#f97316']].map(([key, label, col]) => {
+                  const active = patrimonioFilter[key];
+                  return (
+                    <button key={key} onClick={() => togglePatrimonioFilter(key)} title={active ? `Ocultar ${label} do total` : `Incluir ${label} no total`}
+                      className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all"
+                      style={active ? { background: `${col}26`, borderColor: `${col}66`, color: col } : { borderColor: 'rgba(255,255,255,0.1)', color: '#64748b' }}>
+                      {active ? '✓ ' : ''}{label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <p className={`text-3xl md:text-4xl font-black tracking-tight leading-none ${displayedTotal >= 0 ? 'text-white' : 'text-rose-400'}`}>
+              {fmtSigned(displayedTotal)}
             </p>
             {totalDailyYield > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-2">
@@ -536,17 +568,17 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
               </div>
             )}
           </div>
-          {patrimonioTotal > 0 && (
+          {displayedTotal > 0 && (
             <div className="space-y-2 pt-3 border-t border-white/[0.06]">
               <div className="flex rounded-full overflow-hidden h-2 bg-white/[0.06]">
-                <div style={{ width: `${jarsTotal / patrimonioTotal * 100}%` }} className="bg-emerald-500 transition-all duration-700" />
-                <div style={{ width: `${investmentsTotal / patrimonioTotal * 100}%` }} className="bg-purple-500 transition-all duration-700" />
-                <div style={{ width: `${bensTotal / patrimonioTotal * 100}%` }} className="bg-orange-500 transition-all duration-700" />
+                {patrimonioFilter.reserva && <div style={{ width: `${jarsTotal / displayedTotal * 100}%` }} className="bg-emerald-500 transition-all duration-700" />}
+                {patrimonioFilter.investimentos && <div style={{ width: `${investmentsTotal / displayedTotal * 100}%` }} className="bg-purple-500 transition-all duration-700" />}
+                {patrimonioFilter.bens && <div style={{ width: `${bensTotal / displayedTotal * 100}%` }} className="bg-orange-500 transition-all duration-700" />}
               </div>
               <div className="flex justify-between flex-wrap gap-x-3 text-[9px] font-black text-slate-400">
-                <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />Reserva — R$ {fmt(jarsTotal)} ({patrimonioTotal > 0 ? (jarsTotal/patrimonioTotal*100).toFixed(0) : 0}%)</span>
-                <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block" />Investimentos — R$ {fmt(investmentsTotal)} ({patrimonioTotal > 0 ? (investmentsTotal/patrimonioTotal*100).toFixed(0) : 0}%)</span>
-                {bensTotal > 0 && <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-orange-500 inline-block" />Bens — R$ {fmt(bensTotal)} ({patrimonioTotal > 0 ? (bensTotal/patrimonioTotal*100).toFixed(0) : 0}%)</span>}
+                {patrimonioFilter.reserva && <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />Reserva — R$ {fmt(jarsTotal)} ({displayedTotal > 0 ? (jarsTotal/displayedTotal*100).toFixed(0) : 0}%)</span>}
+                {patrimonioFilter.investimentos && <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block" />Investimentos — R$ {fmt(investmentsTotal)} ({displayedTotal > 0 ? (investmentsTotal/displayedTotal*100).toFixed(0) : 0}%)</span>}
+                {patrimonioFilter.bens && bensTotal > 0 && <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-orange-500 inline-block" />Bens — R$ {fmt(bensTotal)} ({displayedTotal > 0 ? (bensTotal/displayedTotal*100).toFixed(0) : 0}%)</span>}
               </div>
             </div>
           )}
