@@ -24,6 +24,34 @@ const RESERVE_TYPES = {
     cdb: { label: 'CDB Liquidez Diária', icon: TrendingUp, color: 'text-purple-500', bg: 'bg-purple-500/10' }
 };
 
+// Títulos Selic (usados como reserva) — fallback quando a API do Tesouro está indisponível.
+const SELIC_FALLBACK = [
+    { nm: 'Tesouro Selic 2027', anulRentPrcnt: 0 },
+    { nm: 'Tesouro Selic 2029', anulRentPrcnt: 0.05 },
+    { nm: 'Tesouro Selic 2031', anulRentPrcnt: 0.08 },
+];
+
+// Busca a lista de títulos do Tesouro (mesma fonte da aba Investimentos › Renda Fixa).
+async function fetchTesouroBonds() {
+    try {
+        const res = await fetch(`/api/tesouro?t=${Date.now()}`, { signal: AbortSignal.timeout(10000) });
+        if (res.ok) { const data = await res.json(); if (data.bonds && data.bonds.length) return data.bonds; }
+    } catch { /* tenta proxies */ }
+    const url = 'https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondpriceandsavings.json';
+    for (const p of [`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, `https://corsproxy.io/?${encodeURIComponent(url)}`]) {
+        try {
+            const r = await fetch(p, { signal: AbortSignal.timeout(8000) });
+            if (!r.ok) continue;
+            const j = await r.json();
+            const raw = j.contents ?? j;
+            const d = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            const list = d?.response?.TrsrBondPricLogList?.map(i => i.TrsrBond);
+            if (list && list.length) return list;
+        } catch { /* tenta próximo */ }
+    }
+    return SELIC_FALLBACK;
+}
+
 export default function EmergencyReserveTab() {
     const { theme } = useTheme();
     const { currentUser, planLevel } = useAuth();
@@ -44,6 +72,18 @@ export default function EmergencyReserveTab() {
         balance: '',
         cdiPercent: '100'
     });
+    const [tesouroBonds, setTesouroBonds] = useState([]);
+
+    // Carrega os títulos Selic quando o modal abre com tipo Tesouro.
+    useEffect(() => {
+        if (!isAdding || formData.type !== 'tesouro' || tesouroBonds.length > 0) return;
+        let cancelled = false;
+        fetchTesouroBonds().then(bonds => { if (!cancelled) setTesouroBonds(bonds); });
+        return () => { cancelled = true; };
+    }, [isAdding, formData.type, tesouroBonds.length]);
+
+    const selicBonds = tesouroBonds.filter(b => b.nm && b.nm.toLowerCase().includes('selic'));
+    const loadingTesouro = isAdding && formData.type === 'tesouro' && tesouroBonds.length === 0;
 
     useEffect(() => {
         if (!currentUser) return;
@@ -445,26 +485,49 @@ export default function EmergencyReserveTab() {
                                 </select>
                             </div>
 
-                            <div>
-                                <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Nome de Identificação</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                                    className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
-                                        theme === 'light' ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400' : 'bg-white/5 border-white/10 text-white placeholder-slate-500'
-                                    }`}
-                                    placeholder={
-                                        formData.type === 'cofrinho' ? 'Ex: Nubank, Inter, PicPay...' :
-                                        formData.type === 'tesouro' ? 'Ex: Tesouro Selic 2029' : 'Ex: CDB Itaú, CDB Sofisa...'
-                                    }
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
+                            {formData.type === 'tesouro' ? (
                                 <div>
-                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Saldo Atual (R$)</label>
+                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Título do Tesouro Selic</label>
+                                    <select
+                                        required
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value, cdiPercent: '100' })}
+                                        className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all appearance-none ${
+                                            theme === 'light' ? 'bg-white border-slate-300 text-slate-800' : 'bg-slate-800 border-white/10 text-white'
+                                        }`}
+                                    >
+                                        <option value="" className={theme === 'dark' ? 'bg-slate-900' : 'bg-white'}>{loadingTesouro ? 'Carregando títulos...' : 'Selecione um título...'}</option>
+                                        {selicBonds.map(b => (
+                                            <option key={b.nm} value={b.nm} className={theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}>
+                                                {b.nm}{b.anulRentPrcnt ? ` — SELIC + ${parseFloat(b.anulRentPrcnt).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% a.a.` : ' — 100% SELIC'}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className={`text-[10px] mt-1 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                        Apenas títulos Tesouro Selic (ideais para reserva — liquidez diária). Rende ~100% do CDI (Selic).
+                                    </p>
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Nome de Identificação</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                        className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
+                                            theme === 'light' ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400' : 'bg-white/5 border-white/10 text-white placeholder-slate-500'
+                                        }`}
+                                        placeholder={
+                                            formData.type === 'cofrinho' ? 'Ex: Nubank, Inter, PicPay...' : 'Ex: CDB Itaú, CDB Sofisa...'
+                                        }
+                                    />
+                                </div>
+                            )}
+
+                            <div className={`grid ${formData.type === 'tesouro' ? 'grid-cols-1' : 'grid-cols-2'} gap-3`}>
+                                <div>
+                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>{formData.type === 'tesouro' ? 'Valor aplicado (R$)' : 'Saldo Atual (R$)'}</label>
                                     <input
                                         type="text"
                                         inputMode="decimal"
@@ -477,20 +540,22 @@ export default function EmergencyReserveTab() {
                                         placeholder="0,00"
                                     />
                                 </div>
-                                <div>
-                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>% do CDI</label>
-                                    <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        required
-                                        value={formData.cdiPercent}
-                                        onChange={(e) => setFormData({...formData, cdiPercent: e.target.value})}
-                                        className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
-                                            theme === 'light' ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400' : 'bg-white/5 border-white/10 text-white placeholder-slate-500'
-                                        }`}
-                                        placeholder="Ex: 100"
-                                    />
-                                </div>
+                                {formData.type !== 'tesouro' && (
+                                    <div>
+                                        <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>% do CDI</label>
+                                        <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            required
+                                            value={formData.cdiPercent}
+                                            onChange={(e) => setFormData({...formData, cdiPercent: e.target.value})}
+                                            className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
+                                                theme === 'light' ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400' : 'bg-white/5 border-white/10 text-white placeholder-slate-500'
+                                            }`}
+                                            placeholder="Ex: 100"
+                                        />
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex gap-3 pt-2">
