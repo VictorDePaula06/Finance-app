@@ -873,8 +873,23 @@ function Dashboard() {
             )
           )}
 
-          {/* ── NOVAS ABAS DO PATRIMÔNIO (placeholders — estrutura sem conteúdo) ── */}
-          { activeTab === 'fluxo' && <FluxoPatrimonialTab /> }
+          { activeTab === 'fluxo' && (
+            planLevel === 'premium' || isAdmin ? (
+              <FluxoPatrimonialTab />
+            ) : (
+              <PremiumPaywall
+                title="Fluxo Patrimonial"
+                description="Acompanhe a movimentação do seu patrimônio ao longo do tempo: entradas, saídas e a evolução consolidada."
+                icon={Activity}
+                features={[
+                  'Entradas e saídas realizadas por período',
+                  'Gráfico de patrimônio acumulado com benchmarks',
+                  'Breakdown por origem (aportes, rendimentos, dividendos)',
+                  'Variação não realizada e comparativo vs inflação',
+                ]}
+              />
+            )
+          )}
 
           { activeTab === 'bens' && <BensImoveisTab /> }
 
@@ -888,16 +903,46 @@ function Dashboard() {
             />
           )}
 
-          { activeTab === 'independencia' && <IndependenciaTab /> }
+          { activeTab === 'independencia' && (
+            planLevel === 'premium' || isAdmin ? (
+              <IndependenciaTab />
+            ) : (
+              <PremiumPaywall
+                title="Independência Financeira"
+                description="Descubra quando você poderá parar de depender do salário, com uma projeção concreta e personalizada."
+                icon={TrendingUp}
+                features={[
+                  'Patrimônio atual, renda desejada e data estimada de independência',
+                  'Projeção do patrimônio com efeito dos juros compostos',
+                  'Simulador interativo (aporte, taxa e renda desejada)',
+                  'Marcos da jornada (25%, 50%, 75%, 100%)',
+                ]}
+              />
+            )
+          )}
 
           { activeTab === 'rebalanceamento' && (
-            <PatrimonioPlaceholderTab
-              title="Rebalanceamento"
-              subtitle="Mantenha sua carteira alinhada à sua estratégia"
-              icon={AlertTriangle}
-              badge="Ação"
-              description="Em breve você receberá sugestões de rebalanceamento para manter a alocação da sua carteira de acordo com seus objetivos."
-            />
+            planLevel === 'premium' || isAdmin ? (
+              <PatrimonioPlaceholderTab
+                title="Rebalanceamento"
+                subtitle="Mantenha sua carteira alinhada à sua estratégia"
+                icon={AlertTriangle}
+                badge="Ação"
+                description="Em breve você receberá sugestões de rebalanceamento para manter a alocação da sua carteira de acordo com seus objetivos."
+              />
+            ) : (
+              <PremiumPaywall
+                title="Rebalanceamento"
+                description="Mantenha a alocação da sua carteira de acordo com a sua estratégia e perfil de risco."
+                icon={AlertTriangle}
+                features={[
+                  'Sugestões de rebalanceamento automáticas',
+                  'Alocação-alvo por classe de ativo',
+                  'Alertas quando a carteira sai do seu perfil',
+                  'Acompanhamento contínuo da estratégia',
+                ]}
+              />
+            )
           )}
 
           { activeTab === 'seguros' && <SegurosTab manualConfig={manualConfig} /> }

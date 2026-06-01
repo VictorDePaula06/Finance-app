@@ -40,7 +40,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
     // Limites aplicados ao trial e ao Plano Gratuito permanente
     const isLimited = isTrial || planLevel === 'free';
-    const TRIAL_EXPENSE_LIMIT = 15; // por mês (renova mensalmente)
+    const TRIAL_EXPENSE_LIMIT = 10; // por mês (renova mensalmente)
     const [showTrialModal, setShowTrialModal] = useState(false);
 
     // States

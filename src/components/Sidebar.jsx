@@ -89,7 +89,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
     ],
     patrimonio: [
       { type: 'item', id: 'patrimonio', label: 'Visão Geral', icon: LayoutDashboard },
-      { type: 'item', id: 'fluxo', label: 'Fluxo Patrimonial', icon: Activity },
+      { type: 'item', id: 'fluxo', label: 'Fluxo Patrimonial', icon: Activity, premiumOnly: true },
       {
         type: 'group', id: 'grp_ativos', label: 'Meu Patrimônio', icon: Star,
         children: [
@@ -104,8 +104,8 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
         children: [
           { id: 'metas', label: 'Metas', icon: CheckCircle2 },
           { id: 'evolucao', label: 'Evolução Patrimonial', icon: BarChart3, premiumOnly: true },
-          { id: 'independencia', label: 'Independência Financeira', icon: TrendingUp, badge: 'Novo' },
-          { id: 'rebalanceamento', label: 'Rebalanceamento', icon: AlertTriangle, badge: 'Ação' },
+          { id: 'independencia', label: 'Independência Financeira', icon: TrendingUp, premiumOnly: true },
+          { id: 'rebalanceamento', label: 'Rebalanceamento', icon: AlertTriangle, premiumOnly: true },
         ],
       },
       { type: 'item', id: 'seguros', label: 'Seguros & Proteção', icon: Umbrella, badge: 'Novo' },
@@ -184,10 +184,10 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
 
         {/* Badge "Premium" — só aparece para Free em itens premium-only */}
         {item.premiumOnly && isFreePlan && (
-          <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${
+          <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
             theme === 'light' ? 'bg-amber-100 text-amber-600' : 'bg-amber-500/20 text-amber-400'
           }`}>
-            PRO
+            Premium
           </span>
         )}
 
