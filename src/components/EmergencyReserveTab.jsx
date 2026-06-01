@@ -70,7 +70,9 @@ export default function EmergencyReserveTab() {
         type: 'tesouro',
         name: '',
         balance: '',
-        cdiPercent: '100'
+        cdiPercent: '100',
+        appliedValue: '',
+        appliedDate: ''
     });
     const [tesouroBonds, setTesouroBonds] = useState([]);
 
@@ -124,11 +126,15 @@ export default function EmergencyReserveTab() {
             const balance = parseNumber(formData.balance);
             const cdiPercent = parseNumber(formData.cdiPercent);
 
+            const appliedValue = formData.appliedValue !== '' ? parseNumber(formData.appliedValue) : null;
+
             const dataToSave = {
                 type: formData.type,
                 name: formData.name,
                 balance,
                 cdiPercent,
+                appliedValue,
+                appliedDate: formData.appliedDate || null,
                 color: 'emerald', // retrocompatibility
                 updatedAt: new Date().toISOString(),
                 userId: currentUser.uid
@@ -181,7 +187,7 @@ export default function EmergencyReserveTab() {
 
             setIsAdding(false);
             setIsEditing(null);
-            setFormData({ type: 'tesouro', name: '', balance: '', cdiPercent: '100' });
+            setFormData({ type: 'tesouro', name: '', balance: '', cdiPercent: '100', appliedValue: '', appliedDate: '' });
         } catch (error) {
             console.error("Erro ao salvar reserva:", error);
         }
@@ -269,7 +275,7 @@ export default function EmergencyReserveTab() {
                                 return;
                             }
                             setIsEditing(null);
-                            setFormData({ type: 'tesouro', name: '', balance: '', cdiPercent: '100' });
+                            setFormData({ type: 'tesouro', name: '', balance: '', cdiPercent: '100', appliedValue: '', appliedDate: '' });
                             setIsAdding(true);
                         }}
                         className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
@@ -322,6 +328,19 @@ export default function EmergencyReserveTab() {
                                                 <span className="text-amber-500 mr-0.5">≈</span>R$ {dynamicBalance.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                             </span>
                                         </div>
+                                        {reserve.appliedValue != null && reserve.appliedValue > 0 && (() => {
+                                            const prof = (reserve.balance || 0) - reserve.appliedValue;
+                                            const pct = reserve.appliedValue > 0 ? (prof / reserve.appliedValue) * 100 : 0;
+                                            return (
+                                                <div className="hidden md:flex flex-col items-end">
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Rentabilidade</span>
+                                                    <span className={`inline-flex items-center gap-0.5 text-sm font-black ${prof >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                        {prof >= 0 ? '+' : '-'}R$ {Math.abs(prof).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    </span>
+                                                    <span className={`text-[10px] font-bold ${prof >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</span>
+                                                </div>
+                                            );
+                                        })()}
                                         <div className="hidden md:flex flex-col items-end w-24">
                                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Proj. Dia</span>
                                             <span className="inline-flex items-center gap-0.5 text-xs font-black text-emerald-500">
@@ -337,7 +356,9 @@ export default function EmergencyReserveTab() {
                                                         type: reserve.type || 'cofrinho',
                                                         name: reserve.name,
                                                         balance: String(reserve.balance ?? ''),
-                                                        cdiPercent: reserve.cdiPercent.toString()
+                                                        cdiPercent: reserve.cdiPercent.toString(),
+                                                        appliedValue: reserve.appliedValue != null ? String(reserve.appliedValue) : '',
+                                                        appliedDate: reserve.appliedDate || ''
                                                     });
                                                     setIsEditing(reserve.id);
                                                     setIsAdding(true);
@@ -525,9 +546,38 @@ export default function EmergencyReserveTab() {
                                 </div>
                             )}
 
+                            {/* Valor aplicado + Data de aplicação */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Valor aplicado (R$)</label>
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={formData.appliedValue}
+                                        onChange={(e) => setFormData({ ...formData, appliedValue: e.target.value })}
+                                        className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
+                                            theme === 'light' ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400' : 'bg-white/5 border-white/10 text-white placeholder-slate-500'
+                                        }`}
+                                        placeholder="Quanto você investiu"
+                                    />
+                                </div>
+                                <div>
+                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Data de aplicação</label>
+                                    <input
+                                        type="date"
+                                        value={formData.appliedDate}
+                                        onChange={(e) => setFormData({ ...formData, appliedDate: e.target.value })}
+                                        className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
+                                            theme === 'light' ? 'bg-white border-slate-300 text-slate-800' : 'bg-white/5 border-white/10 text-white'
+                                        }`}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Posição atual na corretora + (% do CDI nos tipos não-Tesouro) */}
                             <div className={`grid ${formData.type === 'tesouro' ? 'grid-cols-1' : 'grid-cols-2'} gap-3`}>
                                 <div>
-                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>{formData.type === 'tesouro' ? 'Valor aplicado (R$)' : 'Saldo Atual (R$)'}</label>
+                                    <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Posição atual na corretora (R$)</label>
                                     <input
                                         type="text"
                                         inputMode="decimal"
@@ -537,7 +587,7 @@ export default function EmergencyReserveTab() {
                                         className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all ${
                                             theme === 'light' ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400' : 'bg-white/5 border-white/10 text-white placeholder-slate-500'
                                         }`}
-                                        placeholder="0,00"
+                                        placeholder="Valor que aparece hoje na corretora"
                                     />
                                 </div>
                                 {formData.type !== 'tesouro' && (
@@ -557,6 +607,15 @@ export default function EmergencyReserveTab() {
                                     </div>
                                 )}
                             </div>
+                            {formData.appliedValue !== '' && parseNumber(formData.appliedValue) > 0 && formData.balance !== '' && (() => {
+                                const ap = parseNumber(formData.appliedValue); const at = parseNumber(formData.balance);
+                                const prof = at - ap; const pct = ap > 0 ? (prof / ap) * 100 : 0;
+                                return (
+                                    <p className={`text-[11px] font-bold ${prof >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                        Rentabilidade: {prof >= 0 ? '+' : '-'}R$ {Math.abs(prof).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({pct >= 0 ? '+' : ''}{pct.toFixed(2)}%)
+                                    </p>
+                                );
+                            })()}
 
                             <div className="flex gap-3 pt-2">
                                 <button

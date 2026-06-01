@@ -372,6 +372,13 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
 
   const patrimonioTotal = jarsTotal + investmentsTotal + bensTotal;
 
+  // Rentabilidade das reservas que têm valor aplicado informado (posição atual − aplicado).
+  const reservesProfit = useMemo(() => jars.reduce((acc, j) => {
+    if (j.appliedValue != null && j.appliedValue > 0) return acc + ((parseFloat(j.balance) || 0) - j.appliedValue);
+    return acc;
+  }, 0), [jars]);
+  const totalProfit = investmentsProfit + reservesProfit;
+
   // Saúde Patrimonial (Reserva · Diversificação · Rentabilidade) — mesma fonte da sidebar.
   const investmentsSummary = useMemo(() => {
     const byClass = {};
@@ -574,13 +581,13 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
         </div>
 
         <div className={`group p-4 rounded-2xl border flex items-center gap-3 transition-all hover:scale-[1.015] ${isDark ? 'bg-slate-900/80 border-white/[0.06] hover:border-blue-500/30' : 'bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200'}`}>
-          <div className={`p-2.5 rounded-xl shrink-0 ${investmentsProfit >= 0 ? (isDark ? 'bg-emerald-500/10' : 'bg-emerald-50') : (isDark ? 'bg-rose-500/10' : 'bg-rose-50')}`}>
-            <ArrowUpCircle className={`w-5 h-5 ${investmentsProfit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`} />
+          <div className={`p-2.5 rounded-xl shrink-0 ${totalProfit >= 0 ? (isDark ? 'bg-emerald-500/10' : 'bg-emerald-50') : (isDark ? 'bg-rose-500/10' : 'bg-rose-50')}`}>
+            <ArrowUpCircle className={`w-5 h-5 ${totalProfit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`} />
           </div>
           <div className="min-w-0 flex-1">
             <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Rentabilidade</p>
-            <p className={`text-lg font-black truncate ${investmentsProfit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtSigned(investmentsProfit)}</p>
-            <p className={`text-[9px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Lucro acumulado dos investimentos</p>
+            <p className={`text-lg font-black truncate ${totalProfit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtSigned(totalProfit)}</p>
+            <p className={`text-[9px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Investimentos + reservas</p>
           </div>
         </div>
       </div>
