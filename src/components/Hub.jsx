@@ -64,24 +64,7 @@ export default function Hub({ onSelectModule }) {
         },
     ];
 
-    // Card de Painel Admin — só aparece para admins, mesma estrutura visual dos outros
-    if (isAdmin) {
-        modules.push({
-            id: 'admin',
-            title: 'Painel Administrativo',
-            tagline: 'Controle da plataforma',
-            description: 'Gerencie usuários, planos, permissões e configurações globais da Alívia.',
-            features: [
-                'Gestão de usuários e assinaturas',
-                'Estatísticas operacionais em tempo real',
-                'Notificações push e manutenção global',
-            ],
-            icon: ShieldCheck,
-            accent: 'amber',
-            isLocked: false,
-            isAdmin: true,
-        });
-    }
+    const openAdmin = () => window.dispatchEvent(new CustomEvent('change-view', { detail: 'admin' }));
 
     // Mapeamento de cores por accent — Tailwind safelist necessária
     const accentStyles = {
@@ -126,8 +109,7 @@ export default function Hub({ onSelectModule }) {
         onSelectModule(mod.id);
     };
 
-    // Grid responsivo: 3 colunas pra admin, 2 pra cliente padrão
-    const gridCols = isAdmin ? 'lg:grid-cols-3' : 'lg:grid-cols-2';
+    const gridCols = 'lg:grid-cols-2';
 
     return (
         <div className={`min-h-screen w-full flex flex-col transition-colors duration-500 ${isDark ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
@@ -146,6 +128,19 @@ export default function Hub({ onSelectModule }) {
                 </div>
 
                 <div className="flex items-center gap-2.5">
+                    {/* Botão DEV — só para admin: abre o Painel Administrativo */}
+                    {isAdmin && (
+                        <button
+                            onClick={openAdmin}
+                            title="Painel Administrativo"
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
+                                isDark ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20' : 'bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100'
+                            }`}
+                        >
+                            <ShieldCheck className="w-3 h-3" /> Dev
+                        </button>
+                    )}
+
                     {/* Badge do plano */}
                     <span className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${planBadge.cls}`}>
                         {planLevel === 'premium' && <Sparkles className="w-3 h-3" />}
