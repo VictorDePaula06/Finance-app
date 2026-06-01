@@ -676,7 +676,7 @@ function Dashboard() {
                         Este mês os gastos essenciais somaram <span className="font-bold">R$ {fmtMoney(essential)}</span> e os supérfluos <span className="font-bold">R$ {fmtMoney(superf)}</span> ({supPct}% dos gastos{supPct > 30 ? ' — acima do ideal de 30%' : ' — dentro do ideal'}).
                       </p>
                       <p className={`text-[12px] leading-relaxed mt-1.5 ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
-                        {sobrou >= 0 ? <>Você fechou o mês no positivo: sobraram <span className="font-bold text-emerald-500">R$ {fmtMoney(sobrou)}</span>.</> : <>Atenção: você gastou <span className="font-bold text-rose-500">R$ {fmtMoney(Math.abs(sobrou))}</span> a mais do que ganhou neste mês.</>}
+                        {sobrou >= 0 ? <>Você está no positivo este mês: sobram <span className="font-bold text-emerald-500">R$ {fmtMoney(sobrou)}</span>.</> : <>Atenção: você gastou <span className="font-bold text-rose-500">R$ {fmtMoney(Math.abs(sobrou))}</span> a mais do que ganhou neste mês.</>}
                       </p>
                       <p className={`text-[12px] leading-relaxed mt-1.5 ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
                         {reserveAmount > 0

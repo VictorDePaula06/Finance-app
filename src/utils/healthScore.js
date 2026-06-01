@@ -380,7 +380,7 @@ export const calculateHealthIndex = (transactions = [], config = {}, reserveTota
 
     // Mensagens por pilar.
     const surplusMsg = surplusStatus === 'good'
-        ? 'Ótimo! Você fechou o mês no positivo. Esse valor pode reforçar sua reserva.'
+        ? 'Ótimo! Você está no positivo este mês. Esse valor pode reforçar sua reserva.'
         : surplusStatus === 'warn'
             ? 'Sua sobra está apertada. Tente economizar um pouco mais neste mês.'
             : 'Cuidado. Você gastou mais do que ganhou neste mês.';

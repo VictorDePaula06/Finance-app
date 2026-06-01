@@ -431,6 +431,18 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
       return `${year}-${String(month + 1).padStart(2, '0')}`;
   };
 
+  // Uma assinatura pertence à fatura `invoiceMonth` se a cobrança no mês atual
+  // OU no mês anterior cai nesse ciclo (ciclo pode começar no mês anterior).
+  const isSubInInvoice = (subDay, invoiceMonth, closingDay) => {
+    const [iy, im] = invoiceMonth.split('-').map(Number);
+    const prevM = im === 1 ? 12 : im - 1;
+    const prevY = im === 1 ? iy - 1 : iy;
+    const chargeCurr = new Date(iy, im - 1, subDay, 12, 0, 0);
+    const chargePrev = new Date(prevY, prevM - 1, subDay, 12, 0, 0);
+    return getInvoiceMonth(chargeCurr.toISOString(), closingDay) === invoiceMonth ||
+           getInvoiceMonth(chargePrev.toISOString(), closingDay) === invoiceMonth;
+  };
+
   const getUnpaidExpenses = (cardId) => transactions.filter(t => t.selectedCardId === cardId && t.invoiceStatus === 'unpaid');
 
   const getUnpaidExpensesByPeriod = (card) => {
@@ -462,8 +474,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
     const cardSubs = getCardSubs(card.id).filter(s => {
       if (s.lastPaidMonth === currentInvoiceMonth) return false;
       const subDay = parseInt(s.day) || 1;
-      const chargeDate = new Date(_today.getFullYear(), _today.getMonth(), subDay, 12, 0, 0);
-      return getInvoiceMonth(chargeDate.toISOString(), closingDay) <= currentInvoiceMonth;
+      return isSubInInvoice(subDay, currentInvoiceMonth, closingDay);
     });
     const expensesTotal = unpaidExpenses.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
     const subsTotal = cardSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
@@ -573,16 +584,8 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             const today = new Date();
             const unpaidSubs = cardSubs.filter(s => {
                 if (s.lastPaidMonth === currentInvoiceMonth) return false;
-                
                 const subDay = parseInt(s.day) || 1;
-                // Calculate when this subscription charges this month
-                const chargeDateThisMonth = new Date(today.getFullYear(), today.getMonth(), subDay, 12, 0, 0);
-                const subInvoiceMonth = getInvoiceMonth(chargeDateThisMonth.toISOString(), closingDay);
-                
-                // If it charges on a date that falls into a future invoice, don't include it in the current open invoice
-                if (subInvoiceMonth > currentInvoiceMonth) return false;
-                
-                return true;
+                return isSubInInvoice(subDay, currentInvoiceMonth, closingDay);
             });
             const subsTotal = unpaidSubs.reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0);
             const expensesTotal = unpaidExpenses.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
@@ -1663,15 +1666,13 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             ? subscriptions.filter(s => s.isInstallment && (!s.cardId || !cards.map(c => c.id).includes(s.cardId)))
             : getCardSubs(card.id);
 
-          // Subscriptions: só entrar na fatura se o dia de vencimento já chegou
-          const todayDay = new Date().getDate();
-          const currentMonthKey = new Date().toISOString().slice(0, 7);
+          const { currentInvoiceMonth: modalInvoiceMonth, closingDay: modalClosingDay } = getUnpaidExpensesByPeriod(card);
           const cardSubs = isOrphaned
             ? allCardSubs
             : allCardSubs.filter(s => {
-                if (s.lastPaidMonth === currentMonthKey) return false;
-                const dueDay = parseInt(s.day) || 1;
-                return todayDay >= dueDay;
+                if (s.lastPaidMonth === modalInvoiceMonth) return false;
+                const subDay = parseInt(s.day) || 1;
+                return isSubInInvoice(subDay, modalInvoiceMonth, modalClosingDay);
               });
 
           const unpaidExpenses = isOrphaned
