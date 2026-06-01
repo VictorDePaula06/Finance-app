@@ -1270,6 +1270,7 @@ function AppRoutes() {
         path="/planos"
         element={
           !currentUser ? <Navigate to="/login" replace />
+            : (!needsPlanSelection && hasAppAccess) ? <Navigate to="/inicio" replace />
             : <SubscriptionBlock onAdminAccess={() => isAdmin && navigate('/admin')} />
         }
       />

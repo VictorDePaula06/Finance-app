@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Sparkles, ArrowRight, ShieldCheck, Heart } from 'lucide-react';
+import { Sparkles, ArrowRight, ArrowLeft, ShieldCheck, Heart } from 'lucide-react';
 import logo from '../assets/logo.png';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
 
-export default function Login() {
+export default function Login({ onBack }) {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const { loginWithGoogle } = useAuth();
@@ -96,6 +96,17 @@ export default function Login() {
                             </>
                         )}
                     </button>
+
+                    {onBack && (
+                        <button
+                            type="button"
+                            onClick={onBack}
+                            className="group w-full mt-3 py-3.5 rounded-2xl border border-slate-200 bg-white/60 hover:bg-white text-slate-500 hover:text-slate-700 font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
+                        >
+                            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                            Voltar para o início
+                        </button>
+                    )}
 
                     <div className="flex items-center justify-center gap-8 pt-4">
                         <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
