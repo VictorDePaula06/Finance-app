@@ -6,6 +6,9 @@ import { Loader2 } from 'lucide-react';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
 import { generatePDF } from '../utils/generatePDF';
 import logo from '../assets/logo.png';
+import { useAuth } from '../contexts/AuthContext';
+import UpgradeModal from './UpgradeModal';
+import { Lock } from 'lucide-react';
 
 const fmt = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const PALETTE = ['#f43f5e', '#f59e0b', '#3b82f6', '#8b5cf6', '#10b981', '#ec4899', '#14b8a6', '#eab308', '#64748b'];
@@ -110,6 +113,10 @@ function labelFor(mode, range) {
 
 export default function PeriodAnalysis({ transactions = [], cards = [], subscriptions = [], theme }) {
   const isDark = theme !== 'light';
+  const { planLevel, isAdmin } = useAuth();
+  // Relatórios em PDF são a partir do plano Standard (Free não exporta).
+  const canExportPDF = planLevel === 'standard' || planLevel === 'premium' || planLevel === 'lifetime' || isAdmin;
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [mode, setMode] = useState('mes');
   const [anchor, setAnchor] = useState(() => new Date());
   const [custom, setCustom] = useState({ start: '', end: '' });
@@ -266,6 +273,7 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
   const togglePayment = (id) => setSelPayments(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
 
   const handleExportPDF = async () => {
+    if (!canExportPDF) { setShowUpgrade(true); return; }
     setIsExportingPDF(true);
     try {
       const incomeRows = periodIncomeItems.map(t => ({ date: t.date, description: t.description, category: t.category, amount: amount(t), type: 'income' }));
@@ -398,7 +406,7 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
         </div>
         <button onClick={handleExportPDF} disabled={isExportingPDF}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-[11px] uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50">
-          {isExportingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />} Exportar PDF
+          {isExportingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : (canExportPDF ? <FileDown className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />)} {canExportPDF ? 'Exportar PDF' : 'Exportar PDF · Standard'}
         </button>
       </div>
 
@@ -593,6 +601,7 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
           </>
         )}
       </div>
+      <UpgradeModal isOpen={showUpgrade} onClose={() => setShowUpgrade(false)} />
     </div>
   );
 }

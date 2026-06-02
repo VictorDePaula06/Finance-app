@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { LayoutDashboard, ArrowUpCircle, ArrowDownCircle, Trash2, Pencil, Calendar, Search, Wallet, TrendingUp, TrendingDown, FileText, X, Download, Home, Utensils, Car, Heart, Gamepad2, ShoppingBag, Briefcase, Laptop, Circle, Eye, EyeOff, Info } from 'lucide-react';
+import { LayoutDashboard, ArrowUpCircle, ArrowDownCircle, Trash2, Pencil, Calendar, Search, Wallet, TrendingUp, TrendingDown, FileText, X, Download, Home, Utensils, Car, Heart, Gamepad2, ShoppingBag, Briefcase, Laptop, Circle, Eye, EyeOff, Info, Lock } from 'lucide-react';
 import { db } from '../services/firebase';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, orderBy, getDocs } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import AIChat from './AIChat';
 import FinancialAdvisor from './FinancialAdvisor';
+import UpgradeModal from './UpgradeModal';
 import { CATEGORIES } from '../constants/categories';
 import { generatePDF } from '../utils/generatePDF';
 import { calculateFinancialHealth } from '../utils/financialLogic';
@@ -66,7 +67,10 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
     const [installments, setInstallments] = useState(2);
     const [installmentValueMode, setInstallmentValueMode] = useState('monthly'); // 'total' | 'monthly'
     const [editingId, setEditingId] = useState(null);
-    const { currentUser } = useAuth();
+    const { currentUser, planLevel, isAdmin } = useAuth();
+    // Relatórios em PDF são a partir do plano Standard (Free não exporta).
+    const canExportPDF = planLevel === 'standard' || planLevel === 'premium' || planLevel === 'lifetime' || isAdmin;
+    const [showUpgrade, setShowUpgrade] = useState(false);
     const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleDateString('en-CA').slice(0, 7));
     const [searchTerm, setSearchTerm] = useState('');
     const [showReport, setShowReport] = useState(false);
@@ -532,6 +536,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
     }, [transactions]);
 
     const exportToPDF = () => {
+        if (!canExportPDF) { setShowUpgrade(true); return; }
         generatePDF(transactions, selectedMonth, logo, showRealFlow);
     };
 
@@ -935,9 +940,9 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                 ? 'bg-white/30 border-slate-200 text-slate-600 hover:text-blue-600 hover:bg-blue-50/50' 
                                 : 'bg-white/5 border-white/5 text-slate-400 hover:text-blue-400 hover:bg-white/10'
                             }`}
-                            title="Baixar Relatório em PDF"
+                            title={canExportPDF ? 'Baixar Relatório em PDF' : 'Disponível a partir do plano Standard'}
                         >
-                            <Download className="w-4 h-4" />
+                            {canExportPDF ? <Download className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />}
                             PDF
                         </button>
                         <button
@@ -1126,6 +1131,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                 onDeleteTransaction={handleDelete}
                 onConfigChange={updateManualConfig}
             />
+            <UpgradeModal isOpen={showUpgrade} onClose={() => setShowUpgrade(false)} />
             {/* Confirmation Modal - Rendered via Portal to ensure true centering and visibility */}
             {
                 deleteId && typeof document !== 'undefined' && createPortal(
