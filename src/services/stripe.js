@@ -1,5 +1,6 @@
-import { db } from './firebase';
+import { db, functions } from './firebase';
 import { collection, addDoc, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { loadStripe } from '@stripe/stripe-js';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
@@ -58,19 +59,57 @@ export async function createCheckoutSession(uid, priceId, onFinish) {
     }
 }
 
-export async function createPortalSession(uid, onFinish) {
-    // Usando o link oficial do portal que você ativou no dashboard
-    const PORTAL_LINK = "https://billing.stripe.com/p/login/00waEY8WW5ZK0V95TJ7kc00";
-    
-    console.log("Abrindo Portal do Cliente (Link Oficial)...");
-    
+// Link estático do portal (fallback) — exige login por e-mail.
+const PORTAL_LOGIN_LINK = "https://billing.stripe.com/p/login/00waEY8WW5ZK0V95TJ7kc00";
+
+/**
+ * Abre o Portal de Faturamento do Stripe já autenticado para o cliente logado,
+ * usando a callable da extensão oficial "Run Payments with Stripe".
+ *
+ * @param {object} [opts]
+ * @param {string} [opts.subscriptionId] Se informado (e cancel=true), abre direto no fluxo de cancelamento.
+ * @param {boolean} [opts.cancel] Quando true, leva direto à tela de cancelamento da assinatura.
+ * @param {Function} [opts.onFinish] Callback ao terminar (sucesso ou erro).
+ */
+export async function createPortalSession(opts = {}) {
+    const { subscriptionId, cancel = false, onFinish } = opts;
+
     try {
-        // Redireciona diretamente para o link do portal
-        window.location.assign(PORTAL_LINK);
+        const createPortalLink = httpsCallable(
+            functions,
+            'ext-firestore-stripe-payments-createPortalLink'
+        );
+
+        const payload = {
+            returnUrl: window.location.origin,
+            // alguns ambientes esperam "return_url"
+            return_url: window.location.origin,
+        };
+
+        // Leva direto à tela de cancelamento, se solicitado e possível.
+        if (cancel && subscriptionId) {
+            payload.flow_data = {
+                type: 'subscription_cancel',
+                subscription_cancel: { subscription: subscriptionId },
+            };
+        }
+
+        const { data } = await createPortalLink(payload);
+        const url = data?.url;
+        if (!url) throw new Error('Portal sem URL retornada.');
+
+        window.location.assign(url);
         if (onFinish) onFinish();
+        return;
     } catch (err) {
-        console.error("Erro ao abrir portal:", err);
-        alert("Não foi possível abrir o portal. Verifique sua conexão.");
+        console.error('Erro ao criar sessão do portal Stripe (callable):', err);
+        // Fallback: link estático do portal (login por e-mail).
+        try {
+            window.location.assign(PORTAL_LOGIN_LINK);
+        } catch (e) {
+            console.error('Erro no fallback do portal:', e);
+            alert('Não foi possível abrir o portal de faturamento. Tente novamente.');
+        }
         if (onFinish) onFinish();
     }
 }

@@ -30,6 +30,7 @@ export function AuthProvider({ children }) {
     const [subType, setSubType] = useState('monthly');
     const [daysRemaining, setDaysRemaining] = useState(0);
     const [planLevel, setPlanLevel] = useState('free'); // 'free' | 'standard' | 'premium'
+    const [stripeSubId, setStripeSubId] = useState(null); // ID da assinatura Stripe ativa (p/ portal/cancelamento)
     const [userPrefs, setUserPrefs] = useState(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
@@ -183,6 +184,9 @@ export function AuthProvider({ children }) {
                                  dataRef.current.user.subscription?.status === 'free';
             const hasActiveStripe = stripeSub?.status === 'active' || stripeSub?.status === 'trialing';
             const isBlocked = (dataRef.current.prefs.isBlocked === true || dataRef.current.user.isBlocked === true || manualSub?.status === 'blocked') && !hasActiveStripe;
+
+            // Guarda o ID da assinatura Stripe ativa para o portal de cancelamento.
+            setStripeSubId(hasActiveStripe ? (stripeSub?.id || null) : null);
 
             const STANDARD_PRICES = [
                 import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_MONTHLY,
@@ -401,7 +405,7 @@ export function AuthProvider({ children }) {
         });
 
         const unsubSubs = onSnapshot(subsQuery, (snap) => {
-            dataRef.current.subs = snap.docs.map(d => d.data());
+            dataRef.current.subs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             dataRef.current.subsLoaded = true;
             if (!snap.metadata.fromCache) {
                 subsDone = true;
@@ -675,6 +679,7 @@ export function AuthProvider({ children }) {
         subType,
         daysRemaining,
         planLevel,
+        stripeSubId,
         login,
         signup,
         loginWithGoogle,

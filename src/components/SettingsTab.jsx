@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { validateApiKey } from '../services/gemini';
+import { createPortalSession } from '../services/stripe';
 import { downloadUserData } from '../utils/dataExport';
 import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
 import Manual from './Manual';
@@ -15,7 +16,22 @@ import { Sparkles as SparklesIcon } from 'lucide-react';
 
 const SettingsTab = ({ manualConfig, updateManualConfig }) => {
   const { theme, toggleTheme } = useTheme();
-  const { currentUser, deleteAccount, planLevel, subType, resetGastosData, resetPatrimonioData } = useAuth();
+  const { currentUser, deleteAccount, planLevel, subType, resetGastosData, resetPatrimonioData, stripeSubId } = useAuth();
+
+  // Assinatura paga (Stripe) — habilita gerenciar/cancelar.
+  const isPaidPlan = planLevel === 'standard' || planLevel === 'premium';
+  const [isOpeningPortal, setIsOpeningPortal] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  const openBillingPortal = async (cancel = false) => {
+    if (isOpeningPortal) return;
+    setIsOpeningPortal(true);
+    await createPortalSession({
+      subscriptionId: stripeSubId,
+      cancel,
+      onFinish: () => setIsOpeningPortal(false),
+    });
+  };
 
   const [activeSection, setActiveSection] = useState('profile');
 
@@ -240,27 +256,82 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
             </span>
           </h4>
         </div>
-        {planLevel === 'standard' || planLevel === 'free' ? (
-          <button
-            onClick={() => setShowUpgrade(true)}
-            className="shrink-0 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-all shadow-lg shadow-emerald-600/20 active:scale-95 flex items-center gap-1.5"
-          >
-            <SparklesIcon className="w-3.5 h-3.5" /> {planLevel === 'free' ? 'Assinar' : 'Upgrade'}
-          </button>
-        ) : (
-          <button
-            onClick={() => window.open('https://billing.stripe.com/p/login/00waEY8WW5ZK0V95TJ7kc00', '_blank')}
-            className={`shrink-0 px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
-              isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-            }`}
-          >
-            <CreditCard className="w-3.5 h-3.5" /> Gerenciar
-          </button>
-        )}
+        <div className="shrink-0 flex items-center gap-2">
+          {(planLevel === 'standard' || planLevel === 'free') && (
+            <button
+              onClick={() => setShowUpgrade(true)}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-all shadow-lg shadow-emerald-600/20 active:scale-95 flex items-center gap-1.5"
+            >
+              <SparklesIcon className="w-3.5 h-3.5" /> {planLevel === 'free' ? 'Assinar' : 'Upgrade'}
+            </button>
+          )}
+          {isPaidPlan && (
+            <button
+              onClick={() => openBillingPortal(false)}
+              disabled={isOpeningPortal}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border disabled:opacity-50 ${
+                isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              {isOpeningPortal ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CreditCard className="w-3.5 h-3.5" />} Gerenciar
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Cancelar assinatura — apenas para planos pagos (Standard/Premium) */}
+      {isPaidPlan && (
+        <button
+          onClick={() => setShowCancelConfirm(true)}
+          disabled={isOpeningPortal}
+          className={`w-full mb-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border disabled:opacity-50 ${
+            isDark ? 'border-rose-500/30 text-rose-400 hover:bg-rose-500/10' : 'border-rose-200 text-rose-500 hover:bg-rose-50'
+          }`}
+        >
+          <X className="w-3.5 h-3.5" /> Cancelar assinatura
+        </button>
+      )}
+
       <p className="text-[10px] text-slate-500 leading-relaxed text-center italic">
-        Gerencie seu plano, faturas e cancelamentos pelo portal do Stripe ou fale com o suporte.
+        Gerencie seu plano, faturas e cancelamentos pelo portal seguro do Stripe.
       </p>
+
+      {/* Confirmação de cancelamento */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setShowCancelConfirm(false)}>
+          <div
+            className={`w-full max-w-sm rounded-3xl border p-6 shadow-2xl animate-in zoom-in-95 duration-200 ${
+              isDark ? 'bg-slate-900 border-slate-700/50' : 'bg-white border-slate-200'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}>
+              <AlertTriangle className="w-6 h-6 text-rose-500" />
+            </div>
+            <h3 className={`text-lg font-black text-center ${isDark ? 'text-white' : 'text-slate-900'}`}>Cancelar assinatura?</h3>
+            <p className="text-xs text-slate-500 text-center mt-2 leading-relaxed">
+              Você será levado ao portal seguro do Stripe para confirmar o cancelamento. Seu acesso continua até o fim do período já pago.
+            </p>
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all ${
+                  isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Voltar
+              </button>
+              <button
+                onClick={() => { setShowCancelConfirm(false); openBillingPortal(true); }}
+                disabled={isOpeningPortal}
+                className="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isOpeningPortal ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Continuar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
