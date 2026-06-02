@@ -11,6 +11,10 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.js',
       registerType: 'autoUpdate',
+      // Registramos o SW manualmente em src/main.jsx (reload automatico no
+      // controllerchange + checagem periodica), entao desligamos o registro
+      // injetado pelo plugin para nao duplicar.
+      injectRegister: false,
       injectManifest: {
         maximumFileSizeToCacheInBytes: 5000000 // 5MB
       },
