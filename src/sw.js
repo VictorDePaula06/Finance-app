@@ -2,22 +2,14 @@ import { precacheAndRoute } from 'workbox-precaching';
 
 // v5.0.4 - Fix Workbox imports
 // v6.1.0 - Robust Push Handling
-// v7.2.0 - Auto-update: skipWaiting + clients.claim (forca a ultima versao)
-const SW_VERSION = 'v7.2.0';
+const SW_VERSION = 'v7.1.1';
 
 // Precache de todos os assets do Vite
 precacheAndRoute(self.__WB_MANIFEST)
 
-// Forçar a ativação do novo Service Worker imediatamente (sem esperar abas antigas)
+// Forçar a ativação do novo Service Worker imediatamente
 self.addEventListener('install', () => {
   self.skipWaiting();
-});
-
-// Assim que o novo SW ativa, ele assume o controle de todas as abas abertas.
-// Combinado com o listener de 'controllerchange' no cliente, isso dispara o
-// reload automatico para a versao mais recente (equivalente a um Ctrl+F5).
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
 });
 
 // Listener para o evento de PUSH (Notificações Nativas)
