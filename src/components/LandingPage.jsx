@@ -199,9 +199,10 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 </p>
                                 <div className="space-y-4">
                                     <FeatureRow isDark={isDark} icon={CreditCard} title="Gestão de Cartões" desc="Acompanhe a fatura de todos os seus cartões em um só lugar, com parcelamentos e assinaturas organizados." color="text-[#5CCEEA]" />
-                                    <FeatureRow isDark={isDark} icon={Layers} title="Regra 50/30/20" desc="Distribuição inteligente da renda: essenciais, desejos e investimentos — visualizada automaticamente." color="text-[#5CCEEA]" />
-                                    <FeatureRow isDark={isDark} icon={Bell} title="Alertas de Estouro" desc="Aviso em tempo real quando uma categoria ultrapassa o orçamento definido por você." color="text-[#5CCEEA]" />
-                                    <FeatureRow isDark={isDark} icon={FileText} title="Relatórios em PDF" desc="Exportação com design Alívia — perfeito para revisão mensal ou consulta com seu contador." color="text-[#5CCEEA]" />
+                                    <FeatureRow isDark={isDark} icon={Layers} title="Essenciais vs. Supérfluos" desc="A Alívia separa o que é essencial do que é desejo e mostra se você passou do ideal de 30% em gastos supérfluos." color="text-[#5CCEEA]" />
+                                    <FeatureRow isDark={isDark} icon={Bell} title="Metas de Gasto por Categoria" desc="Defina um teto para cada categoria e receba o aviso quando estiver se aproximando ou ultrapassando o limite." color="text-[#5CCEEA]" />
+                                    <FeatureRow isDark={isDark} icon={Bot} title="IA Alívia nos seus gastos" desc="No Standard e Premium, lance despesas por texto e peça análises da sua semana — sem limite de uso." color="text-[#5CCEEA]" />
+                                    <FeatureRow isDark={isDark} icon={FileText} title="Relatórios em PDF" desc="Exportação com o design Alívia — perfeito para a revisão mensal ou consulta com seu contador." color="text-[#5CCEEA]" />
                                 </div>
                             </div>
                             <div className="relative group">
@@ -233,10 +234,10 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                     Não basta guardar dinheiro. Você precisa ver ele trabalhar para você. O módulo de patrimônio transforma números em evolução real.
                                 </p>
                                 <div className="space-y-4">
-                                    <FeatureRow isDark={isDark} icon={TrendingUp} title="Evolução Patrimonial" desc="Gráficos da sua curva de crescimento mês a mês, comparados com CDI, IBOVESPA e S&P 500." color="text-[#69C8B9]" />
-                                    <FeatureRow isDark={isDark} icon={Activity} title="Score de Saúde Financeira" desc="Um número que resume tudo: reserva, controle de gastos, investimentos e metas. Suba seu score." color="text-[#69C8B9]" />
-                                    <FeatureRow isDark={isDark} icon={ShieldCheck} title="Reserva de Emergência" desc="Cálculo automático de quanto guardar para estar protegido por 3, 6 ou 12 meses." color="text-[#69C8B9]" />
-                                    <FeatureRow isDark={isDark} icon={Landmark} title="Rendimento CDI em Tempo Real" desc="Acompanhe reservas e renda fixa rendendo pelo CDI. Saiba exatamente quanto cada real trabalha." color="text-[#69C8B9]" />
+                                    <FeatureRow isDark={isDark} icon={ShieldCheck} title="Reserva de Emergência" desc="Cálculo automático de quanto guardar para estar protegido por 3, 6 ou 12 meses. Disponível já no Gratuito." color="text-[#69C8B9]" />
+                                    <FeatureRow isDark={isDark} icon={Activity} title="Saúde Patrimonial" desc="Um score que resume reservas, investimentos, bens e proteção — e te diz exatamente o próximo passo." color="text-[#69C8B9]" />
+                                    <FeatureRow isDark={isDark} icon={ChartNoAxesCombined} title="Evolução e Benchmarks" desc="No Premium: acompanhe a curva do seu patrimônio mês a mês comparada com CDI, IBOVESPA e S&P 500." color="text-[#69C8B9]" />
+                                    <FeatureRow isDark={isDark} icon={Target} title="Independência e Metas" desc="No Premium: descubra seu número da independência financeira, simule cenários e acompanhe metas com projeção no tempo." color="text-[#69C8B9]" />
                                 </div>
                             </div>
                         </div>
@@ -257,7 +258,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#5CCEEA] to-[#69C8B9]">prosperar.</span>
                             </h2>
                             <p className={`text-base md:text-lg font-medium max-w-2xl mx-auto ${t.textBody}`}>
-                                Enquanto o Gratuito te tira do caos, o Premium te coloca em movimento. Veja o que muda na prática:
+                                O Gratuito te tira do caos. O Standard libera o controle de gastos sem freios. O Premium coloca seu patrimônio para crescer. Veja o que cada upgrade desbloqueia:
                             </p>
                         </div>
 
@@ -266,14 +267,14 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 isDark={isDark}
                                 accentColor="#5CCEEA"
                                 icon={Receipt}
-                                tag="Controle de Gastos"
-                                title="Nunca mais estoure o orçamento"
-                                subtitle="Com o Premium, seu controle financeiro vai além do básico — ele é proativo."
+                                tag="Standard desbloqueia"
+                                title="Controle de gastos sem limites"
+                                subtitle="Tudo do Gratuito, agora sem travas — e com a IA Alívia trabalhando ao seu lado nos gastos."
                                 items={[
-                                    { icon: Layers, text: 'Regra 50/30/20 visualizada automaticamente com base na sua renda real' },
-                                    { icon: Bell, text: 'Alerta quando qualquer categoria se aproxima do limite definido' },
-                                    { icon: CreditCard, text: 'Visão unificada de todas as faturas — nunca pague juros por esquecimento' },
-                                    { icon: BarChart3, text: 'Análise de tendências: veja quais categorias crescem mês a mês' },
+                                    { icon: Layers, text: 'Lançamentos, cartões, contas fixas e recebimentos ilimitados' },
+                                    { icon: Bot, text: 'IA Alívia ilimitada para lançar e analisar seus gastos' },
+                                    { icon: Bell, text: 'Metas de gasto por categoria com alerta ao se aproximar do teto' },
+                                    { icon: BarChart3, text: 'Essenciais vs. supérfluos sempre à vista, com o ideal de 30%' },
                                     { icon: FileText, text: 'Relatório PDF mensal profissional das suas finanças' },
                                 ]}
                             />
@@ -281,15 +282,15 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 isDark={isDark}
                                 accentColor="#69C8B9"
                                 icon={ChartNoAxesCombined}
-                                tag="Construção de Patrimônio"
-                                title="Veja seu dinheiro crescer de verdade"
-                                subtitle="O módulo de patrimônio transforma esforço em evolução visível e mensurável."
+                                tag="Premium desbloqueia"
+                                title="Patrimônio que cresce visível"
+                                subtitle="Tudo do Standard, mais o módulo de patrimônio completo e a IA cuidando dos seus investimentos."
                                 items={[
-                                    { icon: TrendingUp, text: 'Evolução patrimonial mês a mês comparada a CDI, IBOVESPA e S&P 500' },
-                                    { icon: Activity, text: 'Score de saúde financeira que resume reserva, gastos e metas' },
-                                    { icon: ShieldCheck, text: 'Reserva de emergência calculada automaticamente' },
-                                    { icon: Landmark, text: 'Rendimento CDI em tempo real — cada real trabalhando por você' },
-                                    { icon: Bot, text: 'Consultora IA Alívia 24/7 analisando seus dados e te orientando' },
+                                    { icon: Activity, text: 'Fluxo patrimonial e seu número da independência financeira' },
+                                    { icon: TrendingUp, text: 'Evolução mês a mês comparada a CDI, IBOVESPA e S&P 500' },
+                                    { icon: Target, text: 'Metas de patrimônio com projeção no tempo e simulações' },
+                                    { icon: Landmark, text: 'Reservas, investimentos e bens sem limite de cadastro' },
+                                    { icon: Bot, text: 'IA Alívia ilimitada também analisando o seu patrimônio' },
                                 ]}
                             />
                         </div>
@@ -311,6 +312,11 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 <div className="text-[#69C8B9] text-[10px] font-black uppercase tracking-widest">Inteligência Artificial</div>
                                 <h2 className={`text-4xl md:text-6xl font-black leading-[1.1] ${t.textH}`}>Sua Mentora <br />Financeira 24/7.</h2>
                                 <p className={`text-lg md:text-xl font-medium ${t.textBody}`}>Alívia estuda seus dados para te dar <span className="text-[#69C8B9] font-black">Silêncio na Mente.</span></p>
+                                <div className={`flex flex-col gap-2 p-4 rounded-2xl border text-sm font-medium ${isDark ? 'bg-white/[0.03] border-white/10 text-slate-300' : 'bg-white/70 border-slate-100 text-slate-600'}`}>
+                                    <div className="flex items-start gap-2.5"><Gift className="w-4 h-4 text-[#69C8B9] shrink-0 mt-0.5" /><span><span className="font-black">Gratuito:</span> experimente a IA até 5 vezes por mês.</span></div>
+                                    <div className="flex items-start gap-2.5"><MessageSquare className="w-4 h-4 text-[#5CCEEA] shrink-0 mt-0.5" /><span><span className="font-black">Standard:</span> IA ilimitada para o seu Controle de Gastos.</span></div>
+                                    <div className="flex items-start gap-2.5"><Sparkles className="w-4 h-4 text-[#69C8B9] shrink-0 mt-0.5" /><span><span className="font-black">Premium:</span> IA ilimitada nos gastos <span className="italic">e</span> no seu patrimônio.</span></div>
+                                </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {Object.entries(scenarios).map(([id, s]) => (
                                         <button key={id} onClick={() => setActiveScenario(id)} className={`p-6 rounded-[2rem] border text-left transition-all duration-500 ${
@@ -426,16 +432,17 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 ctaLabel="Começar Grátis"
                                 ctaStyle={isDark ? 'bg-white/5 text-white border border-white/10 hover:bg-white/10' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}
                                 included={[
-                                    'Controle de Gastos',
-                                    'Até 1 cartão cadastrado',
-                                    'Até 10 lançamentos de despesa',
-                                    '2 recebimentos e 2 contas fixas',
+                                    'Controle de gastos (com limites)',
+                                    'Patrimônio essencial: reservas, investimentos e bens (com limites)',
+                                    'Saúde Financeira e Patrimonial',
+                                    'Seguros e proteção',
+                                    'IA Alívia: até 5 usos por mês',
                                     'Sincronização na nuvem',
                                 ]}
                                 excluded={[
-                                    'Cartões e lançamentos ilimitados',
-                                    'Módulo de Patrimônio',
-                                    'Consultora IA Alívia',
+                                    'Uso sem limites',
+                                    'IA Alívia ilimitada',
+                                    'Planejamento avançado de patrimônio',
                                 ]}
                             />
 
@@ -452,16 +459,16 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 ctaStyle="bg-slate-800 text-white hover:bg-slate-700"
                                 includedTitle="Tudo do Gratuito, sem limites:"
                                 included={[
-                                    'Lançamentos ilimitados',
-                                    'Cartões e parcelamentos ilimitados',
-                                    'Contas fixas e assinaturas ilimitadas',
+                                    'Lançamentos, cartões e contas fixas ilimitados',
+                                    'Recebimentos e assinaturas ilimitados',
+                                    'IA Alívia ilimitada no Controle de Gastos',
                                     'Relatórios em PDF',
                                     'Acesso Web e Mobile',
                                 ]}
                                 excluded={[
-                                    'Módulo de Patrimônio',
-                                    'Consultora IA Alívia',
-                                    'Score de saúde financeira',
+                                    'Planejamento avançado de patrimônio',
+                                    'Evolução e benchmarks (CDI, IBOV, S&P)',
+                                    'IA Alívia sobre o seu patrimônio',
                                 ]}
                             />
 
@@ -479,12 +486,11 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 ctaStyle="bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA] text-white shadow-xl shadow-[#69C8B9]/20 hover:scale-[1.02]"
                                 includedTitle="Tudo do Standard, mais:"
                                 included={[
-                                    'Módulo Patrimônio completo',
-                                    'Consultora IA Alívia 24/7',
-                                    'Score de saúde financeira',
+                                    'Patrimônio completo, sem limites',
+                                    'Fluxo patrimonial e independência financeira',
                                     'Evolução patrimonial (CDI, IBOV, S&P)',
-                                    'Reserva de emergência calculada',
-                                    'Metas com projeção temporal',
+                                    'Metas de patrimônio com projeção no tempo',
+                                    'IA Alívia ilimitada também no patrimônio',
                                     'Modo Pânico e alertas avançados',
                                 ]}
                             />
