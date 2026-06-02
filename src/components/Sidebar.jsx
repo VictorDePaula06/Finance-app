@@ -35,10 +35,11 @@ import logo from '../assets/logo.png';
 import { version } from '../../package.json';
 
 const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, setActiveModule, healthScore }) => {
-  const { currentUser, logout, isAdmin, isPremium, isTrial, isLifetime, subType, planLevel } = useAuth();
+  const { currentUser, logout, isAdmin, isLifetime, subType, planLevel } = useAuth();
   const { theme } = useTheme();
 
-  const isFreePlan = planLevel === 'free';
+  // Premium "de verdade" (libera tudo): premium, vitalício ou admin.
+  const isPremiumPlan = planLevel === 'premium' || planLevel === 'lifetime' || isLifetime || isAdmin;
 
   // ── Saúde (card do topo) ──
   // Usa o statusLabel/improvements já calculados pela função de saúde do módulo.
@@ -102,7 +103,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
       {
         type: 'group', id: 'grp_plan', label: 'Planejamento', icon: Target,
         children: [
-          { id: 'metas', label: 'Metas', icon: CheckCircle2 },
+          { id: 'metas', label: 'Metas', icon: CheckCircle2, premiumOnly: true },
           { id: 'evolucao', label: 'Evolução Patrimonial', icon: BarChart3, premiumOnly: true },
           { id: 'independencia', label: 'Independência Financeira', icon: TrendingUp, premiumOnly: true },
           { id: 'rebalanceamento', label: 'Rebalanceamento', icon: AlertTriangle, premiumOnly: true },
@@ -182,8 +183,8 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
           </span>
         </div>
 
-        {/* Badge "Premium" — só aparece para Free em itens premium-only */}
-        {item.premiumOnly && isFreePlan && (
+        {/* Badge "Premium" — aparece para Free e Standard em itens premium-only */}
+        {item.premiumOnly && !isPremiumPlan && (
           <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
             theme === 'light' ? 'bg-amber-100 text-amber-600' : 'bg-amber-500/20 text-amber-400'
           }`}>

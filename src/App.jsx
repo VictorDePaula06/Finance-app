@@ -3,7 +3,7 @@ import TransactionSection from './components/TransactionSection';
 import GoalTracker from './components/GoalTracker';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2, ShieldCheck, Sparkles, Activity, Home, Briefcase, AlertTriangle, Umbrella, Gauge } from 'lucide-react';
+import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2, ShieldCheck, Sparkles, Activity, Home, Briefcase, AlertTriangle, Umbrella, Gauge, Target } from 'lucide-react';
 import InstallPrompt from './components/InstallPrompt';
 import logo from './assets/logo.png';
 import AdminPanel from './components/AdminPanel';
@@ -849,10 +849,26 @@ function Dashboard() {
             ) : <div className="p-12 text-center font-bold text-slate-500">Este módulo requer o plano Premium.</div>
           )}
 
-          { activeTab === 'metas' && (planLevel === 'premium' || planLevel === 'standard' || planLevel === 'free' || isAdmin ? <GoalTracker /> : null)}
+          { activeTab === 'metas' && (
+            planLevel === 'premium' || planLevel === 'lifetime' || isAdmin ? (
+              <GoalTracker />
+            ) : (
+              <PremiumPaywall
+                title="Metas Financeiras"
+                description="Defina objetivos de patrimônio e acompanhe o progresso até alcançá-los."
+                icon={Target}
+                features={[
+                  'Metas de patrimônio com prazo e valor-alvo',
+                  'Acompanhamento do progresso em tempo real',
+                  'Simulação de quanto guardar por mês',
+                  'Alertas ao atingir cada marco',
+                ]}
+              />
+            )
+          )}
 
           { activeTab === 'evolucao' && (
-            planLevel === 'premium' || planLevel === 'standard' || isAdmin ? (
+            planLevel === 'premium' || planLevel === 'lifetime' || isAdmin ? (
               <EvolucaoPatrimonialTab />
             ) : (
               <PremiumPaywall
@@ -870,7 +886,7 @@ function Dashboard() {
           )}
 
           { activeTab === 'fluxo' && (
-            planLevel === 'premium' || planLevel === 'standard' || isAdmin ? (
+            planLevel === 'premium' || planLevel === 'lifetime' || isAdmin ? (
               <FluxoPatrimonialTab />
             ) : (
               <PremiumPaywall
@@ -900,7 +916,7 @@ function Dashboard() {
           )}
 
           { activeTab === 'independencia' && (
-            planLevel === 'premium' || planLevel === 'standard' || isAdmin ? (
+            planLevel === 'premium' || planLevel === 'lifetime' || isAdmin ? (
               <IndependenciaTab />
             ) : (
               <PremiumPaywall
@@ -918,7 +934,7 @@ function Dashboard() {
           )}
 
           { activeTab === 'rebalanceamento' && (
-            planLevel === 'premium' || planLevel === 'standard' || isAdmin ? (
+            planLevel === 'premium' || planLevel === 'lifetime' || isAdmin ? (
               <PatrimonioPlaceholderTab
                 title="Rebalanceamento"
                 subtitle="Mantenha sua carteira alinhada à sua estratégia"
