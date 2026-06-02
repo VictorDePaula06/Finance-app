@@ -8,8 +8,17 @@ function ReloadPrompt() {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    onRegistered(r) {
-      console.log('SW Registered: ' + r)
+    onRegisteredSW(swUrl, r) {
+      // Checa atualização ao registrar, a cada 60s e ao focar a aba — assim
+      // até abas já abertas detectam um novo deploy e mostram o botão.
+      if (!r) return
+      r.update().catch(() => {})
+      setInterval(() => r.update().catch(() => {}), 60 * 1000)
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          r.update().catch(() => {})
+        }
+      })
     },
     onRegisterError(error) {
       console.log('SW registration error', error)

@@ -10,7 +10,11 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.js',
-      registerType: 'autoUpdate',
+      // 'prompt': o SW novo fica em espera e mostramos um toast "Atualizar"
+      // (sem reload automatico — evita o loop). O registro/checagem e feito
+      // pelo componente ReloadPrompt via virtual:pwa-register/react.
+      registerType: 'prompt',
+      injectRegister: false,
       injectManifest: {
         maximumFileSizeToCacheInBytes: 5000000 // 5MB
       },

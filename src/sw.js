@@ -2,14 +2,21 @@ import { precacheAndRoute } from 'workbox-precaching';
 
 // v5.0.4 - Fix Workbox imports
 // v6.1.0 - Robust Push Handling
-const SW_VERSION = 'v7.1.1';
+// v7.3.0 - Update via prompt (sem skipWaiting automatico; evita loop de reload)
+const SW_VERSION = 'v7.3.0';
 
 // Precache de todos os assets do Vite
 precacheAndRoute(self.__WB_MANIFEST)
 
-// Forçar a ativação do novo Service Worker imediatamente
-self.addEventListener('install', () => {
-  self.skipWaiting();
+// NAO chamamos skipWaiting() no install de proposito: o SW novo fica em
+// "waiting" ate o usuario clicar em "Atualizar" no toast. So entao o cliente
+// envia a mensagem SKIP_WAITING e o browser ativa a nova versao + recarrega
+// (uma unica vez, gerenciado pelo virtual:pwa-register). Isso evita o ciclo
+// de reload infinito que o skipWaiting automatico causava.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Listener para o evento de PUSH (Notificações Nativas)
