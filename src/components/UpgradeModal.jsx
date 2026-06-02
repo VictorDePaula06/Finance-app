@@ -27,11 +27,14 @@ const FEATURE_GROUPS = [
 ];
 
 export default function UpgradeModal({ isOpen, onClose }) {
-    const { currentUser } = useAuth();
+    const { currentUser, planLevel, isAdmin } = useAuth();
     const [billing, setBilling] = useState('monthly');
     const [loadingPlan, setLoadingPlan] = useState(null);
 
     if (!isOpen) return null;
+
+    // Plano atual do usuário (free=0, standard=1, premium=2). Admin/vitalício = topo.
+    const userRank = isAdmin ? 2 : (PLAN_RANK[planLevel] ?? 0);
 
     const handleCheckout = async (planKey) => {
         if (loadingPlan) return;
@@ -55,12 +58,18 @@ export default function UpgradeModal({ isOpen, onClose }) {
         const plan = PLANS[planKey];
         const a = accentMap[plan.accent];
         const rank = PLAN_RANK[planKey] ?? 0;
+        const isCurrent = rank === userRank;       // plano que o usuário já tem
+        const isLower = rank < userRank;           // plano inferior ao atual
+        if (isLower) return null;                  // não mostra planos abaixo do atual
         const isLoadingThis = loadingPlan === planKey;
         const price = billing === 'monthly' ? plan.priceMonthly : plan.priceAnnual;
         return (
             <div className={`relative flex flex-col rounded-3xl border-2 bg-white p-6 ${plan.recommended ? `${a.ring} shadow-xl` : 'border-slate-200 shadow-sm'}`}>
-                {plan.recommended && (
+                {!isCurrent && plan.recommended && (
                     <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest shadow">Recomendado</span>
+                )}
+                {isCurrent && (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-slate-700 text-white text-[9px] font-black uppercase tracking-widest shadow">Plano atual</span>
                 )}
                 <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${plan.accent === 'emerald' ? 'text-emerald-600' : 'text-blue-600'}`}>{plan.tagline}</p>
                 <h3 className="text-2xl font-black text-slate-900">Plano {plan.name}</h3>
@@ -96,13 +105,22 @@ export default function UpgradeModal({ isOpen, onClose }) {
                     })}
                 </div>
 
-                <button
-                    onClick={() => handleCheckout(planKey)}
-                    disabled={!!loadingPlan}
-                    className={`w-full py-3.5 rounded-2xl text-white font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 ${a.btn}`}
-                >
-                    {isLoadingThis ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Assinar {plan.name} <ArrowRight className="w-4 h-4" /></>}
-                </button>
+                {isCurrent ? (
+                    <button
+                        disabled
+                        className="w-full py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 bg-slate-100 text-slate-400 cursor-default border border-slate-200"
+                    >
+                        <Check className="w-4 h-4" /> Seu plano atual
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => handleCheckout(planKey)}
+                        disabled={!!loadingPlan}
+                        className={`w-full py-3.5 rounded-2xl text-white font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 ${a.btn}`}
+                    >
+                        {isLoadingThis ? <Loader2 className="w-4 h-4 animate-spin" /> : <>{userRank > 0 ? 'Fazer upgrade' : 'Assinar'} · {plan.name} <ArrowRight className="w-4 h-4" /></>}
+                    </button>
+                )}
             </div>
         );
     };
@@ -120,8 +138,8 @@ export default function UpgradeModal({ isOpen, onClose }) {
                         <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg shadow-emerald-500/20">
                             <Sparkles className="w-6 h-6 text-white" />
                         </div>
-                        <h2 className="text-2xl font-black text-slate-900">Escolha seu plano</h2>
-                        <p className="text-sm text-slate-500 font-medium mt-1">Evolua quando precisar — você pode mudar ou cancelar a qualquer momento.</p>
+                        <h2 className="text-2xl font-black text-slate-900">{userRank > 0 ? 'Fazer upgrade' : 'Escolha seu plano'}</h2>
+                        <p className="text-sm text-slate-500 font-medium mt-1">{userRank > 0 ? 'Desbloqueie mais recursos — você pode mudar ou cancelar a qualquer momento.' : 'Evolua quando precisar — você pode mudar ou cancelar a qualquer momento.'}</p>
                     </div>
 
                     {/* Toggle mensal/anual */}
