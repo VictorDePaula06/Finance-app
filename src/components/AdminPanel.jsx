@@ -163,11 +163,15 @@ export default function AdminPanel({ onBack }) {
                 if (isLifetime) {
                     daysLeft = 9999;
                 } else if ((subStatus === 'active' || subStatus === 'standard')) {
-                    // Assinatura paga ativa no Stripe — daysLeft é informativo do ciclo.
-                    if (subDate) {
-                        const now = new Date();
+                    // Assinatura paga ativa no Stripe. Usa a data REAL da próxima
+                    // cobrança (current_period_end). O Stripe é a fonte da verdade:
+                    // se está 'active', vale — mesmo que o ciclo local pareça vencido.
+                    const periodEndTs = getTimestamp(stripeSubData?.current_period_end);
+                    if (Number.isFinite(periodEndTs)) {
+                        daysLeft = Math.max(0, Math.ceil((periodEndTs - Date.now()) / MS_DAY));
+                    } else if (subDate) {
                         const cycle = subType === 'annual' ? 365 : 30;
-                        const diff = Math.floor((now - subDate) / MS_DAY);
+                        const diff = Math.floor((Date.now() - subDate.getTime()) / MS_DAY);
                         daysLeft = diff <= cycle ? cycle - diff : 0;
                     }
                 } else if (!isBlocked) {
@@ -208,6 +212,8 @@ export default function AdminPanel({ onBack }) {
                     subType, subStatus, isTrial,
                     subDate: subDate ? subDate.toLocaleDateString('pt-BR') : 'N/A',
                     daysLeft, isExpired, isInactive, manualInactive, isLifetime, isBlocked,
+                    hasActiveStripeSub: stripeActive,
+                    stripeStatus: stripeSubData?.status || null,
                     isAdmin: userData.isAdmin === true || isEmailAdmin,
                     isEmailAdmin,
                     pushSubscriptions: userData.pushSubscriptions || [],
@@ -264,10 +270,19 @@ export default function AdminPanel({ onBack }) {
 
     const saveUserChanges = async () => {
         if (!pendingUser) return;
+        // Aviso: remover plano pago de quem tem assinatura ATIVA no Stripe não
+        // cancela a cobrança — e a sincronização reverte para Premium.
+        const hadPaidStripe = !!editingUser?.hasActiveStripeSub;
+        const nowPaidPlan = pendingUser.isPremium || pendingUser.isStandard || pendingUser.isLifetime;
+        const removingPaid = hadPaidStripe && !nowPaidPlan;
+        const message = removingPaid
+            ? `⚠️ ATENÇÃO\n\nO usuário ${pendingUser.email} tem uma assinatura ATIVA no Stripe (foi pago).\n\nRemover o plano aqui NÃO cancela a cobrança no Stripe, e a sincronização automática vai reverter este usuário para Premium na próxima atualização.\n\nPara encerrar de verdade, cancele a assinatura no painel do Stripe (ou peça ao cliente para cancelar pelo portal).\n\nDeseja salvar mesmo assim?`
+            : `Deseja salvar as permissões para o usuário ${pendingUser.email}?`;
         setConfirmDialog({
-            title: "Confirmar Alterações",
-            message: `Deseja salvar as permissões para o usuário ${pendingUser.email}?`,
-            confirmText: "Salvar Agora",
+            title: removingPaid ? "Remover plano de assinante pago?" : "Confirmar Alterações",
+            message,
+            danger: removingPaid,
+            confirmText: removingPaid ? "Salvar mesmo assim" : "Salvar Agora",
             onConfirm: async () => {
                 setIsSaving(true);
                 setConfirmDialog(null);
@@ -502,12 +517,12 @@ export default function AdminPanel({ onBack }) {
                 <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
                     <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-300">
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 rounded-xl bg-white/5 shrink-0">
-                                <Info className="w-4 h-4 text-slate-400" />
+                            <div className={`p-2 rounded-xl shrink-0 ${confirmDialog.danger ? 'bg-rose-500/10' : 'bg-white/5'}`}>
+                                <Info className={`w-4 h-4 ${confirmDialog.danger ? 'text-rose-400' : 'text-slate-400'}`} />
                             </div>
                             <h3 className="text-sm font-black text-white">{confirmDialog.title}</h3>
                         </div>
-                        <p className="text-xs text-slate-400 mb-6 leading-relaxed">{confirmDialog.message}</p>
+                        <p className="text-xs text-slate-400 mb-6 leading-relaxed whitespace-pre-line">{confirmDialog.message}</p>
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setConfirmDialog(null)}
@@ -517,7 +532,9 @@ export default function AdminPanel({ onBack }) {
                             </button>
                             <button
                                 onClick={confirmDialog.onConfirm}
-                                className="flex-1 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-all"
+                                className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition-all ${
+                                    confirmDialog.danger ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'
+                                }`}
                             >
                                 {confirmDialog.confirmText || 'Confirmar'}
                             </button>
@@ -547,6 +564,20 @@ export default function AdminPanel({ onBack }) {
                                 <p className="text-xs text-slate-500 truncate mt-0.5">{editingUser.email}</p>
                             </div>
                         </div>
+
+                        {/* Aviso: assinante ativo no Stripe (pago) */}
+                        {editingUser.hasActiveStripeSub && (
+                            <div className="mb-5 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2.5">
+                                <p className="text-[11px] font-bold text-emerald-300 flex items-center gap-1.5">
+                                    <Check className="w-3.5 h-3.5" />
+                                    {editingUser.stripeStatus === 'trialing' ? 'Em período de teste no Stripe' : 'Assinante ativo no Stripe (pago)'}
+                                </p>
+                                <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                                    Este plano vem da assinatura paga no Stripe. Alterar o plano aqui não cancela
+                                    a cobrança — para encerrar, cancele no painel do Stripe.
+                                </p>
+                            </div>
+                        )}
 
                         {/* PLANO — Radio (3 opções, Vitalício não está aqui) */}
                         <div className="mb-5">
@@ -1161,7 +1192,9 @@ export default function AdminPanel({ onBack }) {
                                                             return (
                                                                 <span className={`text-[9px] font-medium ${daysCls}`}>
                                                                     {user.subType === 'annual' ? 'Anual' : 'Mensal'}
-                                                                    {user.daysLeft > 0 ? ` · ${user.daysLeft}d` : ' · expirado'}
+                                                                    {user.stripeStatus === 'trialing'
+                                                                        ? ' · teste Stripe'
+                                                                        : user.daysLeft > 0 ? ` · renova em ${user.daysLeft}d` : ' · ativo'}
                                                                 </span>
                                                             );
                                                         })()}
