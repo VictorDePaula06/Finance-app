@@ -9,9 +9,10 @@ export const PLAN_RANK = { free: 0, standard: 1, premium: 2, lifetime: 2 };
 export const GASTOS_FEATURES = [
     { text: 'Controles de gastos gerais', min: 'free', limitedBelow: 'standard' },
     { text: 'Pontos sobre sua Saúde Financeira', min: 'free' },
+    // Gratuito pode usar o chat da Alívia, mas só 4 lançamentos/mês (limitado).
+    { text: 'Chat com a Alívia (IA) para análises e lançamentos', min: 'free', limitedBelow: 'standard' },
     { text: 'Relatórios em PDF', min: 'standard' },
-    { text: 'Análises da AI Alívia sobre seus gastos', min: 'standard' },
-    { text: 'Lançamentos pela AI Alívia', min: 'standard' },
+    { text: 'Lançamentos pela Alívia sem limites', min: 'standard' },
 ];
 
 export const PATRIMONIO_FEATURES = [

@@ -303,8 +303,8 @@ export default function Hub({ onSelectModule }) {
                     {(planLevel === 'free' || isStandard) && (
                         <p className={`text-center text-[10px] sm:text-xs mt-8 font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                             Você está no <strong>{planBadge.label}</strong>. {planLevel === 'free'
-                                ? 'O Controle de Gastos e o Patrimônio têm limites, e o planejamento avançado (Fluxo, Independência, Rebalanceamento) é exclusivo Premium.'
-                                : 'O Controle de Gastos é ilimitado; o Patrimônio tem limites de quantidade. O Premium libera tudo (ilimitado + IA Alívia e Health Score completo).'}
+                                ? 'O Controle de Gastos e o Patrimônio têm limites, e o chat da Alívia permite 4 lançamentos por mês. O planejamento avançado (Fluxo, Independência, Rebalanceamento) é exclusivo Premium.'
+                                : 'O Controle de Gastos é ilimitado, com chat da Alívia sem limites. O Premium libera o Patrimônio completo (Fluxo, Independência, Evolução) e a IA também sobre o seu patrimônio.'}
                             {' '}Faça upgrade quando quiser.
                         </p>
                     )}

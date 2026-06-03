@@ -27,7 +27,7 @@ const PLAN_FEATURES = {
             { icon: Activity,    text: '5 recebimentos/mês · 2 contas fixas' },
             { icon: Cloud,       text: 'Sincronização na nuvem' },
             { icon: LockIcon,    text: 'Patrimônio limitado (1 reserva · 3 invest. · 2 bens)' },
-            { icon: LockIcon,    text: 'Sem IA Alívia / Health Score completo' },
+            { icon: Bot,         text: 'Chat com a Alívia: 4 lançamentos/mês' },
         ],
     },
     standard: {
@@ -43,7 +43,7 @@ const PLAN_FEATURES = {
             { icon: Cloud,       text: 'Sincronização nuvem + Mobile' },
             { icon: Globe,       text: 'Acesso Web & Mobile' },
             { icon: Landmark,    text: 'Módulo de Patrimônio (com limites)' },
-            { icon: LockIcon,    text: 'Sem IA Alívia / Health Score completo' },
+            { icon: Bot,         text: 'Chat com a Alívia sem limites (gastos)' },
         ],
     },
     premium: {
@@ -55,7 +55,7 @@ const PLAN_FEATURES = {
         items: [
             { icon: CheckCircle2, text: 'Tudo do Standard incluso' },
             { icon: Landmark,    text: 'Módulo Construção de Patrimônio' },
-            { icon: Bot,         text: 'IA Alívia (Google Gemini)' },
+            { icon: Bot,         text: 'IA Alívia ilimitada (gastos + patrimônio)' },
             { icon: Activity,    text: 'Health Score completo' },
             { icon: BarChart3,   text: 'Evolução patrimonial + benchmarks' },
             { icon: ShieldCheck, text: 'Modo Pânico + alertas avançados' },

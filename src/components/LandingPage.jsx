@@ -201,7 +201,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                     <FeatureRow isDark={isDark} icon={CreditCard} title="Gestão de Cartões" desc="Acompanhe a fatura de todos os seus cartões em um só lugar, com parcelamentos e assinaturas organizados." color="text-[#5CCEEA]" />
                                     <FeatureRow isDark={isDark} icon={Layers} title="Essenciais vs. Supérfluos" desc="A Alívia separa o que é essencial do que é desejo e mostra se você passou do ideal de 30% em gastos supérfluos." color="text-[#5CCEEA]" />
                                     <FeatureRow isDark={isDark} icon={Bell} title="Metas de Gasto por Categoria" desc="Defina um teto para cada categoria e receba o aviso quando estiver se aproximando ou ultrapassando o limite." color="text-[#5CCEEA]" />
-                                    <FeatureRow isDark={isDark} icon={Bot} title="IA Alívia nos seus gastos" desc="No Standard e Premium, lance despesas por texto e peça análises da sua semana — sem limite de uso." color="text-[#5CCEEA]" />
+                                    <FeatureRow isDark={isDark} icon={Bot} title="IA Alívia nos seus gastos" desc="Lance despesas por texto e peça análises pelo chat. No Gratuito são 4 lançamentos/mês; no Standard e Premium, sem limite." color="text-[#5CCEEA]" />
                                     <FeatureRow isDark={isDark} icon={FileText} title="Relatórios em PDF" desc="Exportação com o design Alívia — perfeito para a revisão mensal ou consulta com seu contador." color="text-[#5CCEEA]" />
                                 </div>
                             </div>
@@ -313,7 +313,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 <h2 className={`text-4xl md:text-6xl font-black leading-[1.1] ${t.textH}`}>Sua Mentora <br />Financeira 24/7.</h2>
                                 <p className={`text-lg md:text-xl font-medium ${t.textBody}`}>Alívia estuda seus dados para te dar <span className="text-[#69C8B9] font-black">Silêncio na Mente.</span></p>
                                 <div className={`flex flex-col gap-2 p-4 rounded-2xl border text-sm font-medium ${isDark ? 'bg-white/[0.03] border-white/10 text-slate-300' : 'bg-white/70 border-slate-100 text-slate-600'}`}>
-                                    <div className="flex items-start gap-2.5"><Gift className="w-4 h-4 text-[#69C8B9] shrink-0 mt-0.5" /><span><span className="font-black">Gratuito:</span> experimente a IA até 5 vezes por mês.</span></div>
+                                    <div className="flex items-start gap-2.5"><Gift className="w-4 h-4 text-[#69C8B9] shrink-0 mt-0.5" /><span><span className="font-black">Gratuito:</span> chat com a Alívia com 4 lançamentos por mês.</span></div>
                                     <div className="flex items-start gap-2.5"><MessageSquare className="w-4 h-4 text-[#5CCEEA] shrink-0 mt-0.5" /><span><span className="font-black">Standard:</span> IA ilimitada para o seu Controle de Gastos.</span></div>
                                     <div className="flex items-start gap-2.5"><Sparkles className="w-4 h-4 text-[#69C8B9] shrink-0 mt-0.5" /><span><span className="font-black">Premium:</span> IA ilimitada nos gastos <span className="italic">e</span> no seu patrimônio.</span></div>
                                 </div>
@@ -436,7 +436,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                     'Patrimônio essencial: reservas, investimentos e bens (com limites)',
                                     'Saúde Financeira e Patrimonial',
                                     'Seguros e proteção',
-                                    'IA Alívia: até 5 usos por mês',
+                                    'Chat com a Alívia: 4 lançamentos por mês',
                                     'Sincronização na nuvem',
                                 ]}
                                 excluded={[

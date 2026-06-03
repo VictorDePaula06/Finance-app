@@ -37,8 +37,16 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
 
     const { currentUser, saveUserPreferences, getUserPreferences, saveChatHistory, getChatHistory, userPrefs, planLevel, isAdmin } = useAuth();
 
-    // IA é exclusiva do Premium. Free/Standard nem renderizam o botão flutuante.
-    const canUseAI = planLevel === 'premium' || isAdmin;
+    // Chat da Alívia disponível para todos os planos (inclui Gratuito).
+    const canUseAI = !!currentUser || isAdmin;
+
+    // Plano Gratuito pode LANÇAR pelo chat, porém limitado por mês.
+    const isFreePlan = planLevel === 'free';
+    const FREE_AI_LAUNCH_LIMIT = 4;
+    const currentMonthKey = new Date().toISOString().slice(0, 7);
+    const aiLaunchesUsed = (userPrefs?.aiLaunches && userPrefs.aiLaunches.month === currentMonthKey)
+        ? (userPrefs.aiLaunches.count || 0)
+        : 0;
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -222,6 +230,14 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                     }
 
                     if (command.action === 'add_transaction') {
+                        // Limite do Gratuito: 4 lançamentos/mês pelo chat da Alívia.
+                        if (isFreePlan && aiLaunchesUsed >= FREE_AI_LAUNCH_LIMIT) {
+                            displayMessage += `\n\n🔒 Você atingiu o limite de **${FREE_AI_LAUNCH_LIMIT} lançamentos pelo chat da Alívia neste mês** (plano Gratuito). Faça upgrade para lançar sem limites — o contador renova no início do próximo mês.`;
+                            setMessages(prev => [...prev, { role: 'model', text: displayMessage, timestamp: new Date().toISOString() }]);
+                            setIsLoading(false);
+                            clearTimeout(safetyReset);
+                            return;
+                        }
                         if (onAddTransaction) {
                             const sanitizedData = {
                                 ...command.data,
@@ -264,10 +280,19 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                                 new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout ao salvar transação")), 15000))
                             ]);
                             if (success) {
+                                // Contabiliza o lançamento do Gratuito (limite mensal).
+                                if (isFreePlan) {
+                                    const used = (userPrefs?.aiLaunches && userPrefs.aiLaunches.month === currentMonthKey)
+                                        ? (userPrefs.aiLaunches.count || 0)
+                                        : 0;
+                                    saveUserPreferences({ aiLaunches: { month: currentMonthKey, count: used + 1 } });
+                                }
                                 const formaTxt = sanitizedData.paymentMethod === 'credito'
                                     ? ` no cartão ${cards.find(c => c.id === sanitizedData.selectedCardId)?.name || ''}`.trimEnd()
                                     : '';
-                                displayMessage += `\n\n✅ **Lançamento salvo:** ${sanitizedData.description} (R$ ${sanitizedData.amount.toLocaleString('pt-BR')})${formaTxt}`;
+                                const restante = isFreePlan ? Math.max(0, FREE_AI_LAUNCH_LIMIT - (aiLaunchesUsed + 1)) : null;
+                                const restanteTxt = isFreePlan ? `\n\n_Restam ${restante} lançamentos pelo chat neste mês (plano Gratuito)._` : '';
+                                displayMessage += `\n\n✅ **Lançamento salvo:** ${sanitizedData.description} (R$ ${sanitizedData.amount.toLocaleString('pt-BR')})${formaTxt}${restanteTxt}`;
                             } else {
                                 displayMessage += `\n\n❌ **Erro:** Não foi possível salvar a transação.`;
                             }
@@ -722,7 +747,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
         </button>
     );
 
-    // IA Alívia: exclusiva do Premium. Não renderiza nem o botão flutuante para Free/Standard.
+    // Chat da Alívia disponível para todos os planos (Gratuito com limite de lançamentos).
     if (!canUseAI) return null;
 
     return createPortal(chatContent, document.body);
