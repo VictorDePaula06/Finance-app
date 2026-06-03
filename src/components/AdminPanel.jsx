@@ -99,6 +99,9 @@ export default function AdminPanel({ onBack }) {
                 const stripeSubData = activeSubDoc ? activeSubDoc.data() : subsSnap.docs[0]?.data();
                 const manualStatus = settingsData.subscription?.status || userData.subscription?.status;
                 const stripeActive = (stripeSubData?.status === 'active' || stripeSubData?.status === 'trialing');
+                // Cancelada no Stripe para o fim do período: continua ativa (paga) até
+                // o fim, depois cai para Gratuito automaticamente.
+                const cancelAtPeriodEnd = stripeActive && stripeSubData?.cancel_at_period_end === true;
 
                 const STANDARD_PRICES = ['price_1TdDzSKAwb86obAGI0gTmdWL', 'price_1TdE0LKAwb86obAGcpMPLgWw'];
                 const PREMIUM_PRICES = ['price_1TdDwDKAwb86obAGnRhLwlIa', 'price_1TdE1VKAwb86obAGh2h7m4o6'];
@@ -214,6 +217,7 @@ export default function AdminPanel({ onBack }) {
                     daysLeft, isExpired, isInactive, manualInactive, isLifetime, isBlocked,
                     hasActiveStripeSub: stripeActive,
                     stripeStatus: stripeSubData?.status || null,
+                    cancelAtPeriodEnd,
                     isAdmin: userData.isAdmin === true || isEmailAdmin,
                     isEmailAdmin,
                     pushSubscriptions: userData.pushSubscriptions || [],
@@ -1190,11 +1194,13 @@ export default function AdminPanel({ onBack }) {
                                                                     ? 'text-amber-400'
                                                                     : 'text-slate-500';
                                                             return (
-                                                                <span className={`text-[9px] font-medium ${daysCls}`}>
+                                                                <span className={`text-[9px] font-medium ${user.cancelAtPeriodEnd ? 'text-rose-400' : daysCls}`}>
                                                                     {user.subType === 'annual' ? 'Anual' : 'Mensal'}
-                                                                    {user.stripeStatus === 'trialing'
-                                                                        ? ' · teste Stripe'
-                                                                        : user.daysLeft > 0 ? ` · renova em ${user.daysLeft}d` : ' · ativo'}
+                                                                    {user.cancelAtPeriodEnd
+                                                                        ? (user.daysLeft > 0 ? ` · cancelando, termina em ${user.daysLeft}d` : ' · cancelando')
+                                                                        : user.stripeStatus === 'trialing'
+                                                                            ? ' · teste Stripe'
+                                                                            : user.daysLeft > 0 ? ` · renova em ${user.daysLeft}d` : ' · ativo'}
                                                                 </span>
                                                             );
                                                         })()}
