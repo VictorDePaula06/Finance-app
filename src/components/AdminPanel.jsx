@@ -471,6 +471,40 @@ export default function AdminPanel({ onBack }) {
         });
     };
 
+    const handleForceFree = () => {
+        if (!editingUser) return;
+        setConfirmDialog({
+            title: 'Forçar Gratuito (limpar assinatura)',
+            danger: true,
+            message: `Isto REMOVE qualquer assinatura/elevação local do usuário ${editingUser.email} e o rebaixa para Gratuito.\n\nUse SOMENTE se NÃO houver assinatura ativa no Stripe para esta conta (ex.: assinatura "fantasma" que sobrou). Se houver assinatura ativa no Stripe, a sincronização vai recriá-la — cancele no Stripe primeiro.\n\nOs dados financeiros do usuário são preservados.`,
+            confirmText: 'Forçar Gratuito',
+            onConfirm: async () => {
+                setConfirmDialog(null);
+                setIsSaving(true);
+                try {
+                    const uid = editingUser.uid;
+                    // 1. Remove documentos de assinatura do Stripe (inclui fantasmas).
+                    const subsSnap = await getDocs(collection(db, 'customers', uid, 'subscriptions'));
+                    await Promise.all(subsSnap.docs.map(d => deleteDoc(d.ref)));
+                    // 2. Zera qualquer elevação manual no doc do usuário e nas settings.
+                    await setDoc(doc(db, 'users', uid), {
+                        isPremium: false,
+                        subscription: { status: 'free', type: 'free', updatedAt: new Date() }
+                    }, { merge: true });
+                    await setDoc(doc(db, 'users', uid, 'settings', 'general'), {
+                        subscription: { status: 'free', type: 'free', updatedAt: new Date() }
+                    }, { merge: true });
+                    showToast('Usuário rebaixado para Gratuito.');
+                    setEditingUser(null); setPendingUser(null);
+                    fetchUsers();
+                } catch (err) {
+                    console.error(err);
+                    showToast('Erro ao forçar Gratuito', 'error');
+                } finally { setIsSaving(false); }
+            }
+        });
+    };
+
     const handleToggleInactive = () => {
         if (!editingUser) return;
         const willInactivate = !editingUser.manualInactive;
@@ -765,6 +799,15 @@ export default function AdminPanel({ onBack }) {
                             >
                                 {editingUser?.manualInactive ? 'Reativar Conta' : 'Inativar Conta (sem apagar dados)'}
                             </button>
+                            {(editingUser?.isPremium || editingUser?.isStandard) && !editingUser?.isLifetime && (
+                                <button
+                                    onClick={handleForceFree}
+                                    disabled={isSaving}
+                                    className="w-full py-2.5 rounded-xl text-xs font-bold border border-amber-500/20 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all"
+                                >
+                                    Forçar Gratuito (limpar assinatura fantasma)
+                                </button>
+                            )}
                             <div className="grid grid-cols-2 gap-2">
                                 <button
                                     onClick={() => adminDeleteUser(editingUser)}

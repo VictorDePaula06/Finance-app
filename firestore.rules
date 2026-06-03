@@ -35,6 +35,31 @@ service cloud.firestore {
       return resource.data.userId == request.resource.data.userId;
     }
 
+    // ANTI-AUTO-PROMOÇÃO: o próprio usuário só pode gravar subscription.status
+    // = 'free' (ou manter o valor que já existia, definido por um admin).
+    // Impede que alguém se conceda 'lifetime'/'premium'/'standard'/'active'
+    // escrevendo direto no Firestore. Admins (por e-mail) passam pela regra
+    // catch-all e não são afetados por esta verificação.
+    function subStatusSafe() {
+      return !('subscription' in request.resource.data)
+        || !('status' in request.resource.data.subscription)
+        || request.resource.data.subscription.status == 'free'
+        || (resource != null
+            && 'subscription' in resource.data
+            && 'status' in resource.data.subscription
+            && request.resource.data.subscription.status == resource.data.subscription.status);
+    }
+
+    // ANTI-AUTO-ADMIN: o usuário não pode se tornar admin gravando isAdmin=true
+    // no próprio doc (só pode manter o valor existente ou definir como false).
+    function adminFlagSafe() {
+      return !('isAdmin' in request.resource.data)
+        || request.resource.data.isAdmin == false
+        || (resource != null
+            && 'isAdmin' in resource.data
+            && request.resource.data.isAdmin == resource.data.isAdmin);
+    }
+
     // ─────────────────────────────────────────────────────────
     // ACESSO TOTAL DE ADMINS
     // (Compatível com Painel Admin — mantém prioridade)
@@ -62,10 +87,15 @@ service cloud.firestore {
     // PERFIL DE USUÁRIO
     // ─────────────────────────────────────────────────────────
     match /users/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      // Escrita do próprio doc: bloqueia auto-promoção (isAdmin / subscription.status).
+      allow write: if isSignedIn() && request.auth.uid == userId
+                   && subStatusSafe() && adminFlagSafe();
 
       match /settings/{docId} {
-        allow read, write: if isSignedIn() && request.auth.uid == userId;
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        // Idem: usuário não pode se conceder plano pago/vitalício pelas settings.
+        allow write: if isSignedIn() && request.auth.uid == userId && subStatusSafe();
       }
       match /chat/{docId} {
         allow read, write: if isSignedIn() && request.auth.uid == userId;
