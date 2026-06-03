@@ -14,7 +14,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
 
     // Limites aplicados ao trial e ao Plano Gratuito permanente
     const isLimited = isTrial || planLevel === 'free';
-    const TRIAL_INCOME_LIMIT = 5; // por mês (renova mensalmente)
+    const TRIAL_INCOME_LIMIT = 2; // por mês (renova mensalmente)
     const [showTrialModal, setShowTrialModal] = useState(false);
 
     const [amount, setAmount] = useState('');
