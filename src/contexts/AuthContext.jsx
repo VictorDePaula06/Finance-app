@@ -21,6 +21,15 @@ export function useAuth() {
 
 let globalMaxAccess = false;
 
+// Logout único forçado (lançamento do billing): encerra as sessões ANTIGAS
+// (login feito antes deste instante) de todos os usuários que NÃO são
+// vitalícios/admins, para limpar acessos pagos antigos concedidos sem
+// pagamento. Como comparamos o `lastSignInTime` com este corte:
+//   • re-logins e NOVOS CADASTROS após o deploy passam (lastSignIn > corte);
+//   • não há loop (ao reentrar, o lastSignIn fica > corte).
+// Vitalícios/admins nunca são afetados.
+const FORCE_LOGOUT_BEFORE = 1780485226320; // 2026-06-03T11:13:46Z
+
 export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -95,7 +104,25 @@ export function AuthProvider({ children }) {
                 const userRef = doc(db, 'users', user.uid);
                 const userSnap = await getDoc(userRef);
                 const userData = userSnap.exists() ? userSnap.data() : {};
-                
+
+                // ── Logout único forçado (apenas NÃO-vitalícios/NÃO-admins) ──
+                // Mantém os vitalícios (admins, que já têm lançamentos) logados;
+                // encerra apenas sessões cujo login foi feito ANTES do corte.
+                // Novos cadastros/re-logins após o deploy têm lastSignIn > corte
+                // e não são afetados (sem loop).
+                const isLifetimeOrAdmin = isAdminEmail(user.email)
+                    || isLifetimeEmail(user.email)
+                    || userData.subscription?.status === 'lifetime';
+                const lastSignIn = user.metadata?.lastSignInTime
+                    ? new Date(user.metadata.lastSignInTime).getTime()
+                    : 0;
+                if (!isLifetimeOrAdmin && lastSignIn < FORCE_LOGOUT_BEFORE) {
+                    localStorage.removeItem(`isPremium_${user.uid}`);
+                    globalMaxAccess = false;
+                    await signOut(auth);
+                    return;
+                }
+
                 const updateData = {
                     email: user.email,
                     lastLogin: new Date(),
@@ -157,7 +184,6 @@ export function AuthProvider({ children }) {
 
         const checkStatus = () => {
             if (expiryTimeoutRef.current) clearTimeout(expiryTimeoutRef.current);
-            const createdAt = currentUser.metadata.creationTime ? new Date(currentUser.metadata.creationTime) : new Date();
             const now = new Date();
 
             // 1. Data Consolidation
@@ -168,22 +194,28 @@ export function AuthProvider({ children }) {
             console.log("[Auth Sync Check] currentSubs:", currentSubs);
 
             const stripeSub = currentSubs[0];
-            const manualSub = currentData.subscription || (currentData.isPremium ? { status: 'active' } : {});
-
-            let subStatus = (stripeSub?.status === 'active' || stripeSub?.status === 'trialing')
-                ? 'active'
-                : (manualSub?.status || stripeSub?.status || 'free');
-
-            const isManualActive = ['active', 'monthly', 'annual', 'pro', 'premium', 'standard'].includes(subStatus?.toLowerCase());
             const userEmail = currentUser.email?.toLowerCase();
-            const isManualLifetime = dataRef.current.prefs.subscription?.status === 'lifetime' ||
-                                     dataRef.current.user.subscription?.status === 'lifetime' ||
-                                     isLifetimeEmail(userEmail);
-            // Plano Gratuito permanente — escolha explícita do usuário (sem expiração).
-            const isManualFree = dataRef.current.prefs.subscription?.status === 'free' ||
-                                 dataRef.current.user.subscription?.status === 'free';
+
+            // ───────────────────────────────────────────────────────────────
+            // REGRA DE BILLING (vendas): standard/premium SÓ com pagamento.
+            //  • Vitalício (admins / e-mails fixos / status 'lifetime'):
+            //    acesso total, sem depender de pagamento.
+            //  • Stripe ATIVO ou TRIALING: premium/standard conforme o preço.
+            //  • Qualquer outro caso → plano GRATUITO (com limites).
+            // Foram REMOVIDOS os antigos atalhos manuais (flag `isPremium`,
+            // campo `subscription.status` = active/premium/standard e o trial
+            // de 7 dias) que liberavam plano pago sem pagamento real.
+            // ───────────────────────────────────────────────────────────────
             const hasActiveStripe = stripeSub?.status === 'active' || stripeSub?.status === 'trialing';
-            const isBlocked = (dataRef.current.prefs.isBlocked === true || dataRef.current.user.isBlocked === true || manualSub?.status === 'blocked') && !hasActiveStripe;
+
+            const isManualLifetime = isLifetimeEmail(userEmail) ||
+                                     isAdminEmail(userEmail) ||
+                                     dataRef.current.prefs.subscription?.status === 'lifetime' ||
+                                     dataRef.current.user.subscription?.status === 'lifetime';
+
+            // Bloqueio administrativo (abuso) — tranca o acesso. Não afeta pagos/vitalícios.
+            const isBlocked = (dataRef.current.prefs.isBlocked === true || dataRef.current.user.isBlocked === true)
+                && !hasActiveStripe && !isManualLifetime;
 
             // Guarda o ID da assinatura Stripe ativa para o portal de cancelamento.
             setStripeSubId(hasActiveStripe ? (stripeSub?.id || null) : null);
@@ -205,73 +237,44 @@ export function AuthProvider({ children }) {
             const stripePriceId = stripeSub?.items?.[0]?.plan?.id;
             let currentPlanLevel = 'free';
 
-            if (isBlocked) {
-                currentPlanLevel = 'free';
-            } else if (isManualLifetime) {
+            if (isManualLifetime) {
                 currentPlanLevel = 'lifetime';
-            } else if (stripeSub?.status === 'active' || stripeSub?.status === 'trialing') {
+            } else if (hasActiveStripe) {
                 if (PREMIUM_PRICES.includes(stripePriceId)) {
                     currentPlanLevel = 'premium';
                 } else if (STANDARD_PRICES.includes(stripePriceId)) {
                     currentPlanLevel = 'standard';
                 } else {
-                    currentPlanLevel = 'premium'; // Default to premium for existing subs if unknown
-                }
-            } else if (isManualActive) {
-                if (subStatus === 'standard') {
-                    currentPlanLevel = 'standard';
-                } else {
-                    currentPlanLevel = manualSub?.level || 'premium';
+                    currentPlanLevel = 'premium'; // assinatura paga reconhecida, preço desconhecido
                 }
             }
+            // Qualquer outro caso permanece 'free'.
 
-            // Renomeado: estava sombreando o state `subType` declarado fora — evita confusão.
-            const resolvedSubType = (stripeSub?.items?.[0]?.plan?.interval === 'year' || manualSub?.type === 'annual') ? 'annual' : (manualSub?.type || 'monthly');
-            const subDate = stripeSub?.current_period_start ? new Date(stripeSub.current_period_start.seconds * 1000) : (manualSub?.date?.toDate ? manualSub.date.toDate() : (manualSub?.date ? new Date(manualSub.date) : null));
-
-            const trialStart = dataRef.current.user?.trialStartDate?.toDate ? dataRef.current.user.trialStartDate.toDate() : (dataRef.current.user?.trialStartDate ? new Date(dataRef.current.user.trialStartDate) : createdAt);
-            const createdAtDate = trialStart; 
+            // Tipo de assinatura e data (apenas exibição / portal). Sem Stripe = mensal.
+            const resolvedSubType = (stripeSub?.items?.[0]?.plan?.interval === 'year') ? 'annual' : 'monthly';
+            const subDate = stripeSub?.current_period_start ? new Date(stripeSub.current_period_start.seconds * 1000) : null;
             const msInDay = 1000 * 60 * 60 * 24;
-            const diffDaysTrial = Math.ceil((now - createdAtDate) / msInDay);
-            const isWithinTrial = diffDaysTrial <= 7;
-
-            console.log("[Auth Sync Check] isWithinTrial:", isWithinTrial, "diffDaysTrial:", diffDaysTrial, "isBlocked:", isBlocked);
-
-            let hasValidAccess = false;
-            let remaining = 0;
-            let isUnderTolerance = false;
             const toleranceDays = 0;
 
-            if (isManualLifetime && !isBlocked) {
-                hasValidAccess = true;
-                remaining = 9999;
-            } else if (isManualFree && !isBlocked) {
-                // Plano Gratuito permanente — sem expiração, com limites de lançamento.
-                hasValidAccess = true;
-                remaining = 9999;
-                currentPlanLevel = 'free';
-            } else if ((subStatus === 'active' || isManualActive) && !isBlocked) {
-                const cycleDays = resolvedSubType === 'annual' ? 365 : 30;
-                const diffDaysSub = subDate ? Math.floor((now - subDate) / msInDay) : 0;
+            // Flags de compatibilidade para o restante da função:
+            const subStatus = isManualLifetime ? 'lifetime' : (hasActiveStripe ? 'active' : (isBlocked ? 'blocked' : 'free'));
+            const isManualActive = hasActiveStripe;   // "ativo" agora significa Stripe pago
+            const isWithinTrial = false;              // trial sem pagamento desativado
 
-                if (diffDaysSub <= cycleDays || diffDaysSub <= cycleDays + toleranceDays) {
-                    hasValidAccess = true;
-                    remaining = (diffDaysSub <= cycleDays) ? (cycleDays - diffDaysSub) : ((cycleDays + toleranceDays) - diffDaysSub);
-                    isUnderTolerance = diffDaysSub > cycleDays;
-                }
-            } else if (isWithinTrial && !isBlocked) {
-                hasValidAccess = true;
-                remaining = 7 - diffDaysTrial;
-                setIsTrial(true);
-                currentPlanLevel = 'premium'; // Trial allows full access
-            }
+            // Acesso: todos têm ao menos o Gratuito; bloqueio administrativo tranca tudo.
+            const hasValidAccess = !isBlocked;
+            const remaining = 9999;
+            const isUnderTolerance = false;
 
             const isExpired = !hasValidAccess && (dataRef.current.subsLoaded || dataRef.current.prefsLoaded);
 
-            // Usuário precisa escolher plano se NUNCA selecionou nada antes
-            // (sem free, sem lifetime, sem assinatura paga, sem stripe ativo).
+            // Usuário precisa escolher plano se NUNCA interagiu com nenhum plano
+            // (sem registro de assinatura, sem lifetime, sem stripe ativo).
             // Importante: admins via e-mail fixo são lifetime — não cairão aqui.
-            const hasChosenAnyPlan = isManualFree || isManualLifetime || isManualActive || hasActiveStripe;
+            const hasExistingRecord = !!(dataRef.current.prefs.subscription?.status
+                || dataRef.current.user.subscription?.status
+                || dataRef.current.user.isPremium === true);
+            const hasChosenAnyPlan = isManualLifetime || hasActiveStripe || hasExistingRecord;
             const needsPlanSel = !hasChosenAnyPlan && !isBlocked && (dataRef.current.userLoaded || dataRef.current.prefsLoaded);
             setNeedsPlanSelection(needsPlanSel);
 
