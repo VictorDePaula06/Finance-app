@@ -390,11 +390,20 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             } else {
                 // Se for parcelamento, NÃO adicionamos a transação direta para evitar duplicidade com a aba Cartões
                 if (!isInstallment) {
+                    // Reforço do limite NO SALVAMENTO (despesas/mês do próprio lançamento).
+                    const targetMonth = transactionData.month;
+                    const expenseCount = transactions.filter(t => t.type === 'expense' && ((t.month || (t.date ? String(t.date).slice(0, 7) : '')) === targetMonth)).length;
+                    if (isLimited && expenseCount >= TRIAL_EXPENSE_LIMIT) {
+                        setShowModal(false);
+                        setIsSaving(false);
+                        setShowTrialModal(true);
+                        return;
+                    }
                     await addDoc(collection(db, 'transactions'), transactionData);
                 } else {
                     setIsInstallmentSuccess(true);
                 }
-                
+
                 setIsSaving(false);
                 setStep('success');
             }

@@ -80,6 +80,8 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
   const handleAddExpense = async (e) => {
     e.preventDefault();
     if (!newExpense.name || !newExpense.value) return;
+    // Reforço do limite no salvamento.
+    if (isLimited && fixedExpenses.length >= TRIAL_FIXED_LIMIT) { setShowTrialModal(true); return; }
 
     await addDoc(collection(db, 'fixed_expenses'), {
       ...newExpense,

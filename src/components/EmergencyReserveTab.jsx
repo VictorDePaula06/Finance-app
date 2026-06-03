@@ -124,6 +124,11 @@ export default function EmergencyReserveTab() {
 
     const handleSave = async (e) => {
         e.preventDefault();
+        // Reforço do limite no salvamento (nova reserva).
+        if (!isEditing && isReserveLimited && reserves.length >= FREE_RESERVE_LIMIT) {
+            setShowLimitModal(true);
+            return;
+        }
         try {
             const balance = parseNumber(formData.balance);
             const cdiPercent = parseNumber(formData.cdiPercent);

@@ -392,6 +392,12 @@ function AssetModal({ isDark, inset, txt, sub, editing, onClose, userId }) {
   };
 
   const handleSave = async () => {
+    // Reforço do limite no salvamento (novo bem).
+    if (!editing?.id && isLimited && assets.length >= FREE_BENS_LIMIT) {
+      setShowModal(false);
+      setLimitMsg(`Você atingiu o limite de ${FREE_BENS_LIMIT} bens do seu plano (${planLevel === 'standard' ? 'Standard' : 'Gratuito'}). Faça upgrade para o Premium e cadastre quantos bens quiser.`);
+      return;
+    }
     setSaving(true);
     try {
       const base = {

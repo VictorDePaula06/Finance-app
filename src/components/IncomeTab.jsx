@@ -111,6 +111,21 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                 const { createdAt, ...upd } = transactionData;
                 await updateDoc(doc(db, 'transactions', editingId), upd);
             } else {
+                // Reforço do limite NO SALVAMENTO (conta no mês do próprio lançamento,
+                // fechando qualquer brecha de bypass pelo botão ou troca de data).
+                const targetMonth = transactionData.month;
+                const incomeCount = transactions.filter(t =>
+                    t.type === 'income' &&
+                    !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category) &&
+                    ((t.month || (t.date ? String(t.date).slice(0, 7) : '')) === targetMonth)
+                ).length;
+                if (isLimited && incomeCount >= TRIAL_INCOME_LIMIT) {
+                    setShowIncomeModal(false);
+                    setIncomeStep('form');
+                    setIsSaving(false);
+                    setShowTrialModal(true);
+                    return;
+                }
                 await addDoc(collection(db, 'transactions'), {
                     ...transactionData,
                     createdAt: Date.now()

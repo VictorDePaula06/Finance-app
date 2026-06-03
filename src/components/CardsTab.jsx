@@ -101,7 +101,13 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
   const handleAddCard = async (e) => {
     e.preventDefault();
     if (!newCard.name) return;
-    await addDoc(collection(db, 'cards'), { 
+    // Reforço do limite no salvamento.
+    if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) {
+      openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`);
+      setIsAddingCard(false);
+      return;
+    }
+    await addDoc(collection(db, 'cards'), {
         ...newCard, 
         closingDay: parseInt(newCard.closingDay) || ((newCard.dueDay - 7 > 0) ? newCard.dueDay - 7 : 25),
         userId: currentUser.uid 
@@ -212,6 +218,11 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
   const handleAddSub = async (e) => {
     e.preventDefault();
     if (!newSub.name || !newSub.value) return;
+    // Reforço do limite no salvamento.
+    if (isLimited && subscriptions.length >= TRIAL_SUBS_LIMIT) {
+      openTrialModal(`Você atingiu o limite de ${TRIAL_SUBS_LIMIT} assinaturas do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`);
+      return;
+    }
 
     let finalDay = newSub.day;
     if (newSub.cardId) {

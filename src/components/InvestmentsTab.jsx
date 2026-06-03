@@ -587,6 +587,11 @@ export default function InvestmentsTab() {
 
     const handleSaveAsset = async (e) => {
         e.preventDefault();
+        // Reforço do limite no salvamento (novo ativo).
+        if (!isEditing && isInvestLimited && investments.length >= FREE_INVESTMENT_LIMIT) {
+            setShowLimitModal(true);
+            return;
+        }
         try {
             const quantity = parseBrazilianNumber(newAsset.quantity) || 1;
             const purchasePrice = parseBrazilianNumber(newAsset.purchasePrice);
