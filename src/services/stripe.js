@@ -1,4 +1,4 @@
-import { db, functions } from './firebase';
+import { db, functions, auth } from './firebase';
 import { collection, addDoc, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { loadStripe } from '@stripe/stripe-js';
@@ -57,6 +57,36 @@ export async function createCheckoutSession(uid, priceId, onFinish) {
         if (onFinish) onFinish();
         throw err;
     }
+}
+
+/**
+ * Faz upgrade/downgrade da assinatura EXISTENTE (troca o preço com proração),
+ * via função serverless segura — sem criar uma segunda assinatura. Funciona mesmo
+ * que Standard e Premium sejam preços do mesmo produto no Stripe.
+ *
+ * @param {string} priceId Preço alvo (Standard/Premium, mensal/anual).
+ * @returns {Promise<object>} { success: true } em caso de sucesso.
+ */
+export async function upgradeSubscription(priceId) {
+    const user = auth.currentUser;
+    if (!user) throw new Error('Você precisa estar logado.');
+    const idToken = await user.getIdToken();
+
+    const resp = await fetch('/api/upgrade-subscription', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ priceId }),
+    });
+
+    let data = {};
+    try { data = await resp.json(); } catch { /* ignore */ }
+    if (!resp.ok || !data.success) {
+        throw new Error(data.error || 'Não foi possível alterar o plano. Tente novamente.');
+    }
+    return data;
 }
 
 // Link estático do portal (fallback) — exige login por e-mail.

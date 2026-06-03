@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Sparkles, Check, ArrowRight, Lock, Loader2 } from 'lucide-react';
-import { createCheckoutSession, createPortalSession } from '../services/stripe';
+import { createCheckoutSession, upgradeSubscription } from '../services/stripe';
 import { useAuth } from '../contexts/AuthContext';
 import { PLAN_RANK, GASTOS_FEATURES, PATRIMONIO_FEATURES, featureState } from '../constants/planFeatures';
 
@@ -43,23 +43,22 @@ export default function UpgradeModal({ isOpen, onClose }) {
     const handlePlanAction = async (planKey) => {
         if (loadingPlan) return;
         setLoadingPlan(planKey);
+        const priceId = PRICE_IDS[planKey][billing];
         try {
             if (hasActiveStripeSub) {
-                // Upgrade/downgrade da assinatura ATUAL no portal do Stripe (com proração),
-                // evitando criar uma segunda assinatura.
-                await createPortalSession({
-                    subscriptionId: stripeSubId,
-                    update: true,
-                    onFinish: () => setLoadingPlan(null),
-                });
+                // Upgrade/downgrade da assinatura ATUAL (troca o preço com proração),
+                // sem criar uma segunda assinatura.
+                await upgradeSubscription(priceId);
+                setLoadingPlan(null);
+                alert('Plano alterado com sucesso! A mudança já está ativa (a cobrança é ajustada proporcionalmente).');
+                onClose();
             } else {
                 // Primeiro pagamento — checkout normal (cria a assinatura).
-                const priceId = PRICE_IDS[planKey][billing];
                 await createCheckoutSession(currentUser.uid, priceId, () => setLoadingPlan(null));
             }
         } catch (error) {
             console.error('Plan action error:', error);
-            alert('Erro ao iniciar a alteração de plano. Tente novamente.');
+            alert(error?.message || 'Erro ao alterar o plano. Tente novamente.');
             setLoadingPlan(null);
         }
     };
