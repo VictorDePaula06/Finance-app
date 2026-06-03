@@ -116,6 +116,13 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
   };
 
   const handleDeleteExpense = async (id) => {
+    // Não permite excluir conta (fixa ou variável) que já está paga neste mês —
+    // é preciso estornar o pagamento antes.
+    const monthStr = new Date().toISOString().slice(0, 7);
+    const exp = fixedExpenses.find(e => e.id === id);
+    if (exp && exp.lastPaidMonth === monthStr) {
+      return;
+    }
     await deleteDoc(doc(db, 'fixed_expenses', id));
     setDeleteConfirm(null);
   };
@@ -353,16 +360,27 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
                   <div className={`absolute inset-0 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300 ${
                       theme === 'light' ? 'bg-white/95 border border-slate-100' : 'bg-slate-950/95'
                   }`}>
-                      <div className="max-w-[200px] w-full">
-                          <Trash2 className="w-8 h-8 text-rose-500 mx-auto mb-3" />
-                          <p className={`font-bold text-sm mb-6 leading-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir {expense.name}?</p>
-                          <div className="flex gap-2">
-                              <button onClick={() => setDeleteConfirm(null)} className={`flex-1 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all ${
+                      {isPaidThisMonth ? (
+                          <div className="max-w-[220px] w-full">
+                              <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-3" />
+                              <p className={`font-bold text-sm mb-2 leading-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Esta conta está paga</p>
+                              <p className="text-[11px] text-slate-400 mb-5 leading-relaxed">Não é possível excluir uma conta paga neste mês. Estorne o pagamento primeiro e depois exclua.</p>
+                              <button onClick={() => setDeleteConfirm(null)} className={`w-full py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all ${
                                   theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/10 text-white hover:bg-white/20'
-                              }`}>Não</button>
-                              <button onClick={() => handleDeleteExpense(expense.id)} className="flex-1 py-2 rounded-lg bg-rose-500 text-white font-bold text-xs uppercase tracking-wider hover:bg-rose-600 transition-all">Sim</button>
+                              }`}>Entendi</button>
                           </div>
-                      </div>
+                      ) : (
+                          <div className="max-w-[200px] w-full">
+                              <Trash2 className="w-8 h-8 text-rose-500 mx-auto mb-3" />
+                              <p className={`font-bold text-sm mb-6 leading-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir {expense.name}?</p>
+                              <div className="flex gap-2">
+                                  <button onClick={() => setDeleteConfirm(null)} className={`flex-1 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all ${
+                                      theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/10 text-white hover:bg-white/20'
+                                  }`}>Não</button>
+                                  <button onClick={() => handleDeleteExpense(expense.id)} className="flex-1 py-2 rounded-lg bg-rose-500 text-white font-bold text-xs uppercase tracking-wider hover:bg-rose-600 transition-all">Sim</button>
+                              </div>
+                          </div>
+                      )}
                   </div>
               )}
 
