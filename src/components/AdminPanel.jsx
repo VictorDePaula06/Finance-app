@@ -182,6 +182,10 @@ export default function AdminPanel({ onBack }) {
                     }
                 }
 
+                // Inativação manual (flag no doc) — sempre marca como inativo.
+                const manualInactive = userData.inactive === true;
+                if (manualInactive) isInactive = true;
+
                 // isPremium = assinante 'active'. isLifetime é permissão especial separada —
                 // não seta isPremium para evitar dupla seleção no modal de edição.
                 let finalIsPremium = false, finalIsStandard = false, finalIsFree = false;
@@ -203,7 +207,7 @@ export default function AdminPanel({ onBack }) {
                     isPremium: finalIsPremium, isStandard: finalIsStandard, isFree: finalIsFree,
                     subType, subStatus, isTrial,
                     subDate: subDate ? subDate.toLocaleDateString('pt-BR') : 'N/A',
-                    daysLeft, isExpired, isInactive, isLifetime, isBlocked,
+                    daysLeft, isExpired, isInactive, manualInactive, isLifetime, isBlocked,
                     isAdmin: userData.isAdmin === true || isEmailAdmin,
                     isEmailAdmin,
                     pushSubscriptions: userData.pushSubscriptions || [],
@@ -236,6 +240,7 @@ export default function AdminPanel({ onBack }) {
         if (userSubTab === 'premium')   return list.filter(u => (u.isPremium || u.isLifetime) && !u.isAdmin && !u.isDeleted);
         if (userSubTab === 'standard')  return list.filter(u => u.isStandard && !u.isAdmin && !u.isDeleted);
         if (userSubTab === 'sem_plano') return list.filter(u => u.isFree && !u.isAdmin && !u.isDeleted);
+        if (userSubTab === 'inativos')  return list.filter(u => u.isInactive && !u.isAdmin && !u.isDeleted);
         if (userSubTab === 'excluidos') return list.filter(u => u.isDeleted);
         return list;
     }, [users, searchTerm, userSubTab]);
@@ -252,6 +257,7 @@ export default function AdminPanel({ onBack }) {
             standardMonthly: sM, standardAnnual: sA,
             premium: pM + pA, standard: sM + sA,
             free: users.filter(u => u.isFree && !u.isAdmin && !u.isDeleted).length,
+            inactive: users.filter(u => u.isInactive && !u.isAdmin && !u.isDeleted).length,
             deleted: users.filter(u => u.isDeleted).length
         };
     }, [users]);
@@ -446,45 +452,29 @@ export default function AdminPanel({ onBack }) {
         });
     };
 
-    const handleResetTrial = () => {
+    const handleToggleInactive = () => {
+        if (!editingUser) return;
+        const willInactivate = !editingUser.manualInactive;
         setConfirmDialog({
-            title: "Resetar Período de Teste",
-            message: `Dar +7 dias de período de teste para a conta ${editingUser?.email}?`,
-            confirmText: "Resetar Agora",
+            title: willInactivate ? 'Inativar Conta' : 'Reativar Conta',
+            message: willInactivate
+                ? `Marcar a conta ${editingUser.email} como INATIVA? Os dados são preservados; ela some das contagens ativas e pode ser reativada quando voltar.`
+                : `Reativar a conta ${editingUser.email}?`,
+            confirmText: willInactivate ? 'Inativar Agora' : 'Reativar Agora',
             onConfirm: async () => {
                 setConfirmDialog(null);
                 setIsSaving(true);
                 try {
                     const userRef = doc(db, 'users', editingUser.uid);
-                    await updateDoc(userRef, { trialStartDate: new Date() });
-                    showToast('Teste resetado com sucesso!');
+                    await updateDoc(userRef, {
+                        inactive: willInactivate,
+                        inactivatedAt: willInactivate ? new Date() : null,
+                    });
+                    showToast(willInactivate ? 'Conta inativada.' : 'Conta reativada.');
                     setEditingUser(null); setPendingUser(null);
                     fetchUsers();
-                } catch (e) {
-                    showToast('Erro ao resetar teste', 'error');
-                } finally { setIsSaving(false); }
-            }
-        });
-    };
-
-    const handleExpireTrial = () => {
-        setConfirmDialog({
-            title: "Expirar Período de Teste",
-            message: `Expirar o período de teste da conta ${editingUser?.email}?`,
-            confirmText: "Expirar Agora",
-            onConfirm: async () => {
-                setConfirmDialog(null);
-                setIsSaving(true);
-                try {
-                    const tenDaysAgo = new Date();
-                    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
-                    const userRef = doc(db, 'users', editingUser.uid);
-                    await updateDoc(userRef, { trialStartDate: tenDaysAgo });
-                    showToast('Teste expirado com sucesso!');
-                    setEditingUser(null); setPendingUser(null);
-                    fetchUsers();
-                } catch (e) {
-                    showToast('Erro ao expirar teste', 'error');
+                } catch {
+                    showToast('Erro ao atualizar a conta', 'error');
                 } finally { setIsSaving(false); }
             }
         });
@@ -729,21 +719,18 @@ export default function AdminPanel({ onBack }) {
                                 <Save className="w-3.5 h-3.5" />
                                 {isSaving ? 'Salvando...' : 'Salvar Alterações'}
                             </button>
+                            <button
+                                onClick={handleToggleInactive}
+                                disabled={isSaving}
+                                className={`w-full py-2.5 rounded-xl text-xs font-bold border transition-all ${
+                                    editingUser?.manualInactive
+                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                                        : 'bg-white/5 text-slate-400 border-white/[0.08] hover:bg-white/10 hover:text-slate-200'
+                                }`}
+                            >
+                                {editingUser?.manualInactive ? 'Reativar Conta' : 'Inativar Conta (sem apagar dados)'}
+                            </button>
                             <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    onClick={handleResetTrial}
-                                    disabled={isSaving}
-                                    className="py-2.5 rounded-xl bg-white/5 text-slate-400 text-xs font-bold border border-white/[0.08] hover:bg-white/10 hover:text-slate-200 transition-all"
-                                >
-                                    Resetar Teste
-                                </button>
-                                <button
-                                    onClick={handleExpireTrial}
-                                    disabled={isSaving}
-                                    className="py-2.5 rounded-xl bg-white/5 text-slate-400 text-xs font-bold border border-white/[0.08] hover:bg-white/10 hover:text-slate-200 transition-all"
-                                >
-                                    Expirar Teste
-                                </button>
                                 <button
                                     onClick={() => adminDeleteUser(editingUser)}
                                     className="py-2.5 rounded-xl bg-rose-500/10 text-rose-400 text-xs font-bold border border-rose-500/20 hover:bg-rose-500/20 transition-all"
@@ -1074,6 +1061,7 @@ export default function AdminPanel({ onBack }) {
                                         { id: 'premium',   label: 'Plano Premium',  count: stats.premium  },
                                         { id: 'standard',  label: 'Plano Standard', count: stats.standard },
                                         { id: 'sem_plano', label: 'Plano Gratuito', count: stats.free     },
+                                        { id: 'inativos',  label: 'Inativos',       count: stats.inactive },
                                         { id: 'excluidos', label: 'Excluídos',      count: stats.deleted  },
                                     ].map(tab => (
                                         <button
