@@ -67,12 +67,14 @@ const PORTAL_LOGIN_LINK = "https://billing.stripe.com/p/login/00waEY8WW5ZK0V95TJ
  * usando a callable da extensão oficial "Run Payments with Stripe".
  *
  * @param {object} [opts]
- * @param {string} [opts.subscriptionId] Se informado (e cancel=true), abre direto no fluxo de cancelamento.
- * @param {boolean} [opts.cancel] Quando true, leva direto à tela de cancelamento da assinatura.
+ * @param {string} [opts.subscriptionId] ID da assinatura (p/ cancel ou update direto).
+ * @param {boolean} [opts.cancel] Quando true, leva direto à tela de cancelamento.
+ * @param {boolean} [opts.update] Quando true, leva direto à troca de plano (upgrade/downgrade)
+ *                                da assinatura EXISTENTE — com proração, sem criar outra.
  * @param {Function} [opts.onFinish] Callback ao terminar (sucesso ou erro).
  */
 export async function createPortalSession(opts = {}) {
-    const { subscriptionId, cancel = false, onFinish } = opts;
+    const { subscriptionId, cancel = false, update = false, onFinish } = opts;
 
     try {
         const createPortalLink = httpsCallable(
@@ -91,6 +93,12 @@ export async function createPortalSession(opts = {}) {
             payload.flow_data = {
                 type: 'subscription_cancel',
                 subscription_cancel: { subscription: subscriptionId },
+            };
+        } else if (update && subscriptionId) {
+            // Troca de plano na assinatura EXISTENTE (upgrade real, com proração).
+            payload.flow_data = {
+                type: 'subscription_update',
+                subscription_update: { subscription: subscriptionId },
             };
         }
 

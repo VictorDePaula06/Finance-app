@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Sparkles, Check, ArrowRight, Lock, Loader2 } from 'lucide-react';
-import { createCheckoutSession } from '../services/stripe';
+import { createCheckoutSession, createPortalSession } from '../services/stripe';
 import { useAuth } from '../contexts/AuthContext';
 import { PLAN_RANK, GASTOS_FEATURES, PATRIMONIO_FEATURES, featureState } from '../constants/planFeatures';
 
@@ -27,7 +27,7 @@ const FEATURE_GROUPS = [
 ];
 
 export default function UpgradeModal({ isOpen, onClose }) {
-    const { currentUser, planLevel, isAdmin } = useAuth();
+    const { currentUser, planLevel, isAdmin, stripeSubId } = useAuth();
     const [billing, setBilling] = useState('monthly');
     const [loadingPlan, setLoadingPlan] = useState(null);
 
@@ -36,15 +36,30 @@ export default function UpgradeModal({ isOpen, onClose }) {
     // Plano atual do usuário (free=0, standard=1, premium=2). Admin/vitalício = topo.
     const userRank = isAdmin ? 2 : (PLAN_RANK[planLevel] ?? 0);
 
-    const handleCheckout = async (planKey) => {
+    // Já é assinante pago no Stripe? Então a mudança de plano é um UPGRADE da
+    // assinatura existente (via portal, com proração) — NÃO uma nova assinatura.
+    const hasActiveStripeSub = !!stripeSubId;
+
+    const handlePlanAction = async (planKey) => {
         if (loadingPlan) return;
         setLoadingPlan(planKey);
         try {
-            const priceId = PRICE_IDS[planKey][billing];
-            await createCheckoutSession(currentUser.uid, priceId, () => setLoadingPlan(null));
+            if (hasActiveStripeSub) {
+                // Upgrade/downgrade da assinatura ATUAL no portal do Stripe (com proração),
+                // evitando criar uma segunda assinatura.
+                await createPortalSession({
+                    subscriptionId: stripeSubId,
+                    update: true,
+                    onFinish: () => setLoadingPlan(null),
+                });
+            } else {
+                // Primeiro pagamento — checkout normal (cria a assinatura).
+                const priceId = PRICE_IDS[planKey][billing];
+                await createCheckoutSession(currentUser.uid, priceId, () => setLoadingPlan(null));
+            }
         } catch (error) {
-            console.error('Checkout Error:', error);
-            alert('Erro ao iniciar a assinatura. Tente novamente.');
+            console.error('Plan action error:', error);
+            alert('Erro ao iniciar a alteração de plano. Tente novamente.');
             setLoadingPlan(null);
         }
     };
@@ -114,7 +129,7 @@ export default function UpgradeModal({ isOpen, onClose }) {
                     </button>
                 ) : (
                     <button
-                        onClick={() => handleCheckout(planKey)}
+                        onClick={() => handlePlanAction(planKey)}
                         disabled={!!loadingPlan}
                         className={`w-full py-3.5 rounded-2xl text-white font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 ${a.btn}`}
                     >
