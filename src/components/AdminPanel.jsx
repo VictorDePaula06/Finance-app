@@ -104,19 +104,18 @@ export default function AdminPanel({ onBack }) {
                 const PREMIUM_PRICES = ['price_1TdDwDKAwb86obAGnRhLwlIa', 'price_1TdE1VKAwb86obAGh2h7m4o6'];
                 const stripePriceId = stripeSubData?.items?.[0]?.plan?.id;
 
+                // Regra de billing (igual ao AuthContext): standard/premium SÓ com
+                // Stripe ativo. Vitalício/bloqueio são permissões manuais. Status
+                // manual 'active/standard/premium' NÃO conta mais como pago.
                 let subStatus = 'free';
                 if (manualStatus === 'blocked') subStatus = 'blocked';
                 else if (manualStatus === 'lifetime') subStatus = 'lifetime';
-                else if (manualStatus === 'standard') subStatus = 'standard';
-                else if (manualStatus === 'active') subStatus = 'active';
-                else if (manualStatus === 'free') subStatus = 'free';
                 else if (stripeActive) {
                     if (STANDARD_PRICES.includes(stripePriceId)) subStatus = 'standard';
                     else if (PREMIUM_PRICES.includes(stripePriceId)) subStatus = 'active';
                     else subStatus = 'active';
-                } else if (stripeSubData?.status) {
-                    subStatus = stripeSubData.status;
                 }
+                // Qualquer outro caso permanece 'free' (Gratuito, sem expiração).
 
                 const isLifetime = (subStatus === 'lifetime');
 
@@ -153,26 +152,34 @@ export default function AdminPanel({ onBack }) {
                 const trialStartDate = userData.trialStartDate ? (userData.trialStartDate.toDate ? userData.trialStartDate.toDate() : new Date(userData.trialStartDate)) : null;
                 const baseDate = trialStartDate || createdAt;
 
+                const MS_DAY = 1000 * 60 * 60 * 24;
                 let daysLeft = 0;
                 let isBlocked = subStatus === 'blocked';
-                let isExpired = subStatus === 'expired';
-                let isTrial = false;
+                let isExpired = false;   // Gratuito NUNCA expira; pago vale enquanto ativo no Stripe.
+                // "Teste" só existe via Stripe (status 'trialing') — não há mais trial de app.
+                let isTrial = stripeSubData?.status === 'trialing';
+                let isInactive = false;  // Gratuito sem login há >= 60 dias (2 meses).
 
-                if ((subStatus === 'active' || subStatus === 'standard') && subDate) {
-                    const now = new Date();
-                    const cycle = subType === 'annual' ? 365 : 30;
-                    const diff = Math.floor((now - subDate) / (1000 * 60 * 60 * 24));
-                    if (diff <= cycle) { daysLeft = cycle - diff; }
-                    else { isExpired = true; subStatus = 'expired'; }
-                } else if (isLifetime) {
+                if (isLifetime) {
                     daysLeft = 9999;
-                } else if (baseDate) {
-                    const now = new Date();
-                    const diffDays = Math.ceil((now - baseDate) / (1000 * 60 * 60 * 24));
-                    if (diffDays <= 7) { isTrial = true; daysLeft = 7 - diffDays; }
-                    else { isExpired = true; }
-                } else {
-                    isExpired = true;
+                } else if ((subStatus === 'active' || subStatus === 'standard')) {
+                    // Assinatura paga ativa no Stripe — daysLeft é informativo do ciclo.
+                    if (subDate) {
+                        const now = new Date();
+                        const cycle = subType === 'annual' ? 365 : 30;
+                        const diff = Math.floor((now - subDate) / MS_DAY);
+                        daysLeft = diff <= cycle ? cycle - diff : 0;
+                    }
+                } else if (!isBlocked) {
+                    // Plano Gratuito — acesso permanente (com limites). Verifica apenas
+                    // inatividade: 2 meses sem login pode ser inativado.
+                    const lastLoginRaw = userData.lastLogin;
+                    const lastLoginDate = lastLoginRaw?.toDate ? lastLoginRaw.toDate()
+                        : (lastLoginRaw ? new Date(lastLoginRaw) : baseDate);
+                    if (lastLoginDate) {
+                        const daysSinceLogin = Math.floor((Date.now() - lastLoginDate.getTime()) / MS_DAY);
+                        if (daysSinceLogin >= 60) isInactive = true;
+                    }
                 }
 
                 // isPremium = assinante 'active'. isLifetime é permissão especial separada —
@@ -196,7 +203,7 @@ export default function AdminPanel({ onBack }) {
                     isPremium: finalIsPremium, isStandard: finalIsStandard, isFree: finalIsFree,
                     subType, subStatus, isTrial,
                     subDate: subDate ? subDate.toLocaleDateString('pt-BR') : 'N/A',
-                    daysLeft, isExpired, isLifetime, isBlocked,
+                    daysLeft, isExpired, isInactive, isLifetime, isBlocked,
                     isAdmin: userData.isAdmin === true || isEmailAdmin,
                     isEmailAdmin,
                     pushSubscriptions: userData.pushSubscriptions || [],
@@ -1182,9 +1189,9 @@ export default function AdminPanel({ onBack }) {
                                                             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400 text-[10px] font-semibold border border-rose-500/20">
                                                                 <Ban className="w-2.5 h-2.5" /> Bloqueado
                                                             </div>
-                                                        ) : user.isExpired ? (
-                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-semibold border border-amber-500/20">
-                                                                <Clock className="w-2.5 h-2.5" /> Expirado
+                                                        ) : user.isInactive ? (
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-500/10 text-slate-400 text-[10px] font-semibold border border-slate-500/20">
+                                                                <Clock className="w-2.5 h-2.5" /> Inativo
                                                             </div>
                                                         ) : user.isTrial ? (
                                                             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-semibold border border-blue-500/20">
