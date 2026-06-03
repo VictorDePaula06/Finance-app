@@ -27,16 +27,21 @@ export default async function handler(req, res) {
     }
 
     try {
-        const stripeSecret = process.env.STRIPE_SECRET_KEY;
+        // .trim() evita falhas por espaço/quebra de linha colados junto da chave.
+        const stripeSecret = (process.env.STRIPE_SECRET_KEY || '').trim();
         const saKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
         if (!stripeSecret || !saKey) {
             return res.status(500).json({ success: false, error: 'Faltam variáveis de ambiente (STRIPE_SECRET_KEY ou FIREBASE_SERVICE_ACCOUNT_KEY) na Vercel.' });
+        }
+        if (!stripeSecret.startsWith('sk_') && !stripeSecret.startsWith('rk_')) {
+            return res.status(500).json({ success: false, error: 'STRIPE_SECRET_KEY invalida: deve comecar com sk_ (chave secreta) ou rk_ (chave restrita). Confira se nao colou a chave publicavel (pk_) ou o valor mascarado.' });
         }
 
         if (!getApps().length) {
             initializeApp({ credential: cert(JSON.parse(saKey)) });
         }
-        const stripe = new Stripe(stripeSecret);
+        // Retries e timeout explicitos para erros de rede transitorios.
+        const stripe = new Stripe(stripeSecret, { maxNetworkRetries: 2, timeout: 20000 });
         const db = getFirestore();
         const auth = getAuth();
 
@@ -90,7 +95,14 @@ export default async function handler(req, res) {
 
         return res.status(200).json({ success: true });
     } catch (e) {
-        console.error('upgrade-subscription error:', e);
+        console.error('upgrade-subscription error:', e?.type, e?.message, e);
+        // Mensagens mais claras por tipo de erro do Stripe.
+        if (e?.type === 'StripeAuthenticationError') {
+            return res.status(500).json({ success: false, error: 'Chave secreta do Stripe invalida ou sem permissao (StripeAuthenticationError). Verifique a STRIPE_SECRET_KEY na Vercel.' });
+        }
+        if (e?.type === 'StripeConnectionError') {
+            return res.status(502).json({ success: false, error: 'Falha de conexao com o Stripe (StripeConnectionError). Geralmente e chave invalida/mascarada ou instabilidade momentanea. Tente de novo; se persistir, confira a STRIPE_SECRET_KEY.' });
+        }
         return res.status(500).json({ success: false, error: e?.message || 'Erro ao atualizar a assinatura.' });
     }
 }
