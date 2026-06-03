@@ -27,8 +27,10 @@ const FEATURE_GROUPS = [
 ];
 
 export default function UpgradeModal({ isOpen, onClose }) {
-    const { currentUser, planLevel, isAdmin, stripeSubId } = useAuth();
-    const [billing, setBilling] = useState('monthly');
+    const { currentUser, planLevel, isAdmin, stripeSubId, subType } = useAuth();
+    // Já assinante? Abre o seletor no MESMO ciclo da assinatura atual (anual/mensal),
+    // pra o upgrade acontecer no mesmo intervalo por padrão.
+    const [billing, setBilling] = useState(subType === 'annual' ? 'annual' : 'monthly');
     const [loadingPlan, setLoadingPlan] = useState(null);
 
     if (!isOpen) return null;
