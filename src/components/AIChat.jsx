@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { MessageSquare, X, Send, Bot, User, Sparkles, AlertCircle, Key, Trash2, Loader2, Video, ChevronDown, CheckCircle, Maximize2, Minimize2 } from 'lucide-react';
 import { db } from '../services/firebase';
-import { collection, onSnapshot, query, where, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, addDoc, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { sendMessageToGemini, isGeminiConfigured, validateApiKey, calculateStatsContext } from '../services/gemini';
@@ -47,6 +47,51 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
     const aiLaunchesUsed = (userPrefs?.aiLaunches && userPrefs.aiLaunches.month === currentMonthKey)
         ? (userPrefs.aiLaunches.count || 0)
         : 0;
+
+    // Credita a RESERVA DE EMERGÊNCIA (cofrinho) e debita a carteira — mesma
+    // semântica de "Guardar em Caixinha". Cria a reserva se ainda não existir.
+    const creditEmergencyReserve = async (rawAmount) => {
+        const val = parseFloat(rawAmount) || 0;
+        if (!currentUser || val <= 0) return false;
+        try {
+            const nowIso = new Date().toISOString();
+            // 1) Transação que debita a carteira (aparece em Aportes).
+            await addDoc(collection(db, 'transactions'), {
+                description: 'Investimento: Reserva de Emergência',
+                amount: val,
+                type: 'expense',
+                category: 'investment',
+                date: nowIso,
+                month: nowIso.slice(0, 7),
+                userId: currentUser.uid,
+                createdAt: Date.now(),
+            });
+            // 2) Credita o cofrinho da reserva (cria se não existir).
+            const jarsSnap = await getDocs(query(collection(db, 'savings_jars'), where('userId', '==', currentUser.uid)));
+            const jars = jarsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const target = jars.find(j => /emerg/i.test(j.name || ''))
+                || jars.find(j => /reserva/i.test(j.name || ''));
+            if (target) {
+                const currentBalance = parseFloat(target.balance) || 0;
+                await updateDoc(doc(db, 'savings_jars', target.id), { balance: currentBalance + val, updatedAt: nowIso });
+            } else {
+                await addDoc(collection(db, 'savings_jars'), {
+                    name: 'Reserva de Emergência',
+                    balance: val,
+                    cdiPercent: 100,
+                    type: 'cofrinho',
+                    color: 'emerald',
+                    userId: currentUser.uid,
+                    createdAt: nowIso,
+                    updatedAt: nowIso,
+                });
+            }
+            return true;
+        } catch (e) {
+            console.error('Erro ao creditar reserva de emergência:', e);
+            return false;
+        }
+    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -229,10 +274,59 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                         displayMessage = "Entendido! Processando sua solicitação...";
                     }
 
+                    // Helpers locais p/ o limite do Gratuito (lançamentos pelo chat).
+                    const freeLimitReached = isFreePlan && aiLaunchesUsed >= FREE_AI_LAUNCH_LIMIT;
+                    const bumpFreeLaunch = () => {
+                        if (!isFreePlan) return;
+                        const used = (userPrefs?.aiLaunches && userPrefs.aiLaunches.month === currentMonthKey)
+                            ? (userPrefs.aiLaunches.count || 0) : 0;
+                        saveUserPreferences({ aiLaunches: { month: currentMonthKey, count: used + 1 } });
+                    };
+                    const freeLimitMsg = `\n\n🔒 Você atingiu o limite de **${FREE_AI_LAUNCH_LIMIT} lançamentos pelo chat da Alívia neste mês** (plano Gratuito). Faça upgrade para lançar sem limites — o contador renova no início do próximo mês.`;
+                    const restanteTxt = () => isFreePlan ? `\n\n_Restam ${Math.max(0, FREE_AI_LAUNCH_LIMIT - (aiLaunchesUsed + 1))} lançamentos pelo chat neste mês (plano Gratuito)._` : '';
+
+                    // RESERVA DE EMERGÊNCIA — credita o cofrinho (nunca aporte solto no patrimônio).
+                    const isReserveAporte = command.action === 'add_to_reserve'
+                        || (command.action === 'add_transaction'
+                            && ['investment', 'vault'].includes(command.data?.category)
+                            && /(reserva|emerg[êe]ncia|cofr|guardar|poupar)/.test((inputMsg || '').toLowerCase()));
+
+                    if (isReserveAporte) {
+                        if (freeLimitReached) {
+                            displayMessage += freeLimitMsg;
+                        } else {
+                            const val = parseFloat(sanitizeAIValue(command.data?.amount)) || 0;
+                            if (val <= 0) {
+                                displayMessage += `\n\n⚠️ Não entendi o valor para guardar na reserva. Ex: "guardar R$ 500 na reserva de emergência".`;
+                            } else {
+                                const ok = await creditEmergencyReserve(val);
+                                if (ok) {
+                                    bumpFreeLaunch();
+                                    displayMessage += `\n\n✅ **Guardado na Reserva de Emergência:** R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${restanteTxt()}`;
+                                } else {
+                                    displayMessage += `\n\n❌ Não consegui guardar na reserva agora. Tente novamente.`;
+                                }
+                            }
+                        }
+                        setMessages(prev => [...prev, { role: 'model', text: displayMessage, timestamp: new Date().toISOString() }]);
+                        setIsLoading(false);
+                        clearTimeout(safetyReset);
+                        return;
+                    }
+
+                    // BLOQUEIO — aporte em investimento/patrimônio não pode ser feito pelo chat.
+                    if (command.action === 'add_transaction' && ['investment', 'vault'].includes(command.data?.category)) {
+                        displayMessage += `\n\n📌 Aportes em **investimentos/patrimônio** não são lançados pelo chat. Registre manualmente no **Módulo Patrimônio → Investimentos**. (Se você quis a *reserva de emergência*, é só dizer "guardar na reserva de emergência".)`;
+                        setMessages(prev => [...prev, { role: 'model', text: displayMessage, timestamp: new Date().toISOString() }]);
+                        setIsLoading(false);
+                        clearTimeout(safetyReset);
+                        return;
+                    }
+
                     if (command.action === 'add_transaction') {
                         // Limite do Gratuito: 4 lançamentos/mês pelo chat da Alívia.
-                        if (isFreePlan && aiLaunchesUsed >= FREE_AI_LAUNCH_LIMIT) {
-                            displayMessage += `\n\n🔒 Você atingiu o limite de **${FREE_AI_LAUNCH_LIMIT} lançamentos pelo chat da Alívia neste mês** (plano Gratuito). Faça upgrade para lançar sem limites — o contador renova no início do próximo mês.`;
+                        if (freeLimitReached) {
+                            displayMessage += freeLimitMsg;
                             setMessages(prev => [...prev, { role: 'model', text: displayMessage, timestamp: new Date().toISOString() }]);
                             setIsLoading(false);
                             clearTimeout(safetyReset);
@@ -281,18 +375,11 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                             ]);
                             if (success) {
                                 // Contabiliza o lançamento do Gratuito (limite mensal).
-                                if (isFreePlan) {
-                                    const used = (userPrefs?.aiLaunches && userPrefs.aiLaunches.month === currentMonthKey)
-                                        ? (userPrefs.aiLaunches.count || 0)
-                                        : 0;
-                                    saveUserPreferences({ aiLaunches: { month: currentMonthKey, count: used + 1 } });
-                                }
+                                bumpFreeLaunch();
                                 const formaTxt = sanitizedData.paymentMethod === 'credito'
                                     ? ` no cartão ${cards.find(c => c.id === sanitizedData.selectedCardId)?.name || ''}`.trimEnd()
                                     : '';
-                                const restante = isFreePlan ? Math.max(0, FREE_AI_LAUNCH_LIMIT - (aiLaunchesUsed + 1)) : null;
-                                const restanteTxt = isFreePlan ? `\n\n_Restam ${restante} lançamentos pelo chat neste mês (plano Gratuito)._` : '';
-                                displayMessage += `\n\n✅ **Lançamento salvo:** ${sanitizedData.description} (R$ ${sanitizedData.amount.toLocaleString('pt-BR')})${formaTxt}${restanteTxt}`;
+                                displayMessage += `\n\n✅ **Lançamento salvo:** ${sanitizedData.description} (R$ ${sanitizedData.amount.toLocaleString('pt-BR')})${formaTxt}${restanteTxt()}`;
                             } else {
                                 displayMessage += `\n\n❌ **Erro:** Não foi possível salvar a transação.`;
                             }

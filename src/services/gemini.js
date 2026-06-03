@@ -325,7 +325,12 @@ NÃO use "add_transaction" para tudo. Analise o que o usuário pediu:
   • "conta fixa", "conta de internet/luz/água/aluguel/mensalidade", "todo mês" → use **add_fixed_expense**
   • "assinatura", "Netflix/Spotify/plano recorrente", "assinatura no cartão" → use **add_subscription**
   • "parcelei", "comprei em Nx", "X vezes no cartão", "parcelamento" → use **add_installment**
+  • "guardar na reserva", "reserva de emergência", "guardar/poupar pra emergência" → use **add_to_reserve**
   • gasto/ganho avulso do dia a dia (mercado, uber, salário, etc.) → use **add_transaction**
+
+⚠️ APORTES — REGRA OBRIGATÓRIA:
+  • Reserva de emergência → SEMPRE use **add_to_reserve** (credita o cofrinho da reserva e debita a carteira).
+  • Aportes em INVESTIMENTOS ou PATRIMÔNIO (ações, Tesouro, CDB, cripto, fundos, "aporte no patrimônio", "investir em X") NÃO podem ser lançados pelo chat. NUNCA use add_transaction com category "investment" ou "vault". Em vez disso, oriente o usuário com gentileza a fazer manualmente no **Módulo Patrimônio → Investimentos**.
 
 Se o usuário mencionar um cartão (ex: "no nubank", "no cartão"), inclua "cardName".
 
@@ -384,6 +389,15 @@ Se o usuário mencionar um cartão (ex: "no nubank", "no cartão"), inclua "card
     "invested": "opcional", "income": "opcional", "fixedExpenses": "opcional"
 } }
 \`\`\`
+
+6. **add_to_reserve** — guardar dinheiro na RESERVA DE EMERGÊNCIA (cofrinho). Use SEMPRE que o usuário pedir para guardar/aportar na reserva de emergência. Credita o cofrinho e desconta da carteira:
+\`\`\`json
+{ "action": "add_to_reserve", "data": {
+    "amount": "500.00",
+    "description": "Reserva de Emergência (opcional)"
+} }
+\`\`\`
+(NUNCA lance reserva de emergência como add_transaction/investment — use SEMPRE add_to_reserve.)
 
 REGRAS TÉCNICAS:
 - **Formato do Valor**: Use somente números decimais (Ex: "4500.00"). NUNCA use pontos de milhar (Ex: NUNCA use "4.500,00").
