@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
     TrendingUp, 
     TrendingDown, 
@@ -35,6 +35,52 @@ import TrialLimitModal from './TrialLimitModal';
 import { ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Tooltip as ReTooltip } from 'recharts';
 import { BarChart3, Layers, List, Sparkles } from 'lucide-react';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
+
+// Monta a lista de fontes de logo (em ordem) para um ativo. Tentamos várias
+// fontes porque nenhuma cobre 100% dos tickers (BDRs brasileiros, ETFs novos,
+// etc.). Quando todas falham, exibimos um monograma com o ticker.
+function buildLogoCandidates(asset) {
+    const sym = (asset.symbol || '').trim();
+    if (!sym) return [];
+    if (asset.type === 'crypto') {
+        const s = sym.toLowerCase();
+        return [
+            `https://assets.coincap.io/assets/icons/${s}@2x.png`,
+        ];
+    }
+    const up = sym.toUpperCase();
+    return [
+        `https://financialmodelingprep.com/image-stock/${up}.png`,
+        `https://assets.parqet.com/logos/symbol/${up}?format=png`,
+    ];
+}
+
+// Logo do ativo com fallback em cadeia + monograma profissional como último recurso.
+function AssetLogo({ asset, MC }) {
+    const candidates = useMemo(() => buildLogoCandidates(asset), [asset.symbol, asset.type]);
+    const [idx, setIdx] = useState(0);
+
+    useEffect(() => { setIdx(0); }, [asset.symbol, asset.type]);
+
+    const monogram = (asset.symbol || asset.name || '')
+        .replace(/[^A-Za-z0-9]/g, '')
+        .slice(0, 2)
+        .toUpperCase() || '•';
+
+    if (candidates.length === 0 || idx >= candidates.length) {
+        return <span className={`text-[11px] font-black leading-none ${MC.color}`}>{monogram}</span>;
+    }
+
+    return (
+        <img
+            src={candidates[idx]}
+            alt={asset.symbol || asset.name || ''}
+            className="w-full h-full object-contain bg-white p-1"
+            loading="lazy"
+            onError={() => setIdx(i => i + 1)}
+        />
+    );
+}
 
 export default function InvestmentsTab() {
     const { theme } = useTheme();
@@ -1132,14 +1178,7 @@ export default function InvestmentsTab() {
                                             <div className="flex items-center gap-4">
                                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${MC.bg} overflow-hidden relative`}>
                                                     {asset.symbol || asset.name ? (
-                                                        <>
-                                                            <img
-                                                                src={asset.type === 'crypto' ? `https://assets.coincap.io/assets/icons/${(asset.symbol || 'btc').toLowerCase()}@2x.png` : `https://financialmodelingprep.com/image-stock/${(asset.symbol || '').toUpperCase()}.png`}
-                                                                className="w-full h-full object-contain bg-white p-1 z-10"
-                                                                onError={(e) => { e.target.style.display = 'none'; if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'block'; }}
-                                                            />
-                                                            <MC.icon className={`w-4 h-4 ${MC.color} absolute z-0`} style={{ display: 'none' }} />
-                                                        </>
+                                                        <AssetLogo asset={asset} MC={MC} />
                                                     ) : (
                                                         <MC.icon className={`w-4 h-4 ${MC.color}`} />
                                                     )}
