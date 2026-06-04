@@ -512,43 +512,20 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                     </div>
                 </div>
             ) : (
-                /* ABA 2: RESGATES */
-                <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="flex justify-center">
-                        <button 
-                            onClick={() => setShowRescueModal(true)}
-                            className={`flex items-center gap-3 px-5 py-2.5 rounded-lg border font-bold text-xs uppercase tracking-wider transition-all hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(59,130,246,0.15)] ${
-                                theme === 'light' 
-                                ? 'bg-blue-600 text-white border-blue-500' 
-                                : 'bg-blue-600 text-white border-blue-500'
-                            }`}
-                        >
-                            <Landmark className="w-5 h-5" />
-                            Realizar Resgate de Investimento
-                        </button>
-                    </div>
-
-                    <div className={`p-6 md:p-8 rounded-2xl border shadow-sm ${
-                        theme === 'light' ? 'bg-white border-blue-100/50 shadow-blue-500/5' : 'bg-[#1e2330] border-blue-500/10'
-                    }`}>
-                        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-blue-500/10 rounded-2xl">
-                                    <Landmark className="w-6 h-6 text-blue-500" />
-                                </div>
-                                <div>
-                                    <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                                        Histórico de Resgates
-                                    </h3>
-                                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Movimentações de Patrimônio → Carteira</p>
-                                </div>
+                /* ABA 2: RESGATES — mesmo padrão da aba Recebimentos (botão dentro do card) */
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className={`p-8 rounded-2xl ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+                            <div>
+                                <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Resgates de {selectedMonthName}</h3>
+                                <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mt-1">Movimentações de Patrimônio → Carteira</p>
                             </div>
-                            <div className="text-right px-4 py-2 bg-blue-500/5 rounded-2xl border border-blue-500/10">
-                                <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">Total Resgatado ({monthLabel.split(' ')[0]})</span>
-                                <span className={`text-2xl font-bold ${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`}>
-                                    R$ {totalRedemptionMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                </span>
-                            </div>
+                            <button
+                                onClick={() => setShowRescueModal(true)}
+                                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(59,130,246,0.15)]"
+                            >
+                                <Landmark className="w-4 h-4" /> Realizar Resgate
+                            </button>
                         </div>
 
                         <div className="space-y-4">
@@ -598,6 +575,13 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                     </div>
                                 ))
                             )}
+                        </div>
+
+                        {/* Total Footer — padrão da aba Recebimentos */}
+                        <div className={`mt-6 p-4 rounded-lg flex justify-end ${theme === 'light' ? 'bg-slate-100' : 'bg-slate-700/30'}`}>
+                            <div className={`text-xs uppercase tracking-wider ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
+                                Total Resgatado (Mês): <span className={`font-bold text-sm ml-1 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{formatCurrency(totalRedemptionMonth)}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
