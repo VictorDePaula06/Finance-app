@@ -543,7 +543,12 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             let invDataToSave = null;
             let existingInvId = null;
 
-            if (destinationType === 'jar') {
+            // "Aporte no Patrimônio": NÃO cria caixinha/reserva nem investimento.
+            // Só registra a saída do saldo; o usuário cadastra o ativo manualmente
+            // no Módulo Construção de Patrimônio.
+            const patrimonioOnly = investMode === 'patrimonio';
+
+            if (!patrimonioOnly && destinationType === 'jar') {
                 if (selectedDestination && !isNewReserve) {
                     // UPDATE EXISTING JAR
                     const jarId = selectedDestination.replace('jar_', '');
@@ -577,7 +582,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                         updatedAt: now.toISOString()
                     };
                 }
-            } else if (destinationType === 'inv') {
+            } else if (!patrimonioOnly && destinationType === 'inv') {
                 if (selectedDestination && !isNewReserve) {
                     const invId = selectedDestination.replace('inv_', '');
                     const inv = investments.find(i => i.id === invId);
@@ -629,6 +634,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     inv: invDataToSave,
                     invId: existingInvId,
                     destinationType,
+                    patrimonioOnly,
                     amount: val,
                     itemName: description ? `Aporte: ${description}` : 'Este aporte'
                 });
@@ -686,13 +692,17 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             } else if (pendingSave.type === 'investment') {
                 await addDoc(collection(db, 'transactions'), pendingSave.transaction);
 
-                if (pendingSave.destinationType === 'jar') {
+                // "Aporte no Patrimônio": NÃO cria caixinha nem investimento — só debita
+                // o saldo. O usuário cadastra o ativo manualmente no módulo Patrimônio.
+                if (pendingSave.patrimonioOnly) {
+                    setSavedToPatrimonio(true);
+                } else if (pendingSave.destinationType === 'jar' && pendingSave.jar) {
                     if (pendingSave.jarId) {
                         await updateDoc(doc(db, 'savings_jars', pendingSave.jarId), pendingSave.jar);
                     } else {
                         await addDoc(collection(db, 'savings_jars'), pendingSave.jar);
                     }
-                } else if (pendingSave.destinationType === 'inv') {
+                } else if (pendingSave.destinationType === 'inv' && pendingSave.inv) {
                     if (pendingSave.invId) {
                         await updateDoc(doc(db, 'investments', pendingSave.invId), pendingSave.inv);
                     } else {
