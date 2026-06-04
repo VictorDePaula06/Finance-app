@@ -26,10 +26,12 @@ import {
   Activity,
   CheckCircle2,
   AlertTriangle,
-  Umbrella
+  Umbrella,
+  RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { usePwaUpdate } from '../contexts/PwaUpdateContext';
 import { isLifetimeEmail } from '../constants/admins';
 import logo from '../assets/logo.png';
 import { version } from '../../package.json';
@@ -37,6 +39,7 @@ import { version } from '../../package.json';
 const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, setActiveModule, healthScore }) => {
   const { currentUser, logout, isAdmin, isLifetime, subType, planLevel } = useAuth();
   const { theme } = useTheme();
+  const { needRefresh, pendingVersion, updateNow, dismiss } = usePwaUpdate();
 
   // Premium "de verdade" (libera tudo): premium, vitalício ou admin.
   const isPremiumPlan = planLevel === 'premium' || planLevel === 'lifetime' || isLifetime || isAdmin;
@@ -400,6 +403,29 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
           <div className={`pt-1.5 mt-1.5 border-t ${theme === 'light' ? 'border-slate-100' : 'border-white/5'}`}>
             {renderNavItem({ id: 'ajustes', label: 'Ajustes', icon: Settings })}
           </div>
+
+          {/* Aviso de nova versão — discreto, abaixo de Ajustes */}
+          {needRefresh && (
+            <div className={`mt-2 p-2.5 rounded-xl border relative ${theme === 'light' ? 'bg-emerald-50 border-emerald-100' : 'bg-emerald-500/[0.07] border-emerald-500/20'}`}>
+              <button onClick={dismiss} title="Dispensar" className="absolute top-1.5 right-1.5 p-0.5 rounded text-slate-400 hover:text-slate-600 transition-colors">
+                <X className="w-3 h-3" />
+              </button>
+              <div className="flex items-center gap-2 mb-1.5">
+                <RefreshCw className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span className={`text-[11px] font-black ${theme === 'light' ? 'text-emerald-700' : 'text-emerald-300'}`}>Nova versão</span>
+                {pendingVersion && (
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/20 text-emerald-300'}`}>v{pendingVersion}</span>
+                )}
+              </div>
+              <p className="text-[10px] text-slate-500 leading-snug mb-2">Atualize para a versão mais recente.</p>
+              <button
+                onClick={updateNow}
+                className="w-full py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider transition-all active:scale-95"
+              >
+                Atualizar agora
+              </button>
+            </div>
+          )}
 
         </nav>
 

@@ -3,20 +3,27 @@ import { precacheAndRoute } from 'workbox-precaching';
 // v5.0.4 - Fix Workbox imports
 // v6.1.0 - Robust Push Handling
 // v7.3.0 - Update via prompt (sem skipWaiting automatico; evita loop de reload)
-const SW_VERSION = 'v7.3.0';
+// v7.4.0 - clients.claim no activate p/ o "Atualizar agora" recarregar de fato
+const SW_VERSION = 'v7.4.0';
 
 // Precache de todos os assets do Vite
 precacheAndRoute(self.__WB_MANIFEST)
 
 // NAO chamamos skipWaiting() no install de proposito: o SW novo fica em
-// "waiting" ate o usuario clicar em "Atualizar" no toast. So entao o cliente
-// envia a mensagem SKIP_WAITING e o browser ativa a nova versao + recarrega
-// (uma unica vez, gerenciado pelo virtual:pwa-register). Isso evita o ciclo
-// de reload infinito que o skipWaiting automatico causava.
+// "waiting" ate o usuario clicar em "Atualizar". So entao o cliente envia
+// SKIP_WAITING e ativamos a nova versao. (Evita loop de reload automatico.)
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+});
+
+// Ao ativar (depois do skipWaiting acionado pelo usuario), assume o controle
+// das abas abertas. Isso dispara o evento 'controllerchange' no cliente, que o
+// virtual:pwa-register usa para recarregar a pagina uma unica vez. Sem isso, o
+// botao "Atualizar agora" nao recarregava (a aba seguia controlada pelo SW antigo).
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
 });
 
 // Listener para o evento de PUSH (Notificações Nativas)

@@ -1,11 +1,28 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { writeFileSync, readFileSync } from 'fs'
+import { resolve } from 'path'
+
+// Gera /version.json no build com a versão atual — usado pelo app para mostrar
+// qual versão nova está pendente quando há atualização do PWA.
+function versionJsonPlugin() {
+  return {
+    name: 'write-version-json',
+    closeBundle() {
+      try {
+        const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'))
+        writeFileSync(resolve(__dirname, 'dist/version.json'), JSON.stringify({ version: pkg.version }))
+      } catch { /* noop */ }
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
+    versionJsonPlugin(),
     VitePWA({
       strategies: 'injectManifest',
       srcDir: 'src',

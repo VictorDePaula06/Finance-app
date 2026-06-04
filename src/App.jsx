@@ -15,7 +15,6 @@ import Manual from './components/Manual';
 import PanicButton from './components/PanicButton';
 import { generateSundayBreath } from './utils/sundayBreath';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
-import ReloadPrompt from './components/ReloadPrompt';
 import MonthlyReviewModal from './components/MonthlyReviewModal';
 import { generateMonthlyReview } from './services/gemini';
 import { CATEGORIES } from './constants/categories';
@@ -636,8 +635,6 @@ function Dashboard() {
             {/* Ações do topo movidas: a config fica no botão "Configurar" da Visão Geral. */}
             <div className="shrink-0" />
           </div>
-          {/* Toast de nova versão — sempre montado (portal). */}
-          <ReloadPrompt />
 
           {activeTab === 'visao' && (() => {
             // Visão Geral unificada (layout em 2 colunas) — ativa em produção.
