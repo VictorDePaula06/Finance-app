@@ -3,6 +3,7 @@ import { Wallet, PiggyBank, TrendingUp, TrendingDown, ArrowUpCircle, ArrowDownCi
 import aliviaFinal from '../assets/alivia/alivia-final.png';
 import AliviaConfigForm from './AliviaConfigForm';
 import { calculatePatrimonyHealthScore } from '../utils/healthScore';
+import { OBJECTIVE_LABELS_SHORT, RISK_LABELS } from '../constants/onboarding';
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer, AreaChart, Area, LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from 'recharts';
 import ReactMarkdown from 'react-markdown';
 import { generatePatrimonyAnalysis, isGeminiConfigured } from '../services/gemini';
@@ -465,11 +466,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
     }
 
     // 2. Alinhamento objetivo × perfil de risco
-    const OBJ_LABELS = {
-      independence: 'independência financeira', start: 'começar a investir',
-      debt: 'sair das dívidas', goal: 'conquistar um bem', control: 'controle total',
-    };
-    const PROFILE_LABELS = { conservative: 'conservador', moderate: 'moderado', aggressive: 'arrojado' };
+    const profLabel = RISK_LABELS[riskProfile] ? RISK_LABELS[riskProfile].toLowerCase() : riskProfile;
     if (objectives.length > 0 && riskProfile) {
       const obj = objectives[0];
       if (obj === 'debt') {
@@ -479,12 +476,26 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
       } else if (obj === 'independence' && riskProfile === 'conservative') {
         parts.push('Objetivo de independência com perfil conservador — bom para preservar capital, porém o crescimento tende a ser mais lento.');
       } else if (obj === 'start') {
-        parts.push(`Iniciando os investimentos com perfil ${PROFILE_LABELS[riskProfile] || riskProfile} — ótimo momento para criar consistência nos aportes.`);
+        parts.push(`Iniciando os investimentos com perfil ${profLabel} — ótimo momento para criar consistência nos aportes.`);
       } else {
-        parts.push(`Objetivo: ${OBJ_LABELS[obj] || obj}. Perfil ${PROFILE_LABELS[riskProfile] || riskProfile} — estratégia alinhada.`);
+        parts.push(`Objetivo: ${OBJECTIVE_LABELS_SHORT[obj] || obj}. Perfil ${profLabel} — estratégia alinhada.`);
       }
     } else if (!riskProfile && objectives.length === 0) {
       parts.push('Configure seu perfil e objetivos em "Configurar Alívia" para análise personalizada.');
+    }
+
+    // 2b. Meta financeira e aporte mensal informados no onboarding
+    const goalValue = parseFloat(userPrefs?.onboarding?.patrimonyGoalValue) || 0;
+    const goalType  = userPrefs?.onboarding?.patrimonyGoalType || '';
+    const aporte    = parseFloat(userPrefs?.onboarding?.monthlyContribution) || 0;
+    const currentTotal = jarsTotal + investmentsTotal;
+    if (goalValue > 0) {
+      const pct = Math.min(100, Math.round((currentTotal / goalValue) * 100));
+      const goalName = goalType === 'imovel' ? 'comprar seu imóvel' : 'atingir seu patrimônio-alvo';
+      parts.push(`Meta de R$ ${fmt(goalValue)} para ${goalName}: você já está em ${pct}% do caminho.`);
+    }
+    if (aporte > 0) {
+      parts.push(`Mantendo aportes de R$ ${fmt(aporte)}/mês, você acelera esse ritmo de forma consistente.`);
     }
 
     // 3. Análise geral dos ativos por categoria

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Landmark, ArrowRight, ShieldCheck, TrendingUp, CheckCircle2, Plus, Trash2, Home, Gem, Info } from 'lucide-react';
+import { Landmark, ArrowRight, ShieldCheck, TrendingUp, CheckCircle2, Plus, Trash2, Home, Gem, Info, PiggyBank } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -41,6 +41,7 @@ const STEPS_PREVIEW = [
   { emoji: '🎯', label: 'Objetivos' },
   { emoji: '📊', label: 'Perfil' },
   { emoji: '💎', label: 'Meta' },
+  { emoji: '💰', label: 'Aporte' },
   { emoji: '🛡️', label: 'Reservas' },
   { emoji: '📈', label: 'Investimentos' },
 ];
@@ -77,6 +78,7 @@ export default function PatrimonyWelcome({ onComplete }) {
   const [debtName, setDebtName]     = useState('');
   const [debtValue, setDebtValue]   = useState('');
   const [reserveGoal, setReserveGoal] = useState('');
+  const [monthlyContribution, setMonthlyContribution] = useState('');
 
   const [reserves, setReserves]       = useState([{ id: 1, name: '', value: '', cdi: '100' }]);
   const [investments, setInvestments] = useState([{ id: 1, type: 'acoes', ticker: '', name: '', quantity: '', purchasePrice: '', isUSD: false, purchaseDate: '' }]);
@@ -92,7 +94,13 @@ export default function PatrimonyWelcome({ onComplete }) {
   const infoBox = isDark ? 'bg-white/5 border border-white/10' : 'bg-slate-50 border border-slate-200';
 
   const firstName  = currentUser?.displayName?.split(' ')[0] || 'você';
-  const totalSteps = 6;
+  const totalSteps = 7;
+
+  // Renda já configurada no Controle de Gastos — reutilizada aqui (não pedimos de novo).
+  const baseIncome = parseFloat(userPrefs?.manualConfig?.income) || 0;
+  const contribPct = baseIncome > 0 && parseFloat(monthlyContribution) > 0
+    ? Math.round((parseFloat(monthlyContribution) / baseIncome) * 100)
+    : 0;
 
   // ── handlers ──────────────────────────────────────────────────────────────
 
@@ -217,8 +225,17 @@ export default function PatrimonyWelcome({ onComplete }) {
         riskProfile: riskProfile || onboarding.riskProfile || '',
         patrimonyGoalType: patrimonyGoalType || onboarding.patrimonyGoalType || '',
         patrimonyGoalValue: patrimonyGoalValue ? parseFloat(patrimonyGoalValue) : (onboarding.patrimonyGoalValue || 0),
+        monthlyContribution: parseFloat(monthlyContribution) > 0 ? parseFloat(monthlyContribution) : (onboarding.monthlyContribution || 0),
+        investmentPercent: (baseIncome > 0 && parseFloat(monthlyContribution) > 0)
+          ? Math.round((parseFloat(monthlyContribution) / baseIncome) * 100)
+          : (typeof onboarding.investmentPercent === 'number' ? onboarding.investmentPercent : 0),
       },
     });
+
+    // Pré-preenche o aporte da aba Independência para manter consistência.
+    if (parseFloat(monthlyContribution) > 0) {
+      try { localStorage.setItem('fire_aporte', String(parseFloat(monthlyContribution))); } catch { /* noop */ }
+    }
 
     setIsSaving(false);
     onComplete();
@@ -262,7 +279,7 @@ export default function PatrimonyWelcome({ onComplete }) {
               {/* Prévia das etapas */}
               <div className={`p-4 rounded-xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
                 <p className={`text-[10px] font-black uppercase tracking-widest mb-3 ${sub}`}>O que vamos configurar agora</p>
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-6 gap-2">
                   {STEPS_PREVIEW.map((s, i) => (
                     <div key={i} className="flex flex-col items-center gap-1 text-center">
                       <span className="text-xl">{s.emoji}</span>
@@ -314,7 +331,7 @@ export default function PatrimonyWelcome({ onComplete }) {
                 <div className={`p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300`}>
                   <div>
                     <h3 className={`text-sm font-bold ${text}`}>Sobre a sua dívida</h3>
-                    <p className={`text-[11px] mt-0.5 ${sub}`}>Vamos criar uma meta automática para você acompanhar e quitar esse valor na aba Metas.</p>
+                    <p className={`text-[11px] mt-0.5 ${sub}`}>Vamos registrar essa dívida na aba <strong>Gerenciamento de Dívidas</strong> para você acompanhar e quitar com a ajuda da Alívia.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -424,11 +441,81 @@ export default function PatrimonyWelcome({ onComplete }) {
             </div>
           )}
 
-          {/* ── STEP 4: Reservas de emergência ─────────────────────────── */}
+          {/* ── STEP 4: Aporte mensal ───────────────────────────────────── */}
           {step === 4 && (
             <div className="flex flex-col gap-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">04 — RESERVA DE EMERGÊNCIA</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">04 — APORTE MENSAL</p>
+                <h2 className={`text-xl font-black ${text}`}>Quanto você quer investir por mês?</h2>
+                <p className={`text-xs mt-1 ${sub}`}>
+                  Esse é o motor do seu patrimônio. A Alívia usa esse valor para projetar quando você atinge suas metas e para entender se você está investindo o suficiente.
+                </p>
+              </div>
+
+              {baseIncome > 0 ? (
+                <div className={`flex items-start gap-2.5 p-3.5 rounded-xl ${isDark ? 'bg-emerald-500/5 border border-emerald-500/20' : 'bg-emerald-50 border border-emerald-200'}`}>
+                  <PiggyBank className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-emerald-700 dark:text-emerald-400 leading-relaxed">
+                    Sua renda mensal já configurada é <strong>R$ {baseIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>. Use os atalhos abaixo ou digite o valor que pretende guardar todo mês.
+                  </p>
+                </div>
+              ) : (
+                <div className={`flex items-start gap-2.5 p-3.5 rounded-xl ${infoBox}`}>
+                  <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                  <p className={`text-[11px] ${sub}`}>
+                    Você ainda não informou sua renda mensal. Pode digitar o aporte direto aqui — e definir a renda depois em <strong>Configurar Alívia</strong>.
+                  </p>
+                </div>
+              )}
+
+              <div className={`p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5`}>
+                <label className={lbl}>Aporte mensal (R$)</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={monthlyContribution}
+                  onChange={e => setMonthlyContribution(e.target.value)}
+                  placeholder="Ex: 500"
+                  className={inp}
+                />
+                {baseIncome > 0 && contribPct > 0 && (
+                  <p className={hint}>Equivale a <strong>{contribPct}%</strong> da sua renda mensal.</p>
+                )}
+
+                {baseIncome > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                    {[10, 20, 30].map(p => {
+                      const val = Math.round(baseIncome * p / 100);
+                      const active = parseFloat(monthlyContribution) === val;
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setMonthlyContribution(String(val))}
+                          className={`py-2 rounded-lg border text-xs font-bold transition-all ${active ? 'border-emerald-500 bg-emerald-500/15 text-emerald-500' : isDark ? 'border-white/10 bg-white/5 text-slate-300 hover:border-white/20' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
+                        >
+                          {p}% · R$ {val.toLocaleString('pt-BR')}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className={`flex items-start gap-2.5 p-3.5 rounded-xl ${infoBox}`}>
+                <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                <p className={`text-[11px] ${sub}`}>
+                  Etapa opcional. Uma referência saudável é investir de <strong>10% a 30%</strong> da renda. Você pode ajustar isso quando quiser.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ── STEP 5: Reservas de emergência ─────────────────────────── */}
+          {step === 5 && (
+            <div className="flex flex-col gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">05 — RESERVA DE EMERGÊNCIA</p>
                 <h2 className={`text-xl font-black ${text}`}>Você tem uma reserva guardada?</h2>
                 <p className={`text-xs mt-1 ${sub}`}>
                   Reserva de emergência é o dinheiro em aplicações seguras e de fácil acesso — como Nubank, Tesouro Selic ou CDB com liquidez diária.
@@ -495,11 +582,11 @@ export default function PatrimonyWelcome({ onComplete }) {
             </div>
           )}
 
-          {/* ── STEP 5: Investimentos ───────────────────────────────────── */}
-          {step === 5 && (
+          {/* ── STEP 6: Investimentos ───────────────────────────────────── */}
+          {step === 6 && (
             <div className="flex flex-col gap-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">05 — INVESTIMENTOS</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">06 — INVESTIMENTOS</p>
                 <h2 className={`text-xl font-black ${text}`}>Seus investimentos atuais</h2>
                 <p className={`text-xs mt-1 ${sub}`}>Cadastre os ativos que você já possui — ações, FIIs, cripto, renda fixa ou imóveis.</p>
               </div>

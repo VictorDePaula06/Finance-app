@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { CATEGORIES } from '../constants/categories.js';
+import { OBJECTIVE_LABELS, RISK_LABELS } from '../constants/onboarding.js';
 import { calculateFutureProjections, calculateCumulativeBalance } from '../utils/financialLogic.js';
 import { calculateHealthScore } from '../utils/healthScore.js';
 
@@ -240,9 +241,11 @@ ${invText}
 - PLANO ATUAL DO USUÁRIO: ${planLevel === 'premium' ? 'Premium (acesso total)' : planLevel === 'standard' ? 'Standard (só Controle de Gastos)' : planLevel === 'lifetime' ? 'Vitalício (acesso total)' : 'Gratuito (com limites)'}
 
 - CONFIGURAÇÃO PERSONALIZADA DA ALÍVIA (definida pelo usuário no botão "Configurar Alívia"):
-  • Objetivos Financeiros: ${onboarding.objectives && onboarding.objectives.length > 0 ? onboarding.objectives.join(', ') : 'Não especificado'}
-  • Perfil de Risco do Investidor: ${onboarding.riskProfile || 'Não especificado'} (use isso para validar se a alocação atual está coerente)
-  • % da Renda Alvo para Investir: ${typeof onboarding.investmentPercent === 'number' ? onboarding.investmentPercent + '%' : 'Não definido'} ${typeof onboarding.investmentPercent === 'number' && monthlyIncome !== 'Não informado' ? `(equivale a R$ ${(parseFloat(monthlyIncome) * onboarding.investmentPercent / 100).toFixed(2)}/mês)` : ''}
+  • Objetivos Financeiros: ${onboarding.objectives && onboarding.objectives.length > 0 ? onboarding.objectives.map(o => OBJECTIVE_LABELS[o] || o).join(', ') : 'Não especificado'} ${onboarding.objectives && onboarding.objectives.includes('debt') ? '(PRIORIDADE MÁXIMA: sair das dívidas vem antes de investir)' : ''}
+  • Perfil de Risco do Investidor: ${onboarding.riskProfile ? (RISK_LABELS[onboarding.riskProfile] || onboarding.riskProfile) : 'Não especificado'} (use isso para validar se a alocação atual está coerente)
+  • Grande Meta Financeira: ${onboarding.patrimonyGoalType ? `${onboarding.patrimonyGoalType === 'imovel' ? 'Comprar um imóvel' : 'Atingir um patrimônio total'}${onboarding.patrimonyGoalValue > 0 ? ` de R$ ${parseFloat(onboarding.patrimonyGoalValue).toFixed(2)}` : ''}` : 'Não definida'}
+  • Aporte Mensal Pretendido: ${onboarding.monthlyContribution > 0 ? `R$ ${parseFloat(onboarding.monthlyContribution).toFixed(2)}/mês${typeof onboarding.investmentPercent === 'number' && onboarding.investmentPercent > 0 ? ` (~${onboarding.investmentPercent}% da renda)` : ''} (compare com a sobra real do mês para dizer se ele está conseguindo cumprir esse aporte)` : 'Não definido'}
+  • % da Renda Alvo para Investir: ${typeof onboarding.investmentPercent === 'number' && onboarding.investmentPercent > 0 ? onboarding.investmentPercent + '%' : 'Não definido'} ${typeof onboarding.investmentPercent === 'number' && onboarding.investmentPercent > 0 && monthlyIncome !== 'Não informado' ? `(equivale a R$ ${(parseFloat(monthlyIncome) * onboarding.investmentPercent / 100).toFixed(2)}/mês)` : ''}
   • Margem de Segurança por Categoria (tetos definidos pelo usuário):
 ${manualConfig?.categoryBudgets && Object.keys(manualConfig.categoryBudgets).filter(k => manualConfig.categoryBudgets[k] && parseFloat(manualConfig.categoryBudgets[k]) > 0).length > 0
   ? Object.entries(manualConfig.categoryBudgets)

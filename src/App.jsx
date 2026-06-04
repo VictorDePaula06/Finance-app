@@ -35,6 +35,7 @@ import SettingsTab from './components/SettingsTab';
 import AIChat from './components/AIChat';
 import PaceAlerts from './components/PaceAlerts';
 import { calculateSpendingPace, getExpenseBasis, isMonthlyExpenseTx, txMonthKey } from './utils/financialLogic';
+import { OBJECTIVE_LABELS_SHORT } from './constants/onboarding';
 import AnalysisTab from './components/AnalysisTab';
 import IncomeTab from './components/IncomeTab';
 import CardsTab from './components/CardsTab';
@@ -670,6 +671,11 @@ function Dashboard() {
               const sobrou = (walletStats.income || 0) - (walletStats.expense || 0);
               const hasDebt = totalDebt > 0.005;
               const accent = hasDebt ? 'text-rose-400' : (sobrou >= 0 && supPct <= 30 && reserveMonths >= 6 ? 'text-emerald-400' : (sobrou < 0 || supPct > 30) ? 'text-amber-400' : 'text-blue-400');
+              // Personalização com base no que o usuário preencheu no onboarding.
+              const ob = userPrefs?.onboarding || {};
+              const primaryObjective = (ob.objectives || []).find(o => o !== 'debt') || (ob.objectives || [])[0] || '';
+              const objLabel = OBJECTIVE_LABELS_SHORT[primaryObjective] || '';
+              const aporteAlvo = parseFloat(ob.monthlyContribution) || 0;
               return (
                 <div className={`p-5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-700/50'}`}>
                   <div className="flex items-start gap-3">
@@ -692,6 +698,18 @@ function Dashboard() {
                           ? <>Sua reserva de emergência é de <span className="font-bold text-emerald-500">R$ {fmtMoney(reserveAmount)}</span> ({reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} {reserveMonths === 1 ? 'mês' : 'meses'} de cobertura){reserveMonths < 6 ? ' — mire ao menos 6 meses.' : ' — ótimo nível!'}</>
                           : <>Você ainda não tem reserva de emergência registrada — comece a construir uma para mais tranquilidade.</>}
                       </p>
+                      {!hasDebt && (objLabel || aporteAlvo > 0) && (
+                        <p className={`text-[12px] leading-relaxed mt-1.5 ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
+                          {objLabel && <>Seu objetivo é <span className="font-bold text-emerald-500">{objLabel}</span>. </>}
+                          {aporteAlvo > 0
+                            ? (sobrou >= aporteAlvo
+                                ? <>Sua meta de aporte é <span className="font-bold">R$ {fmtMoney(aporteAlvo)}/mês</span> — e a sobra deste mês já cobre isso. <span className="font-bold text-emerald-500">Bom momento para investir.</span></>
+                                : sobrou > 0
+                                  ? <>Sua meta de aporte é <span className="font-bold">R$ {fmtMoney(aporteAlvo)}/mês</span>; este mês sobraram <span className="font-bold">R$ {fmtMoney(sobrou)}</span> — faltam <span className="font-bold text-amber-500">R$ {fmtMoney(aporteAlvo - sobrou)}</span> para o aporte completo.</>
+                                  : <>Sua meta de aporte é <span className="font-bold">R$ {fmtMoney(aporteAlvo)}/mês</span>, mas este mês não houve sobra — reveja os gastos supérfluos para conseguir investir.</>)
+                            : <>Defina um aporte mensal em <span className="font-semibold">Construção de Patrimônio</span> para a Alívia acompanhar seu ritmo de investimento.</>}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
