@@ -336,6 +336,7 @@ function ConfigModal({ isDark, config, onClose, onSave }) {
     const [superUnit, setSuperUnit] = useState(hc.superfluousUnit);
     const [superVal, setSuperVal] = useState(String(hc.superfluousUnit === 'amount' ? (hc.superfluousCapAmount || '') : hc.superfluousCap));
     const [includeInvoice, setIncludeInvoice] = useState(!!hc.includeInvoice);
+    const [expenseBasis, setExpenseBasis] = useState(config.expenseBasis === 'caixa' ? 'caixa' : 'competencia');
 
     const num = (v, fb) => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? fb : n; };
 
@@ -343,6 +344,7 @@ function ConfigModal({ isDark, config, onClose, onSave }) {
         onSave({
             ...config,
             income: num(income, config.income || 0),
+            expenseBasis,
             healthConfig: {
                 includeInvoice,
                 surplusUnit,
@@ -371,6 +373,44 @@ function ConfigModal({ isDark, config, onClose, onSave }) {
                     <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-rose-400"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="p-6 space-y-4">
+                    {/* Regime de apuração dos gastos do mês — vale para TODO o módulo Controle de Gastos */}
+                    <div>
+                        <label className={`text-[10px] font-black uppercase tracking-widest block mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Como contar os gastos do mês</label>
+                        <p className="text-[10px] text-slate-500 mb-2 leading-snug">Vale para <b>todo o Controle de Gastos</b> (Visão Geral, Contas, Despesas, Cartões e o Índice).</p>
+                        <div className="grid grid-cols-1 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setExpenseBasis('competencia')}
+                                className={`w-full flex items-start gap-3 p-3 rounded-2xl border text-left transition-all ${
+                                    expenseBasis === 'competencia'
+                                        ? (isDark ? 'bg-emerald-500/10 border-emerald-500/40' : 'bg-emerald-50 border-emerald-300')
+                                        : (isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200')
+                                }`}
+                            >
+                                <div className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 ${expenseBasis === 'competencia' ? 'border-emerald-500 bg-emerald-500' : 'border-slate-400'}`} />
+                                <div className="flex-1 min-w-0">
+                                    <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Pela data da compra (competência)</p>
+                                    <p className="text-[10px] text-slate-500 leading-snug">O gasto conta no mês em que você comprou — <b>inclusive no cartão</b>. O pagamento da fatura <b>não</b> conta como gasto (a compra já contou). Ideal pra saber quanto você gastou de fato no mês.</p>
+                                </div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setExpenseBasis('caixa')}
+                                className={`w-full flex items-start gap-3 p-3 rounded-2xl border text-left transition-all ${
+                                    expenseBasis === 'caixa'
+                                        ? (isDark ? 'bg-blue-500/10 border-blue-500/40' : 'bg-blue-50 border-blue-300')
+                                        : (isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200')
+                                }`}
+                            >
+                                <div className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 ${expenseBasis === 'caixa' ? 'border-blue-500 bg-blue-500' : 'border-slate-400'}`} />
+                                <div className="flex-1 min-w-0">
+                                    <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Quando sai da conta (caixa)</p>
+                                    <p className="text-[10px] text-slate-500 leading-snug">O gasto conta quando o dinheiro <b>sai da conta</b>. Compras no cartão só contam quando você <b>paga a fatura</b> — e a fatura conta no mês em que foi paga. Ideal pra acompanhar o fluxo da conta.</p>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Apurar fatura do cartão em aberto */}
                     <button
                         type="button"

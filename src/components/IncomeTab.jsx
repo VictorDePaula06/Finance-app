@@ -7,8 +7,9 @@ import { TrendingUp, TrendingDown, Wallet, Trash2, ArrowUpCircle, CircleDollarSi
 import { CATEGORIES } from '../constants/categories';
 import TrialLimitModal from './TrialLimitModal';
 import { useCdiRate, useUsdRate } from '../utils/marketRates';
+import { isMonthlyExpenseTx, txMonthKey } from '../utils/financialLogic';
 
-export default function IncomeTab({ transactions, savingsJars, walletStats, hideBalance, toggleHideBalance, initialSubTab, setActiveTab }) {
+export default function IncomeTab({ transactions, savingsJars, walletStats, hideBalance, toggleHideBalance, initialSubTab, setActiveTab, expenseBasis = 'competencia' }) {
     const { theme } = useTheme();
     const { currentUser, isTrial, planLevel } = useAuth();
 
@@ -316,12 +317,10 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
     const totalRedemptionMonth = useMemo(() => recentRedemptions.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0), [recentRedemptions]);
 
     const totalExpensesMonth = useMemo(() => {
-        return transactions.filter(t => {
-            const isExpense = t.type === 'expense';
-            const matchesMonth = t.month === currentMonthKey || (t.date && t.date.startsWith(currentMonthKey));
-            return isExpense && matchesMonth && t.paymentMethod !== 'credito' && t.category !== 'investment';
-        }).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    }, [transactions, currentMonthKey]);
+        return transactions
+            .filter(t => isMonthlyExpenseTx(t, expenseBasis) && txMonthKey(t) === currentMonthKey)
+            .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    }, [transactions, currentMonthKey, expenseBasis]);
 
     const totalIncomeMonth = useMemo(() => {
         return transactions.filter(t => {

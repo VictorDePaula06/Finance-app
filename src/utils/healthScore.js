@@ -1,3 +1,5 @@
+import { isMonthlyExpenseTx, getExpenseBasis } from './financialLogic';
+
 export const NECESSITY_CATEGORIES = ['housing', 'food', 'transport', 'health', 'education', 'taxes', 'church', 'loan'];
 export const DESIRE_CATEGORIES = ['leisure', 'shopping', 'personal_care', 'subscriptions', 'pets', 'other'];
 export const SAVINGS_CATEGORIES = ['investment', 'vault'];
@@ -269,13 +271,12 @@ export const calculateHealthIndex = (transactions = [], config = {}, reserveTota
         if (NECESSITY_CATEGORIES.includes(t.category)) return 'essential';
         return 'superfluous';
     };
-    // Gastos do mês: exclui crédito, aportes/poupança e o PAGAMENTO de fatura
-    // (credit_card_bill) — esse pagamento quita uma fatura já fechada (mês anterior)
-    // e não é um gasto novo deste mês.
-    const realExpenses = monthTx.filter(t =>
-        t.type === 'expense' && t.paymentMethod !== 'credito' && !SAVINGS_CATEGORIES.includes(t.category)
-        && t.category !== 'credit_card_bill'
-    );
+    // Gastos do mês conforme o REGIME de apuração configurado (competência/caixa) —
+    // mesmo critério usado em todo o módulo (ver isMonthlyExpenseTx). Aportes/poupança
+    // ficam de fora; no competência inclui crédito (pela data) e exclui o pagamento de
+    // fatura; no caixa inclui o pagamento de fatura e exclui as compras no crédito.
+    const basis = getExpenseBasis(config);
+    const monthExpenses = monthTx.filter(t => isMonthlyExpenseTx(t, basis) && !SAVINGS_CATEGORIES.includes(t.category));
     let essential = 0, comfort = 0, superfluous = 0;
     const addExpense = (t) => {
         const v = parseFloat(t.amount) || 0;
@@ -284,17 +285,7 @@ export const calculateHealthIndex = (transactions = [], config = {}, reserveTota
         else if (c === 'comfort') comfort += v;
         else superfluous += v;
     };
-    realExpenses.forEach(addExpense);
-
-    // Se "Apurar fatura aberta do cartão" estiver ligado, soma as compras no crédito
-    // DESTE MÊS (por competência — pela data da compra), classificadas pela prioridade
-    // de cada compra. Assim os supérfluos refletem o cartão do mês atual e ficam
-    // consistentes com as demais abas (Gastos por Período, Metas, Comparativo).
-    if (hc.includeInvoice) {
-        transactions
-            .filter(t => t.type === 'expense' && t.paymentMethod === 'credito' && getRobustMonth(t) === currentMonth)
-            .forEach(addExpense);
-    }
+    monthExpenses.forEach(addExpense);
     const totalSpent = essential + comfort + superfluous;
     const surplus = income - totalSpent;
 

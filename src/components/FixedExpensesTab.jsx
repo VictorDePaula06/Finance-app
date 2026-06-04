@@ -31,8 +31,9 @@ import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc
 import TrialLimitModal from './TrialLimitModal';
 import OverdraftWarningModal from './OverdraftWarningModal';
 import { CATEGORIES } from '../constants/categories';
+import { isMonthlyExpenseTx, txMonthKey } from '../utils/financialLogic';
 
-export default function FixedExpensesTab({ transactions = [], setActiveTab, walletStats, hideBalance, toggleHideBalance }) {
+export default function FixedExpensesTab({ transactions = [], setActiveTab, walletStats, hideBalance, toggleHideBalance, expenseBasis = 'competencia' }) {
   const { theme } = useTheme();
   const { currentUser, isTrial, planLevel } = useAuth();
 
@@ -225,12 +226,10 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
   }, [transactions, currentMonthStr]);
 
   const totalExpensesMonth = useMemo(() => {
-    return transactions.filter(t => {
-      const isExpense = t.type === 'expense';
-      const matchesMonth = t.month === currentMonthStr || (t.date && t.date.startsWith(currentMonthStr));
-      return isExpense && matchesMonth && t.paymentMethod !== 'credito' && t.category !== 'investment';
-    }).reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-  }, [transactions, currentMonthStr]);
+    return transactions
+      .filter(t => isMonthlyExpenseTx(t, expenseBasis) && txMonthKey(t) === currentMonthStr)
+      .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+  }, [transactions, currentMonthStr, expenseBasis]);
 
   const { totalToPay, totalPaid, paidCount, totalCount } = useMemo(() => {
     let toPay = 0;

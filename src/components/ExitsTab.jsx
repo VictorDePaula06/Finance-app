@@ -33,8 +33,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
 import { collection, addDoc, deleteDoc, doc, updateDoc, query, where, onSnapshot } from 'firebase/firestore';
 import { CATEGORIES } from '../constants/categories';
+import { isMonthlyExpenseTx, txMonthKey } from '../utils/financialLogic';
 
-export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.65, cards = [], subscriptions = [], walletStats, hideBalance, toggleHideBalance, setActiveTab, initialSubTab }) {
+export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.65, cards = [], subscriptions = [], walletStats, hideBalance, toggleHideBalance, setActiveTab, initialSubTab, expenseBasis = 'competencia' }) {
     const { theme } = useTheme();
     const { currentUser, planLevel, isAdmin, isTrial } = useAuth();
 
@@ -711,11 +712,14 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         }
     };
 
+    // Header "Despesas no Mês": total do mês conforme o regime configurado
+    // (competência/caixa), calculado sobre a lista completa para ficar consistente
+    // com as outras abas (independe da view de crédito/não-crédito).
     const totalExpensesMonthVal = useMemo(() => {
-        return monthExits
-            .filter(t => t.category !== 'investment')
+        return transactions
+            .filter(t => isMonthlyExpenseTx(t, expenseBasis) && txMonthKey(t) === selectedMonth)
             .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    }, [monthExits]);
+    }, [transactions, selectedMonth, expenseBasis]);
 
     const totalInvestmentsMonthVal = useMemo(() => {
         return monthExits

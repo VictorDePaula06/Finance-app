@@ -1,3 +1,31 @@
+// ─────────────────────────────────────────────────────────────────────────
+// REGIME DE APURAÇÃO DOS GASTOS DO MÊS (configurável pelo usuário)
+//
+//  • 'competencia' (padrão): o gasto conta no mês da COMPRA — inclusive compras
+//    no crédito (pela data). O pagamento de fatura (credit_card_bill) NÃO conta
+//    como gasto (a compra já foi contada).
+//  • 'caixa': o gasto conta quando o dinheiro SAI da conta. Compras no crédito
+//    não contam até a fatura ser paga; o pagamento de fatura conta no mês em que
+//    foi pago.
+//
+// Aportes/poupança (investment/vault) nunca entram como "gasto do mês".
+// O mês de atribuição é sempre a data do lançamento (t.month).
+// ─────────────────────────────────────────────────────────────────────────
+export const getExpenseBasis = (config) => (config?.expenseBasis === 'caixa' ? 'caixa' : 'competencia');
+
+export const isMonthlyExpenseTx = (t, basis = 'competencia') => {
+    if (!t || t.type !== 'expense') return false;
+    if (t.category === 'investment' || t.category === 'vault') return false;
+    if (basis === 'caixa') {
+        // Crédito não conta (sai na fatura); pagamento de fatura (pix) conta.
+        return t.paymentMethod !== 'credito';
+    }
+    // Competência: inclui crédito (pela data); exclui o pagamento de fatura.
+    return t.category !== 'credit_card_bill';
+};
+
+export const txMonthKey = (t) => t.month || (t.date ? String(t.date).slice(0, 7) : '');
+
 export const calculateFinancialHealth = (transactions, manualConfig = null) => {
     // Default values
     let averageIncome = 0;

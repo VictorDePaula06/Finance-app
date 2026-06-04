@@ -35,7 +35,7 @@ import IndependenciaTab from './components/IndependenciaTab';
 import SettingsTab from './components/SettingsTab';
 import AIChat from './components/AIChat';
 import PaceAlerts from './components/PaceAlerts';
-import { calculateSpendingPace } from './utils/financialLogic';
+import { calculateSpendingPace, getExpenseBasis, isMonthlyExpenseTx, txMonthKey } from './utils/financialLogic';
 import AnalysisTab from './components/AnalysisTab';
 import IncomeTab from './components/IncomeTab';
 import CardsTab from './components/CardsTab';
@@ -497,21 +497,18 @@ function Dashboard() {
         .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
-    // GASTOS NO MÊS por COMPETÊNCIA (padrão único do módulo): cada gasto conta no
-    // mês da COMPRA — inclusive compras no crédito (pela data da compra). O
-    // pagamento de fatura (credit_card_bill) é só transferência e NÃO conta como
-    // gasto (senão contaria duas vezes). Aportes/poupança também ficam de fora.
+    // GASTOS NO MÊS conforme o REGIME de apuração escolhido pelo usuário
+    // (competência ou caixa) — ver helper isMonthlyExpenseTx.
+    const basis = getExpenseBasis(manualConfig);
     const expense = transactions
-        .filter(t => t.type === 'expense'
-            && !['investment', 'vault', 'credit_card_bill'].includes(t.category)
-            && (t.month || (t.date ? t.date.slice(0, 7) : '')) === currentMonthKey)
+        .filter(t => isMonthlyExpenseTx(t, basis) && txMonthKey(t) === currentMonthKey)
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
     // O Saldo Acumulado deve considerar o histórico total do usuário
     const balance = calculateCumulativeBalance(transactions, currentMonthKey);
     
     return { income, expense, balance };
-  }, [transactions]);
+  }, [transactions, manualConfig]);
 
   // INVESTMENT STATS FOR OVERVIEW
   const investmentStats = useMemo(() => {
@@ -679,8 +676,9 @@ function Dashboard() {
             // Análise da Alívia (Visão Geral · Gastos): reserva, supérfluos, sobra do mês.
             const aliviaCard = (() => {
               const cm = new Date().toISOString().slice(0, 7);
-              // Competência: conta a compra no mês dela (inclui crédito); pagamento de fatura fora.
-              const exp = transactions.filter(t => t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category) && (t.month || (t.date ? String(t.date).slice(0, 7) : '')) === cm);
+              // Gastos do mês conforme o regime configurado (competência/caixa).
+              const basis = getExpenseBasis(manualConfig);
+              const exp = transactions.filter(t => isMonthlyExpenseTx(t, basis) && txMonthKey(t) === cm);
               const sum = (a) => a.reduce((x, t) => x + (parseFloat(t.amount) || 0), 0);
               const essential = sum(exp.filter(t => (t.priority || 'comfort') === 'essential'));
               const superf = sum(exp.filter(t => t.priority === 'superfluous'));
@@ -1025,6 +1023,7 @@ function Dashboard() {
                 toggleHideBalance={toggleHideBalance}
                 initialSubTab={activeTab === 'resgates' ? 'resgates' : 'recebimentos'}
                 setActiveTab={setActiveTab}
+                expenseBasis={getExpenseBasis(manualConfig)}
               />
             </div>
           )}
@@ -1037,6 +1036,7 @@ function Dashboard() {
                 walletStats={walletStats}
                 hideBalance={hideBalance}
                 toggleHideBalance={toggleHideBalance}
+                expenseBasis={getExpenseBasis(manualConfig)}
               />
             </div>
           )}
@@ -1055,6 +1055,7 @@ function Dashboard() {
                 toggleHideBalance={toggleHideBalance}
                 setActiveTab={setActiveTab}
                 initialSubTab={activeTab === 'aportes' ? 'reservas' : 'despesas'}
+                expenseBasis={getExpenseBasis(manualConfig)}
               />
             </div>
           )}
