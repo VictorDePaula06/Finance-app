@@ -695,9 +695,6 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
   const renderAlivia = () => (
     <div className="animate-in fade-in duration-200">
       <SectionTitle icon={Sparkles} label="Configurar Alívia" iconColor="text-emerald-400" />
-      <p className="text-xs text-slate-500 -mt-3 mb-5 leading-relaxed">
-        Tudo do Controle de Gastos num lugar só: como contar os gastos, cartão e fatura, e as metas do Índice de Saúde.
-      </p>
       <AliviaSettings config={manualConfig} onSave={updateManualConfig} />
     </div>
   );
