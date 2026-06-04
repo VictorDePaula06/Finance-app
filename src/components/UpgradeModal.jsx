@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Sparkles, Check, ArrowRight, Lock, Loader2 } from 'lucide-react';
+import { X, Sparkles, Check, ArrowRight, Lock, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { createCheckoutSession, upgradeSubscription } from '../services/stripe';
 import { useAuth } from '../contexts/AuthContext';
 import { PLAN_RANK, GASTOS_FEATURES, PATRIMONIO_FEATURES, featureState } from '../constants/planFeatures';
@@ -32,6 +32,7 @@ export default function UpgradeModal({ isOpen, onClose }) {
     // pra o upgrade acontecer no mesmo intervalo por padrão.
     const [billing, setBilling] = useState(subType === 'annual' ? 'annual' : 'monthly');
     const [loadingPlan, setLoadingPlan] = useState(null);
+    const [result, setResult] = useState(null); // { type: 'success' | 'error', message }
 
     if (!isOpen) return null;
 
@@ -52,16 +53,23 @@ export default function UpgradeModal({ isOpen, onClose }) {
                 // sem criar uma segunda assinatura.
                 await upgradeSubscription(priceId);
                 setLoadingPlan(null);
-                alert('Plano alterado com sucesso! A mudança já está ativa (a cobrança é ajustada proporcionalmente).');
-                onClose();
+                setResult({
+                    type: 'success',
+                    title: `Você agora é ${PLANS[planKey].name}!`,
+                    message: 'A mudança já está ativa. A cobrança é ajustada proporcionalmente ao período — você paga só a diferença.',
+                });
             } else {
                 // Primeiro pagamento — checkout normal (cria a assinatura).
                 await createCheckoutSession(currentUser.uid, priceId, () => setLoadingPlan(null));
             }
         } catch (error) {
             console.error('Plan action error:', error);
-            alert(error?.message || 'Erro ao alterar o plano. Tente novamente.');
             setLoadingPlan(null);
+            setResult({
+                type: 'error',
+                title: 'Não foi possível alterar o plano',
+                message: error?.message || 'Ocorreu um erro ao alterar o plano. Tente novamente em instantes.',
+            });
         }
     };
 
@@ -147,6 +155,27 @@ export default function UpgradeModal({ isOpen, onClose }) {
                 <button onClick={onClose} className="absolute top-5 right-5 p-2 rounded-full bg-white text-slate-400 hover:text-slate-600 border border-slate-200 transition-all z-20">
                     <X className="w-5 h-5" />
                 </button>
+
+                {/* Tela de resultado (sucesso/erro) — substitui o conteúdo, sem alert nativo */}
+                {result && (
+                    <div className="absolute inset-0 z-30 bg-slate-50 rounded-[2rem] flex flex-col items-center justify-center text-center px-8 py-10 animate-in fade-in zoom-in-95 duration-300">
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-5 shadow-lg ${result.type === 'success' ? 'bg-emerald-500 shadow-emerald-500/25' : 'bg-rose-500 shadow-rose-500/25'}`}>
+                            {result.type === 'success' ? <CheckCircle2 className="w-8 h-8 text-white" /> : <AlertCircle className="w-8 h-8 text-white" />}
+                        </div>
+                        <h3 className="text-xl md:text-2xl font-black text-slate-900">{result.title}</h3>
+                        <p className="text-sm text-slate-500 font-medium mt-2 max-w-sm leading-relaxed">{result.message}</p>
+                        <div className="flex items-center gap-3 mt-7">
+                            {result.type === 'error' && (
+                                <button onClick={() => setResult(null)} className="px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition-all">
+                                    Tentar de novo
+                                </button>
+                            )}
+                            <button onClick={() => { setResult(null); onClose(); }} className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest text-white transition-all active:scale-95 ${result.type === 'success' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/20' : 'bg-slate-800 hover:bg-slate-900'}`}>
+                                {result.type === 'success' ? 'Aproveitar' : 'Fechar'}
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 <div className="p-6 md:p-8">
                     {/* Header */}
