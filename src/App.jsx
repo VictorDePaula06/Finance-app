@@ -496,9 +496,17 @@ function Dashboard() {
     const income = filtered
         .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    
-    const expense = filtered
-        .filter(t => t.type === 'expense' && t.category !== 'investment' && t.paymentMethod !== 'credito')
+
+    // Mês "efetivo" do gasto: o pagamento de fatura (credit_card_bill) pertence
+    // ao mês da FATURA (invoiceMonthPaid), não ao mês em que foi pago. Assim,
+    // pagar este mês a fatura do mês passado NÃO infla os gastos deste mês.
+    const expenseMonthOf = (t) => (t.category === 'credit_card_bill')
+        ? (t.invoiceMonthPaid || t.month || (t.date ? t.date.slice(0, 7) : ''))
+        : (t.month || (t.date ? t.date.slice(0, 7) : ''));
+
+    const expense = transactions
+        .filter(t => t.type === 'expense' && t.category !== 'investment' && t.paymentMethod !== 'credito'
+            && expenseMonthOf(t) === currentMonthKey)
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
     // O Saldo Acumulado deve considerar o histórico total do usuário
@@ -673,8 +681,9 @@ function Dashboard() {
             // Análise da Alívia (Visão Geral · Gastos): reserva, supérfluos, sobra do mês.
             const aliviaCard = (() => {
               const cm = new Date().toISOString().slice(0, 7);
-              const monthTxs = transactions.filter(t => t.month === cm || (t.date && String(t.date).startsWith(cm)));
-              const exp = monthTxs.filter(t => t.type === 'expense' && t.category !== 'investment' && t.paymentMethod !== 'credito');
+              // Pagamento de fatura conta no mês da fatura (não no mês do pagamento).
+              const expMonthOf = (t) => (t.category === 'credit_card_bill') ? (t.invoiceMonthPaid || t.month) : (t.month || (t.date ? String(t.date).slice(0, 7) : ''));
+              const exp = transactions.filter(t => t.type === 'expense' && t.category !== 'investment' && t.paymentMethod !== 'credito' && expMonthOf(t) === cm);
               const sum = (a) => a.reduce((x, t) => x + (parseFloat(t.amount) || 0), 0);
               const essential = sum(exp.filter(t => (t.priority || 'comfort') === 'essential'));
               const superf = sum(exp.filter(t => t.priority === 'superfluous'));

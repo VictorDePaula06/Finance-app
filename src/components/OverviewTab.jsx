@@ -86,6 +86,7 @@ export default function OverviewTab({
         let total = 0; const pending = [];
         (cards || []).forEach(card => {
             const closingDay = card.closingDay || ((card.dueDay - 7 > 0) ? card.dueDay - 7 : 25);
+            const dueDay = card.dueDay || 10;
             const currInv = getInvoiceMonth(now.toISOString(), closingDay);
             const unpaid = transactions.filter(t => t.selectedCardId === card.id && t.invoiceStatus === 'unpaid');
             const subs = (subscriptions || []).filter(s => s.cardId === card.id).filter(s => {
@@ -95,8 +96,17 @@ export default function OverviewTab({
             });
             const sum = unpaid.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0) + subs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
             if (sum > 0.005) {
-                let due = new Date(now.getFullYear(), now.getMonth(), card.dueDay || 10);
-                if (due < t0) due = new Date(now.getFullYear(), now.getMonth() + 1, card.dueDay || 10);
+                // Vencimento pelo CICLO da fatura das compras não pagas (e não pelo mês atual).
+                // Cada compra pertence a uma fatura (invoiceMonth); a próxima a vencer é a
+                // mais antiga ainda em aberto. Assinaturas entram na fatura corrente.
+                const invMonths = unpaid
+                    .map(t => getInvoiceMonth(t.date || now.toISOString(), closingDay))
+                    .filter(Boolean);
+                if (subs.length > 0) invMonths.push(currInv);
+                invMonths.sort();
+                const invMonth = invMonths[0] || currInv;
+                const [iy, im] = invMonth.split('-').map(Number);
+                const due = new Date(iy, im - 1, dueDay);
                 pending.push({ card, sum, due });
                 total += sum;
             }
