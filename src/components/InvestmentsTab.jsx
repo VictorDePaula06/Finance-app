@@ -79,10 +79,16 @@ export default function InvestmentsTab() {
         subType: '',
         aporteAmount: '',
         aporteQuantity: '',
+        aporteUnitPrice: '',
         aporteDate: new Date().toISOString().split('T')[0],
         aporteRate: '',
         purchaseDate: new Date().toISOString().split('T')[0]
     });
+
+    // Modal de visualização/edição dos aportes de um ativo.
+    const [viewingAportesId, setViewingAportesId] = useState(null);
+    const [editingAporte, setEditingAporte] = useState(null); // { aporteId, quantity, unitPrice, total, rate, date }
+    const [aporteBusy, setAporteBusy] = useState(false);
 
     // Asset Types Config
     const ASSET_TYPES = {
@@ -614,8 +620,14 @@ export default function InvestmentsTab() {
                 const { id, ...dataToUpdate } = assetData;
                 await updateDoc(doc(db, 'investments', isEditing), dataToUpdate);
             } else {
+                // Registra a compra inicial como o PRIMEIRO aporte do histórico.
+                const purchaseDateStr = assetData.purchaseDate;
+                const initialAporte = newAsset.type === 'renda_fixa'
+                    ? [{ id: genAporteId(), total: parseFloat(totalApplied) || 0, rate: newAsset.purchaseRate || null, date: purchaseDateStr, isUSD: !!newAsset.isUSD }]
+                    : [{ id: genAporteId(), quantity, unitPrice: purchasePrice, total: quantity * purchasePrice, date: purchaseDateStr, isUSD: !!newAsset.isUSD }];
                 await addDoc(collection(db, 'investments'), {
                     ...assetData,
+                    aportes: initialAporte,
                     createdAt: new Date().toISOString(),
                     userId: currentUser.uid
                 });
@@ -624,10 +636,60 @@ export default function InvestmentsTab() {
             setIsAdding(false);
             setIsEditing(null);
             setIsAporting(null);
-            setNewAsset({ type: 'renda_fixa', name: '', symbol: '', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, cdiPercent: '', aporteAmount: '', aporteQuantity: '', aporteDate: new Date().toISOString().split('T')[0], aporteRate: '', purchaseDate: new Date().toISOString().split('T')[0] });
+            setNewAsset({ type: 'renda_fixa', name: '', symbol: '', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, cdiPercent: '', aporteAmount: '', aporteQuantity: '', aporteUnitPrice: '', aporteDate: new Date().toISOString().split('T')[0], aporteRate: '', purchaseDate: new Date().toISOString().split('T')[0] });
         } catch (error) {
             console.error("Error saving asset:", error);
         }
+    };
+
+    // ── Aportes (histórico individual por ativo) ────────────────────────────
+    const genAporteId = () => `ap_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+    // Aporte inicial sintetizado a partir do agregado do ativo — usado para ativos
+    // antigos que ainda não possuem o array `aportes`.
+    const seedInitialAportes = (asset) => {
+        const date = asset.purchaseDate
+            || (asset.createdAt ? String(asset.createdAt).split('T')[0] : new Date().toISOString().split('T')[0]);
+        if (asset.type === 'renda_fixa') {
+            const total = parseFloat(asset.totalApplied || asset.purchasePrice || 0) || 0;
+            return [{ id: genAporteId(), total, rate: asset.purchaseRate || null, date, isUSD: !!asset.isUSD }];
+        }
+        const quantity = parseFloat(asset.quantity || 0) || 0;
+        const unitPrice = parseFloat(asset.purchasePrice || 0) || 0;
+        return [{ id: genAporteId(), quantity, unitPrice, total: quantity * unitPrice, date, isUSD: !!asset.isUSD }];
+    };
+
+    // Lista de aportes do ativo (ou o aporte inicial sintetizado, p/ ativos antigos).
+    const getAssetAportes = (asset) => (Array.isArray(asset.aportes) && asset.aportes.length > 0)
+        ? asset.aportes
+        : seedInitialAportes(asset);
+
+    // Recalcula os agregados do ativo a partir dos aportes:
+    //  - não renda fixa: quantidade total e preço médio ponderado.
+    //  - renda fixa: total aplicado e taxa média ponderada pelo valor.
+    const aggregateAportes = (type, aportes) => {
+        if (type === 'renda_fixa') {
+            const totalApplied = aportes.reduce((s, a) => s + (parseFloat(a.total) || 0), 0);
+            const rated = aportes.filter(a => a.rate != null && a.rate !== '');
+            const ratedTotal = rated.reduce((s, a) => s + (parseFloat(a.total) || 0), 0);
+            let purchaseRate = null;
+            if (rated.length > 0 && ratedTotal > 0) {
+                purchaseRate = String((rated.reduce((s, a) => s + (parseFloat(a.total) || 0) * (parseFloat(a.rate) || 0), 0) / ratedTotal).toFixed(4));
+            }
+            return { totalApplied, purchasePrice: totalApplied, purchaseRate };
+        }
+        const quantity = aportes.reduce((s, a) => s + (parseFloat(a.quantity) || 0), 0);
+        const totalCost = aportes.reduce((s, a) => s + (parseFloat(a.total) || 0), 0);
+        const purchasePrice = quantity > 0 ? totalCost / quantity : 0;
+        return { quantity, purchasePrice };
+    };
+
+    // Persiste o array de aportes + os agregados recalculados no documento do ativo.
+    const persistAportes = async (assetId, type, aportes) => {
+        const agg = aggregateAportes(type, aportes);
+        const updates = { aportes, updatedAt: new Date().toISOString(), ...agg };
+        if (updates.purchaseRate == null) delete updates.purchaseRate;
+        await updateDoc(doc(db, 'investments', assetId), updates);
     };
 
     const handleAporte = async (e) => {
@@ -637,41 +699,73 @@ export default function InvestmentsTab() {
             if (!asset) return;
 
             const isFixedIncome = asset.type === 'renda_fixa';
-            const v_new = parseBrazilianNumber(newAsset.aporteAmount);
             const aporteDate = newAsset.aporteDate || new Date().toISOString().split('T')[0];
+            // Aportes existentes (ou o inicial sintetizado, p/ ativos antigos).
+            const existing = getAssetAportes(asset);
 
+            let novoAporte;
             if (isFixedIncome) {
-                const old_total = parseFloat(asset.totalApplied || asset.purchasePrice || 0);
-                const new_total = old_total + v_new;
-                const updates = {
-                    totalApplied: new_total,
-                    purchasePrice: new_total,
-                    updatedAt: new Date().toISOString()
-                };
-                // Recalculate purchaseRate as weighted average if new rate provided
-                const aporteRate = newAsset.aporteRate ? parseBrazilianNumber(newAsset.aporteRate) : null;
-                if (aporteRate && asset.purchaseRate) {
-                    const old_rate = parseFloat(asset.purchaseRate);
-                    updates.purchaseRate = String(((old_total * old_rate + v_new * aporteRate) / new_total).toFixed(4));
-                }
-                await updateDoc(doc(db, 'investments', isAporting), updates);
+                const total = parseBrazilianNumber(newAsset.aporteAmount);
+                const rate = newAsset.aporteRate ? parseBrazilianNumber(newAsset.aporteRate) : null;
+                novoAporte = { id: genAporteId(), total, rate, date: aporteDate, isUSD: !!asset.isUSD };
             } else {
-                const q_new = parseBrazilianNumber(newAsset.aporteQuantity);
-                const q_old = asset.quantity;
-                const p_old = asset.purchasePrice;
-                const q_total = q_old + q_new;
-                const p_avg = q_total > 0 ? ((q_old * p_old) + v_new) / q_total : p_old;
-                await updateDoc(doc(db, 'investments', isAporting), {
-                    quantity: q_total,
-                    purchasePrice: p_avg,
-                    updatedAt: new Date().toISOString()
-                });
+                // Agora capturamos PREÇO DE COMPRA (unitário) + QUANTIDADE.
+                const quantity = parseBrazilianNumber(newAsset.aporteQuantity);
+                const unitPrice = parseBrazilianNumber(newAsset.aporteUnitPrice);
+                novoAporte = { id: genAporteId(), quantity, unitPrice, total: quantity * unitPrice, date: aporteDate, isUSD: !!asset.isUSD };
             }
 
+            await persistAportes(isAporting, asset.type, [...existing, novoAporte]);
+
             setIsAporting(null);
-            setNewAsset({ type: 'renda_fixa', name: '', symbol: '', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, cdiPercent: '', aporteAmount: '', aporteQuantity: '', aporteDate: new Date().toISOString().split('T')[0], aporteRate: '', purchaseDate: new Date().toISOString().split('T')[0] });
+            setNewAsset({ type: 'renda_fixa', name: '', symbol: '', quantity: '', purchasePrice: '', manualCurrentPrice: '', isUSD: false, cdiPercent: '', aporteAmount: '', aporteQuantity: '', aporteUnitPrice: '', aporteDate: new Date().toISOString().split('T')[0], aporteRate: '', purchaseDate: new Date().toISOString().split('T')[0] });
         } catch (error) {
             console.error("Error processing aporte:", error);
+        }
+    };
+
+    // Salva a edição de um aporte específico e recalcula os agregados do ativo.
+    const handleSaveEditAporte = async () => {
+        if (!editingAporte || !viewingAportesId || aporteBusy) return;
+        const asset = investments.find(a => a.id === viewingAportesId);
+        if (!asset) return;
+        setAporteBusy(true);
+        try {
+            const isFixed = asset.type === 'renda_fixa';
+            const aportes = getAssetAportes(asset).map(a => {
+                if (a.id !== editingAporte.aporteId) return a;
+                if (isFixed) {
+                    const total = parseBrazilianNumber(editingAporte.total);
+                    const rate = editingAporte.rate !== '' && editingAporte.rate != null ? parseBrazilianNumber(editingAporte.rate) : null;
+                    return { ...a, total, rate, date: editingAporte.date };
+                }
+                const quantity = parseBrazilianNumber(editingAporte.quantity);
+                const unitPrice = parseBrazilianNumber(editingAporte.unitPrice);
+                return { ...a, quantity, unitPrice, total: quantity * unitPrice, date: editingAporte.date };
+            });
+            await persistAportes(viewingAportesId, asset.type, aportes);
+            setEditingAporte(null);
+        } catch (err) {
+            console.error('Erro ao editar aporte:', err);
+        } finally {
+            setAporteBusy(false);
+        }
+    };
+
+    // Exclui um aporte. Não permite excluir o último (o ativo ficaria sem origem).
+    const handleDeleteAporte = async (aporteId) => {
+        if (!viewingAportesId || aporteBusy) return;
+        const asset = investments.find(a => a.id === viewingAportesId);
+        if (!asset) return;
+        const aportes = getAssetAportes(asset);
+        if (aportes.length <= 1) return; // mantém ao menos um aporte
+        setAporteBusy(true);
+        try {
+            await persistAportes(viewingAportesId, asset.type, aportes.filter(a => a.id !== aporteId));
+        } catch (err) {
+            console.error('Erro ao excluir aporte:', err);
+        } finally {
+            setAporteBusy(false);
         }
     };
 
@@ -1129,7 +1223,8 @@ export default function InvestmentsTab() {
                                                 </div>
 
                                                 <div className="flex items-center gap-1.5 ml-2">
-                                                    <button onClick={() => {setNewAsset({...asset,aporteQuantity:'',aporteAmount:''});setIsAporting(asset.id);}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-blue-50 text-blue-500 hover:bg-blue-100':'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'}`} title="Aporte"><Plus className="w-4 h-4" /></button>
+                                                    <button onClick={() => {setNewAsset({...asset,aporteQuantity:'',aporteAmount:'',aporteUnitPrice:''});setIsAporting(asset.id);}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-blue-50 text-blue-500 hover:bg-blue-100':'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'}`} title="Aporte"><Plus className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setEditingAporte(null); setViewingAportesId(asset.id); }} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-violet-50 text-violet-500 hover:bg-violet-100':'bg-violet-500/10 text-violet-400 hover:bg-violet-500/20'}`} title="Ver aportes"><List className="w-4 h-4" /></button>
                                                     <button onClick={() => {setNewAsset({...asset});setIsEditing(asset.id);setIsAdding(true);}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-slate-100 text-slate-500 hover:bg-slate-200':'bg-white/5 text-slate-400 hover:bg-white/10'}`} title="Editar"><Edit2 className="w-4 h-4" /></button>
                                                     <button onClick={() => {setDeleteConfirm({id:asset.id,type:'asset',title:asset.name});}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-rose-50 text-rose-400 hover:bg-rose-100':'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20'}`} title="Excluir"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
@@ -1597,7 +1692,7 @@ export default function InvestmentsTab() {
                                             />
                                         </div>
                                         <div className="flex-1">
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">Custo Total ({newAsset.isUSD ? 'USD' : 'R$'})</p>
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1">Preço de Compra ({newAsset.isUSD ? 'USD' : 'R$'})</p>
                                             <div className="relative">
                                                 <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black opacity-50 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>
                                                     {newAsset.isUSD ? '$' : 'R$'}
@@ -1606,8 +1701,8 @@ export default function InvestmentsTab() {
                                                     type="text"
                                                     inputMode="decimal"
                                                     required
-                                                    value={newAsset.aporteAmount}
-                                                    onChange={(e) => setNewAsset({...newAsset, aporteAmount: e.target.value})}
+                                                    value={newAsset.aporteUnitPrice}
+                                                    onChange={(e) => setNewAsset({...newAsset, aporteUnitPrice: e.target.value})}
                                                     className={`w-full px-3 py-2.5 pl-9 rounded-xl border text-sm focus:outline-none transition-all ${
                                                         theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/10 text-white focus:border-blue-500'
                                                     }`}
@@ -1617,6 +1712,20 @@ export default function InvestmentsTab() {
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Custo total calculado (qtd × preço) — só leitura, ajuda a conferir */}
+                                {investments.find(a => a.id === isAporting)?.type !== 'renda_fixa' && (() => {
+                                    const q = parseBrazilianNumber(newAsset.aporteQuantity) || 0;
+                                    const p = parseBrazilianNumber(newAsset.aporteUnitPrice) || 0;
+                                    const tot = q * p;
+                                    if (tot <= 0) return null;
+                                    return (
+                                        <div className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold ${theme === 'light' ? 'bg-slate-50 text-slate-600' : 'bg-white/5 text-slate-300'}`}>
+                                            <span className="uppercase tracking-wider text-[10px] text-slate-500">Custo total do aporte</span>
+                                            <span>{newAsset.isUSD ? '$' : 'R$'} {tot.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                    );
+                                })()}
 
                                 {/* Valor aplicado — apenas para renda fixa */}
                                 {investments.find(a => a.id === isAporting)?.type === 'renda_fixa' && (
@@ -1723,6 +1832,147 @@ export default function InvestmentsTab() {
                     </div>
                 </div>
             )}
+
+            {/* Modal: Aportes do Ativo (ver/editar) */}
+            {viewingAportesId && (() => {
+                const asset = investments.find(a => a.id === viewingAportesId);
+                if (!asset) return null;
+                const isFixed = asset.type === 'renda_fixa';
+                const aportes = getAssetAportes(asset);
+                const fmt = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const cur = (a) => (a?.isUSD ? '$' : 'R$');
+                const totalInvested = aportes.reduce((s, a) => s + (parseFloat(a.total) || 0), 0);
+                const totalQty = aportes.reduce((s, a) => s + (parseFloat(a.quantity) || 0), 0);
+                const avgPrice = totalQty > 0 ? totalInvested / totalQty : 0;
+                const sorted = [...aportes].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+                const fmtDate = (d) => { try { const [y, m, dd] = String(d).split('-'); return `${dd}/${m}/${y}`; } catch { return d; } };
+                const inputCls = `w-full px-2.5 py-1.5 rounded-lg border text-xs focus:outline-none transition-all ${theme === 'light' ? 'bg-white border-slate-200 text-slate-800 focus:border-blue-500' : 'bg-white/5 border-white/10 text-white focus:border-blue-500'}`;
+                return (
+                    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) { setViewingAportesId(null); setEditingAporte(null); } }}>
+                        <div className={`w-full max-w-lg rounded-2xl p-6 border relative animate-in zoom-in-95 duration-300 max-h-[88vh] overflow-y-auto custom-scrollbar ${theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'}`}>
+                            <button type="button" onClick={() => { setViewingAportesId(null); setEditingAporte(null); }} className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'}`}>
+                                <X className="w-4 h-4" />
+                            </button>
+
+                            {/* Header */}
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className={`p-2 rounded-xl shrink-0 ${theme === 'light' ? 'bg-violet-50' : 'bg-violet-500/10'}`}>
+                                    <List className={`w-5 h-5 ${theme === 'light' ? 'text-violet-500' : 'text-violet-400'}`} />
+                                </div>
+                                <div>
+                                    <h3 className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Aportes</h3>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">{asset.symbol ? asset.symbol.toUpperCase() : asset.name}</p>
+                                </div>
+                            </div>
+
+                            {/* Resumo */}
+                            <div className={`grid ${isFixed ? 'grid-cols-1' : 'grid-cols-3'} gap-2 mb-4`}>
+                                <div className={`p-3 rounded-xl text-center ${theme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
+                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-0.5">{isFixed ? 'Total aplicado' : 'Investido'}</p>
+                                    <p className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>R$ {fmt(totalInvested)}</p>
+                                </div>
+                                {!isFixed && (
+                                    <div className={`p-3 rounded-xl text-center ${theme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
+                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-0.5">Quantidade</p>
+                                        <p className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{totalQty.toLocaleString('pt-BR', { maximumFractionDigits: 8 })}</p>
+                                    </div>
+                                )}
+                                {!isFixed && (
+                                    <div className={`p-3 rounded-xl text-center ${theme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
+                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-0.5">Preço médio</p>
+                                        <p className={`text-sm font-black text-emerald-500`}>R$ {fmt(avgPrice)}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Lista de aportes */}
+                            <div className="space-y-2">
+                                {sorted.map((a) => {
+                                    const isEdit = editingAporte?.aporteId === a.id;
+                                    if (isEdit) {
+                                        return (
+                                            <div key={a.id} className={`p-3 rounded-xl border ${theme === 'light' ? 'bg-violet-50/40 border-violet-200' : 'bg-violet-500/[0.06] border-violet-500/20'}`}>
+                                                <div className="grid grid-cols-2 gap-2 mb-2">
+                                                    {!isFixed ? (
+                                                        <>
+                                                            <div>
+                                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1">Quantidade</p>
+                                                                <input type="text" inputMode="decimal" className={inputCls} value={editingAporte.quantity} onChange={(e) => setEditingAporte({ ...editingAporte, quantity: e.target.value })} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1">Preço de compra ({cur(a)})</p>
+                                                                <input type="text" inputMode="decimal" className={inputCls} value={editingAporte.unitPrice} onChange={(e) => setEditingAporte({ ...editingAporte, unitPrice: e.target.value })} />
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <div>
+                                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1">Valor aplicado (R$)</p>
+                                                                <input type="text" inputMode="decimal" className={inputCls} value={editingAporte.total} onChange={(e) => setEditingAporte({ ...editingAporte, total: e.target.value })} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1">Taxa (opcional)</p>
+                                                                <input type="text" inputMode="decimal" className={inputCls} value={editingAporte.rate ?? ''} onChange={(e) => setEditingAporte({ ...editingAporte, rate: e.target.value })} />
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    <div className="col-span-2">
+                                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1">Data da compra</p>
+                                                        <input type="date" className={inputCls} value={editingAporte.date} onChange={(e) => setEditingAporte({ ...editingAporte, date: e.target.value })} />
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => setEditingAporte(null)} className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}>Cancelar</button>
+                                                    <button onClick={handleSaveEditAporte} disabled={aporteBusy} className="flex-1 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-500 hover:bg-emerald-400 text-white flex items-center justify-center gap-1.5 disabled:opacity-50"><Save className="w-3 h-3" /> Salvar</button>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    return (
+                                        <div key={a.id} className={`flex items-center justify-between p-3 rounded-xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-[#151822] border-white/5'}`}>
+                                            <div className="min-w-0">
+                                                <p className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{cur(a)} {fmt(a.total)}</p>
+                                                <p className="text-[11px] text-slate-500 font-medium">
+                                                    {fmtDate(a.date)}
+                                                    {!isFixed && ` · ${(parseFloat(a.quantity) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 8 })} × ${cur(a)} ${fmt(a.unitPrice)}`}
+                                                    {isFixed && a.rate ? ` · taxa ${a.rate}` : ''}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <button
+                                                    onClick={() => setEditingAporte(isFixed
+                                                        ? { aporteId: a.id, total: String(a.total ?? ''), rate: a.rate ?? '', date: a.date }
+                                                        : { aporteId: a.id, quantity: String(a.quantity ?? ''), unitPrice: String(a.unitPrice ?? ''), date: a.date })}
+                                                    className={`p-2 rounded-lg transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
+                                                    title="Editar aporte"
+                                                ><Pencil className="w-3.5 h-3.5" /></button>
+                                                <button
+                                                    onClick={() => handleDeleteAporte(a.id)}
+                                                    disabled={aportes.length <= 1 || aporteBusy}
+                                                    className={`p-2 rounded-lg transition-all disabled:opacity-40 ${theme === 'light' ? 'bg-rose-50 text-rose-400 hover:bg-rose-100' : 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20'}`}
+                                                    title={aportes.length <= 1 ? 'O ativo precisa de ao menos um aporte' : 'Excluir aporte'}
+                                                ><Trash2 className="w-3.5 h-3.5" /></button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Ações */}
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    onClick={() => { setViewingAportesId(null); setEditingAporte(null); }}
+                                    className={`flex-1 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
+                                >Fechar</button>
+                                <button
+                                    onClick={() => { setNewAsset({ ...asset, aporteQuantity: '', aporteAmount: '', aporteUnitPrice: '' }); setViewingAportesId(null); setEditingAporte(null); setIsAporting(asset.id); }}
+                                    className="flex-1 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-500 hover:bg-blue-400 text-white transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                                ><Plus className="w-3.5 h-3.5" /> Novo aporte</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
 
             {/* Modal: Excluir Ativo */}
