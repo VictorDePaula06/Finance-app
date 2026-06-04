@@ -116,15 +116,15 @@ export default function AliviaSettings({ config = {}, onSave }) {
                     <button type="button" disabled={d} onClick={() => set('expenseBasis', 'competencia')} className={opt(v.expenseBasis === 'competencia')}>
                         <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 ${v.expenseBasis === 'competencia' ? 'border-emerald-500 bg-emerald-500' : 'border-slate-400'}`} />
                         <div className="min-w-0">
-                            <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Na data da compra</p>
-                            <p className="text-[10px] text-slate-500 leading-snug">Conta no mês em que você comprou, incluindo o cartão. A fatura paga não conta de novo.</p>
+                            <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>No dia em que gastei</p>
+                            <p className="text-[10px] text-slate-500 leading-snug">O gasto entra no mês em que você gastou — no pix, débito ou cartão. Pagar a fatura depois não conta de novo. <span className="text-slate-400">Ex.: gastou no cartão em maio → entra em maio, mesmo pagando a fatura em junho.</span></p>
                         </div>
                     </button>
                     <button type="button" disabled={d} onClick={() => set('expenseBasis', 'caixa')} className={opt(v.expenseBasis === 'caixa')}>
                         <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 ${v.expenseBasis === 'caixa' ? 'border-emerald-500 bg-emerald-500' : 'border-slate-400'}`} />
                         <div className="min-w-0">
-                            <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Quando você paga</p>
-                            <p className="text-[10px] text-slate-500 leading-snug">Conta quando o dinheiro sai da conta. O cartão entra só quando a fatura é paga.</p>
+                            <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Quando o dinheiro sai da conta</p>
+                            <p className="text-[10px] text-slate-500 leading-snug">O gasto entra só quando o dinheiro sai da sua conta. No cartão, entra no mês em que você paga a fatura. <span className="text-slate-400">Ex.: pagou a fatura em junho → entra em junho.</span></p>
                         </div>
                     </button>
                 </div>
