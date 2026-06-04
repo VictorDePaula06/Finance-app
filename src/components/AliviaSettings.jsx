@@ -108,23 +108,23 @@ export default function AliviaSettings({ config = {}, onSave }) {
                 )}
             </div>
 
-            {/* Como contar os gastos */}
+            {/* Gastos no cartão de crédito (única coisa que muda entre os dois modos) */}
             <div>
-                <p className={`text-sm font-bold mb-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>Como contar seus gastos</p>
-                <p className="text-[11px] text-slate-500 mb-2">Vale para a Visão Geral, Contas, Despesas, Cartões e o Índice.</p>
+                <p className={`text-sm font-bold mb-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>Gastos no cartão de crédito</p>
+                <p className="text-[11px] text-slate-500 mb-2 leading-snug">Pix, débito e dinheiro sempre contam no mês do gasto. A escolha abaixo vale <b>só para o cartão</b>, onde a compra e o pagamento da fatura costumam cair em meses diferentes:</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button type="button" disabled={d} onClick={() => set('expenseBasis', 'competencia')} className={opt(v.expenseBasis === 'competencia')}>
                         <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 ${v.expenseBasis === 'competencia' ? 'border-emerald-500 bg-emerald-500' : 'border-slate-400'}`} />
                         <div className="min-w-0">
-                            <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>No dia em que gastei</p>
-                            <p className="text-[10px] text-slate-500 leading-snug">O gasto entra no mês em que você gastou — no pix, débito ou cartão. Pagar a fatura depois não conta de novo. <span className="text-slate-400">Ex.: gastou no cartão em maio → entra em maio, mesmo pagando a fatura em junho.</span></p>
+                            <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>No mês da compra</p>
+                            <p className="text-[10px] text-slate-500 leading-snug">A compra no cartão conta no mês em que você comprou. <span className="text-slate-400">Ex.: comprou em maio (fatura vence em junho) → conta em maio.</span></p>
                         </div>
                     </button>
                     <button type="button" disabled={d} onClick={() => set('expenseBasis', 'caixa')} className={opt(v.expenseBasis === 'caixa')}>
                         <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 ${v.expenseBasis === 'caixa' ? 'border-emerald-500 bg-emerald-500' : 'border-slate-400'}`} />
                         <div className="min-w-0">
-                            <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Quando o dinheiro sai da conta</p>
-                            <p className="text-[10px] text-slate-500 leading-snug">O gasto entra só quando o dinheiro sai da sua conta. No cartão, entra no mês em que você paga a fatura. <span className="text-slate-400">Ex.: pagou a fatura em junho → entra em junho.</span></p>
+                            <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>No mês que pago a fatura</p>
+                            <p className="text-[10px] text-slate-500 leading-snug">A compra no cartão conta no mês em que você paga a fatura. <span className="text-slate-400">Ex.: comprou em maio, pagou a fatura em junho → conta em junho.</span></p>
                         </div>
                     </button>
                 </div>
