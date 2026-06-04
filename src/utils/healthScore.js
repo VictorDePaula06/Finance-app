@@ -269,17 +269,32 @@ export const calculateHealthIndex = (transactions = [], config = {}, reserveTota
         if (NECESSITY_CATEGORIES.includes(t.category)) return 'essential';
         return 'superfluous';
     };
+    // Gastos do mês: exclui crédito, aportes/poupança e o PAGAMENTO de fatura
+    // (credit_card_bill) — esse pagamento quita uma fatura já fechada (mês anterior)
+    // e não é um gasto novo deste mês.
     const realExpenses = monthTx.filter(t =>
         t.type === 'expense' && t.paymentMethod !== 'credito' && !SAVINGS_CATEGORIES.includes(t.category)
+        && t.category !== 'credit_card_bill'
     );
     let essential = 0, comfort = 0, superfluous = 0;
-    realExpenses.forEach(t => {
+    const addExpense = (t) => {
         const v = parseFloat(t.amount) || 0;
         const c = classify(t);
         if (c === 'essential') essential += v;
         else if (c === 'comfort') comfort += v;
         else superfluous += v;
-    });
+    };
+    realExpenses.forEach(addExpense);
+
+    // Se "Apurar fatura aberta do cartão" estiver ligado, soma as compras no crédito
+    // AINDA NÃO PAGAS (a fatura em aberto), classificadas pela prioridade de cada compra.
+    // Assim os supérfluos refletem a fatura atual do cartão — e não o pagamento da
+    // fatura do mês passado.
+    if (hc.includeInvoice) {
+        transactions
+            .filter(t => t.type === 'expense' && t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid')
+            .forEach(addExpense);
+    }
     const totalSpent = essential + comfort + superfluous;
     const surplus = income - totalSpent;
 
