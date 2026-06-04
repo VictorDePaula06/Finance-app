@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import TransactionSection from './components/TransactionSection';
 import GoalTracker from './components/GoalTracker';
+import DebtManagementTab from './components/DebtManagementTab';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2, ShieldCheck, Sparkles, Activity, Home, Briefcase, AlertTriangle, Umbrella, Gauge, Target } from 'lucide-react';
@@ -108,6 +109,7 @@ function Dashboard() {
   const [savingsJars, setSavingsJars] = useState([]);
   const [investments, setInvestments] = useState([]);
   const [goals, setGoals] = useState([]);
+  const [debts, setDebts] = useState([]);
   const [cards, setCards] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [fixedExpensesList, setFixedExpensesList] = useState([]);
@@ -309,6 +311,12 @@ function Dashboard() {
       setGoals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    // Listen to Debts (dívidas)
+    const qDebts = query(collection(db, 'debts'), where('userId', '==', currentUser.uid));
+    const unsubscribeDebts = onSnapshot(qDebts, (snapshot) => {
+      setDebts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     // Listen to Cards
     const qC = query(collection(db, 'cards'), where('userId', '==', currentUser.uid));
     const unsubC = onSnapshot(qC, (snapshot) => {
@@ -346,6 +354,7 @@ function Dashboard() {
     return () => {
       unsubscribeTransactions();
       unsubscribeGoals();
+      unsubscribeDebts();
       unsubC();
       unsubS();
       unsubFE();
@@ -573,8 +582,13 @@ function Dashboard() {
   const effectiveConfig = { ...manualConfig, fixedExpenses: autoFixedExpenses || manualConfig.fixedExpenses };
   // Índice de Saúde Financeira (Gastos) — reformulado e configurável (sobra, reserva, supérfluos).
   const healthIndex = calculateHealthIndex(transactions, effectiveConfig, investmentStats.totalGuarded);
-  // Saúde Patrimonial — função própria (reserva em meses, aportes, progresso de metas).
-  const patrimonyHealthScore = calculatePatrimonyHealthScore(transactions, effectiveConfig, investmentStats, goals, investmentsSummary);
+  // Dívida total em aberto (saldo devedor das dívidas ativas).
+  const totalDebt = useMemo(
+    () => debts.reduce((s, d) => (d.paidOff ? s : s + (parseFloat(d.remainingAmount) || 0)), 0),
+    [debts]
+  );
+  // Saúde Patrimonial — função própria (reserva em meses, aportes, progresso de metas, dívidas).
+  const patrimonyHealthScore = calculatePatrimonyHealthScore(transactions, effectiveConfig, investmentStats, goals, investmentsSummary, totalDebt);
   // O card da sidebar usa a saúde do módulo ativo.
   const sidebarHealthScore = activeModule === 'patrimonio' ? patrimonyHealthScore : healthIndex;
 
@@ -654,13 +668,19 @@ function Dashboard() {
               const reserveMonths = healthIndex?.pillars?.reserve?.months || 0;
               const reserveAmount = investmentStats?.totalGuarded || 0;
               const sobrou = (walletStats.income || 0) - (walletStats.expense || 0);
-              const accent = sobrou >= 0 && supPct <= 30 && reserveMonths >= 6 ? 'text-emerald-400' : (sobrou < 0 || supPct > 30) ? 'text-amber-400' : 'text-blue-400';
+              const hasDebt = totalDebt > 0.005;
+              const accent = hasDebt ? 'text-rose-400' : (sobrou >= 0 && supPct <= 30 && reserveMonths >= 6 ? 'text-emerald-400' : (sobrou < 0 || supPct > 30) ? 'text-amber-400' : 'text-blue-400');
               return (
                 <div className={`p-5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-700/50'}`}>
                   <div className="flex items-start gap-3">
                     <img src={aliviaFinal} alt="Alívia" className="w-11 h-11 object-cover rounded-full border-2 border-white/20 shadow-md shrink-0" />
                     <div className="min-w-0">
                       <span className={`text-[10px] font-black uppercase tracking-widest block mb-1 ${accent}`}>Alívia · análise do mês</span>
+                      {hasDebt && (
+                        <p className={`text-[12px] leading-relaxed mb-1.5 font-medium ${theme === 'light' ? 'text-rose-600' : 'text-rose-300'}`}>
+                          ⚠️ Prioridade: você tem <span className="font-bold">R$ {fmtMoney(totalDebt)}</span> em dívidas. Quitar a dívida vem antes de qualquer investimento — <button onClick={() => { setActiveModule('patrimonio'); setActiveTab('dividas'); }} className="font-black text-rose-500 hover:text-rose-400 underline">gerenciar dívidas →</button>
+                        </p>
+                      )}
                       <p className={`text-[12px] leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
                         Este mês os gastos essenciais somaram <span className="font-bold">R$ {fmtMoney(essential)}</span> e os supérfluos <span className="font-bold">R$ {fmtMoney(superf)}</span> ({supPct}% dos gastos{supPct > 30 ? ' — acima do ideal de 30%' : ' — dentro do ideal'}).
                       </p>
@@ -844,6 +864,8 @@ function Dashboard() {
                 transactions={transactions}
                 manualConfig={manualConfig}
                 updateManualConfig={updateManualConfig}
+                totalDebt={totalDebt}
+                onNavigateTab={setActiveTab}
               />
             ) : <div className="p-12 text-center font-bold text-slate-500">Este módulo requer o plano Premium.</div>
           )}
@@ -865,6 +887,8 @@ function Dashboard() {
               />
             )
           )}
+
+          { activeTab === 'dividas' && <DebtManagementTab /> }
 
           { activeTab === 'evolucao' && (
             planLevel === 'premium' || planLevel === 'lifetime' || isAdmin ? (

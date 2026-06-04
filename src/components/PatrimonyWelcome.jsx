@@ -184,20 +184,22 @@ export default function PatrimonyWelcome({ onComplete }) {
 
     if (objectives.includes('debt') && parseFloat(debtValue) > 0) {
       try {
-        const { addDoc: addGoalDoc } = await import('firebase/firestore');
-        await addGoalDoc(collection(db, 'goals'), {
+        const { addDoc: addDebtDoc } = await import('firebase/firestore');
+        const debtAmount = parseFloat(debtValue);
+        await addDebtDoc(collection(db, 'debts'), {
           userId: currentUser.uid,
-          title: debtName || 'Sair das Dívidas',
-          target: parseFloat(debtValue),
-          current: 0,
-          status: 'active',
-          isDebtGoal: true,
-          linkedJarIds: [],
-          linkedInvIds: [],
+          name: debtName || 'Dívida',
+          originalAmount: debtAmount,
+          remainingAmount: debtAmount,
+          monthlyPayment: 0,
+          interestRate: 0,
+          dueDay: 0,
+          paidOff: false,
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         });
       } catch (e) {
-        console.error('Erro ao criar meta de dívida:', e);
+        console.error('Erro ao registrar dívida:', e);
       }
     }
 

@@ -107,6 +107,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
         type: 'group', id: 'grp_plan', label: 'Planejamento', icon: Target,
         children: [
           { id: 'metas', label: 'Metas', icon: CheckCircle2, premiumOnly: true },
+          { id: 'dividas', label: 'Gerenciamento de Dívidas', icon: TrendingDown },
           { id: 'evolucao', label: 'Evolução Patrimonial', icon: BarChart3, premiumOnly: true },
           { id: 'independencia', label: 'Independência Financeira', icon: TrendingUp, premiumOnly: true },
           { id: 'rebalanceamento', label: 'Rebalanceamento', icon: AlertTriangle, premiumOnly: true },

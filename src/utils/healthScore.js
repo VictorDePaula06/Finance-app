@@ -453,7 +453,7 @@ export const calculateHealthIndex = (transactions = [], config = {}, reserveTota
  * @param {Object} investmentStats { totalGuarded } — patrimônio líquido em reservas/investimentos.
  * @param {Array}  goals          Metas ({ target, current, status }).
  */
-export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = {}, investmentStats = {}, goals = [], investmentsSummary = {}) => {
+export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = {}, investmentStats = {}, goals = [], investmentsSummary = {}, totalDebt = 0) => {
     const income = manualConfig?.income ? parseFloat(manualConfig.income) : 0;
     const monthlyExpenses = manualConfig?.fixedExpenses
         ? parseFloat(manualConfig.fixedExpenses)
@@ -503,7 +503,18 @@ export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = 
         profitabilityScore = Math.max(0, Math.min(1, (returnPct + 0.05) / 0.20)) * 30;
     }
 
-    const totalScore = Math.min(100, Math.round(reserveScore + diversificationScore + profitabilityScore));
+    // ── PILAR 4: Dívidas (a dívida é prioridade — penaliza a saúde patrimonial) ──
+    // Sem dívida = saudável; quanto maior a dívida frente à sua capacidade, pior.
+    const debt = parseFloat(totalDebt) || 0;
+    const debtRef = Math.max(income * 6, reserveTotal + invCurrent, monthlyExpenses * 6, 1);
+    const debtRatio = debt > 0 ? debt / debtRef : 0;
+    // Fator de saúde: 1 (sem dívida) → 0.4 (dívida alta). Reduz a nota geral até 60%.
+    const debtFactor = debt > 0 ? Math.max(0.4, 1 - debtRatio * 0.6) : 1;
+    const debtPillarMax = 30;
+    const debtScore = debt > 0 ? Math.max(0, ((debtFactor - 0.4) / 0.6)) * debtPillarMax : debtPillarMax;
+
+    const buildingScore = reserveScore + diversificationScore + profitabilityScore;
+    const totalScore = Math.min(100, Math.round(buildingScore * debtFactor));
 
     // Feedback qualitativo (mesma escala de cores)
     let feedback = "Cadastre sua reserva e seus investimentos para ver sua saúde patrimonial.";
@@ -511,7 +522,12 @@ export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = 
     let bg = "bg-slate-400/10";
     let statusLabel = "Sem dados";
 
-    if (totalScore >= 90) {
+    // Dívida é prioridade — quando existe, o aviso vem primeiro.
+    if (debt > 0) {
+        const debtStr = debt.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        feedback = `Você tem R$ ${debtStr} em dívidas — priorize quitá-las antes de ampliar investimentos.`;
+        color = "text-rose-400"; bg = "bg-rose-500/10"; statusLabel = "Atenção";
+    } else if (totalScore >= 90) {
         feedback = "Patrimônio sólido! Reserva firme, carteira diversificada e rendendo bem.";
         color = "text-emerald-400"; bg = "bg-emerald-500/10"; statusLabel = "Excelente";
     } else if (totalScore >= 70) {
@@ -530,6 +546,7 @@ export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = 
         reserveScore < 40 * 0.9,
         diversificationScore < 30 * 0.9,
         profitabilityScore < 30 * 0.9,
+        debt > 0,
     ].filter(Boolean).length;
 
     return {
@@ -543,12 +560,17 @@ export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = 
             { key: 'reserve', label: 'Reserva de emergência', score: Math.round(reserveScore), max: 40 },
             { key: 'diversification', label: 'Diversificação', score: Math.round(diversificationScore), max: 30 },
             { key: 'profitability', label: 'Rentabilidade', score: Math.round(profitabilityScore), max: 30 },
+            { key: 'debt', label: 'Dívidas', score: Math.round(debtScore), max: debtPillarMax, hasDebt: debt > 0, debtTotal: debt },
         ],
+        hasDebt: debt > 0,
+        totalDebt: debt,
         breakdown: {
             reserve: Math.round(reserveScore),
             diversification: Math.round(diversificationScore),
             profitability: Math.round(profitabilityScore),
+            debt: Math.round(debtScore),
             data: {
+                totalDebt: debt,
                 reserveTotal,
                 monthlyExpenses,
                 monthsCovered: monthlyExpenses > 0 ? monthsCovered.toFixed(1) : "0.0",

@@ -51,7 +51,7 @@ function MiniCard({ label, value, icon: Icon, color, isDark, isHidable, isHidden
 }
 
 // ─── main ──────────────────────────────────────────────────────────────────────
-export default function PatrimonioTab({ transactions, manualConfig, updateManualConfig }) {
+export default function PatrimonioTab({ transactions, manualConfig, updateManualConfig, totalDebt = 0, onNavigateTab }) {
   const { theme } = useTheme();
   const { currentUser, userPrefs } = useAuth();
   const isDark = theme !== 'light';
@@ -412,8 +412,8 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
   }, [investments, usdRate, investmentsTotal, investmentsCost]);
 
   const patrimonyHealth = useMemo(
-    () => calculatePatrimonyHealthScore([], manualConfig, { totalGuarded: jarsTotal }, [], investmentsSummary),
-    [manualConfig, jarsTotal, investmentsSummary]
+    () => calculatePatrimonyHealthScore([], manualConfig, { totalGuarded: jarsTotal }, [], investmentsSummary, totalDebt),
+    [manualConfig, jarsTotal, investmentsSummary, totalDebt]
   );
 
   const handleAnalyze = async (force = false) => {
@@ -1114,6 +1114,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
             reserve: { color: '#10b981', desc: `Sua reserva cobre ${d.monthsCovered || '0.0'} de ${d.reserveMonthsTarget || 6} meses de despesa.` },
             diversification: { color: '#3b82f6', desc: d.invCount > 0 ? `${d.classCount} classe(s) de ativo · maior peso ${d.maxWeight || 0}%.` : 'Cadastre investimentos para diversificar.' },
             profitability: { color: '#a855f7', desc: d.invCount > 0 ? `Retorno acumulado de ${d.returnPct || 0}% sobre o investido.` : 'Sem investimentos para medir retorno.' },
+            debt: { color: '#f43f5e', desc: h.hasDebt ? `Você tem R$ ${fmt(h.totalDebt)} em dívidas — quite-as primeiro.` : 'Sem dívidas registradas. Continue assim! 👏' },
           };
           const ring = h.score >= 70 ? '#10b981' : h.score >= 50 ? '#eab308' : h.score > 0 ? '#f43f5e' : '#64748b';
           const C = 2 * Math.PI * 34;
@@ -1160,7 +1161,12 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
                       <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
                         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: meta.color }} />
                       </div>
-                      <p className="text-[9.5px] mt-1 text-slate-500">{meta.desc}</p>
+                      <p className="text-[9.5px] mt-1 text-slate-500">
+                        {meta.desc}
+                        {p.key === 'debt' && onNavigateTab && (
+                          <button onClick={() => onNavigateTab('dividas')} className="ml-1 font-black text-rose-400 hover:text-rose-300">Gerenciar dívidas →</button>
+                        )}
+                      </p>
                     </div>
                   );
                 })}
