@@ -3,7 +3,7 @@ import TransactionSection from './components/TransactionSection';
 import GoalTracker from './components/GoalTracker';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2, ShieldCheck, Sparkles, Activity, Home, Briefcase, AlertTriangle, Umbrella, Gauge, Target, Settings } from 'lucide-react';
+import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2, ShieldCheck, Sparkles, Activity, Home, Briefcase, AlertTriangle, Umbrella, Gauge, Target } from 'lucide-react';
 import InstallPrompt from './components/InstallPrompt';
 import logo from './assets/logo.png';
 import AdminPanel from './components/AdminPanel';
@@ -819,30 +819,14 @@ function Dashboard() {
               </div>
             );
 
-            // Botão especial de configuração de TODO o módulo Controle de Gastos.
-            const configBar = (
-              <div className="flex items-center justify-end mb-1">
-                <button
-                  onClick={() => window.dispatchEvent(new CustomEvent('open-alivia-settings'))}
-                  className="group flex items-center gap-2 pl-3 pr-4 py-2 rounded-full font-black text-[11px] uppercase tracking-wider text-white shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.03] active:scale-95 bg-gradient-to-r from-emerald-500 to-teal-500"
-                  title="Configurar o Controle de Gastos (gastos, cartão, fatura, índice e perfil)"
-                >
-                  <Settings className="w-4 h-4 transition-transform group-hover:rotate-45" />
-                  Configurar
-                </button>
-              </div>
-            );
             if (isLocalhost) {
               return (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                  {configBar}
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    <div className="min-w-0">{overview}</div>
-                    <div className="flex flex-col gap-4 min-w-0">
-                      {aliviaCard}
-                      {metasCard}
-                      {compromissos}
-                    </div>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                  <div className="min-w-0">{overview}</div>
+                  <div className="flex flex-col gap-4 min-w-0">
+                    {aliviaCard}
+                    {metasCard}
+                    {compromissos}
                   </div>
                 </div>
               );

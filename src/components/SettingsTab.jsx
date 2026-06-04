@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { validateApiKey } from '../services/gemini';
 import { createPortalSession } from '../services/stripe';
+import AliviaSettings from './AliviaSettings';
 import { downloadUserData } from '../utils/dataExport';
 import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
 import Manual from './Manual';
@@ -33,7 +34,7 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
     });
   };
 
-  const [activeSection, setActiveSection] = useState('profile');
+  const [activeSection, setActiveSection] = useState('alivia');
 
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -117,6 +118,7 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
 
   // ── Nav items definition ──
   const navItems = [
+    { id: 'alivia',       label: 'Configurar Alívia',        icon: Sparkles,      iconColor: 'text-emerald-400', activeColor: 'emerald' },
     { id: 'profile',      label: 'Perfil e Segurança',      icon: Shield,        iconColor: 'text-emerald-500', activeColor: 'emerald' },
     { id: 'subscription', label: 'Sua Assinatura',           icon: CreditCard,    iconColor: 'text-blue-400',    activeColor: 'emerald' },
     { id: 'ai',           label: 'Inteligência Artificial',  icon: Key,           iconColor: 'text-violet-400',  activeColor: 'emerald' },
@@ -690,7 +692,18 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
     </div>
   );
 
+  const renderAlivia = () => (
+    <div className="animate-in fade-in duration-200">
+      <SectionTitle icon={Sparkles} label="Configurar Alívia" iconColor="text-emerald-400" />
+      <p className="text-xs text-slate-500 -mt-3 mb-5 leading-relaxed">
+        Tudo do Controle de Gastos num lugar só: como contar os gastos, cartão e fatura, e as metas do Índice de Saúde.
+      </p>
+      <AliviaSettings config={manualConfig} onSave={updateManualConfig} />
+    </div>
+  );
+
   const sectionMap = {
+    alivia:       renderAlivia,
     profile:      renderProfile,
     subscription: renderSubscription,
     ai:           renderAI,
