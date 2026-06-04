@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Coins, ShieldCheck, ShoppingBag, Settings, Clock, ArrowRight, X, Sparkles, CreditCard, AlertTriangle } from 'lucide-react';
+import { Coins, ShieldCheck, ShoppingBag, Clock, ArrowRight, X, Sparkles, CreditCard, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { DEFAULT_HEALTH_CONFIG } from '../utils/healthScore';
 
@@ -109,23 +109,12 @@ export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig
 
     return (
         <div className="space-y-2">
-            {/* Cabeçalho */}
+            {/* Cabeçalho — a configuração agora é feita no botão "Configurar" do topo
+                da Visão Geral (config unificada de TODO o Controle de Gastos). */}
             <div className="flex items-center justify-center gap-2 relative">
                 <p className={`text-[10px] font-black uppercase tracking-[0.25em] ${sub} text-center`}>
                     Índice de Saúde Financeira
                 </p>
-                <button
-                    onClick={() => setShowConfig(true)}
-                    className={`absolute right-0 flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 ${
-                        isDark
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
-                            : 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100'
-                    }`}
-                    title="Configurações da Alívia — índice, gastos, cartão e fatura"
-                >
-                    <Settings className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Configurar</span>
-                </button>
             </div>
 
             {/* Card principal */}

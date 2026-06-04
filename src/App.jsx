@@ -633,20 +633,8 @@ function Dashboard() {
               )}
             </div>
 
-            {/* Botão de configurações (mobile, só na Visão Geral) — abre a config unificada. */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {activeTab === 'visao' && (
-                <button
-                  onClick={() => window.dispatchEvent(new CustomEvent('open-alivia-settings'))}
-                  className={`p-2 rounded-xl border transition-all active:scale-95 ${
-                    theme === 'light' ? 'bg-white border-slate-100 text-slate-400 hover:text-emerald-500 shadow-sm' : 'bg-white/5 border-white/5 text-slate-500 hover:text-emerald-400'
-                  }`}
-                  title="Configurações da Alívia"
-                >
-                  <Settings className="w-5 h-5" />
-                </button>
-              )}
-            </div>
+            {/* Ações do topo movidas: a config fica no botão "Configurar" da Visão Geral. */}
+            <div className="shrink-0" />
           </div>
           {/* Toast de nova versão — sempre montado (portal). */}
           <ReloadPrompt />
@@ -831,14 +819,30 @@ function Dashboard() {
               </div>
             );
 
+            // Botão especial de configuração de TODO o módulo Controle de Gastos.
+            const configBar = (
+              <div className="flex items-center justify-end mb-1">
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-alivia-settings'))}
+                  className="group flex items-center gap-2 pl-3 pr-4 py-2 rounded-full font-black text-[11px] uppercase tracking-wider text-white shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.03] active:scale-95 bg-gradient-to-r from-emerald-500 to-teal-500"
+                  title="Configurar o Controle de Gastos (gastos, cartão, fatura, índice e perfil)"
+                >
+                  <Settings className="w-4 h-4 transition-transform group-hover:rotate-45" />
+                  Configurar
+                </button>
+              </div>
+            );
             if (isLocalhost) {
               return (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                  <div className="min-w-0">{overview}</div>
-                  <div className="flex flex-col gap-4 min-w-0">
-                    {aliviaCard}
-                    {metasCard}
-                    {compromissos}
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                  {configBar}
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    <div className="min-w-0">{overview}</div>
+                    <div className="flex flex-col gap-4 min-w-0">
+                      {aliviaCard}
+                      {metasCard}
+                      {compromissos}
+                    </div>
                   </div>
                 </div>
               );
