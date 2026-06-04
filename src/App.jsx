@@ -3,7 +3,7 @@ import TransactionSection from './components/TransactionSection';
 import GoalTracker from './components/GoalTracker';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2, ShieldCheck, Sparkles, Activity, Home, Briefcase, AlertTriangle, Umbrella, Gauge, Target } from 'lucide-react';
+import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2, ShieldCheck, Sparkles, Activity, Home, Briefcase, AlertTriangle, Umbrella, Gauge, Target, Settings } from 'lucide-react';
 import InstallPrompt from './components/InstallPrompt';
 import logo from './assets/logo.png';
 import AdminPanel from './components/AdminPanel';
@@ -16,7 +16,6 @@ import PanicButton from './components/PanicButton';
 import { generateSundayBreath } from './utils/sundayBreath';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import ReloadPrompt from './components/ReloadPrompt';
-import PushSetup from './components/PushSetup';
 import MonthlyReviewModal from './components/MonthlyReviewModal';
 import { generateMonthlyReview } from './services/gemini';
 import { CATEGORIES } from './constants/categories';
@@ -281,6 +280,13 @@ function Dashboard() {
     };
     window.addEventListener('navigate-tab', handler);
     return () => window.removeEventListener('navigate-tab', handler);
+  }, []);
+
+  // Abre o perfil completo da Alívia (AliviaConfigForm) a partir da config unificada.
+  useEffect(() => {
+    const handler = () => setShowAliviaConfig(true);
+    window.addEventListener('open-alivia-config', handler);
+    return () => window.removeEventListener('open-alivia-config', handler);
   }, []);
 
   // CDI agora vem do hook compartilhado useCdiRate (cache global). Não precisa fetch local.
@@ -600,7 +606,7 @@ function Dashboard() {
               mobile com título + menu; na Visão Geral é só uma faixa de ações. */}
           <div className={`animate-in fade-in slide-in-from-top-4 duration-700 ${
             activeTab === 'visao'
-              ? 'flex items-center justify-between gap-2'
+              ? 'flex items-center justify-between gap-2 lg:hidden'
               : `flex items-center justify-between lg:hidden p-4 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`
           }`}>
             <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
@@ -627,47 +633,23 @@ function Dashboard() {
               )}
             </div>
 
-            <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-              {/* Configurar Alívia — preserva acesso à configuração financeira */}
+            {/* Botão de configurações (mobile, só na Visão Geral) — abre a config unificada. */}
+            <div className="flex items-center gap-1.5 shrink-0">
               {activeTab === 'visao' && (
                 <button
-                  onClick={() => setShowAliviaConfig(true)}
-                  className={`p-2 md:p-3 rounded-xl md:rounded-2xl border transition-all hover:scale-110 active:scale-95 ${
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-alivia-settings'))}
+                  className={`p-2 rounded-xl border transition-all active:scale-95 ${
                     theme === 'light' ? 'bg-white border-slate-100 text-slate-400 hover:text-emerald-500 shadow-sm' : 'bg-white/5 border-white/5 text-slate-500 hover:text-emerald-400'
                   }`}
-                  title="Configurar Alívia"
+                  title="Configurações da Alívia"
                 >
-                  <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
+                  <Settings className="w-5 h-5" />
                 </button>
               )}
-              <button
-                onClick={() => {
-                  setActiveTab('manual');
-                  setTimeout(() => window.dispatchEvent(new CustomEvent('manual-section', { detail: 'billing' })), 100);
-                }}
-                className={`p-2 md:p-3 rounded-xl md:rounded-2xl border transition-all hover:scale-110 active:scale-95 ${
-                  theme === 'light' ? 'bg-white border-slate-100 text-slate-400 hover:text-blue-500 shadow-sm' : 'bg-white/5 border-white/5 text-slate-500 hover:text-blue-400'
-                }`}
-                title="Gerenciar Assinatura"
-              >
-                <CreditCard className="w-4 h-4 md:w-5 md:h-5" />
-              </button>
-              <button
-                onClick={() => setActiveTab('manual')}
-                className={`p-2 md:p-3 rounded-xl md:rounded-2xl border transition-all hover:scale-110 active:scale-95 ${
-                  theme === 'light' ? 'bg-white border-slate-100 text-slate-400 hover:text-emerald-500 shadow-sm' : 'bg-white/5 border-white/5 text-slate-500 hover:text-emerald-400'
-                }`}
-                title="Manual do Sistema"
-              >
-                <BookOpen className="w-4 h-4 md:w-5 md:h-5" />
-              </button>
-              <div className="hidden md:block w-px h-8 bg-slate-500/20 mx-1"></div>
-              <div className="scale-75 md:scale-100 flex items-center gap-1">
-                <ReloadPrompt />
-                <PushSetup />
-              </div>
             </div>
           </div>
+          {/* Toast de nova versão — sempre montado (portal). */}
+          <ReloadPrompt />
 
           {activeTab === 'visao' && (() => {
             // Visão Geral unificada (layout em 2 colunas) — ativa em produção.

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Coins, ShieldCheck, ShoppingBag, Settings, Clock, ArrowRight, X, Sparkles, CreditCard, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
@@ -79,6 +79,13 @@ export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig
     const [showConfig, setShowConfig] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
 
+    // Abre a config unificada a partir de qualquer botão "Configurações" (header, etc.).
+    useEffect(() => {
+        const open = () => setShowConfig(true);
+        window.addEventListener('open-alivia-settings', open);
+        return () => window.removeEventListener('open-alivia-settings', open);
+    }, []);
+
     if (!data) return null;
 
     const acc = ACCENT[data.accent] || ACCENT.slate;
@@ -109,10 +116,15 @@ export default function FinancialHealthIndex({ data, config = {}, onUpdateConfig
                 </p>
                 <button
                     onClick={() => setShowConfig(true)}
-                    className={`absolute right-0 p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
-                    title="Configurar índice"
+                    className={`absolute right-0 flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 ${
+                        isDark
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+                            : 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100'
+                    }`}
+                    title="Configurações da Alívia — índice, gastos, cartão e fatura"
                 >
-                    <Settings className="w-4 h-4" />
+                    <Settings className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Configurar</span>
                 </button>
             </div>
 
@@ -368,7 +380,7 @@ function ConfigModal({ isDark, config, onClose, onSave }) {
             >
                 <div className={`flex items-center justify-between px-6 py-5 border-b sticky top-0 z-10 ${isDark ? 'bg-[#161b27] border-white/5' : 'bg-white border-slate-100'}`}>
                     <h3 className={`text-lg font-black flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                        <Sparkles className="w-5 h-5 text-emerald-500" /> Configurar índice
+                        <Sparkles className="w-5 h-5 text-emerald-500" /> Configurações da Alívia
                     </h3>
                     <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-rose-400"><X className="w-5 h-5" /></button>
                 </div>
@@ -451,6 +463,22 @@ function ConfigModal({ isDark, config, onClose, onSave }) {
                     <UnitField isDark={isDark} label="Teto de gastos supérfluos" hint="Limite saudável de supérfluos." value={superVal} setValue={setSuperVal}
                         unit={superUnit} setUnit={setSuperUnit}
                         options={[{ id: 'percent', short: '%', suffix: '% da renda' }, { id: 'amount', short: 'R$', suffix: null }]} />
+
+                    {/* Acesso ao perfil completo da Alívia (objetivos, perfil de risco, etc.) */}
+                    <button
+                        type="button"
+                        onClick={() => { onClose(); setTimeout(() => window.dispatchEvent(new CustomEvent('open-alivia-config')), 60); }}
+                        className={`w-full flex items-center justify-between gap-3 p-3 rounded-2xl border text-left transition-all ${isDark ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}
+                    >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                            <Sparkles className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <div className="min-w-0">
+                                <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Objetivos e Perfil</p>
+                                <p className="text-[10px] text-slate-500 leading-snug">Renda, objetivos, perfil de risco e metas avançadas da Alívia.</p>
+                            </div>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-slate-400 shrink-0" />
+                    </button>
                 </div>
                 <div className={`flex gap-3 px-6 py-5 border-t ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
                     <button onClick={onClose} className={`flex-1 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest ${isDark ? 'bg-white/5 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>Cancelar</button>
