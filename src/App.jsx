@@ -497,16 +497,14 @@ function Dashboard() {
         .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
 
-    // Mês "efetivo" do gasto: o pagamento de fatura (credit_card_bill) pertence
-    // ao mês da FATURA (invoiceMonthPaid), não ao mês em que foi pago. Assim,
-    // pagar este mês a fatura do mês passado NÃO infla os gastos deste mês.
-    const expenseMonthOf = (t) => (t.category === 'credit_card_bill')
-        ? (t.invoiceMonthPaid || t.month || (t.date ? t.date.slice(0, 7) : ''))
-        : (t.month || (t.date ? t.date.slice(0, 7) : ''));
-
+    // GASTOS NO MÊS por COMPETÊNCIA (padrão único do módulo): cada gasto conta no
+    // mês da COMPRA — inclusive compras no crédito (pela data da compra). O
+    // pagamento de fatura (credit_card_bill) é só transferência e NÃO conta como
+    // gasto (senão contaria duas vezes). Aportes/poupança também ficam de fora.
     const expense = transactions
-        .filter(t => t.type === 'expense' && t.category !== 'investment' && t.paymentMethod !== 'credito'
-            && expenseMonthOf(t) === currentMonthKey)
+        .filter(t => t.type === 'expense'
+            && !['investment', 'vault', 'credit_card_bill'].includes(t.category)
+            && (t.month || (t.date ? t.date.slice(0, 7) : '')) === currentMonthKey)
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
     // O Saldo Acumulado deve considerar o histórico total do usuário
@@ -681,9 +679,8 @@ function Dashboard() {
             // Análise da Alívia (Visão Geral · Gastos): reserva, supérfluos, sobra do mês.
             const aliviaCard = (() => {
               const cm = new Date().toISOString().slice(0, 7);
-              // Pagamento de fatura conta no mês da fatura (não no mês do pagamento).
-              const expMonthOf = (t) => (t.category === 'credit_card_bill') ? (t.invoiceMonthPaid || t.month) : (t.month || (t.date ? String(t.date).slice(0, 7) : ''));
-              const exp = transactions.filter(t => t.type === 'expense' && t.category !== 'investment' && t.paymentMethod !== 'credito' && expMonthOf(t) === cm);
+              // Competência: conta a compra no mês dela (inclui crédito); pagamento de fatura fora.
+              const exp = transactions.filter(t => t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category) && (t.month || (t.date ? String(t.date).slice(0, 7) : '')) === cm);
               const sum = (a) => a.reduce((x, t) => x + (parseFloat(t.amount) || 0), 0);
               const essential = sum(exp.filter(t => (t.priority || 'comfort') === 'essential'));
               const superf = sum(exp.filter(t => t.priority === 'superfluous'));
@@ -799,15 +796,43 @@ function Dashboard() {
                 </h3>
                 <div className={isLocalhost ? 'space-y-2.5' : 'space-y-4'}>
                   {(() => {
+                      // Mês da fatura (ciclo) de uma compra, conforme o dia de fechamento.
+                      const invoiceMonthOf = (dateStr, closingDay) => {
+                          const d = new Date(dateStr); if (isNaN(d.getTime())) return '';
+                          let month = d.getMonth(), year = d.getFullYear();
+                          if (d.getDate() >= closingDay) { month += 1; if (month > 11) { month = 0; year += 1; } }
+                          return `${year}-${String(month + 1).padStart(2, '0')}`;
+                      };
+                      const nowD = new Date();
+                      const todayD = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate());
                       const consolidated = [
-                          ...subscriptions.filter(s => !s.cardId).map(s => ({ id: s.id, name: s.name, value: parseFloat(s.value) || 0, day: s.day, type: 'sub' })),
+                          ...subscriptions.filter(s => !s.cardId).map(s => {
+                              const day = parseInt(s.day) || 1;
+                              let due = new Date(nowD.getFullYear(), nowD.getMonth(), day);
+                              if (due < todayD) due = new Date(nowD.getFullYear(), nowD.getMonth() + 1, day);
+                              return { id: s.id, name: s.name, value: parseFloat(s.value) || 0, day, sortKey: due.getTime(), type: 'sub' };
+                          }),
                           ...cards.map(card => {
-                              const cardUnpaidExpenses = transactions.filter(t => t.selectedCardId === card.id && t.invoiceStatus === 'unpaid').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+                              const closingDay = card.closingDay || ((card.dueDay - 7 > 0) ? card.dueDay - 7 : 25);
+                              const dueDay = card.dueDay || 10;
+                              const unpaid = transactions.filter(t => t.selectedCardId === card.id && t.invoiceStatus === 'unpaid');
+                              // Agrupa as compras não pagas por CICLO de fatura.
+                              const byCycle = {};
+                              unpaid.forEach(t => { const m = invoiceMonthOf(t.date || nowD.toISOString(), closingDay); if (m) byCycle[m] = (byCycle[m] || 0) + (parseFloat(t.amount) || 0); });
+                              // Assinaturas do cartão entram na fatura corrente.
                               const cardSubs = subscriptions.filter(s => s.cardId === card.id).reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0);
-                              const total = cardUnpaidExpenses + cardSubs;
-                              return total > 0 ? { id: card.id, name: `Fatura ${card.name || card.brand}`, value: total, day: card.dueDay || 10, type: 'card' } : null;
+                              const currInv = invoiceMonthOf(nowD.toISOString(), closingDay);
+                              if (cardSubs > 0) byCycle[currInv] = (byCycle[currInv] || 0) + cardSubs;
+                              // Próxima fatura a vencer = ciclo mais antigo em aberto.
+                              const cycles = Object.keys(byCycle).sort();
+                              const nearest = cycles[0];
+                              const value = nearest ? byCycle[nearest] : 0;
+                              if (value <= 0.005) return null;
+                              const [iy, im] = nearest.split('-').map(Number);
+                              const dueDate = new Date(iy, im - 1, dueDay);
+                              return { id: card.id, name: `Fatura ${card.name || card.brand}`, value, day: dueDay, sortKey: dueDate.getTime(), type: 'card' };
                           }).filter(Boolean)
-                      ].sort((a, b) => a.day - b.day).slice(0, isLocalhost ? 5 : 4);
+                      ].sort((a, b) => a.sortKey - b.sortKey).slice(0, isLocalhost ? 5 : 4);
 
                       return consolidated.map(item => (
                           <div key={item.id} className={`flex items-center justify-between ${isLocalhost ? 'p-3' : 'p-4'} rounded-2xl ${theme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>

@@ -287,12 +287,12 @@ export const calculateHealthIndex = (transactions = [], config = {}, reserveTota
     realExpenses.forEach(addExpense);
 
     // Se "Apurar fatura aberta do cartão" estiver ligado, soma as compras no crédito
-    // AINDA NÃO PAGAS (a fatura em aberto), classificadas pela prioridade de cada compra.
-    // Assim os supérfluos refletem a fatura atual do cartão — e não o pagamento da
-    // fatura do mês passado.
+    // DESTE MÊS (por competência — pela data da compra), classificadas pela prioridade
+    // de cada compra. Assim os supérfluos refletem o cartão do mês atual e ficam
+    // consistentes com as demais abas (Gastos por Período, Metas, Comparativo).
     if (hc.includeInvoice) {
         transactions
-            .filter(t => t.type === 'expense' && t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid')
+            .filter(t => t.type === 'expense' && t.paymentMethod === 'credito' && getRobustMonth(t) === currentMonth)
             .forEach(addExpense);
     }
     const totalSpent = essential + comfort + superfluous;

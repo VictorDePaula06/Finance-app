@@ -168,6 +168,10 @@ export default function OverviewTab({
         const mIncome = walletStats.income || 0;
         const mExpense = walletStats.expense || 0;
         const afterInvoice = (walletStats.balance || 0) - (invoiceInfo.total || 0);
+        // Quando não houve recebimento LANÇADO no mês, o Índice de Saúde usa a renda
+        // BASE configurada — deixamos isso explícito no card de Ganhos para não confundir.
+        const baseIncomeForIndex = healthIndex?.incomeSource === 'base' ? (healthIndex?.income || 0) : 0;
+        const showBaseIncomeHint = mIncome <= 0 && baseIncomeForIndex > 0;
         return (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-4">
                 {/* Hero do Saldo */}
@@ -231,7 +235,7 @@ export default function OverviewTab({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className={`p-4 rounded-2xl border flex items-center gap-3 ${card}`}>
                         <span className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}><TrendingUp className="w-5 h-5 text-emerald-500" /></span>
-                        <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">Ganhos no mês</p><p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-emerald-500'}`}>{hideBalance ? 'R$ ••' : formatCurrency(mIncome)}</p></div>
+                        <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">Ganhos no mês</p><p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-emerald-500'}`}>{hideBalance ? 'R$ ••' : formatCurrency(mIncome)}</p>{showBaseIncomeHint && <p className="text-[9px] text-slate-400 truncate" title="Sem recebimento lançado neste mês — o Índice de Saúde usa a renda base configurada.">Índice usa renda base {formatCurrency(baseIncomeForIndex)}</p>}</div>
                     </div>
                     <div className={`p-4 rounded-2xl border flex items-center gap-3 ${card}`}>
                         <span className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><CreditCard className="w-5 h-5 text-rose-500" /></span>
