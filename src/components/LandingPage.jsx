@@ -196,7 +196,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                     <button onClick={onLogin} className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA] hover:opacity-90 text-white font-black text-lg shadow-xl shadow-[#69C8B9]/30 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 group">
                                         Começar Grátis <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
                                     </button>
-                                    <button onClick={onLogin} className={`w-full sm:w-auto px-8 py-4 rounded-2xl font-black text-base border transition-all hover:scale-105 active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:border-[#69C8B9]/40 hover:text-[#69C8B9]' : 'border-slate-200 text-slate-700 hover:border-[#69C8B9]/50 hover:text-[#69C8B9]'}`}>
+                                    <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className={`w-full sm:w-auto px-8 py-4 rounded-2xl font-black text-base border transition-all hover:scale-105 active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:border-[#69C8B9]/40 hover:text-[#69C8B9]' : 'border-slate-200 text-slate-700 hover:border-[#69C8B9]/50 hover:text-[#69C8B9]'}`}>
                                         Ver Planos
                                     </button>
                                 </div>
