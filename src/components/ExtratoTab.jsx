@@ -31,6 +31,7 @@ export default function ExtratoTab({ transactions = [] }) {
     const isDark = theme !== 'light';
 
     const [filter, setFilter] = useState('all');     // all | income | expense
+    const [source, setSource] = useState('all');     // all | wallet (pix/débito/dinheiro) | card (crédito)
     const [period, setPeriod] = useState('current');  // current | 'YYYY-MM' | all
     const [search, setSearch] = useState('');
 
@@ -65,10 +66,14 @@ export default function ExtratoTab({ transactions = [] }) {
         return { entrou, saiu, resultado: entrou - saiu };
     }, [periodEntries]);
 
-    // Lista final (filtro entrada/saída + busca), mais recente primeiro.
+    // Carteira = pix, débito, dinheiro (e entradas). Cartão = crédito.
+    const isCardTx = (t) => t.paymentMethod === 'credito';
+
+    // Lista final (origem + entrada/saída + busca), mais recente primeiro.
     const visible = useMemo(() => {
         const q = search.trim().toLowerCase();
         return periodEntries
+            .filter(({ t }) => source === 'all' || (source === 'card' ? isCardTx(t) : !isCardTx(t)))
             .filter(({ t }) => filter === 'all' || t.type === filter)
             .filter(({ t }) => {
                 if (!q) return true;
@@ -78,7 +83,12 @@ export default function ExtratoTab({ transactions = [] }) {
             })
             .slice()
             .reverse();
-    }, [periodEntries, filter, search]);
+    }, [periodEntries, filter, source, search]);
+
+    // Total gasto no cartão de crédito no período (para a frase quando filtra Cartão).
+    const cardTotal = useMemo(() => periodEntries
+        .filter(({ t }) => isCardTx(t) && t.type === 'expense')
+        .reduce((a, { t }) => a + (parseFloat(t.amount) || 0), 0), [periodEntries]);
 
     // Agrupa por dia.
     const groups = useMemo(() => {
@@ -122,6 +132,20 @@ export default function ExtratoTab({ transactions = [] }) {
         );
     };
 
+    const SourceBtn = ({ id, label, Icon }) => {
+        const active = source === id;
+        return (
+            <button
+                onClick={() => setSource(id)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide transition-all inline-flex items-center gap-1.5 ${active
+                    ? (id === 'card' ? 'bg-violet-500 text-white' : id === 'wallet' ? 'bg-blue-500 text-white' : (isDark ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'))
+                    : (isDark ? 'text-slate-400 hover:text-white hover:bg-white/5' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100')}`}
+            >
+                {Icon && <Icon className="w-3.5 h-3.5" />}{label}
+            </button>
+        );
+    };
+
     return (
         <div className="max-w-3xl mx-auto w-full flex flex-col gap-4 pb-10">
             {/* Cabeçalho */}
@@ -161,13 +185,22 @@ export default function ExtratoTab({ transactions = [] }) {
             {/* Explicação do resultado do período */}
             <div className={`rounded-2xl border p-3.5 ${card}`}>
                 <p className={`text-[11px] leading-relaxed ${sub}`}>
-                    {period === 'all' ? 'Somando todo o histórico' : `Em ${monthLabel(selectedMonth)}`}, entraram{' '}
-                    <span className="font-black text-emerald-500">R$ {fmt(totals.entrou)}</span> e saíram{' '}
-                    <span className="font-black text-rose-500">R$ {fmt(totals.saiu)}</span>, dando um resultado de{' '}
-                    <span className={`font-black ${totals.resultado < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                        {totals.resultado < 0 ? '−' : '+'}R$ {fmt(Math.abs(totals.resultado))}
-                    </span>
-                    {totals.resultado < 0 ? ' — você gastou mais do que entrou neste período.' : '.'}
+                    {source === 'card' ? (
+                        <>
+                            {period === 'all' ? 'Somando todo o histórico' : `Em ${monthLabel(selectedMonth)}`}, você lançou{' '}
+                            <span className="font-black text-violet-400">R$ {fmt(cardTotal)}</span> no cartão de crédito — esse valor entra na fatura e <span className="font-bold">não sai do seu saldo</span> agora.
+                        </>
+                    ) : (
+                        <>
+                            {period === 'all' ? 'Somando todo o histórico' : `Em ${monthLabel(selectedMonth)}`}, entraram{' '}
+                            <span className="font-black text-emerald-500">R$ {fmt(totals.entrou)}</span> e saíram{' '}
+                            <span className="font-black text-rose-500">R$ {fmt(totals.saiu)}</span>, dando um resultado de{' '}
+                            <span className={`font-black ${totals.resultado < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                {totals.resultado < 0 ? '−' : '+'}R$ {fmt(Math.abs(totals.resultado))}
+                            </span>
+                            {totals.resultado < 0 ? ' — você gastou mais do que entrou neste período.' : '.'}
+                        </>
+                    )}
                 </p>
             </div>
 
@@ -194,6 +227,13 @@ export default function ExtratoTab({ transactions = [] }) {
                     <FilterBtn id="all" label="Tudo" />
                     <FilterBtn id="income" label="Entradas" />
                     <FilterBtn id="expense" label="Saídas" />
+                </div>
+
+                {/* Origem: carteira (pix/débito/dinheiro) ou cartão (crédito) */}
+                <div className={`inline-flex items-center gap-1 p-1 rounded-xl border ${isDark ? 'bg-[#151822] border-white/10' : 'bg-white border-slate-200'}`}>
+                    <SourceBtn id="all" label="Tudo" />
+                    <SourceBtn id="wallet" label="Carteira" Icon={Wallet} />
+                    <SourceBtn id="card" label="Cartão" Icon={CreditCard} />
                 </div>
 
                 {/* Busca */}
