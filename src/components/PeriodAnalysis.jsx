@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { Filter, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Target, Sparkles, FileDown, Receipt, Shield, Flame, ListChecks, Wallet, CreditCard, Banknote, QrCode, FileText, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles, FileDown, Receipt, Shield, Flame, Wallet, CreditCard, Banknote, QrCode, FileText } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
 import { Loader2 } from 'lucide-react';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
@@ -292,138 +292,121 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
   const txt = isDark ? 'text-white' : 'text-slate-800';
   const sub = isDark ? 'text-slate-400' : 'text-slate-500';
   const inset = isDark ? 'bg-[#161b27] border-white/10' : 'bg-slate-50 border-slate-200';
+  const fieldBg = isDark ? 'bg-[#161b27] border-white/10' : 'bg-white border-slate-200';
+
+  const Chip = ({ active, onClick, hex, icon: Icon, children }) => (
+    <button onClick={onClick}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border ${active ? 'text-white' : (isDark ? 'text-slate-400 border-white/10 hover:bg-white/5' : 'text-slate-500 border-slate-200 hover:bg-slate-50')}`}
+      style={active ? { background: hex, borderColor: hex } : undefined}>
+      {Icon ? <Icon className="w-3 h-3" style={!active ? { color: hex } : undefined} /> : (hex && !active && <span className="w-2 h-2 rounded-full" style={{ background: hex }} />)}
+      {children}
+    </button>
+  );
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
-      {/* ===== COLUNA DE FILTROS ===== */}
-      <div className={`p-5 rounded-2xl border h-fit lg:sticky lg:top-4 space-y-5 ${card}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-rose-500" />
-            <h3 className={`text-sm font-bold uppercase tracking-wider ${txt}`}>Filtros</h3>
-          </div>
-          {hasFilters && (
-            <button onClick={clearFilters} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-rose-400 hover:text-rose-300 transition-colors">
-              <RotateCcw className="w-3 h-3" /> Limpar
-            </button>
-          )}
+    <div className="space-y-5">
+      {/* Cabeçalho */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className={`text-2xl font-black tracking-tight ${txt}`}>Gastos por Período</h1>
+          <p className={`text-sm mt-0.5 ${sub}`}>Analise para onde foi o seu dinheiro em cada período</p>
         </div>
+        <button onClick={handleExportPDF} disabled={isExportingPDF}
+          className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${canExportPDF ? (isDark ? 'border border-white/10 text-slate-300 hover:bg-white/5' : 'border border-slate-200 text-slate-600 hover:bg-slate-50') : 'bg-blue-500 text-white hover:bg-blue-600'} disabled:opacity-50`}>
+          {isExportingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : (canExportPDF ? <FileDown className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />)} {canExportPDF ? 'Exportar PDF' : 'Exportar PDF · Standard'}
+        </button>
+      </div>
 
-        {/* PERÍODO */}
-        <div className="space-y-2.5">
-          <label className={`text-[10px] font-bold uppercase tracking-widest block ${sub}`}>Período</label>
-          <div className={`flex items-center justify-between rounded-xl border ${inset}`}>
-            <button onClick={goPrev} className="p-2 text-slate-400 hover:text-emerald-400"><ChevronLeft className="w-4 h-4" /></button>
-            <span className={`text-[11px] font-bold uppercase capitalize ${txt}`}>{rangeLabel}</span>
-            <button onClick={goNext} className="p-2 text-slate-400 hover:text-emerald-400"><ChevronRight className="w-4 h-4" /></button>
+      {/* KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCard isDark={isDark} accent="#34d399" label="Ganhos" value={`R$ ${fmt(income)}`} delta={pctDelta(income, prev.income)} />
+        <KpiCard isDark={isDark} accent="#f43f5e" label="Gastos" value={`R$ ${fmt(totalExpense)}`} delta={pctDelta(totalExpense, prev.expense)} invert />
+        <KpiCard isDark={isDark} accent={balance >= 0 ? '#34d399' : '#f43f5e'} label="Resultado" value={`R$ ${fmt(balance)}`} delta={pctDelta(balance, prev.balance)} />
+        <KpiCard isDark={isDark} accent="#f59e0b" label="Transações" value={String(txCount)} delta={pctDelta(txCount, prev.count)} />
+      </div>
+
+      {/* Barra de filtros (mesmo padrão de Metas de Gasto) */}
+      <div className={`rounded-2xl border p-3 flex flex-wrap items-center gap-x-5 gap-y-2.5 ${card}`}>
+        {/* Período */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Período</span>
+          <div className={`flex items-center rounded-lg border ${fieldBg}`}>
+            <button onClick={goPrev} className="p-1.5 text-slate-400 hover:text-emerald-400"><ChevronLeft className="w-4 h-4" /></button>
+            <span className={`text-[11px] font-bold capitalize px-1 min-w-[96px] text-center ${txt}`}>{rangeLabel}</span>
+            <button onClick={goNext} className="p-1.5 text-slate-400 hover:text-emerald-400"><ChevronRight className="w-4 h-4" /></button>
           </div>
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="flex items-center gap-1">
             {PERIOD_MODES.map(m => {
               const active = mode === m.id;
               return (
                 <button key={m.id} onClick={() => setMode(m.id)}
-                  className={`px-2 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all ${active ? 'bg-rose-500 text-white shadow-sm' : (isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200')} ${m.id === 'custom' ? 'col-span-3' : ''}`}>
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all ${active ? 'bg-rose-500 text-white' : (isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200')}`}>
                   {m.label}
                 </button>
               );
             })}
           </div>
-          {mode === 'custom' && (
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <input type="date" value={custom.start} onChange={e => setCustom(c => ({ ...c, start: e.target.value }))}
-                className={`px-2 py-2 rounded-lg border text-[11px] ${inset} ${txt}`} />
-              <input type="date" value={custom.end} onChange={e => setCustom(c => ({ ...c, end: e.target.value }))}
-                className={`px-2 py-2 rounded-lg border text-[11px] ${inset} ${txt}`} />
-            </div>
-          )}
         </div>
 
-        {/* PRIORIDADE */}
-        <div className="space-y-2.5">
-          <label className={`text-[10px] font-bold uppercase tracking-widest block ${sub}`}>Prioridade</label>
-          <div className="flex flex-col gap-1.5">
+        {/* Prioridade */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Prioridade</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
             {PRIORITY_ORDER.map(id => {
-              const meta = PRIORITY_META[id]; const Icon = meta.icon; const active = selPriorities.includes(id);
-              return (
-                <button key={id} onClick={() => togglePriority(id)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[11px] font-bold transition-all ${active ? 'shadow-sm' : (isDark ? 'border-white/10 hover:border-white/20' : 'border-slate-200 hover:border-slate-300')}`}
-                  style={active ? { background: `${meta.color}1f`, borderColor: `${meta.color}80`, color: meta.color } : undefined}>
-                  <span className="w-2 h-2 rounded-full" style={{ background: meta.color }} />
-                  <Icon className="w-3.5 h-3.5" style={{ color: active ? meta.color : '#94a3b8' }} />
-                  <span className={active ? '' : (isDark ? 'text-slate-300' : 'text-slate-600')}>{meta.label}</span>
-                  {active && <span className="ml-auto text-[9px]">✓</span>}
-                </button>
-              );
+              const meta = PRIORITY_META[id];
+              return <Chip key={id} active={selPriorities.includes(id)} onClick={() => togglePriority(id)} hex={meta.color} icon={meta.icon}>{meta.label}</Chip>;
             })}
           </div>
         </div>
 
-        {/* PAGAMENTO */}
-        <div className="space-y-2.5">
-          <label className={`text-[10px] font-bold uppercase tracking-widest block ${sub}`}>Pagamento</label>
+        {/* Pagamento */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Pagamento</span>
           {availablePayments.length === 0 ? (
-            <p className={`text-[10px] ${sub}`}>Sem lançamentos no período.</p>
+            <span className={`text-[10px] ${sub}`}>—</span>
           ) : (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               {availablePayments.map(id => {
-                const meta = PAYMENT_META[id]; const Icon = meta.icon; const active = selPayments.includes(id);
-                return (
-                  <button key={id} onClick={() => togglePayment(id)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[10px] font-bold transition-all ${active ? 'shadow-sm' : (isDark ? 'border-white/10 text-slate-300 hover:border-white/20' : 'border-slate-200 text-slate-600 hover:border-slate-300')}`}
-                    style={active ? { background: `${meta.color}1f`, borderColor: `${meta.color}80`, color: meta.color } : undefined}>
-                    <Icon className="w-3 h-3" style={{ color: active ? meta.color : '#94a3b8' }} />
-                    {meta.label}
-                  </button>
-                );
+                const meta = PAYMENT_META[id];
+                return <Chip key={id} active={selPayments.includes(id)} onClick={() => togglePayment(id)} hex={meta.color} icon={meta.icon}>{meta.label}</Chip>;
               })}
             </div>
           )}
-
-          {/* Crédito: fatura atual x apenas o mês (aparece ao selecionar Crédito) */}
-          {creditFilterActive && (
-            <div className={`mt-1 p-2.5 rounded-xl border ${isDark ? 'border-violet-500/30 bg-violet-500/5' : 'border-violet-200 bg-violet-50'}`}>
-              <span className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest mb-2 ${isDark ? 'text-violet-300' : 'text-violet-600'}`}>
-                <CreditCard className="w-3 h-3" /> Crédito — o que contar?
-              </span>
-              <div className="grid grid-cols-2 gap-1.5">
-                {[['fatura', 'Fatura atual'], ['mes', 'Período selecionado']].map(([id, lbl]) => {
-                  const active = creditMode === id;
-                  return (
-                    <button key={id} onClick={() => setCreditMode(id)}
-                      className={`px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all ${active ? 'bg-violet-500 text-white shadow-sm' : (isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200')}`}>
-                      {lbl}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className={`text-[9px] leading-snug mt-1.5 ${sub}`}>
-                {creditMode === 'fatura' ? 'Mostra a fatura em aberto (mesma da aba Cartões), independente do período.' : 'Mostra apenas o crédito lançado dentro do período selecionado.'}
-              </p>
-            </div>
-          )}
         </div>
 
-        {/* Resumo + PDF */}
-        <div className={`pt-4 border-t space-y-2.5 ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
-          <div className="flex items-center justify-between"><span className={`text-[11px] ${sub}`}>Ganhos</span><span className="text-sm font-black text-emerald-500">R$ {fmt(income)}</span></div>
-          <div className="flex items-center justify-between"><span className={`text-[11px] ${sub}`}>Gastos</span><span className="text-sm font-black text-rose-500">R$ {fmt(totalExpense)}</span></div>
-          <div className="flex items-center justify-between"><span className={`text-[11px] ${sub}`}>Resultado</span><span className={`text-sm font-black ${balance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>R$ {fmt(balance)}</span></div>
-        </div>
-        <button onClick={handleExportPDF} disabled={isExportingPDF}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-[11px] uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50">
-          {isExportingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : (canExportPDF ? <FileDown className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5" />)} {canExportPDF ? 'Exportar PDF' : 'Exportar PDF · Standard'}
-        </button>
+        <button onClick={clearFilters} disabled={!hasFilters} className={`ml-auto text-[11px] font-bold transition-colors ${hasFilters ? 'text-emerald-400 hover:text-emerald-300' : 'text-slate-600 cursor-default'}`}>Limpar</button>
       </div>
 
-      {/* ===== RELATÓRIO ===== */}
-      <div className="space-y-5">
-        {/* KPIs */}
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-          <Kpi isDark={isDark} icon={TrendingUp} color="text-emerald-500" label="Ganhos" value={`R$ ${fmt(income)}`} delta={pctDelta(income, prev.income)} />
-          <Kpi isDark={isDark} icon={TrendingDown} color="text-rose-500" label="Gastos" value={`R$ ${fmt(totalExpense)}`} delta={pctDelta(totalExpense, prev.expense)} invert />
-          <Kpi isDark={isDark} icon={Target} color={balance >= 0 ? 'text-emerald-500' : 'text-rose-500'} label="Resultado" value={`R$ ${fmt(balance)}`} delta={pctDelta(balance, prev.balance)} />
-          <Kpi isDark={isDark} icon={ListChecks} color="text-amber-500" label="Transações" value={String(txCount)} delta={pctDelta(txCount, prev.count)} />
+      {/* Datas personalizadas */}
+      {mode === 'custom' && (
+        <div className={`rounded-2xl border p-3 flex flex-wrap items-center gap-3 ${card}`}>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Intervalo</span>
+          <input type="date" value={custom.start} onChange={e => setCustom(c => ({ ...c, start: e.target.value }))} className={`px-2.5 py-1.5 rounded-lg border text-[11px] ${fieldBg} ${txt}`} />
+          <span className="text-slate-400 text-xs">até</span>
+          <input type="date" value={custom.end} onChange={e => setCustom(c => ({ ...c, end: e.target.value }))} className={`px-2.5 py-1.5 rounded-lg border text-[11px] ${fieldBg} ${txt}`} />
         </div>
+      )}
+
+      {/* Crédito: fatura atual x período (aparece ao filtrar Crédito) */}
+      {creditFilterActive && (
+        <div className={`rounded-2xl border p-3 flex flex-wrap items-center gap-3 ${isDark ? 'border-violet-500/30 bg-violet-500/[0.05]' : 'border-violet-200 bg-violet-50'}`}>
+          <span className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-violet-300' : 'text-violet-600'}`}><CreditCard className="w-3.5 h-3.5" /> Crédito — o que contar?</span>
+          <div className="flex items-center gap-1.5">
+            {[['fatura', 'Fatura atual'], ['mes', 'Período selecionado']].map(([id, lbl]) => {
+              const active = creditMode === id;
+              return (
+                <button key={id} onClick={() => setCreditMode(id)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${active ? 'bg-violet-500 text-white' : (isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200')}`}>
+                  {lbl}
+                </button>
+              );
+            })}
+          </div>
+          <p className={`text-[10px] leading-snug ${sub}`}>
+            {creditMode === 'fatura' ? 'Mostra a fatura em aberto (mesma da aba Cartões), independente do período.' : 'Mostra apenas o crédito lançado dentro do período selecionado.'}
+          </p>
+        </div>
+      )}
 
         {totalExpense === 0 && income === 0 ? (
           <div className={`p-12 rounded-2xl border text-center ${card}`}>
@@ -605,7 +588,6 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
             })()}
           </>
         )}
-      </div>
       <UpgradeModal isOpen={showUpgrade} onClose={() => setShowUpgrade(false)} />
     </div>
   );
@@ -616,23 +598,26 @@ function pctDelta(cur, prev) {
   return ((cur - prev) / Math.abs(prev)) * 100;
 }
 
-function Kpi({ isDark, icon: Icon, color, label, value, delta, invert }) {
+function KpiCard({ isDark, accent, label, value, delta, invert }) {
   const card = isDark ? 'bg-[#1e2330] border-slate-700/50' : 'bg-white border-slate-100 shadow-sm';
-  let deltaEl = null;
+  let deltaEl = <span className="text-[11px] text-slate-400 font-medium">—</span>;
   if (delta != null && isFinite(delta) && Math.abs(delta) >= 0.5) {
     const up = delta > 0;
     const good = invert ? !up : up;
     deltaEl = (
-      <span className={`text-[10px] font-bold ${good ? 'text-emerald-500' : 'text-rose-500'}`}>
+      <span className={`text-[11px] font-bold ${good ? 'text-emerald-500' : 'text-rose-500'}`}>
         {up ? '↑' : '↓'} {Math.abs(delta).toFixed(0)}% <span className="text-slate-400 font-medium">vs anterior</span>
       </span>
     );
   }
   return (
-    <div className={`p-4 rounded-2xl border ${card}`}>
-      <div className="flex items-center gap-2 mb-1.5"><Icon className={`w-4 h-4 ${color}`} /><span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider truncate">{label}</span></div>
-      <p className={`text-lg font-black tabular-nums truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{value}</p>
-      {deltaEl || <span className="text-[10px] text-slate-400 font-medium">—</span>}
+    <div className={`relative rounded-2xl border overflow-hidden ${card}`}>
+      <div className="h-1 w-full" style={{ background: accent }} />
+      <div className="p-4">
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
+        <p className="text-2xl font-black tabular-nums mt-1 truncate" style={{ color: accent }}>{value}</p>
+        <div className="mt-0.5">{deltaEl}</div>
+      </div>
     </div>
   );
 }
