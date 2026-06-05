@@ -832,83 +832,6 @@ function Dashboard() {
               );
             })();
 
-            // Card de Fatura do Cartão (substitui a antiga lista de "Próximos
-            // Compromissos"): mostra a fatura em aberto agregada, vencimento e o
-            // saldo após pagar. Mesma regra de ciclo da aba Cartões/Visão Geral.
-            const compromissos = (() => {
-              const getInvoiceMonth = (dateStr, closingDay) => {
-                  const d = new Date(dateStr); if (isNaN(d.getTime())) return '';
-                  let month = d.getMonth(), year = d.getFullYear();
-                  if (d.getDate() >= closingDay) { month += 1; if (month > 11) { month = 0; year += 1; } }
-                  return `${year}-${String(month + 1).padStart(2, '0')}`;
-              };
-              const isSubInInvoice = (subDay, invoiceMonth, closingDay) => {
-                  const [iy, im] = invoiceMonth.split('-').map(Number);
-                  const prevM = im === 1 ? 12 : im - 1;
-                  const prevY = im === 1 ? iy - 1 : iy;
-                  const chargeCurr = new Date(iy, im - 1, subDay, 12, 0, 0);
-                  const chargePrev = new Date(prevY, prevM - 1, subDay, 12, 0, 0);
-                  return getInvoiceMonth(chargeCurr.toISOString(), closingDay) === invoiceMonth ||
-                         getInvoiceMonth(chargePrev.toISOString(), closingDay) === invoiceMonth;
-              };
-              const now = new Date();
-              const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-              let total = 0; const pending = [];
-              (cards || []).forEach(card => {
-                  const closingDay = card.closingDay || ((card.dueDay - 7 > 0) ? card.dueDay - 7 : 25);
-                  const dueDay = card.dueDay || 10;
-                  const currInv = getInvoiceMonth(now.toISOString(), closingDay);
-                  const unpaid = transactions.filter(t => t.selectedCardId === card.id && t.invoiceStatus === 'unpaid');
-                  const subs = (subscriptions || []).filter(s => s.cardId === card.id).filter(s => {
-                      if (s.lastPaidMonth === currInv) return false;
-                      const subDay = parseInt(s.day) || 1;
-                      return isSubInInvoice(subDay, currInv, closingDay);
-                  });
-                  const sum = unpaid.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0) + subs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
-                  if (sum > 0.005) {
-                      const invMonths = unpaid.map(t => getInvoiceMonth(t.date || now.toISOString(), closingDay)).filter(Boolean);
-                      if (subs.length > 0) invMonths.push(currInv);
-                      invMonths.sort();
-                      const invMonth = invMonths[0] || currInv;
-                      const [iy, im] = invMonth.split('-').map(Number);
-                      const due = new Date(iy, im - 1, dueDay);
-                      pending.push({ card, sum, due });
-                      total += sum;
-                  }
-              });
-              pending.sort((a, b) => a.due - b.due);
-              const nearest = pending[0];
-              const daysUntil = nearest ? Math.max(0, Math.ceil((nearest.due - t0) / 86400000)) : 0;
-              const dueDate = nearest?.due || null;
-              const label = pending.length === 0 ? '' : pending.length === 1
-                  ? [nearest.card.name, nearest.card.brand].filter(Boolean).join(' · ')
-                  : `${pending.length} cartões`;
-              const afterInvoice = (walletStats.balance || 0) - total;
-              const fmtBR = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              return (
-                <div className={`rounded-2xl border ${isLocalhost ? 'p-5' : 'p-8 rounded-[2.5rem]'} ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`}>
-                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
-                    <CreditCard className="w-4 h-4 text-violet-500" /> Fatura do Cartão
-                  </h3>
-                  {total > 0.005 ? (
-                    <button onClick={() => setActiveTab('cartoes')} className={`w-full text-left rounded-2xl border p-4 transition-all hover:scale-[1.005] ${theme === 'light' ? 'bg-amber-50 border-amber-200' : 'bg-amber-500/[0.07] border-amber-500/30'}`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-500 min-w-0"><AlertTriangle className="w-3 h-3 shrink-0" /> <span className="truncate">Fatura pendente · {label}</span></span>
-                        <span className="text-lg font-black tabular-nums text-amber-500 shrink-0">R$ {fmtBR(total)}</span>
-                      </div>
-                      <p className={`text-[12px] mt-1.5 leading-snug ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>Você lançou <span className="font-bold text-amber-500">R$ {fmtBR(total)}</span> no crédito — esse valor ainda não saiu da sua conta.</p>
-                      <div className={`flex items-center justify-between gap-2 mt-2.5 pt-2.5 border-t text-[11px] ${theme === 'light' ? 'border-amber-200/60' : 'border-white/10'}`}>
-                        <span className="text-slate-400">{dueDate && <>Vence em <span className="font-bold text-amber-500">{daysUntil} {daysUntil === 1 ? 'dia' : 'dias'}</span> · {dueDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</>}</span>
-                        <span className="text-slate-400 shrink-0">Após pagar: <span className={`font-black ${afterInvoice >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>R$ {fmtBR(afterInvoice)}</span></span>
-                      </div>
-                    </button>
-                  ) : (
-                    <p className="text-xs text-slate-500 italic text-center py-6">Nenhuma fatura de cartão em aberto. 🎉</p>
-                  )}
-                </div>
-              );
-            })();
-
             if (isLocalhost) {
               return (
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -916,7 +839,6 @@ function Dashboard() {
                   <div className="flex flex-col gap-4 min-w-0">
                     {aliviaCard}
                     {metasCard}
-                    {compromissos}
                   </div>
                 </div>
               );
@@ -926,7 +848,6 @@ function Dashboard() {
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 {overview}
                 {paceAlerts.length > 0 && <PaceAlerts paceAlerts={paceAlerts} />}
-                <div className="grid grid-cols-1 gap-8">{compromissos}</div>
               </div>
             );
           })()}
