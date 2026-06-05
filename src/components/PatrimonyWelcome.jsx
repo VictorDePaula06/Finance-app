@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { collection, addDoc } from 'firebase/firestore';
+import { PATRIMONY_ASSET_LIMITS, isPatrimonyAssetLimited } from '../constants/planLimits';
 
 const OBJECTIVES = [
   { id: 'independence', label: 'Viver de Renda', emoji: '🏝️', desc: 'Conquistar independência financeira e não depender de salário' },
@@ -66,7 +67,7 @@ function tickerPlaceholder(type) {
 
 export default function PatrimonyWelcome({ onComplete }) {
   const { theme } = useTheme();
-  const { saveUserPreferences, currentUser, userPrefs } = useAuth();
+  const { saveUserPreferences, currentUser, userPrefs, planLevel, isAdmin } = useAuth();
   const [step, setStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -96,6 +97,14 @@ export default function PatrimonyWelcome({ onComplete }) {
   const firstName  = currentUser?.displayName?.split(' ')[0] || 'você';
   const totalSteps = 7;
 
+  // Limites de ativos do Patrimônio por plano (Gratuito/Standard são limitados).
+  const assetLimited = isPatrimonyAssetLimited(planLevel, isAdmin);
+  const INVEST_LIMIT  = PATRIMONY_ASSET_LIMITS.investments;
+  const RESERVE_LIMIT = PATRIMONY_ASSET_LIMITS.reserves;
+  const planLabel = planLevel === 'standard' ? 'Standard' : 'Gratuito';
+  const canAddReserve    = !assetLimited || reserves.length < RESERVE_LIMIT;
+  const canAddInvestment = !assetLimited || investments.length < INVEST_LIMIT;
+
   // Renda já configurada no Controle de Gastos — reutilizada aqui (não pedimos de novo).
   const baseIncome = parseFloat(userPrefs?.manualConfig?.income) || 0;
   const contribPct = baseIncome > 0 && parseFloat(monthlyContribution) > 0
@@ -104,11 +113,11 @@ export default function PatrimonyWelcome({ onComplete }) {
 
   // ── handlers ──────────────────────────────────────────────────────────────
 
-  const addReserve    = ()         => setReserves([...reserves, { id: Date.now(), name: '', value: '', cdi: '100' }]);
+  const addReserve    = ()         => { if (!canAddReserve) return; setReserves([...reserves, { id: Date.now(), name: '', value: '', cdi: '100' }]); };
   const removeReserve = (id)       => setReserves(reserves.filter(r => r.id !== id));
   const updateReserve = (id, f, v) => setReserves(reserves.map(r => r.id === id ? { ...r, [f]: v } : r));
 
-  const addInvestment    = ()         => setInvestments([...investments, { id: Date.now(), type: 'acoes', ticker: '', name: '', quantity: '', purchasePrice: '', isUSD: false, purchaseDate: '' }]);
+  const addInvestment    = ()         => { if (!canAddInvestment) return; setInvestments([...investments, { id: Date.now(), type: 'acoes', ticker: '', name: '', quantity: '', purchasePrice: '', isUSD: false, purchaseDate: '' }]); };
   const removeInvestment = (id)       => setInvestments(investments.filter(i => i.id !== id));
   const updateInvestment = (id, f, v) => setInvestments(investments.map(i => i.id === id ? { ...i, [f]: v } : i));
 
@@ -125,8 +134,12 @@ export default function PatrimonyWelcome({ onComplete }) {
     setIsSaving(true);
     let totalInvested = 0;
 
+    // Rede de segurança: respeita o limite do plano mesmo que o estado tenha mais linhas.
+    const reservesToSave    = assetLimited ? reserves.slice(0, RESERVE_LIMIT) : reserves;
+    const investmentsToSave = assetLimited ? investments.slice(0, INVEST_LIMIT) : investments;
+
     try {
-      for (const res of reserves) {
+      for (const res of reservesToSave) {
         if (parseFloat(res.value) > 0) {
           totalInvested += parseFloat(res.value);
           addDoc(collection(db, 'savings_jars'), {
@@ -141,7 +154,7 @@ export default function PatrimonyWelcome({ onComplete }) {
         }
       }
 
-      for (const inv of investments) {
+      for (const inv of investmentsToSave) {
         if (parseFloat(inv.purchasePrice) > 0 && parseFloat(inv.quantity) > 0) {
           const val = parseFloat(inv.purchasePrice) * parseFloat(inv.quantity);
           totalInvested += val;
@@ -565,12 +578,21 @@ export default function PatrimonyWelcome({ onComplete }) {
                   </div>
                 ))}
 
-                <button
-                  onClick={addReserve}
-                  className={`w-full py-3 rounded-xl border border-dashed flex items-center justify-center gap-2 text-sm font-semibold transition-all ${isDark ? 'border-white/20 text-emerald-400 hover:bg-white/5' : 'border-slate-300 text-emerald-600 hover:bg-slate-50'}`}
-                >
-                  <Plus className="w-4 h-4" /> Adicionar outra reserva
-                </button>
+                {canAddReserve ? (
+                  <button
+                    onClick={addReserve}
+                    className={`w-full py-3 rounded-xl border border-dashed flex items-center justify-center gap-2 text-sm font-semibold transition-all ${isDark ? 'border-white/20 text-emerald-400 hover:bg-white/5' : 'border-slate-300 text-emerald-600 hover:bg-slate-50'}`}
+                  >
+                    <Plus className="w-4 h-4" /> Adicionar outra reserva
+                  </button>
+                ) : (
+                  <div className={`flex items-start gap-2.5 p-3 rounded-xl border ${isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
+                    <Gem className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                      O plano {planLabel} inclui até {RESERVE_LIMIT} {RESERVE_LIMIT === 1 ? 'reserva' : 'reservas'}. Faça upgrade para o Premium para cadastrar quantas quiser.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className={`flex items-start gap-2.5 p-3.5 rounded-xl ${infoBox}`}>
@@ -702,12 +724,21 @@ export default function PatrimonyWelcome({ onComplete }) {
                   </div>
                 ))}
 
-                <button
-                  onClick={addInvestment}
-                  className={`w-full py-3 rounded-xl border border-dashed flex items-center justify-center gap-2 text-sm font-semibold transition-all ${isDark ? 'border-white/20 text-emerald-400 hover:bg-white/5' : 'border-slate-300 text-emerald-600 hover:bg-slate-50'}`}
-                >
-                  <Plus className="w-4 h-4" /> Adicionar outro ativo
-                </button>
+                {canAddInvestment ? (
+                  <button
+                    onClick={addInvestment}
+                    className={`w-full py-3 rounded-xl border border-dashed flex items-center justify-center gap-2 text-sm font-semibold transition-all ${isDark ? 'border-white/20 text-emerald-400 hover:bg-white/5' : 'border-slate-300 text-emerald-600 hover:bg-slate-50'}`}
+                  >
+                    <Plus className="w-4 h-4" /> Adicionar outro ativo
+                  </button>
+                ) : (
+                  <div className={`flex items-start gap-2.5 p-3 rounded-xl border ${isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
+                    <Gem className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                      O plano {planLabel} inclui até {INVEST_LIMIT} investimentos. Faça upgrade para o Premium para cadastrar quantos quiser.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className={`flex items-start gap-2.5 p-3.5 rounded-xl ${infoBox}`}>
