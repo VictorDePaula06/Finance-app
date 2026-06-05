@@ -13,9 +13,20 @@
 // ─────────────────────────────────────────────────────────────────────────
 export const getExpenseBasis = (config) => (config?.expenseBasis === 'caixa' ? 'caixa' : 'competencia');
 
+// Pagamentos feitos pela aba Gerenciamento de Dívidas (módulo Patrimônio) NÃO
+// pertencem ao Controle de Gastos — não entram no saldo em carteira nem nos
+// gastos do mês. Identifica pela flag `source: 'debt'` (novos) ou pela descrição.
+export const isDebtPaymentTx = (t) => {
+    if (!t) return false;
+    if (t.source === 'debt') return true;
+    const d = typeof t.description === 'string' ? t.description : '';
+    return /^Pagamento de dívida:/.test(d);
+};
+
 export const isMonthlyExpenseTx = (t, basis = 'competencia') => {
     if (!t || t.type !== 'expense') return false;
     if (t.category === 'investment' || t.category === 'vault') return false;
+    if (isDebtPaymentTx(t)) return false;
     if (basis === 'caixa') {
         // Crédito não conta (sai na fatura); pagamento de fatura (pix) conta.
         return t.paymentMethod !== 'credito';
@@ -179,6 +190,7 @@ export const walletAffecting = (t) => {
     if (!t) return false;
     if (t.paymentMethod === 'credito') return false;
     if (isPatrimonioReserveTx(t)) return false;
+    if (isDebtPaymentTx(t)) return false;
     return t.type === 'income' || t.type === 'expense';
 };
 

@@ -285,7 +285,7 @@ export default function ExtratoTab({ transactions = [] }) {
                     <Info className={`w-4 h-4 shrink-0 mt-0.5 ${sub}`} />
                     <p className={`text-[11px] leading-relaxed ${sub}`}>
                         Itens marcados como <span className="font-bold text-violet-400">entra na fatura</span> são compras no cartão de crédito — elas só saem do seu saldo quando você paga a fatura.
-                        Já <span className="font-bold text-amber-500">não afeta o saldo</span> são movimentações de reserva do módulo Patrimônio. Por isso elas aparecem no extrato, mas não mudam o saldo em carteira.
+                        Já <span className="font-bold text-amber-500">não afeta o saldo</span> são movimentações de outros módulos (reservas do Patrimônio e pagamentos de dívidas), que não saem da sua carteira. Por isso aparecem no extrato, mas não mudam o saldo.
                     </p>
                 </div>
             )}

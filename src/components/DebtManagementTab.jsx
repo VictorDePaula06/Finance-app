@@ -108,24 +108,13 @@ export default function DebtManagementTab() {
         try {
             const current = parseFloat(payingDebt.remainingAmount) || 0;
             const newRemaining = Math.max(0, current - val);
-            // Atualiza a dívida (quita se zerar).
+            // Atualiza a dívida (quita se zerar). O pagamento fica registrado APENAS
+            // no módulo de dívidas — não cria despesa nem debita o saldo do Controle
+            // de Gastos (são módulos separados).
             await updateDoc(doc(db, 'debts', payingDebt.id), {
                 remainingAmount: newRemaining,
                 paidOff: newRemaining <= 0.005,
                 updatedAt: new Date().toISOString(),
-            });
-            // Registra a saída no Controle de Gastos (debita o saldo em carteira).
-            await addDoc(collection(db, 'transactions'), {
-                description: `Pagamento de dívida: ${payingDebt.name}`,
-                amount: Math.min(val, current),
-                type: 'expense',
-                category: 'loan',
-                priority: 'essential',
-                paymentMethod: 'pix',
-                date: new Date().toISOString(),
-                month: new Date().toISOString().slice(0, 7),
-                userId: currentUser.uid,
-                createdAt: Date.now(),
             });
             setPayingDebt(null); setPayAmount('');
         } catch (err) { console.error('Erro ao registrar pagamento:', err); }
