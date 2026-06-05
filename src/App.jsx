@@ -917,7 +917,7 @@ function Dashboard() {
           })()}
 
           { activeTab === 'patrimonio' && (
-            planLevel === 'premium' || planLevel === 'standard' || planLevel === 'free' || isAdmin ? (
+            planLevel === 'premium' || planLevel === 'standard' || planLevel === 'free' || planLevel === 'lifetime' || isAdmin ? (
               <PatrimonioTab
                 transactions={transactions}
                 manualConfig={manualConfig}
@@ -1043,9 +1043,9 @@ function Dashboard() {
 
           { activeTab === 'cartoes' && <CardsTab transactions={transactions} setActiveTab={setActiveTab} walletStats={walletStats} /> }
 
-          { activeTab === 'reserva' && (planLevel === 'premium' || planLevel === 'standard' || planLevel === 'free' || isAdmin ? <EmergencyReserveTab /> : null) }
+          { activeTab === 'reserva' && (planLevel === 'premium' || planLevel === 'standard' || planLevel === 'free' || planLevel === 'lifetime' || isAdmin ? <EmergencyReserveTab /> : null) }
 
-          { activeTab === 'investimentos' && (planLevel === 'premium' || planLevel === 'standard' || planLevel === 'free' || isAdmin ? <InvestmentsTab /> : null) }
+          { activeTab === 'investimentos' && (planLevel === 'premium' || planLevel === 'standard' || planLevel === 'free' || planLevel === 'lifetime' || isAdmin ? <InvestmentsTab /> : null) }
 
           {['analise', 'analise_metas', 'analise_comparativo'].includes(activeTab) && (
             <AnalysisTab

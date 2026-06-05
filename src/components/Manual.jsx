@@ -367,7 +367,7 @@ export default function Manual({ onBack, manualConfig, updateManualConfig }) {
 }
 
 function BillingManager({ isDark }) {
-  const { isPremium, isTrial, daysRemaining, planLevel, subType } = useAuth();
+  const { isTrial, daysRemaining, planLevel, subType } = useAuth();
   const { currentUser } = useAuth();
   const [isPortalLoading, setIsPortalLoading] = useState(false);
 
@@ -386,6 +386,9 @@ function BillingManager({ isDark }) {
     : planLevel === 'standard' ? `Standard ${subType === 'annual' ? '(Anual)' : '(Mensal)'}`
     : 'Gratuito';
 
+  // "Ativo" reflete um plano pago/vitalício — não o legado isPremium (true p/ todos).
+  const isActivePlan = planLevel !== 'free';
+
   const card = `p-4 rounded-xl border ${isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`;
 
   return (
@@ -393,13 +396,13 @@ function BillingManager({ isDark }) {
 
       {/* Plan status */}
       <div className={`p-4 rounded-xl border-2 ${
-        isPremium
+        isActivePlan
           ? isDark ? 'bg-emerald-500/5 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200'
           : isDark ? 'bg-slate-800 border-white/5' : 'bg-slate-50 border-slate-200'
       }`}>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className={`text-[10px] font-black uppercase tracking-widest ${isPremium ? 'text-emerald-500' : 'text-slate-500'}`}>
+            <p className={`text-[10px] font-black uppercase tracking-widest ${isActivePlan ? 'text-emerald-500' : 'text-slate-500'}`}>
               Plano Atual
             </p>
             <p className={`text-sm font-black mt-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>{planLabel}</p>
@@ -408,11 +411,11 @@ function BillingManager({ isDark }) {
             )}
           </div>
           <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border ${
-            isPremium
+            isActivePlan
               ? isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-100 text-emerald-600 border-emerald-200'
               : isDark ? 'bg-slate-700 text-slate-400 border-white/10' : 'bg-white text-slate-500 border-slate-200'
           }`}>
-            {isPremium ? 'Ativo' : 'Inativo'}
+            {isActivePlan ? 'Ativo' : 'Inativo'}
           </span>
         </div>
       </div>
