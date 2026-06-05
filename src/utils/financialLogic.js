@@ -195,12 +195,18 @@ export const walletAffecting = (t) => {
 };
 
 /**
- * Constrói o EXTRATO do saldo em carteira a partir do último ponto de reset
- * (Saldo Inicial / Sobra de Mês) até o mês alvo, com saldo corrente por linha.
- * Inclui TODAS as transações do período (mesmo as que não afetam o saldo, marcadas
- * com `affects: false`) para total transparência.
+ * Constrói o EXTRATO do saldo em carteira com saldo corrente por linha.
  *
- * @returns {{ entries: Array<{ t, affects, delta, runningBalance }>, finalBalance: number }}
+ * Inclui TODAS as transações até o mês alvo (todo o histórico), em ordem — para o
+ * extrato poder mostrar meses anteriores. Os pontos de reset (Saldo Inicial /
+ * Sobra de Mês) NÃO somam: eles DEFINEM o saldo-base naquele momento. Assim o
+ * `finalBalance` continua idêntico ao saldo em carteira (que parte do último
+ * reset), mas o extrato mostra também o que veio antes.
+ *
+ * Transações que não afetam o saldo (crédito, reservas do Patrimônio, pagamentos
+ * de dívida) entram com `affects: false` e não mexem no saldo corrente.
+ *
+ * @returns {{ entries: Array<{ t, affects, delta, runningBalance, isReset }>, finalBalance: number }}
  */
 export const buildWalletLedger = (transactions, targetMonth) => {
     if (!transactions || transactions.length === 0) return { entries: [], finalBalance: 0 };
@@ -211,7 +217,7 @@ export const buildWalletLedger = (transactions, targetMonth) => {
         return "";
     };
 
-    const allPrev = [...transactions]
+    const all = [...transactions]
         .filter(t => {
             const m = getRobustMonth(t);
             return m !== "" && (!targetMonth || m <= targetMonth);
@@ -227,24 +233,23 @@ export const buildWalletLedger = (transactions, targetMonth) => {
             return 0;
         });
 
-    if (allPrev.length === 0) return { entries: [], finalBalance: 0 };
-
-    // Encontra o ÚLTIMO ponto de reset (Saldo Inicial ou Sobra de Mês).
-    let startIndex = 0;
-    for (let i = allPrev.length - 1; i >= 0; i--) {
-        if (isResetTx(allPrev[i])) { startIndex = i; break; }
-    }
+    if (all.length === 0) return { entries: [], finalBalance: 0 };
 
     let running = 0;
-    const entries = allPrev.slice(startIndex).map(t => {
+    const entries = all.map(t => {
         const val = parseFloat(t.amount) || 0;
+        if (isResetTx(t)) {
+            // Saldo Inicial / Sobra de Mês: definem o saldo-base (não somam).
+            running = t.type === 'expense' ? -val : val;
+            return { t, affects: true, delta: 0, runningBalance: running, isReset: true };
+        }
         const affects = walletAffecting(t);
         let delta = 0;
         if (affects) {
             delta = t.type === 'income' ? val : -val;
             running += delta;
         }
-        return { t, affects, delta, runningBalance: running };
+        return { t, affects, delta, runningBalance: running, isReset: false };
     });
 
     return { entries, finalBalance: running };
