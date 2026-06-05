@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { CATEGORIES } from '../constants/categories.js';
 import { OBJECTIVE_LABELS, RISK_LABELS } from '../constants/onboarding.js';
 import { calculateFutureProjections, calculateCumulativeBalance } from '../utils/financialLogic.js';
-import { calculateHealthScore } from '../utils/healthScore.js';
+import { calculateHealthIndex } from '../utils/healthScore.js';
 
 export const isGeminiConfigured = () => {
     return !!localStorage.getItem('user_gemini_api_key');
@@ -139,8 +139,11 @@ export const calculateStatsContext = (transactions, manualConfig, isPanic = fals
     // ── HEALTH SCORE (mesmo cálculo do painel) ──
     let healthScoreText = 'Não calculado.';
     try {
-        const hs = calculateHealthScore(transactions, manualConfig, jars);
-        healthScoreText = `Nota ${hs.score}/100 — "${hs.feedback}". Detalhe: Performance ${hs.breakdown?.performance ?? 0}/20, Alocação ${hs.breakdown?.allocation ?? 0}/30, Reserva ${hs.breakdown?.reserve ?? 0}/50. Cobertura: ${hs.breakdown?.data?.monthsCovered ?? '0'} meses de gastos fixos.`;
+        // Mesmo cálculo do índice exibido na tela (não o score legado).
+        const hi = calculateHealthIndex(transactions, manualConfig, jarsTotal);
+        const p = hi.pillars || {};
+        const months = p.reserve?.months ? p.reserve.months.toFixed(1) : '0.0';
+        healthScoreText = `Nota ${hi.score}/100 (${hi.statusLabel}) — "${hi.description}". Pilares: Sobra do mês ${p.surplus?.score ?? 0}/${p.surplus?.max ?? 30}, Reserva ${p.reserve?.score ?? 0}/${p.reserve?.max ?? 40} (${months} meses de cobertura), Supérfluos ${p.superfluous?.score ?? 0}/${p.superfluous?.max ?? 30}.`;
     } catch { /* mantém fallback */ }
 
     // ── CARTÕES E FATURAS ──

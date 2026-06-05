@@ -8,6 +8,7 @@ import { generatePDF } from '../utils/generatePDF';
 import logo from '../assets/logo.png';
 import { useAuth } from '../contexts/AuthContext';
 import UpgradeModal from './UpgradeModal';
+import { getExpenseBasis, isMonthlyExpenseTx } from '../utils/financialLogic';
 import { Lock } from 'lucide-react';
 
 const fmt = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -111,7 +112,7 @@ function labelFor(mode, range) {
   return `${start.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} – ${end.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}`;
 }
 
-export default function PeriodAnalysis({ transactions = [], cards = [], subscriptions = [], theme }) {
+export default function PeriodAnalysis({ transactions = [], cards = [], subscriptions = [], manualConfig = {}, theme }) {
   const isDark = theme !== 'light';
   const { planLevel, isAdmin } = useAuth();
   // Relatórios em PDF são a partir do plano Standard (Free não exporta).
@@ -140,7 +141,11 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
   const startStr = keyLocal(range.start), endStr = keyLocal(range.end);
   const prevStartStr = keyLocal(prevRange.start), prevEndStr = keyLocal(prevRange.end);
 
-  const isExpense = (t) => t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category);
+  // Despesa conforme o REGIME configurado (competência/caixa) — mesmo critério do
+  // saldo e do índice. Competência: inclui crédito (pela data), exclui o pagamento
+  // de fatura. Caixa: exclui crédito, inclui o pagamento de fatura.
+  const expenseBasis = getExpenseBasis(manualConfig);
+  const isExpense = (t) => isMonthlyExpenseTx(t, expenseBasis);
   const isIncome = (t) => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category);
 
   // Quando o filtro de pagamento "Crédito" está ativo, o usuário escolhe se conta

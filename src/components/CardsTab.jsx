@@ -129,6 +129,21 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
   };
 
   const handleDeleteCard = async (id) => {
+    // Evita órfãos: ao excluir o cartão, remove também as assinaturas/parcelas
+    // ligadas a ele e as compras no crédito ainda EM ABERTO (não pagas) — que sem
+    // o cartão não poderiam mais ser quitadas e seguiriam contando como despesa.
+    // O histórico já pago é mantido.
+    try {
+      const subCleanup = subscriptions
+        .filter(s => s.cardId === id)
+        .map(s => deleteDoc(doc(db, 'subscriptions', s.id)));
+      const txCleanup = transactions
+        .filter(t => t.selectedCardId === id && t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid')
+        .map(t => deleteDoc(doc(db, 'transactions', t.id)));
+      await Promise.all([...subCleanup, ...txCleanup]);
+    } catch (err) {
+      console.error('Erro ao limpar dados do cartão:', err);
+    }
     await deleteDoc(doc(db, 'cards', id));
     setDeleteConfirm(null);
   };

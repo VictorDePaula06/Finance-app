@@ -23,13 +23,13 @@ const AnalysisTab = ({ transactions = [], cards = [], subscriptions = [], manual
       </div>
 
       {view === 'periodo' && (
-        <PeriodAnalysis transactions={transactions} cards={cards} subscriptions={subscriptions} theme={theme} />
+        <PeriodAnalysis transactions={transactions} cards={cards} subscriptions={subscriptions} manualConfig={manualConfig} theme={theme} />
       )}
       {view === 'metas' && (
         <SpendingGoals transactions={transactions} cards={cards} subscriptions={subscriptions} manualConfig={manualConfig} onUpdateConfig={onUpdateConfig} theme={theme} />
       )}
       {view === 'comparativo' && (
-        <MonthlyComparative transactions={transactions} cards={cards} subscriptions={subscriptions} theme={theme} />
+        <MonthlyComparative transactions={transactions} cards={cards} subscriptions={subscriptions} manualConfig={manualConfig} theme={theme} />
       )}
     </div>
   );

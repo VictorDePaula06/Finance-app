@@ -57,6 +57,7 @@ export const calculateFinancialHealth = (transactions, manualConfig = null) => {
 
     if (recentTransactions.length > 0) {
         hasData = true;
+        const basis = getExpenseBasis(manualConfig);
         const monthlyData = {};
         recentTransactions.forEach(t => {
             const monthKey = t.date.slice(0, 7); // YYYY-MM
@@ -64,9 +65,13 @@ export const calculateFinancialHealth = (transactions, manualConfig = null) => {
                 monthlyData[monthKey] = { income: 0, expense: 0 };
             }
             if (t.type === 'income') {
-                monthlyData[monthKey].income += parseFloat(t.amount);
-            } else {
-                monthlyData[monthKey].expense += parseFloat(t.amount);
+                // Renda real: exclui saldo inicial, sobra de mês e resgate de cofre.
+                if (!['initial_balance', 'carryover', 'vault_redemption'].includes(t.category)) {
+                    monthlyData[monthKey].income += parseFloat(t.amount) || 0;
+                }
+            } else if (isMonthlyExpenseTx(t, basis)) {
+                // Despesa conforme o regime (evita dupla contagem crédito + fatura).
+                monthlyData[monthKey].expense += parseFloat(t.amount) || 0;
             }
         });
 
@@ -135,39 +140,6 @@ export const calculateFinancialHealth = (transactions, manualConfig = null) => {
         disposableIncome,
         hasData,
         isManual: !!manualConfig
-    };
-};
-
-export const simulatePurchase = (amount, installments, healthData) => {
-    const { disposableIncome, activeIncome } = healthData;
-    const monthlyCost = installments > 0 ? amount / installments : amount;
-
-    // Scenarios
-    const remainingAfterPurchase = disposableIncome - monthlyCost;
-    const incomeImpactPercentage = (monthlyCost / activeIncome) * 100;
-
-    let status = 'approved'; // approved, warning, denied
-    let message = '';
-
-    if (remainingAfterPurchase < 0) {
-        status = 'denied';
-        message = 'Esta compra excede seu saldo livre médio mensal. Alto risco de endividamento.';
-    } else if (remainingAfterPurchase < (activeIncome * 0.1)) { // Less than 10% buffer remains
-        status = 'warning';
-        message = 'Aprovado, mas com cautela. Seu saldo livre ficará muito baixo (' + remainingAfterPurchase.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + ').';
-    } else if (incomeImpactPercentage > 30) {
-        status = 'warning';
-        message = 'Cuidado: Esta parcela compromete mais de 30% da sua renda média mensal.';
-    } else {
-        status = 'approved';
-        message = 'Compra viável! Você tem saldo suficiente e manterá uma margem de segurança.';
-    }
-
-    return {
-        status,
-        message,
-        monthlyCost,
-        remainingAfterPurchase
     };
 };
 
@@ -306,14 +278,13 @@ export const calculateFutureProjections = (transactions, manualConfig, months = 
         let monthlyDelta = 0;
 
         if (i === 0) {
-            // Current Month
-            const totalPlannedExpenses = fixedExpenses + variableExpenses;
+            // Mês atual: projeta a fração restante de renda e de gastos planejados,
+            // incluindo as recorrências (assinaturas) ainda por vir neste mês.
+            currentMonthRecurring = getRecurringTotalForMonth(0);
+            const totalPlannedExpenses = fixedExpenses + variableExpenses + currentMonthRecurring;
             const remainingBudget = totalPlannedExpenses * remainingFraction;
             const remainingIncome = monthlyIncome * remainingFraction;
-            
-            // For i=0, we use remaining projections
             monthlyDelta = remainingIncome - remainingBudget;
-            currentMonthRecurring = getRecurringTotalForMonth(0);
         } else {
             // Future Months
             currentMonthRecurring = getRecurringTotalForMonth(i);

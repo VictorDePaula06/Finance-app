@@ -2,10 +2,11 @@ import React, { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { TrendingUp, TrendingDown, BarChart3, FileText, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
+import { getExpenseBasis, isMonthlyExpenseTx } from '../utils/financialLogic';
 
 const fmt = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function MonthlyComparative({ transactions = [], theme }) {
+export default function MonthlyComparative({ transactions = [], manualConfig = {}, theme }) {
     const isDark = theme !== 'light';
     const [range, setRange] = useState(6); // 3 | 6 | 12
     const [reportMode, setReportMode] = useState('sintetico'); // 'sintetico' | 'analitico'
@@ -23,21 +24,22 @@ export default function MonthlyComparative({ transactions = [], theme }) {
         return arr;
     }, [range]);
 
-    // Gastos em base de CAIXA (data da compra): conta o gasto no mês em que aconteceu,
-    // inclusive compras no crédito. credit_card_bill é transferência → fora.
+    // Gastos conforme o REGIME configurado (competência/caixa) — mesmo critério do
+    // saldo e do índice, para o comparativo bater com a Visão Geral.
+    const expenseBasis = getExpenseBasis(manualConfig);
     const data = useMemo(() => {
         return months.map(mo => {
             const monthTx = transactions.filter(t => (t.date?.slice(0, 7) || t.month) === mo.key);
             const income = monthTx
                 .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
                 .reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
-            const expenseTxs = monthTx.filter(t => t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category));
+            const expenseTxs = monthTx.filter(t => isMonthlyExpenseTx(t, expenseBasis));
             const expense = expenseTxs.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
             const byCat = {};
             expenseTxs.forEach(t => { const c = t.category || 'other'; byCat[c] = (byCat[c] || 0) + (parseFloat(t.amount) || 0); });
             return { ...mo, Ganhos: income, Gastos: expense, Saldo: income - expense, byCat };
         });
-    }, [months, transactions]);
+    }, [months, transactions, expenseBasis]);
 
     // Síntese do período
     const synth = useMemo(() => {
