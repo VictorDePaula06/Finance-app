@@ -1,5 +1,20 @@
 import { Home, Utensils, Car, Heart, Gamepad2, ShoppingBag, Briefcase, Laptop, Circle, Wallet, TrendingUp, BookOpen, Cat, Smile, CreditCard, Landmark, Lock } from 'lucide-react';
 
+// Mapa das classes Tailwind de cor usadas nas categorias para o hex correspondente,
+// para podermos pintar fundos/anéis coloridos (ícones em quadradinhos).
+export const TW_HEX = {
+    'text-rose-400': '#fb7185', 'text-orange-400': '#fb923c', 'text-amber-500': '#f59e0b',
+    'text-amber-700': '#b45309', 'text-yellow-400': '#facc15', 'text-yellow-600': '#ca8a04',
+    'text-red-400': '#f87171', 'text-blue-400': '#60a5fa', 'text-blue-300': '#93c5fd',
+    'text-blue-500': '#3b82f6', 'text-pink-300': '#f9a8d4', 'text-pink-400': '#f472b6',
+    'text-purple-400': '#c084fc', 'text-violet-500': '#8b5cf6', 'text-emerald-400': '#34d399',
+    'text-emerald-500': '#10b981', 'text-indigo-400': '#818cf8', 'text-indigo-500': '#6366f1',
+    'text-slate-400': '#94a3b8', 'text-slate-500': '#64748b',
+};
+
+// Retorna o hex da cor de uma categoria (fallback cinza).
+export const categoryHex = (cat) => TW_HEX[cat?.color] || '#94a3b8';
+
 export const CATEGORIES = {
     income: [
         { id: 'salary', label: 'Salário', icon: Briefcase, color: 'text-emerald-400' },

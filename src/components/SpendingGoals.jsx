@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
 import { Target, Save, AlertTriangle, CheckCircle2, Clock, Filter, ChevronLeft, ChevronRight, SlidersHorizontal, X, TrendingDown } from 'lucide-react';
-import { CATEGORIES } from '../constants/categories';
+import { CATEGORIES, categoryHex } from '../constants/categories';
 
 const EXCLUDED = ['investment', 'vault', 'credit_card_bill', 'conta_fixa'];
 const fmt = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -161,7 +161,7 @@ export default function SpendingGoals({ transactions = [], cards = [], subscript
                                 <div key={cat.id} className={`p-4 rounded-2xl border ${card}`}>
                                     <div className="flex items-center justify-between mb-3">
                                         <div className="flex items-center gap-2.5 min-w-0">
-                                            <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}><Icon className={`w-4 h-4 ${cat.color}`} /></span>
+                                            <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${categoryHex(cat)}1f`, color: categoryHex(cat) }}><Icon className="w-[18px] h-[18px]" /></span>
                                             <span className={`text-sm font-bold truncate ${txt}`}>{cat.label}</span>
                                         </div>
                                         <span className={`w-2 h-2 rounded-full shrink-0 ${statusDot}`} />
@@ -218,7 +218,7 @@ function BudgetModal({ isDark, categories, manualConfig, onUpdateConfig, spentBy
                         return (
                             <div key={cat.id} className={`p-3 rounded-xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
                                 <div className="flex items-center gap-2 mb-2">
-                                    <Icon className={`w-4 h-4 ${cat.color}`} />
+                                    <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${categoryHex(cat)}1f`, color: categoryHex(cat) }}><Icon className="w-4 h-4" /></span>
                                     <span className={`text-xs font-bold ${txt}`}>{cat.label}</span>
                                 </div>
                                 <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${isDark ? 'bg-[#0f131c] border-white/10' : 'bg-white border-slate-200'}`}>
