@@ -160,8 +160,38 @@ export const simulatePurchase = (amount, installments, healthData) => {
     };
 };
 
-export const calculateCumulativeBalance = (transactions, targetMonth) => {
-    if (!transactions || transactions.length === 0) return 0;
+// Identifica reservas/aportes lançados pelo módulo Construção de Patrimônio, que
+// NÃO afetam o saldo em carteira (só aportes da aba Aportes do Controle de Gastos
+// afetam). Por flag `source: 'patrimonio'` (novos) ou pela descrição (dados antigos).
+const isPatrimonioReserveTx = (t) => {
+    if (t?.source === 'patrimonio') return true;
+    const d = typeof t?.description === 'string' ? t.description : '';
+    return /^(Criação de Reserva|Aporte Reserva|Resgate\/Ajuste Reserva):/.test(d);
+};
+
+const isResetTx = (t) => t?.category === 'initial_balance' || t?.category === 'carryover';
+
+/**
+ * Uma transação afeta o "saldo em carteira" (caixa real) quando NÃO é compra no
+ * crédito (essas só impactam ao pagar a fatura) e NÃO é reserva do módulo Patrimônio.
+ */
+export const walletAffecting = (t) => {
+    if (!t) return false;
+    if (t.paymentMethod === 'credito') return false;
+    if (isPatrimonioReserveTx(t)) return false;
+    return t.type === 'income' || t.type === 'expense';
+};
+
+/**
+ * Constrói o EXTRATO do saldo em carteira a partir do último ponto de reset
+ * (Saldo Inicial / Sobra de Mês) até o mês alvo, com saldo corrente por linha.
+ * Inclui TODAS as transações do período (mesmo as que não afetam o saldo, marcadas
+ * com `affects: false`) para total transparência.
+ *
+ * @returns {{ entries: Array<{ t, affects, delta, runningBalance }>, finalBalance: number }}
+ */
+export const buildWalletLedger = (transactions, targetMonth) => {
+    if (!transactions || transactions.length === 0) return { entries: [], finalBalance: 0 };
 
     const getRobustMonth = (t) => {
         if (t.month) return t.month;
@@ -169,64 +199,47 @@ export const calculateCumulativeBalance = (transactions, targetMonth) => {
         return "";
     };
 
-    // Filtra todas as transações até o mês alvo (inclusive)
     const allPrev = [...transactions]
         .filter(t => {
             const m = getRobustMonth(t);
-            return m !== "" && m <= targetMonth;
+            return m !== "" && (!targetMonth || m <= targetMonth);
         })
         .sort((a, b) => {
-            // Ordenação por data e depois por categoria de reset
             const dateA = new Date(a.date).getTime() || 0;
             const dateB = new Date(b.date).getTime() || 0;
             if (dateA !== dateB) return dateA - dateB;
-            
-            const aIsReset = a.category === 'initial_balance' || a.category === 'carryover';
-            const bIsReset = b.category === 'initial_balance' || b.category === 'carryover';
+            const aIsReset = isResetTx(a);
+            const bIsReset = isResetTx(b);
             if (aIsReset && !bIsReset) return -1;
             if (!aIsReset && bIsReset) return 1;
             return 0;
         });
 
-    if (allPrev.length === 0) return 0;
+    if (allPrev.length === 0) return { entries: [], finalBalance: 0 };
 
-    // Encontra o ÚLTIMO ponto de reset (Saldo Inicial ou Carryover)
+    // Encontra o ÚLTIMO ponto de reset (Saldo Inicial ou Sobra de Mês).
     let startIndex = 0;
     for (let i = allPrev.length - 1; i >= 0; i--) {
-        if (allPrev[i].category === 'initial_balance' || allPrev[i].category === 'carryover') {
-            startIndex = i;
-            break;
-        }
+        if (isResetTx(allPrev[i])) { startIndex = i; break; }
     }
 
-    // Reservas/aportes lançados pelo módulo Construção de Patrimônio NÃO afetam o
-    // saldo em carteira (só aportes feitos pela aba Aportes do Controle de Gastos afetam).
-    // Identifica por flag `source: 'patrimonio'` (novos) ou pela descrição (dados antigos).
-    const isPatrimonioReserve = (t) => {
-        if (t.source === 'patrimonio') return true;
-        const d = typeof t.description === 'string' ? t.description : '';
-        return /^(Criação de Reserva|Aporte Reserva|Resgate\/Ajuste Reserva):/.test(d);
-    };
-
-    // Calcula a partir do reset (ou do início se não houver reset)
-    return allPrev.slice(startIndex).reduce((acc, t) => {
-        // Ignora TODAS as compras no crédito - apenas o "Pagamento de Fatura" (pix) afeta o saldo
-        if (t.paymentMethod === 'credito') {
-            return acc;
-        }
-        // Ignora reservas lançadas pelo módulo Patrimônio
-        if (isPatrimonioReserve(t)) {
-            return acc;
-        }
-
+    let running = 0;
+    const entries = allPrev.slice(startIndex).map(t => {
         const val = parseFloat(t.amount) || 0;
-        if (t.type === 'income') {
-            return acc + val;
-        } else if (t.type === 'expense') {
-            return acc - val;
+        const affects = walletAffecting(t);
+        let delta = 0;
+        if (affects) {
+            delta = t.type === 'income' ? val : -val;
+            running += delta;
         }
-        return acc;
-    }, 0);
+        return { t, affects, delta, runningBalance: running };
+    });
+
+    return { entries, finalBalance: running };
+};
+
+export const calculateCumulativeBalance = (transactions, targetMonth) => {
+    return buildWalletLedger(transactions, targetMonth).finalBalance;
 };
 
 export const calculateFutureProjections = (transactions, manualConfig, months = 6) => {

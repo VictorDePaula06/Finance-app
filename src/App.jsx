@@ -46,6 +46,7 @@ import ExitsTab from './components/ExitsTab';
 import { calculateCumulativeBalance } from './utils/financialLogic';
 import AliviaConfigForm from './components/AliviaConfigForm';
 import OverviewTab from './components/OverviewTab';
+import ExtratoTab from './components/ExtratoTab';
 import TermsAcceptanceModal from './components/TermsAcceptanceModal';
 import CookieConsent from './components/CookieConsent';
 import FixedExpensesTab from './components/FixedExpensesTab';
@@ -1112,6 +1113,8 @@ function Dashboard() {
           { activeTab === 'manual' && (
             <Manual manualConfig={manualConfig} updateManualConfig={updateManualConfig} />
           )}
+
+          {activeTab === 'extrato' && <ExtratoTab transactions={transactions} />}
 
           {activeTab === 'ajustes' && <SettingsTab manualConfig={manualConfig} updateManualConfig={updateManualConfig} />}
 

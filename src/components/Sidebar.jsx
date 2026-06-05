@@ -66,6 +66,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
   const navByModule = {
     gastos: [
       { type: 'item', id: 'visao', label: 'Visão Geral', icon: LayoutDashboard },
+      { type: 'item', id: 'extrato', label: 'Extrato', icon: ArrowLeftRight },
       {
         type: 'group', id: 'grp_entradas', label: 'Entradas', icon: ArrowUpCircle,
         children: [
