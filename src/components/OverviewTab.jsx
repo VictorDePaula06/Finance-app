@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
-import { Eye, EyeOff, Pencil, Check, X, CreditCard, AlertTriangle, ChevronRight, TrendingUp, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, Pencil, Check, X, CreditCard, ChevronRight, TrendingUp, TrendingDown, ShieldCheck } from 'lucide-react';
 import FinancialHealthIndex from './FinancialHealthIndex';
 
 export default function OverviewTab({
@@ -138,7 +138,6 @@ export default function OverviewTab({
         const card = isDark ? 'bg-[#1e2330] border-slate-700/50' : 'bg-white border-slate-100 shadow-sm';
         const mIncome = walletStats.income || 0;
         const mExpense = walletStats.expense || 0;
-        const afterInvoice = (walletStats.balance || 0) - (invoiceInfo.total || 0);
         // Quando não houve recebimento LANÇADO no mês, o Índice de Saúde usa a renda
         // BASE configurada — deixamos isso explícito no card de Ganhos para não confundir.
         const baseIncomeForIndex = healthIndex?.incomeSource === 'base' ? (healthIndex?.income || 0) : 0;
@@ -170,52 +169,39 @@ export default function OverviewTab({
                                 <p className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 mt-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Saldo atual disponível em conta</p>
                             </div>
 
-                            {/* Área de fatura ou variação — ocupa largura total no mobile */}
+                            {/* Variação do saldo no mês — ocupa largura total no mobile.
+                                (A fatura agora fica no card "Fatura do cartão" abaixo.) */}
                             <div className="w-full sm:w-[56%] sm:shrink-0 sm:max-w-[380px]">
-                                {invoiceInfo.total > 0.005 ? (
-                                    <button onClick={() => setActiveTab && setActiveTab('cartoes')} className={`w-full text-left rounded-xl border p-3 transition-all hover:scale-[1.005] ${isDark ? 'bg-amber-500/[0.07] border-amber-500/30' : 'bg-amber-50 border-amber-200'}`}>
-                                        <div className="flex items-center justify-between gap-2">
-                                            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-500 min-w-0"><AlertTriangle className="w-3 h-3 shrink-0" /> <span className="truncate">Fatura Pendente · {invoiceInfo.label}</span></span>
-                                            <span className={`text-base font-black tabular-nums shrink-0 ${hideBalance ? 'blur-md select-none' : 'text-amber-500'}`}>{hideBalance ? 'R$ ••' : formatCurrency(invoiceInfo.total)}</span>
-                                        </div>
-                                        <p className={`text-[11px] mt-1 leading-snug ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Você lançou <span className="font-bold text-amber-500">{formatCurrency(invoiceInfo.total)}</span> no crédito — esse valor ainda não saiu da sua conta.</p>
-                                        <div className={`flex items-center justify-between gap-2 mt-2 pt-2 border-t text-[10px] ${isDark ? 'border-white/10' : 'border-amber-200/60'}`}>
-                                            <span className="text-slate-400">{invoiceInfo.dueDate && <>Vence em <span className="font-bold text-amber-500">{invoiceInfo.daysUntil} {invoiceInfo.daysUntil === 1 ? 'dia' : 'dias'}</span> · {invoiceInfo.dueDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</>}</span>
-                                            <span className="text-slate-400 shrink-0">Após pagar: <span className={`font-black ${afterInvoice >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{hideBalance ? 'R$ ••' : formatCurrency(afterInvoice)}</span></span>
-                                        </div>
-                                    </button>
-                                ) : (
-                                    <div className="flex items-center justify-start sm:justify-end gap-3 mt-1 sm:mt-0 sm:h-full">
-                                        {pctMonth != null && isFinite(pctMonth) && (<span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${pctMonth >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}><TrendingUp className={`w-3.5 h-3.5 ${pctMonth < 0 ? 'rotate-180' : ''}`} />{pctMonth >= 0 ? '+' : ''}{pctMonth.toFixed(0)}% este mês</span>)}
-                                        <div className="w-28 h-12 hidden sm:block">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <AreaChart data={balanceHistoryData}>
-                                                    <defs><linearGradient id="colorBalanceV2" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10B981" stopOpacity={0.3} /><stop offset="95%" stopColor="#10B981" stopOpacity={0} /></linearGradient></defs>
-                                                    <Area type="monotone" dataKey="value" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#colorBalanceV2)" />
-                                                </AreaChart>
-                                            </ResponsiveContainer>
-                                        </div>
+                                <div className="flex items-center justify-start sm:justify-end gap-3 mt-1 sm:mt-0 sm:h-full">
+                                    {pctMonth != null && isFinite(pctMonth) && (<span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${pctMonth >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}><TrendingUp className={`w-3.5 h-3.5 ${pctMonth < 0 ? 'rotate-180' : ''}`} />{pctMonth >= 0 ? '+' : ''}{pctMonth.toFixed(0)}% este mês</span>)}
+                                    <div className="w-28 h-12 hidden sm:block">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <AreaChart data={balanceHistoryData}>
+                                                <defs><linearGradient id="colorBalanceV2" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10B981" stopOpacity={0.3} /><stop offset="95%" stopColor="#10B981" stopOpacity={0} /></linearGradient></defs>
+                                                <Area type="monotone" dataKey="value" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#colorBalanceV2)" />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
                                     </div>
-                                )}
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Ganhos / Gastos / Reservas */}
+                {/* Ganhos / Gastos / Fatura do cartão */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className={`p-4 rounded-2xl border flex items-center gap-3 ${card}`}>
                         <span className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}><TrendingUp className="w-5 h-5 text-emerald-500" /></span>
                         <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">Ganhos no mês</p><p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-emerald-500'}`}>{hideBalance ? 'R$ ••' : formatCurrency(mIncome)}</p>{showBaseIncomeHint && <p className="text-[9px] text-slate-400 truncate" title="Sem recebimento lançado neste mês — o Índice de Saúde usa a renda base configurada.">Índice usa renda base {formatCurrency(baseIncomeForIndex)}</p>}</div>
                     </div>
                     <div className={`p-4 rounded-2xl border flex items-center gap-3 ${card}`}>
-                        <span className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><CreditCard className="w-5 h-5 text-rose-500" /></span>
+                        <span className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><TrendingDown className="w-5 h-5 text-rose-500" /></span>
                         <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">Gastos no mês</p><p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-rose-500'}`}>{hideBalance ? 'R$ ••' : formatCurrency(mExpense)}</p></div>
                     </div>
-                    <div className={`p-4 rounded-2xl border flex items-center gap-3 ${card}`}>
-                        <span className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}><ShieldCheck className="w-5 h-5 text-emerald-500" /></span>
-                        <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">Reservas</p><p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-emerald-500'}`}>{hideBalance ? 'R$ ••' : formatCurrency(reserveAmount)}</p><p className="text-[9px] text-slate-400">{reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} {reserveMonths === 1 ? 'mês' : 'meses'} de cobertura</p></div>
-                    </div>
+                    <button onClick={() => setActiveTab && setActiveTab('cartoes')} className={`p-4 rounded-2xl border flex items-center gap-3 text-left transition-all hover:scale-[1.01] ${card}`}>
+                        <span className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}><CreditCard className="w-5 h-5 text-violet-500" /></span>
+                        <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">Fatura do cartão</p><p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-violet-400'}`}>{hideBalance ? 'R$ ••' : formatCurrency(invoiceInfo.total)}</p><p className="text-[9px] text-slate-400 truncate">{invoiceInfo.total > 0.005 ? (invoiceInfo.dueDate ? `vence ${invoiceInfo.dueDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}` : 'fatura aberta') : 'sem fatura aberta'}</p></div>
+                    </button>
                 </div>
 
                 {/* Índice de Saúde Financeira (completo, com semáforo) */}

@@ -177,22 +177,11 @@ export default function FinancialHealthIndex({ data, invoiceInfo = null }) {
                         </div>
                     </PillarCell>
 
-                    {/* Pilar 3 — Gastos supérfluos */}
+                    {/* Pilar 3 — Gastos supérfluos (só a % principal) */}
                     <PillarCell
                         isDark={isDark} icon={ShoppingBag} title="Gastos supérfluos" status={superfluous.status}
                         value={`${Math.round(superfluous.pct || 0)}% supérfluo`} target={superfluous.targetLabel} message={superfluous.message}
-                    >
-                        <div className={`w-full h-1.5 rounded-full overflow-hidden flex ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
-                            <div className="h-full bg-blue-500" style={{ width: `${seg(bd.essential)}%` }} />
-                            <div className="h-full bg-amber-500" style={{ width: `${seg(bd.comfort)}%` }} />
-                            <div className="h-full bg-rose-500" style={{ width: `${seg(bd.superfluous)}%` }} />
-                        </div>
-                        <div className="flex items-center gap-3 mt-2 flex-wrap">
-                            <Legend color="bg-blue-500" label="Essencial" pct={Math.round(bd.essential)} dark={isDark} />
-                            <Legend color="bg-amber-500" label="Conforto" pct={Math.round(bd.comfort)} dark={isDark} />
-                            <Legend color="bg-rose-500" label="Supérfluo" pct={Math.round(bd.superfluous)} dark={isDark} />
-                        </div>
-                    </PillarCell>
+                    />
                 </div>
 
                 {/* Rodapé */}

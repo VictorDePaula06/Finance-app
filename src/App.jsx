@@ -735,8 +735,8 @@ function Dashboard() {
                       </p>
                       <p className={`text-[12px] leading-relaxed mt-1.5 ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
                         {reserveAmount > 0
-                          ? <>Sua reserva de emergência é de <span className="font-bold text-emerald-500">R$ {fmtMoney(reserveAmount)}</span> ({reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} {reserveMonths === 1 ? 'mês' : 'meses'} de cobertura){reserveMonths < 6 ? ' — mire ao menos 6 meses.' : ' — ótimo nível!'}</>
-                          : <>Você ainda não tem reserva de emergência registrada — comece a construir uma para mais tranquilidade.</>}
+                          ? <>Sua reserva de emergência cobre <span className="font-bold text-emerald-500">{reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} {reserveMonths === 1 ? 'mês' : 'meses'}</span> de despesas{reserveMonths < 6 ? ' — mire ao menos 6 meses.' : ' — ótimo nível, continue assim!'}</>
+                          : <>Você ainda não tem reserva de emergência — comece a construir uma para mais tranquilidade.</>}
                       </p>
                       {!hasDebt && (objLabel || aporteAlvo > 0) && (
                         <p className={`text-[12px] leading-relaxed mt-1.5 ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
@@ -832,67 +832,82 @@ function Dashboard() {
               );
             })();
 
-            const compromissos = (
-              <div className={`rounded-2xl border ${isLocalhost ? 'p-5' : 'p-8 rounded-[2.5rem]'} ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`}>
-                <h3 className={`text-xs font-black uppercase tracking-widest text-slate-500 ${isLocalhost ? 'mb-4' : 'mb-6'} flex items-center gap-2`}>
-                  <Clock className="w-4 h-4 text-blue-500" /> Próximos Compromissos
-                </h3>
-                <div className={isLocalhost ? 'space-y-2.5' : 'space-y-4'}>
-                  {(() => {
-                      // Mês da fatura (ciclo) de uma compra, conforme o dia de fechamento.
-                      const invoiceMonthOf = (dateStr, closingDay) => {
-                          const d = new Date(dateStr); if (isNaN(d.getTime())) return '';
-                          let month = d.getMonth(), year = d.getFullYear();
-                          if (d.getDate() >= closingDay) { month += 1; if (month > 11) { month = 0; year += 1; } }
-                          return `${year}-${String(month + 1).padStart(2, '0')}`;
-                      };
-                      const nowD = new Date();
-                      const todayD = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate());
-                      const consolidated = [
-                          ...subscriptions.filter(s => !s.cardId).map(s => {
-                              const day = parseInt(s.day) || 1;
-                              let due = new Date(nowD.getFullYear(), nowD.getMonth(), day);
-                              if (due < todayD) due = new Date(nowD.getFullYear(), nowD.getMonth() + 1, day);
-                              return { id: s.id, name: s.name, value: parseFloat(s.value) || 0, day, sortKey: due.getTime(), type: 'sub' };
-                          }),
-                          ...cards.map(card => {
-                              const closingDay = card.closingDay || ((card.dueDay - 7 > 0) ? card.dueDay - 7 : 25);
-                              const dueDay = card.dueDay || 10;
-                              const unpaid = transactions.filter(t => t.selectedCardId === card.id && t.invoiceStatus === 'unpaid');
-                              // Agrupa as compras não pagas por CICLO de fatura.
-                              const byCycle = {};
-                              unpaid.forEach(t => { const m = invoiceMonthOf(t.date || nowD.toISOString(), closingDay); if (m) byCycle[m] = (byCycle[m] || 0) + (parseFloat(t.amount) || 0); });
-                              // Assinaturas do cartão entram na fatura corrente.
-                              const cardSubs = subscriptions.filter(s => s.cardId === card.id).reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0);
-                              const currInv = invoiceMonthOf(nowD.toISOString(), closingDay);
-                              if (cardSubs > 0) byCycle[currInv] = (byCycle[currInv] || 0) + cardSubs;
-                              // Próxima fatura a vencer = ciclo mais antigo em aberto.
-                              const cycles = Object.keys(byCycle).sort();
-                              const nearest = cycles[0];
-                              const value = nearest ? byCycle[nearest] : 0;
-                              if (value <= 0.005) return null;
-                              const [iy, im] = nearest.split('-').map(Number);
-                              const dueDate = new Date(iy, im - 1, dueDay);
-                              return { id: card.id, name: `Fatura ${card.name || card.brand}`, value, day: dueDay, sortKey: dueDate.getTime(), type: 'card' };
-                          }).filter(Boolean)
-                      ].sort((a, b) => a.sortKey - b.sortKey).slice(0, isLocalhost ? 5 : 4);
-
-                      return consolidated.map(item => (
-                          <div key={item.id} className={`flex items-center justify-between ${isLocalhost ? 'p-3' : 'p-4'} rounded-2xl ${theme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className={`${isLocalhost ? 'w-9 h-9' : 'w-10 h-10'} rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 ${item.type === 'card' ? 'bg-violet-500/10 text-violet-500' : 'bg-blue-500/10 text-blue-500'}`}>{item.day}</div>
-                              <span className={`text-sm font-bold truncate ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>{item.name}</span>
-                            </div>
-                            <span className="text-sm font-black text-emerald-500 shrink-0">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          </div>
-                      ));
-                  })()}
-                  {subscriptions.length === 0 && cards.length === 0 && (
-                    <p className="text-xs text-slate-500 italic text-center py-4">Nenhum compromisso para este mês.</p>
+            // Card de Fatura do Cartão (substitui a antiga lista de "Próximos
+            // Compromissos"): mostra a fatura em aberto agregada, vencimento e o
+            // saldo após pagar. Mesma regra de ciclo da aba Cartões/Visão Geral.
+            const compromissos = (() => {
+              const getInvoiceMonth = (dateStr, closingDay) => {
+                  const d = new Date(dateStr); if (isNaN(d.getTime())) return '';
+                  let month = d.getMonth(), year = d.getFullYear();
+                  if (d.getDate() >= closingDay) { month += 1; if (month > 11) { month = 0; year += 1; } }
+                  return `${year}-${String(month + 1).padStart(2, '0')}`;
+              };
+              const isSubInInvoice = (subDay, invoiceMonth, closingDay) => {
+                  const [iy, im] = invoiceMonth.split('-').map(Number);
+                  const prevM = im === 1 ? 12 : im - 1;
+                  const prevY = im === 1 ? iy - 1 : iy;
+                  const chargeCurr = new Date(iy, im - 1, subDay, 12, 0, 0);
+                  const chargePrev = new Date(prevY, prevM - 1, subDay, 12, 0, 0);
+                  return getInvoiceMonth(chargeCurr.toISOString(), closingDay) === invoiceMonth ||
+                         getInvoiceMonth(chargePrev.toISOString(), closingDay) === invoiceMonth;
+              };
+              const now = new Date();
+              const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              let total = 0; const pending = [];
+              (cards || []).forEach(card => {
+                  const closingDay = card.closingDay || ((card.dueDay - 7 > 0) ? card.dueDay - 7 : 25);
+                  const dueDay = card.dueDay || 10;
+                  const currInv = getInvoiceMonth(now.toISOString(), closingDay);
+                  const unpaid = transactions.filter(t => t.selectedCardId === card.id && t.invoiceStatus === 'unpaid');
+                  const subs = (subscriptions || []).filter(s => s.cardId === card.id).filter(s => {
+                      if (s.lastPaidMonth === currInv) return false;
+                      const subDay = parseInt(s.day) || 1;
+                      return isSubInInvoice(subDay, currInv, closingDay);
+                  });
+                  const sum = unpaid.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0) + subs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+                  if (sum > 0.005) {
+                      const invMonths = unpaid.map(t => getInvoiceMonth(t.date || now.toISOString(), closingDay)).filter(Boolean);
+                      if (subs.length > 0) invMonths.push(currInv);
+                      invMonths.sort();
+                      const invMonth = invMonths[0] || currInv;
+                      const [iy, im] = invMonth.split('-').map(Number);
+                      const due = new Date(iy, im - 1, dueDay);
+                      pending.push({ card, sum, due });
+                      total += sum;
+                  }
+              });
+              pending.sort((a, b) => a.due - b.due);
+              const nearest = pending[0];
+              const daysUntil = nearest ? Math.max(0, Math.ceil((nearest.due - t0) / 86400000)) : 0;
+              const dueDate = nearest?.due || null;
+              const label = pending.length === 0 ? '' : pending.length === 1
+                  ? [nearest.card.name, nearest.card.brand].filter(Boolean).join(' · ')
+                  : `${pending.length} cartões`;
+              const afterInvoice = (walletStats.balance || 0) - total;
+              const fmtBR = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              return (
+                <div className={`rounded-2xl border ${isLocalhost ? 'p-5' : 'p-8 rounded-[2.5rem]'} ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-900 border-white/5'}`}>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-violet-500" /> Fatura do Cartão
+                  </h3>
+                  {total > 0.005 ? (
+                    <button onClick={() => setActiveTab('cartoes')} className={`w-full text-left rounded-2xl border p-4 transition-all hover:scale-[1.005] ${theme === 'light' ? 'bg-amber-50 border-amber-200' : 'bg-amber-500/[0.07] border-amber-500/30'}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-500 min-w-0"><AlertTriangle className="w-3 h-3 shrink-0" /> <span className="truncate">Fatura pendente · {label}</span></span>
+                        <span className="text-lg font-black tabular-nums text-amber-500 shrink-0">R$ {fmtBR(total)}</span>
+                      </div>
+                      <p className={`text-[12px] mt-1.5 leading-snug ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>Você lançou <span className="font-bold text-amber-500">R$ {fmtBR(total)}</span> no crédito — esse valor ainda não saiu da sua conta.</p>
+                      <div className={`flex items-center justify-between gap-2 mt-2.5 pt-2.5 border-t text-[11px] ${theme === 'light' ? 'border-amber-200/60' : 'border-white/10'}`}>
+                        <span className="text-slate-400">{dueDate && <>Vence em <span className="font-bold text-amber-500">{daysUntil} {daysUntil === 1 ? 'dia' : 'dias'}</span> · {dueDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</>}</span>
+                        <span className="text-slate-400 shrink-0">Após pagar: <span className={`font-black ${afterInvoice >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>R$ {fmtBR(afterInvoice)}</span></span>
+                      </div>
+                    </button>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic text-center py-6">Nenhuma fatura de cartão em aberto. 🎉</p>
                   )}
                 </div>
-              </div>
-            );
+              );
+            })();
 
             if (isLocalhost) {
               return (
