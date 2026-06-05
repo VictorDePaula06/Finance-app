@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
-import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, arrayRemove } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { getCdiRate, getUsdRate } from '../utils/marketRates';
 import TrialLimitModal from './TrialLimitModal';
@@ -817,6 +817,13 @@ export default function InvestmentsTab() {
 
     const handleDeleteAsset = async (id) => {
         await deleteDoc(doc(db, 'investments', id));
+        // Remove o vínculo deste ativo das metas (evita IDs órfãos em linkedInvIds).
+        try {
+            const snap = await getDocs(query(collection(db, 'goals'), where('userId', '==', currentUser.uid)));
+            await Promise.all(snap.docs
+                .filter(d => (d.data().linkedInvIds || []).includes(id))
+                .map(d => updateDoc(doc(db, 'goals', d.id), { linkedInvIds: arrayRemove(id) })));
+        } catch (e) { console.warn('Falha ao limpar vínculos do investimento:', e); }
         setDeleteConfirm(null);
     };
 

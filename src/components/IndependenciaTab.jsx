@@ -5,7 +5,8 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { useUsdRate } from '../utils/marketRates';
+import { useUsdRate, useCdiRate } from '../utils/marketRates';
+import { summarizeInvestments, jarsDynamicTotal, bensTotal as calcBensTotal } from '../utils/investmentValue';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
 
 const fmt = (v) => Math.abs(Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -38,6 +39,7 @@ export default function IndependenciaTab() {
   const { currentUser } = useAuth();
   const isDark = theme !== 'light';
   const usdRate = useUsdRate();
+  const cdiRate = useCdiRate();
 
   const [jars, setJars] = useState([]);
   const [investments, setInvestments] = useState([]);
@@ -70,17 +72,13 @@ export default function IndependenciaTab() {
 
   // Patrimônio que CONTA para viver de renda = reservas + investimentos.
   // Bens (imóveis/veículos) NÃO entram, pois não geram renda de 4% ao ano.
-  const investido = useMemo(() => {
-    const jarsT = jars.reduce((a, j) => a + (parseFloat(j.balance) || 0), 0);
-    const invT = investments.reduce((a, inv) => {
-      if (inv.type === 'renda_fixa') return a + (parseFloat(inv.manualCurrentPrice || inv.totalApplied || (inv.quantity * inv.purchasePrice)) || 0);
-      const usdM = inv.isUSD ? (usdRate || 5) : 1;
-      const price = inv.manualCurrentPrice || inv.purchasePrice || 0;
-      return a + (inv.quantity || 0) * price * usdM;
-    }, 0);
-    return jarsT + invT;
-  }, [jars, investments, usdRate]);
-  const bensTotal = useMemo(() => assets.reduce((a, b) => a + (parseFloat(b.currentValue ?? b.manualCurrentValue ?? b.fipeValue ?? b.acquisitionValue) || 0), 0), [assets]);
+  // Usa a MESMA fonte de valuation das demais telas (utils/investmentValue):
+  // cofres com rendimento CDI (dinâmico) + carteira de investimentos.
+  const investido = useMemo(
+    () => jarsDynamicTotal(jars, cdiRate) + summarizeInvestments(investments, { usdRate }).current,
+    [jars, investments, usdRate, cdiRate]
+  );
+  const bensTotal = useMemo(() => calcBensTotal(assets), [assets]);
 
   const fireTarget = (income * 12) / SWR; // número da independência
   const months = monthsToReach(investido, aporte, rate, fireTarget, compound);

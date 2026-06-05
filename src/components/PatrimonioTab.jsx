@@ -3,6 +3,7 @@ import { Wallet, PiggyBank, TrendingUp, TrendingDown, ArrowUpCircle, ArrowDownCi
 import aliviaFinal from '../assets/alivia/alivia-final.png';
 import AliviaConfigForm from './AliviaConfigForm';
 import { calculatePatrimonyHealthScore } from '../utils/healthScore';
+import { summarizeInvestments, jarsDynamicTotal, bensTotal as calcBensTotal } from '../utils/investmentValue';
 import { OBJECTIVE_LABELS_SHORT, RISK_LABELS } from '../constants/onboarding';
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer, AreaChart, Area, LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from 'recharts';
 import ReactMarkdown from 'react-markdown';
@@ -257,12 +258,8 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
     return onSnapshot(q, snap => setTangibleAssets(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
   }, [currentUser]);
 
-  // Valor atual dos bens tangíveis (currentValue persistido pela aba Bens & Imóveis)
-  const bensTotal = useMemo(() => tangibleAssets.reduce((a, x) => {
-    if (x.currentValue != null) return a + (parseFloat(x.currentValue) || 0);
-    if (x.manualCurrentValue != null && x.manualCurrentValue !== '') return a + (parseFloat(x.manualCurrentValue) || 0);
-    return a + (parseFloat(x.fipeValue || x.acquisitionValue) || 0);
-  }, 0), [tangibleAssets]);
+  // Valor atual dos bens tangíveis — fonte única (utils/investmentValue).
+  const bensTotal = useMemo(() => calcBensTotal(tangibleAssets), [tangibleAssets]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -313,7 +310,9 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
     const fixedIncomeYield = investments.reduce((a, inv) => {
       if (inv.type === 'renda_fixa') {
         let rate = 0;
-        const currentVal = (inv.manualCurrentPrice || inv.purchasePrice) * inv.quantity;
+        // Valor atual da renda fixa = valor manual OU total aplicado (NÃO multiplicar
+        // por quantity — totalApplied já é o valor cheio).
+        const currentVal = (parseFloat(inv.manualCurrentPrice) || parseFloat(inv.totalApplied) || ((parseFloat(inv.quantity) || 0) * (parseFloat(inv.purchasePrice) || 0))) || 0;
         if (inv.yieldType === 'cdi' && inv.cdiPercent) {
           const cdiP = parseFloat(String(inv.cdiPercent).replace(',', '.'));
           rate = Math.pow(1 + (cdiAnual / 100) * (cdiP / 100), 1 / 365) - 1;
@@ -336,54 +335,15 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
     return { jarsDailyYield: jarsYield, totalDailyYield: jarsYield + fixedIncomeYield };
   }, [jarsDynamic, investments, cdiAnual]);
 
-  // Calculate investments total, cost, and profit/loss matching InvestmentsTab logic
-  const { investmentsTotal, investmentsCost, investmentsProfit } = useMemo(() => {
-    let totalInvested = 0;
-    let currentValue = 0;
-
-    investments.forEach(asset => {
-      const usdMultiplier = asset.isUSD ? (livePrices.USD || usdRate || 5.0) : 1;
-
-      // Renda Fixa: use totalApplied vs calculated/manual current value
-      if (asset.type === 'renda_fixa') {
-        const applied = asset.totalApplied || (asset.quantity * asset.purchasePrice) || 0;
-        let current = asset.manualCurrentPrice || applied;
-
-        // Try to get live rate from Tesouro API for mark-to-market
-        const liveData = getLiveTesouroRate(asset.name);
-        const pRate = parseFloat(asset.purchaseRate || asset.fixedRate || 0);
-        let cRate = liveData ? liveData.rate : parseFloat(asset.currentMarketRate || asset.fixedRate || 0);
-
-        if (pRate > 0 && cRate > 0 && pRate !== cRate && !asset.manualCurrentPrice) {
-          current = applied * (pRate / cRate);
-        }
-        totalInvested += applied;
-        currentValue += current;
-        return;
-      }
-
-      const invested = asset.quantity * asset.purchasePrice * usdMultiplier;
-      totalInvested += invested;
-
-      let currentPrice = asset.manualCurrentPrice || asset.purchasePrice || 0;
-      if (asset.type === 'crypto' && asset.symbol) {
-        const sym = asset.symbol.toUpperCase();
-        if (asset.isUSD && livePrices[`${sym}_USD`]) currentPrice = livePrices[`${sym}_USD`];
-        else if (!asset.isUSD && livePrices[`${sym}_BRL`]) currentPrice = livePrices[`${sym}_BRL`];
-        else if (!asset.isUSD && livePrices[`${sym}_USD`] && (livePrices.USD || usdRate)) currentPrice = livePrices[`${sym}_USD`] * (livePrices.USD || usdRate);
-      } else if (['acoes', 'etfs', 'fiis'].includes(asset.type) && asset.symbol) {
-        const sym = asset.symbol.toUpperCase();
-        if (livePrices[sym]) currentPrice = livePrices[sym];
-      }
-      currentValue += (asset.quantity * currentPrice * usdMultiplier);
-    });
-
-    return {
-      investmentsTotal: currentValue,
-      investmentsCost: totalInvested,
-      investmentsProfit: currentValue - totalInvested
-    };
-  }, [investments, livePrices, usdRate, tesouroData]);
+  // Investimentos — fonte única (utils/investmentValue) COM cotação ao vivo.
+  const invSummary = useMemo(
+    () => summarizeInvestments(investments, { usdRate, livePrices, getTesouroRate: getLiveTesouroRate }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [investments, livePrices, usdRate, tesouroData]
+  );
+  const investmentsTotal = invSummary.current;
+  const investmentsCost = invSummary.cost;
+  const investmentsProfit = invSummary.profit;
 
   const patrimonioTotal = jarsTotal + investmentsTotal + bensTotal;
   // Total exibido conforme o filtro (Reserva / Investimentos / Bens).
@@ -398,19 +358,8 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
   }, 0), [jars]);
   const totalProfit = investmentsProfit + reservesProfit;
 
-  // Saúde Patrimonial (Reserva · Diversificação · Rentabilidade) — mesma fonte da sidebar.
-  const investmentsSummary = useMemo(() => {
-    const byClass = {};
-    investments.forEach(inv => {
-      const usdM = inv.isUSD ? usdRate : 1;
-      let cur;
-      if (inv.type === 'renda_fixa') cur = inv.manualCurrentPrice || inv.totalApplied || (inv.quantity * inv.purchasePrice) || 0;
-      else cur = (inv.quantity || 0) * (inv.manualCurrentPrice || inv.purchasePrice || 0) * usdM;
-      const cls = inv.type || 'outros';
-      byClass[cls] = (byClass[cls] || 0) + cur;
-    });
-    return { current: investmentsTotal, cost: investmentsCost, byClass, count: investments.length };
-  }, [investments, usdRate, investmentsTotal, investmentsCost]);
+  // Saúde Patrimonial usa o MESMO resumo (valor ao vivo + byClass coerente).
+  const investmentsSummary = invSummary;
 
   const patrimonyHealth = useMemo(
     () => calculatePatrimonyHealthScore([], manualConfig, { totalGuarded: jarsTotal }, [], investmentsSummary, totalDebt, protectionSummary),

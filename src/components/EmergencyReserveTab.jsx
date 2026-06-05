@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
-import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, setDoc, getDocs, arrayRemove } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useCdiRate } from '../utils/marketRates';
 import TrialLimitModal from './TrialLimitModal';
@@ -202,6 +202,13 @@ export default function EmergencyReserveTab() {
 
     const handleDelete = async (id) => {
         await deleteDoc(doc(db, 'savings_jars', id));
+        // Remove o vínculo deste cofre das metas (evita IDs órfãos em linkedJarIds).
+        try {
+            const snap = await getDocs(query(collection(db, 'goals'), where('userId', '==', currentUser.uid)));
+            await Promise.all(snap.docs
+                .filter(d => (d.data().linkedJarIds || []).includes(id))
+                .map(d => updateDoc(doc(db, 'goals', d.id), { linkedJarIds: arrayRemove(id) })));
+        } catch (e) { console.warn('Falha ao limpar vínculos do cofre:', e); }
         setDeleteConfirm(null);
     };
 

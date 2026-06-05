@@ -36,6 +36,7 @@ import AIChat from './components/AIChat';
 import PaceAlerts from './components/PaceAlerts';
 import { calculateSpendingPace, getExpenseBasis, isMonthlyExpenseTx, txMonthKey } from './utils/financialLogic';
 import { OBJECTIVE_LABELS_SHORT } from './constants/onboarding';
+import { summarizeInvestments, bensTotal as calcBensTotal } from './utils/investmentValue';
 import AnalysisTab from './components/AnalysisTab';
 import IncomeTab from './components/IncomeTab';
 import CardsTab from './components/CardsTab';
@@ -566,25 +567,13 @@ function Dashboard() {
     return { totalGuarded, dailyYield, jarsWithBalance };
   }, [savingsJars, cdiRate]);
 
-  // Resumo da carteira de investimentos (valor atual, custo, diversificação por classe)
-  const investmentsSummary = useMemo(() => {
-    let current = 0, cost = 0; const byClass = {};
-    investments.forEach(inv => {
-      let c, cur;
-      if (inv.type === 'renda_fixa') {
-        c = inv.totalApplied || (inv.quantity * inv.purchasePrice) || 0;
-        cur = inv.manualCurrentPrice || c;
-      } else {
-        const usdM = inv.isUSD ? (usdRate || 5) : 1;
-        c = (inv.quantity || 0) * (inv.purchasePrice || 0) * usdM;
-        cur = (inv.quantity || 0) * (inv.manualCurrentPrice || inv.purchasePrice || 0) * usdM;
-      }
-      current += cur; cost += c;
-      const cls = inv.type || 'outros';
-      byClass[cls] = (byClass[cls] || 0) + cur;
-    });
-    return { current, cost, byClass, count: investments.length };
-  }, [investments, usdRate]);
+  // Resumo da carteira de investimentos — fonte única (utils/investmentValue).
+  // (No App não há cotação ao vivo; usa preço manual/custo. A Visão Geral do
+  // Patrimônio usa a mesma util COM cotação ao vivo.)
+  const investmentsSummary = useMemo(
+    () => summarizeInvestments(investments, { usdRate }),
+    [investments, usdRate]
+  );
 
   // Auto-calculate fixed expenses: gastos fixos cadastrados + assinaturas do cartão
   const autoFixedExpenses = useMemo(() => {
@@ -619,12 +608,7 @@ function Dashboard() {
     const total = risks.length;
     const coveredCount = risks.filter(r => r.covered).length;
     const coveragePct = total ? (coveredCount / total) * 100 : 0;
-    const assetsValue = tangibleAssets.reduce((acc, x) => {
-      const v = (x.manualCurrentValue != null && x.manualCurrentValue !== '')
-        ? parseFloat(x.manualCurrentValue) || 0
-        : parseFloat(x.fipeValue || x.acquisitionValue || x.purchaseValue || 0) || 0;
-      return acc + v;
-    }, 0);
+    const assetsValue = calcBensTotal(tangibleAssets);
     return { coveragePct, coveredCount, total, hasVida, assetsValue };
   }, [insurances, tangibleAssets]);
 

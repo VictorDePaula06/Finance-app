@@ -4,7 +4,7 @@ import {
   Home, Car, Plus, Pencil, Trash2, X, Loader2, TrendingUp, TrendingDown, Building2, MapPin,
   Calendar, RefreshCw, Info, Save, Layers,
 } from 'lucide-react';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -140,7 +140,17 @@ export default function BensImoveisTab() {
     return dates.length ? new Date(dates[dates.length - 1]) : null;
   }, [assets]);
 
-  const handleDelete = async (id) => { await deleteDoc(doc(db, 'tangible_assets', id)); setDeleteConfirm(null); };
+  const handleDelete = async (id) => {
+    await deleteDoc(doc(db, 'tangible_assets', id));
+    // Desvincula este bem dos seguros que apontavam para ele (evita linkedAssetId órfão).
+    try {
+      const snap = await getDocs(query(collection(db, 'insurances'), where('userId', '==', currentUser.uid)));
+      await Promise.all(snap.docs
+        .filter(d => d.data().linkedAssetId === id)
+        .map(d => updateDoc(doc(db, 'insurances', d.id), { linkedAssetId: null })));
+    } catch (e) { console.warn('Falha ao desvincular seguro do bem:', e); }
+    setDeleteConfirm(null);
+  };
 
   const card = isDark ? 'bg-[#1e2330] border-slate-700/50' : 'bg-white border-slate-100 shadow-sm';
   const txt = isDark ? 'text-white' : 'text-slate-800';
