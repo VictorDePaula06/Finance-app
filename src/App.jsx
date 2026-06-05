@@ -860,11 +860,16 @@ function Dashboard() {
 
             if (isLocalhost) {
               return (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:items-stretch animate-in fade-in slide-in-from-bottom-4 duration-700">
                   <div className="min-w-0">{overview}</div>
-                  <div className="flex flex-col gap-4 min-w-0">
-                    {aliviaCard}
-                    {metasCard}
+                  {/* Coluna direita acompanha a altura da esquerda (Índice): o conteúdo
+                      fica absoluto para não esticar a linha do grid, e o card de Metas
+                      rola internamente — assim as duas colunas terminam alinhadas. */}
+                  <div className="relative min-w-0">
+                    <div className="xl:absolute xl:inset-0 flex flex-col gap-4 min-h-0 overflow-hidden">
+                      {aliviaCard}
+                      {metasCard}
+                    </div>
                   </div>
                 </div>
               );
