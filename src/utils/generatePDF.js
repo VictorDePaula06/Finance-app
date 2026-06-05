@@ -266,5 +266,5 @@ export const generatePDF = async (data, logoSrc) => {
         );
     }
 
-    doc.save(`Relatorio_Alivia_${selectedMonth_YYYY_MM}.pdf`);
+    doc.save(`Relatorio_Alivia_${monthKey || 'periodo'}.pdf`);
 };
