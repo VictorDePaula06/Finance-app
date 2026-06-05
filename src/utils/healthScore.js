@@ -439,31 +439,26 @@ export const calculateHealthIndex = (transactions = [], config = {}, reserveTota
     };
 };
 
+// Referência de inflação (IPCA) usada para medir a rentabilidade REAL — o mesmo
+// valor aproximado já adotado na projeção da Evolução Patrimonial.
+const IPCA_REFERENCE = 4.5; // % — quanto a inflação "come" do retorno nominal.
+
 /**
- * Saúde Patrimonial — score específico do módulo Construção de Patrimônio.
- * Diferente do score de Gastos (que mede o fôlego mensal), aqui medimos a
- * solidez do patrimônio em três pilares (total 100 pts):
+ * Saúde Patrimonial — score do módulo Construção de Patrimônio (total 100 pts).
  *
- *   1. Reserva de Emergência (40 pts) — meses de despesa cobertos (meta: 6 meses).
- *   2. Aportes / Acúmulo      (30 pts) — taxa de poupança do mês (meta: 20% da renda).
- *   3. Metas                  (30 pts) — progresso médio das metas ativas.
+ *   1. Diversificação  (33 pts) — distribuição entre classes de ativo
+ *      (renda fixa, renda variável, imóveis, cripto, previdência). Penaliza
+ *      concentração acima de 60% em uma única classe.
+ *   2. Rentabilidade Real (27 pts) — retorno comparado ao IPCA. Mede se o
+ *      patrimônio cresce de verdade, não só nominalmente.
+ *   3. Dívidas (27 pts) — relação dívida / patrimônio total. Zero dívida = nota
+ *      máxima; dívida acima de 30% do patrimônio começa a penalizar.
+ *   4. Proteção (13 pts) — se os principais ativos têm cobertura de seguro.
  *
- * @param {Array}  transactions   Lançamentos do usuário.
- * @param {Object} manualConfig   Config financeira (income, fixedExpenses...).
- * @param {Object} investmentStats { totalGuarded } — patrimônio líquido em reservas/investimentos.
- * @param {Array}  goals          Metas ({ target, current, status }).
+ * @param {Object} protectionSummary { coveragePct, coveredCount, total, assetsValue }
  */
-export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = {}, investmentStats = {}, goals = [], investmentsSummary = {}, totalDebt = 0) => {
-    const income = manualConfig?.income ? parseFloat(manualConfig.income) : 0;
-    const monthlyExpenses = manualConfig?.fixedExpenses
-        ? parseFloat(manualConfig.fixedExpenses)
-        : (income > 0 ? income * 0.7 : 0); // fallback: estima 70% da renda
-
+export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = {}, investmentStats = {}, goals = [], investmentsSummary = {}, totalDebt = 0, protectionSummary = {}) => {
     const reserveTotal = parseFloat(investmentStats?.totalGuarded) || 0;
-
-    // Metas configuráveis (Configurar Alívia › Saúde Patrimonial). Padrão: 6 meses.
-    const ph = manualConfig?.patrimonyHealth || {};
-    const reserveMonthsTarget = parseFloat(ph.reserveMonthsTarget) > 0 ? parseFloat(ph.reserveMonthsTarget) : 6;
 
     // Dados da carteira de investimentos
     const invCurrent = parseFloat(investmentsSummary?.current) || 0;
@@ -471,82 +466,113 @@ export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = 
     const byClass = investmentsSummary?.byClass || {};
     const invCount = investmentsSummary?.count || 0;
 
-    // ── PILAR 1: Reserva de Emergência (40 pts) — meses de despesa cobertos ──
-    let reserveScore = 0;
-    let monthsCovered = 0;
-    if (monthlyExpenses > 0) {
-        monthsCovered = reserveTotal / monthlyExpenses;
-        reserveScore = Math.min(40, (monthsCovered / reserveMonthsTarget) * 40);
-    } else if (reserveTotal > 0) {
-        reserveScore = 20; // tem reserva mas sem custo de vida definido para medir cobertura
-    }
+    // Patrimônio total = reservas + investimentos + bens tangíveis (imóveis/veículos).
+    const tangibleValue = parseFloat(protectionSummary?.assetsValue) || 0;
+    const patrimonyTotal = reserveTotal + invCurrent + tangibleValue;
 
-    // ── PILAR 2: Diversificação dos investimentos (30 pts) ──
-    // Combina nº de classes de ativo e o quão equilibrada é a alocação (anti-concentração).
+    // ── PILAR 1: Diversificação (33 pts) ──
+    // Agrupa os tipos granulares em macro-classes e mede nº de classes + equilíbrio.
+    const MACRO_CLASS = {
+        renda_fixa: 'Renda Fixa', cdb: 'Renda Fixa', tesouro: 'Renda Fixa',
+        acoes: 'Renda Variável', stocks: 'Renda Variável', etfs: 'Renda Variável', fiis: 'Renda Variável',
+        crypto: 'Cripto', cripto: 'Cripto',
+        imoveis: 'Imóveis', imovel: 'Imóveis',
+        previdencia: 'Previdência', previdência: 'Previdência',
+    };
+    const macroByClass = {};
+    Object.entries(byClass).forEach(([k, v]) => {
+        if (!(v > 0)) return;
+        const macro = MACRO_CLASS[k] || 'Outros';
+        macroByClass[macro] = (macroByClass[macro] || 0) + v;
+    });
+    const macroValues = Object.values(macroByClass);
+    const classCount = macroValues.length;
+    const DIVERSIFICATION_MAX = 33;
     let diversificationScore = 0;
-    const classValues = Object.values(byClass).filter(v => v > 0);
-    const classCount = classValues.length;
     let maxWeight = 0;
     if (invCurrent > 0 && classCount > 0) {
-        maxWeight = Math.max(...classValues) / invCurrent;
-        const classFactor = Math.min(1, classCount / 4);          // 4+ classes = máximo
-        const balanceFactor = 1 - Math.max(0, (maxWeight - 0.5) / 0.5); // penaliza concentração > 50%
-        diversificationScore = 30 * classFactor * (0.5 + 0.5 * balanceFactor);
+        maxWeight = Math.max(...macroValues) / invCurrent;
+        const classFactor = Math.min(1, classCount / 4); // 4+ classes = máximo
+        // Sem penalidade até 60% em uma classe; acima disso cai até 0 em 100%.
+        const balanceFactor = 1 - Math.max(0, Math.min(1, (maxWeight - 0.60) / 0.40));
+        diversificationScore = DIVERSIFICATION_MAX * (0.6 * classFactor + 0.4 * balanceFactor);
     }
 
-    // ── PILAR 3: Rentabilidade dos investimentos (30 pts) ──
-    // Retorno acumulado sobre o custo. -5% → 0 pts; +15% ou mais → 30 pts.
+    // ── PILAR 2: Rentabilidade Real (27 pts) — retorno nominal menos o IPCA ──
+    const PROFITABILITY_MAX = 27;
     let profitabilityScore = 0;
-    let returnPct = 0;
+    let nominalReturnPct = 0;
+    let realReturnPct = 0;
     if (invCost > 0) {
-        returnPct = (invCurrent - invCost) / invCost;
-        profitabilityScore = Math.max(0, Math.min(1, (returnPct + 0.05) / 0.20)) * 30;
+        nominalReturnPct = ((invCurrent - invCost) / invCost) * 100;
+        realReturnPct = nominalReturnPct - IPCA_REFERENCE;
+        // -5% real → 0 pts; +10% real (ou mais) → nota máxima.
+        profitabilityScore = Math.max(0, Math.min(1, (realReturnPct + 5) / 15)) * PROFITABILITY_MAX;
     }
 
-    // ── PILAR 4: Dívidas (a dívida é prioridade — penaliza a saúde patrimonial) ──
-    // Sem dívida = saudável; quanto maior a dívida frente à sua capacidade, pior.
+    // ── PILAR 3: Dívidas (27 pts) — relação dívida / patrimônio total ──
     const debt = parseFloat(totalDebt) || 0;
-    const debtRef = Math.max(income * 6, reserveTotal + invCurrent, monthlyExpenses * 6, 1);
-    const debtRatio = debt > 0 ? debt / debtRef : 0;
-    // Fator de saúde: 1 (sem dívida) → 0.4 (dívida alta). Reduz a nota geral até 60%.
-    const debtFactor = debt > 0 ? Math.max(0.4, 1 - debtRatio * 0.6) : 1;
-    const debtPillarMax = 30;
-    const debtScore = debt > 0 ? Math.max(0, ((debtFactor - 0.4) / 0.6)) * debtPillarMax : debtPillarMax;
+    const DEBT_MAX = 27;
+    const debtRatio = debt > 0 ? (patrimonyTotal > 0 ? debt / patrimonyTotal : Infinity) : 0;
+    let debtScore;
+    if (debt <= 0) {
+        debtScore = DEBT_MAX; // sem dívida = nota máxima
+    } else if (debtRatio <= 0.30) {
+        debtScore = DEBT_MAX; // abaixo de 30% do patrimônio ainda não penaliza
+    } else {
+        // 30% → cheio; 100%+ → zero (linear).
+        debtScore = Math.max(0, Math.min(1, 1 - (debtRatio - 0.30) / 0.70)) * DEBT_MAX;
+    }
 
-    const buildingScore = reserveScore + diversificationScore + profitabilityScore;
-    const totalScore = Math.min(100, Math.round(buildingScore * debtFactor));
+    // ── PILAR 4: Proteção (13 pts) — cobertura de seguro dos principais ativos ──
+    const PROTECTION_MAX = 13;
+    const coveragePct = Math.max(0, Math.min(100, parseFloat(protectionSummary?.coveragePct) || 0));
+    const protectionCovered = protectionSummary?.coveredCount ?? null;
+    const protectionTotal = protectionSummary?.total ?? null;
+    const protectionScore = PROTECTION_MAX * (coveragePct / 100);
+
+    const totalScore = Math.min(100, Math.round(
+        diversificationScore + profitabilityScore + debtScore + protectionScore
+    ));
+
+    // "Sem dados" só quando o usuário realmente não tem nada cadastrado.
+    // (vida/saúde sempre entram como risco, então não contam como "ter dados".)
+    const hasInsurance = (protectionSummary?.coveredCount || 0) > 0;
+    const hasData = invCount > 0 || debt > 0 || reserveTotal > 0 || tangibleValue > 0 || hasInsurance;
 
     // Feedback qualitativo (mesma escala de cores)
-    let feedback = "Cadastre sua reserva e seus investimentos para ver sua saúde patrimonial.";
+    let feedback = "Cadastre seus investimentos, dívidas e seguros para ver sua saúde patrimonial.";
     let color = "text-slate-400";
     let bg = "bg-slate-400/10";
     let statusLabel = "Sem dados";
 
-    // Dívida é prioridade — quando existe, o aviso vem primeiro.
     if (debt > 0) {
+        // Dívida é prioridade — quando existe, o aviso vem primeiro.
         const debtStr = debt.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         feedback = `Você tem R$ ${debtStr} em dívidas — priorize quitá-las antes de ampliar investimentos.`;
         color = "text-rose-400"; bg = "bg-rose-500/10"; statusLabel = "Atenção";
-    } else if (totalScore >= 90) {
-        feedback = "Patrimônio sólido! Reserva firme, carteira diversificada e rendendo bem.";
+    } else if (!hasData) {
+        // mantém "Sem dados"
+    } else if (totalScore >= 85) {
+        feedback = "Patrimônio sólido! Carteira diversificada, rendendo acima da inflação e bem protegida.";
         color = "text-emerald-400"; bg = "bg-emerald-500/10"; statusLabel = "Excelente";
-    } else if (totalScore >= 70) {
+    } else if (totalScore >= 65) {
         feedback = "Bom! Seu patrimônio está bem estruturado e crescendo de forma saudável.";
         color = "text-blue-400"; bg = "bg-blue-500/10"; statusLabel = "Bom";
-    } else if (totalScore >= 50) {
-        feedback = "Razoável. Reforce a reserva, diversifique mais e acompanhe a rentabilidade.";
+    } else if (totalScore >= 45) {
+        feedback = "Razoável. Diversifique mais, acompanhe a rentabilidade real e proteja seus bens.";
         color = "text-yellow-400"; bg = "bg-yellow-500/10"; statusLabel = "Razoável";
-    } else if (totalScore > 0) {
-        feedback = "Atenção! Priorize a reserva e diversifique seus investimentos.";
-        color = "text-rose-400"; bg = "bg-rose-500/10"; statusLabel = "Atenção";
+    } else {
+        feedback = "Atenção! Diversifique seus investimentos e proteja seus principais ativos.";
+        color = "text-orange-400"; bg = "bg-orange-500/10"; statusLabel = "Atenção";
     }
 
     // Pilares abaixo de 90% do máximo = áreas a melhorar.
     const improvements = [
-        reserveScore < 40 * 0.9,
-        diversificationScore < 30 * 0.9,
-        profitabilityScore < 30 * 0.9,
-        debt > 0,
+        diversificationScore < DIVERSIFICATION_MAX * 0.9,
+        profitabilityScore < PROFITABILITY_MAX * 0.9,
+        debt > 0 || debtScore < DEBT_MAX * 0.9,
+        protectionScore < PROTECTION_MAX * 0.9,
     ].filter(Boolean).length;
 
     return {
@@ -557,28 +583,31 @@ export const calculatePatrimonyHealthScore = (transactions = [], manualConfig = 
         statusLabel,
         improvements,
         pillars: [
-            { key: 'reserve', label: 'Reserva de emergência', score: Math.round(reserveScore), max: 40 },
-            { key: 'diversification', label: 'Diversificação', score: Math.round(diversificationScore), max: 30 },
-            { key: 'profitability', label: 'Rentabilidade', score: Math.round(profitabilityScore), max: 30 },
-            { key: 'debt', label: 'Dívidas', score: Math.round(debtScore), max: debtPillarMax, hasDebt: debt > 0, debtTotal: debt },
+            { key: 'diversification', label: 'Diversificação', score: Math.round(diversificationScore), max: DIVERSIFICATION_MAX },
+            { key: 'profitability', label: 'Rentabilidade Real', score: Math.round(profitabilityScore), max: PROFITABILITY_MAX },
+            { key: 'debt', label: 'Dívidas', score: Math.round(debtScore), max: DEBT_MAX, hasDebt: debt > 0, debtTotal: debt },
+            { key: 'protection', label: 'Proteção', score: Math.round(protectionScore), max: PROTECTION_MAX },
         ],
         hasDebt: debt > 0,
         totalDebt: debt,
         breakdown: {
-            reserve: Math.round(reserveScore),
             diversification: Math.round(diversificationScore),
             profitability: Math.round(profitabilityScore),
             debt: Math.round(debtScore),
+            protection: Math.round(protectionScore),
             data: {
                 totalDebt: debt,
-                reserveTotal,
-                monthlyExpenses,
-                monthsCovered: monthlyExpenses > 0 ? monthsCovered.toFixed(1) : "0.0",
-                reserveMonthsTarget,
+                patrimonyTotal,
+                debtRatio: debt > 0 && patrimonyTotal > 0 ? Math.round(debtRatio * 100) : 0,
                 classCount,
                 maxWeight: Math.round(maxWeight * 100),
                 invCount,
-                returnPct: invCost > 0 ? (returnPct * 100).toFixed(1) : "0.0",
+                nominalReturnPct: invCost > 0 ? nominalReturnPct.toFixed(1) : "0.0",
+                realReturnPct: invCost > 0 ? realReturnPct.toFixed(1) : "0.0",
+                ipcaRef: IPCA_REFERENCE,
+                coveragePct: Math.round(coveragePct),
+                protectionCovered,
+                protectionTotal,
             }
         }
     };

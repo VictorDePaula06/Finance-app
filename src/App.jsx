@@ -111,6 +111,8 @@ function Dashboard() {
   const [investments, setInvestments] = useState([]);
   const [goals, setGoals] = useState([]);
   const [debts, setDebts] = useState([]);
+  const [insurances, setInsurances] = useState([]);
+  const [tangibleAssets, setTangibleAssets] = useState([]);
   const [cards, setCards] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [fixedExpensesList, setFixedExpensesList] = useState([]);
@@ -318,6 +320,16 @@ function Dashboard() {
       setDebts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    // Listen to Insurances (seguros) e bens tangíveis — usados na Saúde Patrimonial (Proteção).
+    const qIns = query(collection(db, 'insurances'), where('userId', '==', currentUser.uid));
+    const unsubscribeIns = onSnapshot(qIns, (snapshot) => {
+      setInsurances(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, () => {});
+    const qTang = query(collection(db, 'tangible_assets'), where('userId', '==', currentUser.uid));
+    const unsubscribeTang = onSnapshot(qTang, (snapshot) => {
+      setTangibleAssets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, () => {});
+
     // Listen to Cards
     const qC = query(collection(db, 'cards'), where('userId', '==', currentUser.uid));
     const unsubC = onSnapshot(qC, (snapshot) => {
@@ -356,6 +368,8 @@ function Dashboard() {
       unsubscribeTransactions();
       unsubscribeGoals();
       unsubscribeDebts();
+      unsubscribeIns();
+      unsubscribeTang();
       unsubC();
       unsubS();
       unsubFE();
@@ -588,8 +602,33 @@ function Dashboard() {
     () => debts.reduce((s, d) => (d.paidOff ? s : s + (parseFloat(d.remainingAmount) || 0)), 0),
     [debts]
   );
-  // Saúde Patrimonial — função própria (reserva em meses, aportes, progresso de metas, dívidas).
-  const patrimonyHealthScore = calculatePatrimonyHealthScore(transactions, effectiveConfig, investmentStats, goals, investmentsSummary, totalDebt);
+  // Resumo de proteção (seguros) — alimenta o pilar Proteção da Saúde Patrimonial.
+  const protectionSummary = useMemo(() => {
+    const imoveis = tangibleAssets.filter(a => a.kind === 'imovel');
+    const veiculos = tangibleAssets.filter(a => a.kind === 'veiculo');
+    const insuredIds = new Set(insurances.filter(p => p.linkedAssetId).map(p => p.linkedAssetId));
+    const hasVida = insurances.some(p => p.category === 'vida');
+    const hasSaude = insurances.some(p => p.category === 'saude');
+    const risks = [
+      { covered: hasVida },
+      { covered: hasSaude },
+      ...imoveis.map(a => ({ covered: insuredIds.has(a.id) })),
+      ...veiculos.map(a => ({ covered: insuredIds.has(a.id) })),
+    ];
+    const total = risks.length;
+    const coveredCount = risks.filter(r => r.covered).length;
+    const coveragePct = total ? (coveredCount / total) * 100 : 0;
+    const assetsValue = tangibleAssets.reduce((acc, x) => {
+      const v = (x.manualCurrentValue != null && x.manualCurrentValue !== '')
+        ? parseFloat(x.manualCurrentValue) || 0
+        : parseFloat(x.fipeValue || x.acquisitionValue || x.purchaseValue || 0) || 0;
+      return acc + v;
+    }, 0);
+    return { coveragePct, coveredCount, total, hasVida, assetsValue };
+  }, [insurances, tangibleAssets]);
+
+  // Saúde Patrimonial — diversificação, rentabilidade real, dívidas e proteção.
+  const patrimonyHealthScore = calculatePatrimonyHealthScore(transactions, effectiveConfig, investmentStats, goals, investmentsSummary, totalDebt, protectionSummary);
   // O card da sidebar usa a saúde do módulo ativo.
   const sidebarHealthScore = activeModule === 'patrimonio' ? patrimonyHealthScore : healthIndex;
 
@@ -883,6 +922,7 @@ function Dashboard() {
                 manualConfig={manualConfig}
                 updateManualConfig={updateManualConfig}
                 totalDebt={totalDebt}
+                protectionSummary={protectionSummary}
                 onNavigateTab={setActiveTab}
               />
             ) : <div className="p-12 text-center font-bold text-slate-500">Este módulo requer o plano Premium.</div>

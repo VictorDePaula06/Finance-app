@@ -402,15 +402,11 @@ export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose
 
                 {/* ── BLOCO 2B: SAÚDE PATRIMONIAL (só Patrimônio) ── */}
                 {activeSection === 'saude' && (() => {
-                    const ph = tempConfig.patrimonyHealth || {};
-                    const reserveMonthsTarget = ph.reserveMonthsTarget ?? 6;
-                    const setPH = (patch) => setTempConfig({ ...tempConfig, patrimonyHealth: { ...ph, reserveMonthsTarget, ...patch } });
-                    const income = parseFloat(tempConfig.income) || 0;
-                    const monthlyExpenses = fixedExpensesSum > 0 ? fixedExpensesSum : (income > 0 ? income * 0.7 : 0);
                     const pillars = [
-                        { label: 'Reserva de emergência', pts: 40, desc: 'Sua reserva cobre os meses de despesa definidos abaixo.' },
-                        { label: 'Diversificação', pts: 30, desc: 'Quantas classes de ativo você tem e o quão equilibrada é a alocação (evitar concentração).' },
-                        { label: 'Rentabilidade', pts: 30, desc: 'Retorno acumulado dos seus investimentos sobre o valor investido.' },
+                        { label: 'Diversificação', pts: 33, desc: 'Distribuição entre classes de ativo (renda fixa, renda variável, imóveis, cripto, previdência). Penaliza concentração acima de 60% em uma única classe.' },
+                        { label: 'Rentabilidade Real', pts: 27, desc: 'Retorno dos investimentos comparado ao IPCA. Não adianta crescer 6% se a inflação foi 7% — aqui medimos se o patrimônio cresce de verdade.' },
+                        { label: 'Dívidas', pts: 27, desc: 'Relação entre dívidas e patrimônio total. Zero dívida = nota máxima; dívida acima de 30% do patrimônio começa a penalizar.' },
+                        { label: 'Proteção', pts: 13, desc: 'Se os principais ativos têm cobertura de seguro. Peso menor, mas presente para criar consciência de proteção.' },
                     ];
                     return (
                         <div className="space-y-6 animate-in fade-in duration-300">
@@ -418,7 +414,7 @@ export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose
                                 <ShieldCheck className="w-4 h-4" /> Saúde Patrimonial
                             </h3>
                             <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                                O índice de <strong>Saúde Patrimonial</strong> (medidor no topo da barra lateral) é composto por 3 pilares, calculados automaticamente a partir dos seus dados do módulo de Patrimônio:
+                                O índice de <strong>Saúde Patrimonial</strong> (medidor no topo da barra lateral) vai de 0 a 100 e é composto por 4 pilares, calculados automaticamente a partir dos seus dados do módulo de Patrimônio:
                             </p>
                             <div className="space-y-2">
                                 {pillars.map(p => (
@@ -431,24 +427,9 @@ export default function AliviaConfigForm({ manualConfig, onConfigChange, onClose
                                     </div>
                                 ))}
                             </div>
-
-                            {/* Único parâmetro configurável: meta de reserva */}
-                            <div className={`p-5 rounded-2xl border ${card}`}>
-                                <div className="flex items-center justify-between mb-1">
-                                    <label className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Reserva ideal</label>
-                                    <span className="text-2xl font-black text-emerald-500">{reserveMonthsTarget} {reserveMonthsTarget === 1 ? 'mês' : 'meses'}</span>
-                                </div>
-                                <input type="range" min={3} max={24} step={1} value={reserveMonthsTarget}
-                                    onChange={(e) => setPH({ reserveMonthsTarget: parseInt(e.target.value) })}
-                                    className="w-full accent-emerald-500" />
-                                <p className={`text-[10px] mt-2 leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                                    Quantos meses de despesas sua reserva deve cobrir para nota máxima no pilar de reserva.
-                                    {monthlyExpenses > 0 && <> Com seu custo de vida atual, a meta equivale a <strong>R$ {fmt(reserveMonthsTarget * monthlyExpenses)}</strong>.</>}
-                                </p>
-                                <p className={`text-[10px] mt-2 leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                                    Diversificação e rentabilidade são medidas automaticamente a partir da sua carteira de investimentos — quanto mais classes de ativo equilibradas e melhor o retorno, maior a nota.
-                                </p>
-                            </div>
+                            <p className={`text-[10px] leading-relaxed ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                Tudo é medido automaticamente: cadastre seus investimentos, dívidas (aba Gerenciamento de Dívidas) e seguros (aba Seguros &amp; Proteção) para que cada pilar seja calculado.
+                            </p>
                         </div>
                     );
                 })()}

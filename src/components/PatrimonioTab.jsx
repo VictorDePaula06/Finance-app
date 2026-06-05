@@ -52,7 +52,7 @@ function MiniCard({ label, value, icon: Icon, color, isDark, isHidable, isHidden
 }
 
 // ─── main ──────────────────────────────────────────────────────────────────────
-export default function PatrimonioTab({ transactions, manualConfig, updateManualConfig, totalDebt = 0, onNavigateTab }) {
+export default function PatrimonioTab({ transactions, manualConfig, updateManualConfig, totalDebt = 0, protectionSummary = {}, onNavigateTab }) {
   const { theme } = useTheme();
   const { currentUser, userPrefs } = useAuth();
   const isDark = theme !== 'light';
@@ -413,8 +413,8 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
   }, [investments, usdRate, investmentsTotal, investmentsCost]);
 
   const patrimonyHealth = useMemo(
-    () => calculatePatrimonyHealthScore([], manualConfig, { totalGuarded: jarsTotal }, [], investmentsSummary, totalDebt),
-    [manualConfig, jarsTotal, investmentsSummary, totalDebt]
+    () => calculatePatrimonyHealthScore([], manualConfig, { totalGuarded: jarsTotal }, [], investmentsSummary, totalDebt, protectionSummary),
+    [manualConfig, jarsTotal, investmentsSummary, totalDebt, protectionSummary]
   );
 
   const handleAnalyze = async (force = false) => {
@@ -1122,12 +1122,14 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
           const h = patrimonyHealth;
           const d = h.breakdown?.data || {};
           const PILLAR_META = {
-            reserve: { color: '#10b981', desc: `Sua reserva cobre ${d.monthsCovered || '0.0'} de ${d.reserveMonthsTarget || 6} meses de despesa.` },
-            diversification: { color: '#3b82f6', desc: d.invCount > 0 ? `${d.classCount} classe(s) de ativo · maior peso ${d.maxWeight || 0}%.` : 'Cadastre investimentos para diversificar.' },
-            profitability: { color: '#a855f7', desc: d.invCount > 0 ? `Retorno acumulado de ${d.returnPct || 0}% sobre o investido.` : 'Sem investimentos para medir retorno.' },
-            debt: { color: '#f43f5e', desc: h.hasDebt ? `Você tem R$ ${fmt(h.totalDebt)} em dívidas — quite-as primeiro.` : 'Sem dívidas registradas. Continue assim! 👏' },
+            diversification: { desc: d.invCount > 0 ? `${d.classCount} classe(s) de ativo · maior peso ${d.maxWeight || 0}%${d.maxWeight > 60 ? ' — concentrado, acima de 60%' : ''}.` : 'Cadastre investimentos para diversificar entre classes.' },
+            profitability: { desc: d.invCount > 0 ? `Retorno real de ${d.realReturnPct || 0}% (já descontada a inflação de ${d.ipcaRef || 4.5}%).` : 'Sem investimentos para medir o retorno real.' },
+            debt: { desc: h.hasDebt ? `Dívidas em ${d.debtRatio || 0}% do patrimônio — quite-as primeiro.` : 'Sem dívidas. Pontuação máxima! 👏' },
+            protection: { desc: (d.protectionTotal > 0) ? `${d.protectionCovered || 0} de ${d.protectionTotal} riscos cobertos por seguro (${d.coveragePct || 0}%).` : 'Registre seguros para proteger seus principais ativos.' },
           };
-          const ring = h.score >= 70 ? '#10b981' : h.score >= 50 ? '#eab308' : h.score > 0 ? '#f43f5e' : '#64748b';
+          // Cor por desempenho (intuitivo): verde quando bom, âmbar parcial, vermelho baixo.
+          const barColorFor = (pct) => pct >= 80 ? '#10b981' : pct >= 50 ? '#eab308' : '#f43f5e';
+          const ring = h.statusLabel === 'Sem dados' ? '#64748b' : barColorFor(h.score);
           const C = 2 * Math.PI * 34;
           return (
             <div className={`rounded-2xl border h-full p-4 md:p-5 flex flex-col ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
@@ -1163,19 +1165,23 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
                 {(h.pillars || []).map(p => {
                   const meta = PILLAR_META[p.key] || {};
                   const pct = p.max > 0 ? (p.score / p.max) * 100 : 0;
+                  const barColor = barColorFor(pct);
                   return (
                     <div key={p.key}>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="flex items-center gap-2 text-[11px] font-bold"><span className="w-2 h-2 rounded-full" style={{ background: meta.color }} /><span className={isDark ? 'text-slate-200' : 'text-slate-700'}>{p.label}</span></span>
+                        <span className="flex items-center gap-2 text-[11px] font-bold"><span className="w-2 h-2 rounded-full" style={{ background: barColor }} /><span className={isDark ? 'text-slate-200' : 'text-slate-700'}>{p.label}</span></span>
                         <span className={`text-[10px] font-black ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{p.score}<span className="text-slate-500">/{p.max} pts</span></span>
                       </div>
                       <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
-                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: meta.color }} />
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
                       </div>
                       <p className="text-[9.5px] mt-1 text-slate-500">
                         {meta.desc}
-                        {p.key === 'debt' && onNavigateTab && (
+                        {p.key === 'debt' && h.hasDebt && onNavigateTab && (
                           <button onClick={() => onNavigateTab('dividas')} className="ml-1 font-black text-rose-400 hover:text-rose-300">Gerenciar dívidas →</button>
+                        )}
+                        {p.key === 'protection' && pct < 80 && onNavigateTab && (
+                          <button onClick={() => onNavigateTab('seguros')} className="ml-1 font-black text-emerald-400 hover:text-emerald-300">Ver proteção →</button>
                         )}
                       </p>
                     </div>
