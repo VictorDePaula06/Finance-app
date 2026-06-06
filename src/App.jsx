@@ -37,6 +37,7 @@ import PaceAlerts from './components/PaceAlerts';
 import { calculateSpendingPace, getExpenseBasis, isMonthlyExpenseTx, txMonthKey } from './utils/financialLogic';
 import { OBJECTIVE_LABELS_SHORT } from './constants/onboarding';
 import { summarizeInvestments, bensTotal as calcBensTotal } from './utils/investmentValue';
+import { useLivePrices } from './hooks/useLivePrices';
 import AnalysisTab from './components/AnalysisTab';
 import IncomeTab from './components/IncomeTab';
 import CardsTab from './components/CardsTab';
@@ -567,12 +568,16 @@ function Dashboard() {
     return { totalGuarded, dailyYield, jarsWithBalance };
   }, [savingsJars, cdiRate]);
 
-  // Resumo da carteira de investimentos — fonte única (utils/investmentValue).
-  // (No App não há cotação ao vivo; usa preço manual/custo. A Visão Geral do
-  // Patrimônio usa a mesma util COM cotação ao vivo.)
+  // Cotações ao vivo (cripto/ações/Tesouro) — só busca quando o módulo Patrimônio
+  // está ativo (o medidor de Saúde da sidebar só aparece lá). Assim o score da
+  // sidebar usa os MESMOS preços do card da Visão Geral do Patrimônio.
+  const { livePrices: patLivePrices, getTesouroRate: patGetTesouroRate } = useLivePrices(investments, activeModule === 'patrimonio');
+
+  // Resumo da carteira de investimentos — fonte única (utils/investmentValue) com
+  // cotação ao vivo quando disponível.
   const investmentsSummary = useMemo(
-    () => summarizeInvestments(investments, { usdRate }),
-    [investments, usdRate]
+    () => summarizeInvestments(investments, { usdRate, livePrices: patLivePrices, getTesouroRate: patGetTesouroRate }),
+    [investments, usdRate, patLivePrices, patGetTesouroRate]
   );
 
   // Auto-calculate fixed expenses: gastos fixos cadastrados + assinaturas do cartão

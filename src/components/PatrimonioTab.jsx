@@ -4,6 +4,7 @@ import aliviaFinal from '../assets/alivia/alivia-final.png';
 import AliviaConfigForm from './AliviaConfigForm';
 import { calculatePatrimonyHealthScore } from '../utils/healthScore';
 import { summarizeInvestments, jarsDynamicTotal, bensTotal as calcBensTotal } from '../utils/investmentValue';
+import { useLivePrices } from '../hooks/useLivePrices';
 import { OBJECTIVE_LABELS_SHORT, RISK_LABELS } from '../constants/onboarding';
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer, AreaChart, Area, LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from 'recharts';
 import ReactMarkdown from 'react-markdown';
@@ -12,7 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { useCdiRate, useUsdRate, getUsdRate } from '../utils/marketRates';
+import { useCdiRate, useUsdRate } from '../utils/marketRates';
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const fmt = (v) => Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtSigned = (v) => (v < 0 ? '-' : '') + 'R$ ' + fmt(v);
@@ -81,11 +82,10 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
   const [includeBens, setIncludeBens] = useState(true);
   const cdiAnual = useCdiRate();
   const [hidePatrimonio, setHidePatrimonio] = useState(() => localStorage.getItem('hidePatrimonio') === 'true');
-  const usdRateFromHook = useUsdRate();
-  const [usdRate, setUsdRate] = useState(usdRateFromHook);
-  useEffect(() => { setUsdRate(usdRateFromHook); }, [usdRateFromHook]);
-  const [livePrices, setLivePrices] = useState({ USD: 5.0 });
-  const [tesouroData, setTesouroData] = useState([]);
+  const usdRate = useUsdRate();
+  // Cotações ao vivo + taxas do Tesouro — hook compartilhado (mesma fonte do App,
+  // para o card e o medidor da sidebar usarem exatamente os mesmos preços).
+  const { livePrices, tesouroData, getTesouroRate: getLiveTesouroRate } = useLivePrices(investments, true);
   const [userConfig, setUserConfig] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -101,143 +101,6 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
   const [simModalAporte, setSimModalAporte] = useState('');
   const [simSaving, setSimSaving] = useState(false);
 
-  // Helper: get live Tesouro rate for a bond name
-  const getLiveTesouroRate = (bondName) => {
-    if (!bondName || tesouroData.length === 0) return null;
-    const normalizedName = bondName.trim().toLowerCase();
-    const match = tesouroData.find(b => b.nm && b.nm.trim().toLowerCase() === normalizedName);
-    if (match) return { rate: parseFloat(match.anulRentPrcnt), unitPrice: parseFloat(match.untrPric) };
-    const fuzzy = tesouroData.find(b => b.nm && (
-      normalizedName.includes(b.nm.trim().toLowerCase()) || 
-      b.nm.trim().toLowerCase().includes(normalizedName)
-    ));
-    if (fuzzy) return { rate: parseFloat(fuzzy.anulRentPrcnt), unitPrice: parseFloat(fuzzy.untrPric) };
-    return null;
-  };
-
-  const fetchLivePrices = async () => {
-    try {
-      const newPrices = { ...livePrices };
-      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-      // Crypto from Binance
-      const cryptoTickers = [...new Set(investments.filter(a => a.type === 'crypto' && a.symbol).map(a => a.symbol.toUpperCase()))];
-      if (cryptoTickers.length > 0) {
-        try {
-          const binanceRes = await fetch('https://api.binance.com/api/v3/ticker/price');
-          const binanceData = await binanceRes.json();
-          cryptoTickers.forEach(ticker => {
-            const usdtPair = binanceData.find(p => p.symbol === `${ticker}USDT`);
-            const brlPair  = binanceData.find(p => p.symbol === `${ticker}BRL`);
-            if (usdtPair) newPrices[`${ticker}_USD`] = parseFloat(usdtPair.price);
-            if (brlPair)  newPrices[`${ticker}_BRL`] = parseFloat(brlPair.price);
-          });
-        } catch (e) { console.warn('Binance fetch failed', e); }
-      }
-
-      // Stocks, ETFs, FIIs
-      const stockTickers = [...new Set(investments.filter(a => ['acoes', 'etfs', 'fiis'].includes(a.type) && a.symbol).map(a => a.symbol.toUpperCase()))];
-      const stockTypes   = stockTickers.map(t => {
-        const asset = investments.find(a => a.symbol?.toUpperCase() === t);
-        return asset?.type || 'acoes';
-      });
-
-      if (stockTickers.length > 0) {
-        if (!isLocalhost) {
-          try {
-            const apiUrl = `/api/prices?tickers=${stockTickers.join(',')}&types=${stockTypes.join(',')}`;
-            const res = await fetch(apiUrl);
-            if (res.ok) {
-              const data = await res.json();
-              Object.assign(newPrices, data.prices);
-            }
-          } catch (e) { console.warn('Serverless fetch failed', e); }
-        } else {
-          await Promise.all(stockTickers.map(async (ticker) => {
-            try {
-              const brapiRes = await fetch(`https://brapi.dev/api/quote/${ticker}`);
-              if (brapiRes.ok) {
-                const brapiData = await brapiRes.json();
-                const price = brapiData?.results?.[0]?.regularMarketPrice;
-                if (price) { newPrices[ticker] = parseFloat(price); return; }
-              }
-            } catch (e) {}
-            try {
-              const isProbablyBR = /\d/.test(ticker) || (ticker.length >= 5 && !ticker.includes('.'));
-              const yahooTicker = isProbablyBR ? `${ticker}.SA` : ticker;
-              const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooTicker}`;
-              const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-              if (res.ok) {
-                const data = await res.json();
-                const meta  = data?.chart?.result?.[0]?.meta;
-                const price = meta?.regularMarketPrice || meta?.previousClose;
-                if (price) { newPrices[ticker] = parseFloat(price); return; }
-              }
-            } catch (e) {}
-          }));
-        }
-      }
-
-      // USD/BRL — usa cache compartilhado (dedupe entre componentes)
-      const usd = await getUsdRate();
-      newPrices.USD = usd;
-      setUsdRate(usd);
-
-      setLivePrices(newPrices);
-    } catch (error) {
-      console.error("Price fetch failed:", error);
-    }
-  };
-
-  const fetchTesouro = async () => {
-    try {
-      const res = await fetch('/api/tesouro', { signal: AbortSignal.timeout(10000) });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.bonds && data.bonds.length > 0) {
-          setTesouroData(data.bonds);
-          return;
-        }
-      }
-    } catch (e) {
-      console.warn('/api/tesouro failed:', e.message);
-    }
-
-    const tesouroUrl = 'https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondpriceandsavings.json';
-    const proxies = [
-      `https://api.allorigins.win/get?url=${encodeURIComponent(tesouroUrl)}`,
-      `https://corsproxy.io/?${encodeURIComponent(tesouroUrl)}`,
-    ];
-
-    for (const proxyUrl of proxies) {
-      try {
-        const res = await fetch(proxyUrl);
-        if (res.ok) {
-          const data = await res.json();
-          const rawContents = data.contents ? JSON.parse(data.contents) : data;
-          const list = rawContents?.response?.TrsryBondArr || [];
-          if (list.length > 0) {
-            setTesouroData(list);
-            break;
-          }
-        }
-      } catch (e) {}
-    }
-  };
-
-  useEffect(() => {
-    fetchTesouro();
-  }, []);
-
-  useEffect(() => {
-    fetchLivePrices();
-    fetchTesouro();
-    const interval = setInterval(() => {
-      fetchLivePrices();
-      fetchTesouro();
-    }, 60000 * 2); 
-    return () => clearInterval(interval);
-  }, [investments.length]);
 
   // ── listeners ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -279,9 +142,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
     });
   }, [currentUser]);
 
-  // CDI e USD agora vêm dos hooks compartilhados (cache global). Não precisa fetch local.
-  // O usdRate ainda é mantido no estado local porque fetchLivePrices também atualiza
-  // ele a partir do retorno da awesomeapi (caso o livePrices.USD seja mais recente).
+  // CDI, USD e cotações ao vivo vêm de hooks compartilhados (mesma fonte do App).
 
   // ── calculations ───────────────────────────────────────────────────────────
   // Jars — dynamic balance with CDI accrual since last update
