@@ -618,53 +618,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
         </div>
       ) : (
       <>
-      {/* Lista de cartões (esquerda) + Detalhe (direita) */}
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 items-start">
-
-        {/* Lista de cartões */}
-        <div className="space-y-3">
-          {cards.map(card => {
-            const st = cardStats(card);
-            const active = selectedCard && selectedCard.id === card.id;
-            const dot = st.invoiceTotal <= 0.005 ? '#10b981' : (st.daysUntil <= 3 ? '#f43f5e' : '#f59e0b');
-            return (
-              <button
-                key={card.id}
-                onClick={() => setSelectedCardId(card.id)}
-                className={`w-full text-left p-3.5 rounded-2xl border transition-all ${active ? 'border-emerald-500/60 ring-1 ring-emerald-500/30' : (isDark ? 'border-slate-800/60 hover:border-white/10' : 'border-slate-100 hover:border-slate-200')} ${kpiCardBg}`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className={`w-9 h-7 rounded-md shrink-0 ${card.color}`} />
-                    <div className="min-w-0">
-                      <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{card.name}</p>
-                      <p className="text-[10px] text-slate-500 truncate">{card.brand} · Crédito</p>
-                    </div>
-                  </div>
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dot }} />
-                </div>
-                <div className="flex items-center justify-between gap-2 mt-2.5">
-                  <span className="text-[10px] text-slate-500">•••• {card.last4 || '0000'}</span>
-                  <span className="text-right">
-                    <span className="block text-[8px] font-black uppercase tracking-widest text-slate-500">Fatura {new Date(st.currentInvoiceMonth + '-15').toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</span>
-                    <span className="text-[13px] font-black tabular-nums" style={{ color: st.invoiceTotal > 0.005 ? '#f43f5e' : '#10b981' }}>R$ {fmt(st.invoiceTotal)}</span>
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-          <button
-            onClick={() => {
-              if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; }
-              setEditingCardId(null); setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' }); setIsAddingCard(true);
-            }}
-            className={`w-full py-3 rounded-2xl border border-dashed flex items-center justify-center gap-2 text-xs font-bold transition-all ${isDark ? 'border-white/15 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-          >
-            <Plus className="w-4 h-4" /> Adicionar cartão
-          </button>
-        </div>
-
-        {/* Detalhe do cartão selecionado */}
+      {/* Detalhe do cartão selecionado (largura cheia; cartão escolhido no seletor do topo) */}
         {selectedCard && selStats && (
           <div className={`rounded-2xl border p-5 ${kpiCardBg}`}>
             {/* Cabeçalho da fatura */}
@@ -678,7 +632,20 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
                     : 'Fatura zerada 🎉'}
                 </p>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Seletor de cartão */}
+                <div className="relative">
+                  <select
+                    value={selectedCard.id}
+                    onChange={(e) => setSelectedCardId(e.target.value)}
+                    className={`appearance-none pl-3 pr-8 py-2 rounded-xl border text-xs font-bold outline-none cursor-pointer max-w-[200px] ${isDark ? 'bg-[#161b27] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
+                  >
+                    {cards.map(c => (
+                      <option key={c.id} value={c.id} className={isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'}>{c.name} · •••• {c.last4 || '0000'}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+                </div>
                 <button onClick={() => { setEditingCardId(selectedCard.id); setNewCard({ name: selectedCard.name, color: selectedCard.color, last4: selectedCard.last4, brand: selectedCard.brand, dueDay: selectedCard.dueDay || 10, closingDay: selectedCard.closingDay || '', limit: selectedCard.limit != null ? String(selectedCard.limit) : '' }); setIsAddingCard(true); }} className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><Pencil className="w-4 h-4" /></button>
                 <button onClick={() => setDeleteConfirm({ id: selectedCard.id, type: 'card', title: selectedCard.name })} className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5 hover:text-rose-400' : 'text-slate-500 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-4 h-4" /></button>
               </div>
@@ -747,7 +714,6 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             </div>
           </div>
         )}
-      </div>
 
       {/* Abas: Lançamentos / Parcelamentos / Assinaturas */}
       {selectedCard && selStats && (
