@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-    ArrowDownLeft, ArrowUpRight, Wallet, Info, Search, ListFilter, Circle, CreditCard, ShieldOff,
+    ArrowDownLeft, ArrowUpRight, Wallet, Info, Search, ListFilter, Circle, CreditCard, ShieldOff, CheckCircle2,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { buildWalletLedger } from '../utils/financialLogic';
@@ -290,9 +290,15 @@ export default function ExtratoTab({ transactions = [] }) {
                                                 {pay && <span className={`text-[10px] ${muted}`}>· {pay}</span>}
                                                 {t.installmentInfo && <span className={`text-[10px] ${muted}`}>· {t.installmentInfo}</span>}
                                                 {t.paymentMethod === 'credito' && (
-                                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-violet-500/15 text-violet-400">
-                                                        <CreditCard className="w-2.5 h-2.5" /> entra na fatura
-                                                    </span>
+                                                    t.invoiceStatus === 'paid' ? (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400">
+                                                            <CheckCircle2 className="w-2.5 h-2.5" /> Fatura paga
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-500">
+                                                            <CreditCard className="w-2.5 h-2.5" /> Fatura aberta
+                                                        </span>
+                                                    )
                                                 )}
                                                 {reserve && (
                                                     <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-500">
@@ -324,7 +330,7 @@ export default function ExtratoTab({ transactions = [] }) {
                 <div className={`flex items-start gap-2.5 p-3.5 rounded-2xl border ${isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-100'}`}>
                     <Info className={`w-4 h-4 shrink-0 mt-0.5 ${sub}`} />
                     <p className={`text-[11px] leading-relaxed ${sub}`}>
-                        Itens marcados como <span className="font-bold text-violet-400">entra na fatura</span> são compras no cartão de crédito — elas só saem do seu saldo quando você paga a fatura.
+                        Compras no cartão de crédito mostram <span className="font-bold text-amber-500">Fatura aberta</span> (ainda no saldo do cartão) ou <span className="font-bold text-emerald-400">Fatura paga</span> (a fatura já foi quitada). Em ambos os casos elas saem do seu saldo só no pagamento da fatura.
                         Já <span className="font-bold text-amber-500">não afeta o saldo</span> são movimentações de outros módulos (reservas do Patrimônio e pagamentos de dívidas), que não saem da sua carteira. Por isso aparecem no extrato, mas não mudam o saldo.
                     </p>
                 </div>
