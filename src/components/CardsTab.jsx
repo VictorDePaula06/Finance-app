@@ -22,7 +22,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { CATEGORIES } from '../constants/categories';
+import { CATEGORIES, categoryHex } from '../constants/categories';
 import TrialLimitModal from './TrialLimitModal';
 import OverdraftWarningModal from './OverdraftWarningModal';
 
@@ -43,9 +43,12 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
   const [subscriptions, setSubscriptions] = useState([]);
   const [isAddingCard, setIsAddingCard] = useState(false);
   const [isAddingSub, setIsAddingSub] = useState(false);
-  
+  // Cartão selecionado no painel de detalhe + aba do detalhe.
+  const [selectedCardId, setSelectedCardId] = useState(null);
+  const [detailTab, setDetailTab] = useState('lancamentos');
+
   // Form States
-  const [newCard, setNewCard] = useState({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '' });
+  const [newCard, setNewCard] = useState({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' });
   const [editingCardId, setEditingCardId] = useState(null);
   const [newSub, setNewSub] = useState({ name: '', value: '', day: 1, cardId: '', category: 'subscriptions', priority: 'comfort' });
   // Novo: estado dedicado para o modal de parcelamento (separado das assinaturas)
@@ -74,8 +77,6 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
   const [overdraftPending, setOverdraftPending] = useState(null);
 
   // Colapso de cada seção (mostra o total mesmo minimizado)
-  const [collapsed, setCollapsed] = useState({ cards: false, subs: false, installments: false });
-  const toggleSection = (key) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
 
   useEffect(() => {
     if (!currentUser) return;
@@ -108,22 +109,24 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
       return;
     }
     await addDoc(collection(db, 'cards'), {
-        ...newCard, 
+        ...newCard,
         closingDay: parseInt(newCard.closingDay) || ((newCard.dueDay - 7 > 0) ? newCard.dueDay - 7 : 25),
-        userId: currentUser.uid 
+        limit: parseFloat(newCard.limit) || null,
+        userId: currentUser.uid
     });
-    setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '' });
+    setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' });
     setIsAddingCard(false);
   };
 
   const handleUpdateCard = async (e) => {
     e.preventDefault();
     if (!newCard.name || !editingCardId) return;
-    await updateDoc(doc(db, 'cards', editingCardId), { 
+    await updateDoc(doc(db, 'cards', editingCardId), {
         ...newCard,
-        closingDay: parseInt(newCard.closingDay) || ((newCard.dueDay - 7 > 0) ? newCard.dueDay - 7 : 25)
+        closingDay: parseInt(newCard.closingDay) || ((newCard.dueDay - 7 > 0) ? newCard.dueDay - 7 : 25),
+        limit: parseFloat(newCard.limit) || null
     });
-    setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '' });
+    setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' });
     setEditingCardId(null);
     setIsAddingCard(false);
   };
@@ -527,634 +530,341 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
     emerald: { text: 'text-emerald-500', soft: isDark ? 'bg-emerald-500/10' : 'bg-emerald-50' },
   };
 
-  return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+  // Estatísticas completas de um cartão (fatura atual, vencimento, limite, abas).
+  const cardStats = (card) => {
+    const { all: unpaidExpenses, previous, currentInvoiceMonth, closingDay } = getUnpaidExpensesByPeriod(card);
+    const cardSubsAll = getCardSubs(card.id);
+    const unpaidSubs = cardSubsAll.filter(s => {
+      if (s.lastPaidMonth === currentInvoiceMonth) return false;
+      const d = parseInt(s.day) || 1;
+      return isSubInInvoice(d, currentInvoiceMonth, closingDay);
+    });
+    const expensesTotal = unpaidExpenses.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+    const subsTotal = unpaidSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+    const invoiceTotal = expensesTotal + subsTotal;
+    const dueDay = card.dueDay || 10;
+    const [iy, im] = currentInvoiceMonth.split('-').map(Number);
+    const dueDate = new Date(iy, im - 1, dueDay);
+    const now = new Date();
+    const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const daysUntil = Math.max(0, Math.ceil((dueDate - t0) / 86400000));
+    const recurring = cardSubsAll.filter(s => s.type !== 'installment');
+    const installments = cardSubsAll.filter(s => s.type === 'installment');
+    const parcelasMes = installments.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+    const assinaturasMes = recurring.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+    const limit = parseFloat(card.limit) || 0;
+    const available = limit > 0 ? Math.max(0, limit - invoiceTotal) : 0;
+    const usagePct = limit > 0 ? Math.min(100, (invoiceTotal / limit) * 100) : 0;
+    // Itens da fatura (despesas no crédito + assinaturas/parcelas do ciclo).
+    const invoiceItems = [
+      ...unpaidExpenses.map(t => ({ key: t.id, name: t.description || 'Compra', category: t.category, priority: t.priority || 'comfort', amount: parseFloat(t.amount) || 0, date: t.date, installment: t.installmentInfo || null, totalLabel: null })),
+      ...unpaidSubs.map(s => ({
+        key: s.id, name: s.name, category: s.category, priority: s.priority || 'comfort',
+        amount: parseFloat(s.value) || 0, date: null,
+        installment: s.type === 'installment' ? `${s.currentInstallment || 1}/${s.totalInstallments || 1}` : null,
+        totalLabel: s.type === 'installment' ? `R$ ${fmt((parseFloat(s.value) || 0) * (s.totalInstallments || 1))} total` : null,
+      })),
+    ];
+    return { unpaidExpenses, unpaidSubs, invoiceTotal, currentInvoiceMonth, closingDay, dueDate, daysUntil, recurring, installments, parcelasMes, assinaturasMes, limit, available, usagePct, invoiceItems, hasPreviousDebt: previous.length > 0 };
+  };
+  const selectedCard = cards.find(c => c.id === selectedCardId) || cards[0] || null;
+  const selStats = selectedCard ? cardStats(selectedCard) : null;
 
-      {/* RESUMO — KPIs do topo */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+  return (
+      <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-700">
+
+      {/* Cabeçalho */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Cartões</h1>
+          <p className={`text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Gerencie faturas, parcelamentos e assinaturas dos seus cartões</p>
+        </div>
+        <button
+          onClick={() => {
+            if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; }
+            setEditingCardId(null);
+            setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' });
+            setIsAddingCard(true);
+          }}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black transition-all active:scale-95 shadow-lg shadow-emerald-500/25"
+        >
+          <Plus className="w-4 h-4" /> Novo Cartão
+        </button>
+      </div>
+
+      {/* KPIs com linha de destaque */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {KPIS.map((k) => {
-          const a = KPI_ACCENT[k.accent];
-          const Icon = k.icon;
+          const hex = { rose: '#f43f5e', purple: '#a855f7', amber: '#f59e0b', emerald: '#10b981' }[k.accent];
           return (
-            <div key={k.label} className={`p-4 md:p-5 rounded-2xl border ${kpiCardBg}`}>
-              <div className="flex items-center gap-2.5 mb-3">
-                <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${a.soft}`}>
-                  <Icon className={`w-4 h-4 ${a.text}`} />
-                </span>
-                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 leading-tight">{k.label}</span>
+            <div key={k.label} className={`relative rounded-2xl border overflow-hidden ${kpiCardBg}`}>
+              <div className="h-1 w-full" style={{ background: hex }} />
+              <div className="p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{k.label}</p>
+                <p className="text-2xl font-black tabular-nums mt-1" style={{ color: hex }}>R$ {fmt(k.value)}</p>
+                <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{k.hint}</p>
               </div>
-              <p className={`text-xl md:text-2xl font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                <span className="text-sm font-bold text-slate-400 mr-0.5">R$</span>{fmt(k.value)}
-              </p>
-              <p className="text-[10px] font-medium text-slate-500 mt-1">{k.hint}</p>
             </div>
           );
         })}
       </div>
 
-      {/* SECTION: CARDS — painel destacado (azul) */}
-      <section className={`space-y-5 rounded-3xl border p-5 md:p-6 ${
-        theme === 'light'
-          ? 'bg-gradient-to-br from-blue-50/80 via-white to-white border-blue-100'
-          : 'bg-gradient-to-br from-blue-500/[0.07] via-[#1a1f2b] to-[#161b27] border-blue-500/15'
-      }`}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0 flex-wrap">
-            <div className="p-2 bg-blue-500/10 rounded-xl shrink-0">
-              <CreditCard className="w-6 h-6 text-blue-500" />
-            </div>
-            <h2 className={`text-lg font-medium tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Meus Cartões</h2>
-            <button
-              onClick={() => {
-                if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) {
-                  openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`);
-                  return;
-                }
-                setIsAddingCard(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-[11px] font-black uppercase tracking-wider shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.03] active:scale-95 transition-all"
-            >
-              <Plus className="w-3.5 h-3.5" /> Novo Cartão
-            </button>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            {collapsed.cards && (
-              <span className={`hidden sm:inline-flex items-baseline gap-1.5 text-sm font-black tabular-nums ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>
-                R$ {fmt(unpaidInvoiceTotal)}
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">em faturas</span>
-              </span>
-            )}
-            <button
-              onClick={() => toggleSection('cards')}
-              title={collapsed.cards ? 'Expandir' : 'Minimizar'}
-              className={`p-2 rounded-xl transition-colors ${theme === 'light' ? 'hover:bg-slate-100 text-slate-500' : 'hover:bg-white/10 text-slate-400'}`}
-            >
-              <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${collapsed.cards ? '-rotate-90' : ''}`} />
-            </button>
-          </div>
+      {cards.length === 0 ? (
+        <div className={`p-12 rounded-2xl border text-center ${kpiCardBg}`}>
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 ${isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-500'}`}><CreditCard className="w-7 h-7" /></div>
+          <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Nenhum cartão cadastrado</p>
+          <p className="text-sm text-slate-500 mb-4 mt-1">Adicione seus cartões para acompanhar faturas, parcelamentos e assinaturas.</p>
+          <button onClick={() => { setEditingCardId(null); setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' }); setIsAddingCard(true); }} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white font-black text-xs hover:bg-emerald-600"><Plus className="w-4 h-4" /> Novo Cartão</button>
         </div>
+      ) : (
+      <>
+      {/* Lista de cartões (esquerda) + Detalhe (direita) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 items-start">
 
-        {!collapsed.cards && (
-        <>
-        <div className={`flex items-start gap-3 p-3.5 rounded-2xl border ${theme === 'light' ? 'bg-blue-50/70 border-blue-100' : 'bg-blue-500/5 border-blue-500/20'}`}>
-          <AlertCircle className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-          <p className={`text-[11px] leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
-            <span className="font-bold">Como lançar no cartão:</span> as <span className="font-bold">despesas no crédito</span> devem ser lançadas pela aba <span className="font-bold">Despesas</span> (escolhendo a forma de pagamento Crédito) para constarem na fatura. Já as <span className="font-bold">assinaturas avulsas</span> e os <span className="font-bold">parcelamentos</span> podem ser cadastrados direto aqui na aba Cartões.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        {/* Lista de cartões */}
+        <div className="space-y-3">
           {cards.map(card => {
-            const cardSubs = getCardSubs(card.id);
-            const { current: currentExpenses, previous: previousExpenses, all: unpaidExpenses, currentInvoiceMonth, closingDay } = getUnpaidExpensesByPeriod(card);
-            
-            const today = new Date();
-            const unpaidSubs = cardSubs.filter(s => {
-                if (s.lastPaidMonth === currentInvoiceMonth) return false;
-                const subDay = parseInt(s.day) || 1;
-                return isSubInInvoice(subDay, currentInvoiceMonth, closingDay);
-            });
-            const subsTotal = unpaidSubs.reduce((acc, s) => acc + (parseFloat(s.value) || 0), 0);
-            const expensesTotal = unpaidExpenses.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-            const totalInvoice = expensesTotal + subsTotal;
-            const hasPreviousDebt = previousExpenses.length > 0;
-            
-            const lastPayment = transactions
-              .filter(t => t.category === 'credit_card_bill' && t.description && card.name && t.description.includes(card.name))
-              .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-
-            const currentMonthName = new Date().toLocaleDateString('pt-BR', { month: 'long' });
-            
+            const st = cardStats(card);
+            const active = selectedCard && selectedCard.id === card.id;
+            const dot = st.invoiceTotal <= 0.005 ? '#10b981' : (st.daysUntil <= 3 ? '#f43f5e' : '#f59e0b');
             return (
-              <div key={card.id} className={`group relative p-4 rounded-2xl border transition-all duration-500 max-w-sm w-full mx-auto ${
-                theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-800/60 shadow-2xl'
-              }`}>
-                {/* Visual Card Element */}
-                <div className={`w-full aspect-[1.6/1] rounded-2xl p-4 flex flex-col justify-between text-white shadow-2xl relative overflow-hidden transition-transform group-hover:scale-[1.02] duration-500 ${card.color}`}>
-                  {/* Card Gloss/Texture Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50"></div>
-                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-3xl"></div>
-                  
-                  <div className="relative z-10 flex justify-between items-start">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">{card.brand}</p>
-                      <h3 className="text-lg font-black tracking-tight drop-shadow-md">{card.name}</h3>
-                    </div>
-                    <div className="p-2 bg-white/20 backdrop-blur-md rounded-xl">
-                        <CreditCard className="w-6 h-6" />
-                    </div>
-                  </div>
-
-                  <div className="relative z-10 flex justify-between items-end">
-                    <div className="space-y-1.5">
-                        <p className="font-mono text-sm tracking-[0.25em] drop-shadow-sm">•••• {card.last4 || '0000'}</p>
-                        <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2">
-                                <span className="text-[8px] font-black uppercase opacity-60 bg-black/20 px-2 py-0.5 rounded-full">Vencimento</span>
-                                <span className="text-xs font-bold">Dia {card.dueDay}</span>
-                            </div>
-                            {lastPayment && (
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[8px] font-black uppercase opacity-60 bg-emerald-500/20 px-2 py-0.5 rounded-full text-emerald-200">Último Pago</span>
-                                    <span className="text-[10px] font-bold">{new Date(lastPayment.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[9px] uppercase font-black opacity-60 mb-0.5">Fatura de {new Date(currentInvoiceMonth + '-15').toLocaleDateString('pt-BR', { month: 'long' })}</p>
-                      <p className="text-lg font-black tabular-nums">R$ {totalInvoice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Fatura Actions */}
-                <div className="mt-4 px-2 flex flex-col gap-2">
-                    {/* Aviso de dívida de meses anteriores */}
-                    {hasPreviousDebt && (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-amber-500">⚠ Inclui fatura(s) anterior(es) não paga(s)</span>
-                      </div>
-                    )}
-                    <button 
-                        onClick={() => totalInvoice > 0 && setPayingInvoice({ cardId: card.id, total: totalInvoice, expenses: unpaidExpenses, subs: unpaidSubs, invoiceMonth: currentInvoiceMonth })}
-                        disabled={totalInvoice === 0}
-                        className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
-                            totalInvoice > 0 
-                            ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20 hover:bg-rose-600' 
-                            : (theme === 'light' ? 'bg-slate-100 text-slate-450 border border-slate-200/60' : 'bg-white/5 text-slate-500 border border-white/5')
-                        }`}
-                    >
-                        <CheckCircle2 className="w-4 h-4" />
-                        {totalInvoice > 0 ? 'Pagar Fatura' : 'Fatura Zerada'}
-                    </button>
-
-                    <button 
-                        onClick={() => setViewingInvoiceCardId(card.id)}
-                        className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 border ${
-                            theme === 'light' 
-                            ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50' 
-                            : 'bg-slate-800/40 border-white/10 text-white hover:bg-slate-800'
-                        }`}
-                    >
-                        <Eye className="w-4 h-4" />
-                        Ver Fatura do Cartão
-                    </button>
-                </div>
-
-                {/* Action Buttons (Repositioned to avoid overlap) */}
-                <div className="absolute top-2 right-8 flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 md:translate-y-2 md:group-hover:translate-y-0 z-20">
-                    <button 
-                    onClick={() => {
-                        setEditingCardId(card.id);
-                        setNewCard({ name: card.name, color: card.color, last4: card.last4, brand: card.brand, dueDay: card.dueDay || 10, closingDay: card.closingDay || '' });
-                        setIsAddingCard(true);
-                    }}
-                    className="p-2.5 bg-white/20 hover:bg-white/40 text-white rounded-xl shadow-2xl backdrop-blur-md border border-white/20 transition-colors"
-                    >
-                    <Pencil className="w-4 h-4" />
-                    </button>
-                    <button 
-                    onClick={() => setDeleteConfirm({ id: card.id, type: 'card', title: card.name })}
-                    className="p-2.5 bg-rose-500/80 hover:bg-rose-500 text-white rounded-xl shadow-2xl backdrop-blur-md transition-colors"
-                    >
-                    <Trash2 className="w-4 h-4" />
-                    </button>
-                </div>
-              </div>
-            );
-          })}
-
-          {/* ORPHANED CREDIT CARD TRANSACTIONS */}
-          {(() => {
-            const activeCardIds = cards.map(c => c.id);
-            const orphanedExpenses = transactions.filter(t => t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' && (!t.selectedCardId || !activeCardIds.includes(t.selectedCardId)));
-            const orphanedSubs = subscriptions.filter(s => s.isInstallment && (!s.cardId || !activeCardIds.includes(s.cardId)));
-            
-            if (orphanedExpenses.length === 0 && orphanedSubs.length === 0) return null;
-            
-            const subsTotal = orphanedSubs.reduce((acc, s) => acc + s.value, 0);
-            const expensesTotal = orphanedExpenses.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-            const totalInvoice = expensesTotal + subsTotal;
-
-            return (
-              <div key="orphaned" className={`group relative p-4 rounded-2xl border transition-all duration-500 border-rose-500/30 ${
-                theme === 'light' ? 'bg-white shadow-sm' : 'bg-[#1e2330] shadow-2xl'
-              }`}>
-                {/* Visual Card Element */}
-                <div className="w-full aspect-[1.6/1] rounded-3xl p-6 flex flex-col justify-between text-white shadow-2xl relative overflow-hidden transition-transform group-hover:scale-[1.02] duration-500 bg-slate-800">
-                  <div className="absolute inset-0 bg-gradient-to-tr from-rose-500/20 to-transparent opacity-50"></div>
-                  
-                  <div className="relative z-10 flex justify-between items-start">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 text-rose-400">Atenção</p>
-                      <h3 className="text-xl font-black tracking-tight drop-shadow-md text-rose-500">Cartão Excluído</h3>
-                    </div>
-                    <AlertCircle className="w-6 h-6 text-rose-500 opacity-80" />
-                  </div>
-                  
-                  <div className="relative z-10">
-                    <p className="text-[9px] uppercase font-black opacity-60 mb-0.5">Total Pendente</p>
-                    <p className="text-xl font-black tabular-nums text-rose-500">R$ {totalInvoice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  </div>
-                </div>
-
-                {/* Orphaned Fatura Actions */}
-                <div className="mt-4 px-2">
-                    <button 
-                        onClick={() => setViewingInvoiceCardId('orphaned')}
-                        className={`w-full py-3.5 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border ${
-                            theme === 'light' 
-                            ? 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50' 
-                            : 'bg-slate-800/40 border-white/10 text-white hover:bg-slate-800'
-                        }`}
-                    >
-                        <Eye className="w-4 h-4" />
-                        Ver Lançamentos Órfãos
-                    </button>
-                </div>
-              </div>
-            );
-          })()}
-
-          {cards.length === 0 && !isAddingCard && (
-            <button
-              type="button"
-              onClick={() => {
-                if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; }
-                setIsAddingCard(true);
-              }}
-              className={`group/empty min-h-[220px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center text-center p-8 transition-all hover:border-blue-500/50 ${
-                theme === 'light' ? 'border-slate-200 hover:bg-blue-50/40' : 'border-slate-700 hover:bg-blue-500/[0.04]'
-              }`}
-            >
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover/empty:scale-110 ${
-                theme === 'light' ? 'bg-blue-50 text-blue-500' : 'bg-blue-500/10 text-blue-400'
-              }`}>
-                <CreditCard className="w-7 h-7" />
-              </div>
-              <p className={`font-bold text-sm ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>Cadastrar primeiro cartão</p>
-              <p className="text-[11px] text-slate-500 mt-1 max-w-[200px]">Adicione seus cartões para acompanhar faturas e gastos.</p>
-              <span className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-blue-500">
-                <Plus className="w-3.5 h-3.5" /> Novo cartão
-              </span>
-            </button>
-          )}
-        </div>
-        </>
-        )}
-      </section>
-
-      {/* SEÇÕES LADO A LADO: ASSINATURAS + PARCELAMENTOS */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-
-      {/* ASSINATURAS AVULSAS — painel roxo */}
-      <section className={`space-y-5 rounded-3xl border p-5 md:p-6 ${
-        theme === 'light'
-          ? 'bg-gradient-to-br from-purple-50/70 via-white to-white border-purple-100'
-          : 'bg-gradient-to-br from-purple-500/[0.06] via-[#1a1f2b] to-[#161b27] border-purple-500/15'
-      }`}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0 flex-wrap">
-            <div className="p-2 bg-purple-500/10 rounded-xl shrink-0">
-              <Calendar className="w-6 h-6 text-purple-500" />
-            </div>
-            <div className="min-w-0">
-              <h2 className={`text-lg font-medium tracking-wide uppercase truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Assinaturas Avulsas</h2>
-              {!collapsed.subs && recurringSubs.length > 0 && (
-                <p className="text-[10px] font-bold text-purple-500 mt-0.5">
-                  Total mensal: R$ {fmt(monthlySubsTotal)} • {recurringSubs.length} {recurringSubs.length === 1 ? 'assinatura' : 'assinaturas'}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() => {
-                if (isLimited && subscriptions.length >= TRIAL_SUBS_LIMIT) {
-                  openTrialModal(`Você atingiu o limite de ${TRIAL_SUBS_LIMIT} assinaturas do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`);
-                  return;
-                }
-                setIsAddingSub(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 text-white text-[11px] font-black uppercase tracking-wider shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.03] active:scale-95 transition-all"
-            >
-              <Plus className="w-3.5 h-3.5" /> Nova
-            </button>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            {collapsed.subs && (
-              <span className={`hidden sm:inline-flex items-baseline gap-1 text-sm font-black tabular-nums ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>
-                R$ {fmt(monthlySubsTotal)}<span className="text-[10px] font-bold text-slate-500">/mês</span>
-              </span>
-            )}
-            <button
-              onClick={() => toggleSection('subs')}
-              title={collapsed.subs ? 'Expandir' : 'Minimizar'}
-              className={`p-2 rounded-xl transition-colors ${theme === 'light' ? 'hover:bg-slate-100 text-slate-500' : 'hover:bg-white/10 text-slate-400'}`}
-            >
-              <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${collapsed.subs ? '-rotate-90' : ''}`} />
-            </button>
-          </div>
-        </div>
-
-        {!collapsed.subs && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {subscriptions.filter(s => s.type !== 'installment').map(sub => {
-            const linkedCard = cards.find(c => c.id === sub.cardId);
-            return (
-              <div key={sub.id} className={`p-5 rounded-2xl border group relative transition-all hover:shadow-xl hover:-translate-y-1 ${
-                theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-800/60'
-              }`}>
-                <div className="flex justify-between items-start mb-6">
-                  <div className="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center">
-                    <Tag className="w-6 h-6 text-purple-500" />
-                  </div>
-                  <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
-                    <button onClick={() => openEditSub(sub)} className={`p-2 rounded-lg transition-colors mr-1 ${
-                      theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-emerald-600' : 'hover:bg-white/5 text-slate-500 hover:text-emerald-400'
-                    }`}>
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className={`p-2 rounded-lg transition-colors ${
-                      theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-rose-600' : 'hover:bg-white/5 text-slate-500 hover:text-rose-400'
-                    }`}>
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Delete overlay for Subscription */}
-                {deleteConfirm?.id === sub.id && deleteConfirm?.type === 'sub' && (
-                    <div className={`absolute inset-0 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300 ${
-                        theme === 'light' ? 'bg-white/95 border border-slate-100' : 'bg-slate-950/95'
-                    }`}>
-                        <div className="max-w-[200px] w-full">
-                            <Trash2 className="w-8 h-8 text-rose-500 mx-auto mb-3" />
-                            <p className={`font-bold text-sm mb-6 leading-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir {sub.name}?</p>
-                            <div className="flex gap-2">
-                                <button onClick={() => setDeleteConfirm(null)} className={`flex-1 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all ${
-                                    theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/10 text-white hover:bg-white/20'
-                                }`}>Não</button>
-                                <button onClick={() => handleDeleteSub(sub.id)} className="flex-1 py-2 rounded-lg bg-rose-500 text-white font-bold text-xs uppercase tracking-wider hover:bg-rose-600 transition-all">Sim</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                <div className="space-y-1">
-                  <h4 className={`font-bold text-base ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{sub.name}</h4>
-                  <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Calendar className="w-3 h-3" /> {linkedCard ? `Na Fatura (Vence dia ${linkedCard.dueDay})` : `Vence dia ${sub.day}`}
-                  </p>
-                </div>
-                <div className="mt-6 pt-5 border-t border-white/5 flex justify-between items-end">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Valor Mensal</p>
-                    <span className="text-lg font-bold text-emerald-500 tabular-nums">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  {linkedCard ? (
-                    <span className={`text-[9px] font-bold px-3 py-1.5 rounded-xl ${linkedCard.color} text-white shadow-lg shadow-black/20`}>
-                      {linkedCard.name}
-                    </span>
-                  ) : (
-                    <span className={`text-[9px] font-bold px-3 py-1.5 rounded-xl ${theme === 'light' ? 'bg-slate-100 text-slate-400' : 'bg-white/5 text-slate-500 border border-white/5'}`}>
-                      Sem Cartão
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-          {subscriptions.filter(s => s.type !== 'installment').length === 0 && (
-            <div className={`col-span-full flex flex-col items-center justify-center text-center py-12 px-6 rounded-2xl border-2 border-dashed ${theme === 'light' ? 'border-slate-200' : 'border-white/5'}`}>
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${theme === 'light' ? 'bg-purple-50 text-purple-500' : 'bg-purple-500/10 text-purple-400'}`}>
-                <Calendar className="w-7 h-7" />
-              </div>
-              <p className={`font-bold text-sm ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>Nenhuma assinatura cadastrada</p>
-              <p className="text-[11px] text-slate-500 mt-1 max-w-xs">Cadastre serviços recorrentes (streaming, academia...) para não esquecer nenhuma cobrança.</p>
               <button
-                onClick={() => {
-                  if (isLimited && subscriptions.length >= TRIAL_SUBS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_SUBS_LIMIT} assinaturas do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; }
-                  setIsAddingSub(true);
-                }}
-                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500 text-white font-bold text-[11px] uppercase tracking-wider hover:bg-purple-600 transition-all shadow-lg shadow-purple-500/20"
+                key={card.id}
+                onClick={() => setSelectedCardId(card.id)}
+                className={`w-full text-left p-3.5 rounded-2xl border transition-all ${active ? 'border-emerald-500/60 ring-1 ring-emerald-500/30' : (isDark ? 'border-slate-800/60 hover:border-white/10' : 'border-slate-100 hover:border-slate-200')} ${kpiCardBg}`}
               >
-                <Plus className="w-3.5 h-3.5" /> Nova assinatura
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className={`w-9 h-7 rounded-md shrink-0 ${card.color}`} />
+                    <div className="min-w-0">
+                      <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{card.name}</p>
+                      <p className="text-[10px] text-slate-500 truncate">{card.brand} · Crédito</p>
+                    </div>
+                  </div>
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dot }} />
+                </div>
+                <div className="flex items-center justify-between gap-2 mt-2.5">
+                  <span className="text-[10px] text-slate-500">•••• {card.last4 || '0000'}</span>
+                  <span className="text-right">
+                    <span className="block text-[8px] font-black uppercase tracking-widest text-slate-500">Fatura {new Date(st.currentInvoiceMonth + '-15').toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</span>
+                    <span className="text-[13px] font-black tabular-nums" style={{ color: st.invoiceTotal > 0.005 ? '#f43f5e' : '#10b981' }}>R$ {fmt(st.invoiceTotal)}</span>
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+          <button
+            onClick={() => {
+              if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; }
+              setEditingCardId(null); setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' }); setIsAddingCard(true);
+            }}
+            className={`w-full py-3 rounded-2xl border border-dashed flex items-center justify-center gap-2 text-xs font-bold transition-all ${isDark ? 'border-white/15 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+          >
+            <Plus className="w-4 h-4" /> Adicionar cartão
+          </button>
+        </div>
+
+        {/* Detalhe do cartão selecionado */}
+        {selectedCard && selStats && (
+          <div className={`rounded-2xl border p-5 ${kpiCardBg}`}>
+            {/* Cabeçalho da fatura */}
+            <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Fatura de {new Date(selStats.currentInvoiceMonth + '-15').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
+                <p className="text-3xl font-black tabular-nums mt-1" style={{ color: selStats.invoiceTotal > 0.005 ? '#f59e0b' : '#10b981' }}><span className="text-base font-bold text-slate-400 mr-0.5">R$</span>{fmt(selStats.invoiceTotal)}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {selStats.invoiceTotal > 0.005
+                    ? <>Vence em <span className="font-bold text-rose-400">{selStats.daysUntil} {selStats.daysUntil === 1 ? 'dia' : 'dias'}</span> · {selStats.dueDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}</>
+                    : 'Fatura zerada 🎉'}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => { setEditingCardId(selectedCard.id); setNewCard({ name: selectedCard.name, color: selectedCard.color, last4: selectedCard.last4, brand: selectedCard.brand, dueDay: selectedCard.dueDay || 10, closingDay: selectedCard.closingDay || '', limit: selectedCard.limit != null ? String(selectedCard.limit) : '' }); setIsAddingCard(true); }} className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><Pencil className="w-4 h-4" /></button>
+                <button onClick={() => setDeleteConfirm({ id: selectedCard.id, type: 'card', title: selectedCard.name })} className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5 hover:text-rose-400' : 'text-slate-500 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-4 h-4" /></button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-4">
+              {/* Cartão visual */}
+              <div className={`aspect-[1.6/1] rounded-2xl p-4 flex flex-col justify-between text-white shadow-2xl relative overflow-hidden ${selectedCard.color}`}>
+                <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50" />
+                <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-3xl" />
+                <div className="relative z-10">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">{selectedCard.brand}</p>
+                  <h3 className="text-xl font-black tracking-tight drop-shadow-md">{selectedCard.name}</h3>
+                </div>
+                <div className="relative z-10 flex justify-between items-end">
+                  <p className="font-mono text-sm tracking-[0.25em] drop-shadow-sm">•••• •••• •••• {selectedCard.last4 || '0000'}</p>
+                  <div className="text-right">
+                    <p className="text-[8px] font-black uppercase opacity-60">Vencimento</p>
+                    <p className="text-sm font-bold">Dia {selectedCard.dueDay || 10}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Limite + stats */}
+              <div className="space-y-3">
+                <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Uso do limite</span>
+                    <span className="text-[11px] font-black tabular-nums" style={{ color: selStats.usagePct >= 80 ? '#f43f5e' : selStats.usagePct >= 50 ? '#f59e0b' : '#10b981' }}>{selStats.limit > 0 ? `${Math.round(selStats.usagePct)}%` : '—'}</span>
+                  </div>
+                  <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-200'}`}>
+                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${selStats.limit > 0 ? selStats.usagePct : 0}%`, background: selStats.usagePct >= 80 ? '#f43f5e' : selStats.usagePct >= 50 ? '#f59e0b' : '#10b981' }} />
+                  </div>
+                  <div className="flex items-center justify-between mt-1.5">
+                    <span className="text-[9px] text-slate-500 tabular-nums">R$ {fmt(selStats.invoiceTotal)} usado</span>
+                    <span className="text-[9px] text-slate-500 tabular-nums">{selStats.limit > 0 ? `Limite R$ ${fmt(selStats.limit)}` : 'Defina o limite ✎'}</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}><p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Limite Total</p><p className={`text-sm font-black tabular-nums mt-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>{selStats.limit > 0 ? `R$ ${fmt(selStats.limit)}` : '—'}</p></div>
+                  <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}><p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Disponível</p><p className="text-sm font-black tabular-nums mt-0.5 text-emerald-500">{selStats.limit > 0 ? `R$ ${fmt(selStats.available)}` : '—'}</p></div>
+                  <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}><p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Parcelas no mês</p><p className={`text-sm font-black tabular-nums mt-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(selStats.parcelasMes)}</p></div>
+                  <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}><p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Assinaturas</p><p className="text-sm font-black tabular-nums mt-0.5 text-violet-400">R$ {fmt(selStats.assinaturasMes)}</p></div>
+                </div>
+              </div>
+            </div>
+
+            {selStats.hasPreviousDebt && (
+              <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span className="text-[10px] font-bold text-amber-500">Inclui fatura(s) anterior(es) ainda não paga(s).</span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 mt-4 flex-wrap">
+              <button
+                onClick={() => selStats.invoiceTotal > 0.005 && setPayingInvoice({ cardId: selectedCard.id, total: selStats.invoiceTotal, expenses: selStats.unpaidExpenses, subs: selStats.unpaidSubs, invoiceMonth: selStats.currentInvoiceMonth })}
+                disabled={selStats.invoiceTotal <= 0.005}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all active:scale-95 ${selStats.invoiceTotal > 0.005 ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/25' : (isDark ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400')}`}
+              >
+                <CheckCircle2 className="w-4 h-4" /> Registrar pagamento
+              </button>
+              <button onClick={() => setViewingInvoiceCardId(selectedCard.id)} className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                <Eye className="w-4 h-4" /> Ver lançamentos
               </button>
             </div>
-          )}
-        </div>
+          </div>
         )}
-      </section>
+      </div>
 
-      {/* PARCELAMENTOS — painel rosa */}
-      <section className={`space-y-5 rounded-3xl border p-5 md:p-6 ${
-        theme === 'light'
-          ? 'bg-gradient-to-br from-rose-50/70 via-white to-white border-rose-100'
-          : 'bg-gradient-to-br from-rose-500/[0.06] via-[#1a1f2b] to-[#161b27] border-rose-500/15'
-      }`}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0 flex-wrap">
-            <div className="p-2 bg-rose-500/10 rounded-xl shrink-0">
-              <Hash className="w-6 h-6 text-rose-500" />
-            </div>
-            <div className="min-w-0">
-              <h2 className={`text-lg font-medium tracking-wide uppercase truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Parcelamentos Ativos</h2>
-              {!collapsed.installments && installmentSubs.length > 0 && (
-                <p className="text-[10px] font-bold text-rose-500 mt-0.5">
-                  Total mensal: R$ {fmt(monthlyInstallTotal)} • {installmentSubs.length} {installmentSubs.length === 1 ? 'parcelamento' : 'parcelamentos'}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() => setIsAddingInstallment(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 text-white text-[11px] font-black uppercase tracking-wider shadow-lg shadow-rose-500/25 hover:shadow-rose-500/40 hover:scale-[1.03] active:scale-95 transition-all"
-            >
-              <Plus className="w-3.5 h-3.5" /> Novo
-            </button>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            {collapsed.installments && (
-              <span className={`hidden sm:inline-flex items-baseline gap-1 text-sm font-black tabular-nums ${theme === 'light' ? 'text-slate-700' : 'text-white'}`}>
-                R$ {fmt(monthlyInstallTotal)}<span className="text-[10px] font-bold text-slate-500">/mês</span>
-              </span>
-            )}
-            <button
-              onClick={() => toggleSection('installments')}
-              title={collapsed.installments ? 'Expandir' : 'Minimizar'}
-              className={`p-2 rounded-xl transition-colors ${theme === 'light' ? 'hover:bg-slate-100 text-slate-500' : 'hover:bg-white/10 text-slate-400'}`}
-            >
-              <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${collapsed.installments ? '-rotate-90' : ''}`} />
-            </button>
-          </div>
-        </div>
-
-        {!collapsed.installments && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {subscriptions.filter(s => s.type === 'installment').map(sub => {
-            const linkedCard = cards.find(c => c.id === sub.cardId);
-            const total = sub.totalInstallments || 1;
-            // currentInstallment = a parcela que ESTÁ sendo paga agora (próxima a quitar).
-            // Logo, parcelas já pagas = currentInstallment - 1.
-            const paid = Math.max(0, (sub.currentInstallment || 1) - 1);
-            const remaining = total - paid;             // quantas ainda faltam (inclui a atual)
-            const progress = (paid / total) * 100;       // barra reflete o que JÁ foi pago
-            const valuePerInstallment = parseFloat(sub.value) || 0;
-            const remainingValue = remaining * valuePerInstallment;
-            return (
-              <div key={sub.id} className={`p-5 rounded-2xl border group relative transition-all hover:shadow-xl hover:-translate-y-1 ${
-                theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-800/60'
-              }`}>
-                <div className="flex justify-between items-start mb-6">
-                  <div className="w-12 h-12 bg-rose-500/10 rounded-2xl flex items-center justify-center">
-                    <Hash className="w-6 h-6 text-rose-500" />
-                  </div>
-                  <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
-                    <button onClick={() => openEditSub(sub)} className={`p-2 rounded-lg transition-colors mr-1 ${
-                      theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-emerald-600' : 'hover:bg-white/5 text-slate-500 hover:text-emerald-400'
-                    }`}>
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className={`p-2 rounded-lg transition-colors ${
-                      theme === 'light' ? 'hover:bg-slate-100 text-slate-400 hover:text-rose-600' : 'hover:bg-white/5 text-slate-500 hover:text-rose-400'
-                    }`}>
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Delete overlay for Installment */}
-                {deleteConfirm?.id === sub.id && deleteConfirm?.type === 'sub' && (
-                    <div className={`absolute inset-0 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300 ${
-                        theme === 'light' ? 'bg-white/95 border border-slate-100' : 'bg-slate-950/95'
-                    }`}>
-                        <div className="max-w-[200px] w-full">
-                            <Trash2 className="w-8 h-8 text-rose-500 mx-auto mb-3" />
-                            <p className={`font-bold text-sm mb-6 leading-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Excluir {sub.name}?</p>
-                            <div className="flex gap-2">
-                                <button onClick={() => setDeleteConfirm(null)} className={`flex-1 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all ${
-                                    theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/10 text-white hover:bg-white/20'
-                                }`}>Não</button>
-                                <button onClick={() => handleDeleteSub(sub.id)} className="flex-1 py-2 rounded-lg bg-rose-500 text-white font-bold text-xs uppercase tracking-wider hover:bg-rose-600 transition-all">Sim</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <div className="space-y-1">
-                  <h4 className={`font-bold text-base ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{sub.name}</h4>
-
-                  {/* Progresso de parcelas — claro e direto */}
-                  <div className="mt-3 space-y-2">
-                    <div className="flex items-end justify-between">
-                      <div>
-                        <p className={`text-lg font-black leading-none ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                          {paid}<span className="text-sm font-bold text-slate-400">/{total}</span>
-                        </p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-1">parcelas pagas</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-black text-rose-500 leading-none">
-                          Faltam {remaining}
-                        </p>
-                        <p className="text-[10px] font-bold text-rose-400/80 mt-1">
-                          R$ {remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Barra: porção verde = pago, restante = a pagar */}
-                    <div className="w-full h-2.5 bg-slate-500/15 rounded-full overflow-hidden flex">
-                      <div
-                        className="h-full bg-emerald-500 transition-all duration-1000 rounded-full"
-                        style={{ width: `${progress}%` }}
-                        title={`${paid} pagas`}
-                      ></div>
-                    </div>
-                    <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-wider">
-                      <span className="text-emerald-500">{Math.round(progress)}% quitado</span>
-                      {remaining === 1 && (
-                        <span className="text-amber-500">última parcela!</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {!sub.cardId && (
-                    <button 
-                      onClick={() => setPayingInstallment(sub)}
-                      className={`w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
-                          theme === 'light' 
-                          ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-100 shadow-sm' 
-                          : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 shadow-xl'
-                      }`}
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Dar Baixa na Parcela
-                    </button>
-                  )}
-                </div>
-
-                {/* Confirmation Overlay for Payment */}
-                {payingInstallment?.id === sub.id && (
-                    <div className={`absolute inset-0 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center z-50 animate-in fade-in duration-300 ${
-                        theme === 'light' ? 'bg-white/95 border border-slate-100' : 'bg-slate-950/95'
-                    }`}>
-                        <div className="max-w-[220px] w-full space-y-4">
-                            <div className="w-12 h-12 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                                <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-                            </div>
-                            <h4 className={`text-base font-bold uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Confirmar Pagamento</h4>
-                            <p className={`text-[11px] leading-relaxed mb-4 ${theme === 'light' ? 'text-slate-655 text-slate-600' : 'text-white/60'}`}>
-                                Dar baixa na parcela <span className="text-emerald-500 font-bold">{sub.currentInstallment}/{sub.totalInstallments}</span> de <span className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{sub.name}</span>?
-                            </p>
-                            <div className="flex flex-col gap-2 pt-2">
-                                <button onClick={() => handlePayInstallment(sub, true)} className="w-full py-2 rounded-lg bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors">
-                                    Sim, criar saída (R$ {sub.value.toLocaleString('pt-BR')})
-                                </button>
-                                <button onClick={() => handlePayInstallment(sub, false)} className={`w-full py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ${
-                                    theme === 'light' ? 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100/50' : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/10'
-                                }`}>
-                                    Avançar parcela (Já lancei fatura)
-                                </button>
-                                <button onClick={() => setPayingInstallment(null)} className={`w-full py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all ${
-                                    theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/10 text-white hover:bg-white/20'
-                                }`}>Cancelar</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <div className="mt-6 pt-5 border-t border-white/5 flex justify-between items-end">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Valor Parcela</p>
-                    <span className="text-lg font-bold text-rose-500 tabular-nums">R$ {sub.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  {linkedCard && (
-                    <span className={`text-[9px] font-bold px-3 py-1.5 rounded-xl ${linkedCard.color} text-white shadow-lg shadow-black/20`}>
-                      {linkedCard.name}
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-          {subscriptions.filter(s => s.type === 'installment').length === 0 && (
-            <div className={`col-span-full flex flex-col items-center justify-center text-center py-12 px-6 rounded-2xl border-2 border-dashed ${theme === 'light' ? 'border-slate-200' : 'border-white/5'}`}>
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${theme === 'light' ? 'bg-rose-50 text-rose-500' : 'bg-rose-500/10 text-rose-400'}`}>
-                <Hash className="w-7 h-7" />
-              </div>
-              <p className={`font-bold text-sm ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>Nenhum parcelamento ativo</p>
-              <p className="text-[11px] text-slate-500 mt-1 max-w-xs">Acompanhe compras parceladas e veja quantas parcelas faltam para quitar.</p>
-              <button
-                onClick={() => setIsAddingInstallment(true)}
-                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-500 text-white font-bold text-[11px] uppercase tracking-wider hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20"
-              >
-                <Plus className="w-3.5 h-3.5" /> Novo parcelamento
+      {/* Abas: Lançamentos / Parcelamentos / Assinaturas */}
+      {selectedCard && selStats && (
+        <div className={`rounded-2xl border overflow-hidden ${kpiCardBg}`}>
+          <div className={`flex items-stretch border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+            {[
+              { id: 'lancamentos', label: 'Lançamentos', count: selStats.invoiceItems.length },
+              { id: 'parcelamentos', label: 'Parcelamentos', count: selStats.installments.length },
+              { id: 'assinaturas', label: 'Assinaturas', count: selStats.recurring.length },
+            ].map(t => (
+              <button key={t.id} onClick={() => setDetailTab(t.id)} className={`flex-1 py-3 text-[12px] font-bold transition-all inline-flex items-center justify-center gap-1.5 ${detailTab === t.id ? (isDark ? 'text-white bg-white/[0.03]' : 'text-slate-900 bg-slate-50') : 'text-slate-500 hover:text-slate-400'} ${detailTab === t.id ? 'border-b-2 border-emerald-500' : ''}`}>
+                {t.label} <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${detailTab === t.id ? 'bg-emerald-500/15 text-emerald-400' : (isDark ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-500')}`}>{t.count}</span>
               </button>
-            </div>
-          )}
-        </div>
-        )}
-      </section>
+            ))}
+          </div>
 
-      </div>{/* fim da linha Assinaturas + Parcelamentos */}
+          <div className="p-3">
+            {detailTab === 'lancamentos' && (
+              <>
+                <div className="flex items-center justify-between px-1 pb-2">
+                  <span className="text-[11px] font-bold text-slate-500">Lançamentos de {new Date(selStats.currentInvoiceMonth + '-15').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</span>
+                  <span className="text-[12px] font-black tabular-nums text-rose-400">R$ {fmt(selStats.invoiceTotal)}</span>
+                </div>
+                {selStats.invoiceItems.length === 0 ? (
+                  <p className="text-center text-xs text-slate-500 py-8">Nenhum lançamento nesta fatura.</p>
+                ) : selStats.invoiceItems.map(it => {
+                  const cat = CATEGORIES.expense.find(c => c.id === it.category);
+                  const Icon = cat?.icon || ShoppingBag;
+                  const hex = categoryHex(cat || {});
+                  const pm = { essential: { l: 'Essencial', c: 'text-blue-400' }, comfort: { l: 'Conforto', c: 'text-amber-500' }, superfluous: { l: 'Supérfluo', c: 'text-rose-400' } }[it.priority] || { l: '', c: '' };
+                  return (
+                    <div key={it.key} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
+                      <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{it.name}</p>
+                        <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 mt-0.5">
+                          {it.date && <span className="text-[10px] text-slate-500">{new Date(it.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}</span>}
+                          <span className="text-[10px] text-slate-500">· {cat?.label || 'Outro'}</span>
+                          {pm.l && <span className={`text-[9px] font-bold ${pm.c}`}>{pm.l}</span>}
+                          {it.installment && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400">{it.installment}</span>}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-[13px] font-black tabular-nums text-rose-400">R$ {fmt(it.amount)}</p>
+                        {it.totalLabel && <p className="text-[9px] text-slate-500">{it.totalLabel}</p>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+
+            {detailTab === 'parcelamentos' && (
+              selStats.installments.length === 0 ? (
+                <p className="text-center text-xs text-slate-500 py-8">Nenhum parcelamento neste cartão.</p>
+              ) : selStats.installments.map(sub => {
+                const cat = CATEGORIES.expense.find(c => c.id === sub.category);
+                const Icon = cat?.icon || ShoppingBag;
+                const hex = categoryHex(cat || {});
+                const total = sub.totalInstallments || 1;
+                const paid = Math.max(0, (sub.currentInstallment || 1) - 1);
+                const pct = (paid / total) * 100;
+                return (
+                  <div key={sub.id} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
+                    <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{sub.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className={`flex-1 h-1.5 rounded-full overflow-hidden max-w-[140px] ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}><div className="h-full rounded-full bg-rose-500" style={{ width: `${pct}%` }} /></div>
+                        <span className="text-[10px] text-slate-500 tabular-nums">{paid}/{total} pagas</span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 flex items-center gap-2">
+                      <span className="text-[13px] font-black tabular-nums text-rose-400">R$ {fmt(sub.value)}</span>
+                      <button onClick={() => openEditSub(sub)} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5 hover:text-rose-400' : 'text-slate-400 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+
+            {detailTab === 'assinaturas' && (
+              selStats.recurring.length === 0 ? (
+                <p className="text-center text-xs text-slate-500 py-8">Nenhuma assinatura neste cartão.</p>
+              ) : selStats.recurring.map(sub => {
+                const cat = CATEGORIES.expense.find(c => c.id === sub.category);
+                const Icon = cat?.icon || ShoppingBag;
+                const hex = categoryHex(cat || {});
+                return (
+                  <div key={sub.id} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
+                    <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{sub.name}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Na fatura · vence dia {selectedCard.dueDay || sub.day}</p>
+                    </div>
+                    <div className="text-right shrink-0 flex items-center gap-2">
+                      <span className="text-[13px] font-black tabular-nums text-violet-400">R$ {fmt(sub.value)}</span>
+                      <button onClick={() => openEditSub(sub)} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5 hover:text-rose-400' : 'text-slate-400 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Ações de adicionar */}
+          <div className={`flex items-center gap-2 p-3 border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+            <button onClick={() => { if (isLimited && subscriptions.length >= TRIAL_SUBS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_SUBS_LIMIT} assinaturas do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; } setNewSub({ name: '', value: '', day: 1, cardId: selectedCard.id, category: 'subscriptions', priority: 'comfort' }); setIsAddingSub(true); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Plus className="w-3.5 h-3.5" /> Assinatura</button>
+            <button onClick={() => { setNewInstallment({ name: '', value: '', valueMode: 'total', installments: '2', day: 1, cardId: selectedCard.id, category: 'shopping', priority: 'comfort' }); setIsAddingInstallment(true); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Plus className="w-3.5 h-3.5" /> Parcelamento</button>
+          </div>
+        </div>
+      )}
+      </>
+      )}
+
 
       {/* MODAL: ADD CARD */}
       {isAddingCard && (
@@ -1167,7 +877,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
               onClick={() => {
                 setIsAddingCard(false);
                 setEditingCardId(null);
-                setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10 });
+                setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' });
               }}
               className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors ${
                 theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'
@@ -1248,6 +958,20 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
                 />
               </div>
               <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Limite Total (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Opcional · ex: 3000"
+                  min={0}
+                  value={newCard.limit ?? ''}
+                  onChange={(e) => setNewCard({...newCard, limit: e.target.value})}
+                  className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
+                    theme === 'light' ? 'bg-slate-50 border-slate-100 focus:border-emerald-500 text-slate-800' : 'bg-white/5 border-white/5 focus:border-emerald-500 text-white placeholder-slate-500'
+                  }`}
+                />
+              </div>
+              <div>
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block ml-1">Bandeira</label>
                 <select
                   value={newCard.brand}
@@ -1281,7 +1005,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
               <button type="button" onClick={() => {
                 setIsAddingCard(false);
                 setEditingCardId(null);
-                setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10 });
+                setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' });
               }} className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
               <button type="submit" className="flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] bg-emerald-500 hover:bg-emerald-600 transition-all text-white shadow-lg shadow-emerald-500/20 active:scale-95">
                 {editingCardId ? 'Salvar Alterações' : 'Salvar Cartão'}
