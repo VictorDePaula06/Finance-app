@@ -350,7 +350,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
       </div>
 
       {activeTab === 'visao' && (<>
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
         {/* ═══ LEFT COLUMN (3/5) ═══ */}
         <div className="lg:col-span-3 flex flex-col gap-4">
 
@@ -446,7 +446,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
       </div>
 
       {/* ── MEU PATRIMÔNIO: Allocation Chart + Breakdown ── */}
-      <div className="flex-1 min-h-0">
+      <div>
       {(() => {
         const CATEGORY_COLORS = {
           'Reserva': '#10b981',
@@ -519,8 +519,8 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
         };
 
         return (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 h-full">
-            <div className={`rounded-2xl border overflow-hidden h-full ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
+            <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
               <div className={`w-full flex items-center justify-between p-4`}>
                 <div className="flex items-center gap-2.5">
                   <div className={`p-2 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
@@ -927,7 +927,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
       })()}
 
       {/* ── SAÚDE PATRIMONIAL ── */}
-      <div className="flex-1 min-h-0">
+      <div>
         {(() => {
           const h = patrimonyHealth;
           const d = h.breakdown?.data || {};
@@ -942,7 +942,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
           const ring = h.statusLabel === 'Sem dados' ? '#64748b' : barColorFor(h.score);
           const C = 2 * Math.PI * 34;
           return (
-            <div className={`rounded-2xl border h-full p-4 md:p-5 flex flex-col ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
+            <div className={`rounded-2xl border p-4 md:p-5 flex flex-col ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <div className={`p-2 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}><ShieldCheck className="w-4 h-4 text-emerald-500" /></div>
