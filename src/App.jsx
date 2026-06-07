@@ -49,6 +49,7 @@ import { calculateCumulativeBalance } from './utils/financialLogic';
 import AliviaConfigForm from './components/AliviaConfigForm';
 import OverviewTab from './components/OverviewTab';
 import ExtratoTab from './components/ExtratoTab';
+import RebalanceamentoTab from './components/RebalanceamentoTab';
 import TermsAcceptanceModal from './components/TermsAcceptanceModal';
 import CookieConsent from './components/CookieConsent';
 import FixedExpensesTab from './components/FixedExpensesTab';
@@ -973,13 +974,7 @@ function Dashboard() {
 
           { activeTab === 'rebalanceamento' && (
             planLevel === 'premium' || planLevel === 'lifetime' || isAdmin ? (
-              <PatrimonioPlaceholderTab
-                title="Rebalanceamento"
-                subtitle="Mantenha sua carteira alinhada à sua estratégia"
-                icon={AlertTriangle}
-                badge="Ação"
-                description="Em breve você receberá sugestões de rebalanceamento para manter a alocação da sua carteira de acordo com seus objetivos."
-              />
+              <RebalanceamentoTab />
             ) : (
               <PremiumPaywall
                 title="Rebalanceamento"
