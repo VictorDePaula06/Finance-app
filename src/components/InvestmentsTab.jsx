@@ -968,7 +968,7 @@ export default function InvestmentsTab() {
             </div>
 
             {/* Top Pill Dashboard */}
-            <div className={`flex flex-wrap items-center justify-between gap-6 p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#151822] border-white/5 text-white'}`}>
+            <div className={`flex flex-wrap items-center justify-between gap-6 p-5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-200 text-slate-800 shadow-sm' : 'bg-[#151822] border-white/5 text-white'}`}>
                 {/* Metrics */}
                 <div className="flex flex-wrap items-center gap-6 md:gap-10">
                     <div className="flex flex-col">
@@ -997,14 +997,14 @@ export default function InvestmentsTab() {
                 <div className="flex flex-wrap items-center gap-4 md:ml-auto">
                     {/* Análise da Alívia */}
                     {investments.length > 0 && (
-                        <div className="flex items-center gap-3 max-w-xs md:max-w-sm p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm transition-all hover:bg-white/10">
+                        <div className={`flex items-center gap-3 max-w-xs md:max-w-sm p-3 rounded-2xl border backdrop-blur-sm transition-all ${theme === 'light' ? 'bg-slate-50 border-slate-200 hover:bg-slate-100' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}>
                             <div className="relative shrink-0">
                                 <img src={aliviaFinal} alt="Alívia" className="w-8 h-8 object-cover rounded-full border border-indigo-500/30" />
                                 <div className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-[#131621] text-indigo-400"><Sparkles className="w-2.5 h-2.5" /></div>
                             </div>
                             <div className="flex flex-col">
                                 <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Análise da Alívia</span>
-                                <p className="text-[10px] font-medium leading-snug text-slate-300">
+                                <p className={`text-[10px] font-medium leading-snug ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
                                     {
                                         (catMap['acoes_etfs'] > 0) 
                                         ? 'Sua carteira está exposta a ações/ETFs, buscando crescimento em inovação e tecnologia a longo prazo.' 
@@ -1020,7 +1020,7 @@ export default function InvestmentsTab() {
                          <button 
                             onClick={() => setViewInUSD(!viewInUSD)}
                             className={`px-3 py-2 rounded-xl transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${
-                                viewInUSD ? 'bg-blue-500/20 text-blue-400' : 'bg-white/10 hover:bg-white/20 text-slate-300'
+                                viewInUSD ? 'bg-blue-500/20 text-blue-400' : (theme === 'light' ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-white/10 hover:bg-white/20 text-slate-300')
                             }`}
                         >
                             Moeda ({viewInUSD ? '$' : 'R$'})
@@ -1044,28 +1044,28 @@ export default function InvestmentsTab() {
             </div>
 
             {/* Main Cards Dashboard */}
-            <div className={`p-6 rounded-2xl border ${theme === 'light' ? 'bg-slate-900 border-slate-800' : 'bg-[#151822] border-white/5'}`}>
+            <div className={`p-6 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#151822] border-white/5'}`}>
                 <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
-                    <button onClick={fetchLivePrices} className="text-slate-400 hover:text-white transition-colors" title="Atualizar Preços">
+                    <button onClick={fetchLivePrices} className={`transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-slate-700' : 'text-slate-400 hover:text-white'}`} title="Atualizar Preços">
                         <RefreshCw className={`w-4 h-4 ${isLoadingPrices ? 'animate-spin' : ''}`} />
                     </button>
                     <div className="flex items-center gap-2 flex-wrap">
                         {/* Toggle Categoria / Ativo */}
-                        <div className="flex rounded-xl border border-white/10 overflow-hidden">
+                        <div className={`flex rounded-xl border overflow-hidden ${theme === 'light' ? 'border-slate-200' : 'border-white/10'}`}>
                             <button onClick={() => setChartViewMode('category')}
-                                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'category' && chartCategoryFilter === 'all' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-white'}`}>
+                                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'category' && chartCategoryFilter === 'all' ? 'bg-indigo-500 text-white' : (theme === 'light' ? 'text-slate-500 hover:text-slate-800' : 'text-slate-400 hover:text-white')}`}>
                                 Categoria
                             </button>
                             <button onClick={() => setChartViewMode('asset')}
-                                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'asset' || chartCategoryFilter !== 'all' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-white'}`}>
+                                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-all ${chartViewMode === 'asset' || chartCategoryFilter !== 'all' ? 'bg-indigo-500 text-white' : (theme === 'light' ? 'text-slate-500 hover:text-slate-800' : 'text-slate-400 hover:text-white')}`}>
                                 Ativo
                             </button>
                         </div>
                         {/* Filtrar categoria */}
                         <select value={chartCategoryFilter} onChange={(e) => setChartCategoryFilter(e.target.value)}
-                            className="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 text-slate-300 text-[10px] font-black uppercase tracking-widest focus:outline-none cursor-pointer">
-                            <option value="all" className="bg-slate-900">Todas as categorias</option>
-                            {Object.keys(GROUP_LABELS).map(k => <option key={k} value={k} className="bg-slate-900">{GROUP_LABELS[k]}</option>)}
+                            className={`px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest focus:outline-none cursor-pointer ${theme === 'light' ? 'border-slate-200 bg-white text-slate-600' : 'border-white/10 bg-white/5 text-slate-300'}`}>
+                            <option value="all" className={theme === 'light' ? 'bg-white' : 'bg-slate-900'}>Todas as categorias</option>
+                            {Object.keys(GROUP_LABELS).map(k => <option key={k} value={k} className={theme === 'light' ? 'bg-white' : 'bg-slate-900'}>{GROUP_LABELS[k]}</option>)}
                         </select>
                     </div>
                 </div>
@@ -1115,12 +1115,12 @@ export default function InvestmentsTab() {
                         {Object.keys(GROUP_LABELS).map((groupKey) => {
                             const groupValue = catMap[groupKey] || 0;
                             return (
-                                <div key={groupKey} className="p-4 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
+                                <div key={groupKey} className={`p-4 rounded-xl border flex flex-col justify-between ${theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5'}`}>
                                     <div className="flex items-center justify-between mb-3">
-                                        <span className="text-xs font-medium text-slate-300">{GROUP_LABELS[groupKey]}</span>
+                                        <span className={`text-xs font-medium ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>{GROUP_LABELS[groupKey]}</span>
                                         {GROUP_ICONS[groupKey]}
                                     </div>
-                                    <span className="text-lg font-black text-white">
+                                    <span className={`text-lg font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                                         {viewInUSD ? '$' : 'R$'} {(groupValue * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </span>
                                 </div>
@@ -1181,7 +1181,7 @@ export default function InvestmentsTab() {
                                     const MC = ASSET_TYPES[asset.type] || ASSET_TYPES.crypto;
                                     
                                     return (
-                                        <div key={asset.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-[#151822] border-white/5'}`}>
+                                        <div key={asset.id} className={`flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 rounded-2xl border transition-all ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-[#151822] border-white/5'}`}>
                                             <div className="flex items-center gap-4">
                                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${MC.bg} overflow-hidden relative`}>
                                                     {asset.symbol || asset.name ? (
@@ -1196,6 +1196,17 @@ export default function InvestmentsTab() {
                                                         {asset.symbol && asset.name && asset.symbol.toUpperCase() !== asset.name.toUpperCase() && (
                                                             <span className="text-[10px] text-slate-500 font-medium">{asset.name}</span>
                                                         )}
+                                                        {/* Valor + rentabilidade no mobile (no desktop aparecem nas colunas à direita) */}
+                                                        <span className="md:hidden flex items-center gap-1.5 mt-1 text-xs font-black">
+                                                            <span className={theme === 'light' ? 'text-slate-800' : 'text-white'}>
+                                                                {asset.type === 'renda_fixa' && <span className="text-amber-500 mr-0.5">≈</span>}
+                                                                {dCur} {(asset.value * displayMultiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                            </span>
+                                                            <span className={`inline-flex items-center gap-0.5 ${pp >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                                {pp >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                                                                {pp >= 0 ? '+' : ''}{pp.toFixed(2)}%
+                                                            </span>
+                                                        </span>
                                                     </div>
                                                     {/* Preço/Taxa ao lado do ticker */}
                                                     {asset.type !== 'imoveis' && (
@@ -1232,7 +1243,7 @@ export default function InvestmentsTab() {
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-4 md:gap-6 lg:gap-10">
+                                            <div className="flex items-center gap-4 md:gap-6 lg:gap-10 w-full md:w-auto justify-end border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 dark:border-white/5">
 
                                                 <div className="hidden md:flex flex-col items-end">
                                                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">

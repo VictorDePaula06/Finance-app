@@ -251,16 +251,16 @@ export default function EmergencyReserveTab() {
             </div>
 
             {/* Top Pill Dashboard */}
-            <div className={`flex flex-wrap items-center gap-6 md:gap-12 p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#151822] border-white/5 text-white'}`}>
+            <div className={`flex flex-wrap items-center gap-6 md:gap-12 p-5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-200 text-slate-800 shadow-sm' : 'bg-[#151822] border-white/5 text-white'}`}>
                 <div className="flex flex-col">
                     <span className="text-[11px] font-medium text-slate-400 mb-1">Total Consolidado:</span>
-                    <span className="text-xl font-black text-emerald-400">
+                    <span className={`text-xl font-black ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`}>
                         R$ {totalReserve.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                 </div>
                 <div className="flex flex-col">
                     <span className="text-[11px] font-medium text-slate-400 mb-1 flex items-center gap-1">Rendimento Diário <TrendingUp className="w-3 h-3" /></span>
-                    <span className="text-xl font-black text-emerald-400">
+                    <span className={`text-xl font-black ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`}>
                         +R$ {totalDailyYield.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                 </div>
@@ -273,7 +273,7 @@ export default function EmergencyReserveTab() {
                         </button>
                     </div>
                     {reserveGoal ? (
-                        <div className="w-full h-1.5 rounded-full bg-white/10 relative overflow-hidden mt-1">
+                        <div className={`w-full h-1.5 rounded-full relative overflow-hidden mt-1 ${theme === 'light' ? 'bg-slate-200' : 'bg-white/10'}`}>
                             <div className="absolute left-0 top-0 h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${Math.min((totalReserve / reserveGoal) * 100, 100)}%` }}></div>
                         </div>
                     ) : (

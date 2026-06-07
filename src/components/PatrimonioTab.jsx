@@ -355,27 +355,27 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
         <div className="lg:col-span-3 flex flex-col gap-4">
 
       {/* ── HERO: PATRIMÔNIO TOTAL ── */}
-      <div className={`p-5 md:p-7 rounded-[2rem] border relative overflow-hidden ${isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/30 border-white/[0.06]' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900/40 border-slate-700'}`}>
+      <div className={`p-5 md:p-7 rounded-[2rem] border relative overflow-hidden ${isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/30 border-white/[0.06]' : 'bg-gradient-to-br from-emerald-50 via-white to-emerald-100/60 border-slate-200 shadow-sm'}`}>
         <div className="absolute top-[-50%] right-[-15%] w-[60%] h-[140%] rounded-full blur-[120px] pointer-events-none opacity-[0.12] bg-emerald-400" />
         <div className="absolute bottom-[-40%] left-[-10%] w-[40%] h-[100%] rounded-full blur-[100px] pointer-events-none opacity-[0.06] bg-purple-500" />
         <div className="relative">
           <div className="mb-4">
             <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
-              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-emerald-400/80">Patrimônio Total Consolidado</p>
+              <p className={`text-[9px] font-black uppercase tracking-[0.3em] ${isDark ? 'text-emerald-400/80' : 'text-emerald-600'}`}>Patrimônio Total Consolidado</p>
               <div className="flex items-center gap-1">
                 {[['reserva', 'Reserva', '#10b981'], ['investimentos', 'Investim.', '#a855f7'], ['bens', 'Bens', '#f97316']].map(([key, label, col]) => {
                   const active = patrimonioFilter[key];
                   return (
                     <button key={key} onClick={() => togglePatrimonioFilter(key)} title={active ? `Ocultar ${label} do total` : `Incluir ${label} no total`}
                       className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all"
-                      style={active ? { background: `${col}26`, borderColor: `${col}66`, color: col } : { borderColor: 'rgba(255,255,255,0.1)', color: '#64748b' }}>
+                      style={active ? { background: `${col}26`, borderColor: `${col}66`, color: col } : { borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(15,23,42,0.12)', color: '#94a3b8' }}>
                       {active ? '✓ ' : ''}{label}
                     </button>
                   );
                 })}
               </div>
             </div>
-            <p className={`text-3xl md:text-4xl font-black tracking-tight leading-none ${displayedTotal >= 0 ? 'text-white' : 'text-rose-400'}`}>
+            <p className={`text-3xl md:text-4xl font-black tracking-tight leading-none ${displayedTotal >= 0 ? (isDark ? 'text-white' : 'text-slate-900') : 'text-rose-400'}`}>
               {fmtSigned(displayedTotal)}
             </p>
             {totalDailyYield > 0 && (
@@ -390,8 +390,8 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
             )}
           </div>
           {displayedTotal > 0 && (
-            <div className="space-y-2 pt-3 border-t border-white/[0.06]">
-              <div className="flex rounded-full overflow-hidden h-2 bg-white/[0.06]">
+            <div className={`space-y-2 pt-3 border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-200'}`}>
+              <div className={`flex rounded-full overflow-hidden h-2 ${isDark ? 'bg-white/[0.06]' : 'bg-slate-200'}`}>
                 {patrimonioFilter.reserva && <div style={{ width: `${jarsTotal / displayedTotal * 100}%` }} className="bg-emerald-500 transition-all duration-700" />}
                 {patrimonioFilter.investimentos && <div style={{ width: `${investmentsTotal / displayedTotal * 100}%` }} className="bg-purple-500 transition-all duration-700" />}
                 {patrimonioFilter.bens && <div style={{ width: `${bensTotal / displayedTotal * 100}%` }} className="bg-orange-500 transition-all duration-700" />}

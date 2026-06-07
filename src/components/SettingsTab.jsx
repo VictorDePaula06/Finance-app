@@ -741,13 +741,13 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
         <p className="text-xs text-slate-500 mt-0.5">Personalize sua experiência e gerencie sua conta</p>
       </div>
 
-      {/* ── Two-column layout ── */}
-      <div className={`flex rounded-2xl border overflow-hidden min-h-[540px] ${
+      {/* ── Two-column layout (empilha no mobile) ── */}
+      <div className={`flex flex-col md:flex-row rounded-2xl border overflow-hidden md:min-h-[540px] ${
         isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'
       }`}>
 
         {/* ── Left Nav Sidebar ── */}
-        <aside className={`w-52 shrink-0 border-r flex flex-col ${
+        <aside className={`w-full md:w-52 shrink-0 border-b md:border-b-0 md:border-r flex flex-col ${
           isDark ? 'border-white/[0.06] bg-slate-950/40' : 'border-slate-100 bg-slate-50/60'
         }`}>
           <div className="p-3 pt-5">

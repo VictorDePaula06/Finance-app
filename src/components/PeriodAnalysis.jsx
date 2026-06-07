@@ -328,7 +328,7 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
       {/* Barra de filtros (mesmo padrão de Metas de Gasto) */}
       <div className={`rounded-2xl border p-3 flex flex-wrap items-center gap-x-5 gap-y-2.5 ${card}`}>
         {/* Período */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Período</span>
           <div className={`flex items-center rounded-lg border ${fieldBg}`}>
             <button onClick={goPrev} className="p-1.5 text-slate-400 hover:text-emerald-400"><ChevronLeft className="w-4 h-4" /></button>
