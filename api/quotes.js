@@ -16,6 +16,16 @@
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
 
+// Apelidos comuns de índices → símbolo real (Yahoo Finance).
+const INDEX_ALIASES = {
+    IBOV: '^BVSP', IBOVESPA: '^BVSP', BVSP: '^BVSP', IBX: '^BVSP',
+    SPX: '^GSPC', SPX500: '^GSPC', SP500: '^GSPC', SP: '^GSPC', GSPC: '^GSPC', 'S&P500': '^GSPC',
+    NASDAQ: '^IXIC', IXIC: '^IXIC', NASDAQ100: '^NDX', NDX: '^NDX',
+    DOW: '^DJI', DJI: '^DJI', DJIA: '^DJI',
+    RUSSELL: '^RUT', RUT: '^RUT', VIX: '^VIX',
+    FTSE: '^FTSE', DAX: '^GDAXI', CAC: '^FCHI', NIKKEI: '^N225', N225: '^N225', HANGSENG: '^HSI', HSI: '^HSI',
+};
+
 async function fetchBinance(sym) {
     try {
         const r = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${sym}USDT`);
@@ -50,6 +60,7 @@ async function fetchBrapi(sym) {
                     changePercent: parseFloat(q.regularMarketChangePercent || 0),
                     currency: q.currency || 'BRL',
                     name: q.shortName || q.longName || null,
+                    logo: q.logourl || null,
                     source: 'brapi',
                 };
             }
@@ -109,15 +120,18 @@ export default async function handler(req, res) {
 
         if (grp === 'cripto') {
             q = await fetchBinance(sym);
+            if (q) q.logo = `https://assets.coincap.io/assets/icons/${sym.toLowerCase()}@2x.png`;
         } else if (grp === 'acoes_br' || grp === 'fiis') {
             q = await fetchBrapi(sym);
             if (!q) q = await fetchYahoo(sym.includes('.') ? sym : `${sym}.SA`);
         } else if (grp === 'indices') {
-            q = await fetchYahoo(sym);
+            const cands = INDEX_ALIASES[sym] ? [INDEX_ALIASES[sym]] : [sym, `^${sym}`];
+            for (const c of cands) { q = await fetchYahoo(c); if (q) break; }
             if (!q) q = await fetchBrapi(sym);
         } else { // acoes_int
             q = await fetchYahoo(sym);
             if (!q) q = await fetchBrapi(sym);
+            if (q && !q.logo) q.logo = `https://financialmodelingprep.com/image-stock/${sym}.png`;
         }
 
         if (q) quotes[sym] = q;

@@ -23,7 +23,7 @@ import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc } from 'fi
 // Grupos de ativos (estilo TradingView). Cada um define a fonte de cotação,
 // a moeda nativa e exemplos de tickers.
 const GROUPS = [
-  { id: 'indices',   label: 'Índices',              icon: Activity,   native: 'USD', accent: '#6366f1', placeholder: 'ex: ^BVSP, ^GSPC, ^IXIC' },
+  { id: 'indices',   label: 'Índices',              icon: Activity,   native: 'USD', accent: '#6366f1', placeholder: 'ex: IBOV, SPX500, NASDAQ' },
   { id: 'acoes_int', label: 'Ações Internacionais', icon: Globe,      native: 'USD', accent: '#3b82f6', placeholder: 'ex: NVDA, AMZN, AAPL' },
   { id: 'acoes_br',  label: 'Ações Brasileiras',    icon: Landmark,   native: 'BRL', accent: '#10b981', placeholder: 'ex: PETR4, VALE3, ITUB4' },
   { id: 'cripto',    label: 'Criptomoedas',         icon: Bitcoin,    native: 'USD', accent: '#f59e0b', placeholder: 'ex: BTC, ETH, SOL' },
@@ -31,34 +31,75 @@ const GROUPS = [
 ];
 const GROUP_BY_ID = Object.fromEntries(GROUPS.map(g => [g.id, g]));
 
-// Fallback client-side (localhost / quando /api/quotes não responde).
-async function fetchQuotesClient(items) {
+// Apelidos comuns de índices → símbolo real (Yahoo Finance).
+const INDEX_ALIASES = {
+  IBOV: '^BVSP', IBOVESPA: '^BVSP', BVSP: '^BVSP', IBX: '^BVSP',
+  SPX: '^GSPC', SPX500: '^GSPC', SP500: '^GSPC', GSPC: '^GSPC', 'S&P500': '^GSPC',
+  NASDAQ: '^IXIC', IXIC: '^IXIC', NASDAQ100: '^NDX', NDX: '^NDX',
+  DOW: '^DJI', DJI: '^DJI', DJIA: '^DJI',
+  RUSSELL: '^RUT', RUT: '^RUT', VIX: '^VIX',
+  FTSE: '^FTSE', DAX: '^GDAXI', CAC: '^FCHI', NIKKEI: '^N225', N225: '^N225', HANGSENG: '^HSI', HSI: '^HSI',
+};
+
+// Cripto é sempre buscada no navegador: a Binance bloqueia chamadas vindas de
+// servidores (ex.: Vercel/EUA, erro 451), mas funciona client-side.
+async function fetchCryptoClient(items) {
+  const out = {};
+  await Promise.all(items.map(async ({ ticker }) => {
+    try {
+      const r = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${ticker}USDT`);
+      if (r.ok) {
+        const d = await r.json();
+        if (d.lastPrice) out[ticker] = {
+          price: +d.lastPrice, change: +d.priceChange, changePercent: +d.priceChangePercent,
+          currency: 'USD', logo: `https://assets.coincap.io/assets/icons/${ticker.toLowerCase()}@2x.png`,
+        };
+      }
+    } catch (e) { /* ignora */ }
+  }));
+  return out;
+}
+
+// Fallback client-side para ações/índices/FIIs (localhost ou se /api/quotes falhar).
+async function fetchOtherClient(items) {
   const out = {};
   await Promise.all(items.map(async ({ ticker, group }) => {
     try {
-      if (group === 'cripto') {
-        const r = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${ticker}USDT`);
-        if (r.ok) {
-          const d = await r.json();
-          if (d.lastPrice) out[ticker] = { price: +d.lastPrice, change: +d.priceChange, changePercent: +d.priceChangePercent, currency: 'USD' };
-        }
-      } else {
-        const ysym = (group === 'acoes_br' || group === 'fiis') && !ticker.includes('.') ? `${ticker}.SA` : ticker;
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?interval=1d&range=2d`;
-        const r = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-        if (r.ok) {
-          const d = await r.json();
-          const meta = d?.chart?.result?.[0]?.meta;
-          if (meta?.regularMarketPrice != null) {
-            const price = +meta.regularMarketPrice;
-            const prev = +(meta.chartPreviousClose || meta.previousClose || price);
-            out[ticker] = { price, change: price - prev, changePercent: prev ? ((price - prev) / prev) * 100 : 0, currency: meta.currency || 'USD' };
-          }
+      let ysym = ticker;
+      if (group === 'indices') ysym = INDEX_ALIASES[ticker] || (ticker.startsWith('^') ? ticker : `^${ticker}`);
+      else if ((group === 'acoes_br' || group === 'fiis') && !ticker.includes('.')) ysym = `${ticker}.SA`;
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?interval=1d&range=2d`;
+      const r = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+      if (r.ok) {
+        const d = await r.json();
+        const meta = d?.chart?.result?.[0]?.meta;
+        if (meta?.regularMarketPrice != null) {
+          const price = +meta.regularMarketPrice;
+          const prev = +(meta.chartPreviousClose || meta.previousClose || price);
+          out[ticker] = {
+            price, change: price - prev, changePercent: prev ? ((price - prev) / prev) * 100 : 0,
+            currency: meta.currency || 'USD',
+            logo: group === 'acoes_int' ? `https://financialmodelingprep.com/image-stock/${ticker}.png` : null,
+          };
         }
       }
-    } catch (e) { /* ignora ticker que falhou */ }
+    } catch (e) { /* ignora */ }
   }));
   return out;
+}
+
+// Logo do ativo com fallback para um badge de letras quando a imagem falha.
+function AssetLogo({ logo, ticker, accent }) {
+  const [err, setErr] = useState(false);
+  const letters = ticker.replace('^', '').slice(0, 2);
+  if (!logo || err) {
+    return (
+      <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0" style={{ background: `${accent}1F`, color: accent }}>
+        {letters}
+      </div>
+    );
+  }
+  return <img src={logo} alt={ticker} onError={() => setErr(true)} loading="lazy" className="w-7 h-7 rounded-lg object-contain bg-white p-0.5 shrink-0" />;
 }
 
 export default function MonitorAtivosTab() {
@@ -95,21 +136,32 @@ export default function MonitorAtivosTab() {
     const items = list || watchlist;
     if (!items || items.length === 0) { setQuotes({}); setLastUpdated(new Date()); return; }
     setLoading(true);
-    const symbols = items.map(w => w.ticker).join(',');
-    const groups = items.map(w => w.group).join(',');
-    let data = null;
-    try {
-      const r = await fetch(`/api/quotes?symbols=${encodeURIComponent(symbols)}&groups=${encodeURIComponent(groups)}`);
-      if (r.ok) data = await r.json();
-    } catch (e) { /* cai no fallback */ }
 
-    if (data && data.quotes && Object.keys(data.quotes).length > 0) {
-      setQuotes(data.quotes);
-      if (data.usd) setServerUsd(data.usd);
-    } else {
-      const cq = await fetchQuotesClient(items);
-      setQuotes(cq);
-    }
+    const cryptoItems = items.filter(w => w.group === 'cripto');
+    const otherItems = items.filter(w => w.group !== 'cripto');
+
+    // Cripto sempre no navegador (Binance bloqueia o servidor).
+    const cryptoPromise = cryptoItems.length ? fetchCryptoClient(cryptoItems) : Promise.resolve({});
+
+    // Demais ativos via /api/quotes (servidor), com fallback client-side.
+    const otherPromise = (async () => {
+      if (otherItems.length === 0) return {};
+      const symbols = otherItems.map(w => w.ticker).join(',');
+      const groups = otherItems.map(w => w.group).join(',');
+      let data = null;
+      try {
+        const r = await fetch(`/api/quotes?symbols=${encodeURIComponent(symbols)}&groups=${encodeURIComponent(groups)}`);
+        if (r.ok) data = await r.json();
+      } catch (e) { /* cai no fallback */ }
+      if (data && data.quotes && Object.keys(data.quotes).length > 0) {
+        if (data.usd) setServerUsd(data.usd);
+        return data.quotes;
+      }
+      return fetchOtherClient(otherItems);
+    })();
+
+    const [cryptoQ, otherQ] = await Promise.all([cryptoPromise, otherPromise]);
+    setQuotes({ ...otherQ, ...cryptoQ });
     setLastUpdated(new Date());
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -200,9 +252,7 @@ export default function MonitorAtivosTab() {
       <div key={item.id} className={`group grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${isDark ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-50'}`}>
         {/* Símbolo */}
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0" style={{ background: `${accent}1F`, color: accent }}>
-            {item.ticker.replace('^', '').slice(0, 2)}
-          </div>
+          <AssetLogo logo={q?.logo} ticker={item.ticker} accent={accent} />
           <span className={`font-bold text-sm truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.ticker}</span>
           {!q && !loading && (
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider shrink-0">s/ cotação</span>
