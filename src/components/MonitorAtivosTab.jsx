@@ -11,7 +11,8 @@ import {
   Building2,
   Search,
   LineChart,
-  Maximize2
+  Settings2,
+  BarChart3
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -83,6 +84,7 @@ export default function MonitorAtivosTab() {
   const [newTicker, setNewTicker] = useState('');
   const [adding, setAdding] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [manageOpen, setManageOpen] = useState(false);
   // Ativo aberto no modal de gráfico: { symbol, ticker } | null
   const [chartAsset, setChartAsset] = useState(null);
 
@@ -128,42 +130,26 @@ export default function MonitorAtivosTab() {
     })).filter(g => g.items.length > 0);
   }, [watchlist]);
 
-  const cardBg = isDark ? 'bg-[#1e2330] border-slate-800/60' : 'bg-white border-slate-100 shadow-sm';
+  // Configuração do widget de lista (Market Quotes) — uma seção por grupo.
+  const symbolsGroups = useMemo(() => grouped.map(g => ({
+    name: g.label,
+    originalName: g.label,
+    symbols: g.items.map(it => ({ name: tvSymbol(it.ticker, it.group), displayName: it.ticker })),
+  })), [grouped]);
 
-  // Card de um ativo: widget de cotação (com variação do dia) + clique abre o gráfico.
-  const renderCard = (item) => {
-    const symbol = tvSymbol(item.ticker, item.group);
-    return (
-      <div key={`${item.id}-${reloadKey}-${colorTheme}`} className={`relative rounded-xl border overflow-hidden transition-all hover:ring-2 hover:ring-emerald-500/30 ${isDark ? 'border-slate-800/60 bg-slate-900/40' : 'border-slate-100 bg-white'}`}>
-        <TradingViewWidget
-          scriptSrc="https://s3.tradingview.com/external-embedding/embed-widget-single-quote.js"
-          config={{ symbol, width: '100%', isTransparent: true, colorTheme, locale: 'br' }}
-          style={{ height: 126 }}
-        />
-        {/* Overlay clicável → abre o gráfico */}
-        <button
-          type="button"
-          onClick={() => setChartAsset({ symbol, ticker: item.ticker })}
-          title="Abrir gráfico"
-          aria-label={`Abrir gráfico de ${item.ticker}`}
-          className="absolute inset-0 z-10 cursor-pointer group"
-        >
-          <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500 text-white text-[9px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
-            <Maximize2 className="w-2.5 h-2.5" /> Gráfico
-          </span>
-        </button>
-        {/* Remover */}
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
-          title="Remover"
-          className={`absolute top-2 right-2 z-20 p-1.5 rounded-lg transition-all ${isDark ? 'bg-slate-900/70 text-slate-400 hover:text-rose-400 hover:bg-slate-900' : 'bg-white/80 text-slate-400 hover:text-rose-500 hover:bg-white'}`}
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
-      </div>
-    );
-  };
+  // Altura do widget para caber todas as linhas sem scroll interno.
+  const widgetHeight = useMemo(() => {
+    const rows = watchlist.length;
+    const groupsCount = grouped.length;
+    return Math.max(220, 18 + groupsCount * 46 + rows * 46);
+  }, [watchlist.length, grouped.length]);
+
+  const widgetKey = useMemo(
+    () => `${colorTheme}-${reloadKey}-${watchlist.map(w => `${w.group}:${w.ticker}`).join('|')}`,
+    [colorTheme, reloadKey, watchlist]
+  );
+
+  const cardBg = isDark ? 'bg-[#1e2330] border-slate-800/60' : 'bg-white border-slate-100 shadow-sm';
 
   return (
     <div className="space-y-5 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -171,14 +157,23 @@ export default function MonitorAtivosTab() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Monitor de Ativos</h1>
-          <p className={`text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Cotações e variação do dia em tempo real · clique no ativo para abrir o gráfico</p>
+          <p className={`text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Sua lista de ativos com cotação e variação do dia em tempo real</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {watchlist.length > 0 && (
+            <button
+              onClick={() => setManageOpen(o => !o)}
+              className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${manageOpen ? 'bg-emerald-500/15 text-emerald-500' : (isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')}`}
+              title="Gerenciar lista (ver gráfico / remover)"
+            >
+              <Settings2 className="w-4 h-4" /> Gerenciar
+            </button>
+          )}
           <button
             onClick={() => setReloadKey(k => k + 1)}
             disabled={watchlist.length === 0}
             className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            title="Recarregar widgets"
+            title="Recarregar"
           >
             <RefreshCw className="w-4 h-4" /> Atualizar
           </button>
@@ -191,6 +186,35 @@ export default function MonitorAtivosTab() {
         </div>
       </div>
 
+      {/* Painel Gerenciar — chips: clique abre o gráfico, X remove */}
+      {manageOpen && watchlist.length > 0 && (
+        <div className={`rounded-2xl border p-4 ${cardBg}`}>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Seus ativos · clique para ver o gráfico</p>
+          <div className="flex flex-wrap gap-2">
+            {grouped.flatMap(g => g.items.map(it => (
+              <div key={it.id} className={`group inline-flex items-center gap-1.5 pl-2 pr-1 py-1.5 rounded-lg border transition-all ${isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-slate-50'}`}>
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: g.accent }} />
+                <button
+                  type="button"
+                  onClick={() => setChartAsset({ symbol: tvSymbol(it.ticker, it.group), ticker: it.ticker })}
+                  className={`text-xs font-bold flex items-center gap-1 ${isDark ? 'text-slate-200 hover:text-emerald-400' : 'text-slate-700 hover:text-emerald-600'}`}
+                >
+                  <BarChart3 className="w-3 h-3 opacity-60" /> {it.ticker}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(it.id)}
+                  title="Remover"
+                  className="p-1 rounded text-slate-400 hover:text-rose-400 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )))}
+          </div>
+        </div>
+      )}
+
       {watchlist.length === 0 ? (
         // Estado vazio
         <div className={`p-12 rounded-2xl border text-center ${cardBg}`}>
@@ -202,33 +226,31 @@ export default function MonitorAtivosTab() {
           <button onClick={() => { setIsAdding(true); setNewTicker(''); }} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white font-black text-xs hover:bg-emerald-600"><Plus className="w-4 h-4" /> Adicionar ativo</button>
         </div>
       ) : (
-        <div className="space-y-5">
-          {grouped.map((g) => {
-            const GIcon = g.icon;
-            return (
-              <div key={g.id} className={`rounded-2xl border overflow-hidden ${cardBg}`}>
-                {/* Faixa do grupo */}
-                <div className={`flex items-center gap-2 px-4 py-3 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${g.accent}1F`, color: g.accent }}>
-                    <GIcon className="w-4 h-4" />
-                  </div>
-                  <span className="text-[12px] font-black uppercase tracking-widest" style={{ color: g.accent }}>{g.label}</span>
-                  <span className="text-[10px] font-bold text-slate-500">{g.items.length}</span>
-                </div>
-                {/* Cards dos ativos */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 p-3">
-                  {g.items.map(renderCard)}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Atribuição TradingView */}
-          <p className="text-[10px] text-slate-500 text-center">
-            Cotações fornecidas por{' '}
-            <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" className="font-bold text-emerald-500 hover:underline">TradingView</a>
-          </p>
+        <div className={`rounded-2xl border overflow-hidden ${cardBg}`}>
+          <TradingViewWidget
+            key={widgetKey}
+            scriptSrc="https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js"
+            config={{
+              width: '100%',
+              height: widgetHeight,
+              symbolsGroups,
+              showSymbolLogo: true,
+              isTransparent: true,
+              colorTheme,
+              locale: 'br',
+              backgroundColor: isDark ? '#1e2330' : '#ffffff',
+            }}
+            style={{ height: widgetHeight }}
+          />
         </div>
+      )}
+
+      {watchlist.length > 0 && (
+        <p className="text-[10px] text-slate-500 text-center">
+          Cotações fornecidas por{' '}
+          <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" className="font-bold text-emerald-500 hover:underline">TradingView</a>
+          {' '}· abra o painel <span className="font-bold">Gerenciar</span> para ver o gráfico de cada ativo
+        </p>
       )}
 
       {/* Modal Adicionar */}
