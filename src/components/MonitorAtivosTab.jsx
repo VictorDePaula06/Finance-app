@@ -89,17 +89,25 @@ async function fetchYahooHistory(ticker, group, cfg) {
 }
 
 // Cripto é sempre buscada no navegador (a Binance bloqueia chamadas de servidor, HTTP 451).
+// Usa o candle DIÁRIO (abertura 00:00 UTC) para a variação "do dia" — o /ticker/24hr
+// traz a variação rolante das últimas 24h, que não bate com o "hoje" do Google.
 async function fetchCryptoClient(items) {
   const out = {};
   await Promise.all(items.map(async ({ ticker }) => {
     try {
-      const r = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${ticker}USDT`);
+      const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${ticker}USDT&interval=1d&limit=1`);
       if (r.ok) {
         const d = await r.json();
-        if (d.lastPrice) out[ticker] = {
-          price: +d.lastPrice, change: +d.priceChange, changePercent: +d.priceChangePercent,
-          currency: 'USD', logo: `https://assets.coincap.io/assets/icons/${ticker.toLowerCase()}@2x.png`,
-        };
+        const k = Array.isArray(d) ? d[0] : null;
+        if (k) {
+          const open = +k[1];      // abertura do dia (00:00 UTC)
+          const price = +k[4];     // último preço (candle em formação)
+          const change = price - open;
+          out[ticker] = {
+            price, change, changePercent: open ? (change / open) * 100 : 0,
+            currency: 'USD', logo: `https://assets.coincap.io/assets/icons/${ticker.toLowerCase()}@2x.png`,
+          };
+        }
       }
     } catch (e) { /* ignora */ }
   }));
