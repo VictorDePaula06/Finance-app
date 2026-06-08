@@ -26,6 +26,7 @@ export const TAB_SLUG_TO_ID = {
     'analise-comparativo':    'analise_comparativo',
     // Patrimônio
     'visao':                    'patrimonio',     // /patrimonio/visao
+    'monitor-ativos':           'monitor',
     'fluxo-patrimonial':        'fluxo',
     'reserva':                  'reserva',
     'investimentos':            'investimentos',
@@ -55,6 +56,7 @@ export const TAB_ID_TO_SLUG = {
     'analise_comparativo':  'analise-comparativo',
     // Patrimônio
     'patrimonio':      'visao',
+    'monitor':         'monitor-ativos',
     'fluxo':           'fluxo-patrimonial',
     'reserva':         'reserva',
     'investimentos':   'investimentos',
@@ -88,6 +90,7 @@ export const TAB_TO_MODULE = {
     analise_metas:       'gastos',
     analise_comparativo: 'gastos',
     patrimonio:      'patrimonio',
+    monitor:         'patrimonio',
     fluxo:           'patrimonio',
     reserva:         'patrimonio',
     investimentos:   'patrimonio',

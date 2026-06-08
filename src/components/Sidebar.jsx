@@ -27,7 +27,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Umbrella,
-  RefreshCw
+  RefreshCw,
+  LineChart
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -94,6 +95,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
     ],
     patrimonio: [
       { type: 'item', id: 'patrimonio', label: 'Visão Geral', icon: LayoutDashboard },
+      { type: 'item', id: 'monitor', label: 'Monitor de Ativos', icon: LineChart, badge: 'Novo' },
       { type: 'item', id: 'fluxo', label: 'Fluxo Patrimonial', icon: Activity, premiumOnly: true },
       {
         type: 'group', id: 'grp_ativos', label: 'Meu Patrimônio', icon: Star,
