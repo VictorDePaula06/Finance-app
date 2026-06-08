@@ -26,6 +26,17 @@ const INDEX_ALIASES = {
     FTSE: '^FTSE', DAX: '^GDAXI', CAC: '^FCHI', NIKKEI: '^N225', N225: '^N225', HANGSENG: '^HSI', HSI: '^HSI',
 };
 
+// Commodities (sem ETF) → símbolo de futuros/spot do Yahoo Finance.
+const COMMODITIES = {
+    OURO: 'GC=F', GOLD: 'GC=F', XAU: 'XAUUSD=X', XAUUSD: 'XAUUSD=X',
+    PRATA: 'SI=F', SILVER: 'SI=F', XAG: 'XAGUSD=X',
+    PETROLEO: 'CL=F', OIL: 'CL=F', WTI: 'CL=F', BRENT: 'BZ=F',
+    GAS: 'NG=F', GASNATURAL: 'NG=F',
+    COBRE: 'HG=F', COPPER: 'HG=F',
+    MILHO: 'ZC=F', CORN: 'ZC=F', SOJA: 'ZS=F', SOYBEAN: 'ZS=F',
+    CAFE: 'KC=F', COFFEE: 'KC=F', ACUCAR: 'SB=F', SUGAR: 'SB=F', BOI: 'LE=F',
+};
+
 async function fetchBinance(sym) {
     try {
         const r = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${sym}USDT`);
@@ -145,7 +156,9 @@ export default async function handler(req, res) {
         const grp = grpList[i] || 'acoes_int';
         let q = null;
 
-        if (grp === 'cripto') {
+        if (grp === 'commodities') {
+            q = await fetchYahoo(COMMODITIES[sym] || sym);
+        } else if (grp === 'cripto') {
             q = await fetchBinance(sym);
             if (q) q.logo = `https://assets.coincap.io/assets/icons/${sym.toLowerCase()}@2x.png`;
         } else if (grp === 'acoes_br' || grp === 'fiis') {

@@ -12,7 +12,8 @@ import {
   Search,
   AlertCircle,
   LineChart,
-  BarChart3
+  BarChart3,
+  Coins
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useTheme } from '../contexts/ThemeContext';
@@ -26,10 +27,22 @@ const GROUPS = [
   { id: 'indices',   label: 'Índices',              icon: Activity,   native: 'USD', accent: '#6366f1', placeholder: 'ex: IBOV, SPX500, NASDAQ' },
   { id: 'acoes_int', label: 'Ações Internacionais', icon: Globe,      native: 'USD', accent: '#3b82f6', placeholder: 'ex: NVDA, AMZN, AAPL' },
   { id: 'acoes_br',  label: 'Ações Brasileiras',    icon: Landmark,   native: 'BRL', accent: '#10b981', placeholder: 'ex: PETR4, VALE3, ITUB4' },
-  { id: 'cripto',    label: 'Criptomoedas',         icon: Bitcoin,    native: 'USD', accent: '#f59e0b', placeholder: 'ex: BTC, ETH, SOL' },
-  { id: 'fiis',      label: 'Fundos Imobiliários',  icon: Building2,  native: 'BRL', accent: '#a855f7', placeholder: 'ex: MXRF11, HGLG11' },
+  { id: 'cripto',      label: 'Criptomoedas',        icon: Bitcoin,    native: 'USD', accent: '#f59e0b', placeholder: 'ex: BTC, ETH, SOL' },
+  { id: 'commodities', label: 'Commodities',         icon: Coins,      native: 'USD', accent: '#eab308', placeholder: 'ex: OURO, PRATA, PETROLEO' },
+  { id: 'fiis',        label: 'Fundos Imobiliários', icon: Building2,  native: 'BRL', accent: '#a855f7', placeholder: 'ex: MXRF11, HGLG11' },
 ];
 const GROUP_BY_ID = Object.fromEntries(GROUPS.map(g => [g.id, g]));
+
+// Commodities (sem ETF) → símbolo de futuros/spot do Yahoo Finance.
+const COMMODITIES = {
+  OURO: 'GC=F', GOLD: 'GC=F', XAU: 'XAUUSD=X', XAUUSD: 'XAUUSD=X',
+  PRATA: 'SI=F', SILVER: 'SI=F', XAG: 'XAGUSD=X',
+  PETROLEO: 'CL=F', OIL: 'CL=F', WTI: 'CL=F', BRENT: 'BZ=F',
+  GAS: 'NG=F', GASNATURAL: 'NG=F',
+  COBRE: 'HG=F', COPPER: 'HG=F',
+  MILHO: 'ZC=F', CORN: 'ZC=F', SOJA: 'ZS=F', SOYBEAN: 'ZS=F',
+  CAFE: 'KC=F', COFFEE: 'KC=F', ACUCAR: 'SB=F', SUGAR: 'SB=F', BOI: 'LE=F',
+};
 
 // Apelidos de índices → símbolo Yahoo (cotação) e → símbolo TradingView (gráfico).
 const INDEX_ALIASES = {
@@ -73,7 +86,8 @@ async function fetchYahooHistory(ticker, group, cfg) {
   } catch (e) { /* cai no fallback */ }
   try {
     let ysym = ticker;
-    if (group === 'indices') ysym = INDEX_ALIASES[ticker] || (ticker.startsWith('^') ? ticker : `^${ticker}`);
+    if (group === 'commodities') ysym = COMMODITIES[ticker] || ticker;
+    else if (group === 'indices') ysym = INDEX_ALIASES[ticker] || (ticker.startsWith('^') ? ticker : `^${ticker}`);
     else if ((group === 'acoes_br' || group === 'fiis') && !ticker.includes('.')) ysym = `${ticker}.SA`;
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?interval=${cfg.yIv}&range=${cfg.yRange}`;
     const r = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
@@ -120,7 +134,8 @@ async function fetchOtherClient(items) {
   await Promise.all(items.map(async ({ ticker, group }) => {
     try {
       let ysym = ticker;
-      if (group === 'indices') ysym = INDEX_ALIASES[ticker] || (ticker.startsWith('^') ? ticker : `^${ticker}`);
+      if (group === 'commodities') ysym = COMMODITIES[ticker] || ticker;
+      else if (group === 'indices') ysym = INDEX_ALIASES[ticker] || (ticker.startsWith('^') ? ticker : `^${ticker}`);
       else if ((group === 'acoes_br' || group === 'fiis') && !ticker.includes('.')) ysym = `${ticker}.SA`;
       const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?interval=5m&range=1d&includePrePost=true`;
       const r = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);

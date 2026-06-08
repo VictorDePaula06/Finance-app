@@ -20,6 +20,17 @@ const INDEX_ALIASES = {
     FTSE: '^FTSE', DAX: '^GDAXI', CAC: '^FCHI', NIKKEI: '^N225', N225: '^N225', HANGSENG: '^HSI', HSI: '^HSI',
 };
 
+// Commodities (sem ETF) → símbolo de futuros/spot do Yahoo Finance.
+const COMMODITIES = {
+    OURO: 'GC=F', GOLD: 'GC=F', XAU: 'XAUUSD=X', XAUUSD: 'XAUUSD=X',
+    PRATA: 'SI=F', SILVER: 'SI=F', XAG: 'XAGUSD=X',
+    PETROLEO: 'CL=F', OIL: 'CL=F', WTI: 'CL=F', BRENT: 'BZ=F',
+    GAS: 'NG=F', GASNATURAL: 'NG=F',
+    COBRE: 'HG=F', COPPER: 'HG=F',
+    MILHO: 'ZC=F', CORN: 'ZC=F', SOJA: 'ZS=F', SOYBEAN: 'ZS=F',
+    CAFE: 'KC=F', COFFEE: 'KC=F', ACUCAR: 'SB=F', SUGAR: 'SB=F', BOI: 'LE=F',
+};
+
 // range → parâmetros do Yahoo (intervalo / janela).
 const RANGE_MAP = {
     '1D': { interval: '5m', range: '1d' },
@@ -44,7 +55,8 @@ export default async function handler(req, res) {
 
     // Resolve o símbolo Yahoo conforme o grupo.
     let ysym = sym;
-    if (group === 'indices') ysym = INDEX_ALIASES[sym] || (sym.startsWith('^') ? sym : `^${sym}`);
+    if (group === 'commodities') ysym = COMMODITIES[sym] || sym;
+    else if (group === 'indices') ysym = INDEX_ALIASES[sym] || (sym.startsWith('^') ? sym : `^${sym}`);
     else if ((group === 'acoes_br' || group === 'fiis') && !sym.includes('.')) ysym = `${sym}.SA`;
 
     const urls = [
