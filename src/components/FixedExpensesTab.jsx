@@ -432,6 +432,16 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
       if (paid) { paidSum += paid.amount; paidCount++; colTotal += paid.amount; }
       else colTotal += parseFloat(exp.value) || 0;
     });
+
+    // Ordena: Pagar agora (vencida/hoje) → a vencer em breve → a pagar → pagas (fim).
+    // Dentro do mesmo grupo, por dia de vencimento.
+    const rank = { overdue: 0, today: 0, soon: 1, pending: 2, paid: 3 };
+    const sortedList = [...list].sort((a, b) => {
+      const ra = rank[urgencyOf(a, getPaid(a))] ?? 2;
+      const rb = rank[urgencyOf(b, getPaid(b))] ?? 2;
+      if (ra !== rb) return ra - rb;
+      return (a.day || 1) - (b.day || 1);
+    });
     const restSum = colTotal - paidSum;
     const pct = colTotal > 0 ? Math.round((paidSum / colTotal) * 100) : 0;
     const barColor = isVariable ? 'bg-amber-500' : 'bg-emerald-500';
@@ -471,7 +481,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
 
         {/* Linhas */}
         <div className="space-y-0.5 min-h-[60px]">
-          {list.length > 0 ? list.map(renderRow) : (
+          {sortedList.length > 0 ? sortedList.map(renderRow) : (
             <div className={`flex flex-col items-center justify-center text-center py-8 px-4 rounded-xl border border-dashed ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-2 ${accentSoft} ${accentText}`}>
                 <ColIcon className="w-5 h-5" />
