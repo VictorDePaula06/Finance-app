@@ -69,18 +69,30 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────
-    // DADOS FINANCEIROS POR USUÁRIO (transactions, goals, cards,
-    // subscriptions, fixed_expenses, savings_jars, investments)
+    // DADOS FINANCEIROS POR USUÁRIO
     //
-    // Regras explícitas por operação — previne escalada de privilégio
-    // pelo OR genérico que existia antes.
+    // F-01: o catch-all antigo `match /{collectionName}/{docId}` casava
+    // TAMBÉM com /users/{uid} e, pelo OR de regras do Firestore, autorizava
+    // updates sem os guards anti-promoção (subStatusSafe/adminFlagSafe),
+    // permitindo escalar para lifetime/admin. Agora a regra genérica só
+    // vale para a ALLOWLIST explícita das coleções financeiras reais —
+    // users/customers/settings/admin_configs ficam fora e usam seus
+    // próprios blocos protegidos.
     // ─────────────────────────────────────────────────────────
+    function isFinancialCollection(name) {
+      return name in [
+        'transactions', 'goals', 'cards', 'subscriptions', 'fixed_expenses',
+        'savings_jars', 'investments', 'tangible_assets', 'debts',
+        'insurances', 'watchlist'
+      ];
+    }
+
     match /{collectionName}/{docId} {
-      allow read:   if ownsExisting();
-      allow create: if ownsIncoming();
+      allow read:   if isFinancialCollection(collectionName) && ownsExisting();
+      allow create: if isFinancialCollection(collectionName) && ownsIncoming();
       // Update: dono original + dono incoming + userId não muda
-      allow update: if ownsExisting() && ownsIncoming() && ownerStable();
-      allow delete: if ownsExisting();
+      allow update: if isFinancialCollection(collectionName) && ownsExisting() && ownsIncoming() && ownerStable();
+      allow delete: if isFinancialCollection(collectionName) && ownsExisting();
     }
 
     // ─────────────────────────────────────────────────────────

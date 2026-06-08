@@ -9,6 +9,8 @@
  * Resposta: { points: [{ t: <ms>, c: <close> }], currency }
  */
 
+import { isValidTicker } from './_marketGuard.js';
+
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
 
 const INDEX_ALIASES = {
@@ -51,6 +53,8 @@ export default async function handler(req, res) {
     if (!symbol) return res.status(400).json({ error: 'No symbol provided' });
 
     const sym = symbol.toUpperCase();
+    // F-07: valida o formato do símbolo antes de montar a URL do provedor.
+    if (!isValidTicker(sym)) return res.status(400).json({ error: 'Invalid symbol' });
     const rcfg = RANGE_MAP[range] || RANGE_MAP['1D'];
 
     // Resolve o símbolo Yahoo conforme o grupo.

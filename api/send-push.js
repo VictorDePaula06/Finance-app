@@ -1,6 +1,8 @@
 import webpush from 'web-push';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
+import { isAdminEmail } from '../src/constants/admins.js';
 
 export default async function handler(req, res) {
     // Forçar cabeçalho JSON
@@ -36,10 +38,33 @@ export default async function handler(req, res) {
         }
 
         const db = getFirestore();
+
+        // F-02: exige ID token do Firebase + e-mail na allowlist de admin.
+        // Sem isso, qualquer pessoa poderia disparar push para toda a base (phishing em massa).
+        const authHeader = req.headers.authorization || '';
+        const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+        if (!idToken) {
+            return res.status(401).json({ success: false, error: 'Não autenticado.' });
+        }
+        let decoded;
+        try {
+            decoded = await getAuth().verifyIdToken(idToken);
+        } catch {
+            return res.status(401).json({ success: false, error: 'Sessão inválida. Faça login novamente.' });
+        }
+        if (!isAdminEmail(decoded.email)) {
+            return res.status(403).json({ success: false, error: 'Acesso restrito a administradores.' });
+        }
+
         const { title, body, url } = req.body;
 
         if (!title || !body) {
             return res.status(400).json({ success: false, error: 'Título e Mensagem são obrigatórios.' });
+        }
+
+        // F-02: a URL aberta no clique deve ser HTTPS (bloqueia javascript:/data: e afins).
+        if (url && !/^https:\/\//i.test(url)) {
+            return res.status(400).json({ success: false, error: 'URL inválida (use https://).' });
         }
 
         // 3. Configuração Web Push

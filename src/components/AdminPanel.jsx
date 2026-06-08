@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { db } from '../services/firebase';
+import { db, auth } from '../services/firebase';
 import { version } from '../../package.json';
 import {
     collection,
@@ -368,9 +368,15 @@ export default function AdminPanel({ onBack }) {
                 showToast("Nenhum dispositivo ativo para enviar", "error");
                 return;
             }
+            // F-02: envia o ID token do admin — o servidor valida token + allowlist de admin.
+            const idToken = await auth.currentUser?.getIdToken();
+            if (!idToken) { showToast("Sessão expirada. Faça login novamente.", "error"); return; }
             const res = await fetch('https://alivia-push.vercel.app/api/send-push', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                },
                 body: JSON.stringify({ subscriptions: subs, title: pushMessage.title, body: pushMessage.body })
             });
             if (res.ok) { showToast(`Notificação enviada para ${subs.length} dispositivos!`); setPushMessage({ title: '', body: '' }); }

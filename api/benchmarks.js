@@ -29,8 +29,8 @@ export default async function handler(req, res) {
     // ── helper: fetch one ticker from Yahoo Finance ──────────────────────────
     async function fetchYahooHistory(ticker) {
         const urls = [
-            `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1wk&range=${safeRange}`,
-            `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1wk&range=${safeRange}`,
+            `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1wk&range=${safeRange}`,
+            `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1wk&range=${safeRange}`,
         ];
 
         for (const url of urls) {
@@ -75,8 +75,10 @@ export default async function handler(req, res) {
     }
 
     // ── Parse user tickers for portfolio history ─────────────────────────────
+    // F-07: além do teto de 10, valida o formato para não montar URLs arbitrárias.
+    const TICKER_RE = /^[A-Z0-9.^=&-]{1,15}$/;
     const userTickers = tickers
-        ? tickers.split(',').map(t => t.trim()).filter(Boolean).slice(0, 10) // max 10 tickers
+        ? tickers.split(',').map(t => t.trim().toUpperCase()).filter(t => TICKER_RE.test(t)).slice(0, 10)
         : [];
 
     // ── Run all fetches in parallel ──────────────────────────────────────────

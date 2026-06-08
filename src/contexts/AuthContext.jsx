@@ -48,8 +48,15 @@ export function AuthProvider({ children }) {
     const [needsPlanSelection, setNeedsPlanSelection] = useState(false);
     const expiryTimeoutRef = useRef(null);
 
-    // MODO DEV: Bypass de autenticação para localhost
-    const IS_DEV = import.meta.env.VITE_USE_MOCK_AUTH === 'true';
+    // MODO DEV: Bypass de autenticação para localhost.
+    // F-05: o bypass só vale se TODAS as condições baterem — não basta a env var.
+    // Exige build de desenvolvimento (import.meta.env.DEV) E host local. Assim,
+    // mesmo que VITE_USE_MOCK_AUTH vaze para um build de produção, o bypass fica inerte.
+    const IS_LOCALHOST = typeof window !== 'undefined'
+        && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
+    const IS_DEV = import.meta.env.VITE_USE_MOCK_AUTH === 'true'
+        && import.meta.env.DEV === true
+        && IS_LOCALHOST;
 
     function signup(email, password) {
         return createUserWithEmailAndPassword(auth, email, password);
@@ -189,9 +196,6 @@ export function AuthProvider({ children }) {
             // 1. Data Consolidation
             const currentData = { ...dataRef.current.user, ...dataRef.current.prefs };
             const currentSubs = dataRef.current.subs;
-            
-            console.log("[Auth Sync Check] currentData:", currentData);
-            console.log("[Auth Sync Check] currentSubs:", currentSubs);
 
             const stripeSub = currentSubs[0];
             const userEmail = currentUser.email?.toLowerCase();
@@ -245,7 +249,10 @@ export function AuthProvider({ children }) {
                 } else if (STANDARD_PRICES.includes(stripePriceId)) {
                     currentPlanLevel = 'standard';
                 } else {
-                    currentPlanLevel = 'premium'; // assinatura paga reconhecida, preço desconhecido
+                    // F-03: preço NÃO reconhecido (fora das allowlists) NÃO concede plano pago.
+                    // Evita liberar premium via checkout_session com preço/valor manipulado.
+                    currentPlanLevel = 'free';
+                    console.warn('[Auth] Assinatura ativa com preço fora da allowlist — mantendo plano free.');
                 }
             }
             // Qualquer outro caso permanece 'free'.

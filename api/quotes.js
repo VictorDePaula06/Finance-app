@@ -14,6 +14,8 @@
  * Resposta: { quotes: { TICKER: { price, change, changePercent, currency, name, source } }, usd, fetchedAt }
  */
 
+import { sanitizePairs } from './_marketGuard.js';
+
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
 
 // Apelidos comuns de índices → símbolo real (Yahoo Finance).
@@ -147,13 +149,13 @@ export default async function handler(req, res) {
     const { symbols = '', groups = '' } = req.query;
     if (!symbols) return res.status(400).json({ error: 'No symbols provided' });
 
-    const symList = symbols.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-    const grpList = groups.split(',').map(s => s.trim().toLowerCase());
+    // F-07: valida formato dos símbolos e limita a quantidade por request.
+    const pairs = sanitizePairs(symbols, groups, 'acoes_int');
+    if (pairs.length === 0) return res.status(400).json({ error: 'No valid symbols provided' });
 
     const quotes = {};
 
-    await Promise.all(symList.map(async (sym, i) => {
-        const grp = grpList[i] || 'acoes_int';
+    await Promise.all(pairs.map(async ({ sym, meta: grp }) => {
         let q = null;
 
         if (grp === 'commodities') {

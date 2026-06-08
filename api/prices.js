@@ -7,6 +7,8 @@
  *   types=acoes,fiis,etfs,crypto      (comma-separated, same order)
  */
 
+import { sanitizePairs } from './_marketGuard.js';
+
 export default async function handler(req, res) {
     // CORS headers so the browser can call this from any domain
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,13 +22,13 @@ export default async function handler(req, res) {
     const { tickers = '', types = '' } = req.query;
     if (!tickers) return res.status(400).json({ error: 'No tickers provided' });
 
-    const tickerList = tickers.split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
-    const typeList   = types.split(',').map(t => t.trim().toLowerCase());
+    // F-07: valida formato dos tickers e limita a quantidade por request.
+    const pairs = sanitizePairs(tickers, types, 'acoes');
+    if (pairs.length === 0) return res.status(400).json({ error: 'No valid tickers provided' });
 
     const prices = {};
 
-    await Promise.all(tickerList.map(async (ticker, idx) => {
-        const assetType = typeList[idx] || 'acoes';
+    await Promise.all(pairs.map(async ({ sym: ticker, meta: assetType }) => {
 
         if (assetType === 'crypto') {
             // Binance for crypto

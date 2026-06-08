@@ -29,6 +29,11 @@ export default async function handler(req, res) {
 
   const p = (req.query.p || 'marcas').toString().replace(/^\/+/, '');
 
+  // F-07: aceita apenas o formato esperado dos caminhos FIPE (evita traversal/SSRF).
+  if (!/^[a-zA-Z0-9/_-]{1,60}$/.test(p)) {
+    return res.status(400).json({ error: 'Invalid path' });
+  }
+
   // 1) parallelum
   try {
     const data = await fetchJson(`${PARALLELUM}/${p}`);
