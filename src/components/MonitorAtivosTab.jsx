@@ -306,7 +306,13 @@ export default function MonitorAtivosTab() {
         <div className="flex items-center gap-2.5 min-w-0">
           <AssetLogo logo={q?.logo} ticker={item.ticker} accent={accent} />
           <span className={`font-bold text-sm truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.ticker}</span>
-          <BarChart3 className="w-3 h-3 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          <button
+            onClick={(e) => { e.stopPropagation(); setChartAsset({ symbol: tvSymbol(item.ticker, item.group), ticker: item.ticker }); }}
+            title={`Ver gráfico de ${item.ticker}`}
+            className={`shrink-0 p-1 rounded-md transition-all ${isDark ? 'text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+          </button>
           {!q && !loading && (
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider shrink-0">s/ cotação</span>
           )}
