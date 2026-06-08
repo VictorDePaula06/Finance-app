@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Plus,
   Trash2,
@@ -14,6 +14,7 @@ import {
   LineChart,
   BarChart3
 } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useUsdRate } from '../utils/marketRates';
@@ -39,23 +40,52 @@ const INDEX_ALIASES = {
   RUSSELL: '^RUT', RUT: '^RUT', VIX: '^VIX',
   FTSE: '^FTSE', DAX: '^GDAXI', CAC: '^FCHI', NIKKEI: '^N225', N225: '^N225', HANGSENG: '^HSI', HSI: '^HSI',
 };
-const TV_INDEX = {
-  IBOV: 'INDEX:IBOV', IBOVESPA: 'INDEX:IBOV', BVSP: 'INDEX:IBOV',
-  SPX: 'SP:SPX', SPX500: 'SP:SPX', SP500: 'SP:SPX', GSPC: 'SP:SPX',
-  NASDAQ: 'NASDAQ:IXIC', IXIC: 'NASDAQ:IXIC', NASDAQ100: 'NASDAQ:NDX', NDX: 'NASDAQ:NDX',
-  DOW: 'DJ:DJI', DJI: 'DJ:DJI', DJIA: 'DJ:DJI',
-  VIX: 'CBOE:VIX', RUSSELL: 'TVC:RUT', RUT: 'TVC:RUT',
-  FTSE: 'TVC:UKX', DAX: 'XETR:DAX', NIKKEI: 'TVC:NI225', N225: 'TVC:NI225', HANGSENG: 'TVC:HSI', HSI: 'TVC:HSI',
-};
+// Períodos do gráfico (estilo Google). yIv/yRange = Yahoo; bIv/bLim = Binance klines.
+const RANGES = [
+  { id: '1D',  label: '1 D', yIv: '5m',  yRange: '1d',  bIv: '5m',  bLim: 288 },
+  { id: '5D',  label: '5 D', yIv: '30m', yRange: '5d',  bIv: '30m', bLim: 240 },
+  { id: '1M',  label: '1 M', yIv: '1d',  yRange: '1mo', bIv: '2h',  bLim: 360 },
+  { id: '6M',  label: '6 M', yIv: '1d',  yRange: '6mo', bIv: '12h', bLim: 365 },
+  { id: '1A',  label: '1 A', yIv: '1d',  yRange: '1y',  bIv: '1d',  bLim: 365 },
+  { id: 'MAX', label: 'Máx', yIv: '1wk', yRange: 'max', bIv: '1w',  bLim: 520 },
+];
 
-// Símbolo qualificado do TradingView (só para o gráfico em modal).
-function tvSymbol(ticker, group) {
-  const t = (ticker || '').toUpperCase();
-  if (t.includes(':')) return t;
-  if (group === 'cripto') return `BINANCE:${t}USDT`;
-  if (group === 'acoes_br' || group === 'fiis') return `BMFBOVESPA:${t}`;
-  if (group === 'indices') return TV_INDEX[t] || (t.startsWith('^') ? t.replace('^', 'INDEX:') : t);
-  return t;
+// Histórico de cripto: Binance klines (client-side; servidor é bloqueado).
+async function fetchCryptoHistory(ticker, cfg) {
+  try {
+    const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${ticker}USDT&interval=${cfg.bIv}&limit=${cfg.bLim}`);
+    if (r.ok) {
+      const d = await r.json();
+      return d.map(k => ({ t: k[0], c: +k[4] })).filter(p => isFinite(p.c));
+    }
+  } catch (e) { /* ignora */ }
+  return [];
+}
+
+// Histórico de ações/índices/FIIs: /api/history (servidor) com fallback corsproxy.
+async function fetchYahooHistory(ticker, group, cfg) {
+  try {
+    const r = await fetch(`/api/history?symbol=${encodeURIComponent(ticker)}&group=${group}&range=${cfg.id}`);
+    if (r.ok) {
+      const d = await r.json();
+      if (d.points && d.points.length) return d.points;
+    }
+  } catch (e) { /* cai no fallback */ }
+  try {
+    let ysym = ticker;
+    if (group === 'indices') ysym = INDEX_ALIASES[ticker] || (ticker.startsWith('^') ? ticker : `^${ticker}`);
+    else if ((group === 'acoes_br' || group === 'fiis') && !ticker.includes('.')) ysym = `${ticker}.SA`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?interval=${cfg.yIv}&range=${cfg.yRange}`;
+    const r = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+    if (r.ok) {
+      const d = await r.json();
+      const res = d?.chart?.result?.[0];
+      const ts = res?.timestamp || [];
+      const closes = res?.indicators?.quote?.[0]?.close || [];
+      return ts.map((t, i) => ({ t: t * 1000, c: closes[i] })).filter(p => p.c != null && isFinite(p.c));
+    }
+  } catch (e) { /* ignora */ }
+  return [];
 }
 
 // Cripto é sempre buscada no navegador (a Binance bloqueia chamadas de servidor, HTTP 451).
@@ -118,36 +148,159 @@ function AssetLogo({ logo, ticker, accent }) {
   return <img src={logo} alt={ticker} onError={() => setErr(true)} loading="lazy" className="w-7 h-7 rounded-lg object-contain bg-white p-0.5 shrink-0" />;
 }
 
-// Widget de gráfico do TradingView (usado só no modal).
-function TradingViewChart({ symbol, colorTheme }) {
-  const ref = useRef(null);
+// Modal de gráfico nativo (estilo Google): área + abas de período.
+function AssetChartModal({ asset, currency, usdRate, isDark, onClose }) {
+  const native = GROUP_BY_ID[asset.group]?.native || 'USD';
+  const accent = GROUP_BY_ID[asset.group]?.accent || '#10b981';
+  const [range, setRange] = useState('1D');
+  const [points, setPoints] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    const host = ref.current;
-    if (!host) return;
-    host.innerHTML = '';
-    const widget = document.createElement('div');
-    widget.className = 'tradingview-widget-container__widget';
-    widget.style.height = '100%';
-    widget.style.width = '100%';
-    host.appendChild(widget);
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      symbol, autosize: true, interval: 'D', timezone: 'America/Sao_Paulo',
-      theme: colorTheme, style: '1', locale: 'br', hide_side_toolbar: false,
-      allow_symbol_change: true, support_host: 'https://www.tradingview.com',
-    });
-    host.appendChild(script);
-    return () => { host.innerHTML = ''; };
-  }, [symbol, colorTheme]);
-  return <div className="tradingview-widget-container" ref={ref} style={{ height: '100%', width: '100%' }} />;
+    let cancelled = false;
+    const cfg = RANGES.find(r => r.id === range) || RANGES[0];
+    setLoading(true);
+    (async () => {
+      const pts = asset.group === 'cripto'
+        ? await fetchCryptoHistory(asset.ticker, cfg)
+        : await fetchYahooHistory(asset.ticker, asset.group, cfg);
+      if (!cancelled) { setPoints(pts); setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [asset, range]);
+
+  const conv = (v) => {
+    if (v == null) return null;
+    if (currency === native) return v;
+    if (native === 'USD' && currency === 'BRL') return v * usdRate;
+    if (native === 'BRL' && currency === 'USD') return v / usdRate;
+    return v;
+  };
+
+  const data = useMemo(() => points.map(p => ({ t: p.t, c: conv(p.c) })), [points, currency, usdRate]);
+  const first = data.length ? data[0].c : null;
+  const last = data.length ? data[data.length - 1].c : null;
+  const change = (first != null && last != null) ? last - first : null;
+  const pct = (change != null && first) ? (change / first) * 100 : null;
+  const up = (change ?? 0) >= 0;
+  const lineColor = change == null ? '#94a3b8' : up ? '#10b981' : '#f43f5e';
+  const symC = currency === 'BRL' ? 'R$' : 'US$';
+  const gradId = `mon-grad-${asset.ticker}`;
+
+  const fmtMoney = (v) => v == null ? '—' : v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtAxisTime = (t) => {
+    const d = new Date(t);
+    if (range === '1D' || range === '5D') return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
+  };
+  const fmtTipTime = (t) => {
+    const d = new Date(t);
+    if (range === '1D' || range === '5D') return d.toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).replace('.', '');
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className={`w-full max-w-3xl rounded-2xl border overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+        {/* Cabeçalho */}
+        <div className={`flex items-start justify-between gap-3 px-5 pt-4 pb-2`}>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: accent }} />
+              <span className={`font-black text-base ${isDark ? 'text-white' : 'text-slate-800'}`}>{asset.ticker}</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{GROUP_BY_ID[asset.group]?.label}</span>
+            </div>
+            <div className="flex items-end gap-2 mt-1">
+              <span className={`text-2xl font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                {symC} {fmtMoney(last)}
+              </span>
+              {change != null && (
+                <span className={`text-sm font-bold tabular-nums pb-0.5 ${up ? 'text-emerald-500' : 'text-rose-500'}`}>
+                  {up ? '+' : ''}{fmtMoney(change)} ({up ? '+' : ''}{pct?.toFixed(2).replace('.', ',')}%)
+                </span>
+              )}
+            </div>
+          </div>
+          <button onClick={onClose} className={`p-1.5 rounded-lg transition-colors shrink-0 ${isDark ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Abas de período */}
+        <div className="flex items-center gap-1 px-5 pb-2 flex-wrap">
+          {RANGES.map(r => (
+            <button
+              key={r.id}
+              onClick={() => setRange(r.id)}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all ${
+                range === r.id ? 'bg-emerald-500 text-white' : (isDark ? 'text-slate-400 hover:bg-white/10' : 'text-slate-500 hover:bg-slate-100')
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Gráfico */}
+        <div className="h-[340px] px-2 pb-4 relative">
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center z-10">
+              <RefreshCw className="w-6 h-6 text-slate-400 animate-spin" />
+            </div>
+          )}
+          {!loading && data.length === 0 ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
+              <AlertCircle className="w-6 h-6 text-amber-500 mb-2" />
+              <p className="text-sm text-slate-400">Não foi possível carregar o histórico deste ativo agora.</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data} margin={{ top: 10, right: 16, left: 8, bottom: 0 }}>
+                <defs>
+                  <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={lineColor} stopOpacity={0.35} />
+                    <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="t"
+                  tickFormatter={fmtAxisTime}
+                  minTickGap={50}
+                  tick={{ fontSize: 10, fill: isDark ? '#64748b' : '#94a3b8' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  domain={['auto', 'auto']}
+                  width={64}
+                  orientation="right"
+                  tickFormatter={(v) => v.toLocaleString('pt-BR', { maximumFractionDigits: v < 1 ? 4 : 0 })}
+                  tick={{ fontSize: 10, fill: isDark ? '#64748b' : '#94a3b8' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: isDark ? '#0f172a' : '#ffffff',
+                    border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}`,
+                    borderRadius: 12, fontSize: 12,
+                  }}
+                  labelFormatter={fmtTipTime}
+                  formatter={(v) => [`${symC} ${fmtMoney(v)}`, 'Preço']}
+                />
+                <Area type="monotone" dataKey="c" stroke={lineColor} strokeWidth={2} fill={`url(#${gradId})`} isAnimationActive={false} dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function MonitorAtivosTab() {
   const { theme } = useTheme();
   const isDark = theme !== 'light';
-  const colorTheme = isDark ? 'dark' : 'light';
   const { currentUser } = useAuth();
   const usdHook = useUsdRate();
 
@@ -298,7 +451,7 @@ export default function MonitorAtivosTab() {
     return (
       <div
         key={item.id}
-        onClick={() => setChartAsset({ symbol: tvSymbol(item.ticker, item.group), ticker: item.ticker })}
+        onClick={() => setChartAsset({ ticker: item.ticker, group: item.group })}
         title={`Ver gráfico de ${item.ticker}`}
         className={`group grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${isDark ? 'hover:bg-white/[0.04]' : 'hover:bg-slate-50'}`}
       >
@@ -307,7 +460,7 @@ export default function MonitorAtivosTab() {
           <AssetLogo logo={q?.logo} ticker={item.ticker} accent={accent} />
           <span className={`font-bold text-sm truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.ticker}</span>
           <button
-            onClick={(e) => { e.stopPropagation(); setChartAsset({ symbol: tvSymbol(item.ticker, item.group), ticker: item.ticker }); }}
+            onClick={(e) => { e.stopPropagation(); setChartAsset({ ticker: item.ticker, group: item.group }); }}
             title={`Ver gráfico de ${item.ticker}`}
             className={`shrink-0 p-1 rounded-md transition-all ${isDark ? 'text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
           >
@@ -504,25 +657,15 @@ export default function MonitorAtivosTab() {
         </div>
       )}
 
-      {/* Modal Gráfico */}
+      {/* Modal Gráfico (nativo, estilo Google) */}
       {chartAsset && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setChartAsset(null)}>
-          <div onClick={(e) => e.stopPropagation()} className={`w-full max-w-5xl h-[80vh] rounded-2xl border overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
-            <div className={`flex items-center justify-between gap-3 px-4 py-3 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
-              <div className="flex items-center gap-2 min-w-0">
-                <LineChart className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span className={`font-black text-sm truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{chartAsset.ticker}</span>
-                <span className="text-[11px] text-slate-500 truncate">{chartAsset.symbol}</span>
-              </div>
-              <button onClick={() => setChartAsset(null)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex-1 min-h-0">
-              <TradingViewChart symbol={chartAsset.symbol} colorTheme={colorTheme} />
-            </div>
-          </div>
-        </div>
+        <AssetChartModal
+          asset={chartAsset}
+          currency={currency}
+          usdRate={usdRate}
+          isDark={isDark}
+          onClose={() => setChartAsset(null)}
+        />
       )}
     </div>
   );
