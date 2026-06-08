@@ -371,7 +371,9 @@ export default function AdminPanel({ onBack }) {
             // F-02: envia o ID token do admin — o servidor valida token + allowlist de admin.
             const idToken = await auth.currentUser?.getIdToken();
             if (!idToken) { showToast("Sessão expirada. Faça login novamente.", "error"); return; }
-            const res = await fetch('https://alivia-push.vercel.app/api/send-push', {
+            // F-02: usa o endpoint do próprio site (mesmo origin), que está seguro
+            // (exige ID token + admin). O domínio alivia-push.vercel.app foi descontinuado.
+            const res = await fetch('/api/send-push', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

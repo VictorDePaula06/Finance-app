@@ -2,7 +2,18 @@ import webpush from 'web-push';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
-import { isAdminEmail } from '../src/constants/admins.js';
+
+// Lista de admins inline (auto-contida) — mantém este endpoint deployável tanto
+// no projeto principal quanto num projeto Vercel separado, sem depender de ../src.
+// DEVE ficar igual a src/constants/admins.js e à função isAdmin() do firestore.rules.
+const ADMIN_EMAILS = [
+    'financealivia@gmail.com',
+    'j.17jvictor@gmail.com',
+    'matheusphelipe7@gmail.com',
+    'felipedb.clopes@gmail.com',
+];
+const isAdminEmail = (email) =>
+    typeof email === 'string' && ADMIN_EMAILS.includes(email.toLowerCase());
 
 export default async function handler(req, res) {
     // Forçar cabeçalho JSON
