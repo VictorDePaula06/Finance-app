@@ -70,9 +70,10 @@ async function fetchBrapi(sym) {
 }
 
 async function fetchYahoo(sym) {
+    // includePrePost=true para captar pré/pós-mercado; intraday 5m para o último preço.
     const urls = [
-        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=2d`,
-        `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=2d`,
+        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=5m&range=1d&includePrePost=true`,
+        `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=5m&range=1d&includePrePost=true`,
     ];
     for (const url of urls) {
         try {
@@ -81,17 +82,43 @@ async function fetchYahoo(sym) {
             });
             if (r.ok) {
                 const d = await r.json();
-                const meta = d?.chart?.result?.[0]?.meta;
+                const result = d?.chart?.result?.[0];
+                const meta = result?.meta;
                 if (meta && meta.regularMarketPrice != null) {
                     const price = parseFloat(meta.regularMarketPrice);
-                    const prev = parseFloat(meta.chartPreviousClose || meta.previousClose || price);
+                    // Variação do dia = preço regular vs. fechamento do pregão ANTERIOR.
+                    const prev = parseFloat(meta.previousClose ?? meta.chartPreviousClose ?? price);
                     const change = price - prev;
                     const changePercent = prev ? (change / prev) * 100 : 0;
+
+                    // Pré/pós-mercado: último ponto fora do horário regular.
+                    let preMarket = null;
+                    const tp = meta.currentTradingPeriod;
+                    const ts = result.timestamp || [];
+                    const closes = result.indicators?.quote?.[0]?.close || [];
+                    if (tp && ts.length) {
+                        for (let i = ts.length - 1; i >= 0; i--) {
+                            const c = closes[i];
+                            if (c == null) continue;
+                            const t = ts[i];
+                            if (tp.post && t >= tp.post.start && t <= tp.post.end) { preMarket = { price: +c, label: 'pos' }; break; }
+                            if (tp.pre && tp.regular && t >= tp.pre.start && t < tp.regular.start) { preMarket = { price: +c, label: 'pre' }; break; }
+                            if (tp.regular && t >= tp.regular.start && t <= tp.regular.end) break;
+                        }
+                    }
+                    if (preMarket && isFinite(preMarket.price)) {
+                        preMarket.change = preMarket.price - price;
+                        preMarket.changePercent = price ? (preMarket.change / price) * 100 : 0;
+                    } else {
+                        preMarket = null;
+                    }
+
                     return {
                         price, change, changePercent,
                         currency: meta.currency || 'USD',
                         name: meta.shortName || meta.longName || null,
                         source: 'yahoo',
+                        preMarket,
                     };
                 }
             }

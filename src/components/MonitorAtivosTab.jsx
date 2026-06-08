@@ -114,18 +114,39 @@ async function fetchOtherClient(items) {
       let ysym = ticker;
       if (group === 'indices') ysym = INDEX_ALIASES[ticker] || (ticker.startsWith('^') ? ticker : `^${ticker}`);
       else if ((group === 'acoes_br' || group === 'fiis') && !ticker.includes('.')) ysym = `${ticker}.SA`;
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?interval=1d&range=2d`;
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?interval=5m&range=1d&includePrePost=true`;
       const r = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
       if (r.ok) {
         const d = await r.json();
-        const meta = d?.chart?.result?.[0]?.meta;
+        const result = d?.chart?.result?.[0];
+        const meta = result?.meta;
         if (meta?.regularMarketPrice != null) {
           const price = +meta.regularMarketPrice;
-          const prev = +(meta.chartPreviousClose || meta.previousClose || price);
+          const prev = +(meta.previousClose ?? meta.chartPreviousClose ?? price);
+          // Pré/pós-mercado
+          let preMarket = null;
+          const tp = meta.currentTradingPeriod;
+          const ts = result.timestamp || [];
+          const closes = result.indicators?.quote?.[0]?.close || [];
+          if (tp && ts.length) {
+            for (let i = ts.length - 1; i >= 0; i--) {
+              const c = closes[i];
+              if (c == null) continue;
+              const t = ts[i];
+              if (tp.post && t >= tp.post.start && t <= tp.post.end) { preMarket = { price: +c, label: 'pos' }; break; }
+              if (tp.pre && tp.regular && t >= tp.pre.start && t < tp.regular.start) { preMarket = { price: +c, label: 'pre' }; break; }
+              if (tp.regular && t >= tp.regular.start && t <= tp.regular.end) break;
+            }
+          }
+          if (preMarket && isFinite(preMarket.price)) {
+            preMarket.change = preMarket.price - price;
+            preMarket.changePercent = price ? (preMarket.change / price) * 100 : 0;
+          } else preMarket = null;
           out[ticker] = {
             price, change: price - prev, changePercent: prev ? ((price - prev) / prev) * 100 : 0,
             currency: meta.currency || 'USD',
             logo: group === 'acoes_int' ? `https://financialmodelingprep.com/image-stock/${ticker}.png` : null,
+            preMarket,
           };
         }
       }
@@ -470,9 +491,21 @@ export default function MonitorAtivosTab() {
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider shrink-0">s/ cotação</span>
           )}
         </div>
-        {/* Preço */}
-        <div className={`text-right tabular-nums text-sm font-bold ${isDark ? 'text-slate-100' : 'text-slate-800'} min-w-[88px]`}>
-          {price != null ? `${sym} ${fmtPrice(price)}` : '—'}
+        {/* Preço (+ pré/pós-mercado) */}
+        <div className="text-right min-w-[88px]">
+          <div className={`tabular-nums text-sm font-bold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
+            {price != null ? `${sym} ${fmtPrice(price)}` : '—'}
+          </div>
+          {q?.preMarket && (() => {
+            const pmPrice = toDisplay(q.preMarket.price, native);
+            const pmUp = (q.preMarket.changePercent ?? 0) >= 0;
+            return (
+              <div className={`text-[9px] font-bold tabular-nums leading-tight ${pmUp ? 'text-emerald-500' : 'text-rose-500'}`}>
+                <span className="text-slate-500 uppercase tracking-wider">{q.preMarket.label === 'pos' ? 'Pós' : 'Pré'}</span>{' '}
+                {sym} {fmtPrice(pmPrice)} ({pmUp ? '+' : ''}{q.preMarket.changePercent.toFixed(2).replace('.', ',')}%)
+              </div>
+            );
+          })()}
         </div>
         {/* Var */}
         <div className={`text-right tabular-nums text-xs font-semibold ${trendColor} min-w-[72px]`}>
