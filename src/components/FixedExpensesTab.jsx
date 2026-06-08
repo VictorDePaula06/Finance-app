@@ -436,30 +436,32 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
     const pct = colTotal > 0 ? Math.round((paidSum / colTotal) * 100) : 0;
     const barColor = isVariable ? 'bg-amber-500' : 'bg-emerald-500';
 
+    const headBand = isVariable
+      ? (isDark ? 'bg-amber-500/[0.07] border-amber-500/20' : 'bg-amber-50/80 border-amber-200')
+      : (isDark ? 'bg-emerald-500/[0.07] border-emerald-500/20' : 'bg-emerald-50/80 border-emerald-200');
+
     return (
       <div className="p-5">
-        {/* Cabeçalho da coluna */}
-        <div className="flex items-center justify-between gap-3 mb-4">
+        {/* Cabeçalho da coluna — faixa destacada, separada das contas */}
+        <div className={`flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 mb-3 ${headBand}`}>
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${accentSoft}`}>
-              <ColIcon className={`w-4.5 h-4.5 ${accentText}`} />
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isVariable ? 'bg-amber-500' : 'bg-emerald-500'} shadow-lg ${isVariable ? 'shadow-amber-500/25' : 'shadow-emerald-500/25'}`}>
+              <ColIcon className="w-5 h-5 text-white" />
             </div>
             <div className="min-w-0">
-              <h3 className={`font-black text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>{title}</h3>
-              <p className="text-[10px] text-slate-500">{subtitle}</p>
+              <h3 className={`font-black text-base tracking-tight leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>{title}</h3>
+              <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${accentText}`}>{subtitle}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
             <div className="text-right">
-              <p className={`text-sm font-black tabular-nums ${accentText}`}>R$ {fmt(colTotal)}</p>
-              <p className="text-[9px] text-slate-500 uppercase tracking-wider">total do mês</p>
+              <p className={`text-base font-black tabular-nums leading-none ${accentText}`}>R$ {fmt(colTotal)}</p>
+              <p className="text-[9px] text-slate-500 uppercase tracking-wider mt-1">total do mês</p>
             </div>
             <button
               onClick={() => openAddExpense(isVariable)}
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 ${
-                isVariable
-                  ? (isDark ? 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25' : 'bg-amber-50 text-amber-600 hover:bg-amber-100')
-                  : (isDark ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100')
+              className={`inline-flex items-center gap-1 px-2.5 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider text-white transition-all active:scale-95 shadow-lg ${
+                isVariable ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/25' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/25'
               }`}
             >
               <Plus className="w-3 h-3" /> Nova
