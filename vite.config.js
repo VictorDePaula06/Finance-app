@@ -18,8 +18,30 @@ function versionJsonPlugin() {
   }
 }
 
+// CSP endurecida (F-06): script-src SEM 'unsafe-inline'/'unsafe-eval'.
+// Espelha a CSP do vercel.json — usada no `vite preview` para validar o build
+// de produção localmente antes de aplicar em produção.
+const HARDENED_CSP = [
+  "default-src 'self'",
+  "script-src 'self' https://js.stripe.com https://*.firebaseapp.com https://apis.google.com https://*.googleapis.com https://*.gstatic.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https:",
+  "connect-src 'self' https://*.firebaseio.com https://*.firebaseapp.com https://*.googleapis.com https://*.gstatic.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://api.stripe.com https://api.bcb.gov.br https://economia.awesomeapi.com.br https://api.binance.com https://query1.finance.yahoo.com https://corsproxy.io https://api.allorigins.win https://brapi.dev https://www.tesourodireto.com.br https://www.tesourotransparente.gov.br https://generativelanguage.googleapis.com wss://*.firebaseio.com",
+  "frame-src 'self' https://js.stripe.com https://*.firebaseapp.com https://billing.stripe.com",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self' https://billing.stripe.com",
+  "upgrade-insecure-requests",
+].join('; ');
+
 // https://vite.dev/config/
 export default defineConfig({
+  preview: {
+    headers: { 'Content-Security-Policy': HARDENED_CSP },
+  },
   plugins: [
     react(),
     versionJsonPlugin(),
