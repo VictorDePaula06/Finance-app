@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { calculateFinancialHealth, calculateSpendingPace } from '../utils/financialLogic';
 import { CATEGORIES } from '../constants/categories';
-import { validateApiKey } from '../services/gemini';
+import { validateApiKey, getGeminiKey, setGeminiKey, clearGeminiKey } from '../services/gemini';
 
 import { Bot, Settings, X, Save, TrendingUp, TrendingDown, DollarSign, AlertTriangle, CheckCircle, Calculator, Video, ChevronDown, Moon, Sun, Trash2, CreditCard, Pencil, Check } from 'lucide-react';
 import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
@@ -59,13 +59,13 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
             setIsWealthLocked(true); 
             setShowConfirmUnlock(false);
             
-            // Sync API Key from userPrefs (cloud) or localStorage (fallback)
-            const savedKey = userPrefs?.apiKey || localStorage.getItem('user_gemini_api_key') || '';
+            // F-08: chave vem do Firestore (userPrefs); espelha na memória da sessão.
+            const savedKey = userPrefs?.apiKey || getGeminiKey() || '';
             setApiKey(savedKey);
             if (userPrefs?.apiKey) {
-                localStorage.setItem('user_gemini_api_key', userPrefs.apiKey);
+                setGeminiKey(userPrefs.apiKey);
             }
-            setError(''); 
+            setError('');
         }
     }, [isConfiguring, manualConfig, userPrefs]);
 
@@ -99,11 +99,11 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                 setIsSaving(false);
                 return;
             }
-            localStorage.setItem('user_gemini_api_key', apiKey.trim());
+            setGeminiKey(apiKey.trim());
             // Sync with Firestore
             saveUserPreferences({ apiKey: apiKey.trim() });
         } else {
-            localStorage.removeItem('user_gemini_api_key');
+            clearGeminiKey();
             // Sync with Firestore (remove key)
             saveUserPreferences({ apiKey: '' });
         }

@@ -12,6 +12,7 @@ import {
 import { doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
 import { log, maskEmail, maskUid } from '../utils/logger';
 import { isAdminEmail, isLifetimeEmail } from '../constants/admins';
+import { setGeminiKey, clearGeminiKey } from '../services/gemini';
 
 const AuthContext = createContext();
 
@@ -75,6 +76,7 @@ export function AuthProvider({ children }) {
             localStorage.removeItem(`isPremium_${currentUser.uid}`);
         }
         globalMaxAccess = false;
+        clearGeminiKey(); // F-08: limpa a chave Gemini da memória ao sair
         return signOut(auth);
     }
 
@@ -384,6 +386,11 @@ export function AuthProvider({ children }) {
                 const data = snap.data();
                 dataRef.current.prefs = data;
                 setUserPrefs(data);
+                // F-08: carrega a chave Gemini do Firestore para a memória da sessão
+                // (sem persistir em localStorage). Fonte de verdade = Firestore.
+                // Considera os dois campos usados no app (apiKey e manualConfig.geminiKey).
+                const geminiKey = data.apiKey || data.manualConfig?.geminiKey;
+                if (geminiKey) setGeminiKey(geminiKey);
             }
             dataRef.current.prefsLoaded = true;
             if (!snap.metadata.fromCache) {

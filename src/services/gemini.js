@@ -4,9 +4,28 @@ import { OBJECTIVE_LABELS, RISK_LABELS } from '../constants/onboarding.js';
 import { calculateFutureProjections, calculateCumulativeBalance } from '../utils/financialLogic.js';
 import { calculateHealthIndex } from '../utils/healthScore.js';
 
-export const isGeminiConfigured = () => {
-    return !!localStorage.getItem('user_gemini_api_key');
-};
+// ── Chave Gemini (BYOK) — F-08 ────────────────────────────────────────────────
+// A chave do usuário NÃO é mais persistida em localStorage (texto plano em
+// repouso, exposto a XSS / acesso ao dispositivo). Fica só em memória durante a
+// sessão; a fonte de verdade persistida é o Firestore (userPrefs.apiKey,
+// legível apenas pelo dono). É carregada para a memória ao logar (AuthContext).
+let sessionApiKey = null;
+
+// Migração única: se houver chave legada no localStorage (versões antigas),
+// move para a memória e REMOVE do localStorage para limpar a exposição.
+try {
+    const legacy = typeof localStorage !== 'undefined' && localStorage.getItem('user_gemini_api_key');
+    if (legacy) {
+        sessionApiKey = legacy;
+        localStorage.removeItem('user_gemini_api_key');
+    }
+} catch { /* ambiente sem localStorage */ }
+
+export const setGeminiKey = (key) => { sessionApiKey = (key || '').trim() || null; };
+export const getGeminiKey = () => sessionApiKey;
+export const clearGeminiKey = () => { sessionApiKey = null; };
+
+export const isGeminiConfigured = () => !!sessionApiKey;
 
 export const validateApiKey = async (apiKey) => {
     if (!apiKey) return false;
@@ -426,7 +445,7 @@ Instruções Prioritárias:
 };
 
 export const sendMessageToGemini = async (history, message, context) => {
-    const apiKey = localStorage.getItem('user_gemini_api_key');
+    const apiKey = sessionApiKey;
     if (!apiKey) throw new Error("API Key não configurada");
 
     try {
@@ -456,7 +475,7 @@ export const sendMessageToGemini = async (history, message, context) => {
 };
 
 export const generateMonthlyReview = async (monthName, stats, manualConfig) => {
-    const apiKey = localStorage.getItem('user_gemini_api_key');
+    const apiKey = sessionApiKey;
     if (!apiKey) throw new Error("API Key não configurada");
 
     const { income, expense, balance, topCategory } = stats;
@@ -505,7 +524,7 @@ Responda apenas com o texto do feedback.
 };
 
 export const generatePatrimonyAnalysis = async (jarsTotal, investmentsTotal, userConfig) => {
-    const apiKey = localStorage.getItem('user_gemini_api_key');
+    const apiKey = sessionApiKey;
     if (!apiKey) throw new Error("API Key não configurada");
 
     const patrimonioTotal = jarsTotal + investmentsTotal;

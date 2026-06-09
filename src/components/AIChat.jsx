@@ -5,7 +5,7 @@ import { db } from '../services/firebase';
 import { collection, onSnapshot, query, where, addDoc, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { sendMessageToGemini, isGeminiConfigured, validateApiKey, calculateStatsContext } from '../services/gemini';
+import { sendMessageToGemini, isGeminiConfigured, validateApiKey, calculateStatsContext, setGeminiKey } from '../services/gemini';
 import ReactMarkdown from 'react-markdown';
 
 import aliviaFinal from '../assets/alivia/alivia-final.png';
@@ -120,7 +120,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                 getUserPreferences().then(prefs => {
                     if (prefs && prefs.apiKey) {
                         if (!isGeminiConfigured()) {
-                            localStorage.setItem('user_gemini_api_key', prefs.apiKey);
+                            setGeminiKey(prefs.apiKey);
                             setHasKey(true);
                         }
                     }
@@ -163,7 +163,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                 return;
             }
 
-            localStorage.setItem('user_gemini_api_key', apiKey.trim());
+            setGeminiKey(apiKey.trim());
             saveUserPreferences({ apiKey: apiKey.trim() });
 
             setTimeout(() => {

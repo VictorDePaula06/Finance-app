@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { validateApiKey } from '../services/gemini';
+import { validateApiKey, setGeminiKey, clearGeminiKey } from '../services/gemini';
 import { createPortalSession } from '../services/stripe';
 import AliviaSettings from './AliviaSettings';
 import { downloadUserData } from '../utils/dataExport';
@@ -76,6 +76,7 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
     setIsValidating(false);
     if (isValid) {
       updateManualConfig({ ...manualConfig, geminiKey: apiKey.trim() });
+      setGeminiKey(apiKey.trim()); // F-08: espelha na memória da sessão
       setValidationStatus('success');
       setIsEditingKey(false);
       setTimeout(() => setValidationStatus(null), 3000);
@@ -86,6 +87,7 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
 
   const handleDeleteApiKey = () => {
     updateManualConfig({ ...manualConfig, geminiKey: '' });
+    clearGeminiKey(); // F-08: remove a chave da memória
     setApiKey('');
     setIsEditingKey(false);
     setValidationStatus(null);
