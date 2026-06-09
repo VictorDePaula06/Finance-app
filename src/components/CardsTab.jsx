@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   CreditCard,
   Plus,
@@ -100,6 +100,51 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
       unsubSubs();
     };
   }, [currentUser]);
+
+  // ── Correção pontual de dados mal-atribuídos pelo antigo bug do fechamento ──
+  // (o código usava dia >= fechamento, então pagamentos/assinaturas feitos NO dia
+  // do fechamento iam para o mês seguinte). Conserta uma vez, de forma idempotente.
+  const correctedRef = useRef(new Set());
+  useEffect(() => {
+    if (!currentUser || cards.length === 0) return;
+    const today = new Date();
+    const closingOf = (card) => card.closingDay || ((card.dueDay - 7 > 0) ? card.dueDay - 7 : 25);
+    // Mês (YYYY-MM) da fatura que FECHOU mais recentemente até a data informada.
+    const closedInvoiceMonth = (dateStr, cd) => {
+      const d = new Date(dateStr); if (isNaN(d.getTime())) return null;
+      let y = d.getFullYear(), m = d.getMonth();
+      if (d.getDate() < cd) { m -= 1; if (m < 0) { m = 11; y -= 1; } }
+      return `${y}-${String(m + 1).padStart(2, '0')}`;
+    };
+
+    // 1. Pagamentos de fatura registrados no mês errado → corrige pela data.
+    transactions.forEach(t => {
+      if (t.category !== 'credit_card_bill' || !t.invoiceMonthPaid || !t.selectedCardId || !t.date) return;
+      const card = cards.find(c => c.id === t.selectedCardId);
+      if (!card) return;
+      const correct = closedInvoiceMonth(t.date, closingOf(card));
+      const key = `tx:${t.id}`;
+      if (correct && correct !== t.invoiceMonthPaid && !correctedRef.current.has(key)) {
+        correctedRef.current.add(key);
+        updateDoc(doc(db, 'transactions', t.id), { invoiceMonthPaid: correct }).catch(() => {});
+      }
+    });
+
+    // 2. Assinaturas marcadas como pagas numa fatura que ainda NÃO fechou → desmarca.
+    subscriptions.forEach(s => {
+      if (s.type === 'installment' || !s.lastPaidMonth || !s.cardId) return;
+      const card = cards.find(c => c.id === s.cardId);
+      if (!card) return;
+      const [py, pm] = String(s.lastPaidMonth).split('-').map(Number);
+      if (!py || !pm) return;
+      const closeDate = new Date(py, pm - 1, closingOf(card));
+      const key = `sub:${s.id}:${s.lastPaidMonth}`;
+      if (closeDate > today && !correctedRef.current.has(key)) {
+        correctedRef.current.add(key);
+        updateDoc(doc(db, 'subscriptions', s.id), { lastPaidMonth: null }).catch(() => {});
+      }
+    });
+  }, [currentUser, cards, subscriptions, transactions]);
 
   const handleAddCard = async (e) => {
     e.preventDefault();
