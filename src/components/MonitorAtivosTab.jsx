@@ -479,7 +479,7 @@ export default function MonitorAtivosTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchlist]);
 
-  const cardBg = isDark ? 'bg-[#1e2330] border-slate-800/60' : 'bg-white border-slate-100 shadow-sm';
+  const cardBg = isDark ? 'bg-[#0a0d12] border-white/[0.08]' : 'bg-white border-slate-100 shadow-sm';
 
   // ── Linha de um ativo (clicável → abre o gráfico) ──
   const renderRow = (item, accent) => {
@@ -490,19 +490,19 @@ export default function MonitorAtivosTab() {
     const change = q ? toDisplay(q.change, native) : null;
     const pct = q ? q.changePercent : null;
     const up = (pct ?? 0) >= 0;
-    const trendColor = pct == null ? 'text-slate-400' : up ? 'text-emerald-500' : 'text-rose-500';
+    const trendColor = pct == null ? 'text-slate-400' : up ? 'text-emerald-400' : 'text-rose-400';
 
     return (
       <div
         key={item.id}
         onClick={() => setChartAsset({ ticker: item.ticker, group: item.group })}
         title={`Ver gráfico de ${item.ticker}`}
-        className={`group grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${isDark ? 'hover:bg-white/[0.04]' : 'hover:bg-slate-50'}`}
+        className={`group grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-3 py-3 rounded-lg cursor-pointer transition-colors ${isDark ? 'hover:bg-white/[0.06]' : 'hover:bg-slate-50'}`}
       >
         {/* Símbolo */}
         <div className="flex items-center gap-2.5 min-w-0">
           <AssetLogo logo={q?.logo} ticker={item.ticker} accent={accent} />
-          <span className={`font-bold text-sm truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.ticker}</span>
+          <span className={`font-bold text-[15px] truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.ticker}</span>
           <button
             onClick={(e) => { e.stopPropagation(); setChartAsset({ ticker: item.ticker, group: item.group }); }}
             title={`Ver gráfico de ${item.ticker}`}
@@ -515,8 +515,8 @@ export default function MonitorAtivosTab() {
           )}
         </div>
         {/* Preço (+ pré/pós-mercado) */}
-        <div className="text-right min-w-[88px]">
-          <div className={`tabular-nums text-sm font-bold ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
+        <div className="text-right min-w-[92px]">
+          <div className={`tabular-nums text-[15px] font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
             {price != null ? `${sym} ${fmtPrice(price)}` : '—'}
           </div>
           {q?.preMarket && (() => {
@@ -531,12 +531,12 @@ export default function MonitorAtivosTab() {
           })()}
         </div>
         {/* Var */}
-        <div className={`text-right tabular-nums text-xs font-semibold ${trendColor} min-w-[72px]`}>
+        <div className={`text-right tabular-nums text-[13px] font-bold ${trendColor} min-w-[74px]`}>
           {change != null ? fmtChange(change) : '—'}
         </div>
         {/* Var% */}
-        <div className="flex items-center justify-end gap-1.5 min-w-[78px]">
-          <span className={`tabular-nums text-xs font-black ${trendColor}`}>{fmtPct(pct)}</span>
+        <div className="flex items-center justify-end gap-1.5 min-w-[80px]">
+          <span className={`tabular-nums text-[13px] font-black ${trendColor}`}>{fmtPct(pct)}</span>
           <button
             onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
             title="Remover"
@@ -612,11 +612,11 @@ export default function MonitorAtivosTab() {
       ) : (
         <div className={`rounded-2xl border overflow-hidden ${cardBg}`}>
           {/* Cabeçalho das colunas */}
-          <div className={`grid grid-cols-[1fr_auto_auto_auto] gap-3 px-3 py-2.5 border-b text-[10px] font-black uppercase tracking-widest text-slate-500 ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+          <div className={`grid grid-cols-[1fr_auto_auto_auto] gap-3 px-3 py-2.5 border-b text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400 border-white/10 bg-white/[0.02]' : 'text-slate-500 border-slate-100'}`}>
             <span>Símbolo</span>
-            <span className="text-right min-w-[88px]">Preço</span>
-            <span className="text-right min-w-[72px]">Var</span>
-            <span className="text-right min-w-[78px] pr-1">Var%</span>
+            <span className="text-right min-w-[92px]">Preço</span>
+            <span className="text-right min-w-[74px]">Var</span>
+            <span className="text-right min-w-[80px] pr-1">Var%</span>
           </div>
 
           {/* Grupos */}
@@ -625,12 +625,12 @@ export default function MonitorAtivosTab() {
               const GIcon = g.icon;
               return (
                 <div key={g.id}>
-                  <div className={`flex items-center gap-2 px-3 py-2 ${isDark ? 'bg-white/[0.02]' : 'bg-slate-50/70'}`}>
-                    <div className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: `${g.accent}1F`, color: g.accent }}>
+                  <div className={`flex items-center gap-2 px-3 py-2 ${isDark ? 'bg-white/[0.04] border-y border-white/[0.04]' : 'bg-slate-50/70'}`}>
+                    <div className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: `${g.accent}26`, color: g.accent }}>
                       <GIcon className="w-3 h-3" />
                     </div>
                     <span className="text-[11px] font-black uppercase tracking-widest" style={{ color: g.accent }}>{g.label}</span>
-                    <span className="text-[10px] font-bold text-slate-500">{g.items.length}</span>
+                    <span className="text-[10px] font-bold text-slate-400">{g.items.length}</span>
                   </div>
                   <div className="px-1 py-1">
                     {g.items.map((it) => renderRow(it, g.accent))}
