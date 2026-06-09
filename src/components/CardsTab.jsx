@@ -473,7 +473,9 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
       const day = d.getDate();
       let month = d.getMonth();
       let year = d.getFullYear();
-      if (day >= closingDay) {
+      // O dia de fechamento AINDA pertence à fatura que fecha (igual ao banco):
+      // só vira para a próxima fatura a partir do dia SEGUINTE ao fechamento.
+      if (day > closingDay) {
           month += 1;
           if (month > 11) {
               month = 0;
@@ -847,9 +849,10 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
               <button
                 onClick={() => selStats.invoiceTotal > 0.005 && setPayingInvoice({ cardId: selectedCard.id, total: selStats.invoiceTotal, expenses: selStats.unpaidExpenses, subs: selStats.unpaidSubs, invoiceMonth: selStats.currentInvoiceMonth })}
                 disabled={selStats.invoiceTotal <= 0.005}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all active:scale-95 ${selStats.invoiceTotal > 0.005 ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/25' : (isDark ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400')}`}
+                title={selStats.invoiceTotal <= 0.005 ? (selStats.nextInvoiceEstimate > 0.005 ? `Fatura do mês paga. O valor mostrado é a previsão do próximo ciclo (vence dia ${selectedCard.dueDay || 10}).` : 'Nenhuma fatura em aberto.') : ''}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all active:scale-95 ${selStats.invoiceTotal > 0.005 ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/25' : (isDark ? 'bg-emerald-500/10 text-emerald-400 cursor-default' : 'bg-emerald-50 text-emerald-600 cursor-default')}`}
               >
-                <CheckCircle2 className="w-4 h-4" /> Registrar pagamento
+                <CheckCircle2 className="w-4 h-4" /> {selStats.invoiceTotal > 0.005 ? 'Registrar pagamento' : (selStats.nextInvoiceEstimate > 0.005 ? 'Fatura do mês paga' : 'Sem fatura em aberto')}
               </button>
               <button onClick={() => setViewingInvoiceCardId(selectedCard.id)} className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                 <Eye className="w-4 h-4" /> Ver lançamentos

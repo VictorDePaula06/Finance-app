@@ -66,7 +66,8 @@ export default function OverviewTab({
         const getInvoiceMonth = (dateStr, closingDay) => {
             const d = new Date(dateStr); if (isNaN(d.getTime())) return '';
             let month = d.getMonth(), year = d.getFullYear();
-            if (d.getDate() >= closingDay) { month += 1; if (month > 11) { month = 0; year += 1; } }
+            // O dia de fechamento ainda é da fatura que fecha; vira só no dia seguinte.
+            if (d.getDate() > closingDay) { month += 1; if (month > 11) { month = 0; year += 1; } }
             return `${year}-${String(month + 1).padStart(2, '0')}`;
         };
         // Mesma regra da aba Cartões: assinatura/parcela entra na fatura se a cobrança do
