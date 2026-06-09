@@ -521,20 +521,29 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
   const monthlyInstallTotal = installmentSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
   const monthlyCommitment = monthlySubsTotal + monthlyInstallTotal;
 
-  // Soma real das faturas em aberto = soma da fatura de CADA cartão (mesma base do
-  // painel de detalhe e do card "Fatura do cartão" da Visão Geral). Inclui o ciclo
-  // que so vence no proximo mes, para o total BATER com o que cada cartao exibe
-  // (antes o KPI zerava esses cartoes e ficava menor que a soma das faturas).
+  // "Faturas em aberto" (topo) = SOMA do que CADA cartão exibe como fatura (mesmo
+  // headline do painel de detalhe): a fatura em aberto do ciclo atual ou, se o ciclo
+  // já está pago mas há assinaturas recorrentes, a "próxima fatura estimada". Assim o
+  // total do topo reconcilia com a soma dos dois cartões (XP + Nubank).
   const unpaidInvoiceTotal = cards.reduce((total, card) => {
     const { all: unpaidExpenses, currentInvoiceMonth, closingDay } = getUnpaidExpensesByPeriod(card);
-    const cardSubs = getCardSubs(card.id).filter(s => {
+    const cardSubsAll = getCardSubs(card.id);
+    const unpaidSubs = cardSubsAll.filter(s => {
       if (s.lastPaidMonth === currentInvoiceMonth) return false;
       const subDay = parseInt(s.day) || 1;
       return isSubInInvoice(subDay, currentInvoiceMonth, closingDay);
     });
     const expensesTotal = unpaidExpenses.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
-    const subsTotal = cardSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
-    return total + expensesTotal + subsTotal;
+    const subsTotal = unpaidSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+    const invoiceTotal = expensesTotal + subsTotal;
+    // Ciclo atual pago: usa a estimativa da próxima fatura (assinaturas recorrentes
+    // ainda não lançadas na fatura) — igual ao headline exibido no cartão.
+    const recurringInInvoiceIds = new Set(unpaidSubs.filter(s => s.type !== 'installment').map(s => s.id));
+    const recurringExtra = cardSubsAll
+      .filter(s => s.type !== 'installment' && !recurringInInvoiceIds.has(s.id))
+      .reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+    const headline = invoiceTotal > 0.005 ? invoiceTotal : recurringExtra;
+    return total + headline;
   }, 0);
 
   const isDark = theme !== 'light';
