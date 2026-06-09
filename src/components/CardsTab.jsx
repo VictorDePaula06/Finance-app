@@ -513,14 +513,18 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
 
   // ── Resumo (KPIs do topo) ──
   const fmt = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const recurringSubs = subscriptions.filter(s => s.type !== 'installment');
-  const installmentSubs = subscriptions.filter(s => s.type === 'installment');
+  // KPIs de comprometimento contam apenas assinaturas/parcelas VINCULADAS a cartão,
+  // para baterem com a soma exibida em cada cartão (assinaturas sem cartão ficam fora).
+  const recurringSubs = subscriptions.filter(s => s.type !== 'installment' && s.cardId);
+  const installmentSubs = subscriptions.filter(s => s.type === 'installment' && s.cardId);
   const monthlySubsTotal = recurringSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
   const monthlyInstallTotal = installmentSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
   const monthlyCommitment = monthlySubsTotal + monthlyInstallTotal;
 
-  // Soma real das faturas abertas — mesma lógica de cada cartão (transações + assinaturas vinculadas)
-  const _today = new Date();
+  // Soma real das faturas em aberto = soma da fatura de CADA cartão (mesma base do
+  // painel de detalhe e do card "Fatura do cartão" da Visão Geral). Inclui o ciclo
+  // que so vence no proximo mes, para o total BATER com o que cada cartao exibe
+  // (antes o KPI zerava esses cartoes e ficava menor que a soma das faturas).
   const unpaidInvoiceTotal = cards.reduce((total, card) => {
     const { all: unpaidExpenses, currentInvoiceMonth, closingDay } = getUnpaidExpensesByPeriod(card);
     const cardSubs = getCardSubs(card.id).filter(s => {
@@ -530,14 +534,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
     });
     const expensesTotal = unpaidExpenses.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
     const subsTotal = cardSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
-    // Não conta faturas que só vencem no PRÓXIMO mês (consistente com o selo
-    // "fatura paga" do cartão e o card "em dia" da Visão Geral).
-    const dueDay = card.dueDay || 10;
-    const [iy, im] = currentInvoiceMonth.split('-').map(Number);
-    const due = new Date(iy, im - 1, dueDay);
-    const isFuture = due.getFullYear() > _today.getFullYear()
-      || (due.getFullYear() === _today.getFullYear() && due.getMonth() > _today.getMonth());
-    return total + (isFuture ? 0 : expensesTotal + subsTotal);
+    return total + expensesTotal + subsTotal;
   }, 0);
 
   const isDark = theme !== 'light';
