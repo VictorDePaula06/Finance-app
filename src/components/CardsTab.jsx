@@ -68,7 +68,9 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
   const [payingInvoice, setPayingInvoice] = useState(null); // { cardId, total, expenses, invoiceMonth }
   const [paidInvoiceSuccess, setPaidInvoiceSuccess] = useState(null); // cardId
   const [viewingInvoiceCardId, setViewingInvoiceCardId] = useState(null);
-  
+  const [historyCardId, setHistoryCardId] = useState(null); // cartão do modal "Histórico de faturas"
+  const [expandedHistoryMonth, setExpandedHistoryMonth] = useState(null); // mês expandido no histórico
+
   // Edit Transaction State
   const [editingTransaction, setEditingTransaction] = useState(null); // { id, description, amount, date }
   const [editingSub, setEditingSub] = useState(null); // { id, name, value, day }
@@ -375,6 +377,26 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
         const now = new Date();
         const paidMonth = invoiceData.invoiceMonth;
 
+        // Snapshot da fatura paga — guarda os itens exatos do momento do pagamento,
+        // para o Histórico de Faturas ficar preciso (assinaturas/parcelas mudam com o tempo).
+        const invoiceSnapshot = {
+            total: invoiceData.total,
+            items: [
+                ...(invoiceData.expenses || []).map(e => ({
+                    description: e.description || 'Compra',
+                    amount: parseFloat(e.amount) || 0,
+                    badge: e.installmentInfo || null,
+                    date: e.date || null,
+                })),
+                ...(invoiceData.subs || []).map(s => ({
+                    description: s.name,
+                    amount: parseFloat(s.value) || 0,
+                    badge: s.type === 'installment' ? `${s.currentInstallment || 1}/${s.totalInstallments || 1}` : 'assinatura',
+                    date: null,
+                })),
+            ],
+        };
+
         await addDoc(collection(db, 'transactions'), {
             description: `Pagamento de Fatura - ${cards.find(c => c.id === invoiceData.cardId)?.name || 'Cartão'}`,
             amount: invoiceData.total,
@@ -384,6 +406,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             userId: currentUser.uid,
             month: now.toISOString().slice(0, 7),
             invoiceMonthPaid: paidMonth,
+            invoiceSnapshot,
             createdAt: Date.now(),
             paymentMethod: 'pix',
             selectedCardId: invoiceData.cardId
@@ -507,7 +530,14 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
     });
     const expensesTotal = unpaidExpenses.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
     const subsTotal = cardSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
-    return total + expensesTotal + subsTotal;
+    // Não conta faturas que só vencem no PRÓXIMO mês (consistente com o selo
+    // "fatura paga" do cartão e o card "em dia" da Visão Geral).
+    const dueDay = card.dueDay || 10;
+    const [iy, im] = currentInvoiceMonth.split('-').map(Number);
+    const due = new Date(iy, im - 1, dueDay);
+    const isFuture = due.getFullYear() > _today.getFullYear()
+      || (due.getFullYear() === _today.getFullYear() && due.getMonth() > _today.getMonth());
+    return total + (isFuture ? 0 : expensesTotal + subsTotal);
   }, 0);
 
   const isDark = theme !== 'light';
@@ -550,8 +580,26 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
     const daysUntil = Math.max(0, Math.ceil((dueDate - t0) / 86400000));
     const recurring = cardSubsAll.filter(s => s.type !== 'installment');
     const installments = cardSubsAll.filter(s => s.type === 'installment');
+    // Quadrinhos "Parcelas/Assinaturas" mostram o valor RECORRENTE do cartão (igual à
+    // lista das abas), pra o usuário antecipar quanto vem no mês seguinte — mesmo que
+    // a fatura atual já tenha sido paga.
     const parcelasMes = installments.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
     const assinaturasMes = recurring.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+
+    // PREVISÃO (com assinaturas) = fatura em aberto + assinaturas recorrentes que
+    // ainda não estão somadas na fatura (ex.: marcada como paga no ciclo). Mostra o
+    // total real que vem. Ex.: parcelas 349,19 + assinatura 16,90 = 366,09.
+    const recurringInInvoiceIds = new Set(unpaidSubs.filter(s => s.type !== 'installment').map(s => s.id));
+    const recurringExtra = recurring
+      .filter(r => !recurringInInvoiceIds.has(r.id))
+      .reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+    const nextInvoiceEstimate = invoiceTotal + recurringExtra;
+
+    // Fatura quitada = nada em aberto (R$ 0). Uma fatura futura em aberto NÃO é paga.
+    const isFutureInvoice = dueDate.getFullYear() > now.getFullYear()
+      || (dueDate.getFullYear() === now.getFullYear() && dueDate.getMonth() > now.getMonth());
+    const currentCyclePaid = invoiceTotal <= 0.005;
+
     const limit = parseFloat(card.limit) || 0;
     const available = limit > 0 ? Math.max(0, limit - invoiceTotal) : 0;
     const usagePct = limit > 0 ? Math.min(100, (invoiceTotal / limit) * 100) : 0;
@@ -565,8 +613,77 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
         totalLabel: s.type === 'installment' ? `R$ ${fmt((parseFloat(s.value) || 0) * (s.totalInstallments || 1))} total` : null,
       })),
     ];
-    return { unpaidExpenses, unpaidSubs, invoiceTotal, currentInvoiceMonth, closingDay, dueDate, daysUntil, recurring, installments, parcelasMes, assinaturasMes, limit, available, usagePct, invoiceItems, hasPreviousDebt: previous.length > 0 };
+    return { unpaidExpenses, unpaidSubs, invoiceTotal, currentInvoiceMonth, closingDay, dueDate, daysUntil, recurring, installments, parcelasMes, assinaturasMes, nextInvoiceEstimate, currentCyclePaid, isFutureInvoice, limit, available, usagePct, invoiceItems, hasPreviousDebt: previous.length > 0 };
   };
+  // Histórico de faturas: baseado em fontes CONFIÁVEIS — os registros de pagamento
+  // (valor + data + snapshot dos itens) e a fatura ATUAL em aberto. Não reconstrói
+  // meses a partir de assinaturas recorrentes (gerava meses-fantasma e totais errados).
+  const getInvoiceHistory = (card) => {
+    if (!card) return [];
+    const closingDay = card.closingDay || ((card.dueDay - 7 > 0) ? card.dueDay - 7 : 25);
+    const currentInvoiceMonth = getInvoiceMonth(new Date().toISOString(), closingDay);
+    const stats = cardStats(card);
+    const now = new Date();
+    const mkLabel = (M) => new Date(M + '-15').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    const payments = transactions.filter(t => t.selectedCardId === card.id
+      && t.category === 'credit_card_bill' && t.invoiceMonthPaid);
+
+    const byMonth = new Map();
+
+    // Faturas PAGAS (registros reais). Itens vêm do snapshot; sem snapshot (faturas
+    // antigas), cai para os lançamentos avulsos reais do mês (assinaturas antigas
+    // não são recuperáveis).
+    payments.forEach(p => {
+      const M = p.invoiceMonthPaid;
+      const snap = p.invoiceSnapshot;
+      const paidTotal = parseFloat(p.amount) || (snap?.total) || 0;
+      let items;
+      if (snap?.items) {
+        items = snap.items; // exato
+      } else {
+        // Compras EXATAS daquela fatura: as transações marcam paidInInvoice === mês
+        // quando a fatura é paga. (fallback: pela data, p/ registros bem antigos.)
+        const exact = transactions.filter(t => t.selectedCardId === card.id
+          && t.category !== 'credit_card_bill' && t.paidInInvoice === M);
+        const purchaseTx = exact.length > 0
+          ? exact
+          : transactions.filter(t => t.selectedCardId === card.id && t.category !== 'credit_card_bill'
+              && getInvoiceMonth(t.date || now.toISOString(), closingDay) === M);
+        const purchaseItems = purchaseTx
+          .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+          .map(t => ({ description: t.description || 'Compra', amount: parseFloat(t.amount) || 0, badge: t.installmentInfo || null, date: t.date || null }));
+        // Assinaturas/parcelas atuais que caem nessa fatura (aproximação para a parte recorrente).
+        const subItems = getCardSubs(card.id)
+          .filter(s => isSubInInvoice(parseInt(s.day) || 1, M, closingDay))
+          .map(s => ({ description: s.name, amount: parseFloat(s.value) || 0, badge: s.type === 'installment' ? `${s.currentInstallment || 1}/${s.totalInstallments || 1}` : 'assinatura', date: null }));
+        items = [...purchaseItems, ...subItems];
+        const sum = items.reduce((a, i) => a + (i.amount || 0), 0);
+        const diff = paidTotal - sum;
+        if (diff > 0.5) items.push({ description: 'Assinaturas e parcelas (não detalhado)', amount: diff, badge: null, date: null });
+      }
+      const entry = {
+        month: M, label: mkLabel(M), total: paidTotal,
+        status: 'paid', paidDate: p.date || null,
+        items, hasSnapshot: !!snap,
+      };
+      const prev = byMonth.get(M);
+      if (!prev || (p.date || '') > (prev.paidDate || '')) byMonth.set(M, entry);
+    });
+
+    // Fatura ATUAL em aberto (se não estiver paga e tiver valor).
+    if (!byMonth.has(currentInvoiceMonth) && stats.invoiceTotal > 0.005) {
+      byMonth.set(currentInvoiceMonth, {
+        month: currentInvoiceMonth, label: mkLabel(currentInvoiceMonth),
+        total: stats.invoiceTotal,
+        status: stats.daysUntil > 0 ? 'open' : 'overdue', paidDate: null,
+        items: stats.invoiceItems.map(i => ({ description: i.name, amount: i.amount, badge: i.installment || (i.date ? null : 'assinatura'), date: i.date })),
+        hasSnapshot: true,
+      });
+    }
+
+    return [...byMonth.values()].sort((a, b) => b.month.localeCompare(a.month));
+  };
+
   const selectedCard = cards.find(c => c.id === selectedCardId) || cards[0] || null;
   const selStats = selectedCard ? cardStats(selectedCard) : null;
 
@@ -624,13 +741,33 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             {/* Cabeçalho da fatura */}
             <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Fatura de {new Date(selStats.currentInvoiceMonth + '-15').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
-                <p className="text-3xl font-black tabular-nums mt-1" style={{ color: selStats.invoiceTotal > 0.005 ? '#f59e0b' : '#10b981' }}><span className="text-base font-bold text-slate-400 mr-0.5">R$</span>{fmt(selStats.invoiceTotal)}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  {selStats.invoiceTotal > 0.005
-                    ? <>Vence em <span className="font-bold text-rose-400">{selStats.daysUntil} {selStats.daysUntil === 1 ? 'dia' : 'dias'}</span> · {selStats.dueDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}</>
-                    : 'Fatura zerada 🎉'}
-                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Fatura de {new Date(selStats.currentInvoiceMonth + '-15').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
+                  {selStats.currentCyclePaid && selStats.nextInvoiceEstimate <= 0.005 && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                      <CheckCircle2 className="w-2.5 h-2.5" /> Fatura paga
+                    </span>
+                  )}
+                </div>
+                {(() => {
+                  // Fatura zerada mas com assinaturas recorrentes vindo (ex.: Nubank):
+                  // mostra a ESTIMATIVA (com assinaturas) como número principal.
+                  const paidWithUpcoming = selStats.currentCyclePaid && selStats.nextInvoiceEstimate > 0.005;
+                  const amount = paidWithUpcoming ? selStats.nextInvoiceEstimate : selStats.invoiceTotal;
+                  const color = paidWithUpcoming ? '#a855f7' : (selStats.invoiceTotal > 0.005 ? '#f59e0b' : '#10b981');
+                  return (
+                    <>
+                      <p className="text-3xl font-black tabular-nums mt-1" style={{ color }}><span className="text-base font-bold text-slate-400 mr-0.5">R$</span>{fmt(amount)}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {paidWithUpcoming
+                          ? <>Próxima fatura estimada · com assinaturas · vence dia {selectedCard.dueDay || 10}</>
+                          : selStats.invoiceTotal > 0.005
+                            ? <>Vence em <span className="font-bold text-rose-400">{selStats.daysUntil} {selStats.daysUntil === 1 ? 'dia' : 'dias'}</span> · {selStats.dueDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}</>
+                            : 'Fatura zerada 🎉'}
+                      </p>
+                    </>
+                  );
+                })()}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {/* Seletor de cartão */}
@@ -710,6 +847,9 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
               </button>
               <button onClick={() => setViewingInvoiceCardId(selectedCard.id)} className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                 <Eye className="w-4 h-4" /> Ver lançamentos
+              </button>
+              <button onClick={() => { setHistoryCardId(selectedCard.id); setExpandedHistoryMonth(null); }} className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                <Calendar className="w-4 h-4" /> Histórico de faturas
               </button>
             </div>
           </div>
@@ -1370,6 +1510,76 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
       )}
 
       {/* MODAL: VIEW INVOICE ITEMS */}
+      {/* Modal: Histórico de faturas */}
+      {historyCardId && (() => {
+        const card = cards.find(c => c.id === historyCardId);
+        if (!card) return null;
+        const history = getInvoiceHistory(card);
+        const statusMeta = {
+          paid:    { label: 'Paga',      cls: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
+          open:    { label: 'Em aberto', cls: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
+          overdue: { label: 'Vencida',   cls: 'bg-rose-500/10 text-rose-500 border-rose-500/20' },
+          future:  { label: 'Próxima',   cls: 'bg-violet-500/10 text-violet-400 border-violet-500/20' },
+        };
+        return (
+          <div className="fixed inset-0 z-[210] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+            <div className={`border rounded-[2rem] w-full max-w-lg p-6 relative max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-300 ${theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'}`}>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Histórico de faturas</h3>
+                  <p className="text-xs text-slate-500">{card.name} · •••• {card.last4 || '0000'}</p>
+                </div>
+                <button onClick={() => { setHistoryCardId(null); setExpandedHistoryMonth(null); }} className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                {history.length === 0 ? (
+                  <p className="text-center text-sm text-slate-500 py-10">Sem faturas registradas ainda.</p>
+                ) : history.map(inv => {
+                  const meta = statusMeta[inv.status];
+                  const open = expandedHistoryMonth === inv.month;
+                  return (
+                    <div key={inv.month} className={`rounded-xl border ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                      <button onClick={() => setExpandedHistoryMonth(open ? null : inv.month)} className="w-full flex items-center justify-between gap-3 p-3 text-left">
+                        <div className="min-w-0">
+                          <p className={`text-sm font-black capitalize ${isDark ? 'text-white' : 'text-slate-800'}`}>{inv.label}</p>
+                          <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${meta.cls}`}>
+                            {meta.label}{inv.status === 'paid' && inv.paidDate ? ` em ${new Date(inv.paidDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}` : ''}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-sm font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(inv.total)}</span>
+                          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+                        </div>
+                      </button>
+                      {open && (
+                        <div className={`px-3 pb-3 space-y-1.5 border-t pt-2 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                          {!inv.hasSnapshot && inv.items.length > 0 && (
+                            <p className="text-[10px] text-amber-500/80 italic pb-1">≈ valores aproximados (fatura anterior à atualização)</p>
+                          )}
+                          {inv.items.length === 0 ? (
+                            <p className="text-[11px] text-slate-500 py-1">{inv.hasSnapshot ? 'Sem itens nesta fatura.' : 'Detalhes não disponíveis. Total pago confirmado.'}</p>
+                          ) : inv.items.map(it => (
+                            <div key={it.id} className="flex items-center justify-between gap-2 text-[11px]">
+                              <span className={`truncate ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                {it.description}
+                                {it.badge
+                                  ? <span className="text-slate-500"> · {it.badge}</span>
+                                  : (it.date ? <span className="text-slate-500"> · {new Date(it.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span> : '')}
+                              </span>
+                              <span className="font-bold tabular-nums text-rose-400 shrink-0">R$ {fmt(parseFloat(it.amount) || 0)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {viewingInvoiceCardId && (() => {
           const isOrphaned = viewingInvoiceCardId === 'orphaned';
           const card = isOrphaned 

@@ -82,7 +82,7 @@ export default function OverviewTab({
         };
         const now = new Date();
         const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        let total = 0; const pending = [];
+        let total = 0; const pending = []; let hasFutureInvoice = false;
         (cards || []).forEach(card => {
             const closingDay = card.closingDay || ((card.dueDay - 7 > 0) ? card.dueDay - 7 : 25);
             const dueDay = card.dueDay || 10;
@@ -106,8 +106,17 @@ export default function OverviewTab({
                 const invMonth = invMonths[0] || currInv;
                 const [iy, im] = invMonth.split('-').map(Number);
                 const due = new Date(iy, im - 1, dueDay);
-                pending.push({ card, sum, due });
-                total += sum;
+                // Só conta como fatura pendente se vence no MÊS ATUAL ou está vencida.
+                // Faturas que só vencem no próximo mês (ex.: parcelas futuras já lançadas)
+                // ficam ocultas até o mês virar — aí o card mostra "cartões em dia".
+                const isCurrentOrOverdue = due.getFullYear() < now.getFullYear()
+                    || (due.getFullYear() === now.getFullYear() && due.getMonth() <= now.getMonth());
+                if (isCurrentOrOverdue) {
+                    pending.push({ card, sum, due });
+                    total += sum;
+                } else {
+                    hasFutureInvoice = true;
+                }
             }
         });
         pending.sort((a, b) => a.due - b.due);
@@ -116,7 +125,10 @@ export default function OverviewTab({
         const label = pending.length === 0 ? '' : pending.length === 1
             ? [nearest.card.name, nearest.card.brand].filter(Boolean).join(' · ')
             : `${pending.length} cartões`;
-        return { total, daysUntil, dueDate: nearest?.due || null, label };
+        const hasCards = (cards || []).length > 0;
+        // "Em dia": tem cartão, nada vencendo agora, mas há fatura futura (paga o ciclo atual).
+        const upToDate = hasCards && total <= 0.005 && hasFutureInvoice;
+        return { total, daysUntil, dueDate: nearest?.due || null, label, hasCards, hasFutureInvoice, upToDate };
     }, [cards, subscriptions, transactions]);
 
     // Variação do saldo no mês (entradas - saídas do mês vs base anterior).
@@ -200,7 +212,19 @@ export default function OverviewTab({
                     </div>
                     <button onClick={() => setActiveTab && setActiveTab('cartoes')} className={`p-4 rounded-2xl border flex items-center gap-3 text-left transition-all hover:scale-[1.01] ${card}`}>
                         <span className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}><CreditCard className="w-5 h-5 text-violet-500" /></span>
-                        <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">Fatura do cartão</p><p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-violet-400'}`}>{hideBalance ? 'R$ ••' : formatCurrency(invoiceInfo.total)}</p><p className="text-[9px] text-slate-400 truncate">{invoiceInfo.total > 0.005 ? (invoiceInfo.dueDate ? `vence ${invoiceInfo.dueDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}` : 'fatura aberta') : 'sem fatura aberta'}</p></div>
+                        <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">Fatura do cartão</p>
+                            {invoiceInfo.upToDate ? (
+                                <>
+                                    <p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-emerald-500'}`}>Em dia ✓</p>
+                                    <p className="text-[9px] text-slate-400 truncate">faturas do mês pagas</p>
+                                </>
+                            ) : (
+                                <>
+                                    <p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-violet-400'}`}>{hideBalance ? 'R$ ••' : formatCurrency(invoiceInfo.total)}</p>
+                                    <p className="text-[9px] text-slate-400 truncate">{invoiceInfo.total > 0.005 ? (invoiceInfo.dueDate ? `vence ${invoiceInfo.dueDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}` : 'fatura aberta') : 'sem fatura aberta'}</p>
+                                </>
+                            )}
+                        </div>
                     </button>
                 </div>
 
