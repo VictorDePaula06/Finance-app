@@ -179,8 +179,8 @@ export default function OverviewTab({
                                 {editingWallet ? (
                                     <div className="flex items-center gap-1 mt-1">
                                         <span className={`text-lg font-bold ${subTextColor}`}>R$</span>
-                                        <input autoFocus type="text" value={walletInput} onChange={e => setWalletInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { const v = parseFloat(walletInput.replace(',', '.')); if (!isNaN(v) && onSetInitialBalance) onSetInitialBalance(v); setEditingWallet(false); } if (e.key === 'Escape') setEditingWallet(false); }} className={`w-40 text-3xl font-bold bg-transparent border-b-2 border-emerald-500 focus:outline-none ${textColor}`} />
-                                        <button onClick={() => { const v = parseFloat(walletInput.replace(',', '.')); if (!isNaN(v) && onSetInitialBalance) onSetInitialBalance(v); setEditingWallet(false); }} className="text-emerald-400 hover:text-emerald-300 ml-1"><Check size={18} /></button>
+                                        <input autoFocus type="text" value={walletInput} onChange={e => setWalletInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { const v = parseFloat(walletInput.replace(/\./g, '').replace(',', '.')); if (!isNaN(v) && onSetInitialBalance) onSetInitialBalance(v); setEditingWallet(false); } if (e.key === 'Escape') setEditingWallet(false); }} className={`w-40 text-3xl font-bold bg-transparent border-b-2 border-emerald-500 focus:outline-none ${textColor}`} />
+                                        <button onClick={() => { const v = parseFloat(walletInput.replace(/\./g, '').replace(',', '.')); if (!isNaN(v) && onSetInitialBalance) onSetInitialBalance(v); setEditingWallet(false); }} className="text-emerald-400 hover:text-emerald-300 ml-1"><Check size={18} /></button>
                                         <button onClick={() => setEditingWallet(false)} className="text-slate-500 hover:text-slate-300"><X size={16} /></button>
                                     </div>
                                 ) : (
@@ -274,7 +274,7 @@ export default function OverviewTab({
                                         onChange={e => setWalletInput(e.target.value)}
                                         onKeyDown={e => {
                                             if (e.key === 'Enter') {
-                                                const val = parseFloat(walletInput.replace(',', '.'));
+                                                const val = parseFloat(walletInput.replace(/\./g, '').replace(',', '.'));
                                                 if (!isNaN(val) && onSetInitialBalance) { onSetInitialBalance(val); }
                                                 setEditingWallet(false);
                                             }
@@ -284,7 +284,7 @@ export default function OverviewTab({
                                     />
                                     <button
                                         onClick={() => {
-                                            const val = parseFloat(walletInput.replace(',', '.'));
+                                            const val = parseFloat(walletInput.replace(/\./g, '').replace(',', '.'));
                                             if (!isNaN(val) && onSetInitialBalance) { onSetInitialBalance(val); }
                                             setEditingWallet(false);
                                         }}

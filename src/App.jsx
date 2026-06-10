@@ -406,12 +406,29 @@ function Dashboard() {
     }
   };
 
+  // Ajusta o saldo da carteira para EXATAMENTE `amount` (não soma).
+  // Remove entradas antigas de "Saldo Inicial" (evita poluição/duplicação) e cria
+  // UMA única entrada de ajuste que faz o saldo total bater no valor desejado.
   const handleSetInitialBalance = async (amount) => {
     if (!currentUser) return;
+    const target = parseFloat(amount);
+    if (isNaN(target)) return;
+
+    const initialEntries = transactions.filter(t => t.category === 'initial_balance');
+    const sumInitial = initialEntries.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+    const currentBalance = Number(walletStats?.balance) || 0;
+    // Saldo "real" sem nenhuma entrada de Saldo Inicial.
+    const baseWithoutInitial = currentBalance - sumInitial;
+    // Valor de ajuste que faz: base + ajuste = alvo.
+    const adjust = target - baseWithoutInitial;
+
+    // Limpa as entradas antigas de saldo inicial (inclui as duplicadas).
+    await Promise.all(initialEntries.map(t => deleteDoc(doc(db, 'transactions', t.id))));
+
     const now = new Date();
     await addDoc(collection(db, 'transactions'), {
-      description: 'Saldo Inicial',
-      amount: parseFloat(amount),
+      description: 'Ajuste de saldo',
+      amount: adjust,
       type: 'income',
       category: 'initial_balance',
       date: now.toISOString(),

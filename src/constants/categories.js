@@ -21,7 +21,7 @@ export const CATEGORIES = {
         { id: 'freelance', label: 'Freelance', icon: Laptop, color: 'text-blue-400' },
         { id: 'investment', label: 'Investim.', icon: TrendingUp, color: 'text-purple-400' },
         { id: 'gift', label: 'Presente', icon: Wallet, color: 'text-yellow-400' },
-        { id: 'initial_balance', label: 'Saldo Inicial', icon: Landmark, color: 'text-emerald-500' },
+        { id: 'initial_balance', label: 'Ajuste de saldo', icon: Landmark, color: 'text-emerald-500' },
         { id: 'carryover', label: 'Sobra de Mês', icon: Wallet, color: 'text-blue-500' },
         { id: 'vault_redemption', label: 'Resgate Cofre', icon: Lock, color: 'text-yellow-600' },
         { id: 'other', label: 'Outro', icon: Circle, color: 'text-slate-400' }
