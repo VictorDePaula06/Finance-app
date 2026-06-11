@@ -1082,7 +1082,7 @@ function Dashboard() {
 
           {activeTab === 'extrato' && <ExtratoTab transactions={transactions} />}
 
-          {activeTab === 'ajustes' && <SettingsTab manualConfig={manualConfig} updateManualConfig={updateManualConfig} />}
+          {activeTab === 'ajustes' && <SettingsTab manualConfig={manualConfig} updateManualConfig={updateManualConfig} walletStats={walletStats} onSetInitialBalance={handleSetInitialBalance} />}
 
         </div>
 

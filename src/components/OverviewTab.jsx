@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
-import { Eye, EyeOff, Pencil, Check, X, CreditCard, ChevronRight, TrendingUp, TrendingDown, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, CreditCard, ChevronRight, TrendingUp, TrendingDown, ShieldCheck } from 'lucide-react';
 import FinancialHealthIndex from './FinancialHealthIndex';
 
 export default function OverviewTab({
@@ -18,8 +18,6 @@ export default function OverviewTab({
     subscriptions = [],
     setActiveTab
 }) {
-    const [editingWallet, setEditingWallet] = useState(false);
-    const [walletInput, setWalletInput] = useState('');
 
     const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 
@@ -174,18 +172,8 @@ export default function OverviewTab({
                                 <div className="flex items-center gap-2 mb-1.5">
                                     <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-400">Saldo Total em Carteira</span>
                                     <button onClick={toggleHideBalance} className="text-slate-400 hover:text-blue-500 transition-colors">{hideBalance ? <EyeOff size={15} /> : <Eye size={15} />}</button>
-                                    {!editingWallet && (<button onClick={() => { setWalletInput((Number(walletStats?.balance) || 0).toFixed(2).replace('.', ',')); setEditingWallet(true); }} title="Ajustar saldo atual" className="text-slate-400 hover:text-emerald-400 transition-colors"><Pencil size={13} /></button>)}
                                 </div>
-                                {editingWallet ? (
-                                    <div className="flex items-center gap-1 mt-1">
-                                        <span className={`text-lg font-bold ${subTextColor}`}>R$</span>
-                                        <input autoFocus type="text" value={walletInput} onChange={e => setWalletInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { const v = parseFloat(walletInput.replace(/\./g, '').replace(',', '.')); if (!isNaN(v) && onSetInitialBalance) onSetInitialBalance(v); setEditingWallet(false); } if (e.key === 'Escape') setEditingWallet(false); }} className={`w-40 text-3xl font-bold bg-transparent border-b-2 border-emerald-500 focus:outline-none ${textColor}`} />
-                                        <button onClick={() => { const v = parseFloat(walletInput.replace(/\./g, '').replace(',', '.')); if (!isNaN(v) && onSetInitialBalance) onSetInitialBalance(v); setEditingWallet(false); }} className="text-emerald-400 hover:text-emerald-300 ml-1"><Check size={18} /></button>
-                                        <button onClick={() => setEditingWallet(false)} className="text-slate-500 hover:text-slate-300"><X size={16} /></button>
-                                    </div>
-                                ) : (
-                                    <div className={`text-3xl md:text-4xl font-black tracking-tight tabular-nums ${hideBalance ? 'blur-md select-none' : 'text-blue-400'}`}>{hideBalance ? 'R$ 0.000,00' : formatCurrency(walletStats.balance)}</div>
-                                )}
+                                <div className={`text-3xl md:text-4xl font-black tracking-tight tabular-nums ${hideBalance ? 'blur-md select-none' : 'text-blue-400'}`}>{hideBalance ? 'R$ 0.000,00' : formatCurrency(walletStats.balance)}</div>
                                 <p className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 mt-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Saldo atual disponível em conta</p>
                             </div>
 
@@ -254,51 +242,10 @@ export default function OverviewTab({
                                 <button onClick={toggleHideBalance} className="text-slate-400 hover:text-blue-500 transition-colors">
                                     {hideBalance ? <EyeOff size={15} /> : <Eye size={15} />}
                                 </button>
-                                {!editingWallet && (
-                                    <button
-                                        onClick={() => { setWalletInput((Number(walletStats?.balance) || 0).toFixed(2).replace('.', ',')); setEditingWallet(true); }}
-                                        title="Ajustar saldo atual"
-                                        className="text-slate-400 hover:text-emerald-400 transition-colors"
-                                    >
-                                        <Pencil size={13} />
-                                    </button>
-                                )}
                             </div>
-                            {editingWallet ? (
-                                <div className="flex items-center gap-1 mt-1">
-                                    <span className={`text-lg font-bold ${subTextColor}`}>R$</span>
-                                    <input
-                                        autoFocus
-                                        type="text"
-                                        value={walletInput}
-                                        onChange={e => setWalletInput(e.target.value)}
-                                        onKeyDown={e => {
-                                            if (e.key === 'Enter') {
-                                                const val = parseFloat(walletInput.replace(/\./g, '').replace(',', '.'));
-                                                if (!isNaN(val) && onSetInitialBalance) { onSetInitialBalance(val); }
-                                                setEditingWallet(false);
-                                            }
-                                            if (e.key === 'Escape') setEditingWallet(false);
-                                        }}
-                                        className={`w-40 text-3xl font-bold bg-transparent border-b-2 border-emerald-500 focus:outline-none ${textColor}`}
-                                    />
-                                    <button
-                                        onClick={() => {
-                                            const val = parseFloat(walletInput.replace(/\./g, '').replace(',', '.'));
-                                            if (!isNaN(val) && onSetInitialBalance) { onSetInitialBalance(val); }
-                                            setEditingWallet(false);
-                                        }}
-                                        className="text-emerald-400 hover:text-emerald-300 transition-colors ml-1"
-                                    ><Check size={18} /></button>
-                                    <button onClick={() => setEditingWallet(false)} className="text-slate-500 hover:text-slate-300 transition-colors">
-                                        <X size={16} />
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className={`text-3xl md:text-4xl font-black tracking-tight tabular-nums ${hideBalance ? 'blur-md select-none' : 'text-blue-400'}`}>
-                                    {hideBalance ? 'R$ 0.000,00' : formatCurrency(walletStats.balance)}
-                                </div>
-                            )}
+                            <div className={`text-3xl md:text-4xl font-black tracking-tight tabular-nums ${hideBalance ? 'blur-md select-none' : 'text-blue-400'}`}>
+                                {hideBalance ? 'R$ 0.000,00' : formatCurrency(walletStats.balance)}
+                            </div>
                             <p className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 mt-1.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Saldo atual disponível em conta
                             </p>

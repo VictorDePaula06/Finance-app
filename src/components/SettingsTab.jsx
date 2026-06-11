@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Settings, Shield, Moon, Sun, Key, Check, Loader2, Video,
   HelpCircle, Sparkles, Bookmark, X, CreditCard,
-  Trash2, AlertTriangle, RefreshCw, Pencil, Download, FileText, Mail
+  Trash2, AlertTriangle, RefreshCw, Pencil, Download, FileText, Mail, Wallet
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -15,7 +15,7 @@ import Manual from './Manual';
 import UpgradeModal from './UpgradeModal';
 import { Sparkles as SparklesIcon } from 'lucide-react';
 
-const SettingsTab = ({ manualConfig, updateManualConfig }) => {
+const SettingsTab = ({ manualConfig, updateManualConfig, walletStats, onSetInitialBalance }) => {
   const { theme, toggleTheme } = useTheme();
   const { currentUser, deleteAccount, planLevel, subType, resetGastosData, resetPatrimonioData, stripeSubId } = useAuth();
 
@@ -37,6 +37,19 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
   const [activeSection, setActiveSection] = useState('alivia');
 
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [walletInput, setWalletInput] = useState('');
+  const [walletSaved, setWalletSaved] = useState(false);
+
+  const fmtBRL = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v) || 0);
+  const handleSaveWallet = () => {
+    const val = parseFloat(walletInput.replace(/\./g, '').replace(',', '.'));
+    if (!isNaN(val) && onSetInitialBalance) {
+      onSetInitialBalance(val);
+      setWalletInput('');
+      setWalletSaved(true);
+      setTimeout(() => setWalletSaved(false), 2500);
+    }
+  };
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [showResetGastosConfirm, setShowResetGastosConfirm] = useState(false);
@@ -122,6 +135,7 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
   const navItems = [
     { id: 'alivia',       label: 'Configurar Alívia',        icon: Sparkles,      iconColor: 'text-emerald-400', activeColor: 'emerald' },
     { id: 'profile',      label: 'Perfil e Segurança',      icon: Shield,        iconColor: 'text-emerald-500', activeColor: 'emerald' },
+    { id: 'wallet',       label: 'Saldo da carteira',        icon: Wallet,        iconColor: 'text-blue-400',    activeColor: 'emerald' },
     { id: 'subscription', label: 'Sua Assinatura',           icon: CreditCard,    iconColor: 'text-blue-400',    activeColor: 'emerald' },
     { id: 'ai',           label: 'Inteligência Artificial',  icon: Key,           iconColor: 'text-violet-400',  activeColor: 'emerald' },
     { id: 'appearance',   label: 'Aparência',                icon: Settings,      iconColor: 'text-slate-400',   activeColor: 'emerald' },
@@ -701,9 +715,64 @@ const SettingsTab = ({ manualConfig, updateManualConfig }) => {
     </div>
   );
 
+  const renderWallet = () => (
+    <div className="animate-in fade-in duration-200 space-y-4">
+      <SectionTitle icon={Wallet} label="Saldo da carteira" iconColor="text-blue-400" />
+
+      {/* Saldo atual */}
+      <div className={`p-4 rounded-xl border ${isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Saldo atual no app</p>
+        <p className={`text-2xl font-black mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{fmtBRL(walletStats?.balance || 0)}</p>
+      </div>
+
+      {/* Explicativo detalhado */}
+      <div className={`p-4 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/10' : 'bg-blue-50/50 border-blue-100'}`}>
+        <div className="flex items-center gap-2 mb-2">
+          <Wallet className="w-4 h-4 text-blue-500" />
+          <h4 className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Como funciona o ajuste</h4>
+        </div>
+        <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+          Use este ajuste para <strong className={isDark ? 'text-slate-200' : 'text-slate-800'}>igualar o saldo do app ao que você realmente tem agora</strong> na sua conta/carteira.
+          O valor que você informar passa a ser o <strong className={isDark ? 'text-slate-200' : 'text-slate-800'}>saldo atual da carteira</strong>.
+          <br /><br />
+          A partir desse ponto, tudo é calculado <strong className={isDark ? 'text-slate-200' : 'text-slate-800'}>em cima desse novo valor</strong>: cada
+          entrada que você lançar <strong>soma</strong> e cada gasto <strong>desconta</strong>. Ex.: ajustou para R$ 1.000 e gastou R$ 50 → o saldo vira R$ 950.
+          <br /><br />
+          É só uma <strong className={isDark ? 'text-slate-200' : 'text-slate-800'}>calibração</strong> — não apaga nenhum lançamento. Lançamentos com data
+          anterior ao ajuste continuam no histórico (já estão considerados no valor que você informou). Você pode reajustar quando quiser.
+        </p>
+      </div>
+
+      {/* Campo de ajuste */}
+      <div>
+        <label className={`text-[10px] font-semibold mb-1 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Novo saldo da carteira (R$)</label>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={walletInput}
+            onChange={e => setWalletInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleSaveWallet(); }}
+            placeholder={(Number(walletStats?.balance) || 0).toFixed(2).replace('.', ',')}
+            className={`flex-1 px-4 py-3 rounded-xl border text-sm font-bold outline-none transition-colors ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-600 focus:border-emerald-500' : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`}
+          />
+          <button
+            onClick={handleSaveWallet}
+            disabled={!walletInput.trim()}
+            className={`px-4 py-3 rounded-xl text-xs font-black transition-all active:scale-95 inline-flex items-center gap-1.5 shrink-0 ${walletInput.trim() ? 'bg-emerald-500 text-white hover:bg-emerald-600' : (isDark ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400')}`}
+          >
+            {walletSaved ? <><Check className="w-4 h-4" /> Salvo</> : 'Ajustar saldo'}
+          </button>
+        </div>
+        {walletSaved && <p className="text-[11px] text-emerald-500 font-bold mt-1.5">Saldo atualizado!</p>}
+      </div>
+    </div>
+  );
+
   const sectionMap = {
     alivia:       renderAlivia,
     profile:      renderProfile,
+    wallet:       renderWallet,
     subscription: renderSubscription,
     ai:           renderAI,
     appearance:   renderAppearance,
