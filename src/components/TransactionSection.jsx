@@ -127,10 +127,15 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
 
     const addTransactionToDb = async (data) => {
         try {
-            // Use provided date or today if missing
+            // Use provided date or today if missing.
+            // Se a data escolhida for HOJE, usa o horário ATUAL — assim a transação fica
+            // na ordem certa do extrato (ex.: depois de um "Ajuste de saldo" feito hoje).
+            // Datas de outros dias entram normalmente.
             let transactionDate = new Date();
             if (data.date) {
-                transactionDate = new Date(data.date);
+                const todayStr = new Date().toLocaleDateString('en-CA');
+                const isToday = typeof data.date === 'string' && data.date.slice(0, 10) === todayStr;
+                transactionDate = isToday ? new Date() : new Date(data.date);
             }
 
             const docData = {

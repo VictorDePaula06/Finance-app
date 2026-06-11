@@ -414,21 +414,16 @@ function Dashboard() {
     const target = parseFloat(amount);
     if (isNaN(target)) return;
 
+    // "Ajuste de saldo" é um ponto de reset: o extrato DEFINE o saldo com o valor
+    // desta entrada (não soma). Então guardamos o VALOR ALVO direto.
+    // Removemos as entradas antigas para não acumular/duplicar.
     const initialEntries = transactions.filter(t => t.category === 'initial_balance');
-    const sumInitial = initialEntries.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
-    const currentBalance = Number(walletStats?.balance) || 0;
-    // Saldo "real" sem nenhuma entrada de Saldo Inicial.
-    const baseWithoutInitial = currentBalance - sumInitial;
-    // Valor de ajuste que faz: base + ajuste = alvo.
-    const adjust = target - baseWithoutInitial;
-
-    // Limpa as entradas antigas de saldo inicial (inclui as duplicadas).
     await Promise.all(initialEntries.map(t => deleteDoc(doc(db, 'transactions', t.id))));
 
     const now = new Date();
     await addDoc(collection(db, 'transactions'), {
       description: 'Ajuste de saldo',
-      amount: adjust,
+      amount: target,
       type: 'income',
       category: 'initial_balance',
       date: now.toISOString(),

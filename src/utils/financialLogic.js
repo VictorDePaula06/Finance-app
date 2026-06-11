@@ -195,9 +195,16 @@ export const buildWalletLedger = (transactions, targetMonth) => {
             return m !== "" && (!targetMonth || m <= targetMonth);
         })
         .sort((a, b) => {
-            const dateA = new Date(a.date).getTime() || 0;
-            const dateB = new Date(b.date).getTime() || 0;
-            if (dateA !== dateB) return dateA - dateB;
+            // Ordena por DIA (data). Em dias diferentes, a data manda.
+            const dayA = (a.date || '').slice(0, 10);
+            const dayB = (b.date || '').slice(0, 10);
+            if (dayA !== dayB) return dayA < dayB ? -1 : 1;
+            // MESMO DIA: ordena pela criação real (createdAt). Assim uma despesa
+            // lançada DEPOIS de um "Ajuste de saldo" no mesmo dia fica depois dele
+            // (mesmo que a despesa tenha pegado data de meia-noite) e desconta certo.
+            const cA = a.createdAt || new Date(a.date).getTime() || 0;
+            const cB = b.createdAt || new Date(b.date).getTime() || 0;
+            if (cA !== cB) return cA - cB;
             const aIsReset = isResetTx(a);
             const bIsReset = isResetTx(b);
             if (aIsReset && !bIsReset) return -1;
