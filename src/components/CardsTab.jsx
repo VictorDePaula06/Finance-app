@@ -74,6 +74,9 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
   // Edit Transaction State
   const [editingTransaction, setEditingTransaction] = useState(null); // { id, description, amount, date }
   const [editingSub, setEditingSub] = useState(null); // { id, name, value, day }
+  // Novo gasto no cartão (crédito) — forma de pagamento e cartão fixos.
+  const [isAddingCardTx, setIsAddingCardTx] = useState(false);
+  const [newCardTx, setNewCardTx] = useState({ description: '', amount: '', date: new Date().toISOString().slice(0, 10), category: 'shopping', priority: 'comfort' });
 
   // Aviso de endividamento — { type: 'installment' | 'invoice', amount, itemName, payload }
   const [overdraftPending, setOverdraftPending] = useState(null);
@@ -257,6 +260,39 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
         date: formattedDate
     });
     setEditingTransaction(null);
+  };
+
+  // Abre o modal de novo gasto no cartão atual (crédito, cartão fixo).
+  const openAddCardTx = () => {
+    setNewCardTx({ description: '', amount: '', date: new Date().toISOString().slice(0, 10), category: 'shopping', priority: 'comfort' });
+    setIsAddingCardTx(true);
+  };
+
+  // Lança um gasto no crédito do cartão selecionado (entra na fatura como "em aberto").
+  const handleAddCardTransaction = async (e) => {
+    e.preventDefault();
+    if (!newCardTx.description || !newCardTx.amount || !selectedCard) return;
+    let dateIso = new Date().toISOString();
+    if (newCardTx.date && newCardTx.date.includes('-')) {
+      const [y, m, d] = newCardTx.date.split('-').map(Number);
+      dateIso = new Date(y, m - 1, d, 12, 0, 0).toISOString();
+    }
+    await addDoc(collection(db, 'transactions'), {
+      description: newCardTx.description,
+      amount: parseFloat(newCardTx.amount),
+      type: 'expense',
+      category: newCardTx.category || 'shopping',
+      priority: newCardTx.priority || 'comfort',
+      date: dateIso,
+      month: dateIso.slice(0, 7),
+      userId: currentUser.uid,
+      createdAt: Date.now(),
+      paymentMethod: 'credito',
+      selectedCardId: selectedCard.id,
+      invoiceStatus: 'unpaid',
+    });
+    setNewCardTx({ description: '', amount: '', date: new Date().toISOString().slice(0, 10), category: 'shopping', priority: 'comfort' });
+    setIsAddingCardTx(false);
   };
 
   const handleUpdateSub = async (e) => {
@@ -924,6 +960,13 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             ))}
           </div>
 
+          {/* Ações de adicionar (acima da lista) */}
+          <div className={`flex items-center gap-2 px-3 py-2.5 border-b flex-wrap ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+            <button onClick={openAddCardTx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black text-white bg-emerald-500 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"><Plus className="w-3.5 h-3.5" /> Transação</button>
+            <button onClick={() => { if (isLimited && subscriptions.length >= TRIAL_SUBS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_SUBS_LIMIT} assinaturas do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; } setNewSub({ name: '', value: '', day: 1, cardId: selectedCard.id, category: 'subscriptions', priority: 'comfort' }); setIsAddingSub(true); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Plus className="w-3.5 h-3.5" /> Assinatura</button>
+            <button onClick={() => { setNewInstallment({ name: '', value: '', valueMode: 'total', installments: '2', day: 1, cardId: selectedCard.id, category: 'shopping', priority: 'comfort' }); setIsAddingInstallment(true); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Plus className="w-3.5 h-3.5" /> Parcelamento</button>
+          </div>
+
           <div className="p-3">
             {detailTab === 'lancamentos' && (
               <>
@@ -1015,11 +1058,6 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             )}
           </div>
 
-          {/* Ações de adicionar */}
-          <div className={`flex items-center gap-2 p-3 border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
-            <button onClick={() => { if (isLimited && subscriptions.length >= TRIAL_SUBS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_SUBS_LIMIT} assinaturas do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; } setNewSub({ name: '', value: '', day: 1, cardId: selectedCard.id, category: 'subscriptions', priority: 'comfort' }); setIsAddingSub(true); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Plus className="w-3.5 h-3.5" /> Assinatura</button>
-            <button onClick={() => { setNewInstallment({ name: '', value: '', valueMode: 'total', installments: '2', day: 1, cardId: selectedCard.id, category: 'shopping', priority: 'comfort' }); setIsAddingInstallment(true); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Plus className="w-3.5 h-3.5" /> Parcelamento</button>
-          </div>
         </div>
       )}
       </>
@@ -2067,6 +2105,86 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setEditingTransaction(null)} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
                 <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20">Salvar Alterações</button>
+              </div>
+            </form>
+          </div>
+        );
+      })()}
+
+      {/* MODAL: NOVO GASTO NO CARTÃO (crédito + cartão fixos, não editáveis) */}
+      {isAddingCardTx && selectedCard && (() => {
+        const inputCls = `w-full p-4 rounded-2xl border font-bold text-sm transition-all ${
+          theme === 'light' ? 'bg-slate-50 focus:bg-white border-slate-100 text-slate-800' : 'bg-white/5 focus:bg-white/10 border-white/5 text-white'
+        }`;
+        const PRIORITY_OPTS = [
+          { id: 'essential',   label: 'Essencial', color: 'emerald' },
+          { id: 'comfort',     label: 'Conforto',  color: 'amber'   },
+          { id: 'superfluous', label: 'Supérfluo', color: 'rose'    },
+        ];
+        return (
+          <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+            <form onSubmit={handleAddCardTransaction} className={`border rounded-[3rem] w-full max-w-sm p-8 space-y-5 animate-in zoom-in-95 duration-300 max-h-[92vh] overflow-y-auto custom-scrollbar ${
+              theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl shadow-emerald-500/10'
+            }`}>
+              <h3 className={`text-xl font-bold tracking-wide uppercase ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Novo Gasto</h3>
+
+              {/* Forma de pagamento + cartão FIXOS (não editáveis) */}
+              <div className={`flex items-center gap-3 p-3.5 rounded-2xl border ${theme === 'light' ? 'bg-violet-50 border-violet-100' : 'bg-violet-500/10 border-violet-500/20'}`}>
+                <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-violet-500/15 text-violet-400"><CreditCard className="w-[18px] h-[18px]" /></span>
+                <div className="min-w-0">
+                  <p className={`text-[13px] font-black truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{selectedCard.name} {selectedCard.last4 ? `•• ${selectedCard.last4}` : ''}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-violet-400">Cartão de crédito</p>
+                </div>
+              </div>
+
+              <input type="text" placeholder="Descrição" required value={newCardTx.description}
+                onChange={(e) => setNewCardTx({ ...newCardTx, description: e.target.value })} className={inputCls} />
+
+              <div className="grid grid-cols-2 gap-4">
+                <input type="number" step="0.01" placeholder="Valor R$" required value={newCardTx.amount}
+                  onChange={(e) => setNewCardTx({ ...newCardTx, amount: e.target.value })} className={inputCls} />
+                <input type="date" required value={newCardTx.date}
+                  onChange={(e) => setNewCardTx({ ...newCardTx, date: e.target.value })}
+                  className={`${inputCls} ${theme === 'light' ? '[color-scheme:light]' : '[color-scheme:dark]'}`} />
+              </div>
+
+              {/* Categoria */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Categoria</label>
+                <select required value={newCardTx.category}
+                  onChange={(e) => { const newCat = e.target.value; const catDef = CATEGORIES.expense.find(c => c.id === newCat); setNewCardTx({ ...newCardTx, category: newCat, priority: catDef?.defaultPriority || newCardTx.priority }); }}
+                  className={`${inputCls} outline-none appearance-none cursor-pointer`}>
+                  {CATEGORIES.expense.map(cat => (
+                    <option key={cat.id} value={cat.id} className={theme === 'light' ? 'bg-white text-slate-800' : 'bg-slate-800 text-white'}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Prioridade */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Prioridade</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {PRIORITY_OPTS.map(opt => {
+                    const isSelected = newCardTx.priority === opt.id;
+                    const selBg = opt.color === 'emerald'
+                      ? (theme === 'light' ? 'bg-emerald-50 border-emerald-400' : 'bg-emerald-500/10 border-emerald-500/40')
+                      : opt.color === 'rose'
+                        ? (theme === 'light' ? 'bg-rose-50 border-rose-400' : 'bg-rose-500/10 border-rose-500/40')
+                        : (theme === 'light' ? 'bg-amber-50 border-amber-400' : 'bg-amber-500/10 border-amber-500/40');
+                    const selText = opt.color === 'emerald' ? 'text-emerald-600' : opt.color === 'rose' ? 'text-rose-600' : 'text-amber-600';
+                    return (
+                      <button key={opt.id} type="button" onClick={() => setNewCardTx({ ...newCardTx, priority: opt.id })}
+                        className={`p-2 rounded-xl border text-center transition-all ${isSelected ? selBg : (theme === 'light' ? 'bg-slate-50 border-slate-100 hover:border-slate-200' : 'bg-white/5 border-white/5 hover:border-white/10')}`}>
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${isSelected ? selText : (theme === 'light' ? 'text-slate-500' : 'text-slate-400')}`}>{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setIsAddingCardTx(false)} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>Cancelar</button>
+                <button type="submit" className="flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20">Lançar no cartão</button>
               </div>
             </form>
           </div>
