@@ -39,7 +39,55 @@ export default function ExtratoTab({ transactions = [] }) {
 
     // Extrato com saldo corrente (mesma regra do saldo em carteira da Visão Geral).
     const ledger = useMemo(() => buildWalletLedger(transactions, currentMonthKey), [transactions, currentMonthKey]);
-    const { entries, finalBalance } = ledger;
+    const { finalBalance } = ledger;
+
+    // Assinaturas e parcelamentos pagos no cartão NÃO são transações próprias — eles
+    // vivem na coleção "subscriptions" e só viram um lançamento SOMADO no pagamento da
+    // fatura (credit_card_bill, que guarda um snapshot dos itens). Para o Extrato mostrar
+    // "o que foi pago em assinatura/parcelamento", expandimos esses itens do snapshot
+    // como linhas informativas — elas NÃO afetam o saldo (o caixa já saiu no pagamento
+    // da fatura), então não há dupla contagem.
+    const invoiceItemEntries = useMemo(() => {
+        const out = [];
+        transactions.forEach(t => {
+            if (t.category !== 'credit_card_bill' || !t.invoiceSnapshot?.items) return;
+            t.invoiceSnapshot.items.forEach((it, idx) => {
+                const badge = it.badge || '';
+                const isInstall = /^\d+\/\d+$/.test(badge); // parcela "3/12"
+                const isSub = badge === 'assinatura';
+                // Só assinaturas/parcelas — as despesas avulsas já aparecem como transação própria.
+                if (it.date || !(isInstall || isSub)) return;
+                out.push({
+                    t: {
+                        id: `${t.id}-snap-${idx}`,
+                        description: it.description,
+                        amount: parseFloat(it.amount) || 0,
+                        type: 'expense',
+                        category: isInstall ? 'shopping' : 'subscriptions',
+                        date: t.date,
+                        month: t.month || (t.date ? String(t.date).slice(0, 7) : ''),
+                        createdAt: (t.createdAt || 0) + idx + 1,
+                        paymentMethod: 'credito',
+                        invoiceStatus: 'paid',
+                        installmentInfo: isInstall ? `Parcela ${badge}` : 'Assinatura',
+                    },
+                    affects: false, delta: 0, runningBalance: null, isReset: false,
+                });
+            });
+        });
+        return out;
+    }, [transactions]);
+
+    // Junta as transações reais do extrato com as linhas de assinatura/parcela paga.
+    const entries = useMemo(() => {
+        if (invoiceItemEntries.length === 0) return ledger.entries;
+        return [...ledger.entries, ...invoiceItemEntries].sort((a, b) => {
+            const dA = String(a.t.date || '').slice(0, 10);
+            const dB = String(b.t.date || '').slice(0, 10);
+            if (dA !== dB) return dA < dB ? -1 : 1;
+            return (a.t.createdAt || 0) - (b.t.createdAt || 0);
+        });
+    }, [ledger.entries, invoiceItemEntries]);
 
     // Meses disponíveis (para o seletor de período).
     const months = useMemo(() => {
