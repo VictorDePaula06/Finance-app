@@ -25,6 +25,7 @@ export const generatePDF = async (data, logoSrc) => {
         balance = 0,
         byCategory = [],
         rows = [],
+        reportTitle = 'RELATÓRIO MENSAL',
     } = data || {};
 
     // Linhas ordenadas por data (mais recente primeiro).
@@ -70,7 +71,7 @@ export const generatePDF = async (data, logoSrc) => {
     doc.setFontSize(10);
     doc.setTextColor(148, 163, 184); // Slate 400
     doc.setFont("helvetica", "normal");
-    doc.text("RELATÓRIO MENSAL", 14, 28);
+    doc.text(reportTitle, 14, 28);
 
     doc.setFontSize(12);
     doc.setTextColor(255, 255, 255);
@@ -268,3 +269,118 @@ export const generatePDF = async (data, logoSrc) => {
 
     doc.save(`Relatorio_Alivia_${monthKey || 'periodo'}.pdf`);
 };
+
+// ════════════════════════════════════════════════════════════════════════
+//  HELPERS REUTILIZÁVEIS — PDFs de tabela (Contas, Metas, Faturas, Histórico)
+//  Todos no mesmo padrão visual da Alívia (cabeçalho slate + logo + rodapé).
+// ════════════════════════════════════════════════════════════════════════
+
+const fmtBRL = (v) => `R$ ${(Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const drawAliviaHeader = async (doc, { title, subtitle, badge }, logoSrc) => {
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, 210, 40, 'F');
+    let textX = 14;
+    if (logoSrc) {
+        try { const img = await loadImage(logoSrc); doc.addImage(img, 'PNG', 14, 8, 12, 12); textX = 30; } catch (e) { /* fallback */ }
+    }
+    doc.setFontSize(16); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold');
+    doc.text('Alívia', textX, 16);
+    doc.setFontSize(10); doc.setTextColor(148, 163, 184); doc.setFont('helvetica', 'normal');
+    doc.text(String(title || '').toUpperCase(), 14, 28);
+    if (subtitle) { doc.setFontSize(12); doc.setTextColor(255, 255, 255); doc.text(String(subtitle), 14, 34); }
+    if (badge) {
+        doc.setFontSize(8); doc.setTextColor(52, 211, 153); doc.setFont('helvetica', 'bold');
+        const w = doc.getTextWidth(badge);
+        doc.text(badge, 196 - w, 34);
+    }
+};
+
+const drawAliviaFooter = (doc) => {
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8); doc.setTextColor(148, 163, 184); doc.setFont('helvetica', 'normal');
+        doc.text(`Alívia - Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 14, doc.internal.pageSize.height - 10);
+        doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 24, doc.internal.pageSize.height - 10);
+    }
+};
+
+const SUMMARY_COLORS = {
+    green: { bg: [240, 253, 244], border: [22, 163, 74], text: [22, 163, 74] },
+    red: { bg: [254, 242, 242], border: [225, 29, 72], text: [225, 29, 72] },
+    blue: { bg: [239, 246, 255], border: [37, 99, 235], text: [37, 99, 235] },
+    amber: { bg: [255, 251, 235], border: [217, 119, 6], text: [180, 83, 9] },
+    violet: { bg: [245, 243, 255], border: [124, 58, 237], text: [124, 58, 237] },
+    neutral: { bg: [248, 250, 252], border: [148, 163, 184], text: [71, 85, 105] },
+};
+
+const drawSummaryCards = (doc, summary, cardY = 50) => {
+    const n = summary.length;
+    if (!n) return cardY;
+    const gap = 6;
+    const totalW = 182;
+    const cardWidth = (totalW - gap * (n - 1)) / n;
+    const cardHeight = 24;
+    summary.forEach((s, i) => {
+        const x = 14 + i * (cardWidth + gap);
+        const c = SUMMARY_COLORS[s.color] || SUMMARY_COLORS.neutral;
+        doc.setDrawColor(...c.border); doc.setFillColor(...c.bg);
+        doc.roundedRect(x, cardY, cardWidth, cardHeight, 3, 3, 'FD');
+        doc.setFontSize(7); doc.setTextColor(100, 116, 139); doc.setFont('helvetica', 'normal');
+        doc.text(String(s.label).toUpperCase(), x + 4, cardY + 8);
+        doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(...c.text);
+        doc.text(String(s.value), x + 4, cardY + 18);
+    });
+    return cardY + cardHeight + 10;
+};
+
+/**
+ * PDF genérico de tabela no padrão Alívia.
+ * @param {object} opts
+ *   title, subtitle, badge, fileName, note
+ *   summary: [{ label, value, color }]
+ *   columns: string[]
+ *   rows: (string|number)[][]
+ *   columnStyles, valueColumnIndex (pinta - em vermelho)
+ */
+export const generateTablePDF = async (opts, logoSrc) => {
+    const {
+        title = 'Relatório', subtitle = '', badge = '', fileName = 'Alivia.pdf',
+        note = '', summary = [], columns = [], rows = [], columnStyles = {}, valueColumnIndex = null,
+    } = opts || {};
+
+    const doc = new jsPDF();
+    await drawAliviaHeader(doc, { title, subtitle, badge }, logoSrc);
+
+    let startY = summary.length ? drawSummaryCards(doc, summary) : 50;
+
+    if (note) {
+        doc.setFontSize(9); doc.setTextColor(100, 116, 139); doc.setFont('helvetica', 'normal');
+        const lines = doc.splitTextToSize(note, 182);
+        doc.text(lines, 14, startY);
+        startY += lines.length * 5 + 4;
+    }
+
+    if (columns.length) {
+        autoTable(doc, {
+            head: [columns], body: rows, startY, theme: 'striped',
+            styles: { fontSize: 9, cellPadding: 3, textColor: [51, 65, 85], valign: 'middle', lineColor: [226, 232, 240], lineWidth: 0.1 },
+            headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold', halign: 'left' },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+            columnStyles,
+            didParseCell: valueColumnIndex != null ? (data) => {
+                if (data.section === 'body' && data.column.index === valueColumnIndex) {
+                    const raw = String(data.cell.raw || '');
+                    if (raw.trim().startsWith('-') || raw.trim().startsWith('−')) data.cell.styles.textColor = [225, 29, 72];
+                    else data.cell.styles.textColor = [22, 163, 74];
+                }
+            } : undefined,
+        });
+    }
+
+    drawAliviaFooter(doc);
+    doc.save(fileName);
+};
+
+export { fmtBRL };

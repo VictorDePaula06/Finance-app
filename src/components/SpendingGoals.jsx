@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { Target, Save, Clock, X, Search, Download, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
+import { generateTablePDF } from '../utils/generatePDF';
+import logo from '../assets/logo.png';
 
 const EXCLUDED = ['investment', 'vault', 'credit_card_bill', 'conta_fixa'];
 const fmt = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -103,14 +105,32 @@ export default function SpendingGoals({ transactions = [], manualConfig = {}, on
     else if (totalSpent <= 0.005) aliviaText = 'Nenhum gasto registrado neste mês ainda. Suas metas estão zeradas — comece a lançar para acompanhar.';
     else aliviaText = 'Tudo sob controle! Seus gastos estão dentro dos limites definidos. Continue assim. 👏';
 
-    const handleExport = () => {
-        const head = ['Categoria', 'Prioridade', 'Orçado', 'Gasto', 'Restante', '% do limite', 'Status'];
-        const rows = goals.map(g => [g.label, PRIORITY_META[g.priority].label, fmt(g.ceiling), fmt(g.spent), fmt(Math.max(0, g.ceiling - g.spent)), `${Math.round(g.ratio * 100)}%`, STATUS_META[g.status].label]);
-        const csv = [head, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
-        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = `metas-de-gasto-${selectedMonth}.csv`; a.click();
-        URL.revokeObjectURL(url);
+    const handleExport = async () => {
+        const monthName = new Date(selectedMonth + '-15').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        const totalCeiling = goals.reduce((a, g) => a + (g.ceiling || 0), 0);
+        const rows = goals.map(g => [
+            g.label,
+            PRIORITY_META[g.priority].label,
+            `R$ ${fmt(g.ceiling)}`,
+            `R$ ${fmt(g.spent)}`,
+            `R$ ${fmt(Math.max(0, g.ceiling - g.spent))}`,
+            `${Math.round(g.ratio * 100)}%`,
+            STATUS_META[g.status].label,
+        ]);
+        await generateTablePDF({
+            title: 'Metas de Gasto',
+            subtitle: monthName.charAt(0).toUpperCase() + monthName.slice(1),
+            badge: `${goals.length} ${goals.length === 1 ? 'meta' : 'metas'}`,
+            fileName: `Metas_Alivia_${selectedMonth}.pdf`,
+            summary: [
+                { label: 'Orçado', value: `R$ ${fmt(totalCeiling)}`, color: 'blue' },
+                { label: 'Gasto', value: `R$ ${fmt(totalSpent)}`, color: usedPct >= 100 ? 'red' : 'amber' },
+                { label: 'Restante', value: `R$ ${fmt(Math.max(0, totalCeiling - totalSpent))}`, color: 'green' },
+            ],
+            columns: ['Categoria', 'Prioridade', 'Orçado', 'Gasto', 'Restante', '% limite', 'Status'],
+            rows,
+            columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'center' } },
+        }, logo);
     };
 
     // ── estilos base ──

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { ChevronLeft, ChevronRight, Sparkles, FileDown, Receipt, Shield, Flame, Wallet, CreditCard, Banknote, QrCode, FileText } from 'lucide-react';
 import { CATEGORIES } from '../constants/categories';
 import { Loader2 } from 'lucide-react';
@@ -283,7 +283,7 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
     try {
       const incomeRows = periodIncomeItems.map(t => ({ date: t.date, description: t.description, category: t.category, amount: amount(t), type: 'income' }));
       const expenseRows = filteredItems.map(t => ({ date: t.date, description: t.description, category: t.category, amount: amount(t), type: 'expense' }));
-      await generatePDF({ monthKey: keyLocal(range.start).slice(0, 7), monthLabel: rangeLabel, income, expense: totalExpense, balance, byCategory, rows: [...incomeRows, ...expenseRows] }, logo);
+      await generatePDF({ reportTitle: 'RELATÓRIO DO PERÍODO', monthKey: keyLocal(range.start).slice(0, 7), monthLabel: rangeLabel, income, expense: totalExpense, balance, byCategory, rows: [...incomeRows, ...expenseRows] }, logo);
     } catch (e) { console.error(e); alert('Erro ao gerar PDF.'); }
     finally { setIsExportingPDF(false); }
   };
@@ -430,22 +430,20 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
                 </div>
                 <div className="w-full flex-1 min-h-[240px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={series} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
+                    <BarChart data={series} margin={{ top: 8, right: 8, left: 4, bottom: 0 }} barGap={2} barCategoryGap="18%">
                       <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#ffffff0d' : '#0000000d'} vertical={false} />
                       <XAxis dataKey="label" tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={8} />
                       <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} width={48} />
-                      <Tooltip cursor={{ stroke: isDark ? '#334155' : '#cbd5e1', strokeWidth: 1 }} formatter={(v, n) => [`R$ ${fmt(v)}`, n === 'gastos' ? 'Gastos' : n === 'ganhos' ? 'Ganhos' : 'Resultado líquido']} contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: '12px', fontSize: 12 }} labelStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }} />
-                      <Line type="monotone" dataKey="ganhos" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="gastos" stroke="#f43f5e" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="resultado" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 2.5, fill: '#3b82f6', strokeWidth: 0 }} activeDot={{ r: 4 }} />
-                    </LineChart>
+                      <Tooltip cursor={{ fill: isDark ? '#ffffff0a' : '#0000000a' }} formatter={(v, n) => [`R$ ${fmt(v)}`, n === 'gastos' ? 'Saídas' : 'Entradas']} contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: '12px', fontSize: 12 }} labelStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }} />
+                      <Bar dataKey="ganhos" name="ganhos" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} />
+                      <Bar dataKey="gastos" name="gastos" fill="#f43f5e" radius={[3, 3, 0, 0]} maxBarSize={22} />
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
                 <div className="flex items-center justify-between gap-3 mt-3 pl-1 flex-wrap">
                   <div className="flex items-center gap-4 flex-wrap">
-                    <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400"><span className="w-3 h-1 rounded-full bg-emerald-500" /> Ganhos</span>
-                    <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400"><span className="w-3 h-1 rounded-full bg-rose-500" /> Gastos</span>
-                    <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400"><span className="w-2 h-2 rounded-full bg-blue-500" /> Resultado líquido</span>
+                    <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Entradas</span>
+                    <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500" /> Saídas</span>
                   </div>
                   <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black tabular-nums ${balance >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
                     {balance >= 0 ? '↑' : '↓'} R$ {fmt(Math.abs(balance))} de saldo

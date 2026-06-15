@@ -26,6 +26,8 @@ import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc
 import TrialLimitModal from './TrialLimitModal';
 import OverdraftWarningModal from './OverdraftWarningModal';
 import { CATEGORIES, categoryHex } from '../constants/categories';
+import { generateTablePDF } from '../utils/generatePDF';
+import logo from '../assets/logo.png';
 
 export default function FixedExpensesTab({ transactions = [], setActiveTab, walletStats, hideBalance, toggleHideBalance, expenseBasis = 'competencia' }) {
   const { theme } = useTheme();
@@ -303,26 +305,36 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
     setIsAddingExpense(true);
   };
 
-  const handleExport = () => {
-    const head = ['Conta', 'Tipo', 'Categoria', 'Vencimento', 'Valor', 'Status'];
-    const rows = [head];
-    fixedExpenses.forEach(exp => {
+  const handleExport = async () => {
+    const monthName = new Date(selectedMonth + '-15').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    let totalPagoExp = 0, totalPendExp = 0;
+    const rows = fixedExpenses.map(exp => {
       const paid = getPaid(exp);
-      rows.push([
+      const val = paid ? paid.amount : parseFloat(exp.value) || 0;
+      if (paid) totalPagoExp += val; else totalPendExp += val;
+      return [
         exp.name,
         exp.isVariable ? 'Variável' : 'Fixa',
         catLabel(exp.category),
         `Dia ${exp.day || 1}`,
-        (paid ? paid.amount : parseFloat(exp.value) || 0).toFixed(2).replace('.', ','),
-        paid ? 'Pago' : 'Pendente'
-      ]);
+        paid ? 'Pago' : 'Pendente',
+        `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      ];
     });
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `contas_${selectedMonth}.csv`; a.click();
-    URL.revokeObjectURL(url);
+    await generateTablePDF({
+      title: 'Contas do Mês',
+      subtitle: monthName.charAt(0).toUpperCase() + monthName.slice(1),
+      badge: `${fixedExpenses.length} ${fixedExpenses.length === 1 ? 'conta' : 'contas'}`,
+      fileName: `Contas_Alivia_${selectedMonth}.pdf`,
+      summary: [
+        { label: 'Total do mês', value: `R$ ${(totalPagoExp + totalPendExp).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, color: 'blue' },
+        { label: 'Pagas', value: `R$ ${totalPagoExp.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, color: 'green' },
+        { label: 'A pagar', value: `R$ ${totalPendExp.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, color: 'amber' },
+      ],
+      columns: ['Conta', 'Tipo', 'Categoria', 'Vencimento', 'Status', 'Valor'],
+      rows,
+      columnStyles: { 5: { halign: 'right', fontStyle: 'bold' } },
+    }, logo);
   };
 
   const PRIORITY = {

@@ -16,7 +16,8 @@ import {
   ShoppingBag,
   Eye,
   X,
-  Repeat
+  Repeat,
+  Download
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -25,6 +26,8 @@ import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import TrialLimitModal from './TrialLimitModal';
 import OverdraftWarningModal from './OverdraftWarningModal';
+import { generateTablePDF } from '../utils/generatePDF';
+import logo from '../assets/logo.png';
 
 const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
   const { theme } = useTheme();
@@ -771,6 +774,47 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
     }
 
     return [...byMonth.values()].sort((a, b) => b.month.localeCompare(a.month));
+  };
+
+  // Exporta uma fatura (atual ou do histórico) em PDF no padrão Alívia.
+  const exportInvoicePDF = async ({ card, monthLabel, total, statusLabel, paidDate, items }) => {
+    if (!card) return;
+    const rows = (items || []).map(it => {
+      const badge = it.badge || '';
+      const isInstall = /^\d+\/\d+$/.test(badge);
+      const detalhe = badge === 'assinatura' ? 'Assinatura'
+        : isInstall ? `Parcela ${badge}`
+        : (it.date ? new Date(it.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '') : '—');
+      return [it.description || 'Item', detalhe, `R$ ${fmt(it.amount)}`];
+    });
+    const safe = (card.name || 'Cartao').replace(/[^a-zA-Z0-9]+/g, '_');
+    await generateTablePDF({
+      title: 'Fatura do Cartão',
+      subtitle: `${card.name} — ${monthLabel}`,
+      badge: statusLabel || '',
+      fileName: `Fatura_${safe}_${String(monthLabel).replace(/\s+/g, '_')}.pdf`,
+      summary: [
+        { label: 'Total da fatura', value: `R$ ${fmt(total)}`, color: 'violet' },
+        { label: 'Itens', value: String((items || []).length), color: 'neutral' },
+        { label: paidDate ? 'Paga em' : 'Vencimento', value: paidDate ? new Date(paidDate).toLocaleDateString('pt-BR') : `Dia ${card.dueDay || 10}`, color: paidDate ? 'green' : 'amber' },
+      ],
+      columns: ['Descrição', 'Detalhe', 'Valor'],
+      rows,
+      columnStyles: { 1: { cellWidth: 38 }, 2: { halign: 'right', fontStyle: 'bold', cellWidth: 34 } },
+    }, logo);
+  };
+
+  // Exporta a fatura que está no modal de pagamento.
+  const exportPayingInvoice = () => {
+    if (!payingInvoice) return;
+    const card = cards.find(c => c.id === payingInvoice.cardId);
+    const items = [
+      ...((payingInvoice.expenses || []).map(t => ({ description: t.description || 'Compra', amount: parseFloat(t.amount) || 0, badge: t.installmentInfo || null, date: t.date || null }))),
+      ...((payingInvoice.subs || []).map(s => ({ description: s.name, amount: parseFloat(s.value) || 0, badge: s.type === 'installment' ? `${s.currentInstallment || 1}/${s.totalInstallments || 1}` : 'assinatura', date: null }))),
+    ];
+    const m = payingInvoice.invoiceMonth || new Date().toISOString().slice(0, 7);
+    const monthLabel = new Date(m + '-15').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    exportInvoicePDF({ card, monthLabel, total: payingInvoice.total, statusLabel: 'EM ABERTO', items });
   };
 
   const selectedCard = cards.find(c => c.id === selectedCardId) || cards[0] || null;
@@ -1650,8 +1694,8 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
                           )}
                           {inv.items.length === 0 ? (
                             <p className="text-[11px] text-slate-500 py-1">{inv.hasSnapshot ? 'Sem itens nesta fatura.' : 'Detalhes não disponíveis. Total pago confirmado.'}</p>
-                          ) : inv.items.map(it => (
-                            <div key={it.id} className="flex items-center justify-between gap-2 text-[11px]">
+                          ) : inv.items.map((it, ii) => (
+                            <div key={it.id || ii} className="flex items-center justify-between gap-2 text-[11px]">
                               <span className={`truncate ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                                 {it.description}
                                 {it.badge
@@ -1661,6 +1705,12 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
                               <span className="font-bold tabular-nums text-rose-400 shrink-0">R$ {fmt(parseFloat(it.amount) || 0)}</span>
                             </div>
                           ))}
+                          <button
+                            onClick={() => exportInvoicePDF({ card, monthLabel: inv.label, total: inv.total, statusLabel: meta.label, paidDate: inv.paidDate, items: inv.items })}
+                            className={`w-full mt-2 inline-flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest border transition-all ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-white'}`}
+                          >
+                            <Download className="w-3.5 h-3.5" /> Exportar este mês em PDF
+                          </button>
                         </div>
                       )}
                     </div>
@@ -1953,7 +2003,12 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             <p className={`text-xs leading-relaxed text-center ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
               Você vai debitar <span className="text-rose-500 font-bold">R$ {payingInvoice.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> do seu saldo principal para pagar a fatura do cartão <span className={`font-bold ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{cards.find(c => c.id === payingInvoice.cardId)?.name || 'Cartão'}</span>. Confirmar?
             </p>
-            <div className="flex gap-3 pt-4">
+            <button onClick={exportPayingInvoice} className={`w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest border transition-all ${
+              theme === 'light' ? 'border-slate-200 text-slate-600 hover:bg-slate-50' : 'border-white/10 text-slate-300 hover:bg-white/5'
+            }`}>
+              <Download className="w-3.5 h-3.5" /> Exportar fatura em PDF
+            </button>
+            <div className="flex gap-3 pt-2">
               <button onClick={() => setPayingInvoice(null)} className={`flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${
                 theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-white/5 text-slate-300 hover:bg-white/10'
               }`}>Voltar</button>

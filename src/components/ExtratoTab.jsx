@@ -31,7 +31,6 @@ export default function ExtratoTab({ transactions = [] }) {
     const isDark = theme !== 'light';
 
     const [filter, setFilter] = useState('all');     // all | income | expense
-    const [source, setSource] = useState('all');     // all | wallet (pix/débito/dinheiro) | card (crédito)
     const [period, setPeriod] = useState('current');  // current | 'YYYY-MM' | all
     const [search, setSearch] = useState('');
 
@@ -41,53 +40,13 @@ export default function ExtratoTab({ transactions = [] }) {
     const ledger = useMemo(() => buildWalletLedger(transactions, currentMonthKey), [transactions, currentMonthKey]);
     const { finalBalance } = ledger;
 
-    // Assinaturas e parcelamentos pagos no cartão NÃO são transações próprias — eles
-    // vivem na coleção "subscriptions" e só viram um lançamento SOMADO no pagamento da
-    // fatura (credit_card_bill, que guarda um snapshot dos itens). Para o Extrato mostrar
-    // "o que foi pago em assinatura/parcelamento", expandimos esses itens do snapshot
-    // como linhas informativas — elas NÃO afetam o saldo (o caixa já saiu no pagamento
-    // da fatura), então não há dupla contagem.
-    const invoiceItemEntries = useMemo(() => {
-        const out = [];
-        transactions.forEach(t => {
-            if (t.category !== 'credit_card_bill' || !t.invoiceSnapshot?.items) return;
-            t.invoiceSnapshot.items.forEach((it, idx) => {
-                const badge = it.badge || '';
-                const isInstall = /^\d+\/\d+$/.test(badge); // parcela "3/12"
-                const isSub = badge === 'assinatura';
-                // Só assinaturas/parcelas — as despesas avulsas já aparecem como transação própria.
-                if (it.date || !(isInstall || isSub)) return;
-                out.push({
-                    t: {
-                        id: `${t.id}-snap-${idx}`,
-                        description: it.description,
-                        amount: parseFloat(it.amount) || 0,
-                        type: 'expense',
-                        category: isInstall ? 'shopping' : 'subscriptions',
-                        date: t.date,
-                        month: t.month || (t.date ? String(t.date).slice(0, 7) : ''),
-                        createdAt: (t.createdAt || 0) + idx + 1,
-                        paymentMethod: 'credito',
-                        invoiceStatus: 'paid',
-                        installmentInfo: isInstall ? `Parcela ${badge}` : 'Assinatura',
-                    },
-                    affects: false, delta: 0, runningBalance: null, isReset: false,
-                });
-            });
-        });
-        return out;
-    }, [transactions]);
-
-    // Junta as transações reais do extrato com as linhas de assinatura/parcela paga.
-    const entries = useMemo(() => {
-        if (invoiceItemEntries.length === 0) return ledger.entries;
-        return [...ledger.entries, ...invoiceItemEntries].sort((a, b) => {
-            const dA = String(a.t.date || '').slice(0, 10);
-            const dB = String(b.t.date || '').slice(0, 10);
-            if (dA !== dB) return dA < dB ? -1 : 1;
-            return (a.t.createdAt || 0) - (b.t.createdAt || 0);
-        });
-    }, [ledger.entries, invoiceItemEntries]);
+    // O Extrato mostra apenas as movimentações da CONTA (carteira): entradas e saídas
+    // em pix/débito/dinheiro. Compras no cartão de crédito (fatura em aberto) NÃO
+    // aparecem aqui — só o PAGAMENTO da fatura (credit_card_bill), que sai da carteira.
+    const entries = useMemo(
+        () => ledger.entries.filter(e => e.t.paymentMethod !== 'credito'),
+        [ledger.entries]
+    );
 
     // Meses disponíveis (para o seletor de período).
     const months = useMemo(() => {
@@ -114,14 +73,10 @@ export default function ExtratoTab({ transactions = [] }) {
         return { entrou, saiu, resultado: entrou - saiu };
     }, [periodEntries]);
 
-    // Carteira = pix, débito, dinheiro (e entradas). Cartão = crédito.
-    const isCardTx = (t) => t.paymentMethod === 'credito';
-
-    // Lista final (origem + entrada/saída + busca), mais recente primeiro.
+    // Lista final (entrada/saída + busca), mais recente primeiro.
     const visible = useMemo(() => {
         const q = search.trim().toLowerCase();
         return periodEntries
-            .filter(({ t }) => source === 'all' || (source === 'card' ? isCardTx(t) : !isCardTx(t)))
             .filter(({ t }) => filter === 'all' || t.type === filter)
             .filter(({ t }) => {
                 if (!q) return true;
@@ -131,12 +86,7 @@ export default function ExtratoTab({ transactions = [] }) {
             })
             .slice()
             .reverse();
-    }, [periodEntries, filter, source, search]);
-
-    // Total gasto no cartão de crédito no período (para a frase quando filtra Cartão).
-    const cardTotal = useMemo(() => periodEntries
-        .filter(({ t }) => isCardTx(t) && t.type === 'expense')
-        .reduce((a, { t }) => a + (parseFloat(t.amount) || 0), 0), [periodEntries]);
+    }, [periodEntries, filter, search]);
 
     // Agrupa por dia.
     const groups = useMemo(() => {
@@ -180,20 +130,6 @@ export default function ExtratoTab({ transactions = [] }) {
         );
     };
 
-    const SourceBtn = ({ id, label, Icon }) => {
-        const active = source === id;
-        return (
-            <button
-                onClick={() => setSource(id)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide transition-all inline-flex items-center gap-1.5 ${active
-                    ? (id === 'card' ? 'bg-violet-500 text-white' : id === 'wallet' ? 'bg-blue-500 text-white' : (isDark ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'))
-                    : (isDark ? 'text-slate-400 hover:text-white hover:bg-white/5' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100')}`}
-            >
-                {Icon && <Icon className="w-3.5 h-3.5" />}{label}
-            </button>
-        );
-    };
-
     return (
         <div className="max-w-3xl mx-auto w-full flex flex-col gap-4 pb-10">
             {/* Cabeçalho */}
@@ -233,22 +169,13 @@ export default function ExtratoTab({ transactions = [] }) {
             {/* Explicação do resultado do período */}
             <div className={`rounded-2xl border p-3.5 ${card}`}>
                 <p className={`text-[11px] leading-relaxed ${sub}`}>
-                    {source === 'card' ? (
-                        <>
-                            {period === 'all' ? 'Somando todo o histórico' : `Em ${monthLabel(selectedMonth)}`}, você lançou{' '}
-                            <span className="font-black text-violet-400">R$ {fmt(cardTotal)}</span> no cartão de crédito — esse valor entra na fatura e <span className="font-bold">não sai do seu saldo</span> agora.
-                        </>
-                    ) : (
-                        <>
-                            {period === 'all' ? 'Somando todo o histórico' : `Em ${monthLabel(selectedMonth)}`}, entraram{' '}
-                            <span className="font-black text-emerald-500">R$ {fmt(totals.entrou)}</span> e saíram{' '}
-                            <span className="font-black text-rose-500">R$ {fmt(totals.saiu)}</span>, dando um resultado de{' '}
-                            <span className={`font-black ${totals.resultado < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                                {totals.resultado < 0 ? '−' : '+'}R$ {fmt(Math.abs(totals.resultado))}
-                            </span>
-                            {totals.resultado < 0 ? ' — você gastou mais do que entrou neste período.' : '.'}
-                        </>
-                    )}
+                    {period === 'all' ? 'Somando todo o histórico' : `Em ${monthLabel(selectedMonth)}`}, entraram{' '}
+                    <span className="font-black text-emerald-500">R$ {fmt(totals.entrou)}</span> e saíram{' '}
+                    <span className="font-black text-rose-500">R$ {fmt(totals.saiu)}</span>, dando um resultado de{' '}
+                    <span className={`font-black ${totals.resultado < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                        {totals.resultado < 0 ? '−' : '+'}R$ {fmt(Math.abs(totals.resultado))}
+                    </span>
+                    {totals.resultado < 0 ? ' — você gastou mais do que entrou neste período.' : '.'}
                 </p>
             </div>
 
@@ -275,13 +202,6 @@ export default function ExtratoTab({ transactions = [] }) {
                     <FilterBtn id="all" label="Tudo" />
                     <FilterBtn id="income" label="Entradas" />
                     <FilterBtn id="expense" label="Saídas" />
-                </div>
-
-                {/* Origem: carteira (pix/débito/dinheiro) ou cartão (crédito) */}
-                <div className={`inline-flex items-center gap-1 p-1 rounded-xl border ${isDark ? 'bg-[#151822] border-white/10' : 'bg-white border-slate-200'}`}>
-                    <SourceBtn id="all" label="Tudo" />
-                    <SourceBtn id="wallet" label="Carteira" Icon={Wallet} />
-                    <SourceBtn id="card" label="Cartão" Icon={CreditCard} />
                 </div>
 
                 {/* Busca */}
@@ -337,16 +257,10 @@ export default function ExtratoTab({ transactions = [] }) {
                                                 <span className={`text-[10px] font-semibold ${sub}`}>{meta.label}</span>
                                                 {pay && <span className={`text-[10px] ${muted}`}>· {pay}</span>}
                                                 {t.installmentInfo && <span className={`text-[10px] ${muted}`}>· {t.installmentInfo}</span>}
-                                                {t.paymentMethod === 'credito' && (
-                                                    t.invoiceStatus === 'paid' ? (
-                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400">
-                                                            <CheckCircle2 className="w-2.5 h-2.5" /> Fatura paga
-                                                        </span>
-                                                    ) : (
-                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-500">
-                                                            <CreditCard className="w-2.5 h-2.5" /> Fatura aberta
-                                                        </span>
-                                                    )
+                                                {t.category === 'credit_card_bill' && (
+                                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-violet-500/15 text-violet-400">
+                                                        <CreditCard className="w-2.5 h-2.5" /> Pagamento de fatura
+                                                    </span>
                                                 )}
                                                 {reserve && (
                                                     <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-500">
@@ -378,8 +292,8 @@ export default function ExtratoTab({ transactions = [] }) {
                 <div className={`flex items-start gap-2.5 p-3.5 rounded-2xl border ${isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-100'}`}>
                     <Info className={`w-4 h-4 shrink-0 mt-0.5 ${sub}`} />
                     <p className={`text-[11px] leading-relaxed ${sub}`}>
-                        Compras no cartão de crédito mostram <span className="font-bold text-amber-500">Fatura aberta</span> (ainda no saldo do cartão) ou <span className="font-bold text-emerald-400">Fatura paga</span> (a fatura já foi quitada). Em ambos os casos elas saem do seu saldo só no pagamento da fatura.
-                        Já <span className="font-bold text-amber-500">não afeta o saldo</span> são movimentações de outros módulos (reservas do Patrimônio e pagamentos de dívidas), que não saem da sua carteira. Por isso aparecem no extrato, mas não mudam o saldo.
+                        O extrato mostra só as movimentações da sua <span className="font-bold">conta (carteira)</span>. Compras no cartão de crédito não aparecem aqui — apenas o <span className="font-bold text-violet-400">pagamento da fatura</span>, que sai da carteira.
+                        Já <span className="font-bold text-amber-500">não afeta o saldo</span> são movimentações de outros módulos (reservas do Patrimônio e pagamentos de dívidas), que aparecem no extrato mas não mudam o saldo.
                     </p>
                 </div>
             )}
