@@ -24,7 +24,8 @@ import {
     ChevronDown,
     ChevronUp,
     ArrowRight,
-    Save
+    Save,
+    Download
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -35,6 +36,8 @@ import TrialLimitModal from './TrialLimitModal';
 import { ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Tooltip as ReTooltip } from 'recharts';
 import { BarChart3, Layers, List, Sparkles } from 'lucide-react';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
+import logo from '../assets/logo.png';
+import { generateInvestmentsPDF } from '../utils/generatePDF';
 
 // Monta a lista de fontes de logo (em ordem) para um ativo. Tentamos várias
 // fontes porque nenhuma cobre 100% dos tickers (BDRs brasileiros, ETFs novos,
@@ -953,6 +956,41 @@ export default function InvestmentsTab() {
 
     const displayMultiplier = viewInUSD ? (1 / (prices.USD || 5.0)) : 1;
 
+    // Exporta a carteira de investimentos em PDF (na moeda de exibição atual).
+    const handleExportPDF = async () => {
+        try {
+            const cur = viewInUSD ? '$' : 'R$';
+            const m = displayMultiplier;
+            const allocation = Object.entries(catMap)
+                .filter(([, v]) => v > 0)
+                .map(([k, v]) => ({ label: GROUP_LABELS[k], value: v * m, color: GROUP_COLORS[k] }))
+                .sort((a, b) => b.value - a.value);
+            const assets = items
+                .slice()
+                .sort((a, b) => b.value - a.value)
+                .map(it => ({
+                    name: it.name || it.symbol || 'Ativo',
+                    classLabel: GROUP_LABELS[it.category] || '—',
+                    invested: it.invested * m,
+                    current: it.value * m,
+                    profit: (it.value - it.invested) * m,
+                    profitPct: it.invested > 0 ? ((it.value - it.invested) / it.invested) * 100 : 0,
+                }));
+            await generateInvestmentsPDF({
+                userName: currentUser?.displayName ? currentUser.displayName.split(' ')[0] : '',
+                currency: cur,
+                totalCurrent: totalInvestments * m,
+                totalInvested: totalInvested * m,
+                profit: (totalInvestments - totalInvested) * m,
+                profitPct: totalProfitabilityPct,
+                totalReserve: totalReserve * m,
+                totalPatrimonio: totalPatrimonio * m,
+                allocation,
+                assets,
+            }, logo);
+        } catch (e) { console.error('Erro ao gerar PDF de investimentos:', e); alert('Erro ao gerar PDF.'); }
+    };
+
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
@@ -1046,9 +1084,19 @@ export default function InvestmentsTab() {
             {/* Main Cards Dashboard */}
             <div className={`p-6 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#151822] border-white/5'}`}>
                 <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
-                    <button onClick={fetchLivePrices} className={`transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-slate-700' : 'text-slate-400 hover:text-white'}`} title="Atualizar Preços">
-                        <RefreshCw className={`w-4 h-4 ${isLoadingPrices ? 'animate-spin' : ''}`} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button onClick={fetchLivePrices} className={`transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-slate-700' : 'text-slate-400 hover:text-white'}`} title="Atualizar Preços">
+                            <RefreshCw className={`w-4 h-4 ${isLoadingPrices ? 'animate-spin' : ''}`} />
+                        </button>
+                        <button
+                            onClick={handleExportPDF}
+                            disabled={items.length === 0}
+                            title="Exportar carteira em PDF"
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-40 disabled:cursor-not-allowed ${theme === 'light' ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-white/10 hover:bg-white/20 text-slate-200'}`}
+                        >
+                            <Download className="w-3.5 h-3.5" /> Exportar PDF
+                        </button>
+                    </div>
                     <div className="flex items-center gap-2 flex-wrap">
                         {/* Toggle Categoria / Ativo */}
                         <div className={`flex rounded-xl border overflow-hidden ${theme === 'light' ? 'border-slate-200' : 'border-white/10'}`}>

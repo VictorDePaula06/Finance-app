@@ -383,4 +383,98 @@ export const generateTablePDF = async (opts, logoSrc) => {
     doc.save(fileName);
 };
 
+const hexToRgb = (hex) => {
+    if (!hex) return [99, 102, 241];
+    const m = String(hex).replace('#', '');
+    const n = m.length === 3 ? m.split('').map(c => c + c).join('') : m;
+    const int = parseInt(n, 16);
+    if (isNaN(int)) return [99, 102, 241];
+    return [(int >> 16) & 255, (int >> 8) & 255, int & 255];
+};
+
+/**
+ * PDF dedicado da carteira de Investimentos (padrão Alívia).
+ * @param {object} data
+ *   userName, currency ('R$'|'$'), totalCurrent, totalInvested, profit, profitPct,
+ *   totalReserve, totalPatrimonio,
+ *   allocation: [{ label, value, color }],
+ *   assets: [{ name, classLabel, invested, current, profit, profitPct }]
+ */
+export const generateInvestmentsPDF = async (data, logoSrc) => {
+    const {
+        userName = '', currency = 'R$',
+        totalCurrent = 0, totalInvested = 0, profit = 0, profitPct = 0,
+        totalReserve = 0, totalPatrimonio = 0,
+        allocation = [], assets = [],
+    } = data || {};
+
+    const f = (v) => `${currency} ${(Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const doc = new jsPDF();
+
+    await drawAliviaHeader(doc, {
+        title: 'Carteira de Investimentos',
+        subtitle: userName ? `Investidor: ${userName}` : new Date().toLocaleDateString('pt-BR'),
+        badge: `${assets.length} ${assets.length === 1 ? 'ativo' : 'ativos'}`,
+    }, logoSrc);
+
+    let y = drawSummaryCards(doc, [
+        { label: 'Valor atual', value: f(totalCurrent), color: 'blue' },
+        { label: 'Investido', value: f(totalInvested), color: 'neutral' },
+        { label: 'Lucro / Prejuízo', value: `${profit >= 0 ? '+ ' : '- '}${f(Math.abs(profit))}`, color: profit >= 0 ? 'green' : 'red' },
+        { label: 'Rentabilidade', value: `${profitPct >= 0 ? '+' : ''}${profitPct.toFixed(2)}%`, color: profitPct >= 0 ? 'green' : 'red' },
+    ]);
+
+    // Linha extra: reserva + patrimônio total.
+    doc.setFontSize(9); doc.setTextColor(100, 116, 139); doc.setFont('helvetica', 'normal');
+    doc.text(`Reserva de emergência: ${f(totalReserve)}    |    Patrimônio total (investimentos + reserva): ${f(totalPatrimonio)}`, 14, y);
+    y += 8;
+
+    // Alocação por classe (barras).
+    if (allocation.length) {
+        doc.setFontSize(10); doc.setTextColor(100, 116, 139); doc.setFont('helvetica', 'bold');
+        doc.text('ALOCAÇÃO POR CLASSE', 14, y); y += 6;
+        const totalAlloc = allocation.reduce((a, c) => a + (c.value || 0), 0) || 1;
+        allocation.forEach(c => {
+            const pct = (c.value || 0) / totalAlloc;
+            doc.setFontSize(9); doc.setTextColor(71, 85, 105); doc.setFont('helvetica', 'normal');
+            doc.text(c.label, 14, y + 4);
+            doc.setFillColor(241, 245, 249); doc.roundedRect(50, y, 95, 5, 2, 2, 'F');
+            doc.setFillColor(...hexToRgb(c.color)); doc.roundedRect(50, y, Math.max(1, 95 * pct), 5, 2, 2, 'F');
+            doc.setFontSize(9); doc.setTextColor(30, 41, 59); doc.text(f(c.value), 150, y + 4);
+            doc.setFontSize(8); doc.setTextColor(148, 163, 184); doc.text(`(${(pct * 100).toFixed(1)}%)`, 184, y + 4);
+            y += 9;
+        });
+        y += 4;
+    }
+
+    // Tabela de ativos.
+    if (assets.length) {
+        autoTable(doc, {
+            head: [['Ativo', 'Classe', 'Investido', 'Atual', 'Resultado', '%']],
+            body: assets.map(a => [
+                a.name,
+                a.classLabel,
+                f(a.invested),
+                f(a.current),
+                `${a.profit >= 0 ? '+ ' : '- '}${f(Math.abs(a.profit))}`,
+                `${a.profitPct >= 0 ? '+' : ''}${a.profitPct.toFixed(1)}%`,
+            ]),
+            startY: y, theme: 'striped',
+            styles: { fontSize: 9, cellPadding: 3, textColor: [51, 65, 85], valign: 'middle', lineColor: [226, 232, 240], lineWidth: 0.1 },
+            headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold', halign: 'left' },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+            columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right', cellWidth: 18 } },
+            didParseCell: (d) => {
+                if (d.section === 'body' && (d.column.index === 4 || d.column.index === 5)) {
+                    const raw = String(d.cell.raw || '');
+                    d.cell.styles.textColor = raw.includes('-') ? [225, 29, 72] : [22, 163, 74];
+                }
+            },
+        });
+    }
+
+    drawAliviaFooter(doc);
+    doc.save(`Investimentos_Alivia_${new Date().toISOString().slice(0, 10)}.pdf`);
+};
+
 export { fmtBRL };
