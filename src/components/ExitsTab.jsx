@@ -486,22 +486,38 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             // 1. Delete the transaction
             await deleteDoc(doc(db, 'transactions', transaction.id));
 
-            // 2. If it was an investment, try to find and delete the corresponding jar
+            // 2. Se era um aporte (investment), REVERTE só o valor deste aporte na caixinha
+            //    correspondente — NUNCA apaga a caixinha inteira (isso zerava reservas que já
+            //    tinham saldo). Só remove a caixinha se ela ficar efetivamente zerada.
             if (transaction.category === 'investment') {
-                const jarName = transaction.description.replace('Investimento: ', '');
+                const jarName = (transaction.description || '').replace('Investimento: ', '');
+                const aporteVal = parseFloat(transaction.amount) || 0;
                 const qJars = query(
-                    collection(db, 'savings_jars'), 
+                    collection(db, 'savings_jars'),
                     where('userId', '==', currentUser.uid),
                     where('name', '==', jarName)
                 );
-                
+
                 const { getDocs } = await import('firebase/firestore');
                 const jarSnap = await getDocs(qJars);
-                
-                // Delete all jars with this name (usually just one, but safe)
-                const deletePromises = jarSnap.docs.map(d => deleteDoc(doc(db, 'savings_jars', d.id)));
-                await Promise.all(deletePromises);
-                console.log("[Dev] Cofrinho associado removido.");
+                const jarDoc = jarSnap.docs[0];
+                if (jarDoc) {
+                    const jar = jarDoc.data();
+                    // Saldo dinâmico atual (com rendimento) menos o valor revertido deste aporte.
+                    const cdiAnual = (cdiRate || 10.65) / 100;
+                    const percent = (parseFloat(jar.cdiPercent) || 100) / 100;
+                    const dailyRate = Math.pow(1 + (cdiAnual * percent), 1 / 365) - 1;
+                    const lastUpdate = jar.updatedAt ? new Date(jar.updatedAt) : (jar.createdAt ? new Date(jar.createdAt) : new Date());
+                    const diffDays = Math.max(0, (new Date() - lastUpdate)) / (1000 * 60 * 60 * 24);
+                    const dynamicBalance = (parseFloat(jar.balance) || 0) * Math.pow(1 + dailyRate, diffDays);
+                    const newBalance = dynamicBalance - aporteVal;
+                    if (newBalance > 0.01) {
+                        await updateDoc(doc(db, 'savings_jars', jarDoc.id), { balance: newBalance, updatedAt: new Date().toISOString() });
+                    } else {
+                        // Caixinha era basicamente só este aporte → pode remover.
+                        await deleteDoc(doc(db, 'savings_jars', jarDoc.id));
+                    }
+                }
             }
         } catch (err) {
             console.error("Erro ao deletar:", err);

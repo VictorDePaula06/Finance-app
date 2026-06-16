@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-    ArrowDownLeft, ArrowUpRight, Wallet, Info, Search, ListFilter, Circle, CreditCard, ShieldOff, CheckCircle2,
+    ArrowDownLeft, ArrowUpRight, Wallet, Info, Search, ListFilter, Circle, CreditCard, ShieldOff, CheckCircle2, PiggyBank,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { buildWalletLedger } from '../utils/financialLogic';
@@ -236,6 +236,9 @@ export default function ExtratoTab({ transactions = [] }) {
                                 const meta = catMeta(t);
                                 const Icon = meta.icon || Circle;
                                 const isIncome = t.type === 'income';
+                                // Aporte (guardar/investir): saída da carteira, mas NÃO é perda —
+                                // cor índigo (não vermelho) para não parecer um gasto.
+                                const isAporte = !isIncome && (t.category === 'investment' || t.category === 'vault');
                                 const pay = PAY_LABELS[t.paymentMethod] || '';
                                 const reserve = !affects && t.paymentMethod !== 'credito';
                                 return (
@@ -244,8 +247,8 @@ export default function ExtratoTab({ transactions = [] }) {
                                         className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? (isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50') : ''} ${!affects ? 'opacity-70' : ''}`}
                                     >
                                         {/* Ícone direção */}
-                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-emerald-500/10' : 'bg-rose-500/10'}`}>
-                                            <Icon className={`w-4 h-4 ${isIncome ? 'text-emerald-500' : 'text-rose-500'}`} />
+                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-emerald-500/10' : isAporte ? 'bg-indigo-500/10' : 'bg-rose-500/10'}`}>
+                                            <Icon className={`w-4 h-4 ${isIncome ? 'text-emerald-500' : isAporte ? 'text-indigo-400' : 'text-rose-500'}`} />
                                         </div>
 
                                         {/* Descrição + detalhes */}
@@ -262,6 +265,11 @@ export default function ExtratoTab({ transactions = [] }) {
                                                         <CreditCard className="w-2.5 h-2.5" /> Pagamento de fatura
                                                     </span>
                                                 )}
+                                                {isAporte && (
+                                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-500/15 text-indigo-400">
+                                                        <PiggyBank className="w-2.5 h-2.5" /> Aporte
+                                                    </span>
+                                                )}
                                                 {reserve && (
                                                     <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-500">
                                                         <ShieldOff className="w-2.5 h-2.5" /> não afeta o saldo
@@ -272,7 +280,7 @@ export default function ExtratoTab({ transactions = [] }) {
 
                                         {/* Valor + saldo corrente */}
                                         <div className="text-right shrink-0">
-                                            <p className={`text-[13px] font-black ${isIncome ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                            <p className={`text-[13px] font-black ${isIncome ? 'text-emerald-500' : isAporte ? 'text-indigo-400' : 'text-rose-500'}`}>
                                                 {isIncome ? '+' : '−'} R$ {fmt(t.amount)}
                                             </p>
                                             {affects && (
