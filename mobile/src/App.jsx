@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import BottomNav from './components/BottomNav.jsx';
 import GeralTab from './tabs/GeralTab.jsx';
-import { ArrowDownToLine, ArrowLeftRight, BarChart3, Settings } from 'lucide-react';
+import { TrendingUp, TrendingDown, CreditCard, BarChart3, Settings } from 'lucide-react';
 
 // Telas ainda não construídas (próximos milestones) — placeholder com a identidade.
 const Placeholder = ({ Icon, title }) => (
@@ -24,9 +24,10 @@ export default function App() {
     <div className="min-h-screen w-full flex justify-center bg-black">
       <div className="relative w-full max-w-[440px] min-h-screen bg-ink flex flex-col shadow-2xl shadow-black/50 overflow-hidden">
         <main className="flex-1 overflow-y-auto no-scrollbar pb-24">
-          {tab === 'geral' && <GeralTab />}
-          {tab === 'recebimentos' && <Placeholder Icon={ArrowDownToLine} title="Recebimentos" />}
-          {tab === 'lancamentos' && <Placeholder Icon={ArrowLeftRight} title="Lançamentos" />}
+          {tab === 'geral' && <GeralTab onOpenSettings={() => setTab('ajustes')} />}
+          {tab === 'recebimentos' && <Placeholder Icon={TrendingUp} title="Recebimentos" />}
+          {tab === 'lancamentos' && <Placeholder Icon={TrendingDown} title="Lançamentos" />}
+          {tab === 'cartao' && <Placeholder Icon={CreditCard} title="Cartão" />}
           {tab === 'analises' && <Placeholder Icon={BarChart3} title="Análises" />}
           {tab === 'ajustes' && <Placeholder Icon={Settings} title="Ajustes" />}
         </main>

@@ -1,13 +1,14 @@
 import React from 'react';
-import { LayoutDashboard, ArrowDownToLine, ArrowLeftRight, BarChart3, Settings } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, TrendingDown, CreditCard, BarChart3 } from 'lucide-react';
 
-// Abas na ordem definida: Geral, Recebimentos, Lançamentos, Análises, Ajustes.
+// Ordem: Geral, Recebimentos (linha pra cima), Lançamentos (linha pra baixo),
+// Cartão, Análises. Ajustes saiu da barra e virou engrenagem no topo da Geral.
 export const TABS = [
   { id: 'geral',        label: 'Geral',        Icon: LayoutDashboard },
-  { id: 'recebimentos', label: 'Recebimentos', Icon: ArrowDownToLine },
-  { id: 'lancamentos',  label: 'Lançamentos',  Icon: ArrowLeftRight },
+  { id: 'recebimentos', label: 'Recebimentos', Icon: TrendingUp },
+  { id: 'lancamentos',  label: 'Lançamentos',  Icon: TrendingDown },
+  { id: 'cartao',       label: 'Cartão',       Icon: CreditCard },
   { id: 'analises',     label: 'Análises',     Icon: BarChart3 },
-  { id: 'ajustes',      label: 'Ajustes',      Icon: Settings },
 ];
 
 export default function BottomNav({ tab, setTab }) {

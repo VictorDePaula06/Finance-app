@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Search, Eye, Bell, Mic, Send, ArrowUpRight, ArrowDownRight,
-  Sparkles, CreditCard, ChevronRight, StopCircle,
+  Settings, Eye, Bell, Mic, Send, ArrowUpRight, ArrowDownRight,
+  Sparkles, CreditCard, ChevronRight, StopCircle, Activity,
 } from 'lucide-react';
 
 const fmt = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -16,16 +16,31 @@ const SAMPLE = {
   expense: 5269.45,
   invoice: 476.75,
   invoiceDue: '15/jul',
+  health: {
+    score: 76,
+    statusLabel: 'Bom',
+    message: 'No geral você está bem. Reforçar a reserva deixa tudo no azul.',
+    pillars: [
+      { label: 'Sobra', pct: 82, color: '#10b981' },
+      { label: 'Reserva', pct: 58, color: '#eab308' },
+      { label: 'Supérfluos', pct: 74, color: '#10b981' },
+    ],
+  },
 };
 
 const SUGGESTIONS = ['Como estão meus gastos?', 'Quanto posso gastar hoje?', 'Registrar mercado R$ 120', 'Minha reserva está boa?'];
 
-export default function GeralTab() {
+// Cor do score conforme a faixa (mesma régua do índice da web).
+const scoreColor = (s) => (s >= 80 ? '#10b981' : s >= 60 ? '#eab308' : s >= 40 ? '#f97316' : '#f43f5e');
+
+export default function GeralTab({ onOpenSettings }) {
   const [recording, setRecording] = useState(false);
+  const h = SAMPLE.health;
+  const hColor = scoreColor(h.score);
 
   return (
     <div className="px-5 pt-4">
-      {/* Header */}
+      {/* Header (engrenagem = Ajustes, no lugar da lupa) */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center font-black text-sm shrink-0">
@@ -37,7 +52,7 @@ export default function GeralTab() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button className="w-9 h-9 rounded-full bg-white/[0.06] flex items-center justify-center active:scale-95 transition"><Search className="w-[18px] h-[18px] text-white/70" /></button>
+          <button onClick={onOpenSettings} aria-label="Ajustes" className="w-9 h-9 rounded-full bg-white/[0.06] flex items-center justify-center active:scale-95 transition"><Settings className="w-[18px] h-[18px] text-white/70" /></button>
           <button className="w-9 h-9 rounded-full bg-white/[0.06] flex items-center justify-center active:scale-95 transition"><Eye className="w-[18px] h-[18px] text-white/70" /></button>
           <button className="w-9 h-9 rounded-full bg-white/[0.06] flex items-center justify-center active:scale-95 transition"><Bell className="w-[18px] h-[18px] text-white/70" /></button>
         </div>
@@ -56,7 +71,6 @@ export default function GeralTab() {
           </div>
         </div>
 
-        {/* Caixa de mensagem com microfone (áudio) e enviar */}
         <div className="flex items-center gap-2 bg-black/35 rounded-2xl p-1.5 pl-4">
           <input
             placeholder={recording ? 'Gravando áudio…' : 'Pergunte ou registre um gasto…'}
@@ -76,7 +90,6 @@ export default function GeralTab() {
           </button>
         </div>
 
-        {/* Sugestões rápidas */}
         <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">
           {SUGGESTIONS.map(s => (
             <button key={s} className="shrink-0 text-[11px] px-3 py-1.5 rounded-full bg-white/[0.06] text-white/60 whitespace-nowrap active:scale-95 transition">{s}</button>
@@ -86,12 +99,8 @@ export default function GeralTab() {
 
       {/* Saldo em carteira */}
       <div className="mt-6">
-        <div className="flex items-center gap-2">
-          <p className="text-[12px] text-white/40 uppercase tracking-widest font-semibold">Saldo em carteira</p>
-        </div>
-        <p className="text-[34px] leading-none font-extrabold tracking-tight mt-2">
-          R$ {fmt(SAMPLE.balance)}
-        </p>
+        <p className="text-[12px] text-white/40 uppercase tracking-widest font-semibold">Saldo em carteira</p>
+        <p className="text-[34px] leading-none font-extrabold tracking-tight mt-2">R$ {fmt(SAMPLE.balance)}</p>
         <p className="text-[12px] text-emerald-400 mt-2 flex items-center gap-1">
           <ArrowUpRight className="w-3.5 h-3.5" /> +R$ {fmt(SAMPLE.monthDelta)} este mês
         </p>
@@ -129,6 +138,42 @@ export default function GeralTab() {
           <ChevronRight className="w-4 h-4 text-white/25 ml-auto mt-1" />
         </div>
       </button>
+
+      {/* Saúde Financeira (abaixo da fatura) */}
+      <div className="mt-3 rounded-2xl bg-card border border-white/[0.05] p-4">
+        <div className="flex items-center gap-4">
+          {/* Anel do score */}
+          <div className="relative w-16 h-16 shrink-0">
+            <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90">
+              <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#ffffff14" strokeWidth="3" />
+              <circle cx="18" cy="18" r="15.9155" fill="none" stroke={hColor} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${h.score} 100`} />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-[17px] font-extrabold leading-none">{h.score}</span>
+            </div>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <Activity className="w-3 h-3" style={{ color: hColor }} />
+              <span className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Saúde Financeira</span>
+            </div>
+            <p className="text-[15px] font-bold mt-0.5" style={{ color: hColor }}>{h.statusLabel}</p>
+            <p className="text-[11px] text-white/40 leading-snug mt-0.5">{h.message}</p>
+          </div>
+        </div>
+
+        {/* Pilares */}
+        <div className="grid grid-cols-3 gap-2.5 mt-4">
+          {h.pillars.map(p => (
+            <div key={p.label}>
+              <span className="text-[9px] text-white/40 font-semibold uppercase tracking-wider">{p.label}</span>
+              <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden mt-1">
+                <div className="h-full rounded-full" style={{ width: `${p.pct}%`, background: p.color }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <p className="text-center text-[10px] text-white/20 mt-7">
         Pré-visualização do app · dados de exemplo
