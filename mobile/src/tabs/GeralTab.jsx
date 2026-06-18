@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import {
   Settings, Eye, Bell, Mic, Send, ArrowUpRight, ArrowDownRight,
-  Sparkles, CreditCard, ChevronRight, StopCircle, Activity,
+  CreditCard, ChevronRight, StopCircle, Activity,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { useFinance } from '../hooks/useFinance.js';
 import { fmt, fmtDay } from '../lib/finance.js';
 import logo from '../assets/logo.png';
+import aliviaFinal from '../assets/alivia-final.png';
 
 const SUGGESTIONS = ['Como estão meus gastos?', 'Quanto posso gastar hoje?', 'Registrar mercado R$ 120', 'Minha reserva está boa?'];
 
@@ -50,12 +51,17 @@ export default function GeralTab({ onOpenSettings }) {
       <div className="mt-5 rounded-3xl p-4 bg-gradient-to-br from-emerald-500/15 via-card to-card border border-emerald-500/15">
         <div className="flex items-center gap-2.5 mb-3">
           <div className="relative shrink-0">
-            <div className="w-9 h-9 rounded-full bg-emerald-500/20 flex items-center justify-center"><Sparkles className="w-[18px] h-[18px] text-emerald-400" /></div>
+            <img src={aliviaFinal} alt="Alívia" className="w-10 h-10 rounded-full object-cover border border-emerald-400/30" />
             <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-card" />
           </div>
           <div className="min-w-0">
-            <p className="text-[13px] font-bold leading-none">Fale com a Alívia</p>
-            <p className="text-[10px] text-white/40 mt-1">Sua consultora financeira por IA</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-[13px] font-bold leading-none">Fale com a Alívia</p>
+              <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">IA</span>
+            </div>
+            <p className="text-[10px] text-emerald-400/80 mt-1 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Consultora financeira · Online
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2 bg-black/35 rounded-2xl p-1.5 pl-4">
