@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import {
   Settings, Eye, Bell, Mic, Send, ArrowUpRight, ArrowDownRight,
-  CreditCard, ChevronRight, StopCircle, Activity,
+  CreditCard, ChevronRight, Activity,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { useFinance } from '../hooks/useFinance.js';
 import { fmt, fmtDay } from '../lib/finance.js';
+import ChatSheet from '../components/ChatSheet.jsx';
 import logo from '../assets/logo.png';
 import aliviaFinal from '../assets/alivia-final.png';
 
@@ -14,7 +15,9 @@ const SUGGESTIONS = ['Como estão meus gastos?', 'Quanto posso gastar hoje?', 'R
 export default function GeralTab({ onOpenSettings }) {
   const { user } = useStore();
   const { balance, income, expense, invoice, health } = useFinance();
-  const [recording, setRecording] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [chat, setChat] = useState(null); // null | { seed?, autoRecord? }
+  const openChat = (opts) => { setChat(opts || {}); setDraft(''); };
 
   const firstName = user?.displayName ? user.displayName.split(' ')[0] : 'Você';
   const initial = (user?.displayName || user?.email || 'U').charAt(0).toUpperCase();
@@ -65,16 +68,24 @@ export default function GeralTab({ onOpenSettings }) {
           </div>
         </div>
         <div className="flex items-center gap-2 bg-fg/[0.06] rounded-2xl p-1.5 pl-4">
-          <input placeholder={recording ? 'Gravando áudio…' : 'Pergunte ou registre um gasto…'} className="flex-1 min-w-0 bg-transparent outline-none text-[13px] placeholder:text-fg/30" />
-          <button onClick={() => setRecording(r => !r)} className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition ${recording ? 'bg-rose-500/20' : 'bg-fg/[0.06]'}`} aria-label="Enviar áudio">
-            {recording ? <StopCircle className="w-5 h-5 text-neg animate-pulse" /> : <Mic className="w-5 h-5 text-pos" />}
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && draft.trim()) openChat({ seed: draft.trim() }); }}
+            placeholder="Pergunte ou registre um gasto…"
+            className="flex-1 min-w-0 bg-transparent outline-none text-[13px] placeholder:text-fg/30"
+          />
+          <button onClick={() => openChat({ autoRecord: true })} className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition bg-fg/[0.06]" aria-label="Enviar áudio">
+            <Mic className="w-5 h-5 text-pos" />
           </button>
-          <button className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 active:scale-95 transition" aria-label="Enviar"><Send className="w-[18px] h-[18px] text-black" /></button>
+          <button onClick={() => openChat(draft.trim() ? { seed: draft.trim() } : {})} className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 active:scale-95 transition" aria-label="Enviar"><Send className="w-[18px] h-[18px] text-black" /></button>
         </div>
         <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">
-          {SUGGESTIONS.map(s => <button key={s} className="shrink-0 text-[11px] px-3 py-1.5 rounded-full bg-fg/[0.06] text-fg/60 whitespace-nowrap active:scale-95 transition">{s}</button>)}
+          {SUGGESTIONS.map(s => <button key={s} onClick={() => openChat({ seed: s })} className="shrink-0 text-[11px] px-3 py-1.5 rounded-full bg-fg/[0.06] text-fg/60 whitespace-nowrap active:scale-95 transition">{s}</button>)}
         </div>
       </div>
+
+      {chat && <ChatSheet seedMessage={chat.seed} autoRecord={chat.autoRecord} onClose={() => setChat(null)} />}
 
       {/* Saldo em carteira */}
       <div className="mt-6">
