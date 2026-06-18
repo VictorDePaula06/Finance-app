@@ -1,14 +1,37 @@
 import React, { useState, useMemo } from 'react';
-import { CreditCard, CheckCircle2 } from 'lucide-react';
+import { CreditCard, Plus, ShoppingBag, Trash2 } from 'lucide-react';
 import { TabHeader, Card, SectionLabel, TxRow } from '../components/ui.jsx';
+import Sheet from '../components/Sheet.jsx';
+import CardForm from '../components/forms/CardForm.jsx';
+import TxForm from '../components/forms/TxForm.jsx';
 import { useFinance } from '../hooks/useFinance.js';
+import { useStore } from '../store.jsx';
 import { fmt, fmtDay } from '../lib/finance.js';
 import { catMeta } from '../lib/categories.js';
 
+const AddBtn = ({ onClick }) => (
+  <button onClick={onClick} aria-label="Novo cartão" className="w-9 h-9 rounded-full bg-info/15 text-info flex items-center justify-center active:scale-90 transition shrink-0">
+    <Plus className="w-5 h-5" />
+  </button>
+);
+
 export default function CartaoTab() {
   const { cards, subscriptions, transactions } = useFinance();
+  const { addCard, addTransaction, deleteCard, deleteTransaction } = useStore();
   const [sel, setSel] = useState(0);
+  const [sheet, setSheet] = useState(null); // 'newCard' | 'newTx'
   const card = cards[sel] || cards[0];
+
+  const removeCard = () => {
+    if (!card) return;
+    if (window.confirm(`Excluir o cartão "${card.name}"? As compras em aberto dele também somem.`)) {
+      deleteCard(card.id);
+      setSel(0);
+    }
+  };
+  const removeTx = (id, desc) => {
+    if (window.confirm(`Excluir "${desc || 'lançamento'}"?`)) deleteTransaction(id);
+  };
 
   const stats = useMemo(() => {
     if (!card) return null;
@@ -18,8 +41,8 @@ export default function CartaoTab() {
     const limit = parseFloat(card.limit) || 0;
     const usagePct = limit > 0 ? Math.min(100, (invoice / limit) * 100) : 0;
     const items = [
-      ...unpaid.map(t => ({ id: t.id, desc: t.description || 'Compra', cat: t.category, amount: parseFloat(t.amount) || 0, date: fmtDay(t.date), badge: t.installmentInfo })),
-      ...subs.map(s => ({ id: s.id, desc: s.name, cat: s.category, amount: parseFloat(s.value) || 0, date: '', badge: s.type === 'installment' ? `${s.currentInstallment || 1}/${s.totalInstallments || 1}` : 'Assinatura' })),
+      ...unpaid.map(t => ({ id: t.id, isTx: true, desc: t.description || 'Compra', cat: t.category, amount: parseFloat(t.amount) || 0, date: fmtDay(t.date), badge: t.installmentInfo })),
+      ...subs.map(s => ({ id: s.id, isTx: false, desc: s.name, cat: s.category, amount: parseFloat(s.value) || 0, date: '', badge: s.type === 'installment' ? `${s.currentInstallment || 1}/${s.totalInstallments || 1}` : 'Assinatura' })),
     ];
     return { invoice, limit, usagePct, available: Math.max(0, limit - invoice), items };
   }, [card, transactions, subscriptions]);
@@ -31,8 +54,17 @@ export default function CartaoTab() {
         <div className="px-5 mt-10 flex flex-col items-center text-center">
           <div className="w-16 h-16 rounded-3xl bg-fg/[0.05] border border-fg/[0.06] flex items-center justify-center mb-4"><CreditCard className="w-7 h-7 text-fg/40" /></div>
           <p className="text-[14px] font-bold">Nenhum cartão cadastrado</p>
-          <p className="text-[12px] text-fg/40 mt-1">Cadastre um cartão no site para acompanhar a fatura aqui.</p>
+          <p className="text-[12px] text-fg/40 mt-1 max-w-[240px]">Cadastre um cartão para acompanhar a fatura e lançar compras no crédito.</p>
+          <button onClick={() => setSheet('newCard')} className="mt-5 inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-info text-white font-bold text-[13px] active:scale-95 transition">
+            <Plus className="w-4 h-4" /> Cadastrar cartão
+          </button>
         </div>
+
+        {sheet === 'newCard' && (
+          <Sheet title="Novo cartão" onClose={() => setSheet(null)}>
+            <CardForm onSubmit={addCard} onDone={() => setSheet(null)} />
+          </Sheet>
+        )}
       </div>
     );
   }
@@ -41,7 +73,7 @@ export default function CartaoTab() {
 
   return (
     <div className="pb-6">
-      <TabHeader title="Cartões" subtitle="Faturas, parcelas e assinaturas" />
+      <TabHeader title="Cartões" subtitle="Faturas, parcelas e assinaturas" right={<AddBtn onClick={() => setSheet('newCard')} />} />
 
       {/* Seletor (se mais de um) */}
       {cards.length > 1 && (
@@ -72,9 +104,7 @@ export default function CartaoTab() {
             <div className="h-2 rounded-full bg-fg/[0.08] overflow-hidden"><div className="h-full rounded-full" style={{ width: `${stats.limit > 0 ? stats.usagePct : 0}%`, background: usageColor }} /></div>
             <div className="flex items-center justify-between mt-1.5"><span className="text-[10px] text-fg/35">R$ {fmt(stats.invoice)} usado</span><span className="text-[10px] text-fg/35">{stats.limit > 0 ? `Limite R$ ${fmt(stats.limit)}` : 'sem limite definido'}</span></div>
           </div>
-          {stats.invoice > 0.005 && (
-            <button className="mt-4 w-full py-3 rounded-xl bg-emerald-500 text-black font-bold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition"><CheckCircle2 className="w-4 h-4" /> Registrar pagamento</button>
-          )}
+          <button onClick={() => setSheet('newTx')} className="mt-4 w-full py-3 rounded-xl bg-info text-white font-bold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition"><ShoppingBag className="w-4 h-4" /> Lançar compra no cartão</button>
         </Card>
       </div>
 
@@ -86,10 +116,28 @@ export default function CartaoTab() {
             <p className="text-center text-[13px] text-fg/40 py-8">Sem lançamentos nesta fatura.</p>
           ) : stats.items.map((it, i) => {
             const c = catMeta(it.cat);
-            return <TxRow key={it.id} cat={c} desc={it.desc} amount={it.amount} date={it.date || it.badge || c.label} sub={it.date ? (it.badge || c.label) : ''} sign="−" last={i === stats.items.length - 1} />;
+            return <TxRow key={it.id} cat={c} desc={it.desc} amount={it.amount} date={it.date || it.badge || c.label} sub={it.date ? (it.badge || c.label) : ''} sign="−" onDelete={it.isTx ? () => removeTx(it.id, it.desc) : undefined} last={i === stats.items.length - 1} />;
           })}
         </Card>
       </div>
+
+      {/* Excluir cartão */}
+      <div className="px-5 mt-5">
+        <button onClick={removeCard} className="w-full py-3 rounded-xl border border-neg/25 text-neg font-bold text-[13px] flex items-center justify-center gap-2 active:scale-[0.98] transition">
+          <Trash2 className="w-4 h-4" /> Excluir cartão
+        </button>
+      </div>
+
+      {sheet === 'newCard' && (
+        <Sheet title="Novo cartão" onClose={() => setSheet(null)}>
+          <CardForm onSubmit={addCard} onDone={() => setSheet(null)} />
+        </Sheet>
+      )}
+      {sheet === 'newTx' && (
+        <Sheet title="Lançar compra" subtitle={`No cartão ${card.name}`} onClose={() => setSheet(null)}>
+          <TxForm kind="expense" fixedCard={card} onSubmit={addTransaction} onDone={() => setSheet(null)} />
+        </Sheet>
+      )}
     </div>
   );
 }

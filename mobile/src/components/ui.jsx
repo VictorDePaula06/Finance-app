@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Trash2 } from 'lucide-react';
 
 export const fmt = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -96,7 +96,8 @@ export const SectionLabel = ({ children, action }) => (
 // Linha de transação (recebimento/gasto) usando a categoria.
 // A cor do valor vem do sinal: "+" → verde (pos), "−" → vermelho (neg).
 // Esses tokens mudam de tom por tema, garantindo contraste no claro e no escuro.
-export const TxRow = ({ cat, desc, amount, date, sub, sign, last }) => {
+// Se onDelete for passado, mostra um botão de excluir à direita.
+export const TxRow = ({ cat, desc, amount, date, sub, sign, last, onDelete }) => {
   const Icon = cat?.Icon;
   const toneClass = sign === '+' ? 'text-pos' : 'text-neg';
   return (
@@ -111,6 +112,11 @@ export const TxRow = ({ cat, desc, amount, date, sub, sign, last }) => {
       <span className={`text-[14px] font-extrabold tabular-nums shrink-0 ${toneClass}`}>
         {sign} R$ {fmt(amount)}
       </span>
+      {onDelete && (
+        <button onClick={onDelete} aria-label="Excluir" className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-fg/25 hover:text-neg active:scale-90 transition">
+          <Trash2 className="w-[15px] h-[15px]" />
+        </button>
+      )}
     </div>
   );
 };

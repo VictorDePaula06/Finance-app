@@ -35,3 +35,16 @@ const M = {
 };
 
 export const catMeta = (id) => M[id] || { label: 'Outro', color: '#94a3b8', Icon: Circle };
+
+// Categorias oferecidas no cadastro manual (mobile). Excluímos as gerenciadas
+// pelo sistema (saldo inicial, sobra de mês, cofre, fatura) — essas seguem
+// sendo criadas pela lógica própria, como no site.
+const withMeta = (ids) => ids.map(id => ({ id, ...catMeta(id) }));
+
+export const INCOME_CATS = withMeta(['salary', 'freelance', 'investment', 'gift', 'other']);
+
+export const EXPENSE_CATS = withMeta([
+  'housing', 'food', 'fast_food', 'transport', 'health', 'education',
+  'subscriptions', 'leisure', 'shopping', 'pets', 'personal_care',
+  'church', 'conta_fixa', 'taxes', 'loan', 'other',
+]);

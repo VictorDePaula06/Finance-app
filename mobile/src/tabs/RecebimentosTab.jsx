@@ -1,7 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, Plus } from 'lucide-react';
 import { TabHeader, Card, Chip, TxRow, SectionLabel } from '../components/ui.jsx';
+import Sheet from '../components/Sheet.jsx';
+import TxForm from '../components/forms/TxForm.jsx';
 import { useFinance } from '../hooks/useFinance.js';
+import { useStore } from '../store.jsx';
 import { fmt, fmtDay, txMonthKey } from '../lib/finance.js';
 import { catMeta } from '../lib/categories.js';
 
@@ -10,9 +13,21 @@ const PERIODS = [
   { id: 'all', label: 'Tudo' },
 ];
 
+const AddBtn = ({ onClick }) => (
+  <button onClick={onClick} aria-label="Adicionar" className="w-9 h-9 rounded-full bg-pos/15 text-pos flex items-center justify-center active:scale-90 transition shrink-0">
+    <Plus className="w-5 h-5" />
+  </button>
+);
+
 export default function RecebimentosTab() {
   const { transactions, monthKey } = useFinance();
+  const { addTransaction, deleteTransaction } = useStore();
   const [period, setPeriod] = useState('month');
+  const [open, setOpen] = useState(false);
+
+  const removeTx = (t) => {
+    if (window.confirm(`Excluir "${t.description || 'recebimento'}"?`)) deleteTransaction(t.id);
+  };
 
   const list = useMemo(() => transactions
     .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
@@ -24,7 +39,7 @@ export default function RecebimentosTab() {
 
   return (
     <div className="pb-6">
-      <TabHeader title="Recebimentos" subtitle="O que entrou na sua conta" />
+      <TabHeader title="Recebimentos" subtitle="O que entrou na sua conta" right={<AddBtn onClick={() => setOpen(true)} />} />
 
       <div className="px-5 flex gap-2 mt-1">
         {PERIODS.map(p => <Chip key={p.id} active={period === p.id} onClick={() => setPeriod(p.id)}>{p.label}</Chip>)}
@@ -45,10 +60,16 @@ export default function RecebimentosTab() {
             <p className="text-center text-[13px] text-fg/40 py-10">Nenhum recebimento no período.</p>
           ) : list.map((t, i) => {
             const c = catMeta(t.category);
-            return <TxRow key={t.id} cat={c} desc={t.description || c.label} amount={parseFloat(t.amount) || 0} date={fmtDay(t.date)} sub={c.label} sign="+" last={i === list.length - 1} />;
+            return <TxRow key={t.id} cat={c} desc={t.description || c.label} amount={parseFloat(t.amount) || 0} date={fmtDay(t.date)} sub={c.label} sign="+" onDelete={() => removeTx(t)} last={i === list.length - 1} />;
           })}
         </Card>
       </div>
+
+      {open && (
+        <Sheet title="Novo recebimento" subtitle="Some ao que entrou este mês" onClose={() => setOpen(false)}>
+          <TxForm kind="income" onSubmit={addTransaction} onDone={() => setOpen(false)} />
+        </Sheet>
+      )}
     </div>
   );
 }

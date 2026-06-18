@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut, updateProfile } from 'firebase/auth';
-import { collection, query, where, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db, googleProvider, firebaseReady } from './services/firebase.js';
 import { DEMO } from './data/sample.js';
+import { buildTransactionDoc, buildCardDoc } from './lib/db.js';
 
 const Ctx = createContext(null);
 export const useStore = () => useContext(Ctx);
@@ -16,6 +17,8 @@ export function StoreProvider({ children }) {
   const [data, setData] = useState(EMPTY);
   const [prefs, setPrefs] = useState({});
   const [demo, setDemo] = useState(false);
+  // No modo demonstração os dados ficam em memória (permite criar/excluir sem Firebase).
+  const [demoData, setDemoData] = useState(EMPTY);
 
   // Autenticação real (mesma do site — Firebase Auth, login Google).
   useEffect(() => {
@@ -43,8 +46,61 @@ export function StoreProvider({ children }) {
   }, [user, demo]);
 
   const login = () => firebaseReady && signInWithPopup(auth, googleProvider);
-  const enterDemo = () => setDemo(true);
+  const enterDemo = () => {
+    setDemoData({
+      transactions: [...(DEMO.transactions || [])],
+      savings_jars: [...(DEMO.savings_jars || [])],
+      cards: [...(DEMO.cards || [])],
+      subscriptions: [...(DEMO.subscriptions || [])],
+    });
+    setDemo(true);
+  };
   const logout = () => { if (demo) { setDemo(false); return; } if (firebaseReady) signOut(auth); };
+
+  // ----- Escrita (mesmo banco do site) -----
+
+  // Cria uma transação (receita/despesa, inclusive compra no crédito).
+  const addTransaction = async (input) => {
+    const uid = demo ? (DEMO.user?.uid || 'demo') : user?.uid;
+    if (!uid && !demo) return false;
+    const docData = buildTransactionDoc(input, uid);
+    if (demo) {
+      setDemoData(prev => ({ ...prev, transactions: [{ id: `demo_${Date.now()}`, ...docData }, ...prev.transactions] }));
+      return true;
+    }
+    if (!firebaseReady || !user) return false;
+    try { await addDoc(collection(db, 'transactions'), docData); return true; }
+    catch (e) { console.error('addTransaction', e); return false; }
+  };
+
+  // Cria um cartão.
+  const addCard = async (input) => {
+    const uid = demo ? (DEMO.user?.uid || 'demo') : user?.uid;
+    const docData = buildCardDoc(input, uid);
+    if (demo) {
+      setDemoData(prev => ({ ...prev, cards: [...prev.cards, { id: `demo_${Date.now()}`, ...docData }] }));
+      return true;
+    }
+    if (!firebaseReady || !user) return false;
+    try { await addDoc(collection(db, 'cards'), docData); return true; }
+    catch (e) { console.error('addCard', e); return false; }
+  };
+
+  // Exclui uma transação.
+  const deleteTransaction = async (id) => {
+    if (demo) { setDemoData(prev => ({ ...prev, transactions: prev.transactions.filter(t => t.id !== id) })); return true; }
+    if (!firebaseReady || !user) return false;
+    try { await deleteDoc(doc(db, 'transactions', id)); return true; }
+    catch (e) { console.error('deleteTransaction', e); return false; }
+  };
+
+  // Exclui um cartão.
+  const deleteCard = async (id) => {
+    if (demo) { setDemoData(prev => ({ ...prev, cards: prev.cards.filter(c => c.id !== id) })); return true; }
+    if (!firebaseReady || !user) return false;
+    try { await deleteDoc(doc(db, 'cards', id)); return true; }
+    catch (e) { console.error('deleteCard', e); return false; }
+  };
 
   // Salva preferências em users/{uid}/settings/general (merge). No demo, atualiza local.
   const [demoPrefs, setDemoPrefs] = useState(null);
@@ -58,10 +114,12 @@ export function StoreProvider({ children }) {
     try { await updateProfile(auth.currentUser, { displayName: name }); setUser({ ...auth.currentUser }); } catch (e) { console.error(e); }
   };
 
-  // No modo demonstração, servimos os dados de exemplo (sem Firebase).
+  const actions = { login, enterDemo, logout, savePref, updateName, addTransaction, addCard, deleteTransaction, deleteCard };
+
+  // No modo demonstração, servimos os dados de exemplo (em memória, editáveis).
   const value = demo
-    ? { user: DEMO.user, authReady: true, firebaseReady, demo: true, login, enterDemo, logout, savePref, updateName, ...DEMO, prefs: demoPrefs || DEMO.prefs }
-    : { user, authReady, firebaseReady, demo: false, login, enterDemo, logout, savePref, updateName, ...data, prefs };
+    ? { user: DEMO.user, authReady: true, firebaseReady, demo: true, ...actions, ...demoData, prefs: demoPrefs || DEMO.prefs }
+    : { user, authReady, firebaseReady, demo: false, ...actions, ...data, prefs };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

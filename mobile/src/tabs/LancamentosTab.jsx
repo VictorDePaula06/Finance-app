@@ -1,16 +1,31 @@
 import React, { useState, useMemo } from 'react';
-import { TrendingDown } from 'lucide-react';
+import { TrendingDown, Plus } from 'lucide-react';
 import { TabHeader, Card, Chip, TxRow, SectionLabel } from '../components/ui.jsx';
+import Sheet from '../components/Sheet.jsx';
+import TxForm from '../components/forms/TxForm.jsx';
 import { useFinance } from '../hooks/useFinance.js';
+import { useStore } from '../store.jsx';
 import { fmt, fmtDay, txMonthKey, isMonthlyExpenseTx } from '../lib/finance.js';
 import { catMeta } from '../lib/categories.js';
 
 const FILTERS = ['Tudo', 'Fixas', 'Cartão', 'Pix'];
 const PAY_LABEL = { credito: 'Crédito', debito: 'Débito', pix: 'Pix', dinheiro: 'Dinheiro', boleto: 'Boleto' };
 
+const AddBtn = ({ onClick }) => (
+  <button onClick={onClick} aria-label="Adicionar" className="w-9 h-9 rounded-full bg-neg/15 text-neg flex items-center justify-center active:scale-90 transition shrink-0">
+    <Plus className="w-5 h-5" />
+  </button>
+);
+
 export default function LancamentosTab() {
-  const { transactions, monthKey, basis } = useFinance();
+  const { transactions, monthKey, basis, cards } = useFinance();
+  const { addTransaction, deleteTransaction } = useStore();
   const [filter, setFilter] = useState('Tudo');
+  const [open, setOpen] = useState(false);
+
+  const removeTx = (t) => {
+    if (window.confirm(`Excluir "${t.description || 'lançamento'}"?`)) deleteTransaction(t.id);
+  };
 
   const monthExpenses = useMemo(() => transactions
     .filter(t => isMonthlyExpenseTx(t, basis) && txMonthKey(t) === monthKey)
@@ -28,7 +43,7 @@ export default function LancamentosTab() {
 
   return (
     <div className="pb-6">
-      <TabHeader title="Lançamentos" subtitle="O que saiu este mês" />
+      <TabHeader title="Lançamentos" subtitle="O que saiu este mês" right={<AddBtn onClick={() => setOpen(true)} />} />
 
       <div className="px-5 flex gap-2 overflow-x-auto no-scrollbar mt-1">
         {FILTERS.map(f => <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>)}
@@ -51,10 +66,16 @@ export default function LancamentosTab() {
             const c = catMeta(t.category);
             const pay = PAY_LABEL[t.paymentMethod] || '';
             const sub = [c.label, pay, t.isFixed ? 'Fixa' : null].filter(Boolean).join(' · ');
-            return <TxRow key={t.id} cat={c} desc={t.description || c.label} amount={parseFloat(t.amount) || 0} date={fmtDay(t.date)} sub={sub} sign="−" last={i === list.length - 1} />;
+            return <TxRow key={t.id} cat={c} desc={t.description || c.label} amount={parseFloat(t.amount) || 0} date={fmtDay(t.date)} sub={sub} sign="−" onDelete={() => removeTx(t)} last={i === list.length - 1} />;
           })}
         </Card>
       </div>
+
+      {open && (
+        <Sheet title="Novo lançamento" subtitle="Registre um gasto do mês" onClose={() => setOpen(false)}>
+          <TxForm kind="expense" cards={cards} onSubmit={addTransaction} onDone={() => setOpen(false)} />
+        </Sheet>
+      )}
     </div>
   );
 }

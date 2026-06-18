@@ -40,3 +40,9 @@ body {
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Bottom-sheet (sem plugin de animação). */
+@keyframes sheet-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.anim-fade { animation: sheet-fade .2s ease-out; }
+.anim-sheet { animation: sheet-up .28s cubic-bezier(.22, 1, .36, 1); }
