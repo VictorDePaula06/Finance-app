@@ -32,8 +32,8 @@ export default function RecebimentosTab() {
 
       <div className="px-5 mt-5">
         <Card className="p-5 bg-gradient-to-br from-emerald-500/15 via-card to-card border-emerald-500/15">
-          <div className="flex items-center gap-1.5"><TrendingUp className="w-4 h-4 text-emerald-400" /><span className="text-[11px] uppercase tracking-widest text-fg/40 font-bold">Total recebido</span></div>
-          <p className="text-[30px] font-extrabold tracking-tight text-emerald-400 mt-1.5">R$ {fmt(total)}</p>
+          <div className="flex items-center gap-1.5"><TrendingUp className="w-4 h-4 text-pos" /><span className="text-[11px] uppercase tracking-widest text-fg/40 font-bold">Total recebido</span></div>
+          <p className="text-[30px] font-extrabold tracking-tight text-pos mt-1.5">R$ {fmt(total)}</p>
           <p className="text-[11px] text-fg/40 mt-1">{list.length} {list.length === 1 ? 'recebimento' : 'recebimentos'}</p>
         </Card>
       </div>
@@ -45,7 +45,7 @@ export default function RecebimentosTab() {
             <p className="text-center text-[13px] text-fg/40 py-10">Nenhum recebimento no período.</p>
           ) : list.map((t, i) => {
             const c = catMeta(t.category);
-            return <TxRow key={t.id} cat={c} desc={t.description || c.label} amount={parseFloat(t.amount) || 0} date={fmtDay(t.date)} sub={c.label} sign="+" color="#34d399" last={i === list.length - 1} />;
+            return <TxRow key={t.id} cat={c} desc={t.description || c.label} amount={parseFloat(t.amount) || 0} date={fmtDay(t.date)} sub={c.label} sign="+" last={i === list.length - 1} />;
           })}
         </Card>
       </div>

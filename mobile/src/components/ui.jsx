@@ -14,9 +14,10 @@ export const TabHeader = ({ title, subtitle, right }) => (
   </div>
 );
 
-// Cartão arredondado padrão.
+// Cartão arredondado padrão. A sombra é quase invisível no escuro e dá uma
+// leve elevação no claro (onde card e fundo são ambos claros).
 export const Card = ({ className = '', children }) => (
-  <div className={`rounded-2xl bg-card border border-fg/[0.05] ${className}`}>{children}</div>
+  <div className={`rounded-2xl bg-card border border-fg/[0.06] shadow-sm shadow-black/5 ${className}`}>{children}</div>
 );
 
 // Pílula de filtro (estilo do modelo: ativa branca com texto preto).
@@ -41,7 +42,7 @@ export const Row = ({ icon: Icon, iconColor, iconBg, title, subtitle, right, onC
       </span>
     )}
     <div className="flex-1 min-w-0">
-      <p className={`text-[14px] font-semibold truncate ${danger ? 'text-rose-400' : ''}`}>{title}</p>
+      <p className={`text-[14px] font-semibold truncate ${danger ? 'text-neg' : ''}`}>{title}</p>
       {subtitle && <p className="text-[11px] text-fg/40 truncate mt-0.5">{subtitle}</p>}
     </div>
     {right}
@@ -93,8 +94,11 @@ export const SectionLabel = ({ children, action }) => (
 );
 
 // Linha de transação (recebimento/gasto) usando a categoria.
-export const TxRow = ({ cat, desc, amount, date, sub, sign, color, last }) => {
+// A cor do valor vem do sinal: "+" → verde (pos), "−" → vermelho (neg).
+// Esses tokens mudam de tom por tema, garantindo contraste no claro e no escuro.
+export const TxRow = ({ cat, desc, amount, date, sub, sign, last }) => {
   const Icon = cat?.Icon;
+  const toneClass = sign === '+' ? 'text-pos' : 'text-neg';
   return (
     <div className={`flex items-center gap-3 px-4 py-3 ${last ? '' : 'border-b border-fg/[0.04]'}`}>
       <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${cat?.color}22` }}>
@@ -104,7 +108,7 @@ export const TxRow = ({ cat, desc, amount, date, sub, sign, color, last }) => {
         <p className="text-[14px] font-semibold truncate">{desc}</p>
         <p className="text-[11px] text-fg/40 truncate mt-0.5">{date}{sub ? ` · ${sub}` : ''}</p>
       </div>
-      <span className="text-[14px] font-extrabold tabular-nums shrink-0" style={{ color }}>
+      <span className={`text-[14px] font-extrabold tabular-nums shrink-0 ${toneClass}`}>
         {sign} R$ {fmt(amount)}
       </span>
     </div>

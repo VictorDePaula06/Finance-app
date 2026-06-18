@@ -34,7 +34,7 @@ export default function GeralTab({ onOpenSettings }) {
         <div className="flex items-center gap-3">
           {user?.photoURL
             ? <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
-            : <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center font-black text-sm shrink-0">{initial}</div>}
+            : <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pos to-blue-500 flex items-center justify-center font-black text-sm shrink-0">{initial}</div>}
           <div>
             <p className="text-[11px] text-fg/40 leading-none">Olá,</p>
             <p className="text-[15px] font-bold leading-tight">{firstName}</p>
@@ -51,23 +51,23 @@ export default function GeralTab({ onOpenSettings }) {
       <div className="mt-5 rounded-3xl p-4 bg-gradient-to-br from-emerald-500/15 via-card to-card border border-emerald-500/15">
         <div className="flex items-center gap-2.5 mb-3">
           <div className="relative shrink-0">
-            <img src={aliviaFinal} alt="Alívia" className="w-10 h-10 rounded-full object-cover border border-emerald-400/30" />
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-card" />
+            <img src={aliviaFinal} alt="Alívia" className="w-10 h-10 rounded-full object-cover border border-pos/30" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-pos border-2 border-card" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <p className="text-[13px] font-bold leading-none">Fale com a Alívia</p>
-              <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">IA</span>
+              <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-pos">IA</span>
             </div>
-            <p className="text-[10px] text-emerald-400/80 mt-1 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Consultora financeira · Online
+            <p className="text-[10px] text-pos/80 mt-1 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-pos" /> Consultora financeira · Online
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 bg-fg/[0.06] rounded-2xl p-1.5 pl-4">
           <input placeholder={recording ? 'Gravando áudio…' : 'Pergunte ou registre um gasto…'} className="flex-1 min-w-0 bg-transparent outline-none text-[13px] placeholder:text-fg/30" />
           <button onClick={() => setRecording(r => !r)} className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition ${recording ? 'bg-rose-500/20' : 'bg-fg/[0.06]'}`} aria-label="Enviar áudio">
-            {recording ? <StopCircle className="w-5 h-5 text-rose-400 animate-pulse" /> : <Mic className="w-5 h-5 text-emerald-400" />}
+            {recording ? <StopCircle className="w-5 h-5 text-neg animate-pulse" /> : <Mic className="w-5 h-5 text-pos" />}
           </button>
           <button className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 active:scale-95 transition" aria-label="Enviar"><Send className="w-[18px] h-[18px] text-black" /></button>
         </div>
@@ -80,7 +80,7 @@ export default function GeralTab({ onOpenSettings }) {
       <div className="mt-6">
         <p className="text-[12px] text-fg/40 uppercase tracking-widest font-semibold">Saldo em carteira</p>
         <p className="text-[34px] leading-none font-extrabold tracking-tight mt-2">R$ {fmt(balance)}</p>
-        <p className={`text-[12px] mt-2 flex items-center gap-1 ${monthDelta >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+        <p className={`text-[12px] mt-2 flex items-center gap-1 ${monthDelta >= 0 ? 'text-pos' : 'text-neg'}`}>
           {monthDelta >= 0 ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
           {monthDelta >= 0 ? '+' : '−'} R$ {fmt(Math.abs(monthDelta))} este mês
         </p>
@@ -89,21 +89,21 @@ export default function GeralTab({ onOpenSettings }) {
       {/* Ganhos / Gastos */}
       <div className="grid grid-cols-2 gap-3 mt-5">
         <div className="rounded-2xl bg-card border border-fg/[0.05] p-4">
-          <div className="flex items-center gap-1.5"><ArrowDownRight className="w-4 h-4 text-emerald-400" /><span className="text-[10px] uppercase tracking-widest text-fg/40 font-bold">Ganhos</span></div>
-          <p className="text-lg font-extrabold mt-2 text-emerald-400">R$ {fmt(income)}</p>
+          <div className="flex items-center gap-1.5"><ArrowDownRight className="w-4 h-4 text-pos" /><span className="text-[10px] uppercase tracking-widest text-fg/40 font-bold">Ganhos</span></div>
+          <p className="text-lg font-extrabold mt-2 text-pos">R$ {fmt(income)}</p>
         </div>
         <div className="rounded-2xl bg-card border border-fg/[0.05] p-4">
-          <div className="flex items-center gap-1.5"><ArrowUpRight className="w-4 h-4 text-rose-400" /><span className="text-[10px] uppercase tracking-widest text-fg/40 font-bold">Gastos</span></div>
-          <p className="text-lg font-extrabold mt-2 text-rose-400">R$ {fmt(expense)}</p>
+          <div className="flex items-center gap-1.5"><ArrowUpRight className="w-4 h-4 text-neg" /><span className="text-[10px] uppercase tracking-widest text-fg/40 font-bold">Gastos</span></div>
+          <p className="text-lg font-extrabold mt-2 text-neg">R$ {fmt(expense)}</p>
         </div>
       </div>
 
       {/* Fatura do cartão */}
       <button className="mt-3 w-full rounded-2xl bg-card border border-fg/[0.05] p-4 flex items-center gap-3 text-left active:scale-[0.99] transition">
-        <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center shrink-0"><CreditCard className="w-5 h-5 text-violet-400" /></div>
+        <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center shrink-0"><CreditCard className="w-5 h-5 text-info" /></div>
         <div className="flex-1 min-w-0">
           <p className="text-[10px] uppercase tracking-widest text-fg/40 font-bold">Fatura do cartão</p>
-          <p className="text-lg font-extrabold text-violet-300 leading-tight">R$ {fmt(invoice.openTotal)}</p>
+          <p className="text-lg font-extrabold text-info leading-tight">R$ {fmt(invoice.openTotal)}</p>
         </div>
         <div className="text-right shrink-0">
           <p className="text-[11px] text-fg/30">{invoice.openDue ? `vence ${fmtDay(invoice.openDue)}` : (invoice.hasCards ? 'sem fatura aberta' : 'nenhum cartão')}</p>

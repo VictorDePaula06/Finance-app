@@ -13,6 +13,11 @@ export default {
         card: 'rgb(var(--card) / <alpha-value>)',
         card2: 'rgb(var(--card2) / <alpha-value>)',
         fg: 'rgb(var(--fg) / <alpha-value>)',
+        // Acentos que mudam de tom por tema (legíveis no claro e no escuro).
+        pos: 'rgb(var(--pos) / <alpha-value>)',
+        neg: 'rgb(var(--neg) / <alpha-value>)',
+        warn: 'rgb(var(--warn) / <alpha-value>)',
+        info: 'rgb(var(--info) / <alpha-value>)',
       },
     },
   },

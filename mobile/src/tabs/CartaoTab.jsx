@@ -65,7 +65,7 @@ export default function CartaoTab() {
       <div className="px-5 mt-4">
         <Card className="p-5">
           <span className="text-[11px] uppercase tracking-widest text-fg/40 font-bold">Fatura em aberto</span>
-          <p className="text-[30px] font-extrabold tracking-tight text-amber-400 mt-1.5">R$ {fmt(stats.invoice)}</p>
+          <p className="text-[30px] font-extrabold tracking-tight text-warn mt-1.5">R$ {fmt(stats.invoice)}</p>
           <p className="text-[11px] text-fg/40 mt-1">vence dia {card.dueDay || 10}</p>
           <div className="mt-4">
             <div className="flex items-center justify-between mb-1.5"><span className="text-[10px] uppercase tracking-widest text-fg/40 font-bold">Uso do limite</span><span className="text-[11px] font-black" style={{ color: usageColor }}>{stats.limit > 0 ? `${Math.round(stats.usagePct)}%` : '—'}</span></div>
@@ -86,7 +86,7 @@ export default function CartaoTab() {
             <p className="text-center text-[13px] text-fg/40 py-8">Sem lançamentos nesta fatura.</p>
           ) : stats.items.map((it, i) => {
             const c = catMeta(it.cat);
-            return <TxRow key={it.id} cat={c} desc={it.desc} amount={it.amount} date={it.date || it.badge || c.label} sub={it.date ? (it.badge || c.label) : ''} sign="−" color="#fb7185" last={i === stats.items.length - 1} />;
+            return <TxRow key={it.id} cat={c} desc={it.desc} amount={it.amount} date={it.date || it.badge || c.label} sub={it.date ? (it.badge || c.label) : ''} sign="−" last={i === stats.items.length - 1} />;
           })}
         </Card>
       </div>

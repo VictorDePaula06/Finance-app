@@ -24,7 +24,7 @@ export default function Login() {
         </button>
       ) : (
         <div className="mt-6 w-full max-w-[320px] rounded-2xl bg-amber-500/10 border border-amber-500/25 p-4 flex items-start gap-2.5 text-left">
-          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <AlertTriangle className="w-4 h-4 text-warn shrink-0 mt-0.5" />
           <p className="text-[12px] text-amber-200/90 leading-relaxed">
             Firebase ainda não configurado. Use o <span className="font-bold">modo demonstração</span> abaixo,
             ou crie o <span className="font-bold">mobile/.env.local</span> (veja .env.example) para entrar com dados reais.

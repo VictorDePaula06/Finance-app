@@ -50,7 +50,7 @@ export default function AjustesTab() {
         <Card className="p-4 flex items-center gap-3">
           {user?.photoURL
             ? <img src={user.photoURL} alt="" className="w-12 h-12 rounded-full object-cover" />
-            : <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center font-black">{initial}</div>}
+            : <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pos to-blue-500 flex items-center justify-center font-black">{initial}</div>}
           <div className="flex-1 min-w-0">
             <p className="text-[15px] font-bold truncate">{name}{demo ? ' · demo' : ''}</p>
             <p className="text-[11px] text-fg/40 truncate">{email}</p>

@@ -18,7 +18,7 @@ function Shell() {
   if (firebaseReady && !authReady) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-7 h-7 rounded-full border-2 border-fg/15 border-t-emerald-400 animate-spin" />
+        <div className="w-7 h-7 rounded-full border-2 border-fg/15 border-t-pos animate-spin" />
       </div>
     );
   }

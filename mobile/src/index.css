@@ -2,19 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Tokens de cor (R G B) — alternados por tema. "fg" = cor de primeiro plano
-   (texto/overlays): branca no escuro, escura no claro. */
+/* Tokens (R G B). "fg" = primeiro plano. pos/neg/warn/info = acentos que mudam
+   de tom por tema (mais claros no escuro, mais escuros no claro, p/ contraste). */
 :root {
-  --bg: 10 10 11;        /* #0a0a0b */
-  --card: 22 22 24;      /* #161618 */
-  --card2: 29 29 32;     /* #1d1d20 */
-  --fg: 255 255 255;     /* branco */
+  --bg: 9 9 11;          /* fundo */
+  --card: 26 26 30;      /* card (elevado em relação ao fundo) */
+  --card2: 34 34 39;
+  --fg: 255 255 255;
+  --pos: 52 211 153;     /* pos */
+  --neg: 251 113 133;    /* neg */
+  --warn: 251 191 36;    /* warn */
+  --info: 192 132 252;   /* info */
 }
 .theme-light {
-  --bg: 244 245 247;     /* cinza bem claro */
-  --card: 255 255 255;   /* branco */
-  --card2: 248 250 252;
-  --fg: 17 24 39;        /* slate-900 */
+  --bg: 237 239 242;
+  --card: 255 255 255;
+  --card2: 247 249 251;
+  --fg: 17 24 39;
+  --pos: 5 150 105;      /* emerald-600 */
+  --neg: 225 29 72;      /* rose-600 */
+  --warn: 217 119 6;     /* amber-600 */
+  --info: 124 58 237;    /* violet-600 */
 }
 
 html, body, #root { height: 100%; }
