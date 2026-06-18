@@ -11,11 +11,11 @@ export const TABS = [
   { id: 'analises',     label: 'Análises',     Icon: BarChart3 },
 ];
 
-export default function BottomNav({ tab, setTab }) {
+export default function BottomNav({ tab, setTab, tabs = TABS }) {
   return (
     <nav className="absolute bottom-0 left-0 right-0 z-20 bg-ink/95 backdrop-blur-xl border-t border-fg/[0.06]">
       <div className="flex items-stretch justify-around px-1 pt-2 pb-[max(10px,env(safe-area-inset-bottom))]">
-        {TABS.map(({ id, label, Icon }) => {
+        {tabs.map(({ id, label, Icon }) => {
           const active = tab === id;
           return (
             <button

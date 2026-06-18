@@ -9,7 +9,7 @@ import LancamentosTab from './tabs/LancamentosTab.jsx';
 import CartaoTab from './tabs/CartaoTab.jsx';
 import AnalisesTab from './tabs/AnalisesTab.jsx';
 import AjustesTab from './tabs/AjustesTab.jsx';
-import PatrimonioTab from './tabs/PatrimonioTab.jsx';
+import PatrimonioShell from './tabs/PatrimonioShell.jsx';
 
 function Shell() {
   const { user, authReady, firebaseReady } = useStore();
@@ -28,13 +28,11 @@ function Shell() {
   // Sem login (ou sem config) → tela de entrada
   if (!user) return <Login />;
 
-  // Módulo Patrimônio: tela única (sem a barra de abas do Controle de Gastos).
-  // A engrenagem leva aos Ajustes (no módulo Gastos), de onde se volta normalmente.
+  // Módulo Patrimônio: abas próprias (Geral, Monitor, Reserva, Investimentos,
+  // Rebalanceamento). A engrenagem leva aos Ajustes no módulo Gastos.
   if (module === 'patrimonio') {
     return (
-      <main className="flex-1 overflow-y-auto no-scrollbar pb-6">
-        <PatrimonioTab module={module} onModule={setModule} onOpenSettings={() => { setModule('gastos'); setTab('ajustes'); }} />
-      </main>
+      <PatrimonioShell module={module} onModule={setModule} onOpenSettings={() => { setModule('gastos'); setTab('ajustes'); }} />
     );
   }
 
