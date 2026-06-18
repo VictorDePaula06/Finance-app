@@ -1,60 +1,52 @@
-import React, { useState } from 'react';
-import { Plus, TrendingUp } from 'lucide-react';
-import { TabHeader, Card, Chip, TxRow, SectionLabel, fmt } from '../components/ui.jsx';
-import { INCOME, CATS } from '../data/sample.js';
+import React, { useState, useMemo } from 'react';
+import { TrendingUp } from 'lucide-react';
+import { TabHeader, Card, Chip, TxRow, SectionLabel } from '../components/ui.jsx';
+import { useFinance } from '../hooks/useFinance.js';
+import { fmt, fmtDay, txMonthKey } from '../lib/finance.js';
+import { catMeta } from '../lib/categories.js';
 
-const PERIODS = ['Este mês', '30 dias', 'Ano'];
+const PERIODS = [
+  { id: 'month', label: 'Este mês' },
+  { id: 'all', label: 'Tudo' },
+];
 
 export default function RecebimentosTab() {
-  const [period, setPeriod] = useState('Este mês');
-  const total = INCOME.reduce((a, t) => a + t.amount, 0);
+  const { transactions, monthKey } = useFinance();
+  const [period, setPeriod] = useState('month');
+
+  const list = useMemo(() => transactions
+    .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
+    .filter(t => period === 'all' || txMonthKey(t) === monthKey)
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))),
+    [transactions, period, monthKey]);
+
+  const total = list.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
 
   return (
     <div className="pb-6">
-      <TabHeader
-        title="Recebimentos"
-        subtitle="O que entrou na sua conta"
-        right={(
-          <button className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center active:scale-95 transition shadow-lg shadow-emerald-500/25">
-            <Plus className="w-5 h-5 text-black" />
-          </button>
-        )}
-      />
+      <TabHeader title="Recebimentos" subtitle="O que entrou na sua conta" />
 
-      {/* Filtro de período */}
-      <div className="px-5 flex gap-2 overflow-x-auto no-scrollbar mt-1">
-        {PERIODS.map(p => <Chip key={p} active={period === p} onClick={() => setPeriod(p)}>{p}</Chip>)}
+      <div className="px-5 flex gap-2 mt-1">
+        {PERIODS.map(p => <Chip key={p.id} active={period === p.id} onClick={() => setPeriod(p.id)}>{p.label}</Chip>)}
       </div>
 
-      {/* Total */}
       <div className="px-5 mt-5">
         <Card className="p-5 bg-gradient-to-br from-emerald-500/15 via-card to-card border-emerald-500/15">
-          <div className="flex items-center gap-1.5">
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
-            <span className="text-[11px] uppercase tracking-widest text-white/40 font-bold">Total recebido</span>
-          </div>
+          <div className="flex items-center gap-1.5"><TrendingUp className="w-4 h-4 text-emerald-400" /><span className="text-[11px] uppercase tracking-widest text-white/40 font-bold">Total recebido</span></div>
           <p className="text-[30px] font-extrabold tracking-tight text-emerald-400 mt-1.5">R$ {fmt(total)}</p>
-          <p className="text-[11px] text-white/40 mt-1">{INCOME.length} recebimentos em {period.toLowerCase()}</p>
+          <p className="text-[11px] text-white/40 mt-1">{list.length} {list.length === 1 ? 'recebimento' : 'recebimentos'}</p>
         </Card>
       </div>
 
-      {/* Lista */}
       <SectionLabel>Lançamentos</SectionLabel>
       <div className="px-5">
         <Card>
-          {INCOME.map((t, i) => (
-            <TxRow
-              key={t.id}
-              cat={CATS[t.cat]}
-              desc={t.desc}
-              amount={t.amount}
-              date={t.date}
-              sub={CATS[t.cat]?.label}
-              sign="+"
-              color="#34d399"
-              last={i === INCOME.length - 1}
-            />
-          ))}
+          {list.length === 0 ? (
+            <p className="text-center text-[13px] text-white/40 py-10">Nenhum recebimento no período.</p>
+          ) : list.map((t, i) => {
+            const c = catMeta(t.category);
+            return <TxRow key={t.id} cat={c} desc={t.description || c.label} amount={parseFloat(t.amount) || 0} date={fmtDay(t.date)} sub={c.label} sign="+" color="#34d399" last={i === list.length - 1} />;
+          })}
         </Card>
       </div>
     </div>
