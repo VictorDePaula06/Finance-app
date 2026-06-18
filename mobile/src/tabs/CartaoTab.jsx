@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { CreditCard, Plus, ShoppingBag, Trash2 } from 'lucide-react';
+import { CreditCard, Plus, ShoppingBag, Trash2, AlertTriangle } from 'lucide-react';
 import { TabHeader, Card, SectionLabel, TxRow } from '../components/ui.jsx';
 import Sheet from '../components/Sheet.jsx';
 import CardForm from '../components/forms/CardForm.jsx';
 import TxForm from '../components/forms/TxForm.jsx';
+import TxDetailSheet from '../components/TxDetailSheet.jsx';
 import { useFinance } from '../hooks/useFinance.js';
 import { useStore } from '../store.jsx';
 import { fmt, fmtDay } from '../lib/finance.js';
@@ -17,20 +18,18 @@ const AddBtn = ({ onClick }) => (
 
 export default function CartaoTab() {
   const { cards, subscriptions, transactions } = useFinance();
-  const { addCard, addTransaction, deleteCard, deleteTransaction } = useStore();
+  const { addCard, addTransaction, deleteCard } = useStore();
   const [sel, setSel] = useState(0);
   const [sheet, setSheet] = useState(null); // 'newCard' | 'newTx'
+  const [detail, setDetail] = useState(null);
+  const [confirmCard, setConfirmCard] = useState(false);
   const card = cards[sel] || cards[0];
 
-  const removeCard = () => {
+  const doDeleteCard = () => {
     if (!card) return;
-    if (window.confirm(`Excluir o cartão "${card.name}"? As compras em aberto dele também somem.`)) {
-      deleteCard(card.id);
-      setSel(0);
-    }
-  };
-  const removeTx = (id, desc) => {
-    if (window.confirm(`Excluir "${desc || 'lançamento'}"?`)) deleteTransaction(id);
+    deleteCard(card.id);
+    setConfirmCard(false);
+    setSel(0);
   };
 
   const stats = useMemo(() => {
@@ -41,7 +40,7 @@ export default function CartaoTab() {
     const limit = parseFloat(card.limit) || 0;
     const usagePct = limit > 0 ? Math.min(100, (invoice / limit) * 100) : 0;
     const items = [
-      ...unpaid.map(t => ({ id: t.id, isTx: true, desc: t.description || 'Compra', cat: t.category, amount: parseFloat(t.amount) || 0, date: fmtDay(t.date), badge: t.installmentInfo })),
+      ...unpaid.map(t => ({ id: t.id, isTx: true, raw: t, desc: t.description || 'Compra', cat: t.category, amount: parseFloat(t.amount) || 0, date: fmtDay(t.date), badge: t.installmentInfo })),
       ...subs.map(s => ({ id: s.id, isTx: false, desc: s.name, cat: s.category, amount: parseFloat(s.value) || 0, date: '', badge: s.type === 'installment' ? `${s.currentInstallment || 1}/${s.totalInstallments || 1}` : 'Assinatura' })),
     ];
     return { invoice, limit, usagePct, available: Math.max(0, limit - invoice), items };
@@ -116,16 +115,27 @@ export default function CartaoTab() {
             <p className="text-center text-[13px] text-fg/40 py-8">Sem lançamentos nesta fatura.</p>
           ) : stats.items.map((it, i) => {
             const c = catMeta(it.cat);
-            return <TxRow key={it.id} cat={c} desc={it.desc} amount={it.amount} date={it.date || it.badge || c.label} sub={it.date ? (it.badge || c.label) : ''} sign="−" onDelete={it.isTx ? () => removeTx(it.id, it.desc) : undefined} last={i === stats.items.length - 1} />;
+            return <TxRow key={it.id} cat={c} desc={it.desc} amount={it.amount} date={it.date || it.badge || c.label} sub={it.date ? (it.badge || c.label) : ''} sign="−" onPress={it.isTx ? () => setDetail(it.raw) : undefined} last={i === stats.items.length - 1} />;
           })}
         </Card>
       </div>
 
-      {/* Excluir cartão */}
+      {/* Excluir cartão (confirmação dentro do app) */}
       <div className="px-5 mt-5">
-        <button onClick={removeCard} className="w-full py-3 rounded-xl border border-neg/25 text-neg font-bold text-[13px] flex items-center justify-center gap-2 active:scale-[0.98] transition">
-          <Trash2 className="w-4 h-4" /> Excluir cartão
-        </button>
+        {!confirmCard ? (
+          <button onClick={() => setConfirmCard(true)} className="w-full py-3 rounded-xl border border-neg/25 text-neg font-bold text-[13px] flex items-center justify-center gap-2 active:scale-[0.98] transition">
+            <Trash2 className="w-4 h-4" /> Excluir cartão
+          </button>
+        ) : (
+          <div className="rounded-2xl bg-neg/[0.07] border border-neg/20 p-4">
+            <p className="text-[13px] font-semibold flex items-center gap-2 text-neg"><AlertTriangle className="w-4 h-4 shrink-0" /> Excluir o cartão "{card.name}"?</p>
+            <p className="text-[12px] text-fg/50 mt-1">As compras em aberto deste cartão também serão removidas.</p>
+            <div className="grid grid-cols-2 gap-2.5 mt-3">
+              <button onClick={() => setConfirmCard(false)} className="py-3 rounded-xl bg-fg/[0.06] text-fg/70 font-bold text-[13px] active:scale-95 transition">Cancelar</button>
+              <button onClick={doDeleteCard} className="py-3 rounded-xl bg-rose-500 text-white font-bold text-[13px] active:scale-95 transition">Excluir</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {sheet === 'newCard' && (
@@ -138,6 +148,7 @@ export default function CartaoTab() {
           <TxForm kind="expense" fixedCard={card} onSubmit={addTransaction} onDone={() => setSheet(null)} />
         </Sheet>
       )}
+      {detail && <TxDetailSheet tx={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }

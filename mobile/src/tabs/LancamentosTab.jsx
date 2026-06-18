@@ -3,6 +3,7 @@ import { TrendingDown, Plus } from 'lucide-react';
 import { TabHeader, Card, Chip, TxRow, SectionLabel } from '../components/ui.jsx';
 import Sheet from '../components/Sheet.jsx';
 import TxForm from '../components/forms/TxForm.jsx';
+import TxDetailSheet from '../components/TxDetailSheet.jsx';
 import { useFinance } from '../hooks/useFinance.js';
 import { useStore } from '../store.jsx';
 import { fmt, fmtDay, txMonthKey, isMonthlyExpenseTx } from '../lib/finance.js';
@@ -19,13 +20,10 @@ const AddBtn = ({ onClick }) => (
 
 export default function LancamentosTab() {
   const { transactions, monthKey, basis, cards } = useFinance();
-  const { addTransaction, deleteTransaction } = useStore();
+  const { addTransaction } = useStore();
   const [filter, setFilter] = useState('Tudo');
   const [open, setOpen] = useState(false);
-
-  const removeTx = (t) => {
-    if (window.confirm(`Excluir "${t.description || 'lançamento'}"?`)) deleteTransaction(t.id);
-  };
+  const [detail, setDetail] = useState(null);
 
   const monthExpenses = useMemo(() => transactions
     .filter(t => isMonthlyExpenseTx(t, basis) && txMonthKey(t) === monthKey)
@@ -66,7 +64,7 @@ export default function LancamentosTab() {
             const c = catMeta(t.category);
             const pay = PAY_LABEL[t.paymentMethod] || '';
             const sub = [c.label, pay, t.isFixed ? 'Fixa' : null].filter(Boolean).join(' · ');
-            return <TxRow key={t.id} cat={c} desc={t.description || c.label} amount={parseFloat(t.amount) || 0} date={fmtDay(t.date)} sub={sub} sign="−" onDelete={() => removeTx(t)} last={i === list.length - 1} />;
+            return <TxRow key={t.id} cat={c} desc={t.description || c.label} amount={parseFloat(t.amount) || 0} date={fmtDay(t.date)} sub={sub} sign="−" onPress={() => setDetail(t)} last={i === list.length - 1} />;
           })}
         </Card>
       </div>
@@ -76,6 +74,7 @@ export default function LancamentosTab() {
           <TxForm kind="expense" cards={cards} onSubmit={addTransaction} onDone={() => setOpen(false)} />
         </Sheet>
       )}
+      {detail && <TxDetailSheet tx={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }

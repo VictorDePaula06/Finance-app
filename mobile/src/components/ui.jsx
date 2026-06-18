@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 export const fmt = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -96,12 +96,13 @@ export const SectionLabel = ({ children, action }) => (
 // Linha de transação (recebimento/gasto) usando a categoria.
 // A cor do valor vem do sinal: "+" → verde (pos), "−" → vermelho (neg).
 // Esses tokens mudam de tom por tema, garantindo contraste no claro e no escuro.
-// Se onDelete for passado, mostra um botão de excluir à direita.
-export const TxRow = ({ cat, desc, amount, date, sub, sign, last, onDelete }) => {
+// Se onPress for passado, a linha vira tocável (abre os detalhes).
+export const TxRow = ({ cat, desc, amount, date, sub, sign, last, onPress }) => {
   const Icon = cat?.Icon;
   const toneClass = sign === '+' ? 'text-pos' : 'text-neg';
-  return (
-    <div className={`flex items-center gap-3 px-4 py-3 ${last ? '' : 'border-b border-fg/[0.04]'}`}>
+  const cls = `w-full flex items-center gap-3 px-4 py-3 text-left ${last ? '' : 'border-b border-fg/[0.04]'} ${onPress ? 'active:bg-fg/[0.03] transition' : ''}`;
+  const inner = (
+    <>
       <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${cat?.color}22` }}>
         {Icon && <Icon className="w-[18px] h-[18px]" style={{ color: cat?.color }} />}
       </span>
@@ -112,11 +113,9 @@ export const TxRow = ({ cat, desc, amount, date, sub, sign, last, onDelete }) =>
       <span className={`text-[14px] font-extrabold tabular-nums shrink-0 ${toneClass}`}>
         {sign} R$ {fmt(amount)}
       </span>
-      {onDelete && (
-        <button onClick={onDelete} aria-label="Excluir" className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-fg/25 hover:text-neg active:scale-90 transition">
-          <Trash2 className="w-[15px] h-[15px]" />
-        </button>
-      )}
-    </div>
+    </>
   );
+  return onPress
+    ? <button onClick={onPress} className={cls}>{inner}</button>
+    : <div className={cls}>{inner}</div>;
 };
