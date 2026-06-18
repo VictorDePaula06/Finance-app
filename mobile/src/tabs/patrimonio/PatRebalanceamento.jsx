@@ -1,31 +1,40 @@
-import React, { useMemo } from 'react';
-import { Scale, ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Scale, ArrowUpRight, ArrowDownRight, CheckCircle2, SlidersHorizontal } from 'lucide-react';
 import { TabHeader, Card } from '../../components/ui.jsx';
+import Sheet from '../../components/Sheet.jsx';
+import RebalanceForm from '../../components/forms/RebalanceForm.jsx';
 import { useStore } from '../../store.jsx';
 import { fmt } from '../../lib/finance.js';
 import { summarizeInvestments, buildRebalancePlan } from '../../lib/patrimonio.js';
 
+const ConfigBtn = ({ onClick }) => (
+  <button onClick={onClick} aria-label="Configurar alvo" className="w-9 h-9 rounded-full bg-info/15 text-info flex items-center justify-center active:scale-90 transition shrink-0"><SlidersHorizontal className="w-[18px] h-[18px]" /></button>
+);
+
 export default function PatRebalanceamento({ livePrices = {} }) {
-  const { investments = [], prefs = {} } = useStore();
+  const { investments = [], prefs = {}, savePref } = useStore();
   const targets = prefs?.rebalanceTargets || {};
+  const [config, setConfig] = useState(false);
 
   const summary = useMemo(() => summarizeInvestments(investments, { livePrices }), [investments, livePrices]);
   const plan = useMemo(() => buildRebalancePlan(summary.byClass, targets), [summary, targets]);
   const rowsWithValue = plan.rows.filter((r) => r.current > 0 || r.target > 0);
 
+  const saveTargets = async (t) => { await savePref({ rebalanceTargets: t }); return true; };
+
   return (
     <div className="pb-6">
-      <TabHeader title="Rebalanceamento" subtitle="Sua carteira x a alocação-alvo" />
+      <TabHeader title="Rebalanceamento" subtitle="Sua carteira x a alocação-alvo" right={<ConfigBtn onClick={() => setConfig(true)} />} />
 
       {!plan.hasTargets ? (
         <div className="px-5 mt-4">
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-2"><Scale className="w-5 h-5 text-warn" /><p className="text-[14px] font-bold">Defina sua alocação-alvo</p></div>
             <p className="text-[12px] text-fg/50 leading-relaxed">
-              Configure os percentuais por classe (Renda Fixa, Ações, FIIs, Cripto, Imóveis) no site, em
-              <span className="font-semibold text-fg/70"> Patrimônio → Rebalanceamento</span>. Aí eu comparo com a sua
+              Defina os percentuais por classe (Renda Fixa, Ações, FIIs, Cripto, Imóveis). Aí eu comparo com a sua
               carteira e mostro exatamente o que comprar ou vender para chegar lá.
             </p>
+            <button onClick={() => setConfig(true)} className="mt-4 w-full py-3 rounded-xl bg-info text-white font-bold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition"><SlidersHorizontal className="w-4 h-4" /> Configurar alocação-alvo</button>
           </Card>
           {plan.total > 0 && <AllocationOnly rows={rowsWithValue} total={plan.total} />}
         </div>
@@ -59,6 +68,12 @@ export default function PatRebalanceamento({ livePrices = {} }) {
             );
           })}
         </div>
+      )}
+
+      {config && (
+        <Sheet title="Alocação-alvo" subtitle="Defina o percentual de cada classe" onClose={() => setConfig(false)}>
+          <RebalanceForm initial={targets} onSubmit={saveTargets} onDone={() => setConfig(false)} />
+        </Sheet>
       )}
     </div>
   );

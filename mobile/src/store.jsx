@@ -3,7 +3,7 @@ import { onAuthStateChanged, signInWithPopup, signOut, updateProfile } from 'fir
 import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db, googleProvider, firebaseReady } from './services/firebase.js';
 import { DEMO } from './data/sample.js';
-import { buildTransactionDocs, buildCardDoc } from './lib/db.js';
+import { buildTransactionDocs, buildCardDoc, buildInvestmentDoc, buildJarDoc } from './lib/db.js';
 
 const Ctx = createContext(null);
 export const useStore = () => useContext(Ctx);
@@ -106,6 +106,51 @@ export function StoreProvider({ children }) {
     catch (e) { console.error('deleteCard', e); return false; }
   };
 
+  // ----- Patrimônio: investimentos e reservas -----
+
+  const addInvestment = async (input) => {
+    const uid = demo ? (DEMO.user?.uid || 'demo') : user?.uid;
+    const docData = buildInvestmentDoc(input, uid);
+    if (demo) { setDemoData(prev => ({ ...prev, investments: [...prev.investments, { id: `demo_${Date.now()}`, ...docData }] })); return true; }
+    if (!firebaseReady || !user) return false;
+    try { await addDoc(collection(db, 'investments'), docData); return true; }
+    catch (e) { console.error('addInvestment', e); return false; }
+  };
+
+  const deleteInvestment = async (id) => {
+    if (demo) { setDemoData(prev => ({ ...prev, investments: prev.investments.filter(i => i.id !== id) })); return true; }
+    if (!firebaseReady || !user) return false;
+    try { await deleteDoc(doc(db, 'investments', id)); return true; }
+    catch (e) { console.error('deleteInvestment', e); return false; }
+  };
+
+  const addJar = async (input) => {
+    const uid = demo ? (DEMO.user?.uid || 'demo') : user?.uid;
+    const docData = buildJarDoc(input, uid);
+    if (demo) { setDemoData(prev => ({ ...prev, savings_jars: [...prev.savings_jars, { id: `demo_${Date.now()}`, ...docData }] })); return true; }
+    if (!firebaseReady || !user) return false;
+    try { await addDoc(collection(db, 'savings_jars'), docData); return true; }
+    catch (e) { console.error('addJar', e); return false; }
+  };
+
+  // Deposita (+) ou resgata (−) de um cofre, atualizando o saldo e a data.
+  const adjustJar = async (id, delta) => {
+    const apply = (j) => ({ ...j, balance: Math.max(0, (parseFloat(j.balance) || 0) + delta), updatedAt: new Date().toISOString() });
+    if (demo) { setDemoData(prev => ({ ...prev, savings_jars: prev.savings_jars.map(j => j.id === id ? apply(j) : j) })); return true; }
+    if (!firebaseReady || !user) return false;
+    const jar = (data.savings_jars || []).find(j => j.id === id);
+    if (!jar) return false;
+    try { await setDoc(doc(db, 'savings_jars', id), { balance: Math.max(0, (parseFloat(jar.balance) || 0) + delta), updatedAt: new Date().toISOString() }, { merge: true }); return true; }
+    catch (e) { console.error('adjustJar', e); return false; }
+  };
+
+  const deleteJar = async (id) => {
+    if (demo) { setDemoData(prev => ({ ...prev, savings_jars: prev.savings_jars.filter(j => j.id !== id) })); return true; }
+    if (!firebaseReady || !user) return false;
+    try { await deleteDoc(doc(db, 'savings_jars', id)); return true; }
+    catch (e) { console.error('deleteJar', e); return false; }
+  };
+
   // Salva preferências em users/{uid}/settings/general (merge). No demo, atualiza local.
   const [demoPrefs, setDemoPrefs] = useState(null);
   const savePref = async (partial) => {
@@ -118,7 +163,7 @@ export function StoreProvider({ children }) {
     try { await updateProfile(auth.currentUser, { displayName: name }); setUser({ ...auth.currentUser }); } catch (e) { console.error(e); }
   };
 
-  const actions = { login, enterDemo, logout, savePref, updateName, addTransaction, addCard, deleteTransaction, deleteCard };
+  const actions = { login, enterDemo, logout, savePref, updateName, addTransaction, addCard, deleteTransaction, deleteCard, addInvestment, deleteInvestment, addJar, adjustJar, deleteJar };
 
   // No modo demonstração, servimos os dados de exemplo (em memória, editáveis).
   const value = demo

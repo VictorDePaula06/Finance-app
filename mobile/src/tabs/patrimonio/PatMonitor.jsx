@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Activity, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { TabHeader, Card } from '../../components/ui.jsx';
+import AssetLogo from '../../components/AssetLogo.jsx';
 import { useStore } from '../../store.jsx';
 import { fmt } from '../../lib/finance.js';
 import { investmentMetrics, ASSET_LABEL } from '../../lib/patrimonio.js';
@@ -34,6 +35,7 @@ export default function PatMonitor({ livePrices = {} }) {
               const up = pl >= 0;
               return (
                 <div key={a.id} className={`flex items-center gap-3 px-4 py-3 ${i === tracked.length - 1 ? '' : 'border-b border-fg/[0.04]'}`}>
+                  <AssetLogo asset={a} size={36} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <p className="text-[14px] font-bold truncate">{sym}</p>
