@@ -36,10 +36,21 @@ const M = {
 
 export const catMeta = (id) => M[id] || { label: 'Outro', color: '#94a3b8', Icon: Circle };
 
+// Prioridade padrão por categoria (igual ao site: defaultPriority).
+// essential = Essencial · comfort = Conforto · superfluous = Supérfluo.
+const DEFAULT_PRIORITY = {
+  housing: 'essential', food: 'essential', fast_food: 'superfluous', transport: 'essential',
+  health: 'essential', education: 'essential', pets: 'comfort', personal_care: 'comfort',
+  subscriptions: 'comfort', credit_card: 'comfort', church: 'essential', investment: 'essential',
+  vault: 'essential', loan: 'essential', taxes: 'essential', leisure: 'superfluous',
+  shopping: 'superfluous', credit_card_bill: 'essential', conta_fixa: 'essential', other: 'comfort',
+};
+export const defaultPriorityOf = (id) => DEFAULT_PRIORITY[id] || 'comfort';
+
 // Categorias oferecidas no cadastro manual (mobile). Excluímos as gerenciadas
 // pelo sistema (saldo inicial, sobra de mês, cofre, fatura) — essas seguem
 // sendo criadas pela lógica própria, como no site.
-const withMeta = (ids) => ids.map(id => ({ id, ...catMeta(id) }));
+const withMeta = (ids) => ids.map(id => ({ id, ...catMeta(id), defaultPriority: defaultPriorityOf(id) }));
 
 export const INCOME_CATS = withMeta(['salary', 'freelance', 'investment', 'gift', 'other']);
 
@@ -48,3 +59,10 @@ export const EXPENSE_CATS = withMeta([
   'subscriptions', 'leisure', 'shopping', 'pets', 'personal_care',
   'church', 'conta_fixa', 'taxes', 'loan', 'other',
 ]);
+
+// Rótulos/cores de prioridade (para chips no app).
+export const PRIORITY_META = {
+  essential: { label: 'Essencial', color: '#34d399' },
+  comfort: { label: 'Conforto', color: '#f59e0b' },
+  superfluous: { label: 'Supérfluo', color: '#fb7185' },
+};

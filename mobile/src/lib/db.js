@@ -12,6 +12,13 @@ function toIso(date) {
   return new Date().toISOString();
 }
 
+// Soma `n` meses a uma data ISO, mantendo meio-dia local. Retorna ISO.
+function addMonthsIso(iso, n) {
+  const d = new Date(iso);
+  d.setMonth(d.getMonth() + n);
+  return d.toISOString();
+}
+
 // Documento de transação (receita ou despesa). Para crédito no cartão, passe
 // paymentMethod:'credito' + selectedCardId (entra na fatura como "em aberto").
 export function buildTransactionDoc(input, uid) {
@@ -51,10 +58,50 @@ export function buildTransactionDoc(input, uid) {
     linkedJarId: null,
     linkedInvestmentId: null,
   };
+  // Prioridade (essencial/conforto/supérfluo) — só faz sentido em despesa.
+  if (type === 'expense' && input.priority) doc.priority = input.priority;
   // Forma de pagamento (pix/debito/dinheiro) só quando informada — o site usa
   // paymentMethod !== 'credito' para saber que afeta a carteira.
   if (input.paymentMethod) doc.paymentMethod = input.paymentMethod;
   return doc;
+}
+
+// Gera UM OU MAIS documentos a partir de um lançamento, espelhando o site:
+//  - parcelar (installments > 1): N docs, um por mês, descrição "(i/N)";
+//    valor = total/N (modo 'total') ou valor cheio por mês (modo 'monthly').
+//    No crédito, cada parcela leva installmentInfo "i/N".
+//  - despesa fixa (isFixed): 12 docs mensais (igual ao site).
+//  - caso simples: 1 doc.
+export function buildTransactionDocs(input, uid) {
+  const base = buildTransactionDoc(input, uid);
+  const n = parseInt(input.installments) || 1;
+
+  if (input.type !== 'income' && n > 1) {
+    const total = parseFloat(input.amount) || 0;
+    const perAmount = input.installmentMode === 'total' ? total / n : total;
+    const onCard = !!base.selectedCardId;
+    return Array.from({ length: n }, (_, i) => {
+      const date = addMonthsIso(base.date, i);
+      const doc = {
+        ...base,
+        amount: perAmount,
+        description: `${base.description} (${i + 1}/${n})`,
+        date,
+        month: date.slice(0, 7),
+      };
+      if (onCard) doc.installmentInfo = `${i + 1}/${n}`;
+      return doc;
+    });
+  }
+
+  if (input.type !== 'income' && input.isFixed && !base.selectedCardId) {
+    return Array.from({ length: 12 }, (_, i) => {
+      const date = addMonthsIso(base.date, i);
+      return { ...base, date, month: date.slice(0, 7) };
+    });
+  }
+
+  return [base];
 }
 
 // Documento de cartão (coleção 'cards') — igual ao site (CardsTab.handleAddCard).

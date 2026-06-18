@@ -3,7 +3,7 @@ import { onAuthStateChanged, signInWithPopup, signOut, updateProfile } from 'fir
 import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db, googleProvider, firebaseReady } from './services/firebase.js';
 import { DEMO } from './data/sample.js';
-import { buildTransactionDoc, buildCardDoc } from './lib/db.js';
+import { buildTransactionDocs, buildCardDoc } from './lib/db.js';
 
 const Ctx = createContext(null);
 export const useStore = () => useContext(Ctx);
@@ -60,16 +60,18 @@ export function StoreProvider({ children }) {
   // ----- Escrita (mesmo banco do site) -----
 
   // Cria uma transação (receita/despesa, inclusive compra no crédito).
+  // Pode gerar vários documentos: parcelamento (N meses) ou despesa fixa (12 meses).
   const addTransaction = async (input) => {
     const uid = demo ? (DEMO.user?.uid || 'demo') : user?.uid;
     if (!uid && !demo) return false;
-    const docData = buildTransactionDoc(input, uid);
+    const docs = buildTransactionDocs(input, uid);
     if (demo) {
-      setDemoData(prev => ({ ...prev, transactions: [{ id: `demo_${Date.now()}`, ...docData }, ...prev.transactions] }));
+      const withIds = docs.map((d, i) => ({ id: `demo_${Date.now()}_${i}`, ...d }));
+      setDemoData(prev => ({ ...prev, transactions: [...withIds, ...prev.transactions] }));
       return true;
     }
     if (!firebaseReady || !user) return false;
-    try { await addDoc(collection(db, 'transactions'), docData); return true; }
+    try { await Promise.all(docs.map(d => addDoc(collection(db, 'transactions'), d))); return true; }
     catch (e) { console.error('addTransaction', e); return false; }
   };
 

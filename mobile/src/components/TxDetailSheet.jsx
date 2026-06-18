@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Trash2, AlertTriangle } from 'lucide-react';
 import Sheet from './Sheet.jsx';
 import { fmt } from '../lib/finance.js';
-import { catMeta } from '../lib/categories.js';
+import { catMeta, PRIORITY_META } from '../lib/categories.js';
 import { useStore } from '../store.jsx';
 
 const PAY_LABEL = { credito: 'Crédito', debito: 'Débito', pix: 'Pix', dinheiro: 'Dinheiro', boleto: 'Boleto' };
@@ -58,9 +58,13 @@ export default function TxDetailSheet({ tx, onClose }) {
       <div className="mt-4 rounded-2xl bg-fg/[0.03] border border-fg/[0.05] px-4">
         <DetailRow label="Tipo" value={isIncome ? 'Recebimento' : 'Despesa'} />
         <DetailRow label="Categoria" value={c.label} />
+        {!isIncome && tx.priority && PRIORITY_META[tx.priority] && (
+          <DetailRow label="Prioridade" value={<span style={{ color: PRIORITY_META[tx.priority].color }}>{PRIORITY_META[tx.priority].label}</span>} />
+        )}
         <DetailRow label="Data" value={dateLabel} />
         {pay && <DetailRow label="Forma de pagamento" value={pay} />}
         {cardName && <DetailRow label="Cartão" value={cardName} />}
+        {tx.installmentInfo && <DetailRow label="Parcela" value={tx.installmentInfo} />}
         {tx.isFixed && <DetailRow label="Recorrência" value="Despesa fixa" />}
         {tx.invoiceStatus && <DetailRow label="Fatura" value={tx.invoiceStatus === 'paid' ? 'Paga' : 'Em aberto'} />}
       </div>
