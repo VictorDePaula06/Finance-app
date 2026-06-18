@@ -7,9 +7,12 @@ export default {
         sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
       },
       colors: {
-        ink: '#0a0a0b',     // fundo geral (quase preto, como o modelo)
-        card: '#161618',    // cartões
-        card2: '#1d1d20',   // cartões secundários
+        // Tokens temáticos (claro/escuro) via variáveis CSS.
+        bg: 'rgb(var(--bg) / <alpha-value>)',
+        ink: 'rgb(var(--bg) / <alpha-value>)',
+        card: 'rgb(var(--card) / <alpha-value>)',
+        card2: 'rgb(var(--card2) / <alpha-value>)',
+        fg: 'rgb(var(--fg) / <alpha-value>)',
       },
     },
   },

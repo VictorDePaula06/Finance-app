@@ -2,12 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Tokens de cor (R G B) — alternados por tema. "fg" = cor de primeiro plano
+   (texto/overlays): branca no escuro, escura no claro. */
+:root {
+  --bg: 10 10 11;        /* #0a0a0b */
+  --card: 22 22 24;      /* #161618 */
+  --card2: 29 29 32;     /* #1d1d20 */
+  --fg: 255 255 255;     /* branco */
+}
+.theme-light {
+  --bg: 244 245 247;     /* cinza bem claro */
+  --card: 255 255 255;   /* branco */
+  --card2: 248 250 252;
+  --fg: 17 24 39;        /* slate-900 */
+}
+
 html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  background: #000;
-  color: #fff;
+  background: rgb(var(--bg));
+  color: rgb(var(--fg));
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
@@ -15,6 +30,5 @@ body {
 
 * { box-sizing: border-box; }
 
-/* esconde scrollbar (visual mais limpo, estilo app) */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

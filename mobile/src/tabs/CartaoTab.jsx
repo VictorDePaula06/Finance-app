@@ -29,9 +29,9 @@ export default function CartaoTab() {
       <div>
         <TabHeader title="Cartões" subtitle="Faturas, parcelas e assinaturas" />
         <div className="px-5 mt-10 flex flex-col items-center text-center">
-          <div className="w-16 h-16 rounded-3xl bg-white/[0.05] border border-white/[0.06] flex items-center justify-center mb-4"><CreditCard className="w-7 h-7 text-white/40" /></div>
+          <div className="w-16 h-16 rounded-3xl bg-fg/[0.05] border border-fg/[0.06] flex items-center justify-center mb-4"><CreditCard className="w-7 h-7 text-fg/40" /></div>
           <p className="text-[14px] font-bold">Nenhum cartão cadastrado</p>
-          <p className="text-[12px] text-white/40 mt-1">Cadastre um cartão no site para acompanhar a fatura aqui.</p>
+          <p className="text-[12px] text-fg/40 mt-1">Cadastre um cartão no site para acompanhar a fatura aqui.</p>
         </div>
       </div>
     );
@@ -47,7 +47,7 @@ export default function CartaoTab() {
       {cards.length > 1 && (
         <div className="px-5 flex gap-2 overflow-x-auto no-scrollbar mt-1">
           {cards.map((c, i) => (
-            <button key={c.id} onClick={() => setSel(i)} className={`shrink-0 px-4 py-1.5 rounded-full text-[12px] font-semibold transition ${i === sel ? 'bg-white text-black' : 'bg-white/[0.06] text-white/55'}`}>{c.name}</button>
+            <button key={c.id} onClick={() => setSel(i)} className={`shrink-0 px-4 py-1.5 rounded-full text-[12px] font-semibold transition ${i === sel ? 'bg-fg text-ink' : 'bg-fg/[0.06] text-fg/55'}`}>{c.name}</button>
           ))}
         </div>
       )}
@@ -55,22 +55,22 @@ export default function CartaoTab() {
       {/* Cartão visual */}
       <div className="px-5 mt-3">
         <div className="rounded-3xl p-5 h-44 flex flex-col justify-between bg-gradient-to-br from-violet-600 via-violet-700 to-indigo-800 shadow-xl shadow-violet-900/30">
-          <div className="flex items-start justify-between"><span className="text-[15px] font-extrabold">{card.name}</span><span className="text-[11px] font-semibold text-white/70">{card.brand || ''}</span></div>
-          <div className="text-[16px] font-semibold tracking-[0.25em] text-white/90">•••• {card.last4 || '••••'}</div>
-          <div className="flex items-end justify-between"><span className="text-[11px] font-medium text-white/70 tracking-wide truncate">{card.holder || ''}</span><span className="text-[10px] font-semibold text-white/60">VENC · DIA {card.dueDay || 10}</span></div>
+          <div className="flex items-start justify-between"><span className="text-[15px] font-extrabold">{card.name}</span><span className="text-[11px] font-semibold text-fg/70">{card.brand || ''}</span></div>
+          <div className="text-[16px] font-semibold tracking-[0.25em] text-fg/90">•••• {card.last4 || '••••'}</div>
+          <div className="flex items-end justify-between"><span className="text-[11px] font-medium text-fg/70 tracking-wide truncate">{card.holder || ''}</span><span className="text-[10px] font-semibold text-fg/60">VENC · DIA {card.dueDay || 10}</span></div>
         </div>
       </div>
 
       {/* Fatura */}
       <div className="px-5 mt-4">
         <Card className="p-5">
-          <span className="text-[11px] uppercase tracking-widest text-white/40 font-bold">Fatura em aberto</span>
+          <span className="text-[11px] uppercase tracking-widest text-fg/40 font-bold">Fatura em aberto</span>
           <p className="text-[30px] font-extrabold tracking-tight text-amber-400 mt-1.5">R$ {fmt(stats.invoice)}</p>
-          <p className="text-[11px] text-white/40 mt-1">vence dia {card.dueDay || 10}</p>
+          <p className="text-[11px] text-fg/40 mt-1">vence dia {card.dueDay || 10}</p>
           <div className="mt-4">
-            <div className="flex items-center justify-between mb-1.5"><span className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Uso do limite</span><span className="text-[11px] font-black" style={{ color: usageColor }}>{stats.limit > 0 ? `${Math.round(stats.usagePct)}%` : '—'}</span></div>
-            <div className="h-2 rounded-full bg-white/[0.08] overflow-hidden"><div className="h-full rounded-full" style={{ width: `${stats.limit > 0 ? stats.usagePct : 0}%`, background: usageColor }} /></div>
-            <div className="flex items-center justify-between mt-1.5"><span className="text-[10px] text-white/35">R$ {fmt(stats.invoice)} usado</span><span className="text-[10px] text-white/35">{stats.limit > 0 ? `Limite R$ ${fmt(stats.limit)}` : 'sem limite definido'}</span></div>
+            <div className="flex items-center justify-between mb-1.5"><span className="text-[10px] uppercase tracking-widest text-fg/40 font-bold">Uso do limite</span><span className="text-[11px] font-black" style={{ color: usageColor }}>{stats.limit > 0 ? `${Math.round(stats.usagePct)}%` : '—'}</span></div>
+            <div className="h-2 rounded-full bg-fg/[0.08] overflow-hidden"><div className="h-full rounded-full" style={{ width: `${stats.limit > 0 ? stats.usagePct : 0}%`, background: usageColor }} /></div>
+            <div className="flex items-center justify-between mt-1.5"><span className="text-[10px] text-fg/35">R$ {fmt(stats.invoice)} usado</span><span className="text-[10px] text-fg/35">{stats.limit > 0 ? `Limite R$ ${fmt(stats.limit)}` : 'sem limite definido'}</span></div>
           </div>
           {stats.invoice > 0.005 && (
             <button className="mt-4 w-full py-3 rounded-xl bg-emerald-500 text-black font-bold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition"><CheckCircle2 className="w-4 h-4" /> Registrar pagamento</button>
@@ -83,7 +83,7 @@ export default function CartaoTab() {
       <div className="px-5">
         <Card>
           {stats.items.length === 0 ? (
-            <p className="text-center text-[13px] text-white/40 py-8">Sem lançamentos nesta fatura.</p>
+            <p className="text-center text-[13px] text-fg/40 py-8">Sem lançamentos nesta fatura.</p>
           ) : stats.items.map((it, i) => {
             const c = catMeta(it.cat);
             return <TxRow key={it.id} cat={c} desc={it.desc} amount={it.amount} date={it.date || it.badge || c.label} sub={it.date ? (it.badge || c.label) : ''} sign="−" color="#fb7185" last={i === stats.items.length - 1} />;

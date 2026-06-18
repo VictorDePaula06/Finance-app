@@ -53,13 +53,13 @@ export default function AnalisesTab() {
                   <div className="w-1/2 rounded-t-md bg-emerald-500" style={{ height: `${(w.inc / maxBar) * 100}%` }} />
                   <div className="w-1/2 rounded-t-md bg-rose-500" style={{ height: `${(w.exp / maxBar) * 100}%` }} />
                 </div>
-                <span className="text-[9px] text-white/35">{w.label}</span>
+                <span className="text-[9px] text-fg/35">{w.label}</span>
               </div>
             ))}
           </div>
           <div className="flex items-center gap-4 mt-3 pl-1">
-            <span className="flex items-center gap-1.5 text-[10px] text-white/45"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Entradas</span>
-            <span className="flex items-center gap-1.5 text-[10px] text-white/45"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500" /> Saídas</span>
+            <span className="flex items-center gap-1.5 text-[10px] text-fg/45"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Entradas</span>
+            <span className="flex items-center gap-1.5 text-[10px] text-fg/45"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500" /> Saídas</span>
           </div>
         </Card>
       </div>
@@ -68,7 +68,7 @@ export default function AnalisesTab() {
       <div className="px-5">
         <Card className="p-4 space-y-3.5">
           {cats.length === 0 ? (
-            <p className="text-center text-[13px] text-white/40 py-6">Sem gastos neste mês.</p>
+            <p className="text-center text-[13px] text-fg/40 py-6">Sem gastos neste mês.</p>
           ) : cats.map(c => {
             const pct = totalExp > 0 ? (c.value / totalExp) * 100 : 0;
             const Icon = c.Icon;
@@ -81,7 +81,7 @@ export default function AnalisesTab() {
                   </div>
                   <span className="text-[12px] font-bold tabular-nums shrink-0">R$ {fmt(c.value)}</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: c.color }} /></div>
+                <div className="h-1.5 rounded-full bg-fg/[0.06] overflow-hidden"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: c.color }} /></div>
               </div>
             );
           })}

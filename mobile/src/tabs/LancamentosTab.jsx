@@ -36,9 +36,9 @@ export default function LancamentosTab() {
 
       <div className="px-5 mt-5">
         <Card className="p-5 bg-gradient-to-br from-rose-500/15 via-card to-card border-rose-500/15">
-          <div className="flex items-center gap-1.5"><TrendingDown className="w-4 h-4 text-rose-400" /><span className="text-[11px] uppercase tracking-widest text-white/40 font-bold">Total gasto</span></div>
+          <div className="flex items-center gap-1.5"><TrendingDown className="w-4 h-4 text-rose-400" /><span className="text-[11px] uppercase tracking-widest text-fg/40 font-bold">Total gasto</span></div>
           <p className="text-[30px] font-extrabold tracking-tight text-rose-400 mt-1.5">R$ {fmt(total)}</p>
-          <p className="text-[11px] text-white/40 mt-1">{list.length} {list.length === 1 ? 'lançamento' : 'lançamentos'} · {filter.toLowerCase()}</p>
+          <p className="text-[11px] text-fg/40 mt-1">{list.length} {list.length === 1 ? 'lançamento' : 'lançamentos'} · {filter.toLowerCase()}</p>
         </Card>
       </div>
 
@@ -46,7 +46,7 @@ export default function LancamentosTab() {
       <div className="px-5">
         <Card>
           {list.length === 0 ? (
-            <p className="text-center text-[13px] text-white/40 py-10">Nenhum lançamento neste filtro.</p>
+            <p className="text-center text-[13px] text-fg/40 py-10">Nenhum lançamento neste filtro.</p>
           ) : list.map((t, i) => {
             const c = catMeta(t.category);
             const pay = PAY_LABEL[t.paymentMethod] || '';

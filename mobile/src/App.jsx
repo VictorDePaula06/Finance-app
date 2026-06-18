@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ThemeProvider } from './theme.jsx';
 import { StoreProvider, useStore } from './store.jsx';
 import Login from './Login.jsx';
 import BottomNav from './components/BottomNav.jsx';
@@ -17,7 +18,7 @@ function Shell() {
   if (firebaseReady && !authReady) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-7 h-7 rounded-full border-2 border-white/15 border-t-emerald-400 animate-spin" />
+        <div className="w-7 h-7 rounded-full border-2 border-fg/15 border-t-emerald-400 animate-spin" />
       </div>
     );
   }
@@ -42,12 +43,14 @@ function Shell() {
 
 export default function App() {
   return (
-    <StoreProvider>
-      <div className="min-h-screen w-full flex justify-center bg-black">
-        <div className="relative w-full max-w-[440px] min-h-screen bg-ink flex flex-col shadow-2xl shadow-black/50 overflow-hidden">
-          <Shell />
+    <ThemeProvider>
+      <StoreProvider>
+        <div className="min-h-screen w-full flex justify-center bg-bg">
+          <div className="relative w-full max-w-[440px] min-h-screen bg-ink flex flex-col shadow-2xl shadow-black/50 overflow-hidden">
+            <Shell />
+          </div>
         </div>
-      </div>
-    </StoreProvider>
+      </StoreProvider>
+    </ThemeProvider>
   );
 }

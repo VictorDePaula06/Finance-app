@@ -10,14 +10,14 @@ export default function Login() {
     <div className="min-h-screen flex flex-col items-center justify-center px-8 text-center">
       <img src={logo} alt="Alívia" className="w-24 h-24 object-contain mb-3 drop-shadow-[0_0_30px_rgba(16,185,129,0.25)]" />
       <h1 className="text-2xl font-extrabold tracking-tight">Alívia</h1>
-      <p className="text-[13px] text-white/45 mt-2 leading-relaxed max-w-[260px]">
+      <p className="text-[13px] text-fg/45 mt-2 leading-relaxed max-w-[260px]">
         Entre com a sua conta Google — os mesmos dados do site, sincronizados.
       </p>
 
       {firebaseReady ? (
         <button
           onClick={login}
-          className="mt-7 w-full max-w-[300px] py-3.5 rounded-2xl bg-white text-black font-bold text-[14px] flex items-center justify-center gap-2.5 active:scale-95 transition"
+          className="mt-7 w-full max-w-[300px] py-3.5 rounded-2xl bg-white text-black font-bold text-[14px] flex items-center justify-center gap-2.5 active:scale-95 transition border border-black/5"
         >
           <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 via-red-500 to-yellow-500 inline-block" />
           Entrar com Google
@@ -35,7 +35,7 @@ export default function Login() {
       {/* Modo demonstração — funciona sem Firebase (ideal para testar no emulador) */}
       <button
         onClick={enterDemo}
-        className="mt-3 w-full max-w-[300px] py-3 rounded-2xl bg-white/[0.06] text-white/80 font-semibold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition"
+        className="mt-3 w-full max-w-[300px] py-3 rounded-2xl bg-fg/[0.06] text-fg/80 font-semibold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition"
       >
         <Play className="w-4 h-4" /> Ver em modo demonstração
       </button>
