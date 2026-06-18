@@ -1,15 +1,14 @@
 import React from 'react';
-import { Sparkles, AlertTriangle, Play } from 'lucide-react';
+import { AlertTriangle, Play } from 'lucide-react';
 import { useStore } from './store.jsx';
+import logo from './assets/logo.png';
 
 export default function Login() {
   const { login, enterDemo, firebaseReady } = useStore();
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-8 text-center">
-      <div className="w-16 h-16 rounded-3xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center mb-5">
-        <Sparkles className="w-8 h-8 text-emerald-400" />
-      </div>
+      <img src={logo} alt="Alívia" className="w-24 h-24 object-contain mb-3 drop-shadow-[0_0_30px_rgba(16,185,129,0.25)]" />
       <h1 className="text-2xl font-extrabold tracking-tight">Alívia</h1>
       <p className="text-[13px] text-white/45 mt-2 leading-relaxed max-w-[260px]">
         Entre com a sua conta Google — os mesmos dados do site, sincronizados.

@@ -2,6 +2,7 @@ import React from 'react';
 import { User, Star, Bell, Moon, SlidersHorizontal, Shield, Download, HelpCircle, LogOut, Trash2 } from 'lucide-react';
 import { TabHeader, Card, Row } from '../components/ui.jsx';
 import { useStore } from '../store.jsx';
+import logo from '../assets/logo.png';
 
 export default function AjustesTab() {
   const { user, logout } = useStore();
@@ -56,7 +57,10 @@ export default function AjustesTab() {
         </Card>
       </div>
 
-      <p className="text-center text-[10px] text-white/20 mt-6">Alívia · app mobile</p>
+      <div className="flex flex-col items-center gap-2 mt-7 opacity-40">
+        <img src={logo} alt="Alívia" className="w-8 h-8 object-contain" />
+        <span className="text-[10px] tracking-widest uppercase font-bold">Alívia</span>
+      </div>
     </div>
   );
 }

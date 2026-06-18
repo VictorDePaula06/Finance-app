@@ -6,6 +6,7 @@ import {
 import { useStore } from '../store.jsx';
 import { useFinance } from '../hooks/useFinance.js';
 import { fmt, fmtDay } from '../lib/finance.js';
+import logo from '../assets/logo.png';
 
 const SUGGESTIONS = ['Como estão meus gastos?', 'Quanto posso gastar hoje?', 'Registrar mercado R$ 120', 'Minha reserva está boa?'];
 
@@ -21,6 +22,12 @@ export default function GeralTab({ onOpenSettings }) {
 
   return (
     <div className="px-5 pt-4">
+      {/* Marca Alívia */}
+      <div className="flex items-center justify-center gap-2 mb-3">
+        <img src={logo} alt="Alívia" className="w-6 h-6 object-contain" />
+        <span className="text-[14px] font-extrabold tracking-tight">Alívia</span>
+      </div>
+
       {/* Header (engrenagem = Ajustes, no lugar da lupa) */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
