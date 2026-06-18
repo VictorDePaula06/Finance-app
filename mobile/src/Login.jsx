@@ -1,9 +1,9 @@
 import React from 'react';
-import { Sparkles, AlertTriangle } from 'lucide-react';
+import { Sparkles, AlertTriangle, Play } from 'lucide-react';
 import { useStore } from './store.jsx';
 
 export default function Login() {
-  const { login, firebaseReady } = useStore();
+  const { login, enterDemo, firebaseReady } = useStore();
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-8 text-center">
@@ -24,14 +24,22 @@ export default function Login() {
           Entrar com Google
         </button>
       ) : (
-        <div className="mt-7 w-full max-w-[320px] rounded-2xl bg-amber-500/10 border border-amber-500/25 p-4 flex items-start gap-2.5 text-left">
+        <div className="mt-6 w-full max-w-[320px] rounded-2xl bg-amber-500/10 border border-amber-500/25 p-4 flex items-start gap-2.5 text-left">
           <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <p className="text-[12px] text-amber-200/90 leading-relaxed">
-            Configuração do Firebase ausente. Crie o arquivo <span className="font-bold">mobile/.env.local</span> com os
-            dados reais do Firebase (veja <span className="font-bold">.env.example</span>) e reinicie o <span className="font-mono">npm run dev</span>.
+            Firebase ainda não configurado. Use o <span className="font-bold">modo demonstração</span> abaixo,
+            ou crie o <span className="font-bold">mobile/.env.local</span> (veja .env.example) para entrar com dados reais.
           </p>
         </div>
       )}
+
+      {/* Modo demonstração — funciona sem Firebase (ideal para testar no emulador) */}
+      <button
+        onClick={enterDemo}
+        className="mt-3 w-full max-w-[300px] py-3 rounded-2xl bg-white/[0.06] text-white/80 font-semibold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition"
+      >
+        <Play className="w-4 h-4" /> Ver em modo demonstração
+      </button>
     </div>
   );
 }

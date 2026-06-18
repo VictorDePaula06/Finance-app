@@ -1,0 +1,12 @@
+# Dependências e build
+node_modules
+dist
+
+# Ambiente local (config real do Firebase)
+.env.local
+.env*.local
+
+# Projeto nativo Android (gerado localmente com `npm run android:add`)
+android
+ios
+.gradle
