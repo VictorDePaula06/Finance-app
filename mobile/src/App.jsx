@@ -9,10 +9,12 @@ import LancamentosTab from './tabs/LancamentosTab.jsx';
 import CartaoTab from './tabs/CartaoTab.jsx';
 import AnalisesTab from './tabs/AnalisesTab.jsx';
 import AjustesTab from './tabs/AjustesTab.jsx';
+import PatrimonioTab from './tabs/PatrimonioTab.jsx';
 
 function Shell() {
   const { user, authReady, firebaseReady } = useStore();
   const [tab, setTab] = useState('geral');
+  const [module, setModule] = useState('gastos'); // 'gastos' | 'patrimonio'
 
   // Carregando auth
   if (firebaseReady && !authReady) {
@@ -26,10 +28,20 @@ function Shell() {
   // Sem login (ou sem config) → tela de entrada
   if (!user) return <Login />;
 
+  // Módulo Patrimônio: tela única (sem a barra de abas do Controle de Gastos).
+  // A engrenagem leva aos Ajustes (no módulo Gastos), de onde se volta normalmente.
+  if (module === 'patrimonio') {
+    return (
+      <main className="flex-1 overflow-y-auto no-scrollbar pb-6">
+        <PatrimonioTab module={module} onModule={setModule} onOpenSettings={() => { setModule('gastos'); setTab('ajustes'); }} />
+      </main>
+    );
+  }
+
   return (
     <>
       <main className="flex-1 overflow-y-auto no-scrollbar pb-24">
-        {tab === 'geral' && <GeralTab onOpenSettings={() => setTab('ajustes')} />}
+        {tab === 'geral' && <GeralTab module={module} onModule={setModule} onOpenSettings={() => setTab('ajustes')} />}
         {tab === 'recebimentos' && <RecebimentosTab />}
         {tab === 'lancamentos' && <LancamentosTab />}
         {tab === 'cartao' && <CartaoTab />}

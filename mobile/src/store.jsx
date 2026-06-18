@@ -8,8 +8,8 @@ import { buildTransactionDocs, buildCardDoc } from './lib/db.js';
 const Ctx = createContext(null);
 export const useStore = () => useContext(Ctx);
 
-const COLLECTIONS = ['transactions', 'savings_jars', 'cards', 'subscriptions'];
-const EMPTY = { transactions: [], savings_jars: [], cards: [], subscriptions: [] };
+const COLLECTIONS = ['transactions', 'savings_jars', 'cards', 'subscriptions', 'investments', 'goals'];
+const EMPTY = { transactions: [], savings_jars: [], cards: [], subscriptions: [], investments: [], goals: [] };
 
 export function StoreProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -52,6 +52,8 @@ export function StoreProvider({ children }) {
       savings_jars: [...(DEMO.savings_jars || [])],
       cards: [...(DEMO.cards || [])],
       subscriptions: [...(DEMO.subscriptions || [])],
+      investments: [...(DEMO.investments || [])],
+      goals: [...(DEMO.goals || [])],
     });
     setDemo(true);
   };

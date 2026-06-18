@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
 import {
-  Settings, Eye, Bell, Mic, Send, ArrowUpRight, ArrowDownRight,
+  Settings, Mic, Send, ArrowUpRight, ArrowDownRight,
   CreditCard, ChevronRight, Activity,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { useFinance } from '../hooks/useFinance.js';
 import { fmt, fmtDay } from '../lib/finance.js';
 import ChatSheet from '../components/ChatSheet.jsx';
+import ModuleToggle from '../components/ModuleToggle.jsx';
 import logo from '../assets/logo.png';
 import aliviaFinal from '../assets/alivia-final.png';
 
 const SUGGESTIONS = ['Como estão meus gastos?', 'Quanto posso gastar hoje?', 'Registrar mercado R$ 120', 'Minha reserva está boa?'];
 
-export default function GeralTab({ onOpenSettings }) {
+export default function GeralTab({ onOpenSettings, module = 'gastos', onModule }) {
   const { user } = useStore();
   const { balance, income, expense, invoice, health } = useFinance();
   const [draft, setDraft] = useState('');
@@ -32,22 +33,19 @@ export default function GeralTab({ onOpenSettings }) {
         <span className="text-[14px] font-extrabold tracking-tight">Alívia</span>
       </div>
 
-      {/* Header (engrenagem = Ajustes, no lugar da lupa) */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      {/* Header: Olá · seletor de módulo (Gastos/Patrimônio) · engrenagem */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
           {user?.photoURL
-            ? <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
-            : <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pos to-blue-500 flex items-center justify-center font-black text-sm shrink-0">{initial}</div>}
-          <div>
+            ? <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
+            : <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pos to-blue-500 flex items-center justify-center font-black text-sm shrink-0">{initial}</div>}
+          <div className="min-w-0">
             <p className="text-[11px] text-fg/40 leading-none">Olá,</p>
-            <p className="text-[15px] font-bold leading-tight">{firstName}</p>
+            <p className="text-[14px] font-bold leading-tight truncate">{firstName}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={onOpenSettings} aria-label="Ajustes" className="w-9 h-9 rounded-full bg-fg/[0.06] flex items-center justify-center active:scale-95 transition"><Settings className="w-[18px] h-[18px] text-fg/70" /></button>
-          <button className="w-9 h-9 rounded-full bg-fg/[0.06] flex items-center justify-center active:scale-95 transition"><Eye className="w-[18px] h-[18px] text-fg/70" /></button>
-          <button className="w-9 h-9 rounded-full bg-fg/[0.06] flex items-center justify-center active:scale-95 transition"><Bell className="w-[18px] h-[18px] text-fg/70" /></button>
-        </div>
+        {onModule && <ModuleToggle value={module} onChange={onModule} />}
+        <button onClick={onOpenSettings} aria-label="Ajustes" className="w-9 h-9 rounded-full bg-fg/[0.06] flex items-center justify-center active:scale-95 transition shrink-0"><Settings className="w-[18px] h-[18px] text-fg/70" /></button>
       </div>
 
       {/* Falar com a Alívia (chat rápido + áudio) */}

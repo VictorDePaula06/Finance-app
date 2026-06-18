@@ -33,4 +33,13 @@ export const DEMO = {
     { id: 's1', name: 'Netflix', value: 39.9, cardId: 'card1', type: 'recurring', category: 'subscriptions', day: 15 },
     { id: 's2', name: 'iPhone', value: 110.15, cardId: 'card1', type: 'installment', currentInstallment: 2, totalInstallments: 12, category: 'shopping', day: 15 },
   ],
+  investments: [
+    { id: 'i1', name: 'Tesouro Selic 2029', type: 'renda_fixa', totalApplied: 5000, manualCurrentPrice: 5240, createdAt: prevISO(10) },
+    { id: 'i2', name: 'BOVA11', symbol: 'BOVA11', type: 'etfs', quantity: 20, purchasePrice: 100, manualCurrentPrice: 118, createdAt: prevISO(8) },
+    { id: 'i3', name: 'Bitcoin', symbol: 'BTC', type: 'crypto', quantity: 0.01, purchasePrice: 280000, manualCurrentPrice: 350000, createdAt: prevISO(5) },
+  ],
+  goals: [
+    { id: 'g1', title: 'Viagem de fim de ano', current: 1800, target: 6000, deadline: `${Y}-12-20`, status: 'active' },
+    { id: 'g2', title: 'Troca de notebook', current: 2400, target: 6000, status: 'active' },
+  ],
 };
