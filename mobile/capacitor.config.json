@@ -1,5 +1,11 @@
 {
   "appId": "br.com.soualivia.app",
   "appName": "Alívia",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": true,
+      "providers": ["google.com"]
+    }
+  }
 }

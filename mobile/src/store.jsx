@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signInWithPopup, signOut, updateProfile } from 'firebase/auth';
+import { onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
-import { auth, db, googleProvider, firebaseReady } from './services/firebase.js';
+import { auth, db, firebaseReady } from './services/firebase.js';
+import { signInWithGoogle, signOutAll } from './services/auth.js';
 import { DEMO } from './data/sample.js';
 import { buildTransactionDocs, buildCardDoc, buildInvestmentDoc, buildJarDoc } from './lib/db.js';
 
@@ -45,7 +46,7 @@ export function StoreProvider({ children }) {
     return () => { unsubs.forEach(u => u()); unsubPrefs(); };
   }, [user, demo]);
 
-  const login = () => firebaseReady && signInWithPopup(auth, googleProvider);
+  const login = async () => { if (firebaseReady) { try { await signInWithGoogle(); } catch (e) { console.error('login', e); } } };
   const enterDemo = () => {
     setDemoData({
       transactions: [...(DEMO.transactions || [])],
@@ -57,7 +58,7 @@ export function StoreProvider({ children }) {
     });
     setDemo(true);
   };
-  const logout = () => { if (demo) { setDemo(false); return; } if (firebaseReady) signOut(auth); };
+  const logout = () => { if (demo) { setDemo(false); return; } if (firebaseReady) signOutAll(); };
 
   // ----- Escrita (mesmo banco do site) -----
 
