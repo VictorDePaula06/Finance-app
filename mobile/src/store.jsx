@@ -20,6 +20,8 @@ export function StoreProvider({ children }) {
   const [demo, setDemo] = useState(false);
   // No modo demonstração os dados ficam em memória (permite criar/excluir sem Firebase).
   const [demoData, setDemoData] = useState(EMPTY);
+  const [authError, setAuthError] = useState(null);
+  const [authBusy, setAuthBusy] = useState(false);
 
   // Autenticação real (mesma do site — Firebase Auth, login Google).
   useEffect(() => {
@@ -46,7 +48,20 @@ export function StoreProvider({ children }) {
     return () => { unsubs.forEach(u => u()); unsubPrefs(); };
   }, [user, demo]);
 
-  const login = async () => { if (firebaseReady) { try { await signInWithGoogle(); } catch (e) { console.error('login', e); } } };
+  const login = async () => {
+    if (!firebaseReady) return;
+    setAuthError(null);
+    setAuthBusy(true);
+    try {
+      await signInWithGoogle();
+    } catch (e) {
+      console.error('login', e);
+      const code = e?.code ? `[${e.code}] ` : '';
+      setAuthError(`${code}${e?.message || String(e) || 'Falha no login.'}`);
+    } finally {
+      setAuthBusy(false);
+    }
+  };
   const enterDemo = () => {
     setDemoData({
       transactions: [...(DEMO.transactions || [])],
@@ -164,7 +179,7 @@ export function StoreProvider({ children }) {
     try { await updateProfile(auth.currentUser, { displayName: name }); setUser({ ...auth.currentUser }); } catch (e) { console.error(e); }
   };
 
-  const actions = { login, enterDemo, logout, savePref, updateName, addTransaction, addCard, deleteTransaction, deleteCard, addInvestment, deleteInvestment, addJar, adjustJar, deleteJar };
+  const actions = { login, enterDemo, logout, savePref, updateName, addTransaction, addCard, deleteTransaction, deleteCard, addInvestment, deleteInvestment, addJar, adjustJar, deleteJar, authError, authBusy };
 
   // No modo demonstração, servimos os dados de exemplo (em memória, editáveis).
   const value = demo

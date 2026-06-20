@@ -1,10 +1,10 @@
 import React from 'react';
-import { AlertTriangle, Play } from 'lucide-react';
+import { AlertTriangle, Play, Loader2 } from 'lucide-react';
 import { useStore } from './store.jsx';
 import logo from './assets/logo.png';
 
 export default function Login() {
-  const { login, enterDemo, firebaseReady } = useStore();
+  const { login, enterDemo, firebaseReady, authError, authBusy } = useStore();
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-8 text-center">
@@ -17,10 +17,11 @@ export default function Login() {
       {firebaseReady ? (
         <button
           onClick={login}
-          className="mt-7 w-full max-w-[300px] py-3.5 rounded-2xl bg-white text-black font-bold text-[14px] flex items-center justify-center gap-2.5 active:scale-95 transition border border-black/5"
+          disabled={authBusy}
+          className="mt-7 w-full max-w-[300px] py-3.5 rounded-2xl bg-white text-black font-bold text-[14px] flex items-center justify-center gap-2.5 active:scale-95 transition border border-black/5 disabled:opacity-60"
         >
-          <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 via-red-500 to-yellow-500 inline-block" />
-          Entrar com Google
+          {authBusy ? <Loader2 className="w-5 h-5 animate-spin" /> : <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 via-red-500 to-yellow-500 inline-block" />}
+          {authBusy ? 'Entrando…' : 'Entrar com Google'}
         </button>
       ) : (
         <div className="mt-6 w-full max-w-[320px] rounded-2xl bg-amber-500/10 border border-amber-500/25 p-4 flex items-start gap-2.5 text-left">
@@ -39,6 +40,13 @@ export default function Login() {
       >
         <Play className="w-4 h-4" /> Ver em modo demonstração
       </button>
+
+      {authError && (
+        <div className="mt-5 w-full max-w-[320px] rounded-2xl bg-rose-500/10 border border-rose-500/25 p-3.5 text-left">
+          <p className="text-[12px] font-bold text-neg flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 shrink-0" /> Não consegui entrar</p>
+          <p className="text-[11px] text-fg/60 mt-1.5 break-words leading-relaxed">{authError}</p>
+        </div>
+      )}
     </div>
   );
 }
