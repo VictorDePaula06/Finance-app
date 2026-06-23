@@ -122,6 +122,13 @@ html, body {
   }
 }
 
+/* Barra lateral recolhida (só ícones) — apenas no desktop. */
+@media (min-width: 1025px) {
+  .sidebar-layout.sidebar-collapsed .main-content {
+    margin-left: 80px;
+  }
+}
+
 /* LANDING PAGE SPECIFIC FONTS */
 .landing-page-wrapper {
   font-family: 'Outfit', sans-serif;

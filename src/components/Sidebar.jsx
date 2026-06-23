@@ -20,6 +20,8 @@ import {
   Home,
   ArrowLeftRight,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Gem,
   Star,
   Briefcase,
@@ -37,7 +39,7 @@ import { isLifetimeEmail } from '../constants/admins';
 import logo from '../assets/logo.png';
 import { version } from '../../package.json';
 
-const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, setActiveModule, healthScore }) => {
+const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, setActiveModule, healthScore, collapsed = false, setCollapsed }) => {
   const { currentUser, logout, isAdmin, isLifetime, subType, planLevel } = useAuth();
   const { theme } = useTheme();
   const { needRefresh, pendingVersion, updateNow, dismiss } = usePwaUpdate();
@@ -127,17 +129,16 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
     e => e.type === 'group' && e.children.some(c => c.id === activeTab)
   );
 
-  const [openGroups, setOpenGroups] = useState({});
+  // Sanfona: apenas UM grupo aberto por vez (null = todos fechados).
+  const [openGroup, setOpenGroup] = useState(groupOfActive?.id || null);
 
   // Abre automaticamente o grupo que contém a aba ativa (e ao trocar de módulo).
   useEffect(() => {
-    if (groupOfActive) {
-      setOpenGroups(prev => ({ ...prev, [groupOfActive.id]: true }));
-    }
+    if (groupOfActive) setOpenGroup(groupOfActive.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, activeModule]);
 
-  const toggleGroup = (id) => setOpenGroups(prev => ({ ...prev, [id]: !prev[id] }));
+  const toggleGroup = (id) => setOpenGroup(prev => (prev === id ? null : id));
 
   const handleTabClick = (id) => {
     setActiveTab(id);
@@ -154,7 +155,8 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
       <button
         key={item.id}
         onClick={() => handleTabClick(item.id)}
-        className={`relative w-full flex items-center justify-between ${isChild ? 'pl-3' : 'pl-3'} pr-3 py-1.5 rounded-xl border transition-all duration-300 group ${
+        title={collapsed ? item.label : undefined}
+        className={`relative w-full flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between pl-3 pr-3'} py-1.5 rounded-xl border transition-all duration-300 group ${
           isActive
             ? (theme === 'light'
                 ? 'bg-gradient-to-r from-emerald-50 via-emerald-50/60 to-transparent border-emerald-100 text-emerald-700 shadow-sm'
@@ -185,13 +187,15 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
               <Icon className="w-4 h-4" />
             </span>
           )}
-          <span className={`tracking-tight text-left whitespace-nowrap ${isChild ? 'text-[11px]' : 'text-[13px]'} ${isActive ? 'font-bold' : isChild ? 'font-medium' : 'font-semibold'}`}>
-            {item.label}
-          </span>
+          {!collapsed && (
+            <span className={`tracking-tight text-left whitespace-nowrap ${isChild ? 'text-[11px]' : 'text-[13px]'} ${isActive ? 'font-bold' : isChild ? 'font-medium' : 'font-semibold'}`}>
+              {item.label}
+            </span>
+          )}
         </div>
 
         {/* Badge "Premium" — aparece para Free e Standard em itens premium-only */}
-        {item.premiumOnly && !isPremiumPlan && (
+        {!collapsed && item.premiumOnly && !isPremiumPlan && (
           <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
             theme === 'light' ? 'bg-amber-100 text-amber-600' : 'bg-amber-500/20 text-amber-400'
           }`}>
@@ -200,7 +204,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
         )}
 
         {/* Badge custom — "Novo" (violeta) ou "Ação" (laranja) */}
-        {item.badge && (
+        {!collapsed && item.badge && (
           <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
             item.badge === 'Ação'
               ? (theme === 'light' ? 'bg-orange-100 text-orange-600' : 'bg-orange-500/20 text-orange-400')
@@ -223,12 +227,12 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
         />
       )}
 
-      <aside className={`fixed left-0 top-0 h-full w-64 border-r transition-transform duration-500 z-[100] flex flex-col ${
+      <aside className={`fixed left-0 top-0 h-full w-64 ${collapsed ? 'lg:w-20' : 'lg:w-64'} border-r transition-all duration-300 z-[100] flex flex-col ${
         theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-slate-950 border-white/5 shadow-2xl'
       } ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         
         {/* Close Button (Mobile Only) */}
-        <button 
+        <button
           onClick={() => setIsOpen(false)}
           className={`absolute top-4 right-4 p-2 rounded-xl lg:hidden ${
             theme === 'light' ? 'bg-slate-50 text-slate-400' : 'bg-white/5 text-slate-500'
@@ -237,9 +241,20 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
           <X className="w-5 h-5" />
         </button>
 
+        {/* Recolher / expandir (desktop) */}
+        <button
+          onClick={() => setCollapsed?.(!collapsed)}
+          title={collapsed ? 'Expandir menu' : 'Recolher menu'}
+          className={`hidden lg:flex absolute top-4 ${collapsed ? 'left-1/2 -translate-x-1/2' : 'right-3'} z-20 p-1.5 rounded-lg items-center justify-center transition-all ${
+            theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+          }`}
+        >
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
+
         {/* Logo Section */}
         <div
-          className="pt-5 px-6 pb-1 flex flex-col items-center justify-center cursor-pointer select-none"
+          className={`${collapsed ? 'pt-12 px-2' : 'pt-5 px-6'} pb-1 flex flex-col items-center justify-center cursor-pointer select-none`}
           onDoubleClick={() => {
             if (isAdmin) {
               window.dispatchEvent(new CustomEvent('change-view', { detail: 'admin' }));
@@ -249,16 +264,16 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
           <img
             src={logo}
             alt="Alívia Logo"
-            className={`w-20 h-20 object-contain drop-shadow-[0_0_30px_rgba(16,185,129,0.18)] transition-all hover:scale-105 duration-700`}
+            className={`${collapsed ? 'w-10 h-10' : 'w-20 h-20'} object-contain drop-shadow-[0_0_30px_rgba(16,185,129,0.18)] transition-all hover:scale-105 duration-700`}
           />
         </div>
 
         {/* Botão "Trocar Módulo" — pílula refinada com tipografia uppercase tracking-widest
             totalmente distinta dos itens de menu (que usam text-sm font-bold) */}
-        <div className="px-4 pb-3">
+        <div className={`${collapsed ? 'px-2' : 'px-4'} pb-3`}>
           <button
             onClick={() => setActiveModule('hub')}
-            className={`group relative w-full overflow-hidden flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-2xl border transition-all duration-500 hover:scale-[1.02] active:scale-95 ${
+            className={`group relative w-full overflow-hidden flex items-center justify-center gap-2.5 ${collapsed ? 'px-2' : 'px-4'} py-2.5 rounded-2xl border transition-all duration-500 hover:scale-[1.02] active:scale-95 ${
               theme === 'light'
                 ? 'bg-gradient-to-r from-emerald-50 via-white to-blue-50 border-emerald-100/80 hover:border-emerald-300 hover:shadow-lg hover:shadow-emerald-100'
                 : 'bg-gradient-to-r from-emerald-500/[0.04] via-transparent to-blue-500/[0.04] border-white/5 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5'
@@ -274,17 +289,19 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
               }`}>
                 <ArrowLeftRight className="w-3 h-3" />
               </div>
-              <span className={`text-[9px] font-black uppercase tracking-[0.28em] ${
-                theme === 'light' ? 'text-slate-600 group-hover:text-emerald-700' : 'text-slate-400 group-hover:text-emerald-300'
-              } transition-colors`}>
-                Trocar Módulo
-              </span>
+              {!collapsed && (
+                <span className={`text-[9px] font-black uppercase tracking-[0.28em] ${
+                  theme === 'light' ? 'text-slate-600 group-hover:text-emerald-700' : 'text-slate-400 group-hover:text-emerald-300'
+                } transition-colors`}>
+                  Trocar Módulo
+                </span>
+              )}
             </div>
           </button>
         </div>
 
         {/* Card de Saúde Financeira — resumo compacto do score com identidade Alívia */}
-        {healthScore && (
+        {healthScore && !collapsed && (
           <div className="px-4 pb-2.5">
             <div className={`relative overflow-hidden rounded-xl border px-3.5 py-2.5 transition-all duration-500 ${
               theme === 'light'
@@ -329,9 +346,11 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
 
         {/* Navigation Links */}
         <nav className="flex-1 px-3 py-1 space-y-0.5 overflow-y-auto custom-scrollbar">
-          <div className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1.5 px-3 ${theme === 'light' ? 'text-slate-400' : 'text-slate-600'}`}>
-            {activeModule === 'gastos' ? 'Controle de Gastos' : 'Construção de Patrimônio'}
-          </div>
+          {!collapsed && (
+            <div className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1.5 px-3 ${theme === 'light' ? 'text-slate-400' : 'text-slate-600'}`}>
+              {activeModule === 'gastos' ? 'Controle de Gastos' : 'Construção de Patrimônio'}
+            </div>
+          )}
 
           {navEntries.map((entry, idx) => {
             // ── CABEÇALHO DE SEÇÃO ──
@@ -361,14 +380,15 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
 
             // ── GRUPO COLAPSÁVEL ──
             const GroupIcon = entry.icon;
-            const isExpanded = !!openGroups[entry.id];
+            const isExpanded = openGroup === entry.id && !collapsed;
             const hasActiveChild = entry.children.some(c => c.id === activeTab);
 
             return (
               <div key={entry.id} className="select-none">
                 <button
-                  onClick={() => toggleGroup(entry.id)}
-                  className={`w-full flex items-center justify-between pl-3 pr-2.5 py-1.5 rounded-xl transition-all duration-200 group ${
+                  onClick={() => { if (collapsed) { setCollapsed?.(false); setOpenGroup(entry.id); } else { toggleGroup(entry.id); } }}
+                  title={collapsed ? entry.label : undefined}
+                  className={`w-full flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between pl-3 pr-2.5'} py-1.5 rounded-xl transition-all duration-200 group ${
                     hasActiveChild && !isExpanded
                       ? (theme === 'light' ? 'text-emerald-700' : 'text-emerald-400')
                       : (theme === 'light' ? 'text-slate-500 hover:bg-slate-100/70 hover:text-slate-800' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100')
@@ -382,23 +402,27 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
                     }`}>
                       <GroupIcon className="w-4 h-4" />
                     </span>
-                    <span className="text-[13px] font-bold tracking-tight">{entry.label}</span>
+                    {!collapsed && <span className="text-[13px] font-bold tracking-tight">{entry.label}</span>}
                   </div>
-                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''} ${
-                    theme === 'light' ? 'text-slate-400' : 'text-slate-500'
-                  }`} />
+                  {!collapsed && (
+                    <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''} ${
+                      theme === 'light' ? 'text-slate-400' : 'text-slate-500'
+                    }`} />
+                  )}
                 </button>
 
-                {/* Sub-itens — animação de altura via grid */}
-                <div className={`grid transition-all duration-300 ease-in-out ${
-                  isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-                }`}>
-                  <div className="overflow-hidden">
-                    <div className="pl-3 pt-0.5 space-y-0.5">
-                      {entry.children.map(child => renderNavItem(child, true))}
+                {/* Sub-itens — animação de altura via grid (ocultos quando recolhido) */}
+                {!collapsed && (
+                  <div className={`grid transition-all duration-300 ease-in-out ${
+                    isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                  }`}>
+                    <div className="overflow-hidden">
+                      <div className="pl-3 pt-0.5 space-y-0.5">
+                        {entry.children.map(child => renderNavItem(child, true))}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             );
           })}
@@ -409,7 +433,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
           </div>
 
           {/* Aviso de nova versão — discreto, abaixo de Ajustes */}
-          {needRefresh && (
+          {needRefresh && !collapsed && (
             <div className={`mt-2 p-2.5 rounded-xl border relative ${theme === 'light' ? 'bg-emerald-50 border-emerald-100' : 'bg-emerald-500/[0.07] border-emerald-500/20'}`}>
               <button onClick={dismiss} title="Dispensar" className="absolute top-1.5 right-1.5 p-0.5 rounded text-slate-400 hover:text-slate-600 transition-colors">
                 <X className="w-3 h-3" />
@@ -434,8 +458,8 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
         </nav>
 
         {/* User Profile Section */}
-        <div className={`px-4 pt-2.5 pb-3 border-t mt-auto ${theme === 'light' ? 'border-slate-100' : 'border-white/5'}`}>
-          <div className={`p-2.5 rounded-2xl border flex items-center gap-3 transition-all ${
+        <div className={`${collapsed ? 'px-2' : 'px-4'} pt-2.5 pb-3 border-t mt-auto ${theme === 'light' ? 'border-slate-100' : 'border-white/5'}`}>
+          <div className={`rounded-2xl border flex transition-all ${collapsed ? 'flex-col items-center gap-2 p-2' : 'items-center gap-3 p-2.5'} ${
             theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5 shadow-sm'
           }`}>
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black shrink-0 ${
@@ -443,6 +467,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
             }`}>
               {currentUser?.displayName?.charAt(0) || currentUser?.email?.charAt(0) || 'U'}
             </div>
+            {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className={`text-sm font-black truncate leading-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                 {currentUser?.displayName?.split(' ')[0] || 'Usuário'}
@@ -479,6 +504,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
                 )}
               </div>
             </div>
+            )}
             <button
               onClick={logout}
               className={`p-1.5 rounded-lg transition-colors ${
@@ -489,8 +515,9 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
               <LogOut className="w-4 h-4" />
             </button>
           </div>
-          
+
           {/* System Version */}
+          {!collapsed && (
           <div className="mt-2 text-center">
             <p className={`text-[9px] font-black uppercase tracking-[0.3em] opacity-20 ${
               theme === 'light' ? 'text-slate-400' : 'text-slate-500'
@@ -498,6 +525,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
               Alívia v.{version}
             </p>
           </div>
+          )}
         </div>
       </aside>
     </>

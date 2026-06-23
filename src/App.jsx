@@ -163,6 +163,13 @@ function Dashboard() {
   };
   const [showReservesList, setShowReservesList] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  // Barra lateral recolhida (só ícones) — persistida. Vale só no desktop.
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('sidebarCollapsed') === 'true'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('sidebarCollapsed', String(isSidebarCollapsed)); } catch { /* */ }
+  }, [isSidebarCollapsed]);
   const [showMonthlyReview, setShowMonthlyReview] = useState(false);
   const [showInvestmentHistory, setShowInvestmentHistory] = useState(false);
   const [monthlyReviewText, setMonthlyReviewText] = useState('');
@@ -649,10 +656,10 @@ function Dashboard() {
   }
 
   return (
-    <div className={`sidebar-layout transition-colors duration-500 ${
+    <div className={`sidebar-layout transition-colors duration-500 ${isSidebarCollapsed ? 'sidebar-collapsed' : ''} ${
       theme === 'light' ? 'theme-light' : 'theme-dark'
     }`}>
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} activeModule={activeModule} setActiveModule={setActiveModule} healthScore={sidebarHealthScore} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} activeModule={activeModule} setActiveModule={setActiveModule} healthScore={sidebarHealthScore} collapsed={isSidebarCollapsed} setCollapsed={setIsSidebarCollapsed} />
 
       <main className="main-content relative z-10 p-4 md:p-12 overflow-x-hidden">
         <InstallPrompt />
