@@ -139,6 +139,13 @@ export default function InvestmentsTab() {
     const [editingAporte, setEditingAporte] = useState(null); // { aporteId, quantity, unitPrice, total, rate, date }
     const [aporteBusy, setAporteBusy] = useState(false);
 
+    // Modal de "Realizar" (vender/resgatar). Registra a saída como aporte de
+    // quantidade negativa marcado como realizado — assim o patrimônio cai, o
+    // histórico mostra "Realizado" e o preço médio do que sobra não muda.
+    const [isRealizing, setIsRealizing] = useState(null); // asset id
+    const [realizeForm, setRealizeForm] = useState({ quantity: '', price: '' });
+    const [realizeBusy, setRealizeBusy] = useState(false);
+
     // Asset Types Config
     const ASSET_TYPES = {
         renda_fixa: { label: 'Renda Fixa', icon: Landmark, color: 'text-blue-500', bg: 'bg-blue-500/10' },
@@ -818,6 +825,61 @@ export default function InvestmentsTab() {
         }
     };
 
+    // Abre o modal "Realizar" já com o preço atual preenchido (na moeda do ativo).
+    const openRealizar = (asset) => {
+        setRealizeForm({
+            quantity: '',
+            price: asset.type === 'renda_fixa'
+                ? String((parseFloat(asset.value) || 0).toFixed(2))
+                : String(parseFloat(asset.currentPrice) || 0),
+        });
+        setIsRealizing(asset.id);
+    };
+
+    // Realiza (vende/resgata) parte ou tudo do ativo. Cria um aporte "realizado"
+    // com quantidade negativa ao PREÇO MÉDIO (mantém o preço médio do que sobra)
+    // e guarda preço/valor/lucro da realização para o histórico.
+    const handleRealizar = async (e) => {
+        e.preventDefault();
+        if (!isRealizing || realizeBusy) return;
+        const asset = investments.find(a => a.id === isRealizing);
+        if (!asset) return;
+        const isFixed = asset.type === 'renda_fixa';
+        const existing = getAssetAportes(asset);
+        const agg = aggregateAportes(asset.type, existing);
+        const date = new Date().toISOString().split('T')[0];
+        setRealizeBusy(true);
+        try {
+            let realization;
+            if (isFixed) {
+                const value = parseBrazilianNumber(realizeForm.price); // valor resgatado (R$)
+                if (!(value > 0) || !(agg.totalApplied > 0)) { setRealizeBusy(false); return; }
+                // Reduz o aplicado em até o total existente; o valor resgatado pode
+                // ser maior (inclui rendimento) — guardamos o valor real recebido.
+                const appliedOut = Math.min(value, agg.totalApplied || 0);
+                realization = { id: genAporteId(), total: -appliedOut, rate: null, date, isUSD: !!asset.isUSD, realized: true, realizedValue: value };
+            } else {
+                const qty = parseBrazilianNumber(realizeForm.quantity);
+                const price = parseBrazilianNumber(realizeForm.price);
+                const cap = Math.min(qty, agg.quantity || 0); // nunca realizar mais do que existe
+                if (!(cap > 0) || !(price > 0)) { setRealizeBusy(false); return; }
+                const avg = agg.purchasePrice || 0;
+                realization = {
+                    id: genAporteId(), quantity: -cap, unitPrice: avg, total: -(cap * avg),
+                    date, isUSD: !!asset.isUSD,
+                    realized: true, salePrice: price, realizedValue: cap * price, realizedProfit: cap * (price - avg),
+                };
+            }
+            await persistAportes(isRealizing, asset.type, [...existing, realization]);
+            setIsRealizing(null);
+            setRealizeForm({ quantity: '', price: '' });
+        } catch (err) {
+            console.error('Erro ao realizar:', err);
+        } finally {
+            setRealizeBusy(false);
+        }
+    };
+
     const handleDeleteAsset = async (id) => {
         await deleteDoc(doc(db, 'investments', id));
         // Remove o vínculo deste ativo das metas (evita IDs órfãos em linkedInvIds).
@@ -1328,8 +1390,8 @@ export default function InvestmentsTab() {
                                                 </div>
 
                                                 <div className="flex items-center gap-1.5 ml-2">
-                                                    <button onClick={() => {setNewAsset({...asset,aporteQuantity:'',aporteAmount:'',aporteUnitPrice:''});setIsAporting(asset.id);}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-blue-50 text-blue-500 hover:bg-blue-100':'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'}`} title="Aporte"><Plus className="w-4 h-4" /></button>
-                                                    <button onClick={() => { setEditingAporte(null); setViewingAportesId(asset.id); }} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-violet-50 text-violet-500 hover:bg-violet-100':'bg-violet-500/10 text-violet-400 hover:bg-violet-500/20'}`} title="Ver aportes"><List className="w-4 h-4" /></button>
+                                                    <button onClick={() => openRealizar(asset)} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-emerald-50 text-emerald-600 hover:bg-emerald-100':'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'}`} title="Realizar (vender/resgatar)"><Coins className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setEditingAporte(null); setViewingAportesId(asset.id); }} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-violet-50 text-violet-500 hover:bg-violet-100':'bg-violet-500/10 text-violet-400 hover:bg-violet-500/20'}`} title="Ver aportes / aportar"><List className="w-4 h-4" /></button>
                                                     <button onClick={() => {setNewAsset({...asset});setIsEditing(asset.id);setIsAdding(true);}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-slate-100 text-slate-500 hover:bg-slate-200':'bg-white/5 text-slate-400 hover:bg-white/10'}`} title="Editar"><Edit2 className="w-4 h-4" /></button>
                                                     <button onClick={() => {setDeleteConfirm({id:asset.id,type:'asset',title:asset.name});}} className={`p-2 rounded-xl transition-all ${theme==='light'?'bg-rose-50 text-rose-400 hover:bg-rose-100':'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20'}`} title="Excluir"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
@@ -2036,14 +2098,33 @@ export default function InvestmentsTab() {
                                     return (
                                         <div key={a.id} className={`flex items-center justify-between p-3 rounded-xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-[#151822] border-white/5'}`}>
                                             <div className="min-w-0">
-                                                <p className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{cur(a)} {fmt(a.total)}</p>
-                                                <p className="text-[11px] text-slate-500 font-medium">
-                                                    {fmtDate(a.date)}
-                                                    {!isFixed && ` · ${(parseFloat(a.quantity) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 8 })} × ${cur(a)} ${fmt(a.unitPrice)}`}
-                                                    {isFixed && a.rate ? ` · taxa ${a.rate}` : ''}
-                                                </p>
+                                                {a.realized ? (
+                                                    <>
+                                                        <p className="text-sm font-black text-rose-500 flex items-center gap-1.5">
+                                                            <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400">Realizado</span>
+                                                            R$ {fmt(a.realizedValue != null ? a.realizedValue : Math.abs(a.total))}
+                                                        </p>
+                                                        <p className="text-[11px] text-slate-500 font-medium">
+                                                            {fmtDate(a.date)}
+                                                            {!isFixed && ` · ${Math.abs(parseFloat(a.quantity) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 8 })} × ${cur(a)} ${fmt(a.salePrice)}`}
+                                                            {!isFixed && a.realizedProfit != null && (
+                                                                <span className={a.realizedProfit >= 0 ? 'text-emerald-500' : 'text-rose-500'}> · {a.realizedProfit >= 0 ? '+' : '−'}R$ {fmt(Math.abs(a.realizedProfit))}</span>
+                                                            )}
+                                                        </p>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <p className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{cur(a)} {fmt(a.total)}</p>
+                                                        <p className="text-[11px] text-slate-500 font-medium">
+                                                            {fmtDate(a.date)}
+                                                            {!isFixed && ` · ${(parseFloat(a.quantity) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 8 })} × ${cur(a)} ${fmt(a.unitPrice)}`}
+                                                            {isFixed && a.rate ? ` · taxa ${a.rate}` : ''}
+                                                        </p>
+                                                    </>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-1.5 shrink-0">
+                                                {!a.realized && (
                                                 <button
                                                     onClick={() => setEditingAporte(isFixed
                                                         ? { aporteId: a.id, total: String(a.total ?? ''), rate: a.rate ?? '', date: a.date }
@@ -2051,6 +2132,7 @@ export default function InvestmentsTab() {
                                                     className={`p-2 rounded-lg transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
                                                     title="Editar aporte"
                                                 ><Pencil className="w-3.5 h-3.5" /></button>
+                                                )}
                                                 <button
                                                     onClick={() => handleDeleteAporte(a.id)}
                                                     disabled={aportes.length <= 1 || aporteBusy}
@@ -2079,6 +2161,104 @@ export default function InvestmentsTab() {
                 );
             })()}
 
+
+            {/* Modal: Realizar (vender/resgatar) */}
+            {isRealizing && (() => {
+                const asset = investments.find(a => a.id === isRealizing);
+                if (!asset) return null;
+                const isFixed = asset.type === 'renda_fixa';
+                const fmt = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const cur = asset.isUSD ? '$' : 'R$';
+                const aportes = getAssetAportes(asset);
+                const agg = aggregateAportes(asset.type, aportes);
+                const avg = agg.purchasePrice || 0;
+                const availQty = agg.quantity || 0;
+                const totalApplied = agg.totalApplied || 0;
+                const qty = parseBrazilianNumber(realizeForm.quantity);
+                const price = parseBrazilianNumber(realizeForm.price);
+                const capQty = Math.min(qty || 0, availQty);
+                const proceeds = isFixed ? (price || 0) : capQty * (price || 0);
+                const profit = isFixed ? 0 : capQty * ((price || 0) - avg);
+                const canConfirm = isFixed ? (price > 0 && totalApplied > 0) : (capQty > 0 && price > 0);
+                const inputCls = `w-full px-3 py-2 rounded-lg border text-sm focus:outline-none transition-all ${theme === 'light' ? 'bg-white border-slate-200 text-slate-800 focus:border-emerald-500' : 'bg-white/5 border-white/10 text-white focus:border-emerald-500'}`;
+                const box = `p-3 rounded-xl text-center ${theme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`;
+                return (
+                    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsRealizing(null); }}>
+                        <form onSubmit={handleRealizar} className={`w-full max-w-md rounded-2xl p-6 border relative animate-in zoom-in-95 duration-300 ${theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'}`}>
+                            <button type="button" onClick={() => setIsRealizing(null)} className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors ${theme === 'light' ? 'hover:bg-slate-100 text-slate-400' : 'hover:bg-white/10 text-slate-500'}`}><X className="w-4 h-4" /></button>
+
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className={`p-2 rounded-xl shrink-0 ${theme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/10'}`}>
+                                    <Coins className={`w-5 h-5 ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`} />
+                                </div>
+                                <div>
+                                    <h3 className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Realizar</h3>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">{asset.symbol ? asset.symbol.toUpperCase() : asset.name}</p>
+                                </div>
+                            </div>
+
+                            {/* Situação atual */}
+                            <div className={`grid ${isFixed ? 'grid-cols-1' : 'grid-cols-2'} gap-2 mb-4`}>
+                                {!isFixed && (
+                                    <div className={box}>
+                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-0.5">Quantidade</p>
+                                        <p className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{availQty.toLocaleString('pt-BR', { maximumFractionDigits: 8 })}</p>
+                                    </div>
+                                )}
+                                <div className={box}>
+                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-0.5">{isFixed ? 'Total aplicado' : 'Preço médio'}</p>
+                                    <p className="text-sm font-black text-emerald-500">{cur} {fmt(isFixed ? totalApplied : avg)}</p>
+                                </div>
+                            </div>
+
+                            {/* Formulário */}
+                            {isFixed ? (
+                                <div className="mb-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Valor a resgatar (R$)</p>
+                                        <button type="button" onClick={() => setRealizeForm(f => ({ ...f, price: String(totalApplied.toFixed(2)) }))} className="text-[10px] font-black text-emerald-500 hover:underline">Tudo</button>
+                                    </div>
+                                    <input type="text" inputMode="decimal" autoFocus className={inputCls} value={realizeForm.price} onChange={(e) => setRealizeForm(f => ({ ...f, price: e.target.value }))} placeholder="0,00" />
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-2 mb-3">
+                                    <div>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Quantidade</p>
+                                            <button type="button" onClick={() => setRealizeForm(f => ({ ...f, quantity: String(availQty) }))} className="text-[10px] font-black text-emerald-500 hover:underline">Tudo</button>
+                                        </div>
+                                        <input type="text" inputMode="decimal" autoFocus className={inputCls} value={realizeForm.quantity} onChange={(e) => setRealizeForm(f => ({ ...f, quantity: e.target.value }))} placeholder="0" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1">Preço de venda ({cur})</p>
+                                        <input type="text" inputMode="decimal" className={inputCls} value={realizeForm.price} onChange={(e) => setRealizeForm(f => ({ ...f, price: e.target.value }))} placeholder="0,00" />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Prévia */}
+                            <div className={`rounded-xl p-3 mb-4 border ${theme === 'light' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-emerald-500/[0.06] border-emerald-500/15'}`}>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[11px] font-bold text-slate-500">Valor realizado</span>
+                                    <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>R$ {fmt(proceeds)}</span>
+                                </div>
+                                {!isFixed && (
+                                    <div className="flex items-center justify-between mt-1.5">
+                                        <span className="text-[11px] font-bold text-slate-500">Lucro / Perda</span>
+                                        <span className={`text-sm font-black ${profit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{profit >= 0 ? '+' : '−'} R$ {fmt(Math.abs(profit))}</span>
+                                    </div>
+                                )}
+                                <p className="text-[10px] text-slate-500 mt-2 leading-snug">Sai do patrimônio e fica registrado como <strong>Realizado</strong> nos aportes. O preço médio do que sobra não muda.</p>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button type="button" onClick={() => setIsRealizing(null)} className={`flex-1 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}>Cancelar</button>
+                                <button type="submit" disabled={!canConfirm || realizeBusy} className="flex-1 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-emerald-500 hover:bg-emerald-400 text-white transition-all active:scale-95 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:active:scale-100"><Coins className="w-3.5 h-3.5" /> {realizeBusy ? 'Realizando…' : 'Confirmar'}</button>
+                            </div>
+                        </form>
+                    </div>
+                );
+            })()}
 
             {/* Modal: Excluir Ativo */}
             {deleteConfirm && (
