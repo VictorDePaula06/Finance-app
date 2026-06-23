@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { ThemeProvider } from './theme.jsx';
 import { StoreProvider, useStore } from './store.jsx';
 import Login from './Login.jsx';
+import TermsGate from './TermsGate.jsx';
+import { CURRENT_TERMS_VERSION } from './lib/terms.js';
 import BottomNav from './components/BottomNav.jsx';
 import GeralTab from './tabs/GeralTab.jsx';
 import RecebimentosTab from './tabs/RecebimentosTab.jsx';
@@ -12,7 +14,7 @@ import AjustesTab from './tabs/AjustesTab.jsx';
 import PatrimonioShell from './tabs/PatrimonioShell.jsx';
 
 function Shell() {
-  const { user, authReady, firebaseReady } = useStore();
+  const { user, authReady, firebaseReady, demo, prefs, prefsLoaded } = useStore();
   const [tab, setTab] = useState('geral');
   const [module, setModule] = useState('gastos'); // 'gastos' | 'patrimonio'
 
@@ -27,6 +29,12 @@ function Shell() {
 
   // Sem login (ou sem config) → tela de entrada
   if (!user) return <Login />;
+
+  // Aceite dos Termos (LGPD) — igual ao site: exige aceitar se nunca aceitou ou
+  // se a versão mudou. Só depois que as prefs carregaram (evita piscar a tela).
+  const needsTerms = !demo && firebaseReady && prefsLoaded &&
+    (prefs?.hasAcceptedTerms !== true || prefs?.termsVersion !== CURRENT_TERMS_VERSION);
+  if (needsTerms) return <TermsGate />;
 
   // Módulo Patrimônio: abas próprias (Geral, Monitor, Reserva, Investimentos,
   // Rebalanceamento). A engrenagem leva aos Ajustes no módulo Gastos.

@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, updateProfile } from 'firebase/auth';
-import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db, firebaseReady } from './services/firebase.js';
 import { signInWithGoogle, signOutAll } from './services/auth.js';
 import { DEMO } from './data/sample.js';
 import { buildTransactionDocs, buildCardDoc, buildInvestmentDoc, buildJarDoc } from './lib/db.js';
+import { CURRENT_TERMS_VERSION } from './lib/terms.js';
 
 const Ctx = createContext(null);
 export const useStore = () => useContext(Ctx);
@@ -22,6 +23,7 @@ export function StoreProvider({ children }) {
   const [demoData, setDemoData] = useState(EMPTY);
   const [authError, setAuthError] = useState(null);
   const [authBusy, setAuthBusy] = useState(false);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
 
   // Autenticação real (mesma do site — Firebase Auth, login Google).
   useEffect(() => {
@@ -31,9 +33,26 @@ export function StoreProvider({ children }) {
     return () => unsub();
   }, [demo]);
 
+  // Garante o documento users/{uid} no primeiro acesso (igual ao site). Sem ele,
+  // o painel admin marca o usuário como "excluído" (userSnap.exists() === false).
+  useEffect(() => {
+    if (demo || !firebaseReady || !user) return;
+    (async () => {
+      try {
+        const ref = doc(db, 'users', user.uid);
+        const snap = await getDoc(ref);
+        const d = snap.exists() ? snap.data() : {};
+        const update = { email: user.email, uid: user.uid, lastLogin: new Date() };
+        if (!d.createdAt) update.createdAt = user.metadata?.creationTime || new Date().toISOString();
+        if (!d.trialStartDate) update.trialStartDate = new Date();
+        await setDoc(ref, update, { merge: true });
+      } catch (e) { console.error('ensureUserDoc', e); }
+    })();
+  }, [user, demo]);
+
   // Escuta em tempo real os dados do usuário logado.
   useEffect(() => {
-    if (demo || !firebaseReady || !user) { setData(EMPTY); setPrefs({}); return; }
+    if (demo || !firebaseReady || !user) { setData(EMPTY); setPrefs({}); setPrefsLoaded(false); return; }
     const unsubs = COLLECTIONS.map(col => {
       const q = query(collection(db, col), where('userId', '==', user.uid));
       return onSnapshot(q, (snap) => {
@@ -42,8 +61,8 @@ export function StoreProvider({ children }) {
     });
     const unsubPrefs = onSnapshot(
       doc(db, 'users', user.uid, 'settings', 'general'),
-      (snap) => { if (snap.exists()) setPrefs(snap.data()); },
-      () => {}
+      (snap) => { setPrefs(snap.exists() ? snap.data() : {}); setPrefsLoaded(true); },
+      () => { setPrefsLoaded(true); }
     );
     return () => { unsubs.forEach(u => u()); unsubPrefs(); };
   }, [user, demo]);
@@ -179,12 +198,22 @@ export function StoreProvider({ children }) {
     try { await updateProfile(auth.currentUser, { displayName: name }); setUser({ ...auth.currentUser }); } catch (e) { console.error(e); }
   };
 
-  const actions = { login, enterDemo, logout, savePref, updateName, addTransaction, addCard, deleteTransaction, deleteCard, addInvestment, deleteInvestment, addJar, adjustJar, deleteJar, authError, authBusy };
+  // Registra o aceite dos Termos (mesmo formato do site): grava em settings/general
+  // e loga em users/{uid}/terms_log (LGPD).
+  const acceptTerms = async () => {
+    const acceptedAt = new Date().toISOString();
+    await savePref({ hasAcceptedTerms: true, termsVersion: CURRENT_TERMS_VERSION, termsAcceptedAt: acceptedAt });
+    if (!demo && firebaseReady && user) {
+      try { await addDoc(collection(db, 'users', user.uid, 'terms_log'), { termsVersion: CURRENT_TERMS_VERSION, acceptedAt }); } catch (e) { console.error('terms_log', e); }
+    }
+  };
+
+  const actions = { login, enterDemo, logout, savePref, updateName, acceptTerms, addTransaction, addCard, deleteTransaction, deleteCard, addInvestment, deleteInvestment, addJar, adjustJar, deleteJar, authError, authBusy };
 
   // No modo demonstração, servimos os dados de exemplo (em memória, editáveis).
   const value = demo
-    ? { user: DEMO.user, authReady: true, firebaseReady, demo: true, ...actions, ...demoData, prefs: demoPrefs || DEMO.prefs }
-    : { user, authReady, firebaseReady, demo: false, ...actions, ...data, prefs };
+    ? { user: DEMO.user, authReady: true, firebaseReady, demo: true, prefsLoaded: true, ...actions, ...demoData, prefs: demoPrefs || DEMO.prefs }
+    : { user, authReady, firebaseReady, demo: false, prefsLoaded, ...actions, ...data, prefs };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
