@@ -48,6 +48,7 @@ import ExitsTab from './components/ExitsTab';
 import { calculateCumulativeBalance } from './utils/financialLogic';
 import AliviaConfigForm from './components/AliviaConfigForm';
 import OverviewTab from './components/OverviewTab';
+import OverviewChat from './components/OverviewChat';
 import ExtratoTab from './components/ExtratoTab';
 import RebalanceamentoTab from './components/RebalanceamentoTab';
 import MonitorAtivosTab from './components/MonitorAtivosTab';
@@ -704,67 +705,6 @@ function Dashboard() {
           {activeTab === 'visao' && (() => {
             // Visão Geral unificada (layout em 2 colunas) — ativa em produção.
             const isLocalhost = true;
-            const fmtMoney = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            // Análise da Alívia (Visão Geral · Gastos): reserva, supérfluos, sobra do mês.
-            const aliviaCard = (() => {
-              const cm = new Date().toISOString().slice(0, 7);
-              // Gastos do mês conforme o regime configurado (competência/caixa).
-              const basis = getExpenseBasis(manualConfig);
-              const exp = transactions.filter(t => isMonthlyExpenseTx(t, basis) && txMonthKey(t) === cm);
-              const sum = (a) => a.reduce((x, t) => x + (parseFloat(t.amount) || 0), 0);
-              const essential = sum(exp.filter(t => (t.priority || 'comfort') === 'essential'));
-              const superf = sum(exp.filter(t => t.priority === 'superfluous'));
-              const totalExp = sum(exp);
-              const supPct = totalExp > 0 ? Math.round((superf / totalExp) * 100) : 0;
-              const reserveMonths = healthIndex?.pillars?.reserve?.months || 0;
-              const reserveAmount = investmentStats?.totalGuarded || 0;
-              const sobrou = (walletStats.income || 0) - (walletStats.expense || 0);
-              const hasDebt = totalDebt > 0.005;
-              const accent = hasDebt ? 'text-rose-400' : (sobrou >= 0 && supPct <= 30 && reserveMonths >= 6 ? 'text-emerald-400' : (sobrou < 0 || supPct > 30) ? 'text-amber-400' : 'text-blue-400');
-              // Personalização com base no que o usuário preencheu no onboarding.
-              const ob = userPrefs?.onboarding || {};
-              const primaryObjective = (ob.objectives || []).find(o => o !== 'debt') || (ob.objectives || [])[0] || '';
-              const objLabel = OBJECTIVE_LABELS_SHORT[primaryObjective] || '';
-              const aporteAlvo = parseFloat(ob.monthlyContribution) || 0;
-              return (
-                <div className={`p-5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-700/50'}`}>
-                  <div className="flex items-start gap-3">
-                    <img src={aliviaFinal} alt="Alívia" className="w-11 h-11 object-cover rounded-full border-2 border-white/20 shadow-md shrink-0" />
-                    <div className="min-w-0">
-                      <span className={`text-[10px] font-black uppercase tracking-widest block mb-1 ${accent}`}>Alívia · análise do mês</span>
-                      {hasDebt && (
-                        <p className={`text-[12px] leading-relaxed mb-1.5 font-medium ${theme === 'light' ? 'text-rose-600' : 'text-rose-300'}`}>
-                          ⚠️ Prioridade: você tem <span className="font-bold">R$ {fmtMoney(totalDebt)}</span> em dívidas. Quitar a dívida vem antes de qualquer investimento — <button onClick={() => { setActiveModule('patrimonio'); setActiveTab('dividas'); }} className="font-black text-rose-500 hover:text-rose-400 underline">gerenciar dívidas →</button>
-                        </p>
-                      )}
-                      <p className={`text-[12px] leading-relaxed ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
-                        Este mês os gastos essenciais somaram <span className="font-bold">R$ {fmtMoney(essential)}</span> e os supérfluos <span className="font-bold">R$ {fmtMoney(superf)}</span> ({supPct}% dos gastos{supPct > 30 ? ' — acima do ideal de 30%' : ' — dentro do ideal'}).
-                      </p>
-                      <p className={`text-[12px] leading-relaxed mt-1.5 ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
-                        {sobrou >= 0 ? <>Você está no positivo este mês: sobram <span className="font-bold text-emerald-500">R$ {fmtMoney(sobrou)}</span>.</> : <>Atenção: você gastou <span className="font-bold text-rose-500">R$ {fmtMoney(Math.abs(sobrou))}</span> a mais do que ganhou neste mês.</>}
-                      </p>
-                      <p className={`text-[12px] leading-relaxed mt-1.5 ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
-                        {reserveAmount > 0
-                          ? <>Sua reserva de emergência cobre <span className="font-bold text-emerald-500">{reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} {reserveMonths === 1 ? 'mês' : 'meses'}</span> de despesas{reserveMonths < 6 ? ' — mire ao menos 6 meses.' : ' — ótimo nível, continue assim!'}</>
-                          : <>Você ainda não tem reserva de emergência — comece a construir uma para mais tranquilidade.</>}
-                      </p>
-                      {!hasDebt && (objLabel || aporteAlvo > 0) && (
-                        <p className={`text-[12px] leading-relaxed mt-1.5 ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
-                          {objLabel && <>Seu objetivo é <span className="font-bold text-emerald-500">{objLabel}</span>. </>}
-                          {aporteAlvo > 0
-                            ? (sobrou >= aporteAlvo
-                                ? <>Sua meta de aporte é <span className="font-bold">R$ {fmtMoney(aporteAlvo)}/mês</span> — e a sobra deste mês já cobre isso. <span className="font-bold text-emerald-500">Bom momento para investir.</span></>
-                                : sobrou > 0
-                                  ? <>Sua meta de aporte é <span className="font-bold">R$ {fmtMoney(aporteAlvo)}/mês</span>; este mês sobraram <span className="font-bold">R$ {fmtMoney(sobrou)}</span> — faltam <span className="font-bold text-amber-500">R$ {fmtMoney(aporteAlvo - sobrou)}</span> para o aporte completo.</>
-                                  : <>Sua meta de aporte é <span className="font-bold">R$ {fmtMoney(aporteAlvo)}/mês</span>, mas este mês não houve sobra — reveja os gastos supérfluos para conseguir investir.</>)
-                            : <>Defina um aporte mensal em <span className="font-semibold">Construção de Patrimônio</span> para a Alívia acompanhar seu ritmo de investimento.</>}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })();
             const overview = (
               <OverviewTab
                 transactions={transactions}
@@ -788,86 +728,6 @@ function Dashboard() {
               />
             );
 
-            // Metas de Gasto — só categorias perto/acima do teto (relatório de Análise de Gastos).
-            const metasCard = (() => {
-              const budgets = manualConfig.categoryBudgets || {};
-              const cm = new Date().toISOString().slice(0, 7);
-              const spentByCat = {};
-              transactions
-                .filter(t => t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category) && ((t.date?.slice(0, 7)) || t.month) === cm)
-                .forEach(t => { const c = t.category || 'other'; spentByCat[c] = (spentByCat[c] || 0) + (parseFloat(t.amount) || 0); });
-              const withBudget = CATEGORIES.expense.filter(c => parseFloat(budgets[c.id]) > 0);
-              const rows = withBudget
-                .map(c => { const ceiling = parseFloat(budgets[c.id]) || 0; const spent = spentByCat[c.id] || 0; const ratio = ceiling > 0 ? spent / ceiling : 0; return { id: c.id, label: c.label, icon: c.icon, hex: categoryHex(c), ceiling, spent, ratio }; })
-                .sort((a, b) => b.ratio - a.ratio);
-              const fmtv = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              const totalBudget = rows.reduce((a, r) => a + r.ceiling, 0);
-              const totalSpent = rows.reduce((a, r) => a + r.spent, 0);
-              const overCount = rows.filter(r => r.ratio >= 1).length;
-              const nearCount = rows.filter(r => r.ratio >= 0.85 && r.ratio < 1).length;
-              const noSpend = rows.filter(r => r.spent <= 0.005).length;
-              let chip = null;
-              if (rows.length > 0) {
-                if (overCount > 0) chip = { label: `${overCount} estourada${overCount > 1 ? 's' : ''}`, cls: 'bg-rose-500/10 text-rose-400' };
-                else if (nearCount > 0) chip = { label: `${nearCount} em atenção`, cls: 'bg-amber-500/10 text-amber-500' };
-                else if (totalSpent <= 0.005) chip = { label: `${noSpend} sem gasto`, cls: 'bg-slate-500/10 text-slate-400' };
-                else chip = { label: 'tudo no alvo', cls: 'bg-emerald-500/10 text-emerald-400' };
-              }
-              return (
-                <div className={`flex-1 min-h-0 flex flex-col rounded-2xl border p-5 ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-700/50'}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}><Gauge className="w-4 h-4 text-indigo-400" /> Metas de Gasto</h3>
-                    <button onClick={() => setActiveTab('analise_metas')} className="text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-300">Ver tudo →</button>
-                  </div>
-                  {withBudget.length === 0 ? (
-                    <p className="text-xs text-slate-500 italic text-center py-6">Defina tetos por categoria em <button onClick={() => setActiveTab('analise_metas')} className="text-blue-400 font-bold">Metas de Gasto</button>.</p>
-                  ) : (
-                    <>
-                      <div className={`flex items-center justify-between gap-2 mb-3 pb-3 border-b ${theme === 'light' ? 'border-slate-100' : 'border-white/[0.06]'}`}>
-                        {chip && <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg ${chip.cls}`}>{chip.label}</span>}
-                        <span className="text-[11px] font-bold tabular-nums text-slate-400 ml-auto">R$ {fmtv(totalSpent)} <span className="opacity-50">de</span> R$ {fmtv(totalBudget)}</span>
-                      </div>
-                      <div className="space-y-3 overflow-y-auto custom-scrollbar pr-1 flex-1 min-h-0">
-                        {rows.map(r => {
-                          const pct = Math.min(100, r.ratio * 100);
-                          const over = r.ratio >= 1;
-                          const near = !over && r.ratio >= 0.85;
-                          const statusHex = over ? '#fb7185' : near ? '#fbbf24' : '#34d399';
-                          const Icon = r.icon;
-                          const C = 2 * Math.PI * 11;
-                          const hasSpend = r.spent > 0.005;
-                          return (
-                            <div key={r.id} className="flex items-center gap-3">
-                              <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${r.hex}1f`, color: r.hex }}>
-                                {Icon && <Icon className="w-[18px] h-[18px]" />}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className={`text-[13px] font-semibold truncate ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>{r.label}</span>
-                                  {over && <span className="text-[8px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-400 shrink-0">acima</span>}
-                                </div>
-                                <div className={`w-full h-1.5 rounded-full overflow-hidden mt-1.5 ${theme === 'light' ? 'bg-slate-100' : 'bg-white/[0.06]'}`}>
-                                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(hasSpend ? 4 : 0, pct)}%`, background: statusHex }} />
-                                </div>
-                                <p className="text-[10px] text-slate-400 tabular-nums mt-1">R$ {fmtv(r.spent)} <span className="opacity-50">de</span> R$ {fmtv(r.ceiling)}{!over && hasSpend && <span className="opacity-70"> · restam R$ {fmtv(r.ceiling - r.spent)}</span>}</p>
-                              </div>
-                              <div className="relative w-9 h-9 shrink-0">
-                                <svg viewBox="0 0 28 28" className="w-9 h-9 -rotate-90">
-                                  <circle cx="14" cy="14" r="11" fill="none" strokeWidth="3" stroke={theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.08)'} />
-                                  {hasSpend && <circle cx="14" cy="14" r="11" fill="none" strokeWidth="3" strokeLinecap="round" stroke={statusHex} strokeDasharray={C} strokeDashoffset={C * (1 - Math.min(1, r.ratio))} style={{ transition: 'stroke-dashoffset 0.6s ease' }} />}
-                                </svg>
-                                <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black tabular-nums" style={{ color: hasSpend ? statusHex : '#94a3b8' }}>{hasSpend ? `${Math.round(r.ratio * 100)}%` : '—'}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })();
-
             if (isLocalhost) {
               return (
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:items-stretch animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -876,9 +736,18 @@ function Dashboard() {
                       fica absoluto para não esticar a linha do grid, e o card de Metas
                       rola internamente — assim as duas colunas terminam alinhadas. */}
                   <div className="relative min-w-0">
-                    <div className="xl:absolute xl:inset-0 flex flex-col gap-4 min-h-0 overflow-hidden">
-                      {aliviaCard}
-                      {metasCard}
+                    <div className="xl:absolute xl:inset-0 flex flex-col min-h-0">
+                      <OverviewChat
+                        transactions={transactions}
+                        manualConfig={manualConfig}
+                        onAddTransaction={handleAIChatAddTransaction}
+                        theme={theme}
+                        planLevel={planLevel}
+                        walletStats={walletStats}
+                        healthIndex={healthIndex}
+                        investmentStats={investmentStats}
+                        totalDebt={totalDebt}
+                      />
                     </div>
                   </div>
                 </div>

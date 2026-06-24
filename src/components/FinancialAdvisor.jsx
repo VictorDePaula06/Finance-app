@@ -6,8 +6,7 @@ import { calculateFinancialHealth, calculateSpendingPace } from '../utils/financ
 import { CATEGORIES } from '../constants/categories';
 import { validateApiKey, getGeminiKey, setGeminiKey, clearGeminiKey } from '../services/gemini';
 
-import { Bot, Settings, X, Save, TrendingUp, TrendingDown, DollarSign, AlertTriangle, CheckCircle, Calculator, Video, ChevronDown, Moon, Sun, Trash2, CreditCard, Pencil, Check } from 'lucide-react';
-import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
+import { Bot, Settings, X, Save, TrendingUp, TrendingDown, DollarSign, AlertTriangle, CheckCircle, Calculator, ChevronDown, Moon, Sun, Trash2, CreditCard, Pencil, Check } from 'lucide-react';
 
 import { useTheme } from '../contexts/ThemeContext';
 import aliviaFinal from '../assets/alivia/alivia-final.png';

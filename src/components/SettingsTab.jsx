@@ -10,7 +10,6 @@ import { validateApiKey, setGeminiKey, clearGeminiKey } from '../services/gemini
 import { createPortalSession } from '../services/stripe';
 import AliviaSettings from './AliviaSettings';
 import { downloadUserData } from '../utils/dataExport';
-import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
 import Manual from './Manual';
 import UpgradeModal from './UpgradeModal';
 import { Sparkles as SparklesIcon } from 'lucide-react';
@@ -78,7 +77,6 @@ const SettingsTab = ({ manualConfig, updateManualConfig, walletStats, onSetIniti
   const [isEditingKey, setIsEditingKey] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [validationStatus, setValidationStatus] = useState(null);
-  const [showVideo, setShowVideo] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
 
   const handleSaveApiKey = async () => {
@@ -418,19 +416,7 @@ const SettingsTab = ({ manualConfig, updateManualConfig, walletStats, onSetIniti
                     Obtenha sua chave gratuita aqui.
                   </a>
                 </p>
-                <button
-                  onClick={() => setShowVideo(!showVideo)}
-                  className="shrink-0 text-[10px] font-semibold text-blue-500 flex items-center gap-1 hover:underline"
-                >
-                  <Video className="w-3 h-3" /> Tutorial
-                </button>
               </div>
-
-              {showVideo && (
-                <div className="rounded-xl overflow-hidden border border-white/5 bg-black animate-in zoom-in duration-300">
-                  <video src={tutorialVideo} controls className="w-full h-auto" />
-                </div>
-              )}
 
               <div className="flex gap-2">
                 <input
@@ -507,7 +493,7 @@ const SettingsTab = ({ manualConfig, updateManualConfig, walletStats, onSetIniti
         </button>
 
         <button
-          onClick={() => { setActiveSection('ai'); setShowVideo(true); }}
+          onClick={() => setActiveSection('ai')}
           className={`w-full px-4 py-3.5 rounded-xl border flex items-center justify-between group transition-all ${
             isDark ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-slate-50 border-slate-100 hover:bg-blue-50 hover:border-blue-100'
           }`}

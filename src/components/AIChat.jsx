@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageSquare, X, Send, Bot, User, Sparkles, AlertCircle, Key, Trash2, Loader2, Video, ChevronDown, CheckCircle, Maximize2, Minimize2 } from 'lucide-react';
+import { MessageSquare, X, Send, Bot, User, Sparkles, AlertCircle, Key, Trash2, Loader2, ChevronDown, CheckCircle, Maximize2, Minimize2 } from 'lucide-react';
 import { db } from '../services/firebase';
 import { collection, onSnapshot, query, where, addDoc, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,13 +9,13 @@ import { sendMessageToGemini, isGeminiConfigured, validateApiKey, calculateStats
 import ReactMarkdown from 'react-markdown';
 
 import aliviaFinal from '../assets/alivia/alivia-final.png';
-import tutorialVideo from '../assets/tutorial-gemini-key.mp4';
 
 export default function AIChat({ transactions, manualConfig, onAddTransaction, onDeleteTransaction, onConfigChange }) {
     const { theme } = useTheme();
     const [isOpen, setIsOpen] = useState(false);
     const [isMaximized, setIsMaximized] = useState(false);
     const [hasKey, setHasKey] = useState(isGeminiConfigured());
+    const [showSuccess, setShowSuccess] = useState(false);
     const [apiKey, setApiKey] = useState('');
     const [messages, setMessages] = useState(() => {
         const saved = localStorage.getItem('geminiChatHistory');
@@ -151,6 +151,12 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
         }
     }, [isOpen, currentUser]);
 
+    // Mantém hasKey em dia quando a chave é carregada das prefs (ao logar) — assim
+    // quem já configurou não vê o CTA flutuante de "Configurar a Alívia".
+    useEffect(() => {
+        if (userPrefs?.apiKey || userPrefs?.manualConfig?.geminiKey || isGeminiConfigured()) setHasKey(true);
+    }, [userPrefs]);
+
     const handleSaveKey = async () => {
         setKeyError('');
         if (apiKey.trim()) {
@@ -169,16 +175,9 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
             setTimeout(() => {
                 setIsSavingKey(false);
                 setHasKey(true);
-                setMessages(prev => {
-                    if (prev.length === 0) {
-                        return [...prev, { 
-                            role: 'model', 
-                            text: '✅ **API Key Configurada!**\n\nAgora sou seu assistente pessoal. Em que posso ajudar?',
-                            timestamp: new Date().toISOString()
-                        }];
-                    }
-                    return prev;
-                });
+                setIsOpen(false);
+                setApiKey('');
+                setShowSuccess(true);
             }, 1000);
         }
     };
@@ -612,21 +611,24 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                         <details className="group">
                             <summary className="flex items-center justify-between cursor-pointer text-xs font-medium text-slate-400 hover:text-white transition-colors">
                                 <span className="flex items-center gap-2">
-                                    <Video className="w-4 h-4" />
-                                    Como obter uma chave? (Vídeo)
+                                    <Key className="w-4 h-4" />
+                                    Como obter sua chave (grátis)
                                 </span>
                                 <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
                             </summary>
                             <div className="mt-3 text-xs text-slate-400 space-y-2">
-                                <p>1. Acesse o <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">Google AI Studio</a>.</p>
-                                <p>2. Crie uma nova chave de API.</p>
-                                <p>3. Cole a chave abaixo.</p>
-
-                                <div className="mt-3 rounded-lg overflow-hidden border border-slate-700 bg-black">
-                                    <video src={tutorialVideo} controls className="w-full max-h-48 object-contain">
-                                        Seu navegador não suporta a tag de vídeo.
-                                    </video>
-                                </div>
+                                <p><strong className="text-slate-300">1.</strong> Abra o <strong>Google AI Studio</strong> e faça login com sua conta Google.</p>
+                                <p><strong className="text-slate-300">2.</strong> Clique em <strong>“Create API key”</strong> (Criar chave de API) e confirme o projeto.</p>
+                                <p><strong className="text-slate-300">3.</strong> Copie a chave gerada e cole no campo abaixo.</p>
+                                <a
+                                    href="https://aistudio.google.com/app/apikey"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-1 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 font-bold transition-colors"
+                                >
+                                    Abrir o Google AI Studio →
+                                </a>
+                                <p className="text-[11px] text-slate-500 pt-1">A chave é gratuita e fica guardada apenas na sua conta.</p>
                             </div>
                         </details>
                     </div>
@@ -804,15 +806,19 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
         <button
             onClick={() => setIsOpen(true)}
             aria-label="Abrir chat com a Alívia"
-            className={`group fixed bottom-6 right-4 sm:right-6 z-[9999] flex items-center gap-3 rounded-full pl-2 pr-2 sm:pr-5 py-2 shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 border-2 ${
-                theme === 'light'
-                    ? 'bg-white border-emerald-200 shadow-emerald-500/20 hover:border-emerald-300'
-                    : 'bg-slate-900 border-emerald-500/30 shadow-emerald-500/20 hover:border-emerald-500/50'
+            className={`group fixed bottom-6 right-4 sm:right-6 z-[9999] flex items-center gap-3 rounded-full pl-2 ${!hasKey ? 'pr-5' : 'pr-2 sm:pr-5'} py-2 shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 border-2 ${
+                !hasKey
+                    ? (theme === 'light'
+                        ? 'bg-white border-amber-300 shadow-amber-500/25 hover:border-amber-400'
+                        : 'bg-slate-900 border-amber-500/40 shadow-amber-500/25 hover:border-amber-500/60')
+                    : (theme === 'light'
+                        ? 'bg-white border-emerald-200 shadow-emerald-500/20 hover:border-emerald-300'
+                        : 'bg-slate-900 border-emerald-500/30 shadow-emerald-500/20 hover:border-emerald-500/50')
             }`}
         >
             {/* Avatar com anel pulsante */}
             <span className="relative flex items-center justify-center shrink-0">
-                <span className="absolute inset-0 rounded-full bg-emerald-400/40 animate-ping" />
+                <span className={`absolute inset-0 rounded-full animate-ping ${!hasKey ? 'bg-amber-400/50' : 'bg-emerald-400/40'}`} />
                 <img
                     src={aliviaFinal}
                     alt="Alívia"
@@ -822,20 +828,58 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                 <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
             </span>
 
-            {/* Label — visível sempre em telas sm+, oculta no mobile pra não ocupar tela */}
-            <span className="hidden sm:flex flex-col items-start leading-tight pr-1">
-                <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${theme === 'light' ? 'text-emerald-500' : 'text-emerald-400'}`}>
-                    Assistente IA
+            {/* Label. Sem chave configurada: vira um CTA chamativo (sempre visível,
+                inclusive no mobile) que induz a pessoa a clicar e ativar a Alívia. */}
+            {!hasKey ? (
+                <span className="flex flex-col items-start leading-tight pr-1">
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-500 flex items-center gap-1">
+                        <Key className="w-2.5 h-2.5" /> Ative grátis
+                    </span>
+                    <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                        Configurar a Alívia
+                    </span>
                 </span>
-                <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                    Fale com a Alívia
+            ) : (
+                <span className="hidden sm:flex flex-col items-start leading-tight pr-1">
+                    <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${theme === 'light' ? 'text-emerald-500' : 'text-emerald-400'}`}>
+                        Assistente IA
+                    </span>
+                    <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                        Fale com a Alívia
+                    </span>
                 </span>
-            </span>
+            )}
         </button>
     );
 
     // Chat da Alívia disponível para todos os planos (Gratuito com limite de lançamentos).
     if (!canUseAI) return null;
 
-    return createPortal(chatContent, document.body);
+    // Modal de sucesso após configurar a chave — informa que a conversa agora é na Visão Geral.
+    const successModal = showSuccess ? (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowSuccess(false)}>
+            <div className={`relative w-full max-w-sm rounded-3xl border p-7 text-center animate-in zoom-in-95 duration-300 ${theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'}`} onClick={(e) => e.stopPropagation()}>
+                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-500/15 flex items-center justify-center">
+                    <CheckCircle className="w-9 h-9 text-emerald-500" />
+                </div>
+                <h3 className={`text-lg font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Alívia ativada! 🎉</h3>
+                <p className={`text-sm mt-2 leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-300'}`}>
+                    Sua chave foi salva. Agora você conversa com a Alívia direto na <strong className="text-emerald-500">Visão Geral</strong> — ela já te dá um resumo do mês e responde tudo por ali.
+                </p>
+                <button onClick={() => setShowSuccess(false)} className="mt-5 w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm uppercase tracking-wider transition-all active:scale-95">
+                    Começar a conversar
+                </button>
+            </div>
+        </div>
+    ) : null;
+
+    // Botão/painel flutuante só aparece enquanto NÃO há chave (serve para configurar).
+    // Depois de configurada, a conversa acontece apenas pelo chat da Visão Geral.
+    return createPortal(
+        <>
+            {!hasKey && chatContent}
+            {successModal}
+        </>,
+        document.body
+    );
 }
