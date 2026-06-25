@@ -67,6 +67,8 @@ export default function OverviewChat({ transactions = [], manualConfig = {}, onA
   const [messages, setMessages] = useState(() => [{ role: 'model', text: buildSummary({ transactions, manualConfig, walletStats, healthIndex, investmentStats, totalDebt, userPrefs }) }]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // Lançamento aguardando seleção (prioridade, cartão, …) via botões.
+  const [pending, setPending] = useState(null); // { data, queue: [{ kind, field, label, options }] }
 
   const [jars, setJars] = useState([]);
   const [investments, setInvestments] = useState([]);
@@ -118,36 +120,77 @@ export default function OverviewChat({ transactions = [], manualConfig = {}, onA
     return { display, command };
   };
 
-  // Executa um lançamento avulso (add_transaction) pedido pela conversa.
-  const runAddTransaction = async (command, inputMsg) => {
-    const data = { ...(command.data || {}) };
-    if (['investment', 'vault'].includes(data.category)) return '\n\n📌 Aportes em investimentos/patrimônio são feitos no módulo **Patrimônio**.';
-    const sanitized = { ...data, amount: parseFloat(sanitizeAIValue(data.amount)) || 0 };
-    if (sanitized.type === 'expense') {
-      const low = (inputMsg || '').toLowerCase();
-      if (/(sup[ée]rfluo|dispens|besteira|f[úu]til)/.test(low)) sanitized.priority = 'superfluous';
-      else if (/(essenc|necess|obrigat|important|b[áa]sic)/.test(low)) sanitized.priority = 'essential';
-      else if (/(conforto|qualidade de vida)/.test(low)) sanitized.priority = 'comfort';
+  const addModelMsg = (text) => setMessages(p => [...p, { role: 'model', text }]);
+
+  // Monta a fila de seleções necessárias para o lançamento (prioridade, cartão…).
+  const buildSelectionQueue = (data, inputMsg) => {
+    const queue = [];
+    const low = (inputMsg || '').toLowerCase();
+    if ((data.type || 'expense') === 'expense') {
+      // Prioridade: se o usuário já disse, usamos; senão, pedimos por botões.
+      if (/(sup[ée]rfluo|dispens|besteira|f[úu]til)/.test(low)) data.priority = 'superfluous';
+      else if (/(essenc|necess|obrigat|important|b[áa]sic)/.test(low)) data.priority = 'essential';
+      else if (/(conforto|qualidade de vida)/.test(low)) data.priority = 'comfort';
+      else queue.push({ kind: 'priority', field: 'priority', label: 'Esse gasto é…', options: [
+        { value: 'essential', label: 'Essencial', color: '#10b981' },
+        { value: 'comfort', label: 'Conforto', color: '#f59e0b' },
+        { value: 'superfluous', label: 'Supérfluo', color: '#f43f5e' },
+      ] });
     }
-    if (sanitized.paymentMethod === 'credito') {
-      let cardId = '';
-      if (data.cardName) { const m = cards.find(c => (c.name || '').toLowerCase().includes(String(data.cardName).toLowerCase())); if (m) cardId = m.id; }
-      else if (cards.length === 1) cardId = cards[0].id;
-      if (!cardId && cards.length === 0) return '\n\n⚠️ Você pediu no crédito, mas não tem cartão cadastrado.';
-      sanitized.selectedCardId = cardId;
+    if (data.paymentMethod === 'credito') {
+      if (cards.length === 1) data.selectedCardId = cards[0].id;
+      else if (cards.length > 1 && !data.selectedCardId) {
+        if (data.cardName) { const m = cards.find(c => (c.name || '').toLowerCase().includes(String(data.cardName).toLowerCase())); if (m) data.selectedCardId = m.id; }
+        if (!data.selectedCardId) queue.push({ kind: 'card', field: 'selectedCardId', label: 'Em qual cartão?', options: cards.map(c => ({ value: c.id, label: c.name || 'Cartão' })) });
+      }
     }
-    delete sanitized.cardName;
-    if (!sanitized.amount) return '\n\n⚠️ Não entendi o valor — pode me dizer quanto foi?';
-    const ok = onAddTransaction ? await onAddTransaction(sanitized) : false;
-    if (!ok) return '\n\n❌ Não consegui salvar agora. Tente de novo.';
-    const cardTxt = sanitized.selectedCardId ? ` no cartão ${cards.find(c => c.id === sanitized.selectedCardId)?.name || ''}`.trimEnd() : '';
-    return `\n\n✅ **Lançado:** ${sanitized.description} (R$ ${sanitized.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})${cardTxt}`;
+    return queue;
+  };
+
+  // Prepara o lançamento: valida e ou pede as seleções (botões) ou já confirma.
+  const prepareTransaction = (command, inputMsg) => {
+    const d = command.data || {};
+    if (['investment', 'vault'].includes(d.category)) { addModelMsg('📌 Aportes em investimentos/patrimônio são feitos no módulo Patrimônio.'); return; }
+    const data = {
+      type: d.type === 'income' ? 'income' : 'expense',
+      amount: parseFloat(sanitizeAIValue(d.amount)) || 0,
+      description: d.description || 'Lançamento',
+      category: d.category || 'other',
+      date: d.date,
+      paymentMethod: d.paymentMethod,
+      cardName: d.cardName,
+    };
+    if (!data.amount) { addModelMsg('⚠️ Não entendi o valor — quanto foi?'); return; }
+    if (data.paymentMethod === 'credito' && cards.length === 0) { addModelMsg('⚠️ Você pediu no crédito, mas não tem cartão cadastrado.'); return; }
+    const queue = buildSelectionQueue(data, inputMsg);
+    delete data.cardName;
+    if (queue.length === 0) { commitTransaction(data); return; }
+    setPending({ data, queue });
+  };
+
+  // Grava o lançamento e confirma em uma linha.
+  const commitTransaction = async (data) => {
+    const ok = onAddTransaction ? await onAddTransaction(data) : false;
+    if (!ok) { addModelMsg('❌ Não consegui salvar agora. Tente de novo.'); return; }
+    const cardTxt = data.selectedCardId ? ` no cartão ${cards.find(c => c.id === data.selectedCardId)?.name || ''}`.trimEnd() : '';
+    addModelMsg(`✅ Lançado: ${data.description} — R$ ${(data.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${cardTxt}`);
+  };
+
+  // Usuário clicou numa opção da seleção pendente.
+  const pickSelection = (value) => {
+    if (!pending) return;
+    const step = pending.queue[0];
+    const data = { ...pending.data, [step.field]: value };
+    const rest = pending.queue.slice(1);
+    if (rest.length === 0) { setPending(null); commitTransaction(data); }
+    else setPending({ data, queue: rest });
   };
 
   const send = async (text) => {
     const msg = (text || '').trim();
     if (!msg || isLoading) return;
     setInput('');
+    setPending(null);
     setMessages(p => [...p, { role: 'user', text: msg }]);
     if (!isGeminiConfigured()) {
       setMessages(p => [...p, { role: 'model', text: 'Para conversar comigo aqui, configure sua chave do Google Gemini no assistente **Fale com a Alívia** (canto inferior direito). O resumo acima já fica pronto pra te ajudar. 😊' }]);
@@ -158,9 +201,9 @@ export default function OverviewChat({ transactions = [], manualConfig = {}, onA
       const context = calculateStatsContext(transactions, manualConfig, false, jars, investments, userPrefs?.onboarding, { cards, fixedExpenses, goals, subscriptions, planLevel });
       const raw = await sendMessageToGemini(messages, msg, context);
       const { display, command } = parseAction(raw);
-      let out = display || 'Pronto!';
-      if (command && command.action === 'add_transaction') out += await runAddTransaction(command, msg);
-      setMessages(p => [...p, { role: 'model', text: out }]);
+      if (display) addModelMsg(display);
+      if (command && command.action === 'add_transaction') prepareTransaction(command, msg);
+      else if (!display) addModelMsg('Pronto!');
     } catch (e) {
       console.error('OverviewChat', e);
       setMessages(p => [...p, { role: 'model', text: 'Tive um probleminha para responder agora. Tente novamente em instantes.' }]);
@@ -210,15 +253,36 @@ export default function OverviewChat({ transactions = [], manualConfig = {}, onA
         )}
       </div>
 
-      {/* Sugestões */}
-      <div className="px-3.5 pb-2 flex gap-2 overflow-x-auto custom-scrollbar">
-        {SUGGESTIONS.map(s => (
-          <button key={s} onClick={() => send(s)} disabled={isLoading}
-            className={`shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-full whitespace-nowrap transition-all active:scale-95 disabled:opacity-50 ${isDark ? 'bg-white/[0.05] text-slate-300 hover:bg-white/[0.09]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-            {s}
-          </button>
-        ))}
-      </div>
+      {/* Seleção pendente (prioridade, cartão…) — clicar em vez de digitar */}
+      {pending && (
+        <div className="px-3.5 pb-2">
+          <div className={`rounded-2xl p-3 border ${isDark ? 'bg-emerald-500/[0.06] border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
+            <p className={`text-[12px] font-bold mb-2 ${isDark ? 'text-slate-100' : 'text-slate-700'}`}>{pending.queue[0].label}</p>
+            <div className="flex flex-wrap gap-2">
+              {pending.queue[0].options.map(o => (
+                <button key={o.value} onClick={() => pickSelection(o.value)}
+                  className={`px-3.5 py-1.5 rounded-full text-[12px] font-bold border transition active:scale-95 ${isDark ? 'bg-white/[0.06] hover:bg-white/[0.12]' : 'bg-white hover:bg-slate-50'}`}
+                  style={o.color ? { borderColor: `${o.color}66`, color: o.color } : { borderColor: isDark ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }}>
+                  {o.label}
+                </button>
+              ))}
+              <button onClick={() => { setPending(null); addModelMsg('Ok, cancelei o lançamento.'); }} className={`px-3 py-1.5 rounded-full text-[12px] font-medium ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sugestões (escondidas durante uma seleção) */}
+      {!pending && (
+        <div className="px-3.5 pb-2 flex gap-2 overflow-x-auto custom-scrollbar">
+          {SUGGESTIONS.map(s => (
+            <button key={s} onClick={() => send(s)} disabled={isLoading}
+              className={`shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-full whitespace-nowrap transition-all active:scale-95 disabled:opacity-50 ${isDark ? 'bg-white/[0.05] text-slate-300 hover:bg-white/[0.09]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Entrada */}
       <div className={`px-3 py-3 border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>

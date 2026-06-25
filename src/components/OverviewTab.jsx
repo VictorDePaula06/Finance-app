@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { AreaChart, Area, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Eye, EyeOff, CreditCard, ChevronRight, TrendingUp, TrendingDown, ShieldCheck, ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react';
+import { Eye, EyeOff, CreditCard, ChevronRight, TrendingUp, TrendingDown, ShieldCheck, ArrowUpRight, ArrowDownRight, Wallet, X } from 'lucide-react';
 import FinancialHealthIndex from './FinancialHealthIndex';
 
 const CAT_COLORS = { housing: '#FB7185', food: '#FB923C', fast_food: '#F59E0B', transport: '#FACC15', health: '#F87171', education: '#60A5FA', pets: '#B45309', personal_care: '#F9A8D4', subscriptions: '#C084FC', credit_card: '#8B5CF6', church: '#93C5FD', taxes: '#64748B', leisure: '#818CF8', shopping: '#F472B6', credit_card_bill: '#8B5CF6', conta_fixa: '#6366F1', loan: '#FB7185', other: '#94A3B8' };
@@ -19,9 +19,11 @@ export default function OverviewTab({
     onSetInitialBalance,
     cards = [],
     subscriptions = [],
+    savingsJars = [],
     setActiveTab,
     setActiveModule
 }) {
+    const [showReserve, setShowReserve] = useState(false);
 
     const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 
@@ -158,11 +160,13 @@ export default function OverviewTab({
     const prevMonthKey = (() => { const [y, m] = monthKey.split('-').map(Number); const d = new Date(y, m - 2, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
     const mkOf = (t) => (t.date && t.date.slice ? t.date.slice(0, 7) : t.month);
 
-    // Gastos do mês por categoria (donut).
+    // Gastos do mês por categoria (donut). Inclui o crédito (compras em aberto na
+    // fatura), distribuído pela categoria REAL — e NÃO mostra "Fatura"
+    // (credit_card_bill é o pagamento da fatura, não um gasto por categoria).
     const categoryData = useMemo(() => {
         const grouped = {};
         transactions.forEach(t => {
-            if (t.type !== 'expense' || ['investment', 'vault'].includes(t.category)) return;
+            if (t.type !== 'expense' || ['investment', 'vault', 'credit_card_bill'].includes(t.category)) return;
             if (mkOf(t) !== monthKey) return;
             const c = t.category || 'other';
             grouped[c] = (grouped[c] || 0) + (parseFloat(t.amount) || 0);
@@ -216,6 +220,12 @@ export default function OverviewTab({
     const reserveTarget = monthlyExpForReserve * 6;
     const reserveFalta = Math.max(0, reserveTarget - reserveAmount);
     const reservePct = reserveTarget > 0 ? Math.min(100, (reserveAmount / reserveTarget) * 100) : 0;
+
+    // Últimos aportes da reserva (depósitos para a reserva/cofre).
+    const reserveAportes = useMemo(() => transactions
+        .filter(t => t.type === 'expense' && (t.category === 'vault' || (t.category === 'investment' && (t.source === 'patrimonio' || /reserva/i.test(t.description || ''))) || /reserva de emerg/i.test(t.description || '')))
+        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+        .slice(0, 6), [transactions]);
 
     // ===== LAYOUT da Visão Geral (saldo + Ganhos/Gastos/Reserva + Índice completo) =====
     const useNewLayout = true;
@@ -319,12 +329,61 @@ export default function OverviewTab({
                                     : <span className="font-bold text-emerald-500">Meta atingida 🎉</span>}
                             </div>
                         </div>
-                        <button onClick={() => setActiveModule && setActiveModule('patrimonio')} className={`mt-4 w-full py-2 rounded-xl text-[11px] font-bold transition-colors ${isDark ? 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>Ver detalhes →</button>
+                        <button onClick={() => setShowReserve(true)} className={`mt-4 w-full py-2 rounded-xl text-[11px] font-bold transition-colors ${isDark ? 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>Ver detalhes →</button>
                     </div>
                 </div>
 
                 {/* Índice de Saúde Financeira (score) — no lugar de "Insights para você" */}
                 <FinancialHealthIndex data={healthIndex} config={manualConfig} onUpdateConfig={onUpdateConfig} invoiceInfo={invoiceInfo} />
+
+                {/* Detalhes da Reserva — janela dentro do Controle de Gastos (só leitura). */}
+                {showReserve && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowReserve(false)}>
+                        <div className={`w-full max-w-md rounded-2xl border p-5 relative animate-in zoom-in-95 duration-200 max-h-[88vh] overflow-y-auto custom-scrollbar shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`} onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => setShowReserve(false)} className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-slate-100 text-slate-400'}`}><X className="w-4 h-4" /></button>
+                            <h3 className={`flex items-center gap-2 text-base font-black ${textColor}`}><ShieldCheck className="w-5 h-5 text-emerald-500" /> Reserva de emergência</h3>
+                            <p className={`text-3xl font-black tabular-nums mt-3 ${hideBalance ? 'blur-md select-none' : 'text-emerald-500'}`}>{hideBalance ? 'R$ ••••' : formatCurrency(reserveAmount)}</p>
+                            <p className="text-[12px] font-bold text-emerald-400">{reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} {reserveMonths === 1 ? 'mês' : 'meses'} de cobertura</p>
+                            <div className={`w-full h-2 rounded-full overflow-hidden mt-3 ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}><div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(3, reservePct)}%` }} /></div>
+                            <div className="flex justify-between mt-1.5 text-[11px]"><span className="text-slate-400">Meta: 6 meses de gastos</span>{reserveFalta > 0.005 ? <span className="text-slate-400">Falta <span className="text-amber-500 font-bold">{formatCurrency(reserveFalta)}</span></span> : <span className="text-emerald-500 font-bold">Meta atingida 🎉</span>}</div>
+
+                            {savingsJars.length > 0 && (
+                                <div className="mt-5">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Suas reservas</p>
+                                    <div className="space-y-2">
+                                        {savingsJars.map(j => (
+                                            <div key={j.id} className={`flex items-center justify-between p-2.5 rounded-xl ${isDark ? 'bg-white/[0.04]' : 'bg-slate-50'}`}>
+                                                <div className="min-w-0"><p className={`text-[13px] font-bold truncate ${textColor}`}>{j.name || 'Reserva'}</p><p className="text-[10px] text-slate-400">{j.cdiPercent || 100}% do CDI</p></div>
+                                                <span className={`text-[13px] font-black tabular-nums shrink-0 ${hideBalance ? 'blur-sm' : 'text-emerald-500'}`}>{hideBalance ? '•••' : formatCurrency(parseFloat(j.balance) || 0)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="mt-5">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Últimos aportes</p>
+                                {reserveAportes.length === 0 ? (
+                                    <p className="text-[12px] text-slate-400">Nenhum aporte registrado ainda.</p>
+                                ) : (
+                                    <div className="space-y-1.5">
+                                        {reserveAportes.map(t => (
+                                            <div key={t.id} className={`flex items-center justify-between p-2 rounded-lg ${isDark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>
+                                                <div className="min-w-0"><p className={`text-[12px] font-semibold truncate ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>{t.description || 'Aporte'}</p><p className="text-[10px] text-slate-400">{t.date ? new Date(t.date).toLocaleDateString('pt-BR') : ''}</p></div>
+                                                <span className="text-[12px] font-bold tabular-nums text-emerald-500 shrink-0">{hideBalance ? '•••' : `+ ${formatCurrency(parseFloat(t.amount) || 0)}`}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className={`mt-5 p-3 rounded-xl border text-[11px] leading-relaxed ${isDark ? 'bg-violet-500/[0.06] border-violet-500/15 text-slate-300' : 'bg-violet-50 border-violet-100 text-slate-600'}`}>
+                                Para <strong>adicionar, resgatar ou gerenciar</strong> a reserva, use o módulo <strong>Construção de Patrimônio</strong>.
+                            </div>
+                            <button onClick={() => { setShowReserve(false); setActiveModule && setActiveModule('patrimonio'); }} className="mt-3 w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-[12px] uppercase tracking-wider transition-colors">Ir para Construção de Patrimônio →</button>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
