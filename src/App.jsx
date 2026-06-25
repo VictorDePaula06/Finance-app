@@ -720,6 +720,7 @@ function Dashboard() {
                 cards={cards}
                 subscriptions={subscriptions}
                 setActiveTab={setActiveTab}
+                setActiveModule={setActiveModule}
                 setEditingJar={setEditingJar}
                 setJarDeleteConfirm={setJarDeleteConfirm}
                 baseIncome={parseFloat(manualConfig.income) || 0}
@@ -730,11 +731,10 @@ function Dashboard() {
 
             if (isLocalhost) {
               return (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:items-stretch animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4 xl:items-stretch animate-in fade-in slide-in-from-bottom-4 duration-700">
                   <div className="min-w-0">{overview}</div>
-                  {/* Coluna direita acompanha a altura da esquerda (Índice): o conteúdo
-                      fica absoluto para não esticar a linha do grid, e o card de Metas
-                      rola internamente — assim as duas colunas terminam alinhadas. */}
+                  {/* Coluna direita (chat) mais estreita; o conteudo fica absoluto
+                      para nao esticar a linha do grid e acompanhar a altura da esquerda. */}
                   <div className="relative min-w-0">
                     <div className="xl:absolute xl:inset-0 flex flex-col min-h-0">
                       <OverviewChat

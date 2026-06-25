@@ -1,7 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { AreaChart, Area, ResponsiveContainer } from 'recharts';
-import { Eye, EyeOff, CreditCard, ChevronRight, TrendingUp, TrendingDown, ShieldCheck } from 'lucide-react';
+import { AreaChart, Area, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Eye, EyeOff, CreditCard, ChevronRight, TrendingUp, TrendingDown, ShieldCheck, ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react';
 import FinancialHealthIndex from './FinancialHealthIndex';
+
+const CAT_COLORS = { housing: '#FB7185', food: '#FB923C', fast_food: '#F59E0B', transport: '#FACC15', health: '#F87171', education: '#60A5FA', pets: '#B45309', personal_care: '#F9A8D4', subscriptions: '#C084FC', credit_card: '#8B5CF6', church: '#93C5FD', taxes: '#64748B', leisure: '#818CF8', shopping: '#F472B6', credit_card_bill: '#8B5CF6', conta_fixa: '#6366F1', loan: '#FB7185', other: '#94A3B8' };
+const CAT_LABELS = { housing: 'Moradia', food: 'Alimentação', fast_food: 'Fast Food', transport: 'Transporte', health: 'Saúde', education: 'Educação', pets: 'Pets', personal_care: 'Cuidados', subscriptions: 'Assinaturas', credit_card: 'Cartão', church: 'Igreja', taxes: 'Taxas', leisure: 'Lazer', shopping: 'Compras', credit_card_bill: 'Fatura', conta_fixa: 'Conta Fixa', loan: 'Empréstimo', other: 'Outros' };
 
 export default function OverviewTab({
     transactions,
@@ -16,7 +19,8 @@ export default function OverviewTab({
     onSetInitialBalance,
     cards = [],
     subscriptions = [],
-    setActiveTab
+    setActiveTab,
+    setActiveModule
 }) {
 
     const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
@@ -149,6 +153,70 @@ export default function OverviewTab({
     const textColor = theme === 'light' ? 'text-slate-800' : 'text-white';
     const subTextColor = theme === 'light' ? 'text-slate-500' : 'text-slate-400';
 
+    // ── Dados extras p/ o layout (categorias, % vs mês anterior, sparklines, meta reserva) ──
+    const monthKey = new Date().toISOString().slice(0, 7);
+    const prevMonthKey = (() => { const [y, m] = monthKey.split('-').map(Number); const d = new Date(y, m - 2, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+    const mkOf = (t) => (t.date && t.date.slice ? t.date.slice(0, 7) : t.month);
+
+    // Gastos do mês por categoria (donut).
+    const categoryData = useMemo(() => {
+        const grouped = {};
+        transactions.forEach(t => {
+            if (t.type !== 'expense' || ['investment', 'vault'].includes(t.category)) return;
+            if (mkOf(t) !== monthKey) return;
+            const c = t.category || 'other';
+            grouped[c] = (grouped[c] || 0) + (parseFloat(t.amount) || 0);
+        });
+        const total = Object.values(grouped).reduce((a, b) => a + b, 0);
+        let rows = Object.entries(grouped)
+            .map(([id, value]) => ({ id, value, label: CAT_LABELS[id] || 'Outros', color: CAT_COLORS[id] || CAT_COLORS.other, pct: total > 0 ? (value / total) * 100 : 0 }))
+            .sort((a, b) => b.value - a.value);
+        if (rows.length > 6) {
+            const tail = rows.slice(5);
+            const tailSum = tail.reduce((a, r) => a + r.value, 0);
+            rows = [...rows.slice(0, 5), { id: 'other', value: tailSum, label: 'Outros', color: CAT_COLORS.other, pct: total > 0 ? (tailSum / total) * 100 : 0 }];
+        }
+        return { rows, total };
+    }, [transactions, monthKey]);
+
+    // Ganhos/Gastos do mês atual vs anterior (para a variação %).
+    const monthlyAgg = useMemo(() => {
+        const inc = (mk) => transactions.filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category) && mkOf(t) === mk).reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+        const exp = (mk) => transactions.filter(t => t.type === 'expense' && !['investment', 'vault'].includes(t.category) && t.paymentMethod !== 'credito' && mkOf(t) === mk).reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+        return { incPrev: inc(prevMonthKey), expPrev: exp(prevMonthKey) };
+    }, [transactions, prevMonthKey]);
+    const mIncomeVal = walletStats.income || 0;
+    const mExpenseVal = walletStats.expense || 0;
+    const pctIncome = monthlyAgg.incPrev > 0 ? ((mIncomeVal - monthlyAgg.incPrev) / monthlyAgg.incPrev) * 100 : null;
+    const pctExpense = monthlyAgg.expPrev > 0 ? ((mExpenseVal - monthlyAgg.expPrev) / monthlyAgg.expPrev) * 100 : null;
+
+    // Sparklines (acumulado diário do mês) p/ ganhos e gastos.
+    const sparks = useMemo(() => {
+        const [y, m] = monthKey.split('-').map(Number);
+        const days = new Date(y, m, 0).getDate();
+        const incPer = new Array(days).fill(0);
+        const expPer = new Array(days).fill(0);
+        transactions.forEach(t => {
+            if (mkOf(t) !== monthKey) return;
+            const d = new Date(t.date); if (isNaN(d.getTime())) return;
+            const day = Math.min(days, Math.max(1, d.getDate())) - 1;
+            const v = parseFloat(t.amount) || 0;
+            if (t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category)) incPer[day] += v;
+            else if (t.type === 'expense' && !['investment', 'vault'].includes(t.category) && t.paymentMethod !== 'credito') expPer[day] += v;
+        });
+        let ai = 0, ae = 0;
+        return {
+            income: incPer.map((v, i) => ({ name: i + 1, value: (ai += v) })),
+            expense: expPer.map((v, i) => ({ name: i + 1, value: (ae += v) })),
+        };
+    }, [transactions, monthKey]);
+
+    // Reserva: meta de 6 meses, falta e progresso.
+    const monthlyExpForReserve = reserveMonths > 0 ? reserveAmount / reserveMonths : (mExpenseVal || parseFloat(manualConfig?.fixedExpenses) || 0);
+    const reserveTarget = monthlyExpForReserve * 6;
+    const reserveFalta = Math.max(0, reserveTarget - reserveAmount);
+    const reservePct = reserveTarget > 0 ? Math.min(100, (reserveAmount / reserveTarget) * 100) : 0;
+
     // ===== LAYOUT da Visão Geral (saldo + Ganhos/Gastos/Reserva + Índice completo) =====
     const useNewLayout = true;
     if (useNewLayout) {
@@ -162,69 +230,100 @@ export default function OverviewTab({
         const showBaseIncomeHint = mIncome <= 0 && baseIncomeForIndex > 0;
         return (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-4">
-                {/* Hero do Saldo */}
-                <div className={`rounded-3xl border overflow-hidden ${card}`}>
-                    <div className="p-5">
-                        {/* Saldo + info: empilhado no mobile, lado a lado no sm+ */}
-                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                            {/* Saldo */}
-                            <div className="min-w-0">
-                                <div className="flex items-center gap-2 mb-1.5">
-                                    <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-400">Saldo Total em Carteira</span>
-                                    <button onClick={toggleHideBalance} className="text-slate-400 hover:text-blue-500 transition-colors">{hideBalance ? <EyeOff size={15} /> : <Eye size={15} />}</button>
-                                </div>
-                                <div className={`text-3xl md:text-4xl font-black tracking-tight tabular-nums ${hideBalance ? 'blur-md select-none' : 'text-blue-400'}`}>{hideBalance ? 'R$ 0.000,00' : formatCurrency(walletStats.balance)}</div>
-                                <p className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 mt-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Saldo atual disponível em conta</p>
-                            </div>
+                {/* Linha 1: Ganhos / Gastos / Saldo disponível */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Ganhos no mês */}
+                    <div className={`p-5 rounded-2xl border ${card}`}>
+                        <span className="flex items-center gap-2 text-[12px] font-bold text-slate-400"><span className={`p-1.5 rounded-lg ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}><TrendingUp className="w-4 h-4 text-emerald-500" /></span> Ganhos no mês</span>
+                        <p className={`text-2xl font-black tracking-tight tabular-nums mt-2 ${hideBalance ? 'blur-md select-none' : textColor}`}>{hideBalance ? 'R$ ••••' : formatCurrency(mIncome)}</p>
+                        <div className="mt-1 min-h-[16px]">
+                            {pctIncome != null && isFinite(pctIncome)
+                                ? <span className={`inline-flex items-center gap-0.5 text-[11px] font-bold ${pctIncome >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{pctIncome >= 0 ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}{pctIncome >= 0 ? '+' : ''}{pctIncome.toFixed(1)}% vs mês anterior</span>
+                                : <span className="text-[11px] text-slate-400">{showBaseIncomeHint ? `usa renda base ${formatCurrency(baseIncomeForIndex)}` : 'este mês'}</span>}
+                        </div>
+                        <div className="h-12 -mx-1 mt-2">
+                            <ResponsiveContainer width="100%" height="100%"><AreaChart data={sparks.income}><defs><linearGradient id="spkInc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10B981" stopOpacity={0.35} /><stop offset="100%" stopColor="#10B981" stopOpacity={0} /></linearGradient></defs><Area type="monotone" dataKey="value" stroke="#10B981" strokeWidth={2} fill="url(#spkInc)" /></AreaChart></ResponsiveContainer>
+                        </div>
+                    </div>
 
-                            {/* Variação do saldo no mês — ocupa largura total no mobile.
-                                (A fatura agora fica no card "Fatura do cartão" abaixo.) */}
-                            <div className="w-full sm:w-[56%] sm:shrink-0 sm:max-w-[380px]">
-                                <div className="flex items-center justify-start sm:justify-end gap-3 mt-1 sm:mt-0 sm:h-full">
-                                    {pctMonth != null && isFinite(pctMonth) && (<span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${pctMonth >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}><TrendingUp className={`w-3.5 h-3.5 ${pctMonth < 0 ? 'rotate-180' : ''}`} />{pctMonth >= 0 ? '+' : ''}{pctMonth.toFixed(0)}% este mês</span>)}
-                                    <div className="w-28 h-12 hidden sm:block">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <AreaChart data={balanceHistoryData}>
-                                                <defs><linearGradient id="colorBalanceV2" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10B981" stopOpacity={0.3} /><stop offset="95%" stopColor="#10B981" stopOpacity={0} /></linearGradient></defs>
-                                                <Area type="monotone" dataKey="value" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#colorBalanceV2)" />
-                                            </AreaChart>
-                                        </ResponsiveContainer>
+                    {/* Gastos no mês */}
+                    <div className={`p-5 rounded-2xl border ${card}`}>
+                        <span className="flex items-center gap-2 text-[12px] font-bold text-slate-400"><span className={`p-1.5 rounded-lg ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><TrendingDown className="w-4 h-4 text-rose-500" /></span> Gastos no mês</span>
+                        <p className={`text-2xl font-black tracking-tight tabular-nums mt-2 ${hideBalance ? 'blur-md select-none' : textColor}`}>{hideBalance ? 'R$ ••••' : formatCurrency(mExpense)}</p>
+                        <div className="mt-1 min-h-[16px]">
+                            {pctExpense != null && isFinite(pctExpense)
+                                ? <span className={`inline-flex items-center gap-0.5 text-[11px] font-bold ${pctExpense <= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{pctExpense <= 0 ? <ArrowDownRight className="w-3.5 h-3.5" /> : <ArrowUpRight className="w-3.5 h-3.5" />}{pctExpense >= 0 ? '+' : ''}{pctExpense.toFixed(1)}% vs mês anterior</span>
+                                : <span className="text-[11px] text-slate-400">este mês</span>}
+                        </div>
+                        <div className="h-12 -mx-1 mt-2">
+                            <ResponsiveContainer width="100%" height="100%"><AreaChart data={sparks.expense}><defs><linearGradient id="spkExp" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FB7185" stopOpacity={0.35} /><stop offset="100%" stopColor="#FB7185" stopOpacity={0} /></linearGradient></defs><Area type="monotone" dataKey="value" stroke="#FB7185" strokeWidth={2} fill="url(#spkExp)" /></AreaChart></ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Saldo disponível */}
+                    <div className={`p-5 rounded-2xl border ${card}`}>
+                        <span className="flex items-center justify-between text-[12px] font-bold text-slate-400">
+                            <span className="flex items-center gap-2"><span className={`p-1.5 rounded-lg ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}><Wallet className="w-4 h-4 text-violet-500" /></span> Saldo disponível</span>
+                            <button onClick={toggleHideBalance} className="text-slate-400 hover:text-blue-500 transition-colors">{hideBalance ? <EyeOff size={14} /> : <Eye size={14} />}</button>
+                        </span>
+                        <p className={`text-2xl md:text-3xl font-black tracking-tight tabular-nums mt-2 ${hideBalance ? 'blur-md select-none' : 'text-blue-400'}`}>{hideBalance ? 'R$ ••••' : formatCurrency(walletStats.balance)}</p>
+                        <p className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 mt-2"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Saldo atual disponível em conta</p>
+                    </div>
+                </div>
+
+                {/* Linha 2: Gastos por categoria (donut) / Reserva de emergência */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className={`p-5 rounded-2xl border flex flex-col ${card}`}>
+                        <h3 className={`text-sm font-black ${textColor} mb-3`}>Gastos por categoria</h3>
+                        {categoryData.rows.length === 0 ? (
+                            <p className="text-xs text-slate-400 text-center py-12 flex-1">Nenhum gasto neste mês ainda.</p>
+                        ) : (
+                            <div className="flex items-center gap-4 flex-1">
+                                <div className="relative w-32 h-32 shrink-0">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie data={categoryData.rows} dataKey="value" cx="50%" cy="50%" innerRadius={42} outerRadius={60} paddingAngle={3} stroke="none">
+                                                {categoryData.rows.map(r => <Cell key={r.id} fill={r.color} />)}
+                                            </Pie>
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                        <span className="text-[8px] text-slate-400 uppercase font-black tracking-wider">Total</span>
+                                        <span className={`text-[12px] font-black ${hideBalance ? 'blur-sm' : textColor}`}>{hideBalance ? '•••' : formatCurrency(categoryData.total)}</span>
                                     </div>
                                 </div>
+                                <div className="flex-1 min-w-0 space-y-1.5">
+                                    {categoryData.rows.map(r => (
+                                        <div key={r.id} className="flex items-center gap-2 text-[12px]">
+                                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: r.color }} />
+                                            <span className={`flex-1 min-w-0 truncate ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>{r.label} <span className="text-slate-400 font-medium">{r.pct.toFixed(0)}%</span></span>
+                                            <span className={`font-bold tabular-nums shrink-0 ${hideBalance ? 'blur-sm' : textColor}`}>{hideBalance ? '•••' : formatCurrency(r.value)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        <button onClick={() => setActiveTab && setActiveTab('analise')} className={`mt-4 w-full py-2 rounded-xl text-[11px] font-bold transition-colors ${isDark ? 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>Ver todas as categorias →</button>
+                    </div>
+
+                    <div className={`p-5 rounded-2xl border flex flex-col ${card}`}>
+                        <h3 className={`flex items-center gap-2 text-sm font-black ${textColor} mb-3`}><ShieldCheck className="w-4 h-4 text-emerald-500" /> Reserva de emergência</h3>
+                        <div className="flex-1">
+                            <p className={`text-2xl md:text-3xl font-black tracking-tight tabular-nums ${hideBalance ? 'blur-md select-none' : 'text-emerald-500'}`}>{hideBalance ? 'R$ ••••' : formatCurrency(reserveAmount)}</p>
+                            <p className="text-[12px] font-bold text-emerald-400 mt-1">{reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} {reserveMonths === 1 ? 'mês' : 'meses'} de cobertura</p>
+                            <div className={`w-full h-2.5 rounded-full overflow-hidden mt-4 ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}><div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700" style={{ width: `${Math.max(3, reservePct)}%` }} /></div>
+                            <div className="flex items-center justify-between mt-2 text-[11px]">
+                                <span className="text-slate-400">Meta: <span className="font-bold text-slate-300">6 meses de gastos</span></span>
+                                {reserveFalta > 0.005
+                                    ? <span className="font-bold text-slate-400">Falta: <span className="text-amber-500">{formatCurrency(reserveFalta)}</span></span>
+                                    : <span className="font-bold text-emerald-500">Meta atingida 🎉</span>}
                             </div>
                         </div>
+                        <button onClick={() => setActiveModule && setActiveModule('patrimonio')} className={`mt-4 w-full py-2 rounded-xl text-[11px] font-bold transition-colors ${isDark ? 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>Ver detalhes →</button>
                     </div>
                 </div>
 
-                {/* Ganhos / Gastos / Fatura do cartão */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className={`p-4 rounded-2xl border flex items-center gap-3 ${card}`}>
-                        <span className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}><TrendingUp className="w-5 h-5 text-emerald-500" /></span>
-                        <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">Ganhos no mês</p><p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-emerald-500'}`}>{hideBalance ? 'R$ ••' : formatCurrency(mIncome)}</p>{showBaseIncomeHint && <p className="text-[9px] text-slate-400 truncate" title="Sem recebimento lançado neste mês — o Índice de Saúde usa a renda base configurada.">Índice usa renda base {formatCurrency(baseIncomeForIndex)}</p>}</div>
-                    </div>
-                    <div className={`p-4 rounded-2xl border flex items-center gap-3 ${card}`}>
-                        <span className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><TrendingDown className="w-5 h-5 text-rose-500" /></span>
-                        <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">Gastos no mês</p><p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-rose-500'}`}>{hideBalance ? 'R$ ••' : formatCurrency(mExpense)}</p></div>
-                    </div>
-                    <button onClick={() => setActiveTab && setActiveTab('cartoes')} className={`p-4 rounded-2xl border flex items-center gap-3 text-left transition-all hover:scale-[1.01] ${card}`}>
-                        <span className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}><CreditCard className="w-5 h-5 text-violet-500" /></span>
-                        <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-wide text-slate-400 leading-tight">Fatura do cartão</p>
-                            {invoiceInfo.hasCards && invoiceInfo.openTotal > 0.005 ? (
-                                <>
-                                    <p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-violet-400'}`}>{hideBalance ? 'R$ ••' : formatCurrency(invoiceInfo.openTotal)}</p>
-                                    <p className="text-[9px] text-slate-400 truncate">{invoiceInfo.openDue ? `vence ${invoiceInfo.openDue.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}` : 'fatura aberta'}</p>
-                                </>
-                            ) : (
-                                <>
-                                    <p className={`text-base md:text-lg font-black truncate ${hideBalance ? 'blur-md select-none' : 'text-slate-400'}`}>{hideBalance ? 'R$ ••' : formatCurrency(0)}</p>
-                                    <p className="text-[9px] text-slate-400 truncate">{invoiceInfo.hasCards ? 'sem fatura aberta' : 'nenhum cartão'}</p>
-                                </>
-                            )}
-                        </div>
-                    </button>
-                </div>
-
-                {/* Índice de Saúde Financeira (completo, com semáforo) */}
+                {/* Índice de Saúde Financeira (score) — no lugar de "Insights para você" */}
                 <FinancialHealthIndex data={healthIndex} config={manualConfig} onUpdateConfig={onUpdateConfig} invoiceInfo={invoiceInfo} />
             </div>
         );
