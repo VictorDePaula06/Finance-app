@@ -325,10 +325,10 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
         <KpiCard isDark={isDark} accent="#f59e0b" label="Transações" value={String(txCount)} delta={pctDelta(txCount, prev.count)} />
       </div>
 
-      {/* Barra de filtros (mesmo padrão de Metas de Gasto) */}
-      <div className={`rounded-2xl border p-3 flex flex-wrap items-center gap-x-5 gap-y-2.5 ${card}`}>
-        {/* Período */}
-        <div className="flex items-center gap-2 flex-wrap">
+      {/* Barra de filtros: Período (linha 1) · Prioridade + Pagamento + Limpar (linha 2) */}
+      <div className={`rounded-2xl border p-3 space-y-2.5 ${card}`}>
+        {/* Linha 1 — Período */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Período</span>
           <div className={`flex items-center rounded-lg border ${fieldBg}`}>
             <button onClick={goPrev} className="p-1.5 text-slate-400 hover:text-emerald-400"><ChevronLeft className="w-4 h-4" /></button>
@@ -348,33 +348,36 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
           </div>
         </div>
 
-        {/* Prioridade */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Prioridade</span>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {PRIORITY_ORDER.map(id => {
-              const meta = PRIORITY_META[id];
-              return <Chip key={id} active={selPriorities.includes(id)} onClick={() => togglePriority(id)} hex={meta.color} icon={meta.icon}>{meta.label}</Chip>;
-            })}
-          </div>
-        </div>
-
-        {/* Pagamento */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Pagamento</span>
-          {availablePayments.length === 0 ? (
-            <span className={`text-[10px] ${sub}`}>—</span>
-          ) : (
+        {/* Linha 2 — Prioridade + Pagamento (à direita de Prioridade) + Limpar */}
+        <div className={`flex flex-wrap items-center gap-x-5 gap-y-2 pt-2.5 border-t ${isDark ? 'border-white/[0.05]' : 'border-slate-100'}`}>
+          {/* Prioridade */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Prioridade</span>
             <div className="flex items-center gap-1.5 flex-wrap">
-              {availablePayments.map(id => {
-                const meta = PAYMENT_META[id];
-                return <Chip key={id} active={selPayments.includes(id)} onClick={() => togglePayment(id)} hex={meta.color} icon={meta.icon}>{meta.label}</Chip>;
+              {PRIORITY_ORDER.map(id => {
+                const meta = PRIORITY_META[id];
+                return <Chip key={id} active={selPriorities.includes(id)} onClick={() => togglePriority(id)} hex={meta.color} icon={meta.icon}>{meta.label}</Chip>;
               })}
             </div>
-          )}
-        </div>
+          </div>
 
-        <button onClick={clearFilters} disabled={!hasFilters} className={`ml-auto text-[11px] font-bold transition-colors ${hasFilters ? 'text-emerald-400 hover:text-emerald-300' : 'text-slate-600 cursor-default'}`}>Limpar</button>
+          {/* Pagamento — à direita de Prioridade */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Pagamento</span>
+            {availablePayments.length === 0 ? (
+              <span className={`text-[10px] ${sub}`}>—</span>
+            ) : (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {availablePayments.map(id => {
+                  const meta = PAYMENT_META[id];
+                  return <Chip key={id} active={selPayments.includes(id)} onClick={() => togglePayment(id)} hex={meta.color} icon={meta.icon}>{meta.label}</Chip>;
+                })}
+              </div>
+            )}
+          </div>
+
+          <button onClick={clearFilters} disabled={!hasFilters} className={`ml-auto text-[11px] font-bold transition-colors ${hasFilters ? 'text-emerald-400 hover:text-emerald-300' : 'text-slate-600 cursor-default'}`}>Limpar</button>
+        </div>
       </div>
 
       {/* Datas personalizadas */}
