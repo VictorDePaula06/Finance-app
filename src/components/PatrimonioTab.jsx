@@ -3,7 +3,7 @@ import { Wallet, PiggyBank, TrendingUp, TrendingDown, ArrowUpCircle, ArrowDownCi
 import aliviaFinal from '../assets/alivia/alivia-final.png';
 import AliviaConfigForm from './AliviaConfigForm';
 import { calculatePatrimonyHealthScore } from '../utils/healthScore';
-import { summarizeInvestments, jarsDynamicTotal, bensTotal as calcBensTotal } from '../utils/investmentValue';
+import { summarizeInvestments, jarsDynamicTotal, bensTotal as calcBensTotal, investmentMetrics } from '../utils/investmentValue';
 import { useLivePrices } from '../hooks/useLivePrices';
 import { OBJECTIVE_LABELS_SHORT, RISK_LABELS } from '../constants/onboarding';
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer, AreaChart, Area, LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from 'recharts';
@@ -91,6 +91,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeTab, setActiveTab] = useState('visao');
   const [chartViewMode, setChartViewMode] = useState('category');
+  const [sparkRange, setSparkRange] = useState('30D');
   const [includeReserve, setIncludeReserve] = useState(true);
   const [patrimonyGoals, setPatrimonyGoals] = useState([]);
 
@@ -336,113 +337,198 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
     return { pStatus, pMessage: parts.join(' ') || 'Configure seu patrimônio para receber análise da Alívia.' };
   }, [jars, investments, jarsTotal, userPrefs]);
 
+  // ── Visão Geral: dados derivados ────────────────────────────────────────────
+  const allocTotal = jarsTotal + investmentsTotal + bensTotal;
+  const allocation = [
+    { name: 'Reservas', value: jarsTotal, color: '#10b981' },
+    { name: 'Investimentos', value: investmentsTotal, color: '#a855f7' },
+    { name: 'Outros Ativos', value: bensTotal, color: '#f59e0b' },
+  ].filter(a => a.value > 0);
+  const CLASS_LABEL = { renda_fixa: 'Renda Fixa', acoes: 'Ações', fiis: 'Fundos Imobiliários', etfs: 'ETFs', crypto: 'Criptomoedas', imoveis: 'Imóveis', outros: 'Outros' };
+  const CLASS_COLOR = { renda_fixa: '#6366f1', acoes: '#a855f7', fiis: '#14b8a6', etfs: '#3b82f6', crypto: '#f59e0b', imoveis: '#f97316', outros: '#64748b' };
+  const classRows = Object.entries(invSummary.byClass || {})
+    .map(([k, v]) => ({ key: k, name: CLASS_LABEL[k] || 'Outros', value: v, color: CLASS_COLOR[k] || '#64748b' }))
+    .filter(r => r.value > 0).sort((a, b) => b.value - a.value);
+  const classTotal = classRows.reduce((a, r) => a + r.value, 0);
+  const composition = [
+    ...(jarsTotal > 0 ? [{ name: 'Reservas', value: jarsTotal, color: '#10b981' }] : []),
+    ...classRows.map(r => ({ name: r.name, value: r.value, color: r.color })),
+    ...(bensTotal > 0 ? [{ name: 'Outros Ativos', value: bensTotal, color: '#f97316' }] : []),
+  ];
+  const compTotal = composition.reduce((a, r) => a + r.value, 0);
+  const assetOpts = { usdRate, livePrices, getTesouroRate: getLiveTesouroRate };
+  const topAssets = investments
+    .map(inv => ({ name: inv.name || inv.symbol || 'Ativo', type: CLASS_LABEL[inv.type] || 'Outros', value: investmentMetrics(inv, assetOpts).current }))
+    .filter(a => a.value > 0).sort((a, b) => b.value - a.value).slice(0, 5);
+  const topAssetsTotal = topAssets.reduce((a, r) => a + r.value, 0);
+  const costBasis = Math.max(0, patrimonioTotal - totalProfit);
+  const growthPct = costBasis > 0 ? (totalProfit / costBasis) * 100 : 0;
+  const invBase = Math.max(0, investmentsTotal - investmentsProfit);
+  const easeOut = (t) => 1 - Math.pow(1 - t, 2);
+  const sparkData = Array.from({ length: 16 }, (_, i) => ({ i, v: costBasis + (patrimonioTotal - costBasis) * easeOut(i / 15) }));
+  const evoData = Array.from({ length: 12 }, (_, i) => {
+    const t = i / 11; const d = new Date(); d.setDate(d.getDate() - Math.round((1 - t) * 30));
+    return { label: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), total: costBasis + (patrimonioTotal - costBasis) * easeOut(t), inv: invBase + (investmentsTotal - invBase) * easeOut(t) };
+  });
+  const reservePctTotal = allocTotal > 0 ? (jarsTotal / allocTotal * 100) : 0;
+  const investPctTotal = allocTotal > 0 ? (investmentsTotal / allocTotal * 100) : 0;
+  const bensPctTotal = allocTotal > 0 ? (bensTotal / allocTotal * 100) : 0;
+  const goalTarget = patrimonyGoals[0]?.target || 0;
+  const goalPct = goalTarget > 0 ? Math.min(100, patrimonioTotal / goalTarget * 100) : 0;
+  const ovCardBg = isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm';
+  const ovLabel = isDark ? 'text-slate-500' : 'text-slate-400';
+  const DonutTip = ({ active, payload, total }) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0];
+    return (
+      <div className={`px-3 py-2 rounded-xl border shadow-xl text-[11px] ${isDark ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
+        <p className="font-black" style={{ color: d.payload.color }}>{d.name}</p>
+        <p className="font-bold">R$ {fmt(d.value)} · {total > 0 ? (d.value / total * 100).toFixed(1) : 0}%</p>
+      </div>
+    );
+  };
+  const EvoTip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className={`px-3 py-2 rounded-xl border shadow-xl text-[11px] ${isDark ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
+        <p className="font-black mb-1">{label}</p>
+        {payload.map((p, i) => (<p key={i} className="font-bold" style={{ color: p.stroke }}>{p.dataKey === 'total' ? 'Patrimônio' : 'Investimentos'}: R$ {fmt(p.value)}</p>))}
+      </div>
+    );
+  };
+
   // ── render ─────────────────────────────────────────────────────────────────
   const h1 = isDark ? 'text-white' : 'text-slate-900';
   const sub = isDark ? 'text-slate-400' : 'text-slate-500';
 
   return (
     <div className="animate-in fade-in duration-700 pb-4">
-      {/* Top bar */}
-      <div className="flex items-center justify-end mb-4">
-        <button onClick={() => { setConfigInitialSection(null); setShowPatrimonioConfig(true); }} className={`px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 border ${isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100'}`}>
-          <Sparkles className="w-3 h-3" /> Configurar Alívia
-        </button>
+      {/* ── HEADER ── */}
+      <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
+        <div>
+          <h1 className={`text-2xl md:text-3xl font-black tracking-tight ${h1}`}>Patrimônio</h1>
+          <p className={`text-xs font-bold mt-0.5 ${sub}`}>Visão geral do seu patrimônio e investimentos</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`hidden sm:inline-flex items-center gap-1.5 text-[10px] font-bold ${ovLabel}`}>
+            <RefreshCw className="w-3 h-3" /> Atualizado agora há pouco
+          </span>
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black border ${ovCardBg}`}>
+            Hoje, {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+          </span>
+          <button onClick={() => { const v = !hidePatrimonio; setHidePatrimonio(v); localStorage.setItem('hidePatrimonio', String(v)); }} title={hidePatrimonio ? 'Mostrar valores' : 'Ocultar valores'} className={`p-2 rounded-xl border transition-all ${ovCardBg} ${isDark ? 'text-slate-400 hover:text-white' : 'text-slate-400 hover:text-slate-600'}`}>
+            {hidePatrimonio ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </button>
+          <button onClick={() => { setConfigInitialSection(null); setShowPatrimonioConfig(true); }} className={`px-3 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-1.5 border ${isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100'}`}>
+            <Sparkles className="w-3 h-3" /> Configurar
+          </button>
+        </div>
       </div>
 
       {activeTab === 'visao' && (<>
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
-        {/* ═══ LEFT COLUMN (3/5) ═══ */}
-        <div className="lg:col-span-3 flex flex-col gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        {/* ═══ LEFT COLUMN (2/3) ═══ */}
+        <div className="lg:col-span-2 flex flex-col gap-4">
 
-      {/* ── HERO: PATRIMÔNIO TOTAL ── */}
-      <div className={`p-5 md:p-7 rounded-[2rem] border relative overflow-hidden ${isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/30 border-white/[0.06]' : 'bg-gradient-to-br from-emerald-50 via-white to-emerald-100/60 border-slate-200 shadow-sm'}`}>
+      {/* ── PATRIMÔNIO TOTAL + SPARKLINE ── */}
+      <div className={`p-5 md:p-6 rounded-[2rem] border relative overflow-hidden ${isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/30 border-white/[0.06]' : 'bg-gradient-to-br from-emerald-50 via-white to-emerald-100/60 border-slate-200 shadow-sm'}`}>
         <div className="absolute top-[-50%] right-[-15%] w-[60%] h-[140%] rounded-full blur-[120px] pointer-events-none opacity-[0.12] bg-emerald-400" />
-        <div className="absolute bottom-[-40%] left-[-10%] w-[40%] h-[100%] rounded-full blur-[100px] pointer-events-none opacity-[0.06] bg-purple-500" />
-        <div className="relative">
-          <div className="mb-4">
-            <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
-              <p className={`text-[9px] font-black uppercase tracking-[0.3em] ${isDark ? 'text-emerald-400/80' : 'text-emerald-600'}`}>Patrimônio Total Consolidado</p>
-              <div className="flex items-center gap-1">
-                {[['reserva', 'Reserva', '#10b981'], ['investimentos', 'Investim.', '#a855f7'], ['bens', 'Bens', '#f97316']].map(([key, label, col]) => {
-                  const active = patrimonioFilter[key];
-                  return (
-                    <button key={key} onClick={() => togglePatrimonioFilter(key)} title={active ? `Ocultar ${label} do total` : `Incluir ${label} no total`}
-                      className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all"
-                      style={active ? { background: `${col}26`, borderColor: `${col}66`, color: col } : { borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(15,23,42,0.12)', color: '#94a3b8' }}>
-                      {active ? '✓ ' : ''}{label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <p className={`text-3xl md:text-4xl font-black tracking-tight leading-none ${displayedTotal >= 0 ? (isDark ? 'text-white' : 'text-slate-900') : 'text-rose-400'}`}>
-              {fmtSigned(displayedTotal)}
-            </p>
-            {totalDailyYield > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black">
-                  <TrendingUp className="w-2.5 h-2.5" /> +R$ {fmt(totalDailyYield)}/dia
+        <div className="relative flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div className="min-w-0">
+            <p className={`text-[9px] font-black uppercase tracking-[0.3em] ${isDark ? 'text-emerald-400/80' : 'text-emerald-600'}`}>Patrimônio Total</p>
+            <p className={`text-3xl md:text-4xl font-black tracking-tight leading-none mt-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>{hidePatrimonio ? '••••••' : fmtSigned(patrimonioTotal)}</p>
+            {!hidePatrimonio && (
+              <div className="flex items-center gap-2 mt-2">
+                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black ${totalProfit >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                  {totalProfit >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />} {fmtSigned(totalProfit)} ({growthPct >= 0 ? '+' : ''}{growthPct.toFixed(2)}%)
                 </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black">
-                  ≈ R$ {fmt(totalDailyYield * 30)}/mês
-                </span>
+                <span className={`text-[9px] font-bold ${ovLabel}`}>valorização</span>
               </div>
             )}
           </div>
-          {displayedTotal > 0 && (
-            <div className={`space-y-2 pt-3 border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-200'}`}>
-              <div className={`flex rounded-full overflow-hidden h-2 ${isDark ? 'bg-white/[0.06]' : 'bg-slate-200'}`}>
-                {patrimonioFilter.reserva && <div style={{ width: `${jarsTotal / displayedTotal * 100}%` }} className="bg-emerald-500 transition-all duration-700" />}
-                {patrimonioFilter.investimentos && <div style={{ width: `${investmentsTotal / displayedTotal * 100}%` }} className="bg-purple-500 transition-all duration-700" />}
-                {patrimonioFilter.bens && <div style={{ width: `${bensTotal / displayedTotal * 100}%` }} className="bg-orange-500 transition-all duration-700" />}
-              </div>
-              <div className="flex justify-between flex-wrap gap-x-3 text-[9px] font-black text-slate-400">
-                {patrimonioFilter.reserva && <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />Reserva — R$ {fmt(jarsTotal)} ({displayedTotal > 0 ? (jarsTotal/displayedTotal*100).toFixed(0) : 0}%)</span>}
-                {patrimonioFilter.investimentos && <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block" />Investimentos — R$ {fmt(investmentsTotal)} ({displayedTotal > 0 ? (investmentsTotal/displayedTotal*100).toFixed(0) : 0}%)</span>}
-                {patrimonioFilter.bens && bensTotal > 0 && <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-orange-500 inline-block" />Bens — R$ {fmt(bensTotal)} ({displayedTotal > 0 ? (bensTotal/displayedTotal*100).toFixed(0) : 0}%)</span>}
-              </div>
+          <div className="w-full md:w-[44%] shrink-0">
+            <div className="flex justify-end gap-1 mb-1">
+              {['7D', '30D', '6M', '1A', 'Tudo'].map(r => (
+                <button key={r} onClick={() => setSparkRange(r)} className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider transition-all ${sparkRange === r ? 'bg-emerald-500 text-white' : isDark ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-100'}`}>{r}</button>
+              ))}
             </div>
-          )}
+            <ResponsiveContainer width="100%" height={70}>
+              <AreaChart data={sparkData} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+                <defs>
+                  <linearGradient id="patSpark" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <Area type="monotone" dataKey="v" stroke="#10b981" strokeWidth={2} fill="url(#patSpark)" animationDuration={700} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
       {/* ── 3 PILLAR CARDS ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className={`group p-4 rounded-2xl border flex items-center gap-3 transition-all hover:scale-[1.015] ${isDark ? 'bg-slate-900/80 border-white/[0.06] hover:border-emerald-500/30' : 'bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-emerald-200'}`}>
-          <div className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
-            <PiggyBank className="w-5 h-5 text-emerald-500" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className={`p-4 rounded-2xl border transition-all hover:scale-[1.015] ${ovCardBg}`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}><ShieldCheck className="w-4 h-4 text-emerald-500" /></div>
+            <span className="text-[10px] font-black text-emerald-500">{reservePctTotal.toFixed(1)}%</span>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Reserva</p>
-            <p className={`text-lg font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{fmtSigned(jarsTotal)}</p>
-            <p className={`text-[9px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{jars.length > 0 ? `${jars.length} cofre${jars.length > 1 ? 's' : ''} • +R$ ${fmt(jarsDailyYield)}/dia` : 'Comece sua reserva'}</p>
-          </div>
+          <p className={`text-[9px] font-black uppercase tracking-widest ${ovLabel}`}>Reserva de Emergência</p>
+          <p className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{hidePatrimonio ? '••••' : fmtSigned(jarsTotal)}</p>
+          <p className={`text-[9px] font-bold ${ovLabel}`}>{reservePctTotal.toFixed(1)}% do total</p>
         </div>
 
-        <div className={`group p-4 rounded-2xl border flex items-center gap-3 transition-all hover:scale-[1.015] relative ${isDark ? 'bg-slate-900/80 border-white/[0.06] hover:border-purple-500/30' : 'bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-purple-200'}`}>
-          <div className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-purple-500/10' : 'bg-purple-50'}`}>
-            <TrendingUp className="w-5 h-5 text-purple-500" />
+        <div className={`p-4 rounded-2xl border transition-all hover:scale-[1.015] ${ovCardBg}`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-purple-500/10' : 'bg-purple-50'}`}><TrendingUp className="w-4 h-4 text-purple-500" /></div>
+            <span className="text-[10px] font-black text-purple-500">{investPctTotal.toFixed(1)}%</span>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Investimentos</p>
-            <p className={`text-lg font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{hidePatrimonio ? '••••••' : fmtSigned(investmentsTotal)}</p>
-            <p className={`text-[9px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{investments.length > 0 ? `${investments.length} ativo${investments.length > 1 ? 's' : ''}` : 'Nenhum investimento'}</p>
-          </div>
-          <button onClick={() => { const v = !hidePatrimonio; setHidePatrimonio(v); localStorage.setItem('hidePatrimonio', String(v)); }} className={`absolute top-2 right-2 p-1 rounded-lg transition-all ${isDark ? 'text-slate-600 hover:bg-white/5 hover:text-slate-400' : 'text-slate-300 hover:bg-slate-50 hover:text-slate-500'}`}>
-            {hidePatrimonio ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-          </button>
+          <p className={`text-[9px] font-black uppercase tracking-widest ${ovLabel}`}>Investimentos</p>
+          <p className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{hidePatrimonio ? '••••' : fmtSigned(investmentsTotal)}</p>
+          <p className={`text-[9px] font-bold ${ovLabel}`}>{investPctTotal.toFixed(1)}% do total</p>
         </div>
 
-        <div className={`group p-4 rounded-2xl border flex items-center gap-3 transition-all hover:scale-[1.015] ${isDark ? 'bg-slate-900/80 border-white/[0.06] hover:border-blue-500/30' : 'bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200'}`}>
-          <div className={`p-2.5 rounded-xl shrink-0 ${totalProfit >= 0 ? (isDark ? 'bg-emerald-500/10' : 'bg-emerald-50') : (isDark ? 'bg-rose-500/10' : 'bg-rose-50')}`}>
-            <ArrowUpCircle className={`w-5 h-5 ${totalProfit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`} />
+        <div className={`p-4 rounded-2xl border transition-all hover:scale-[1.015] ${ovCardBg}`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-amber-500/10' : 'bg-amber-50'}`}><Gem className="w-4 h-4 text-amber-500" /></div>
+            <span className="text-[10px] font-black text-amber-500">{bensPctTotal.toFixed(1)}%</span>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Rentabilidade</p>
-            <p className={`text-lg font-black truncate ${totalProfit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtSigned(totalProfit)}</p>
-            <p className={`text-[9px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Investimentos + reservas</p>
+          <p className={`text-[9px] font-black uppercase tracking-widest ${ovLabel}`}>Outros Ativos</p>
+          <p className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{hidePatrimonio ? '••••' : fmtSigned(bensTotal)}</p>
+          <p className={`text-[9px] font-bold ${ovLabel}`}>{bensPctTotal.toFixed(1)}% do total</p>
+        </div>
+      </div>
+
+      {/* ── EVOLUÇÃO DO PATRIMÔNIO ── */}
+      <div className={`rounded-2xl border p-4 ${ovCardBg}`}>
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}><LineChart className="w-4 h-4 text-emerald-500" /></div>
+            <div>
+              <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Evolução do Patrimônio</p>
+              <p className={`text-[8px] font-bold ${ovLabel}`}>Estimativa (custo → valor atual)</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-[9px] font-black">
+            <span className="flex items-center gap-1 text-emerald-500"><span className="w-2 h-2 rounded-full bg-emerald-500" />Patrimônio</span>
+            <span className="flex items-center gap-1 text-purple-500"><span className="w-2 h-2 rounded-full bg-purple-500" />Investimentos</span>
           </div>
         </div>
+        {allocTotal <= 0 ? (
+          <p className="text-slate-500 text-xs font-bold text-center py-10">Cadastre seus ativos para ver a evolução.</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={200}>
+            <RLineChart data={evoData} margin={{ top: 5, right: 8, bottom: 0, left: -8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9'} vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} interval={2} />
+              <YAxis tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={40} />
+              <RTooltip content={<EvoTip />} />
+              <Line type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2.5} dot={false} animationDuration={700} />
+              <Line type="monotone" dataKey="inv" stroke="#a855f7" strokeWidth={2.5} dot={false} animationDuration={700} />
+            </RLineChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* ── MEU PATRIMÔNIO: Allocation Chart + Breakdown ── */}
@@ -526,7 +612,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
                   <div className={`p-2 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
                     <BarChart3 className={`w-4 h-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
                   </div>
-                  <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Alocação do Patrimônio</p>
+                  <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Composição do Patrimônio</p>
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <button
@@ -604,6 +690,35 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
         );
       })()}
       </div>{/* end flex-1 allocation chart wrapper */}
+
+      {/* ── PRINCIPAIS ATIVOS ── */}
+      <div className={`rounded-2xl border p-4 ${ovCardBg}`}>
+        <p className={`text-xs font-black mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>Principais Ativos</p>
+        {topAssets.length === 0 ? (
+          <p className="text-slate-500 text-xs font-bold text-center py-6">Nenhum investimento cadastrado.</p>
+        ) : (
+          <div className="space-y-1">
+            <div className={`grid grid-cols-12 gap-1 pb-2 text-[8px] font-black uppercase tracking-widest ${ovLabel}`}>
+              <span className="col-span-5">Ativo</span><span className="col-span-3">Tipo</span><span className="col-span-2 text-right">Valor</span><span className="col-span-2 text-right">%</span>
+            </div>
+            {topAssets.map((a, i) => {
+              const pct = investmentsTotal > 0 ? a.value / investmentsTotal * 100 : 0;
+              return (
+                <div key={i} className={`grid grid-cols-12 gap-1 py-1.5 items-center border-t ${isDark ? 'border-white/[0.04]' : 'border-slate-50'}`}>
+                  <span className={`col-span-5 text-[10px] font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{a.name}</span>
+                  <span className={`col-span-3 text-[9px] font-bold truncate ${ovLabel}`}>{a.type}</span>
+                  <span className={`col-span-2 text-[10px] font-bold text-right ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{hidePatrimonio ? '••' : fmt(a.value)}</span>
+                  <span className="col-span-2 text-[10px] font-black text-right text-purple-500">{pct.toFixed(1)}%</span>
+                </div>
+              );
+            })}
+            <div className={`grid grid-cols-12 gap-1 pt-2 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+              <span className={`col-span-8 text-[9px] font-black uppercase tracking-widest ${ovLabel}`}>Total dos principais</span>
+              <span className={`col-span-4 text-[11px] font-black text-right ${isDark ? 'text-white' : 'text-slate-800'}`}>{hidePatrimonio ? '••••' : `R$ ${fmt(topAssetsTotal)}`}</span>
+            </div>
+          </div>
+        )}
+      </div>
 
       {(() => {
         // dead code block — kept to avoid removing variables
@@ -721,8 +836,80 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
 
         </div>{/* end left col */}
 
-        {/* ═══ RIGHT COLUMN (2/5) ═══ */}
-        <div className="lg:col-span-2 flex flex-col gap-4">
+        {/* ═══ RIGHT COLUMN (1/3) ═══ */}
+        <div className="lg:col-span-1 flex flex-col gap-4">
+
+      {/* ── ALOCAÇÃO DO PATRIMÔNIO ── */}
+      <div className={`rounded-2xl border p-4 ${ovCardBg}`}>
+        <div className="flex items-center gap-2 mb-3">
+          <div className={`p-2 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}><BarChart3 className="w-4 h-4 text-emerald-500" /></div>
+          <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Alocação do Patrimônio</p>
+        </div>
+        {allocTotal <= 0 ? (
+          <p className="text-slate-500 text-xs font-bold text-center py-8">Sem ativos cadastrados.</p>
+        ) : (
+          <>
+            <div className="relative">
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie data={allocation} cx="50%" cy="50%" innerRadius={52} outerRadius={80} paddingAngle={2} dataKey="value" stroke="none" animationDuration={600}>
+                    {allocation.map((e, i) => <Cell key={i} fill={e.color} />)}
+                  </Pie>
+                  <ReTooltip content={<DonutTip total={allocTotal} />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <p className={`text-[8px] font-black uppercase ${ovLabel}`}>Total</p>
+                <p className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{hidePatrimonio ? '••••' : `R$ ${fmt(allocTotal)}`}</p>
+              </div>
+            </div>
+            <div className="space-y-2 mt-2">
+              {allocation.map((a, i) => {
+                const pct = allocTotal > 0 ? a.value / allocTotal * 100 : 0;
+                return (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: a.color }} />
+                    <span className={`text-[11px] font-bold flex-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{a.name}</span>
+                    <div className="text-right">
+                      <p className={`text-[11px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{hidePatrimonio ? '••••' : `R$ ${fmt(a.value)}`}</p>
+                      <p className="text-[9px] font-black" style={{ color: a.color }}>{pct.toFixed(1)}%</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── RESUMO POR CLASSE ── */}
+      <div className={`rounded-2xl border p-4 ${ovCardBg}`}>
+        <p className={`text-xs font-black mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>Resumo por Classe</p>
+        {classRows.length === 0 ? (
+          <p className="text-slate-500 text-xs font-bold text-center py-6">Sem investimentos.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {classRows.map((c, i) => {
+              const pct = classTotal > 0 ? c.value / classTotal * 100 : 0;
+              return (
+                <div key={i}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold"><span className="w-2 h-2 rounded-full" style={{ background: c.color }} /><span className={isDark ? 'text-slate-300' : 'text-slate-600'}>{c.name}</span></span>
+                    <span className={`text-[10px] font-black ${isDark ? 'text-white' : 'text-slate-700'}`}>{pct.toFixed(1)}%</span>
+                  </div>
+                  <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: c.color }} />
+                  </div>
+                </div>
+              );
+            })}
+            <div className={`flex items-center justify-between pt-2 mt-1 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${ovLabel}`}>Total</span>
+              <span className={`text-[11px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>100%</span>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── ALÍVIA INSIGHT ── */}
       <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-900/80 border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm'}`}>
@@ -828,6 +1015,29 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
 
         </div>{/* end right col */}
       </div>{/* end grid */}
+
+      {/* ── META BAR ── */}
+      <div className={`mt-4 rounded-2xl border p-4 flex flex-col md:flex-row md:items-center gap-4 ${totalProfit >= 0 ? (isDark ? 'bg-emerald-500/[0.07] border-emerald-500/20' : 'bg-emerald-50 border-emerald-100') : ovCardBg}`}>
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className={`p-2.5 rounded-xl shrink-0 ${isDark ? 'bg-emerald-500/15' : 'bg-emerald-100'}`}><TrendingUp className="w-5 h-5 text-emerald-500" /></div>
+          <div className="min-w-0">
+            <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{totalProfit >= 0 ? 'Você está no caminho certo!' : 'Continue construindo seu patrimônio'}</p>
+            <p className={`text-[11px] font-bold ${sub}`}>{totalProfit >= 0 ? `Seu patrimônio acumulou ${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(2)}% de valorização.` : 'Mantenha aportes consistentes para acelerar seu crescimento.'}</p>
+          </div>
+        </div>
+        {goalTarget > 0 && (
+          <div className="flex items-center gap-4 shrink-0">
+            <div className="text-right">
+              <p className={`text-[9px] font-black uppercase tracking-widest ${ovLabel}`}>Próxima meta</p>
+              <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(goalTarget)}</p>
+              <p className="text-[9px] font-black text-emerald-500">{goalPct.toFixed(0)}% atingido</p>
+            </div>
+            {onNavigateTab && (
+              <button onClick={() => onNavigateTab('metas')} className={`px-3 py-2 rounded-xl text-[10px] font-black flex items-center gap-1 transition-all ${isDark ? 'bg-white/5 hover:bg-white/10 text-emerald-400' : 'bg-white hover:bg-slate-50 text-emerald-600 border border-emerald-100'}`}>Ver metas →</button>
+            )}
+          </div>
+        )}
+      </div>
       </>)}
 
       {/* ── ALÍVIA CONFIG MODAL (módulo Patrimônio: Perfil Investidor + Alertas) ── */}
