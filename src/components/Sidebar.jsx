@@ -38,6 +38,7 @@ import { usePwaUpdate } from '../contexts/PwaUpdateContext';
 import { isLifetimeEmail } from '../constants/admins';
 import logo from '../assets/logo.png';
 import { version } from '../../package.json';
+import HealthDetailModal from './HealthDetailModal';
 
 const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, setActiveModule, healthScore, collapsed = false, setCollapsed }) => {
   const { currentUser, logout, isAdmin, isLifetime, subType, planLevel } = useAuth();
@@ -62,6 +63,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
   const hsImprovements = healthScore?.improvements ?? 0;
   // Label do card varia por módulo: Gastos → "Saúde Financeira"; Patrimônio → "Saúde Patrimonial".
   const hsLabel = activeModule === 'patrimonio' ? 'Saúde Patrimonial' : 'Saúde Financeira';
+  const [showHealthModal, setShowHealthModal] = useState(false);
 
   // Estrutura de navegação por módulo: cada entrada é um item direto ({type:'item'})
   // ou um grupo colapsável ({type:'group', children:[...]}). Itens diretos ficam
@@ -303,10 +305,14 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
         {/* Card de Saúde Financeira — resumo compacto do score com identidade Alívia */}
         {healthScore && !collapsed && (
           <div className="px-4 pb-2.5">
-            <div className={`relative overflow-hidden rounded-xl border px-3.5 py-2.5 transition-all duration-500 ${
-              theme === 'light'
-                ? 'bg-gradient-to-br from-emerald-50 via-white to-white border-emerald-100/80'
-                : 'bg-gradient-to-br from-emerald-500/[0.08] via-emerald-500/[0.02] to-transparent border-white/5'
+            <button
+              type="button"
+              onClick={() => setShowHealthModal(true)}
+              title={`Ver detalhes da ${hsLabel}`}
+              className={`group w-full text-left relative overflow-hidden rounded-xl border px-3.5 py-2.5 transition-all duration-300 cursor-pointer hover:shadow-lg active:scale-[0.99] ${
+                theme === 'light'
+                  ? 'bg-gradient-to-br from-emerald-50 via-white to-white border-emerald-100/80 hover:border-emerald-300'
+                  : 'bg-gradient-to-br from-emerald-500/[0.08] via-emerald-500/[0.02] to-transparent border-white/5 hover:border-emerald-500/30'
             }`}>
               {/* Glow decorativo */}
               <div className="absolute -top-10 -right-8 w-24 h-24 bg-emerald-500/10 blur-3xl rounded-full pointer-events-none" />
@@ -339,9 +345,19 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
                     style={{ width: `${Math.max(4, Math.min(100, hsScore))}%` }}
                   />
                 </div>
+
+                {/* Affordance: clique para ver detalhes */}
+                <div className={`flex items-center justify-end gap-1 mt-1.5 text-[9px] font-black uppercase tracking-widest transition-colors ${theme === 'light' ? 'text-emerald-600/70 group-hover:text-emerald-600' : 'text-emerald-400/60 group-hover:text-emerald-400'}`}>
+                  Ver detalhes <ChevronRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+                </div>
               </div>
-            </div>
+            </button>
           </div>
+        )}
+
+        {/* Modal de detalhes da saúde (score, motivos e sugestões) */}
+        {healthScore && (
+          <HealthDetailModal open={showHealthModal} onClose={() => setShowHealthModal(false)} scoreData={healthScore} title={hsLabel} />
         )}
 
         {/* Navigation Links */}
