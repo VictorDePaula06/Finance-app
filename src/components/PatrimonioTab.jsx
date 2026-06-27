@@ -375,21 +375,10 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
   const bensPctTotal = allocTotal > 0 ? (bensTotal / allocTotal * 100) : 0;
   const goalTarget = patrimonyGoals[0]?.target || 0;
   const goalPct = goalTarget > 0 ? Math.min(100, patrimonioTotal / goalTarget * 100) : 0;
-  // Meta de Reserva: quantos meses de despesa a reserva cobre (alvo 12 meses).
-  const monthlyExpense = (() => {
-    if (!Array.isArray(transactions)) return 0;
-    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
-    let sum = 0;
-    transactions.forEach(t => {
-      const isExpense = t.type === 'expense' || (typeof t.amount === 'number' && t.amount < 0);
-      const dt = t.date ? new Date(t.date) : (t.createdAt ? new Date(t.createdAt) : null);
-      if (isExpense && dt && dt >= cutoff) sum += Math.abs(parseFloat(t.amount) || 0);
-    });
-    return sum;
-  })();
-  const reserveGoalMonths = 12;
-  const reserveMonths = monthlyExpense > 0 ? jarsTotal / monthlyExpense : 0;
-  const reservePctOfGoal = reserveGoalMonths > 0 ? Math.min(100, reserveMonths / reserveGoalMonths * 100) : 0;
+  // Meta de Reserva: progresso vs. a meta em R$ definida na aba Reserva de Emergência
+  // (users/{uid}.reserveGoal — mesma fonte usada lá).
+  const reserveGoal = parseFloat(userConfig?.reserveGoal) || 0;
+  const reservePctOfGoal = reserveGoal > 0 ? Math.min(100, jarsTotal / reserveGoal * 100) : 0;
   const ovCardBg = isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/30 border-white/[0.06]' : 'bg-gradient-to-br from-emerald-50 via-white to-emerald-100/60 border-slate-200 shadow-sm';
   const ovLabel = isDark ? 'text-slate-500' : 'text-slate-400';
   const DonutTip = ({ active, payload, total }) => {
@@ -898,15 +887,16 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
           </div>
         </div>
 
-        {monthlyExpense > 0 && (
+        {reserveGoal > 0 && (
           <div className={`lg:min-w-[190px] lg:border-l lg:pl-6 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
             <div className="flex items-center justify-between mb-1.5">
               <span className={`text-[9px] font-black uppercase tracking-widest ${ovLabel}`}>Meta de Reserva</span>
-              <span className={`text-[11px] font-black ${isDark ? 'text-white' : 'text-slate-700'}`}>{reserveMonths.toFixed(1)} <span className={ovLabel}>/ {reserveGoalMonths} meses</span></span>
+              <span className={`text-[11px] font-black ${isDark ? 'text-white' : 'text-slate-700'}`}>{reservePctOfGoal.toFixed(0)}%</span>
             </div>
             <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-200'}`}>
               <div className="h-full rounded-full bg-emerald-500 transition-all duration-700" style={{ width: `${reservePctOfGoal}%` }} />
             </div>
+            <p className={`text-[9px] font-bold mt-1 ${ovLabel}`}>{hidePatrimonio ? '••••' : `R$ ${fmt(jarsTotal)} de R$ ${fmt(reserveGoal)}`}</p>
           </div>
         )}
 

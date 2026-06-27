@@ -1316,6 +1316,9 @@ export default function InvestmentsTab() {
                                                                 {pp >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                                                                 {pp >= 0 ? '+' : ''}{pp.toFixed(2)}%
                                                             </span>
+                                                            {asset.type !== 'renda_fixa' && (
+                                                                <span className="text-slate-500 font-bold">· {(parseFloat(asset.quantity) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 8 })} un.</span>
+                                                            )}
                                                         </span>
                                                     </div>
                                                     {/* Preço/Taxa ao lado do ticker */}
@@ -1354,6 +1357,13 @@ export default function InvestmentsTab() {
                                             </div>
 
                                             <div className="flex items-center gap-4 md:gap-6 lg:gap-10 w-full md:w-auto justify-end border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 dark:border-white/5">
+
+                                                <div className="hidden md:flex flex-col items-end">
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Qtd</span>
+                                                    <span className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                                        {asset.type === 'renda_fixa' ? '—' : (parseFloat(asset.quantity) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 8 })}
+                                                    </span>
+                                                </div>
 
                                                 <div className="hidden md:flex flex-col items-end">
                                                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
