@@ -343,7 +343,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
     superfluous: { label: 'Supérfluo', tint: isDark ? 'bg-rose-500/15 text-rose-400' : 'bg-rose-50 text-rose-600' },
   };
 
-  const cardBg = isDark ? 'bg-[#1e2330] border-slate-800/60' : 'bg-white border-slate-100 shadow-sm';
+  const cardBg = 'pat-card';
 
   // ── KPI cards ──
   const KPIS = [

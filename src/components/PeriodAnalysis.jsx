@@ -288,7 +288,7 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
     finally { setIsExportingPDF(false); }
   };
 
-  const card = isDark ? 'bg-[#1e2330] border-slate-700/50' : 'bg-white border-slate-100 shadow-sm';
+  const card = 'pat-card';
   const txt = isDark ? 'text-white' : 'text-slate-800';
   const sub = isDark ? 'text-slate-400' : 'text-slate-500';
   const inset = isDark ? 'bg-[#161b27] border-white/10' : 'bg-slate-50 border-slate-200';
@@ -600,7 +600,7 @@ function pctDelta(cur, prev) {
 }
 
 function KpiCard({ isDark, accent, label, value, delta, invert }) {
-  const card = isDark ? 'bg-[#1e2330] border-slate-700/50' : 'bg-white border-slate-100 shadow-sm';
+  const card = 'pat-card';
   let deltaEl = <span className="text-[11px] text-slate-400 font-medium">—</span>;
   if (delta != null && isFinite(delta) && Math.abs(delta) >= 0.5) {
     const up = delta > 0;

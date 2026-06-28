@@ -117,7 +117,7 @@ export default function IndependenciaTab() {
   const monthsPlus = monthsToReach(investido, aporte + 300, rate, fireTarget, compound);
   const saved = isFinite(months) && isFinite(monthsPlus) ? months - monthsPlus : null;
 
-  const card = isDark ? 'bg-[#1e2330] border-slate-700/50' : 'bg-white border-slate-100 shadow-sm';
+  const card = 'pat-card';
   const txt = isDark ? 'text-white' : 'text-slate-800';
   const sub = isDark ? 'text-slate-400' : 'text-slate-500';
   const inset = isDark ? 'bg-[#161b27] border-white/10' : 'bg-slate-50 border-slate-200';

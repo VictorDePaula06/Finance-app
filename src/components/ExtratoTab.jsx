@@ -106,7 +106,7 @@ export default function ExtratoTab({ transactions = [] }) {
     );
 
     // ── estilos base ──
-    const card = isDark ? 'bg-[#151822] border-white/[0.06]' : 'bg-white border-slate-100 shadow-sm';
+    const card = 'pat-card';
     const txt = isDark ? 'text-white' : 'text-slate-900';
     const sub = isDark ? 'text-slate-400' : 'text-slate-500';
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';

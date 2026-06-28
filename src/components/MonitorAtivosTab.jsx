@@ -479,7 +479,7 @@ export default function MonitorAtivosTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchlist]);
 
-  const cardBg = isDark ? 'bg-[#0a0d12] border-white/[0.08]' : 'bg-white border-slate-100 shadow-sm';
+  const cardBg = 'pat-card';
 
   // ── Linha de um ativo (clicável → abre o gráfico) ──
   const renderRow = (item, accent) => {

@@ -231,7 +231,7 @@ export default function OverviewTab({
     const useNewLayout = true;
     if (useNewLayout) {
         const isDark = theme !== 'light';
-        const card = isDark ? 'bg-[#1e2330] border-slate-700/50' : 'bg-white border-slate-100 shadow-sm';
+        const card = 'pat-card';
         const mIncome = walletStats.income || 0;
         const mExpense = walletStats.expense || 0;
         // Quando não houve recebimento LANÇADO no mês, o Índice de Saúde usa a renda

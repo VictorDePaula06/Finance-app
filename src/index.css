@@ -95,6 +95,23 @@ html, body {
   transition: background 0.5s ease, border 0.5s ease;
 }
 
+/* Caixa padrão do módulo Construção de Patrimônio — mesmo estilo da Visão Geral
+   (gradiente sutil + cantos 2rem). Aplique em painéis principais. */
+.pat-card {
+  border-radius: 2rem;
+  border: 1px solid #e2e8f0;
+  background-color: #ffffff;
+  background-image: linear-gradient(to bottom right, #ecfdf5, #ffffff 45%, rgba(209, 250, 229, 0.6));
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: background 0.4s ease, border 0.4s ease, box-shadow 0.4s ease;
+}
+.dark .pat-card {
+  border-color: rgba(255, 255, 255, 0.06);
+  background-color: #0f172a;
+  background-image: linear-gradient(to bottom right, #020617, #0f172a 50%, rgba(2, 44, 34, 0.30));
+  box-shadow: none;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 4px;

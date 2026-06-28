@@ -474,7 +474,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
                     const hasData = item.value !== null && item.value !== undefined;
                     const positive = item.value >= 0;
                     return (
-                        <div key={item.label} className={`p-6 rounded-[2rem] border transition-all ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+                        <div key={item.label} className={`p-6 rounded-[2rem] border transition-all pat-card`}>
                             <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-3">{item.label}</p>
                             {hasData ? (
                                 <>
@@ -495,7 +495,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
             </div>}
 
             {/* ── CONTROLS ── */}
-            {!compact && <div className={`p-5 rounded-[2rem] border flex flex-wrap gap-6 items-center justify-between ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+            {!compact && <div className={`p-5 rounded-[2rem] border flex flex-wrap gap-6 items-center justify-between pat-card`}>
 
                 {/* Period selector */}
                 <div className="flex items-center gap-2">
@@ -539,7 +539,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
             </div>}
 
             {/* ── CHART ── */}
-            <div className={`p-6 md:p-8 rounded-[2.5rem] border ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'} ${fill ? 'flex-1 flex flex-col min-h-0' : ''}`}>
+            <div className={`p-6 md:p-8 rounded-[2.5rem] border pat-card ${fill ? 'flex-1 flex flex-col min-h-0' : ''}`}>
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
                         <BarChart3 className="w-5 h-5 text-[#5CCEEA]" />
@@ -641,7 +641,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
             {/* ── BENCHMARK LEGEND ── */}
             {!compact && <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {Object.entries(BENCHMARKS).map(([id, bm]) => (
-                    <div key={id} className={`p-5 rounded-[2rem] border flex items-center gap-4 ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+                    <div key={id} className={`p-5 rounded-[2rem] border flex items-center gap-4 pat-card`}>
                         <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: bm.color + '20' }}>
                             <div className="w-3 h-3 rounded-full" style={{ background: bm.color }} />
                         </div>

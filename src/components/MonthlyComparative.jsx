@@ -72,7 +72,7 @@ export default function MonthlyComparative({ transactions = [], manualConfig = {
         }));
     }, [data]);
 
-    const card = isDark ? 'bg-[#1e2330] border-slate-700/50' : 'bg-white border-slate-100 shadow-sm';
+    const card = 'pat-card';
     const txt = isDark ? 'text-white' : 'text-slate-800';
     const sub = isDark ? 'text-slate-400' : 'text-slate-500';
 
@@ -209,7 +209,7 @@ function StatCard({ isDark, icon: Icon, color, label, value, hint }) {
     const colors = {
         emerald: 'text-emerald-500', rose: 'text-rose-500', amber: 'text-amber-500', blue: 'text-blue-500',
     };
-    const card = isDark ? 'bg-[#1e2330] border-slate-700/50' : 'bg-white border-slate-100 shadow-sm';
+    const card = 'pat-card';
     return (
         <div className={`p-5 rounded-2xl border ${card}`}>
             <div className="flex items-center gap-2 mb-2">

@@ -332,7 +332,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
     }, [transactions, currentMonthKey]);
 
     const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
-    const cardBg = theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330]';
+    const cardBg = 'pat-card';
     const textColor = theme === 'light' ? 'text-slate-800' : 'text-white';
     const subTextColor = theme === 'light' ? 'text-slate-500' : 'text-slate-400';
 
@@ -348,7 +348,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
             {/* Cards Row — comum às sub-abas, ACIMA do seletor de mês */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Saldo em Carteira */}
-                <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 pat-card`}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <div className="text-blue-400">
@@ -366,7 +366,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                 </div>
 
                 {/* Recebimentos no Mês */}
-                <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 pat-card`}>
                     <div className="flex items-center gap-2">
                         <div className="text-emerald-400">
                             <TrendingUp className="w-4 h-4" />
@@ -387,7 +387,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
 
                 {/* 3º card: Resgates (na aba Resgates) ou Lançamentos (na aba Recebimentos) */}
                 {subTab === 'resgates' ? (
-                    <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                    <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 pat-card`}>
                         <div className="flex items-center gap-2">
                             <div className="text-blue-400">
                                 <Landmark className="w-4 h-4" />
@@ -399,7 +399,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                         </div>
                     </div>
                 ) : (
-                    <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                    <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 pat-card`}>
                         <div className="flex items-center gap-2">
                             <div className="text-rose-400">
                                 <TrendingDown className="w-4 h-4" />
@@ -431,7 +431,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
             {subTab === 'recebimentos' ? (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {/* Table Row */}
-                    <div className={`p-8 rounded-2xl ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                    <div className={`p-8 rounded-2xl pat-card`}>
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
                             <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Recebimentos de {selectedMonthName}</h3>
                             <button
@@ -514,7 +514,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
             ) : (
                 /* ABA 2: RESGATES — mesmo padrão da aba Recebimentos (botão dentro do card) */
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className={`p-8 rounded-2xl ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                    <div className={`p-8 rounded-2xl pat-card`}>
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
                             <div>
                                 <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Resgates de {selectedMonthName}</h3>

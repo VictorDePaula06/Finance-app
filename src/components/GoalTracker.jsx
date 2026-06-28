@@ -268,7 +268,7 @@ export default function GoalTracker() {
         return { totalTarget, totalCurrent, progress: totalTarget > 0 ? (totalCurrent / totalTarget) * 100 : 0 };
     }, [goals, jars, investments]);
 
-    const card = theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#151822] border-white/5';
+    const card = 'pat-card';
     const inp = `w-full px-3 py-2.5 rounded-xl border text-sm transition-all focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
         theme === 'light'
             ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400'

@@ -213,7 +213,7 @@ export default function OverviewChat({ transactions = [], manualConfig = {}, onA
   };
 
   return (
-    <div className={`flex flex-col h-full min-h-[480px] xl:min-h-0 rounded-2xl border overflow-hidden ${isDark ? 'bg-[#1e2330] border-slate-700/50' : 'bg-white border-slate-100 shadow-sm'}`}>
+    <div className={`flex flex-col h-full min-h-[480px] xl:min-h-0 rounded-2xl border overflow-hidden pat-card`}>
       {/* Cabeçalho */}
       <div className={`flex items-center gap-3 px-4 py-3 border-b ${isDark ? 'border-white/[0.06] bg-gradient-to-r from-emerald-500/[0.08] to-transparent' : 'border-slate-100 bg-gradient-to-r from-emerald-50 to-transparent'}`}>
         <div className="relative shrink-0">

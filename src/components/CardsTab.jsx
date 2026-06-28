@@ -633,7 +633,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
   }, 0);
 
   const isDark = theme !== 'light';
-  const kpiCardBg = isDark ? 'bg-[#1e2330] border-slate-800/60' : 'bg-white border-slate-100 shadow-sm';
+  const kpiCardBg = 'pat-card';
 
   const kpiInvoiceHint = cards.length === 0
     ? 'nenhum cartão'

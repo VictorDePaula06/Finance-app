@@ -251,7 +251,7 @@ export default function EmergencyReserveTab() {
             </div>
 
             {/* Top Pill Dashboard */}
-            <div className={`flex flex-wrap items-center gap-6 md:gap-12 p-5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-200 text-slate-800 shadow-sm' : 'bg-[#151822] border-white/5 text-white'}`}>
+            <div className={`flex flex-wrap items-center gap-6 md:gap-12 p-5 rounded-2xl border pat-card ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                 <div className="flex flex-col">
                     <span className="text-[11px] font-medium text-slate-400 mb-1">Total Consolidado:</span>
                     <span className={`text-xl font-black ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`}>
@@ -322,7 +322,7 @@ export default function EmergencyReserveTab() {
                             const dailyYield = reserve.balance * dailyRate;
 
                             return (
-                                <div key={reserve.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-[#151822] border-white/5'}`}>
+                                <div key={reserve.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all pat-card`}>
                                     <div className="flex items-center gap-4">
                                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${typeConfig.bg} overflow-hidden`}>
                                             <typeConfig.icon className={`w-4 h-4 ${typeConfig.color}`} />

@@ -1068,7 +1068,7 @@ export default function InvestmentsTab() {
             </div>
 
             {/* Top Pill Dashboard */}
-            <div className={`flex flex-wrap items-center justify-between gap-6 p-5 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-200 text-slate-800 shadow-sm' : 'bg-[#151822] border-white/5 text-white'}`}>
+            <div className={`flex flex-wrap items-center justify-between gap-6 p-5 rounded-2xl border pat-card ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                 {/* Metrics */}
                 <div className="flex flex-wrap items-center gap-6 md:gap-10">
                     <div className="flex flex-col">
@@ -1144,7 +1144,7 @@ export default function InvestmentsTab() {
             </div>
 
             {/* Main Cards Dashboard */}
-            <div className={`p-6 rounded-2xl border ${theme === 'light' ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#151822] border-white/5'}`}>
+            <div className={`p-6 rounded-2xl border pat-card`}>
                 <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
                     <div className="flex items-center gap-2">
                         <button onClick={fetchLivePrices} className={`transition-colors ${theme === 'light' ? 'text-slate-400 hover:text-slate-700' : 'text-slate-400 hover:text-white'}`} title="Atualizar Preços">
@@ -1291,7 +1291,7 @@ export default function InvestmentsTab() {
                                     const MC = ASSET_TYPES[asset.type] || ASSET_TYPES.crypto;
                                     
                                     return (
-                                        <div key={asset.id} className={`flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 rounded-2xl border transition-all ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-[#151822] border-white/5'}`}>
+                                        <div key={asset.id} className={`flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 rounded-2xl border transition-all pat-card`}>
                                             <div className="flex items-center gap-4">
                                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${MC.bg} overflow-hidden relative`}>
                                                     {asset.symbol || asset.name ? (

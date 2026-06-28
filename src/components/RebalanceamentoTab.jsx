@@ -87,7 +87,7 @@ export default function RebalanceamentoTab() {
     return { tone: 'warning', text: txt };
   }, [plan, hasTargets]);
 
-  const card = isDark ? 'bg-[#1e2330] border-slate-700/50' : 'bg-white border-slate-100 shadow-sm';
+  const card = 'pat-card';
   const txt = isDark ? 'text-white' : 'text-slate-900';
   const sub = isDark ? 'text-slate-400' : 'text-slate-500';
   const aliviaTone = { positive: 'border-emerald-500/20 bg-emerald-500/[0.05]', warning: 'border-amber-500/20 bg-amber-500/[0.05]', neutral: isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50' }[alivia.tone];

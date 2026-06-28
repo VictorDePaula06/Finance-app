@@ -134,7 +134,7 @@ export default function SpendingGoals({ transactions = [], manualConfig = {}, on
     };
 
     // ── estilos base ──
-    const card = isDark ? 'bg-[#1e2330] border-slate-700/50' : 'bg-white border-slate-100 shadow-sm';
+    const card = 'pat-card';
     const txt = isDark ? 'text-white' : 'text-slate-900';
     const sub = isDark ? 'text-slate-400' : 'text-slate-500';
     const fieldBg = isDark ? 'bg-[#161b27] border-white/10' : 'bg-white border-slate-200';

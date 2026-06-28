@@ -776,7 +776,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             {/* Cards Row — ACIMA do seletor de mês */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {/* Saldo em Carteira */}
-                <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 pat-card`}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <div className="text-blue-400">
@@ -794,7 +794,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 </div>
 
                 {/* Recebimentos no Mês */}
-                <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 pat-card`}>
                     <div className="flex items-center gap-2">
                         <div className="text-emerald-400">
                             <TrendingUp className="w-4 h-4" />
@@ -814,7 +814,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 </div>
 
                 {/* Lançamentos no Mês / Aportes no Mês */}
-                <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 pat-card`}>
                     <div className="flex items-center gap-2">
                         <div className={subTab === 'despesas' ? 'text-rose-400' : 'text-blue-400'}>
                             <TrendingDown className="w-4 h-4" />
@@ -847,7 +847,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             {/* Transactions List */}
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                 {subTab === 'despesas' ? (
-                    <div className={`p-8 rounded-2xl ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                    <div className={`p-8 rounded-2xl pat-card`}>
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
                             <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Últimos Lançamentos</h3>
                             <div className="flex flex-wrap items-center gap-4">
@@ -1098,7 +1098,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     </div>
                 ) : (
                     /* COLUNA: RESERVAS */
-                    <div className={`p-8 rounded-2xl ${theme === 'light' ? 'bg-white border border-slate-100 shadow-sm' : 'bg-[#1e2330]'}`}>
+                    <div className={`p-8 rounded-2xl pat-card`}>
                         <div className="flex items-center justify-between mb-8">
                             <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Histórico de Aportes</h3>
                             <button

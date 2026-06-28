@@ -126,7 +126,7 @@ export default function DebtManagementTab() {
         catch (err) { console.error('Erro ao excluir dívida:', err); }
     };
 
-    const card = isDark ? 'bg-[#1e2330] border-white/5' : 'bg-white border-slate-100 shadow-sm';
+    const card = 'pat-card';
     const inp = `w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${isDark ? 'bg-white/5 border-white/10 text-white focus:border-rose-500' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-rose-500'}`;
 
     return (

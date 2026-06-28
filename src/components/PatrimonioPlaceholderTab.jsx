@@ -50,9 +50,7 @@ export default function PatrimonioPlaceholderTab({
             </div>
 
             {/* Estado vazio — card padrão centralizado */}
-            <div className={`flex flex-col items-center justify-center text-center gap-6 p-12 md:p-20 rounded-[2.5rem] border ${
-                theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#151822] border-white/5'
-            }`}>
+            <div className={`flex flex-col items-center justify-center text-center gap-6 p-12 md:p-20 rounded-[2.5rem] border pat-card`}>
                 <div className={`w-20 h-20 rounded-3xl flex items-center justify-center ${
                     theme === 'light' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-500/15 text-emerald-400'
                 }`}>
