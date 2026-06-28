@@ -408,7 +408,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
   return (
     <div className="animate-in fade-in duration-700 pb-4">
       {/* ── HEADER ── */}
-      <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
+      <div className="flex items-end justify-between gap-4 flex-wrap mb-3">
         <div>
           <h1 className={`text-2xl md:text-3xl font-black tracking-tight ${h1}`}>Patrimônio</h1>
           <p className={`text-xs font-bold mt-0.5 ${sub}`}>Visão geral do seu patrimônio e investimentos</p>
@@ -425,10 +425,10 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
 
       {activeTab === 'visao' && (<>
       {/* ═══ FAIXA SUPERIOR ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
 
         {/* ── Patrimônio Total (coluna alta) ── */}
-        <div className={`lg:col-span-3 p-5 rounded-[2rem] border relative overflow-hidden flex flex-col ${isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/30 border-white/[0.06]' : 'bg-gradient-to-br from-emerald-50 via-white to-emerald-100/60 border-slate-200 shadow-sm'}`}>
+        <div className={`lg:col-span-3 p-4 rounded-[2rem] border relative overflow-hidden flex flex-col ${isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/30 border-white/[0.06]' : 'bg-gradient-to-br from-emerald-50 via-white to-emerald-100/60 border-slate-200 shadow-sm'}`}>
           <div className="absolute top-[-30%] right-[-20%] w-[70%] h-[60%] rounded-full blur-[100px] pointer-events-none opacity-[0.12] bg-emerald-400" />
           <div className="relative flex items-center justify-between">
             <p className={`text-[9px] font-black uppercase tracking-[0.25em] ${isDark ? 'text-emerald-400/80' : 'text-emerald-600'}`}>Patrimônio Total</p>
@@ -445,7 +445,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
               <span className={`text-[9px] font-bold ${ovLabel}`}>no mês</span>
             </div>
           )}
-          <div className="relative flex-1 min-h-[64px] mt-3">
+          <div className="relative flex-1 min-h-[44px] mt-2">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={sparkData} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
                 <defs>
@@ -466,9 +466,9 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
         </div>
 
         {/* ── Meio: 3 cards + Evolução ── */}
-        <div className="lg:col-span-6 flex flex-col gap-4">
+        <div className="lg:col-span-6 flex flex-col gap-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className={`p-4 rounded-[2rem] border transition-all hover:scale-[1.015] ${ovCardBg}`}>
+            <div className={`p-3 rounded-[2rem] border transition-all hover:scale-[1.015] ${ovCardBg}`}>
               <div className="flex items-center justify-between mb-2">
                 <div className={`p-2 rounded-xl ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}><ShieldCheck className="w-4 h-4 text-emerald-500" /></div>
                 <span className="text-[10px] font-black text-emerald-500">{reservePctTotal.toFixed(1)}%</span>
@@ -478,7 +478,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
               <p className={`text-[9px] font-bold ${ovLabel}`}>{reservePctTotal.toFixed(1)}% do total</p>
             </div>
 
-            <div className={`p-4 rounded-[2rem] border transition-all hover:scale-[1.015] ${ovCardBg}`}>
+            <div className={`p-3 rounded-[2rem] border transition-all hover:scale-[1.015] ${ovCardBg}`}>
               <div className="flex items-center justify-between mb-2">
                 <div className={`p-2 rounded-xl ${isDark ? 'bg-purple-500/10' : 'bg-purple-50'}`}><TrendingUp className="w-4 h-4 text-purple-500" /></div>
                 <span className="text-[10px] font-black text-purple-500">{investPctTotal.toFixed(1)}%</span>
@@ -488,7 +488,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
               <p className={`text-[9px] font-bold ${ovLabel}`}>{investPctTotal.toFixed(1)}% do total</p>
             </div>
 
-            <div className={`p-4 rounded-[2rem] border transition-all hover:scale-[1.015] ${ovCardBg}`}>
+            <div className={`p-3 rounded-[2rem] border transition-all hover:scale-[1.015] ${ovCardBg}`}>
               <div className="flex items-center justify-between mb-2">
                 <div className={`p-2 rounded-xl ${isDark ? 'bg-amber-500/10' : 'bg-amber-50'}`}><Gem className="w-4 h-4 text-amber-500" /></div>
                 <span className="text-[10px] font-black text-amber-500">{bensPctTotal.toFixed(1)}%</span>
@@ -499,7 +499,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
             </div>
           </div>
 
-          <div className={`rounded-[2rem] border p-4 flex-1 flex flex-col ${ovCardBg}`}>
+          <div className={`rounded-[2rem] border p-3 flex-1 flex flex-col ${ovCardBg}`}>
             <div className="flex items-start justify-between mb-2 flex-wrap gap-2">
               <div>
                 <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Evolução do Patrimônio</p>
@@ -513,7 +513,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
             {allocTotal <= 0 ? (
               <p className="text-slate-500 text-xs font-bold text-center py-12">Cadastre seus ativos para ver a evolução.</p>
             ) : (
-              <ResponsiveContainer width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={150}>
                 <RLineChart data={evoData} margin={{ top: 5, right: 8, bottom: 0, left: -8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9'} vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} interval={2} />
@@ -528,16 +528,16 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
         </div>
 
         {/* ── Alocação do Patrimônio (coluna alta) ── */}
-        <div className={`lg:col-span-3 rounded-[2rem] border p-4 flex flex-col ${ovCardBg}`}>
+        <div className={`lg:col-span-3 rounded-[2rem] border p-3 flex flex-col ${ovCardBg}`}>
           <p className={`text-xs font-black mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Alocação do Patrimônio</p>
           {allocTotal <= 0 ? (
             <p className="text-slate-500 text-xs font-bold text-center py-8">Sem ativos cadastrados.</p>
           ) : (
             <>
               <div className="relative">
-                <ResponsiveContainer width="100%" height={170}>
+                <ResponsiveContainer width="100%" height={140}>
                   <PieChart>
-                    <Pie data={allocation} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} dataKey="value" stroke="none" animationDuration={600}>
+                    <Pie data={allocation} cx="50%" cy="50%" innerRadius={42} outerRadius={62} paddingAngle={2} dataKey="value" stroke="none" animationDuration={600}>
                       {allocation.map((e, i) => <Cell key={i} fill={e.color} />)}
                     </Pie>
                     <ReTooltip content={<DonutTip total={allocTotal} />} />
@@ -568,7 +568,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
       </div>{/* end faixa superior */}
 
       {/* ═══ FAIXA INFERIOR ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mt-4 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 mt-3 items-stretch">
 
       {/* ── COMPOSIÇÃO DO PATRIMÔNIO ── */}
       <div className="lg:col-span-5 flex flex-col">
@@ -646,7 +646,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 flex-1 flex flex-col">
             <div className={`rounded-[2rem] border overflow-hidden flex-1 ${isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/30 border-white/[0.06]' : 'bg-gradient-to-br from-emerald-50 via-white to-emerald-100/60 border-slate-200 shadow-sm'}`}>
-              <div className={`w-full flex items-center justify-between p-4`}>
+              <div className={`w-full flex items-center justify-between px-3.5 pt-3 pb-1`}>
                 <div className="flex items-center gap-2.5">
                   <div className={`p-2 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
                     <BarChart3 className={`w-4 h-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
@@ -654,17 +654,17 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
                   <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Composição do Patrimônio</p>
                 </div>
               </div>
-              <div className="px-4 pb-4">
+              <div className="px-3.5 pb-3.5">
               {totalValue <= 0 ? (
                 <div className="text-center py-8">
                   <p className="text-slate-500 text-xs font-bold">Nenhum ativo cadastrado.</p>
                 </div>
               ) : (
-                <div className="flex flex-col lg:flex-row gap-6 items-center">
+                <div className="flex flex-col lg:flex-row gap-4 items-center">
                   <div className="relative w-full lg:w-[280px] flex-shrink-0 group">
-                    <ResponsiveContainer width="100%" height={220}>
+                    <ResponsiveContainer width="100%" height={160}>
                       <PieChart>
-                        <Pie data={chartItems} cx="50%" cy="50%" innerRadius={60} outerRadius={95} paddingAngle={2} dataKey="value" stroke="none" animationDuration={600}>
+                        <Pie data={chartItems} cx="50%" cy="50%" innerRadius={44} outerRadius={68} paddingAngle={2} dataKey="value" stroke="none" animationDuration={600}>
                           {chartItems.map((entry, idx) => (<Cell key={idx} fill={entry.color} className="transition-all hover:opacity-80" />))}
                         </Pie>
                         <ReTooltip content={<CustomPieTooltip />} />
@@ -676,11 +676,11 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
                     </div>
                   </div>
                   <div className="flex-1 w-full">
-                    <div className="space-y-1 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="space-y-0.5 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
                       {chartItems.map((item, idx) => {
                         const pct = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
                         return (
-                          <div key={idx} className={`flex items-center gap-2.5 p-2 rounded-xl transition-all hover:scale-[1.01] ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
+                          <div key={idx} className={`flex items-center gap-2.5 p-1.5 rounded-xl transition-all hover:scale-[1.01] ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
                             <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: item.color }} />
                             <div className="flex-1 min-w-0">
                               <p className={`text-[10px] font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.name}</p>
@@ -705,7 +705,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
       </div>{/* end flex-1 allocation chart wrapper */}
 
       {/* ── PRINCIPAIS ATIVOS ── */}
-      <div className={`lg:col-span-4 rounded-[2rem] border p-4 flex flex-col ${ovCardBg}`}>
+      <div className={`lg:col-span-4 rounded-[2rem] border p-3 flex flex-col ${ovCardBg}`}>
         <p className={`text-xs font-black mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>Principais Ativos</p>
         {topAssets.length === 0 ? (
           <p className="text-slate-500 text-xs font-bold text-center py-6">Nenhum investimento cadastrado.</p>
@@ -717,7 +717,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
             {topAssets.map((a, i) => {
               const pct = investmentsTotal > 0 ? a.value / investmentsTotal * 100 : 0;
               return (
-                <div key={i} className={`grid grid-cols-12 gap-1 py-1.5 items-center border-t ${isDark ? 'border-white/[0.04]' : 'border-slate-50'}`}>
+                <div key={i} className={`grid grid-cols-12 gap-1 py-1 items-center border-t ${isDark ? 'border-white/[0.04]' : 'border-slate-50'}`}>
                   <span className={`col-span-5 text-[10px] font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{a.name}</span>
                   <span className={`col-span-3 text-[9px] font-bold truncate ${ovLabel}`}>{a.type}</span>
                   <span className={`col-span-2 text-[10px] font-bold text-right ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{hidePatrimonio ? '••' : fmt(a.value)}</span>
@@ -848,7 +848,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
       })()}
 
       {/* ── RESUMO POR CLASSE ── */}
-      <div className={`lg:col-span-3 rounded-[2rem] border p-4 flex flex-col ${ovCardBg}`}>
+      <div className={`lg:col-span-3 rounded-[2rem] border p-3 flex flex-col ${ovCardBg}`}>
         <p className={`text-xs font-black mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>Resumo por Classe</p>
         {classRows.length === 0 ? (
           <p className="text-slate-500 text-xs font-bold text-center py-6">Sem investimentos.</p>
@@ -878,7 +878,7 @@ export default function PatrimonioTab({ transactions, manualConfig, updateManual
       </div>{/* end faixa inferior */}
 
       {/* ── META BAR ── */}
-      <div className={`mt-4 rounded-[2rem] border p-4 flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 ${totalProfit >= 0 ? (isDark ? 'bg-emerald-500/[0.07] border-emerald-500/20' : 'bg-emerald-50 border-emerald-100') : ovCardBg}`}>
+      <div className={`mt-3 rounded-[2rem] border p-3.5 flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-6 ${totalProfit >= 0 ? (isDark ? 'bg-emerald-500/[0.07] border-emerald-500/20' : 'bg-emerald-50 border-emerald-100') : ovCardBg}`}>
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <div className={`p-2.5 rounded-full shrink-0 ${isDark ? 'bg-emerald-500/15' : 'bg-emerald-100'}`}><Target className="w-5 h-5 text-emerald-500" /></div>
           <div className="min-w-0">
