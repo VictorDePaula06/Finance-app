@@ -4,6 +4,7 @@ import {
   Plus,
   Trash2,
   ChevronRight,
+  ChevronLeft,
   ChevronDown,
   Calendar,
   DollarSign,
@@ -73,6 +74,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
   const [viewingInvoiceCardId, setViewingInvoiceCardId] = useState(null);
   const [historyCardId, setHistoryCardId] = useState(null); // cartão do modal "Histórico de faturas"
   const [expandedHistoryMonth, setExpandedHistoryMonth] = useState(null); // mês expandido no histórico
+  const [historyIdx, setHistoryIdx] = useState(0); // fatura visível no histórico (navegação ← →)
 
   // Edit Transaction State
   const [editingTransaction, setEditingTransaction] = useState(null); // { id, description, amount, date }
@@ -654,7 +656,9 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
 
   // Estatísticas completas de um cartão (fatura atual, vencimento, limite, abas).
   const cardStats = (card) => {
-    const { all: unpaidExpenses, previous, currentInvoiceMonth, closingDay } = getUnpaidExpensesByPeriod(card);
+    // "Separar": a fatura ATUAL conta só o mês corrente; meses vencidos (previous)
+    // viram faturas próprias, exibidas/pagas à parte (não são mais engolidos aqui).
+    const { current: unpaidExpenses, previous: overdueExpenses, currentInvoiceMonth, closingDay } = getUnpaidExpensesByPeriod(card);
     const cardSubsAll = getCardSubs(card.id);
     const unpaidSubs = cardSubsAll.filter(s => {
       if (s.lastPaidMonth === currentInvoiceMonth) return false;
@@ -692,9 +696,13 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
       || (dueDate.getFullYear() === now.getFullYear() && dueDate.getMonth() > now.getMonth());
     const currentCyclePaid = invoiceTotal <= 0.005;
 
+    // Total devido em faturas vencidas (meses anteriores não pagos).
+    const overdueTotal = overdueExpenses.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+    // Limite consumido considera TUDO que ainda está em aberto (atual + vencido).
+    const totalOwed = invoiceTotal + overdueTotal;
     const limit = parseFloat(card.limit) || 0;
-    const available = limit > 0 ? Math.max(0, limit - invoiceTotal) : 0;
-    const usagePct = limit > 0 ? Math.min(100, (invoiceTotal / limit) * 100) : 0;
+    const available = limit > 0 ? Math.max(0, limit - totalOwed) : 0;
+    const usagePct = limit > 0 ? Math.min(100, (totalOwed / limit) * 100) : 0;
     // Itens da fatura (despesas no crédito + assinaturas/parcelas do ciclo).
     const invoiceItems = [
       ...unpaidExpenses.map(t => ({ key: t.id, name: t.description || 'Compra', category: t.category, priority: t.priority || 'comfort', amount: parseFloat(t.amount) || 0, date: t.date, installment: t.installmentInfo || null, totalLabel: null })),
@@ -705,7 +713,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
         totalLabel: s.type === 'installment' ? `R$ ${fmt((parseFloat(s.value) || 0) * (s.totalInstallments || 1))} total` : null,
       })),
     ];
-    return { unpaidExpenses, unpaidSubs, invoiceTotal, currentInvoiceMonth, closingDay, dueDate, daysUntil, recurring, installments, parcelasMes, assinaturasMes, nextInvoiceEstimate, currentCyclePaid, isFutureInvoice, limit, available, usagePct, invoiceItems, hasPreviousDebt: previous.length > 0 };
+    return { unpaidExpenses, unpaidSubs, invoiceTotal, currentInvoiceMonth, closingDay, dueDate, daysUntil, recurring, installments, parcelasMes, assinaturasMes, nextInvoiceEstimate, currentCyclePaid, isFutureInvoice, limit, available, usagePct, invoiceItems, overdueExpenses, overdueTotal, hasPreviousDebt: overdueExpenses.length > 0 };
   };
   // Histórico de faturas: baseado em fontes CONFIÁVEIS — os registros de pagamento
   // (valor + data + snapshot dos itens) e a fatura ATUAL em aberto. Não reconstrói
@@ -762,16 +770,37 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
       if (!prev || (p.date || '') > (prev.paidDate || '')) byMonth.set(M, entry);
     });
 
-    // Fatura ATUAL em aberto (se não estiver paga e tiver valor).
-    if (!byMonth.has(currentInvoiceMonth) && stats.invoiceTotal > 0.005) {
-      byMonth.set(currentInvoiceMonth, {
-        month: currentInvoiceMonth, label: mkLabel(currentInvoiceMonth),
-        total: stats.invoiceTotal,
-        status: stats.daysUntil > 0 ? 'open' : 'overdue', paidDate: null,
-        items: stats.invoiceItems.map(i => ({ description: i.name, amount: i.amount, badge: i.installment || (i.date ? null : 'assinatura'), date: i.date })),
-        hasSnapshot: true,
+    // Faturas EM ABERTO por mês (atual, VENCIDAS e futuras). Cada mês é uma fatura
+    // própria — com suas despesas e assinaturas/parcelas — e pode ser paga à parte.
+    // É isto que faz a fatura vencida (ex.: julho não pago) aparecer e ser pagável,
+    // em vez de sumir ou ser "engolida" pela fatura do ciclo atual.
+    const unpaidAll = getUnpaidExpenses(card.id);
+    const openMonths = new Set(unpaidAll.map(t => getInvoiceMonth(t.date || now.toISOString(), closingDay)));
+    openMonths.add(currentInvoiceMonth); // garante a fatura do ciclo atual
+    openMonths.forEach(M => {
+      if (byMonth.has(M)) return; // já registrada como fatura paga
+      const monthExpenses = unpaidAll.filter(t => getInvoiceMonth(t.date || now.toISOString(), closingDay) === M);
+      const monthSubs = getCardSubs(card.id).filter(s => {
+        if (s.lastPaidMonth === M) return false;
+        return isSubInInvoice(parseInt(s.day) || 1, M, closingDay);
       });
-    }
+      const total = monthExpenses.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0)
+        + monthSubs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+      if (total <= 0.005) return; // nada em aberto nesse mês
+      const status = M < currentInvoiceMonth ? 'overdue'
+        : M > currentInvoiceMonth ? 'future'
+        : (stats.daysUntil > 0 ? 'open' : 'overdue');
+      const items = [
+        ...monthExpenses.slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+          .map(t => ({ description: t.description || 'Compra', amount: parseFloat(t.amount) || 0, badge: t.installmentInfo || null, date: t.date || null })),
+        ...monthSubs.map(s => ({ description: s.name, amount: parseFloat(s.value) || 0, badge: s.type === 'installment' ? `${s.currentInstallment || 1}/${s.totalInstallments || 1}` : 'assinatura', date: null })),
+      ];
+      byMonth.set(M, {
+        month: M, label: mkLabel(M), total, status, paidDate: null,
+        items, hasSnapshot: true,
+        payExpenses: monthExpenses, paySubs: monthSubs, // p/ o botão "Pagar" desta fatura
+      });
+    });
 
     return [...byMonth.values()].sort((a, b) => b.month.localeCompare(a.month));
   };
@@ -950,7 +979,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
                     <div className="h-full rounded-full transition-all duration-700" style={{ width: `${selStats.limit > 0 ? selStats.usagePct : 0}%`, background: selStats.usagePct >= 80 ? '#f43f5e' : selStats.usagePct >= 50 ? '#f59e0b' : '#10b981' }} />
                   </div>
                   <div className="flex items-center justify-between mt-1.5">
-                    <span className="text-[9px] text-slate-500 tabular-nums">R$ {fmt(selStats.invoiceTotal)} usado</span>
+                    <span className="text-[9px] text-slate-500 tabular-nums">R$ {fmt(selStats.invoiceTotal + selStats.overdueTotal)} usado</span>
                     <span className="text-[9px] text-slate-500 tabular-nums">{selStats.limit > 0 ? `Limite R$ ${fmt(selStats.limit)}` : 'Defina o limite ✎'}</span>
                   </div>
                 </div>
@@ -964,10 +993,17 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             </div>
 
             {selStats.hasPreviousDebt && (
-              <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span className="text-[10px] font-bold text-amber-500">Inclui fatura(s) anterior(es) ainda não paga(s).</span>
-              </div>
+              <button
+                onClick={() => { setHistoryCardId(selectedCard.id); setExpandedHistoryMonth(null); setHistoryIdx(0); }}
+                className="mt-3 w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/25 hover:bg-rose-500/15 transition-all text-left"
+              >
+                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[11px] font-black text-rose-500">Fatura(s) vencida(s): R$ {fmt(selStats.overdueTotal)}</span>
+                  <span className="block text-[9px] font-bold text-rose-400/80">Toque para ver e pagar no histórico →</span>
+                </span>
+                <ChevronRight className="w-4 h-4 text-rose-500 shrink-0" />
+              </button>
             )}
 
             <div className="flex items-center gap-2 mt-4 flex-wrap">
@@ -982,7 +1018,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
               <button onClick={() => setViewingInvoiceCardId(selectedCard.id)} className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                 <Eye className="w-4 h-4" /> Ver lançamentos
               </button>
-              <button onClick={() => { setHistoryCardId(selectedCard.id); setExpandedHistoryMonth(null); }} className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+              <button onClick={() => { setHistoryCardId(selectedCard.id); setExpandedHistoryMonth(null); setHistoryIdx(0); }} className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                 <Calendar className="w-4 h-4" /> Histórico de faturas
               </button>
             </div>
@@ -1657,66 +1693,89 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
           overdue: { label: 'Vencida',   cls: 'bg-rose-500/10 text-rose-500 border-rose-500/20' },
           future:  { label: 'Próxima',   cls: 'bg-violet-500/10 text-violet-400 border-violet-500/20' },
         };
+        // Navegação ← →: `history` vem do mês mais novo (idx 0) ao mais antigo.
+        const idx = Math.min(Math.max(historyIdx, 0), Math.max(0, history.length - 1));
+        const inv = history[idx];
+        const meta = inv ? statusMeta[inv.status] : null;
+        const canPay = inv && (inv.status === 'open' || inv.status === 'overdue') && ((inv.payExpenses?.length || 0) + (inv.paySubs?.length || 0) > 0);
         return (
           <div className="fixed inset-0 z-[210] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
-            <div className={`border rounded-[2rem] w-full max-w-lg p-6 relative max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-300 ${theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'}`}>
+            <div className={`border rounded-[2rem] w-full max-w-lg p-6 relative flex flex-col animate-in zoom-in-95 duration-300 ${theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'}`}>
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Histórico de faturas</h3>
                   <p className="text-xs text-slate-500">{card.name} · •••• {card.last4 || '0000'}</p>
                 </div>
-                <button onClick={() => { setHistoryCardId(null); setExpandedHistoryMonth(null); }} className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
+                <button onClick={() => { setHistoryCardId(null); setExpandedHistoryMonth(null); setHistoryIdx(0); }} className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
               </div>
-              <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                {history.length === 0 ? (
-                  <p className="text-center text-sm text-slate-500 py-10">Sem faturas registradas ainda.</p>
-                ) : history.map(inv => {
-                  const meta = statusMeta[inv.status];
-                  const open = expandedHistoryMonth === inv.month;
-                  return (
-                    <div key={inv.month} className={`rounded-xl border ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
-                      <button onClick={() => setExpandedHistoryMonth(open ? null : inv.month)} className="w-full flex items-center justify-between gap-3 p-3 text-left">
-                        <div className="min-w-0">
-                          <p className={`text-sm font-black capitalize ${isDark ? 'text-white' : 'text-slate-800'}`}>{inv.label}</p>
-                          <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${meta.cls}`}>
-                            {meta.label}{inv.status === 'paid' && inv.paidDate ? ` em ${new Date(inv.paidDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}` : ''}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className={`text-sm font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(inv.total)}</span>
-                          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
-                        </div>
-                      </button>
-                      {open && (
-                        <div className={`px-3 pb-3 space-y-1.5 border-t pt-2 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
-                          {!inv.hasSnapshot && inv.items.length > 0 && (
-                            <p className="text-[10px] text-amber-500/80 italic pb-1">≈ valores aproximados (fatura anterior à atualização)</p>
-                          )}
-                          {inv.items.length === 0 ? (
-                            <p className="text-[11px] text-slate-500 py-1">{inv.hasSnapshot ? 'Sem itens nesta fatura.' : 'Detalhes não disponíveis. Total pago confirmado.'}</p>
-                          ) : inv.items.map((it, ii) => (
-                            <div key={it.id || ii} className="flex items-center justify-between gap-2 text-[11px]">
-                              <span className={`truncate ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                                {it.description}
-                                {it.badge
-                                  ? <span className="text-slate-500"> · {it.badge}</span>
-                                  : (it.date ? <span className="text-slate-500"> · {new Date(it.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span> : '')}
-                              </span>
-                              <span className="font-bold tabular-nums text-rose-400 shrink-0">R$ {fmt(parseFloat(it.amount) || 0)}</span>
-                            </div>
-                          ))}
-                          <button
-                            onClick={() => exportInvoicePDF({ card, monthLabel: inv.label, total: inv.total, statusLabel: meta.label, paidDate: inv.paidDate, items: inv.items })}
-                            className={`w-full mt-2 inline-flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest border transition-all ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-white'}`}
-                          >
-                            <Download className="w-3.5 h-3.5" /> Exportar este mês em PDF
-                          </button>
-                        </div>
-                      )}
+
+              {history.length === 0 || !inv ? (
+                <p className="text-center text-sm text-slate-500 py-10">Sem faturas registradas ainda.</p>
+              ) : (
+                <>
+                  {/* Navegação entre faturas */}
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <button onClick={() => setHistoryIdx(i => Math.min(history.length - 1, i + 1))} disabled={idx >= history.length - 1}
+                      className={`p-2 rounded-xl border transition-all ${idx >= history.length - 1 ? 'opacity-30 cursor-not-allowed' : ''} ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`} title="Fatura anterior (mais antiga)">
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <div className="text-center min-w-0">
+                      <p className={`text-base font-black capitalize truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{inv.label}</p>
+                      <p className="text-[10px] text-slate-500 font-bold">{idx + 1} de {history.length}</p>
                     </div>
-                  );
-                })}
-              </div>
+                    <button onClick={() => setHistoryIdx(i => Math.max(0, i - 1))} disabled={idx <= 0}
+                      className={`p-2 rounded-xl border transition-all ${idx <= 0 ? 'opacity-30 cursor-not-allowed' : ''} ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`} title="Fatura seguinte (mais recente)">
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Fatura selecionada */}
+                  <div className={`rounded-2xl border p-4 ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${meta.cls}`}>
+                        {meta.label}{inv.status === 'paid' && inv.paidDate ? ` em ${new Date(inv.paidDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}` : ''}
+                      </span>
+                      <span className={`text-xl font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(inv.total)}</span>
+                    </div>
+                    {!inv.hasSnapshot && inv.items.length > 0 && (
+                      <p className="text-[10px] text-amber-500/80 italic pb-1">≈ valores aproximados (fatura anterior à atualização)</p>
+                    )}
+                    <div className="space-y-1.5 max-h-[36vh] overflow-y-auto pr-1">
+                      {inv.items.length === 0 ? (
+                        <p className="text-[11px] text-slate-500 py-1">{inv.hasSnapshot ? 'Sem itens nesta fatura.' : 'Detalhes não disponíveis. Total pago confirmado.'}</p>
+                      ) : inv.items.map((it, ii) => (
+                        <div key={ii} className="flex items-center justify-between gap-2 text-[11px]">
+                          <span className={`truncate ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                            {it.description}
+                            {it.badge
+                              ? <span className="text-slate-500"> · {it.badge}</span>
+                              : (it.date ? <span className="text-slate-500"> · {new Date(it.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span> : '')}
+                          </span>
+                          <span className="font-bold tabular-nums text-rose-400 shrink-0">R$ {fmt(parseFloat(it.amount) || 0)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Ações */}
+                  <div className="flex gap-2 mt-3">
+                    {canPay && (
+                      <button
+                        onClick={() => { setPayingInvoice({ cardId: card.id, total: inv.total, expenses: inv.payExpenses || [], subs: inv.paySubs || [], invoiceMonth: inv.month }); setHistoryCardId(null); setExpandedHistoryMonth(null); setHistoryIdx(0); }}
+                        className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest bg-emerald-500 hover:bg-emerald-400 text-white transition-all"
+                      >
+                        <CreditCard className="w-4 h-4" /> {inv.status === 'overdue' ? 'Pagar fatura vencida' : 'Pagar esta fatura'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => exportInvoicePDF({ card, monthLabel: inv.label, total: inv.total, statusLabel: meta.label, paidDate: inv.paidDate, items: inv.items })}
+                      className={`${canPay ? '' : 'flex-1'} inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest border transition-all ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-white'}`}
+                    >
+                      <Download className="w-3.5 h-3.5" /> PDF
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         );
@@ -1745,7 +1804,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
 
           const unpaidExpenses = isOrphaned
             ? transactions.filter(t => t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' && (!t.selectedCardId || !cards.map(c => c.id).includes(t.selectedCardId)))
-            : getUnpaidExpenses(card.id);
+            : getUnpaidExpenses(card.id).filter(t => getInvoiceMonth(t.date || new Date().toISOString(), modalClosingDay) === modalInvoiceMonth);
 
           const totalInvoice = unpaidExpenses.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0) + cardSubs.reduce((acc, s) => acc + s.value, 0);
 
