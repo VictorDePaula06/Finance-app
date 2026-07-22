@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { AreaChart, Area, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Eye, EyeOff, CreditCard, ChevronRight, TrendingUp, TrendingDown, ShieldCheck, ArrowUpRight, ArrowDownRight, Wallet, X } from 'lucide-react';
 import FinancialHealthIndex from './FinancialHealthIndex';
+import GoalsOverviewCard from './GoalsOverviewCard';
 
 const CAT_COLORS = { housing: '#FB7185', food: '#FB923C', fast_food: '#F59E0B', transport: '#FACC15', health: '#F87171', education: '#60A5FA', pets: '#B45309', personal_care: '#F9A8D4', subscriptions: '#C084FC', credit_card: '#8B5CF6', church: '#93C5FD', taxes: '#64748B', leisure: '#818CF8', shopping: '#F472B6', credit_card_bill: '#8B5CF6', conta_fixa: '#6366F1', loan: '#FB7185', other: '#94A3B8' };
 const CAT_LABELS = { housing: 'Moradia', food: 'Alimentação', fast_food: 'Fast Food', transport: 'Transporte', health: 'Saúde', education: 'Educação', pets: 'Pets', personal_care: 'Cuidados', subscriptions: 'Assinaturas', credit_card: 'Cartão', church: 'Igreja', taxes: 'Taxas', leisure: 'Lazer', shopping: 'Compras', credit_card_bill: 'Fatura', conta_fixa: 'Conta Fixa', loan: 'Empréstimo', other: 'Outros' };
@@ -503,7 +504,10 @@ export default function OverviewTab({
                 )}
             </div>
 
-            {/* ROW 2: Índice de Saúde Financeira */}
+            {/* ROW 2: Minhas Metas */}
+            <GoalsOverviewCard transactions={transactions} setActiveTab={setActiveTab} />
+
+            {/* ROW 3: Índice de Saúde Financeira */}
             <FinancialHealthIndex
                 data={healthIndex}
                 config={manualConfig}

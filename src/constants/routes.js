@@ -13,6 +13,11 @@
 
 // Slug por aba (URL) → id interno (state)
 export const TAB_SLUG_TO_ID = {
+    // Gastos — Cadastros
+    'recebimentos-fixos': 'cad_recebimentos',
+    'reservas-cofrinhos': 'cad_reservas',
+    'cadastro-cartao':    'cad_cartao',
+    'objetivos-metas':    'cad_metas',
     // Gastos
     'visao-geral':       'visao',
     'recebimentos':      'entradas',
@@ -43,6 +48,11 @@ export const TAB_SLUG_TO_ID = {
 
 // Inverso: id interno → slug (pra navegar)
 export const TAB_ID_TO_SLUG = {
+    // Gastos — Cadastros
+    'cad_recebimentos': 'recebimentos-fixos',
+    'cad_reservas':     'reservas-cofrinhos',
+    'cad_cartao':       'cadastro-cartao',
+    'cad_metas':        'objetivos-metas',
     // Gastos
     'visao':           'visao-geral',
     'entradas':        'recebimentos',
@@ -79,6 +89,10 @@ export const DEFAULT_TAB_BY_MODULE = {
 
 // Em qual módulo cada aba existe
 export const TAB_TO_MODULE = {
+    cad_recebimentos: 'gastos',
+    cad_reservas:     'gastos',
+    cad_cartao:       'gastos',
+    cad_metas:        'gastos',
     visao:          'gastos',
     entradas:       'gastos',
     resgates:       'gastos',

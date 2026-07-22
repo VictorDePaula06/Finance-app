@@ -43,6 +43,8 @@ import IncomeTab from './components/IncomeTab';
 import CardsTab from './components/CardsTab';
 import InvestmentsTab from './components/InvestmentsTab';
 import EmergencyReserveTab from './components/EmergencyReserveTab';
+import FixedIncomesTab from './components/FixedIncomesTab';
+import GoalsTab from './components/GoalsTab';
 import WalletSummary from './components/WalletSummary';
 import ExitsTab from './components/ExitsTab';
 import { calculateCumulativeBalance } from './utils/financialLogic';
@@ -883,12 +885,13 @@ function Dashboard() {
 
           { activeTab === 'seguros' && <SegurosTab manualConfig={manualConfig} /> }
 
-          { activeTab === 'cartoes' && <CardsTab transactions={transactions} setActiveTab={setActiveTab} walletStats={walletStats} /> }
+          { activeTab === 'cartoes' && <CardsTab transactions={transactions} setActiveTab={setActiveTab} walletStats={walletStats} mode="lancamento" /> }
 
           { activeTab === 'reserva' && (planLevel === 'premium' || planLevel === 'standard' || planLevel === 'free' || planLevel === 'lifetime' || isAdmin ? <EmergencyReserveTab /> : null) }
 
           { activeTab === 'investimentos' && (planLevel === 'premium' || planLevel === 'standard' || planLevel === 'free' || planLevel === 'lifetime' || isAdmin ? <InvestmentsTab /> : null) }
 
+          {/* Análises e Relatórios (página única) */}
           {['analise', 'analise_metas', 'analise_comparativo'].includes(activeTab) && (
             <AnalysisTab
               transactions={transactions}
@@ -899,13 +902,28 @@ function Dashboard() {
               initialView={
                 activeTab === 'analise_metas' ? 'metas'
                 : activeTab === 'analise_comparativo' ? 'comparativo'
-                : 'periodo'
+                : 'relatorios'
               }
             />
           )}
 
-          {/* Entradas: 'entradas' = Recebimentos, 'resgates' = sub-aba Resgates */}
-          {(activeTab === 'entradas' || activeTab === 'resgates') && (
+          {/* ── CADASTROS (módulo Gastos) ── */}
+          { activeTab === 'cad_metas' && (
+            <GoalsTab transactions={transactions} manualConfig={manualConfig} onUpdateConfig={updateManualConfig} />
+          )}
+
+          { activeTab === 'cad_recebimentos' && <FixedIncomesTab transactions={transactions} mode="cadastro" /> }
+
+          { activeTab === 'cad_reservas' && <EmergencyReserveTab /> }
+
+          { activeTab === 'cad_cartao' && <CardsTab transactions={transactions} setActiveTab={setActiveTab} walletStats={walletStats} mode="cadastro" /> }
+
+          {/* Lançamentos › Recebimentos: confirma os recebimentos fixos já cadastrados
+              e permite lançar uma entrada avulsa (botão pequeno dentro do FixedIncomesTab). */}
+          { activeTab === 'entradas' && <FixedIncomesTab transactions={transactions} mode="lancamento" /> }
+
+          {/* 'resgates' não está no menu novo, mas mantém a rota funcional se acessada direto. */}
+          {activeTab === 'resgates' && (
             <div className="space-y-10">
               <IncomeTab
                 transactions={transactions}
@@ -913,7 +931,7 @@ function Dashboard() {
                 walletStats={walletStats}
                 hideBalance={hideBalance}
                 toggleHideBalance={toggleHideBalance}
-                initialSubTab={activeTab === 'resgates' ? 'resgates' : 'recebimentos'}
+                initialSubTab="resgates"
                 setActiveTab={setActiveTab}
                 expenseBasis={getExpenseBasis(manualConfig)}
               />
@@ -929,12 +947,27 @@ function Dashboard() {
                 hideBalance={hideBalance}
                 toggleHideBalance={toggleHideBalance}
                 expenseBasis={getExpenseBasis(manualConfig)}
+                mode="cadastro"
               />
             </div>
           )}
 
-          {/* Lançamentos: 'gastos' = Despesas, 'aportes' = sub-aba Aportes */}
-          {(activeTab === 'gastos' || activeTab === 'aportes') && (
+          {/* Lançamentos › Despesas: dá baixa nas contas fixas cadastradas e permite
+              lançar despesas avulsas (botão pequeno dentro do FixedExpensesTab). */}
+          { activeTab === 'gastos' && (
+            <FixedExpensesTab
+              transactions={transactions}
+              setActiveTab={setActiveTab}
+              walletStats={walletStats}
+              hideBalance={hideBalance}
+              toggleHideBalance={toggleHideBalance}
+              expenseBasis={getExpenseBasis(manualConfig)}
+              mode="lancamento"
+            />
+          )}
+
+          {/* Lançamentos › Reservas: aportes nos cofrinhos já cadastrados */}
+          {activeTab === 'aportes' && (
             <div className="space-y-10">
               <ExitsTab
                 transactions={transactions}
@@ -946,7 +979,7 @@ function Dashboard() {
                 hideBalance={hideBalance}
                 toggleHideBalance={toggleHideBalance}
                 setActiveTab={setActiveTab}
-                initialSubTab={activeTab === 'aportes' ? 'reservas' : 'despesas'}
+                initialSubTab="reservas"
                 expenseBasis={getExpenseBasis(manualConfig)}
               />
             </div>

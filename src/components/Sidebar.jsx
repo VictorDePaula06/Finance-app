@@ -71,31 +71,29 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
   const navByModule = {
     gastos: [
       { type: 'item', id: 'visao', label: 'Visão Geral', icon: LayoutDashboard },
-      { type: 'item', id: 'extrato', label: 'Extrato', icon: ArrowLeftRight },
       {
-        type: 'group', id: 'grp_entradas', label: 'Entradas', icon: ArrowUpCircle,
+        // CADASTROS: você cadastra uma vez (salário, contas, cofrinhos, cartão, metas).
+        type: 'group', id: 'grp_cadastros', label: 'Cadastros', icon: Briefcase,
+        children: [
+          { id: 'cad_recebimentos', label: 'Recebimentos Fixos', icon: ArrowUpCircle },
+          { id: 'fixas', label: 'Contas Fixas', icon: Home },
+          { id: 'cad_reservas', label: 'Reservas / Cofrinhos', icon: PiggyBank },
+          { id: 'cad_cartao', label: 'Cartão', icon: CreditCard },
+          { id: 'cad_metas', label: 'Objetivos / Metas', icon: Target },
+        ],
+      },
+      {
+        // LANÇAMENTOS: o dia a dia — dar baixa, lançar, pagar fatura, aportar.
+        // Aqui NÃO se cadastra nada; só se movimenta o que já está em Cadastros.
+        type: 'group', id: 'grp_transacoes', label: 'Lançamentos', icon: ArrowLeftRight,
         children: [
           { id: 'entradas', label: 'Recebimentos', icon: ArrowUpCircle },
-          { id: 'resgates', label: 'Resgates', icon: Landmark },
-        ],
-      },
-      {
-        type: 'group', id: 'grp_lancamentos', label: 'Lançamentos', icon: TrendingDown,
-        children: [
-          { id: 'fixas', label: 'Contas Fixas', icon: Home },
           { id: 'gastos', label: 'Despesas', icon: TrendingDown },
-          { id: 'cartoes', label: 'Cartões', icon: CreditCard },
-          { id: 'aportes', label: 'Aportes', icon: PiggyBank },
+          { id: 'cartoes', label: 'Cartão de Crédito', icon: CreditCard },
+          { id: 'aportes', label: 'Reservas', icon: PiggyBank },
         ],
       },
-      {
-        type: 'group', id: 'grp_analise', label: 'Análise de Gastos', icon: TrendingUp,
-        children: [
-          { id: 'analise', label: 'Gastos por Período', icon: BarChart3 },
-          { id: 'analise_metas', label: 'Metas de Gasto', icon: Target },
-          { id: 'analise_comparativo', label: 'Comparativo', icon: PieChart },
-        ],
-      },
+      { type: 'item', id: 'analise', label: 'Análises e Relatórios', icon: BarChart3 },
     ],
     patrimonio: [
       { type: 'item', id: 'patrimonio', label: 'Visão Geral', icon: LayoutDashboard },
@@ -158,39 +156,21 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
         key={item.id}
         onClick={() => handleTabClick(item.id)}
         title={collapsed ? item.label : undefined}
-        className={`relative w-full flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between pl-3 pr-3'} py-1.5 rounded-xl border transition-all duration-300 group ${
+        className={`relative w-full flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-3'} ${isChild ? 'py-2' : 'py-2.5'} rounded-lg transition-colors duration-200 group ${
           isActive
-            ? (theme === 'light'
-                ? 'bg-gradient-to-r from-emerald-50 via-emerald-50/60 to-transparent border-emerald-100 text-emerald-700 shadow-sm'
-                : 'bg-gradient-to-r from-emerald-500/[0.14] via-emerald-500/[0.05] to-transparent border-emerald-500/20 text-emerald-300 shadow-lg shadow-emerald-500/10')
-            : (theme === 'light' ? 'border-transparent text-slate-500 hover:bg-slate-100/70 hover:text-slate-800' : 'border-transparent text-slate-400 hover:bg-white/[0.04] hover:text-slate-100')
+            ? (theme === 'light' ? 'bg-emerald-50/80 text-emerald-700' : 'bg-white/[0.06] text-white')
+            : (theme === 'light' ? 'text-slate-500 hover:bg-slate-100/60 hover:text-slate-800' : 'text-slate-400 hover:bg-white/[0.035] hover:text-slate-200')
         }`}
       >
-        {/* Indicador de aba ativa (barra à esquerda) */}
-        <span className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 rounded-r-full transition-all duration-300 ${
-          isActive ? 'h-5 bg-emerald-500' : 'h-0 bg-transparent'
-        }`} />
-
-        <div className="flex items-center gap-2.5">
-          {isChild ? (
-            // Sub-item: ícone menor, sem pílula (hierarquia visual)
-            <span className="flex items-center justify-center w-7 h-7">
-              <Icon className={`w-4 h-4 transition-colors ${
-                isActive ? (theme === 'light' ? 'text-emerald-600' : 'text-emerald-400') : 'text-slate-400 group-hover:text-current'
-              }`} />
-            </span>
-          ) : (
-            // Item direto: ícone em pílula
-            <span className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-300 ${
-              isActive
-                ? (theme === 'light' ? 'bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-600 shadow-sm' : 'bg-gradient-to-br from-emerald-500/25 to-emerald-500/10 text-emerald-300 shadow-md shadow-emerald-500/20')
-                : (theme === 'light' ? 'bg-slate-100/60 text-slate-400 group-hover:bg-slate-200/70' : 'bg-white/[0.03] text-slate-500 group-hover:bg-white/[0.07] group-hover:text-slate-300')
-            }`}>
-              <Icon className="w-4 h-4" />
-            </span>
-          )}
+        <div className="flex items-center gap-3 min-w-0">
+          <Icon
+            strokeWidth={1.75}
+            className={`shrink-0 transition-colors ${isChild ? 'w-4 h-4' : 'w-[18px] h-[18px]'} ${
+              isActive ? (theme === 'light' ? 'text-emerald-600' : 'text-emerald-400') : ''
+            }`}
+          />
           {!collapsed && (
-            <span className={`tracking-tight text-left whitespace-nowrap ${isChild ? 'text-[11px]' : 'text-[13px]'} ${isActive ? 'font-bold' : isChild ? 'font-medium' : 'font-semibold'}`}>
+            <span className={`text-left whitespace-nowrap ${isChild ? 'text-[13px]' : 'text-[13.5px]'} ${isActive ? 'font-semibold' : 'font-normal'}`}>
               {item.label}
             </span>
           )}
@@ -404,26 +384,25 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
                 <button
                   onClick={() => { if (collapsed) { setCollapsed?.(false); setOpenGroup(entry.id); } else { toggleGroup(entry.id); } }}
                   title={collapsed ? entry.label : undefined}
-                  className={`w-full flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between pl-3 pr-2.5'} py-1.5 rounded-xl transition-all duration-200 group ${
-                    hasActiveChild && !isExpanded
-                      ? (theme === 'light' ? 'text-emerald-700' : 'text-emerald-400')
-                      : (theme === 'light' ? 'text-slate-500 hover:bg-slate-100/70 hover:text-slate-800' : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100')
+                  className={`w-full flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2.5 rounded-lg transition-colors duration-200 group ${
+                    hasActiveChild
+                      ? (theme === 'light' ? 'text-emerald-700' : 'text-white')
+                      : (theme === 'light' ? 'text-slate-500 hover:bg-slate-100/60 hover:text-slate-800' : 'text-slate-400 hover:bg-white/[0.035] hover:text-slate-200')
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 ${
-                      hasActiveChild
-                        ? (theme === 'light' ? 'bg-emerald-100 text-emerald-600' : 'bg-emerald-500/15 text-emerald-400')
-                        : (theme === 'light' ? 'bg-slate-100/60 text-slate-400 group-hover:bg-slate-200/70' : 'bg-white/[0.03] text-slate-500 group-hover:bg-white/[0.07] group-hover:text-slate-300')
-                    }`}>
-                      <GroupIcon className="w-4 h-4" />
-                    </span>
-                    {!collapsed && <span className="text-[13px] font-bold tracking-tight">{entry.label}</span>}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <GroupIcon
+                      strokeWidth={1.75}
+                      className={`shrink-0 w-[18px] h-[18px] transition-colors ${
+                        hasActiveChild ? (theme === 'light' ? 'text-emerald-600' : 'text-emerald-400') : ''
+                      }`}
+                    />
+                    {!collapsed && <span className="text-[13.5px] font-normal whitespace-nowrap">{entry.label}</span>}
                   </div>
                   {!collapsed && (
-                    <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''} ${
-                      theme === 'light' ? 'text-slate-400' : 'text-slate-500'
-                    }`} />
+                    isExpanded
+                      ? <ChevronDown strokeWidth={2} className={`w-4 h-4 shrink-0 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`} />
+                      : <ChevronRight strokeWidth={2} className={`w-4 h-4 shrink-0 ${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`} />
                   )}
                 </button>
 
@@ -433,7 +412,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
                     isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
                   }`}>
                     <div className="overflow-hidden">
-                      <div className="pl-3 pt-0.5 space-y-0.5">
+                      <div className="pl-5 pt-0.5 space-y-0.5">
                         {entry.children.map(child => renderNavItem(child, true))}
                       </div>
                     </div>

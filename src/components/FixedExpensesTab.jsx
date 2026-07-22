@@ -17,7 +17,8 @@ import {
   Zap,
   Info,
   Download,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -25,13 +26,17 @@ import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs } from 'firebase/firestore';
 import TrialLimitModal from './TrialLimitModal';
 import OverdraftWarningModal from './OverdraftWarningModal';
+import ConfirmSaveDialog from './ConfirmSaveDialog';
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import { generateTablePDF } from '../utils/generatePDF';
 import logo from '../assets/logo.png';
 
-export default function FixedExpensesTab({ transactions = [], setActiveTab, walletStats, hideBalance, toggleHideBalance, expenseBasis = 'competencia' }) {
+// mode="cadastro"   → Cadastros › Contas Fixas. Só cadastra/edita/exclui (sem baixa).
+// mode="lancamento" → Lançamentos › Despesas. Só dá baixa/estorna (sem cadastrar).
+export default function FixedExpensesTab({ transactions = [], setActiveTab, walletStats, hideBalance, toggleHideBalance, expenseBasis = 'competencia', mode = 'cadastro' }) {
   const { theme } = useTheme();
   const isDark = theme !== 'light';
+  const isCadastro = mode === 'cadastro';
   const { currentUser, isTrial, planLevel } = useAuth();
 
   // Limites aplicados ao trial e ao Plano Gratuito permanente
@@ -41,6 +46,8 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
 
   const [fixedExpenses, setFixedExpenses] = useState([]);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
+  // Seletor "Fixa ou Variável?" — único ponto de entrada para criar conta.
+  const [choosingType, setChoosingType] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
 
   // 'isVariable': contas tipo luz/gás/água que mudam de valor todo mês.
@@ -75,41 +82,110 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
     return () => unsubscribe();
   }, [currentUser]);
 
-  const handleAddExpense = async (e) => {
-    e.preventDefault();
-    if (!newExpense.name || !newExpense.value) return;
-    if (isLimited && fixedExpenses.length >= TRIAL_FIXED_LIMIT) { setShowTrialModal(true); return; }
+  // Cartões (para a despesa avulsa no crédito).
+  const [cards, setCards] = useState([]);
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = query(collection(db, 'cards'), where('userId', '==', currentUser.uid));
+    return onSnapshot(q, snap => setCards(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [currentUser]);
 
-    await addDoc(collection(db, 'fixed_expenses'), {
-      ...newExpense,
-      value: parseFloat(newExpense.value),
-      category: newExpense.category || 'housing',
-      priority: newExpense.priority || 'essential',
-      isVariable: !!newExpense.isVariable,
-      userId: currentUser.uid,
-      createdAt: Date.now()
-    });
+  // Lançamentos › Despesas: escolher entre dar baixa numa conta cadastrada ou lançar avulsa.
+  const [expenseChooser, setExpenseChooser] = useState(false);
+  const [showPayBoard, setShowPayBoard] = useState(false); // modal grande de baixa
 
-    setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential', isVariable: false });
-    setIsAddingExpense(false);
+  // ── Despesa avulsa: um gasto só deste mês (não vira conta fixa) ──
+  const [manualOpen, setManualOpen] = useState(false);
+  const [mForm, setMForm] = useState({ desc: '', value: '', date: new Date().toISOString().slice(0, 10), category: 'housing', priority: 'essential', pay: 'pix', cardId: '' });
+  const [mBusy, setMBusy] = useState(false);
+  const [mError, setMError] = useState(null);
+
+  const openManual = () => {
+    setMError(null);
+    setMForm({ desc: '', value: '', date: new Date().toISOString().slice(0, 10), category: 'housing', priority: 'essential', pay: 'pix', cardId: cards[0]?.id || '' });
+    setManualOpen(true);
   };
 
-  const handleUpdateExpense = async (e) => {
+  const doManualExpense = async () => {
+    const value = parseFloat(String(mForm.value).replace(/\./g, '').replace(',', '.')) || 0;
+    if (!mForm.desc.trim() || value <= 0 || mBusy) return;
+    if (mForm.pay === 'credito' && !mForm.cardId) { setMError('Selecione o cartão da compra.'); return; }
+    setMBusy(true); setMError(null);
+    try {
+      const [y, mo, d] = (mForm.date || new Date().toISOString().slice(0, 10)).split('-').map(Number);
+      const dt = new Date(y, mo - 1, d, 12, 0, 0);
+      const isCredit = mForm.pay === 'credito';
+      await addDoc(collection(db, 'transactions'), {
+        description: mForm.desc.trim(),
+        amount: value,
+        type: 'expense',
+        category: mForm.category,
+        date: dt.toISOString(),
+        month: dt.toISOString().slice(0, 7),
+        userId: currentUser.uid,
+        createdAt: Date.now(),
+        isFixed: false,
+        paymentMethod: mForm.pay,
+        selectedCardId: isCredit ? mForm.cardId : null,
+        invoiceStatus: isCredit ? 'unpaid' : null,
+        isInstallment: false,
+        priority: mForm.priority,
+      });
+      setManualOpen(false);
+    } catch (err) {
+      console.error('Erro ao lançar despesa avulsa:', err);
+      setMError(err?.message || 'Erro inesperado. Tente novamente.');
+    }
+    setMBusy(false);
+  };
+
+  // ── Salvar conta: confirma → grava → fecha (erro visível) ──
+  const [confirmSave, setConfirmSave] = useState(false);
+  const [savingExp, setSavingExp] = useState(false);
+  const [expError, setExpError] = useState(null);
+
+  const requestSaveExpense = (e) => {
     e.preventDefault();
-    if (!newExpense.name || !editingExpenseId) return;
+    if (!newExpense.name || !newExpense.value) return;
+    if (!editingExpenseId && isLimited && fixedExpenses.length >= TRIAL_FIXED_LIMIT) { setShowTrialModal(true); return; }
+    setExpError(null);
+    setConfirmSave(true);
+  };
 
-    await updateDoc(doc(db, 'fixed_expenses', editingExpenseId), {
-      name: newExpense.name,
-      value: parseFloat(newExpense.value),
-      day: parseInt(newExpense.day),
-      category: newExpense.category || 'housing',
-      priority: newExpense.priority || 'essential',
-      isVariable: !!newExpense.isVariable
-    });
-
-    setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential', isVariable: false });
-    setEditingExpenseId(null);
-    setIsAddingExpense(false);
+  const doSaveExpense = async () => {
+    if (savingExp) return;
+    setSavingExp(true);
+    setExpError(null);
+    try {
+      if (editingExpenseId) {
+        await updateDoc(doc(db, 'fixed_expenses', editingExpenseId), {
+          name: newExpense.name,
+          value: parseFloat(newExpense.value),
+          day: parseInt(newExpense.day),
+          category: newExpense.category || 'housing',
+          priority: newExpense.priority || 'essential',
+          isVariable: !!newExpense.isVariable
+        });
+      } else {
+        await addDoc(collection(db, 'fixed_expenses'), {
+          ...newExpense,
+          value: parseFloat(newExpense.value),
+          category: newExpense.category || 'housing',
+          priority: newExpense.priority || 'essential',
+          isVariable: !!newExpense.isVariable,
+          userId: currentUser.uid,
+          createdAt: Date.now()
+        });
+      }
+      setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential', isVariable: false });
+      setEditingExpenseId(null);
+      setConfirmSave(false);
+      setIsAddingExpense(false);
+    } catch (err) {
+      console.error('Erro ao salvar conta fixa:', err);
+      setExpError(err?.message || 'Erro inesperado. Tente novamente.');
+    }
+    setSavingExp(false);
   };
 
   const handleDeleteExpense = async (id) => {
@@ -258,6 +334,14 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
   const fixedList = fixedExpenses.filter(e => !e.isVariable);
   const variableList = fixedExpenses.filter(e => e.isVariable);
 
+  // Feed dos últimos gastos (baixas de contas + despesas avulsas), mais recentes primeiro.
+  const latestExpenses = useMemo(() =>
+    [...transactions]
+      .filter(t => t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category))
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+      .slice(0, 20)
+  , [transactions]);
+
   // ── KPIs do topo ──
   const stats = useMemo(() => {
     let total = 0, paidSum = 0, pendingSum = 0, paidCount = 0, dueSoonSum = 0, dueSoonCount = 0;
@@ -284,9 +368,16 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
 
   const openAddExpense = (isVariable) => {
     if (isLimited && fixedExpenses.length >= TRIAL_FIXED_LIMIT) { setShowTrialModal(true); return; }
+    setChoosingType(false);
     setEditingExpenseId(null);
     setNewExpense({ name: '', value: '', day: 1, category: isVariable ? 'utilities' : 'housing', priority: 'essential', isVariable });
     setIsAddingExpense(true);
+  };
+
+  // Único ponto de entrada: pergunta o tipo antes de abrir o formulário.
+  const openTypeChooser = () => {
+    if (isLimited && fixedExpenses.length >= TRIAL_FIXED_LIMIT) { setShowTrialModal(true); return; }
+    setChoosingType(true);
   };
 
   const startPay = (exp) => {
@@ -394,11 +485,13 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
           <p className="text-[11px] text-slate-500 truncate mt-0.5">{sub}</p>
         </div>
 
-        {/* Ações de editar/excluir (hover) */}
-        <div className="flex opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          <button onClick={() => startEdit(exp)} className="p-1.5 text-slate-400 hover:text-emerald-400 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-          <button onClick={() => setDeleteConfirm(exp)} className="p-1.5 text-slate-400 hover:text-rose-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-        </div>
+        {/* Ações de editar/excluir (hover) — só em CADASTROS */}
+        {isCadastro && (
+          <div className="flex opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+            <button onClick={() => startEdit(exp)} className="p-1.5 text-slate-400 hover:text-emerald-400 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setDeleteConfirm(exp)} className="p-1.5 text-slate-400 hover:text-rose-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+          </div>
+        )}
 
         <div className="text-right shrink-0">
           <p className={`text-sm font-black tabular-nums ${paid ? 'text-slate-400' : (exp.isVariable ? 'text-amber-500' : (isDark ? 'text-white' : 'text-slate-800'))}`}>
@@ -408,7 +501,16 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
           {subStatus && <p className="text-[10px] mt-0.5">{subStatus}</p>}
         </div>
 
-        {paid ? (
+        {/* Baixa/estorno só em LANÇAMENTOS. Em Cadastros mostra apenas o status. */}
+        {isCadastro ? (
+          <span className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+            paid
+              ? (isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600')
+              : (isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')
+          }`}>
+            {paid ? <><CheckCircle2 className="w-3 h-3" /> Pago</> : 'Em aberto'}
+          </span>
+        ) : paid ? (
           <button
             onClick={() => setUndoConfirm(exp)}
             title="Estornar pagamento"
@@ -480,14 +582,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
               <p className={`text-base font-black tabular-nums leading-none ${accentText}`}>R$ {fmt(colTotal)}</p>
               <p className="text-[9px] text-slate-500 uppercase tracking-wider mt-1">total do mês</p>
             </div>
-            <button
-              onClick={() => openAddExpense(isVariable)}
-              className={`inline-flex items-center gap-1 px-2.5 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider text-white transition-all active:scale-95 shadow-lg ${
-                isVariable ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/25' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/25'
-              }`}
-            >
-              <Plus className="w-3 h-3" /> Nova
-            </button>
+            {/* Sem botão aqui: criar conta é só pelo "Nova Conta" do topo. */}
           </div>
         </div>
 
@@ -500,9 +595,9 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
               </div>
               <p className={`font-bold text-xs ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Nenhuma conta {isVariable ? 'variável' : 'fixa'}</p>
               <p className="text-[10px] text-slate-500 mt-0.5 max-w-[200px]">{isVariable ? 'Ex: luz, gás, água, telefone.' : 'Ex: aluguel, internet, plano de saúde.'}</p>
-              <button onClick={() => openAddExpense(isVariable)} className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white font-bold text-[10px] uppercase tracking-wider transition-all ${isVariable ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
-                <Plus className="w-3 h-3" /> Nova conta
-              </button>
+              {isCadastro && (
+                <p className="text-[10px] text-slate-500 mt-2">Use <strong>“Nova Conta”</strong> no topo.</p>
+              )}
             </div>
           )}
         </div>
@@ -527,13 +622,77 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
     );
   };
 
+  // Board de contas cadastradas (abas de mês + colunas Fixa/Variável).
+  // Em Cadastros aparece inline; em Lançamentos vai para o modal "Despesa cadastrada".
+  const renderBillsBoard = () => (
+    <div className={`rounded-2xl border overflow-hidden ${cardBg}`}>
+      <div className={`flex items-center gap-1 px-4 pt-3 border-b overflow-x-auto ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+        {monthTabs.map(mt => {
+          const active = mt.key === selectedMonth;
+          return (
+            <button key={mt.key} onClick={() => setSelectedMonth(mt.key)}
+              className={`px-3 py-2 text-sm font-bold border-b-2 -mb-px transition-colors whitespace-nowrap ${active ? 'text-emerald-400 border-emerald-400' : `border-transparent ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}`}>
+              {mt.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className={`grid grid-cols-1 lg:grid-cols-2 ${isDark ? 'lg:divide-x divide-white/5' : 'lg:divide-x divide-slate-100'}`}>
+        {renderColumn(fixedList, false)}
+        {renderColumn(variableList, true)}
+      </div>
+    </div>
+  );
+
+  // Feed dos últimos gastos (Lançamentos › Despesas).
+  const renderFeed = () => (
+    <div className={`rounded-2xl border ${cardBg}`}>
+      <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+        <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Últimos gastos</p>
+        <span className="text-[10px] font-bold text-slate-500">{latestExpenses.length} lançamento{latestExpenses.length === 1 ? '' : 's'}</span>
+      </div>
+      {latestExpenses.length === 0 ? (
+        <div className="text-center py-12">
+          <DollarSign className={`w-9 h-9 mx-auto mb-2 ${isDark ? 'text-slate-700' : 'text-slate-300'}`} />
+          <p className="text-sm font-bold text-slate-500">Nenhum gasto lançado ainda.</p>
+          <p className="text-[11px] text-slate-500 mt-1">Use <strong>“Despesa”</strong> no topo para dar baixa numa conta ou lançar avulsa.</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-100 dark:divide-white/[0.04]">
+          {latestExpenses.map(t => {
+            const cat = CATEGORIES.expense.find(c => c.id === t.category);
+            const hex = categoryHex(cat);
+            const dt = t.date ? new Date(t.date) : null;
+            const isCredit = t.paymentMethod === 'credito';
+            return (
+              <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: hex }} />
+                  <div className="min-w-0">
+                    <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.description || 'Gasto'}</p>
+                    <p className="text-[10px] font-bold text-slate-500">
+                      {dt ? dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '') : '—'}
+                      {t.isFixed ? ' · conta fixa' : ' · avulso'}
+                      {isCredit ? ' · crédito' : ''}
+                    </p>
+                  </div>
+                </div>
+                <span className={`text-sm font-black tabular-nums shrink-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(parseFloat(t.amount) || 0)}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-5 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Contas</h1>
+            <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{isCadastro ? 'Contas Fixas' : 'Despesas do mês'}</h1>
             <button
               type="button"
               onClick={() => setShowHelp(true)}
@@ -543,7 +702,11 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
               <HelpCircle className="w-4 h-4" />
             </button>
           </div>
-          <p className={`text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Gerencie e acompanhe o pagamento das suas contas mensais</p>
+          <p className={`text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            {isCadastro
+              ? 'Cadastre suas contas recorrentes — a baixa é feita em Lançamentos › Despesas'
+              : 'Dê baixa nas contas fixas quando vencerem e lance despesas avulsas do mês'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -553,12 +716,22 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
           >
             <Download className="w-4 h-4" /> Exportar
           </button>
-          <button
-            onClick={() => openAddExpense(false)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black transition-all active:scale-95 shadow-lg shadow-emerald-500/25"
-          >
-            <Plus className="w-4 h-4" /> Nova Conta
-          </button>
+          {isCadastro ? (
+            <button
+              onClick={openTypeChooser}
+              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
+            >
+              <Plus className="w-3.5 h-3.5" /> Nova Conta
+            </button>
+          ) : (
+            // Um único botão: abre o seletor (dar baixa numa cadastrada OU lançar avulsa).
+            <button
+              onClick={() => setExpenseChooser(true)}
+              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
+            >
+              <Plus className="w-3.5 h-3.5" /> Despesa
+            </button>
+          )}
         </div>
       </div>
 
@@ -604,34 +777,9 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
         );
       })()}
 
-      {/* Container com abas de mês + duas colunas */}
-      <div className={`rounded-2xl border overflow-hidden ${cardBg}`}>
-        {/* Abas de mês */}
-        <div className={`flex items-center gap-1 px-4 pt-3 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
-          {monthTabs.map(mt => {
-            const active = mt.key === selectedMonth;
-            return (
-              <button
-                key={mt.key}
-                onClick={() => setSelectedMonth(mt.key)}
-                className={`px-3 py-2 text-sm font-bold border-b-2 -mb-px transition-colors ${
-                  active
-                    ? 'text-emerald-400 border-emerald-400'
-                    : `border-transparent ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`
-                }`}
-              >
-                {mt.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Colunas */}
-        <div className={`grid grid-cols-1 lg:grid-cols-2 ${isDark ? 'lg:divide-x divide-white/5' : 'lg:divide-x divide-slate-100'}`}>
-          {renderColumn(fixedList, false)}
-          {renderColumn(variableList, true)}
-        </div>
-      </div>
+      {/* Cadastro: board inline. Lançamentos: feed dos últimos gastos
+          (as contas cadastradas vão para o modal "Despesa cadastrada"). */}
+      {isCadastro ? renderBillsBoard() : renderFeed()}
 
       {/* ───────── MODAIS ───────── */}
 
@@ -783,10 +931,224 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
         onConfirm={() => { if (overdraftPending) executePayExpense(overdraftPending.expense, overdraftPending.amount); }}
       />
 
+      {/* Confirmação de cadastro/edição de conta */}
+      <ConfirmSaveDialog
+        open={confirmSave}
+        title={editingExpenseId ? 'Salvar alterações da conta?' : 'Cadastrar esta conta?'}
+        message={editingExpenseId ? 'Os valores passam a valer para as próximas baixas.' : 'Depois é só dar baixa todo mês em Lançamentos › Despesas.'}
+        confirmLabel={editingExpenseId ? 'Salvar alterações' : 'Cadastrar conta'}
+        details={[
+          { label: 'Nome', value: newExpense.name },
+          { label: 'Tipo', value: newExpense.isVariable ? 'Variável (muda todo mês)' : 'Fixa (valor igual)' },
+          { label: newExpense.isVariable ? 'Média' : 'Valor', value: newExpense.value ? `R$ ${newExpense.value}` : '—' },
+          { label: 'Vencimento', value: `Dia ${newExpense.day || 1}` },
+        ]}
+        busy={savingExp}
+        error={expError}
+        onConfirm={doSaveExpense}
+        onCancel={() => { setConfirmSave(false); setExpError(null); }}
+      />
+
+      {/* Modal: escolher tipo de despesa (cadastrada × avulsa) */}
+      {expenseChooser && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setExpenseChooser(false)}>
+          <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-md p-6 relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+            <button onClick={() => setExpenseChooser(false)} className={`absolute top-4 right-4 p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
+            <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Lançar despesa</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5 mb-5">O que você quer lançar?</p>
+            <div className="space-y-3">
+              <button
+                onClick={() => { setExpenseChooser(false); setShowPayBoard(true); }}
+                className={`w-full flex items-start gap-3 p-4 rounded-2xl border text-left transition-all active:scale-[0.99] ${isDark ? 'border-white/10 hover:border-emerald-500/40 hover:bg-emerald-500/[0.06]' : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/60'}`}
+              >
+                <span className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}><Repeat className="w-5 h-5" /></span>
+                <span className="min-w-0">
+                  <span className={`block text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Despesa cadastrada</span>
+                  <span className="block text-[10px] text-slate-500 mt-1 leading-relaxed">Dar baixa numa conta fixa ou variável que já está cadastrada.</span>
+                </span>
+              </button>
+              <button
+                onClick={() => { setExpenseChooser(false); openManual(); }}
+                className={`w-full flex items-start gap-3 p-4 rounded-2xl border text-left transition-all active:scale-[0.99] ${isDark ? 'border-white/10 hover:border-amber-500/40 hover:bg-amber-500/[0.06]' : 'border-slate-200 hover:border-amber-300 hover:bg-amber-50/60'}`}
+              >
+                <span className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-amber-500/15 text-amber-400' : 'bg-amber-100 text-amber-600'}`}><Zap className="w-5 h-5" /></span>
+                <span className="min-w-0">
+                  <span className={`block text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Despesa avulsa</span>
+                  <span className="block text-[10px] text-slate-500 mt-1 leading-relaxed">Um gasto único deste mês (mercado, uber, farmácia…), sem virar conta fixa.</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal grande: baixa das contas cadastradas (Fixa × Variável, lado a lado) */}
+      {showPayBoard && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setShowPayBoard(false)}>
+          <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar p-5 relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Dar baixa em contas</h3>
+                <p className="text-[11px] text-slate-500">Marque como pagas suas contas fixas e variáveis do mês.</p>
+              </div>
+              <button onClick={() => setShowPayBoard(false)} className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
+            </div>
+            {renderBillsBoard()}
+          </div>
+        </div>
+      )}
+
+      {/* Modal: despesa avulsa (só este mês) */}
+      {manualOpen && (() => {
+        const inCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm font-bold outline-none transition-colors ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-600 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
+        const lbl = 'text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5';
+        const PRIOS = [['essential', 'Essencial'], ['comfort', 'Conforto'], ['superfluous', 'Supérfluo']];
+        const PAYS = [['dinheiro', 'Dinheiro'], ['pix', 'Pix'], ['credito', 'Crédito']];
+        return (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+            <div className={`border rounded-[2rem] w-full max-w-md p-6 space-y-4 relative animate-in zoom-in-95 duration-300 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+              <button onClick={() => setManualOpen(false)} className={`absolute top-4 right-4 p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
+              <div>
+                <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Despesa avulsa</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">Um gasto só deste mês — não vira conta fixa.</p>
+              </div>
+
+              <div>
+                <label className={lbl}>Descrição</label>
+                <input autoFocus className={inCls} placeholder="Ex: Mercado, farmácia, uber" value={mForm.desc} onChange={e => setMForm({ ...mForm, desc: e.target.value })} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={lbl}>Valor (R$)</label>
+                  <input className={inCls} inputMode="decimal" placeholder="0,00" value={mForm.value} onChange={e => setMForm({ ...mForm, value: e.target.value })} />
+                </div>
+                <div>
+                  <label className={lbl}>Data</label>
+                  <input type="date" className={inCls} value={mForm.date} onChange={e => setMForm({ ...mForm, date: e.target.value })} />
+                </div>
+              </div>
+
+              <div>
+                <label className={lbl}>Categoria</label>
+                <select className={inCls} value={mForm.category} onChange={e => setMForm({ ...mForm, category: e.target.value })}>
+                  {(CATEGORIES.expense || []).map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className={lbl}>Prioridade</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {PRIOS.map(([id, label]) => (
+                    <button key={id} type="button" onClick={() => setMForm({ ...mForm, priority: id })}
+                      className={`py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${mForm.priority === id ? 'bg-emerald-500 text-slate-900 border-emerald-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className={lbl}>Forma de pagamento</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {PAYS.map(([id, label]) => (
+                    <button key={id} type="button" onClick={() => setMForm({ ...mForm, pay: id })}
+                      className={`py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${mForm.pay === id ? 'bg-emerald-500 text-slate-900 border-emerald-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {mForm.pay === 'credito' && (
+                <div>
+                  <label className={lbl}>Cartão</label>
+                  {cards.length === 0 ? (
+                    <p className="text-[11px] text-amber-500">Nenhum cartão. Cadastre em Cadastros › Cartão para lançar no crédito.</p>
+                  ) : (
+                    <select className={inCls} value={mForm.cardId} onChange={e => setMForm({ ...mForm, cardId: e.target.value })}>
+                      {cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  )}
+                  <p className="text-[10px] text-slate-500 mt-1.5">No crédito, o gasto entra na fatura e sai do saldo só quando você pagar a fatura.</p>
+                </div>
+              )}
+
+              {mError && (
+                <div className={`flex items-start gap-2 p-3 rounded-xl border ${isDark ? 'bg-rose-500/10 border-rose-500/25' : 'bg-rose-50 border-rose-200'}`}>
+                  <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-rose-400 leading-relaxed break-words">{mError}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => setManualOpen(false)} disabled={mBusy} className={`flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest disabled:opacity-50 ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>Cancelar</button>
+                <button onClick={doManualExpense} disabled={mBusy || !mForm.desc.trim() || !mForm.value} className="flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest bg-emerald-500 hover:bg-emerald-400 text-slate-900 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
+                  {mBusy ? <><Loader2 className="w-4 h-4 animate-spin" /> Lançando...</> : 'Lançar despesa'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Modal: escolher o tipo da conta (único caminho para criar) */}
+      {choosingType && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setChoosingType(false)}>
+          <div
+            onClick={e => e.stopPropagation()}
+            className={`border rounded-[2rem] w-full max-w-md p-6 relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}
+          >
+            <button onClick={() => setChoosingType(false)} className={`absolute top-4 right-4 p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}>
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Que tipo de conta?</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5 mb-5">Isso muda como o app cobra o valor todo mês.</p>
+
+            <div className="space-y-3">
+              {/* Fixa */}
+              <button
+                onClick={() => openAddExpense(false)}
+                className={`w-full flex items-start gap-3 p-4 rounded-2xl border text-left transition-all active:scale-[0.99] ${
+                  isDark ? 'border-white/10 hover:border-emerald-500/40 hover:bg-emerald-500/[0.06]' : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/60'
+                }`}
+              >
+                <span className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}>
+                  <Repeat className="w-5 h-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className={`block text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Conta Fixa</span>
+                  <span className="block text-[11px] font-bold text-emerald-500 mt-0.5">Valor igual todo mês</span>
+                  <span className="block text-[10px] text-slate-500 mt-1 leading-relaxed">Ex.: aluguel, internet, plano de saúde, mensalidade.</span>
+                </span>
+              </button>
+
+              {/* Variável */}
+              <button
+                onClick={() => openAddExpense(true)}
+                className={`w-full flex items-start gap-3 p-4 rounded-2xl border text-left transition-all active:scale-[0.99] ${
+                  isDark ? 'border-white/10 hover:border-amber-500/40 hover:bg-amber-500/[0.06]' : 'border-slate-200 hover:border-amber-300 hover:bg-amber-50/60'
+                }`}
+              >
+                <span className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-amber-500/15 text-amber-400' : 'bg-amber-100 text-amber-600'}`}>
+                  <Zap className="w-5 h-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className={`block text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Conta Variável</span>
+                  <span className="block text-[11px] font-bold text-amber-500 mt-0.5">Valor muda a cada mês</span>
+                  <span className="block text-[10px] text-slate-500 mt-1 leading-relaxed">Ex.: luz, água, gás, telefone. Você cadastra uma média e informa o valor real ao pagar.</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Add/Edit */}
       {isAddingExpense && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
-          <form onSubmit={editingExpenseId ? handleUpdateExpense : handleAddExpense} className={`border rounded-2xl w-full max-w-md p-6 space-y-5 relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+          <form onSubmit={requestSaveExpense} className={`border rounded-2xl w-full max-w-md p-6 space-y-5 relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
             <button
               type="button"
               onClick={() => { setIsAddingExpense(false); setEditingExpenseId(null); setNewExpense({ name: '', value: '', day: 1, category: 'housing', priority: 'essential', isVariable: false }); }}

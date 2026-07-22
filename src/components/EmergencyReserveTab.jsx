@@ -17,6 +17,7 @@ import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc
 import { useAuth } from '../contexts/AuthContext';
 import { useCdiRate } from '../utils/marketRates';
 import TrialLimitModal from './TrialLimitModal';
+import ConfirmSaveDialog from './ConfirmSaveDialog';
 
 const RESERVE_TYPES = {
     tesouro: { label: 'Tesouro Selic', icon: Landmark, color: 'text-blue-500', bg: 'bg-blue-500/10' },
@@ -122,13 +123,27 @@ export default function EmergencyReserveTab() {
         return parseFloat(s);
     };
 
-    const handleSave = async (e) => {
+    // ── Salvar reserva: confirma → grava → fecha. O erro fica VISÍVEL (antes o
+    //    catch só logava no console, então "clicar em salvar não fazia nada").
+    const [confirmReserve, setConfirmReserve] = useState(false);
+    const [savingReserve, setSavingReserve] = useState(false);
+    const [reserveError, setReserveError] = useState(null);
+
+    // O submit do formulário agora apenas ABRE a confirmação.
+    const requestSaveReserve = (e) => {
         e.preventDefault();
-        // Reforço do limite no salvamento (nova reserva).
         if (!isEditing && isReserveLimited && reserves.length >= FREE_RESERVE_LIMIT) {
             setShowLimitModal(true);
             return;
         }
+        if (!formData.name) return;
+        setReserveError(null);
+        setConfirmReserve(true);
+    };
+
+    const handleSave = async () => {
+        setSavingReserve(true);
+        setReserveError(null);
         try {
             const balance = parseNumber(formData.balance);
             const cdiPercent = parseNumber(formData.cdiPercent);
@@ -192,12 +207,15 @@ export default function EmergencyReserveTab() {
                 });
             }
 
+            setConfirmReserve(false);
             setIsAdding(false);
             setIsEditing(null);
             setFormData({ type: 'tesouro', name: '', balance: '', cdiPercent: '100', appliedValue: '', appliedDate: '' });
         } catch (error) {
             console.error("Erro ao salvar reserva:", error);
+            setReserveError(error?.message || 'Erro inesperado. Tente novamente.');
         }
+        setSavingReserve(false);
     };
 
     const handleDelete = async (id) => {
@@ -502,7 +520,7 @@ export default function EmergencyReserveTab() {
                             </p>
                         )}
 
-                        <form onSubmit={handleSave} className="space-y-3">
+                        <form onSubmit={requestSaveReserve} className="space-y-3">
                             <div>
                                 <label className={`text-[10px] font-semibold mb-1 block ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Tipo</label>
                                 <select
@@ -653,6 +671,24 @@ export default function EmergencyReserveTab() {
                     </div>
                 </div>
             )}
+            {/* Confirmação de cadastro/edição de reserva */}
+            <ConfirmSaveDialog
+                open={confirmReserve}
+                title={isEditing ? 'Salvar alterações da reserva?' : 'Criar esta reserva?'}
+                message={isEditing ? 'Alterar o saldo gera o lançamento de ajuste correspondente.' : 'Confira os dados antes de criar o cofrinho.'}
+                confirmLabel={isEditing ? 'Salvar alterações' : 'Criar reserva'}
+                details={[
+                    { label: 'Nome', value: formData.name },
+                    { label: 'Tipo', value: formData.type === 'tesouro' ? 'Tesouro Direto' : 'CDB / Conta rendendo' },
+                    { label: 'Saldo', value: formData.balance !== '' ? `R$ ${formData.balance}` : 'R$ 0,00' },
+                    { label: '% CDI', value: formData.cdiPercent ? `${formData.cdiPercent}%` : '—' },
+                ]}
+                busy={savingReserve}
+                error={reserveError}
+                onConfirm={handleSave}
+                onCancel={() => { setConfirmReserve(false); setReserveError(null); }}
+            />
+
             <TrialLimitModal
                 isOpen={showLimitModal}
                 onClose={() => setShowLimitModal(false)}

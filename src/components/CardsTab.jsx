@@ -27,10 +27,15 @@ import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import TrialLimitModal from './TrialLimitModal';
 import OverdraftWarningModal from './OverdraftWarningModal';
+import ConfirmSaveDialog from './ConfirmSaveDialog';
 import { generateTablePDF } from '../utils/generatePDF';
 import logo from '../assets/logo.png';
 
-const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
+// mode="cadastro"   → Cadastros › Cartão. Só cadastra/edita/exclui cartões.
+// mode="lancamento" → Lançamentos › Cartão de Crédito. Só movimenta (fatura,
+//                     transações, assinaturas, parcelas). Não cadastra cartão.
+const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancamento' }) => {
+  const isCadastro = mode === 'cadastro';
   const { theme } = useTheme();
   const { currentUser, isTrial, planLevel } = useAuth();
 
@@ -154,36 +159,47 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
     });
   }, [currentUser, cards, subscriptions, transactions]);
 
-  const handleAddCard = async (e) => {
+  // ── Salvar cartão: confirma → grava → fecha. Erro fica VISÍVEL (antes o await
+  //    podia lançar e o fluxo morria, deixando a janela aberta sem aviso nenhum).
+  const [confirmCard, setConfirmCard] = useState(false);
+  const [savingCard, setSavingCard] = useState(false);
+  const [cardError, setCardError] = useState(null);
+
+  const requestSaveCard = (e) => {
     e.preventDefault();
     if (!newCard.name) return;
-    // Reforço do limite no salvamento.
-    if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) {
+    if (!editingCardId && isLimited && cards.length >= TRIAL_CARDS_LIMIT) {
       openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`);
       setIsAddingCard(false);
       return;
     }
-    await addDoc(collection(db, 'cards'), {
+    setCardError(null);
+    setConfirmCard(true);
+  };
+
+  const doSaveCard = async () => {
+    setSavingCard(true);
+    setCardError(null);
+    try {
+      const payload = {
         ...newCard,
         closingDay: parseInt(newCard.closingDay) || ((newCard.dueDay - 7 > 0) ? newCard.dueDay - 7 : 25),
         limit: parseFloat(newCard.limit) || null,
-        userId: currentUser.uid
-    });
-    setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' });
-    setIsAddingCard(false);
-  };
-
-  const handleUpdateCard = async (e) => {
-    e.preventDefault();
-    if (!newCard.name || !editingCardId) return;
-    await updateDoc(doc(db, 'cards', editingCardId), {
-        ...newCard,
-        closingDay: parseInt(newCard.closingDay) || ((newCard.dueDay - 7 > 0) ? newCard.dueDay - 7 : 25),
-        limit: parseFloat(newCard.limit) || null
-    });
-    setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' });
-    setEditingCardId(null);
-    setIsAddingCard(false);
+      };
+      if (editingCardId) {
+        await updateDoc(doc(db, 'cards', editingCardId), payload);
+      } else {
+        await addDoc(collection(db, 'cards'), { ...payload, userId: currentUser.uid });
+      }
+      setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' });
+      setEditingCardId(null);
+      setConfirmCard(false);
+      setIsAddingCard(false);
+    } catch (err) {
+      console.error('Erro ao salvar cartão:', err);
+      setCardError(err?.message || 'Erro inesperado. Tente novamente.');
+    }
+    setSavingCard(false);
   };
 
   const handleDeleteCard = async (id) => {
@@ -855,20 +871,28 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Cartões</h1>
-          <p className={`text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Gerencie faturas, parcelamentos e assinaturas dos seus cartões</p>
+          <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            {isCadastro ? 'Cartões' : 'Cartão de Crédito'}
+          </h1>
+          <p className={`text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            {isCadastro
+              ? 'Cadastre seus cartões (limite, fechamento e vencimento) — as faturas você movimenta em Lançamentos'
+              : 'Pague faturas e lance compras, assinaturas e parcelas. Para cadastrar um cartão, vá em Cadastros › Cartão'}
+          </p>
         </div>
-        <button
-          onClick={() => {
-            if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; }
-            setEditingCardId(null);
-            setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' });
-            setIsAddingCard(true);
-          }}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black transition-all active:scale-95 shadow-lg shadow-emerald-500/25"
-        >
-          <Plus className="w-4 h-4" /> Novo Cartão
-        </button>
+        {isCadastro && (
+          <button
+            onClick={() => {
+              if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; }
+              setEditingCardId(null);
+              setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' });
+              setIsAddingCard(true);
+            }}
+            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
+          >
+            <Plus className="w-3.5 h-3.5" /> Novo Cartão
+          </button>
+        )}
       </div>
 
       {/* KPIs com linha de destaque */}
@@ -892,8 +916,14 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
         <div className={`p-12 rounded-2xl border text-center ${kpiCardBg}`}>
           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 ${isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-500'}`}><CreditCard className="w-7 h-7" /></div>
           <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Nenhum cartão cadastrado</p>
-          <p className="text-sm text-slate-500 mb-4 mt-1">Adicione seus cartões para acompanhar faturas, parcelamentos e assinaturas.</p>
-          <button onClick={() => { setEditingCardId(null); setNewCard({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' }); setIsAddingCard(true); }} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white font-black text-xs hover:bg-emerald-600"><Plus className="w-4 h-4" /> Novo Cartão</button>
+          <p className="text-sm text-slate-500 mb-4 mt-1">
+            {isCadastro
+              ? 'Adicione seus cartões para acompanhar faturas, parcelamentos e assinaturas.'
+              : 'Cadastre um cartão em Cadastros › Cartão para poder lançar aqui.'}
+          </p>
+          {isCadastro && (
+            <p className="text-[11px] text-slate-500">Use <strong>“Novo Cartão”</strong> no topo desta tela.</p>
+          )}
         </div>
       ) : (
       <>
@@ -945,8 +975,13 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
                   </select>
                   <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
                 </div>
-                <button onClick={() => { setEditingCardId(selectedCard.id); setNewCard({ name: selectedCard.name, color: selectedCard.color, last4: selectedCard.last4, brand: selectedCard.brand, dueDay: selectedCard.dueDay || 10, closingDay: selectedCard.closingDay || '', limit: selectedCard.limit != null ? String(selectedCard.limit) : '' }); setIsAddingCard(true); }} className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><Pencil className="w-4 h-4" /></button>
-                <button onClick={() => setDeleteConfirm({ id: selectedCard.id, type: 'card', title: selectedCard.name })} className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5 hover:text-rose-400' : 'text-slate-500 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-4 h-4" /></button>
+                {/* Editar/excluir cartão — só em CADASTROS */}
+                {isCadastro && (
+                  <>
+                    <button onClick={() => { setEditingCardId(selectedCard.id); setNewCard({ name: selectedCard.name, color: selectedCard.color, last4: selectedCard.last4, brand: selectedCard.brand, dueDay: selectedCard.dueDay || 10, closingDay: selectedCard.closingDay || '', limit: selectedCard.limit != null ? String(selectedCard.limit) : '' }); setIsAddingCard(true); }} className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><Pencil className="w-4 h-4" /></button>
+                    <button onClick={() => setDeleteConfirm({ id: selectedCard.id, type: 'card', title: selectedCard.name })} className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5 hover:text-rose-400' : 'text-slate-500 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-4 h-4" /></button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1006,6 +1041,8 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
               </button>
             )}
 
+            {/* Ações de fatura — só em LANÇAMENTOS (Cadastros não movimenta nada) */}
+            {!isCadastro && (
             <div className="flex items-center gap-2 mt-4 flex-wrap">
               <button
                 onClick={() => selStats.invoiceTotal > 0.005 && setPayingInvoice({ cardId: selectedCard.id, total: selStats.invoiceTotal, expenses: selStats.unpaidExpenses, subs: selStats.unpaidSubs, invoiceMonth: selStats.currentInvoiceMonth })}
@@ -1022,13 +1059,13 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
                 <Calendar className="w-4 h-4" /> Histórico de faturas
               </button>
             </div>
-          </div>
-        )}
+            )}
 
-      {/* Abas: Lançamentos / Parcelamentos / Assinaturas */}
-      {selectedCard && selStats && (
-        <div className={`rounded-2xl border overflow-hidden ${kpiCardBg}`}>
-          <div className={`flex items-stretch border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+            {/* Abas (Lançamentos / Parcelamentos / Assinaturas) DENTRO da caixa do
+                cartão. As margens negativas cancelam o p-5 do painel para a barra
+                encostar nas bordas e arredondar junto com o rodapé do card. */}
+            <div className="-mx-5 -mb-5 mt-5 rounded-b-2xl overflow-hidden">
+          <div className={`flex items-stretch border-y ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
             {[
               { id: 'lancamentos', label: 'Lançamentos', count: selStats.invoiceItems.length },
               { id: 'parcelamentos', label: 'Parcelamentos', count: selStats.installments.length },
@@ -1040,8 +1077,8 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             ))}
           </div>
 
-          {/* Ações de adicionar (acima da lista) */}
-          <div className={`flex items-center gap-2 px-3 py-2.5 border-b flex-wrap ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+          {/* Ações de adicionar (acima da lista) — só em LANÇAMENTOS */}
+          <div className={`${isCadastro ? 'hidden' : 'flex'} items-center gap-2 px-3 py-2.5 border-b flex-wrap ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
             <button onClick={openAddCardTx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black text-white bg-emerald-500 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"><Plus className="w-3.5 h-3.5" /> Transação</button>
             <button onClick={() => { if (isLimited && subscriptions.length >= TRIAL_SUBS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_SUBS_LIMIT} assinaturas do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; } setNewSub({ name: '', value: '', day: 1, cardId: selectedCard.id, category: 'subscriptions', priority: 'comfort' }); setIsAddingSub(true); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Plus className="w-3.5 h-3.5" /> Assinatura</button>
             <button onClick={() => { setNewInstallment({ name: '', value: '', valueMode: 'total', installments: '2', day: 1, cardId: selectedCard.id, category: 'shopping', priority: 'comfort' }); setIsAddingInstallment(true); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Plus className="w-3.5 h-3.5" /> Parcelamento</button>
@@ -1138,8 +1175,9 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
             )}
           </div>
 
-        </div>
-      )}
+            </div>
+          </div>
+        )}
       </>
       )}
 
@@ -1147,7 +1185,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
       {/* MODAL: ADD CARD */}
       {isAddingCard && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
-          <form onSubmit={editingCardId ? handleUpdateCard : handleAddCard} className={`border rounded-2xl w-full max-w-sm p-6 space-y-4 relative animate-in zoom-in-95 duration-300 shadow-2xl ${
+          <form onSubmit={requestSaveCard} className={`border rounded-2xl w-full max-w-sm p-6 space-y-4 relative animate-in zoom-in-95 duration-300 shadow-2xl ${
             theme === 'light' ? 'bg-white border-slate-100 shadow-2xl' : 'bg-slate-900 border-white/10 shadow-2xl'
           }`}>
             <button
@@ -1977,6 +2015,26 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats }) => {
         isOpen={showTrialModal}
         onClose={() => setShowTrialModal(false)}
         limitMessage={trialModalMsg}
+      />
+
+      {/* Confirmação de cadastro/edição de cartão */}
+      <ConfirmSaveDialog
+        open={confirmCard}
+        title={editingCardId ? 'Salvar alterações do cartão?' : 'Cadastrar este cartão?'}
+        message={editingCardId ? 'As alterações passam a valer para os próximos cálculos de fatura.' : 'Confira os dados antes de cadastrar.'}
+        confirmLabel={editingCardId ? 'Salvar alterações' : 'Cadastrar cartão'}
+        details={[
+          { label: 'Nome', value: newCard.name },
+          { label: 'Bandeira', value: newCard.brand },
+          { label: 'Final', value: newCard.last4 ? `•••• ${newCard.last4}` : '—' },
+          { label: 'Vencimento', value: `Dia ${newCard.dueDay || 10}` },
+          { label: 'Fechamento', value: newCard.closingDay ? `Dia ${newCard.closingDay}` : 'automático' },
+          { label: 'Limite', value: newCard.limit ? `R$ ${fmt(parseFloat(newCard.limit) || 0)}` : '—' },
+        ]}
+        busy={savingCard}
+        error={cardError}
+        onConfirm={doSaveCard}
+        onCancel={() => { setConfirmCard(false); setCardError(null); }}
       />
 
       {/* Aviso de endividamento — pagamento de parcela avulsa ou fatura supera saldo */}
