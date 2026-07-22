@@ -98,6 +98,7 @@ export default function GoalsTab({ transactions = [], manualConfig = {}, onUpdat
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [progressFor, setProgressFor] = useState(null); // meta manual sendo atualizada
   const [progressValue, setProgressValue] = useState('');
+  const [detailGoal, setDetailGoal] = useState(null); // meta aberta na janela de detalhes
 
   const currentMonth = new Date().toISOString().slice(0, 7);
   const monthLabel = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
@@ -152,6 +153,16 @@ export default function GoalsTab({ transactions = [], manualConfig = {}, onUpdat
   const monthExpenses = useMemo(() => currentMonthExpenses(transactions), [transactions]);
   const computeProgress = (g) => goalProgress(g, monthExpenses);
 
+  // Gastos do mês que compõem cada meta (pra janela de detalhes).
+  const goalItems = (g) => {
+    if (!g) return [];
+    let list = [];
+    if (g.type === 'categoria') list = monthExpenses.filter(t => t.category === g.category);
+    else if (g.type === 'cartao') list = monthExpenses.filter(t => t.selectedCardId === g.cardId && t.paymentMethod === 'credito');
+    else if (g.type === 'teto_mensal') list = monthExpenses;
+    return [...list].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  };
+
   const stats = useMemo(() => {
     const ceilings = goals.filter(g => typeMeta(g.type).auto);
     const over = ceilings.filter(g => computeProgress(g).over).length;
@@ -201,10 +212,12 @@ export default function GoalsTab({ transactions = [], manualConfig = {}, onUpdat
     setConfirmSave(true);
   };
 
+  const catLabel = (id) => EXPENSE_CATEGORIES.find(c => c.id === id)?.label || 'Categoria';
   const autoName = (f) => {
-    if (f.type === 'categoria') return EXPENSE_CATEGORIES.find(c => c.id === f.category)?.label || 'Categoria';
-    if (f.type === 'cartao') return cards.find(c => c.id === f.cardId)?.name || 'Cartão';
-    if (f.type === 'teto_mensal') return 'Teto de gastos do mês';
+    // Categoria: usa o nome que a pessoa deu; se vazio, cai no nome da categoria.
+    if (f.type === 'categoria') return f.name.trim() || catLabel(f.category);
+    if (f.type === 'cartao') return f.name.trim() || (cards.find(c => c.id === f.cardId)?.name || 'Cartão');
+    if (f.type === 'teto_mensal') return f.name.trim() || 'Teto de gastos do mês';
     return f.name.trim();
   };
 
@@ -245,7 +258,17 @@ export default function GoalsTab({ transactions = [], manualConfig = {}, onUpdat
   };
 
   const doDelete = async (id) => {
-    try { await deleteDoc(doc(db, 'expense_goals', id)); } catch (err) { console.error(err); }
+    const g = goals.find(x => x.id === id);
+    try {
+      await deleteDoc(doc(db, 'expense_goals', id));
+      // Meta de categoria também vive em manualConfig.categoryBudgets — se não limpar,
+      // a migração recria a meta ao voltar na tela (era o "não exclui").
+      if (g && g.type === 'categoria' && g.category && onUpdateConfig) {
+        const budgets = { ...(manualConfig.categoryBudgets || {}) };
+        delete budgets[g.category];
+        onUpdateConfig({ ...manualConfig, categoryBudgets: budgets });
+      }
+    } catch (err) { console.error(err); }
     setDeleteConfirm(null);
   };
 
@@ -320,7 +343,7 @@ export default function GoalsTab({ transactions = [], manualConfig = {}, onUpdat
               return (
                 <div key={g.id} className={`p-3.5 rounded-xl border ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0">
+                    <button type="button" onClick={() => setDetailGoal(g)} className="flex items-start gap-3 min-w-0 flex-1 text-left">
                       <span className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? tint.softDark : tint.softLight} ${tint.text}`}>
                         <Icon className="w-4.5 h-4.5" />
                       </span>
@@ -340,9 +363,10 @@ export default function GoalsTab({ transactions = [], manualConfig = {}, onUpdat
                         <p className="text-[10px] font-bold text-slate-500 mt-0.5">
                           {p.isCeiling ? 'Gasto no mês' : 'Progresso'}: R$ {fmt(p.done)} de R$ {fmt(p.target)}
                           {g.deadline ? <> · <Calendar className="w-3 h-3 inline -mt-0.5" /> até {new Date(g.deadline + 'T00:00:00').toLocaleDateString('pt-BR')}</> : null}
+                          {meta.auto ? <span className="text-emerald-500 font-black"> · ver gastos →</span> : null}
                         </p>
                       </div>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-1 shrink-0">
                       {!meta.auto && (
                         <button
@@ -417,12 +441,19 @@ export default function GoalsTab({ transactions = [], manualConfig = {}, onUpdat
 
             {/* Categoria */}
             {form.type === 'categoria' && (
-              <div>
-                <label className={labelCls}>Categoria</label>
-                <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className={inputCls}>
-                  {EXPENSE_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-                </select>
-              </div>
+              <>
+                <div>
+                  <label className={labelCls}>Nome da meta</label>
+                  <input className={inputCls} placeholder={`Ex: ${catLabel(form.category)}`} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                  <p className="text-[10px] text-slate-500 mt-1">Fica esse nome na lista. Se deixar em branco, usa o nome da categoria.</p>
+                </div>
+                <div>
+                  <label className={labelCls}>Categoria acompanhada</label>
+                  <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className={inputCls}>
+                    {EXPENSE_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                  </select>
+                </div>
+              </>
             )}
 
             {/* Cartão */}
@@ -509,6 +540,69 @@ export default function GoalsTab({ transactions = [], manualConfig = {}, onUpdat
           </div>
         </div>
       )}
+
+      {/* Janela de detalhes: mostra os gastos que compõem a meta */}
+      {detailGoal && (() => {
+        const g = detailGoal;
+        const meta = typeMeta(g.type);
+        const tint = TINTS[meta.tint];
+        const p = computeProgress(g);
+        const items = goalItems(g);
+        const Icon = meta.icon;
+        return (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setDetailGoal(null)}>
+            <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-md p-6 relative animate-in zoom-in-95 duration-300 shadow-2xl max-h-[88vh] flex flex-col ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+              <button onClick={() => setDetailGoal(null)} className={`absolute top-4 right-4 p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
+
+              <div className="flex items-center gap-3 mb-3">
+                <span className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center ${isDark ? tint.softDark : tint.softLight} ${tint.text}`}><Icon className="w-5 h-5" /></span>
+                <div className="min-w-0">
+                  <h3 className={`text-base font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{g.name}</h3>
+                  <p className="text-[11px] font-bold text-slate-500">
+                    {meta.short}{g.type === 'categoria' ? ` · ${catLabel(g.category)}` : ''}<span className="capitalize"> · {monthLabel}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Resumo */}
+              <div className={`rounded-2xl border p-3 mb-3 ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className={`text-sm font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(p.done)} <span className="text-slate-500 text-[11px]">de R$ {fmt(p.target)}</span></span>
+                  <span className="text-[11px] font-black" style={{ color: p.color }}>{p.pct.toFixed(0)}%{p.over ? ' · estourou' : ''}</span>
+                </div>
+                <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-200'}`}>
+                  <div className="h-full rounded-full" style={{ width: `${p.pct}%`, background: p.color }} />
+                </div>
+              </div>
+
+              {/* Lista de gastos (tipos automáticos) */}
+              {meta.auto ? (
+                <>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Gastos deste mês ({items.length})</p>
+                  <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1.5 pr-1 min-h-0">
+                    {items.length === 0 ? (
+                      <p className="text-[11px] text-slate-500 py-6 text-center">Nenhum gasto {g.type === 'categoria' ? 'nesta categoria' : g.type === 'cartao' ? 'neste cartão' : ''} este mês ainda.</p>
+                    ) : items.map(t => (
+                      <div key={t.id} className={`flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg ${isDark ? 'bg-white/[0.02]' : 'bg-slate-50'}`}>
+                        <div className="min-w-0">
+                          <p className={`text-[12px] font-bold truncate ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{t.description || 'Gasto'}</p>
+                          <p className="text-[9px] font-bold text-slate-500">{t.date ? new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '') : '—'}{t.paymentMethod === 'credito' ? ' · crédito' : ''}</p>
+                        </div>
+                        <span className="text-[12px] font-black tabular-nums text-rose-400 shrink-0">R$ {fmt(parseFloat(t.amount) || 0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="text-[11px] text-slate-500">
+                  Meta de longo prazo — o progresso é atualizado por você no botão <b>Atualizar</b>.
+                  {p.monthlyNeeded != null ? <> Faltam <b className={isDark ? 'text-slate-300' : 'text-slate-600'}>R$ {fmt(p.remaining)}</b> em {p.months} {p.months === 1 ? 'mês' : 'meses'} → <b style={{ color: p.color }}>R$ {fmt(p.monthlyNeeded)}/mês</b>.</> : null}
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Confirmação de cadastro/edição */}
       <ConfirmSaveDialog
