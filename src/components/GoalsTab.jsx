@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Target, Plus, Pencil, Trash2, X, CreditCard, PieChart, TrendingDown,
   Wallet, PiggyBank, CheckCircle2, Calendar, AlertCircle,
@@ -103,42 +103,40 @@ export default function GoalsTab({ transactions = [], manualConfig = {}, onUpdat
   const currentMonth = new Date().toISOString().slice(0, 7);
   const monthLabel = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
-  const goalsLoadedRef = useRef(false);
-  const migratedRef = useRef(false);
-
   useEffect(() => {
     if (!currentUser) return;
     const q = query(collection(db, 'expense_goals'), where('userId', '==', currentUser.uid));
-    const unsub = onSnapshot(q, snap => {
-      setGoals(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      goalsLoadedRef.current = true;
-    });
+    const unsub = onSnapshot(q, snap => setGoals(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
     return () => unsub();
   }, [currentUser]);
 
-  // ── MIGRAÇÃO (não perder dados de quem já usava) ──
-  // As "Metas de Gasto" antigas ficavam em manualConfig.categoryBudgets. Ao entrar
-  // na nova aba de Metas, convertemos cada orçamento em uma meta de categoria — uma
-  // única vez e sem duplicar (só migra o que ainda não virou meta).
-  useEffect(() => {
-    if (migratedRef.current || !currentUser || !goalsLoadedRef.current) return;
-    const budgets = manualConfig?.categoryBudgets;
-    if (!budgets) return; // manualConfig ainda não carregou
-    migratedRef.current = true;
+  // NÃO migramos automaticamente os orçamentos antigos (manualConfig.categoryBudgets):
+  // a migração automática recriava metas que a pessoa tinha acabado de excluir (o
+  // "não exclui"). Em vez disso, oferecemos importar por um banner OPT-IN abaixo.
+  const [importBusy, setImportBusy] = useState(false);
+  const importable = useMemo(() => {
+    if (manualConfig?.goalsMigrated) return [];
+    const budgets = manualConfig?.categoryBudgets || {};
     const already = new Set(goals.filter(g => g.type === 'categoria').map(g => g.category));
-    Object.entries(budgets).forEach(([cat, val]) => {
-      const v = parseFloat(val) || 0;
-      if (v > 0 && !already.has(cat)) {
-        addDoc(collection(db, 'expense_goals'), {
-          type: 'categoria',
-          name: EXPENSE_CATEGORIES.find(c => c.id === cat)?.label || 'Categoria',
-          targetValue: v,
-          category: cat, cardId: null, deadline: null, progress: null,
-          userId: currentUser.uid, createdAt: Date.now(), migratedFromBudget: true,
-        }).catch(err => console.error('Falha ao migrar orçamento:', err));
-      }
-    });
-  }, [goals, manualConfig, currentUser]);
+    return Object.entries(budgets).filter(([cat, v]) => (parseFloat(v) || 0) > 0 && !already.has(cat));
+  }, [manualConfig, goals]);
+
+  const importOldBudgets = async () => {
+    if (importBusy) return;
+    setImportBusy(true);
+    try {
+      await Promise.all(importable.map(([cat, v]) => addDoc(collection(db, 'expense_goals'), {
+        type: 'categoria',
+        name: EXPENSE_CATEGORIES.find(c => c.id === cat)?.label || 'Categoria',
+        targetValue: parseFloat(v) || 0,
+        category: cat, cardId: null, deadline: null, progress: null,
+        userId: currentUser.uid, createdAt: Date.now(), migratedFromBudget: true,
+      })));
+      onUpdateConfig?.({ ...manualConfig, goalsMigrated: true });
+    } catch (err) { console.error('Falha ao importar orçamentos:', err); }
+    setImportBusy(false);
+  };
+  const dismissImport = () => onUpdateConfig?.({ ...manualConfig, goalsMigrated: true });
 
   useEffect(() => {
     if (!currentUser) return;
@@ -261,12 +259,11 @@ export default function GoalsTab({ transactions = [], manualConfig = {}, onUpdat
     const g = goals.find(x => x.id === id);
     try {
       await deleteDoc(doc(db, 'expense_goals', id));
-      // Meta de categoria também vive em manualConfig.categoryBudgets — se não limpar,
-      // a migração recria a meta ao voltar na tela (era o "não exclui").
+      // Meta de categoria também vive em manualConfig.categoryBudgets. O save é por
+      // MERGE (não apaga chave), então zeramos o orçamento — o filtro `v > 0` do
+      // banner de importação já ignora, e nada é recriado.
       if (g && g.type === 'categoria' && g.category && onUpdateConfig) {
-        const budgets = { ...(manualConfig.categoryBudgets || {}) };
-        delete budgets[g.category];
-        onUpdateConfig({ ...manualConfig, categoryBudgets: budgets });
+        onUpdateConfig({ ...manualConfig, categoryBudgets: { ...(manualConfig.categoryBudgets || {}), [g.category]: 0 } });
       }
     } catch (err) { console.error(err); }
     setDeleteConfirm(null);
@@ -301,6 +298,24 @@ export default function GoalsTab({ transactions = [], manualConfig = {}, onUpdat
           <Plus className="w-3.5 h-3.5" /> Nova meta
         </button>
       </div>
+
+      {/* Banner opt-in: importar orçamentos por categoria do sistema antigo */}
+      {importable.length > 0 && (
+        <div className={`flex items-center justify-between gap-4 flex-wrap rounded-2xl border px-4 py-3 ${isDark ? 'bg-emerald-500/[0.07] border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isDark ? 'bg-emerald-500/15' : 'bg-emerald-100'}`}><PieChart className="w-4 h-4 text-emerald-500" /></div>
+            <p className={`text-xs min-w-0 ${isDark ? 'text-emerald-200' : 'text-emerald-800'}`}>
+              Você tem <span className="font-black">{importable.length} orçamento{importable.length === 1 ? '' : 's'} por categoria</span> do formato antigo. Quer trazer como metas?
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={dismissImport} className={`text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>Dispensar</button>
+            <button onClick={importOldBudgets} disabled={importBusy} className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-emerald-500 hover:bg-emerald-400 text-slate-900 disabled:opacity-50 transition-all">
+              {importBusy ? 'Importando...' : 'Importar'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
