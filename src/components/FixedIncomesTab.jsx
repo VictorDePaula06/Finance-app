@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowUpCircle, Plus, Trash2, Pencil, CheckCircle2, Calendar, X, Wallet, Repeat, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowUpCircle, Plus, Trash2, Pencil, CheckCircle2, Calendar, X, Wallet, Repeat, AlertCircle, Loader2, Home, Gift, CircleDollarSign } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
@@ -9,13 +9,25 @@ import ConfirmSaveDialog from './ConfirmSaveDialog';
 // Categorias de entrada recorrente (espelha o conceito das contas fixas, do lado da receita).
 const INCOME_CATEGORIES = [
   { id: 'salary', label: 'Salário' },
-  { id: 'freelance', label: 'Freelance / PJ' },
-  { id: 'rent', label: 'Aluguel recebido' },
-  { id: 'benefit', label: 'Benefício / Auxílio' },
-  { id: 'investment', label: 'Rendimentos' },
+  { id: 'rent', label: 'Aluguel Recebido' },
+  { id: 'benefit', label: 'Benefício' },
   { id: 'other', label: 'Outros' },
 ];
-const catLabel = (id) => (INCOME_CATEGORIES.find(c => c.id === id) || INCOME_CATEGORIES[5]).label;
+const catLabel = (id) => {
+  const found = INCOME_CATEGORIES.find(c => c.id === id);
+  if (found) return found.label;
+  // Compatibilidade com categorias antigas (freelance, investment, ...)
+  return INCOME_CATEGORIES[INCOME_CATEGORIES.length - 1].label;
+};
+
+// Painéis de exibição no Cadastro. Categorias legadas caem no grupo "Outros".
+const INCOME_GROUPS = [
+  { id: 'salary', title: 'Meus Salários', icon: Wallet, match: ['salary', 'freelance'] },
+  { id: 'rent', title: 'Meus Aluguéis Recebidos', icon: Home, match: ['rent'] },
+  { id: 'benefit', title: 'Meus Benefícios', icon: Gift, match: ['benefit'] },
+  { id: 'other', title: 'Outros Recebimentos', icon: CircleDollarSign, match: ['other', 'investment'] },
+];
+const groupOf = (cat) => (INCOME_GROUPS.find(g => g.match.includes(cat)) || INCOME_GROUPS[INCOME_GROUPS.length - 1]).id;
 
 /**
  * Entradas recorrentes (salário, aluguel...). O componente tem DOIS modos, para
@@ -175,6 +187,7 @@ export default function FixedIncomesTab({ transactions = [], mode = 'cadastro' }
   };
 
   const inputCls = `w-full px-4 py-3 rounded-xl border text-sm font-bold outline-none transition-colors ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-600 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
+  const labelCls = 'text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5';
   const sorted = [...incomes].sort((a, b) => (a.day || 0) - (b.day || 0));
 
   return (
@@ -224,44 +237,59 @@ export default function FixedIncomesTab({ transactions = [], mode = 'cadastro' }
             </div>
           </div>
 
-          <div className="pat-card overflow-hidden">
-            {sorted.length === 0 ? (
+          {sorted.length === 0 ? (
+            <div className="pat-card overflow-hidden">
               <div className="text-center py-12">
                 <ArrowUpCircle className={`w-10 h-10 mx-auto mb-3 ${isDark ? 'text-slate-700' : 'text-slate-300'}`} />
                 <p className="text-sm font-bold text-slate-500">Nenhum recebimento fixo cadastrado.</p>
                 <p className="text-[11px] text-slate-500 mt-1">Use <strong>“Novo recebimento”</strong> no topo para cadastrar.</p>
               </div>
-            ) : (
-              <>
-                <div className={`flex items-center gap-3 px-4 py-2.5 border-b text-[9px] font-black uppercase tracking-widest text-slate-500 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
-                  <span className="w-8 shrink-0" />
-                  <span className="flex-1">Recebimento</span>
-                  <span className="hidden sm:block w-20">Vencimento</span>
-                  <span className="hidden sm:block w-28">Categoria</span>
-                  <span className="w-24 text-right">Valor</span>
-                  <span className="w-16" />
-                </div>
-                <div className={`divide-y ${isDark ? 'divide-white/[0.04]' : 'divide-slate-100'}`}>
-                  {sorted.map(inc => (
-                    <div key={inc.id} className={`flex items-center gap-3 px-4 py-3 transition-colors ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
-                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}><ArrowUpCircle className="w-4 h-4 text-emerald-500" /></span>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{inc.name}</p>
-                        <p className="text-[10px] font-bold text-slate-500 sm:hidden">Dia {inc.day || 1} · {catLabel(inc.category)}</p>
+            </div>
+          ) : (
+            /* Painéis por categoria — só aparecem os grupos que têm itens. */
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {INCOME_GROUPS.map(group => {
+                const items = sorted.filter(inc => groupOf(inc.category) === group.id);
+                if (items.length === 0) return null;
+                const subtotal = items.reduce((a, i) => a + (parseFloat(i.value) || 0), 0);
+                const GIcon = group.icon;
+                return (
+                  <div key={group.id} className="pat-card p-4">
+                    <div className={`flex items-center justify-between gap-3 pb-3 mb-1 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
+                          <GIcon className="w-4.5 h-4.5 text-emerald-500" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className={`text-sm font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{group.title}</p>
+                          <p className="text-[10px] font-bold text-slate-500">{items.length} {items.length === 1 ? 'recebimento' : 'recebimentos'}</p>
+                        </div>
                       </div>
-                      <span className="hidden sm:block w-20 text-[11px] font-bold text-slate-500">Dia {inc.day || 1}</span>
-                      <span className="hidden sm:block w-28 text-[11px] font-bold text-slate-500 truncate">{catLabel(inc.category)}</span>
-                      <span className="w-24 text-right text-sm font-black tabular-nums text-emerald-500 shrink-0">R$ {fmt(inc.value)}</span>
-                      <div className="w-16 flex items-center justify-end gap-0.5 shrink-0">
-                        <button onClick={() => openEdit(inc)} title="Editar" className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => setDeleteConfirm(inc.id)} title="Excluir" className={`p-2 rounded-lg text-rose-400 ${isDark ? 'hover:bg-rose-500/10' : 'hover:bg-rose-50'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+                      <div className="text-right shrink-0">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Total/mês</p>
+                        <p className="text-sm font-black tabular-nums text-emerald-500">R$ {fmt(subtotal)}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+                    <div className={`divide-y ${isDark ? 'divide-white/[0.04]' : 'divide-slate-100'}`}>
+                      {items.map(inc => (
+                        <div key={inc.id} className={`flex items-center gap-3 py-3 -mx-1 px-1 rounded-lg transition-colors ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{inc.name}</p>
+                            <p className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><Calendar className="w-3 h-3" /> Todo dia {inc.day || 1}</p>
+                          </div>
+                          <span className="text-sm font-black tabular-nums text-emerald-500 shrink-0">R$ {fmt(inc.value)}</span>
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <button onClick={() => openEdit(inc)} title="Editar" className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => setDeleteConfirm(inc.id)} title="Excluir" className={`p-2 rounded-lg text-rose-400 ${isDark ? 'hover:bg-rose-500/10' : 'hover:bg-rose-50'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </>
       ) : (
         /* ══════════ LANÇAMENTO: ação do mês (KPIs + checklist) ══════════ */
@@ -374,12 +402,12 @@ export default function FixedIncomesTab({ transactions = [], mode = 'cadastro' }
             </div>
 
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Categoria</label>
-              <div className="grid grid-cols-3 gap-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Tipo de recebimento</label>
+              <div className="grid grid-cols-2 gap-2">
                 {INCOME_CATEGORIES.map(c => (
                   <button
                     key={c.id} type="button" onClick={() => setForm({ ...form, category: c.id })}
-                    className={`px-2 py-2 rounded-lg text-[10px] font-black transition-all border ${form.category === c.id ? 'bg-emerald-500 text-white border-emerald-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}
+                    className={`px-2 py-2.5 rounded-lg text-[11px] font-black transition-all border ${form.category === c.id ? 'bg-emerald-500 text-white border-emerald-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}
                   >
                     {c.label}
                   </button>
