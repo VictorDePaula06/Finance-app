@@ -779,8 +779,22 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
   const renderCadastroSummary = () => {
     const fixedTotal = fixedList.reduce((a, e) => a + (parseFloat(e.value) || 0), 0);
     const varTotal = variableList.reduce((a, e) => a + (parseFloat(e.value) || 0), 0);
+    const grandTotal = fixedTotal + varTotal;
+    const totalCount = fixedList.length + variableList.length;
     return (
-      <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-3">
+        {/* Total geral em destaque: fixas + variáveis */}
+        <div className={`relative rounded-2xl border overflow-hidden ${cardBg}`}>
+          <div className="h-1 w-full bg-blue-500" />
+          <div className="flex items-center justify-between gap-3 p-4">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total de contas / mês</p>
+              <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{totalCount} {totalCount === 1 ? 'conta cadastrada' : 'contas cadastradas'} · fixas + variáveis</p>
+            </div>
+            <p className="text-3xl font-black tabular-nums text-blue-500 shrink-0">{varTotal > 0 && <span className="text-lg mr-0.5">≈</span>}R$ {fmt(grandTotal)}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
         <div className={`relative rounded-2xl border overflow-hidden ${cardBg}`}>
           <div className="h-1 w-full bg-emerald-500" />
           <div className="p-4">
@@ -796,6 +810,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
             <p className="text-2xl font-black tabular-nums mt-1 text-amber-500">{varTotal > 0 && <span className="text-sm mr-0.5">≈</span>}R$ {fmt(varTotal)}</p>
             <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{variableList.length} {variableList.length === 1 ? 'conta' : 'contas'} · estimativa mensal</p>
           </div>
+        </div>
         </div>
       </div>
     );
