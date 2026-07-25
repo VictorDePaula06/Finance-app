@@ -686,6 +686,121 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
     </div>
   );
 
+  // ── CADASTRO: linha simples de uma conta (sem status de pagamento) ──
+  const renderCadastroRow = (exp, isVariable) => {
+    const cat = CATEGORIES.expense.find(c => c.id === exp.category);
+    const hex = categoryHex(cat);
+    const Icon = cat?.icon || Home;
+    const prio = PRIORITY[exp.priority] || PRIORITY.essential;
+    return (
+      <div key={exp.id} className={`group flex items-center gap-3 py-3 -mx-1 px-1 rounded-lg transition-colors ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1A` }}>
+          <Icon className="w-[18px] h-[18px]" style={{ color: hex }} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={`font-bold text-sm truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{exp.name}</span>
+            <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${prio.tint}`}>{prio.label}</span>
+          </div>
+          <p className="text-[11px] text-slate-500 truncate mt-0.5 flex items-center gap-1"><Calendar className="w-3 h-3" /> {catLabel(exp.category)} · Todo dia {exp.day || 1}</p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className={`text-sm font-black tabular-nums ${isVariable ? 'text-amber-500' : (isDark ? 'text-white' : 'text-slate-800')}`}>
+            {isVariable && <span className="text-[10px] mr-0.5">≈</span>}R$ {fmt(exp.value)}
+          </p>
+        </div>
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button onClick={() => startEdit(exp)} title="Editar" className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+          <button onClick={() => setDeleteConfirm(exp)} title="Excluir" className={`p-2 rounded-lg text-rose-400 ${isDark ? 'hover:bg-rose-500/10' : 'hover:bg-rose-50'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+        </div>
+      </div>
+    );
+  };
+
+  // ── CADASTRO: painel de um grupo (Minhas Contas Fixas / Variáveis) ──
+  const renderCadastroPanel = (list, isVariable) => {
+    const title = isVariable ? 'Minhas Contas Variáveis' : 'Minhas Contas Fixas';
+    const subtitle = isVariable ? 'valor muda a cada mês (estimativa)' : 'valor igual todo mês';
+    const ColIcon = isVariable ? Zap : Repeat;
+    const accentText = isVariable ? 'text-amber-500' : 'text-emerald-500';
+    const accentSoft = isVariable ? (isDark ? 'bg-amber-500/10' : 'bg-amber-50') : (isDark ? 'bg-emerald-500/10' : 'bg-emerald-50');
+    const iconBg = isVariable ? 'bg-amber-500' : 'bg-emerald-500';
+    const shadow = isVariable ? 'shadow-amber-500/25' : 'shadow-emerald-500/25';
+    const total = list.reduce((a, e) => a + (parseFloat(e.value) || 0), 0);
+    const sorted = [...list].sort((a, b) => (a.day || 1) - (b.day || 1));
+
+    return (
+      <div className="pat-card p-5">
+        {/* Cabeçalho com o TOTAL em destaque — a pessoa vê de imediato */}
+        <div className={`flex items-center justify-between gap-3 pb-4 mb-2 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${iconBg} shadow-lg ${shadow}`}>
+              <ColIcon className="w-5 h-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h3 className={`font-black text-base tracking-tight leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{title}</h3>
+              <p className="text-[10px] font-bold text-slate-500 mt-0.5">{list.length} {list.length === 1 ? 'conta' : 'contas'} · {subtitle}</p>
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Total / mês</p>
+            <p className={`text-xl font-black tabular-nums leading-tight ${accentText}`}>
+              {isVariable && total > 0 && <span className="text-xs mr-0.5">≈</span>}R$ {fmt(total)}
+            </p>
+          </div>
+        </div>
+
+        {sorted.length > 0 ? (
+          <div className={`divide-y ${isDark ? 'divide-white/[0.04]' : 'divide-slate-100'}`}>
+            {sorted.map(exp => renderCadastroRow(exp, isVariable))}
+          </div>
+        ) : (
+          <div className={`flex flex-col items-center justify-center text-center py-10 px-4 mt-1 rounded-xl border border-dashed ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-2 ${accentSoft} ${accentText}`}>
+              <ColIcon className="w-5 h-5" />
+            </div>
+            <p className={`font-bold text-xs ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Nenhuma conta {isVariable ? 'variável' : 'fixa'}</p>
+            <p className="text-[10px] text-slate-500 mt-0.5 max-w-[200px]">{isVariable ? 'Ex: luz, gás, água, telefone.' : 'Ex: aluguel, internet, plano de saúde.'}</p>
+            <p className="text-[10px] text-slate-500 mt-2">Use <strong>“Nova Conta”</strong> no topo.</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderCadastroPanels = () => (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {renderCadastroPanel(fixedList, false)}
+      {renderCadastroPanel(variableList, true)}
+    </div>
+  );
+
+  // ── CADASTRO: dois cartões-resumo com o total de cada tipo ──
+  const renderCadastroSummary = () => {
+    const fixedTotal = fixedList.reduce((a, e) => a + (parseFloat(e.value) || 0), 0);
+    const varTotal = variableList.reduce((a, e) => a + (parseFloat(e.value) || 0), 0);
+    return (
+      <div className="grid grid-cols-2 gap-3">
+        <div className={`relative rounded-2xl border overflow-hidden ${cardBg}`}>
+          <div className="h-1 w-full bg-emerald-500" />
+          <div className="p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Contas fixas</p>
+            <p className="text-2xl font-black tabular-nums mt-1 text-emerald-500">R$ {fmt(fixedTotal)}</p>
+            <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{fixedList.length} {fixedList.length === 1 ? 'conta' : 'contas'} · valor igual todo mês</p>
+          </div>
+        </div>
+        <div className={`relative rounded-2xl border overflow-hidden ${cardBg}`}>
+          <div className="h-1 w-full bg-amber-500" />
+          <div className="p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Contas variáveis</p>
+            <p className="text-2xl font-black tabular-nums mt-1 text-amber-500">{varTotal > 0 && <span className="text-sm mr-0.5">≈</span>}R$ {fmt(varTotal)}</p>
+            <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{variableList.length} {variableList.length === 1 ? 'conta' : 'contas'} · estimativa mensal</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-5 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Cabeçalho */}
@@ -735,7 +850,8 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
         </div>
       </div>
 
-      {/* KPIs com linha de destaque */}
+      {/* Cadastro: totais por tipo. Lançamentos: KPIs de pagamento do mês. */}
+      {isCadastro ? renderCadastroSummary() : (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {KPIS.map((k) => (
           <div key={k.label} className={`relative rounded-2xl border overflow-hidden ${cardBg}`}>
@@ -748,9 +864,10 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
           </div>
         ))}
       </div>
+      )}
 
-      {/* Banner de urgência — contas vencendo hoje / vencidas (mês corrente) */}
-      {isCurrentMonth && stats.urgentBills.length > 0 && (() => {
+      {/* Banner de urgência — contas vencendo hoje / vencidas (só em Lançamentos) */}
+      {!isCadastro && isCurrentMonth && stats.urgentBills.length > 0 && (() => {
         const first = stats.urgentBills[0];
         const many = stats.urgentBills.length > 1;
         return (
@@ -777,9 +894,10 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
         );
       })()}
 
-      {/* Cadastro: board inline. Lançamentos: feed dos últimos gastos
-          (as contas cadastradas vão para o modal "Despesa cadastrada"). */}
-      {isCadastro ? renderBillsBoard() : renderFeed()}
+      {/* Cadastro: painéis "Minhas Contas Fixas / Variáveis" com total em destaque.
+          Lançamentos: feed dos últimos gastos (contas cadastradas vão para o
+          modal "Despesa cadastrada"). */}
+      {isCadastro ? renderCadastroPanels() : renderFeed()}
 
       {/* ───────── MODAIS ───────── */}
 
