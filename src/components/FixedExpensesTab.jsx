@@ -18,7 +18,9 @@ import {
   Info,
   Download,
   AlertCircle,
-  Loader2
+  Loader2,
+  CreditCard,
+  ChevronRight
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -93,6 +95,9 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
   // Lançamentos › Despesas: escolher entre dar baixa numa conta cadastrada ou lançar avulsa.
   const [expenseChooser, setExpenseChooser] = useState(false);
   const [showPayBoard, setShowPayBoard] = useState(false); // modal grande de baixa
+  // "Ver todos" por seção (fixo/avulso/parcelamento) com filtro de período.
+  const [viewAllType, setViewAllType] = useState(null);
+  const [viewPeriod, setViewPeriod] = useState('30d');
 
   // ── Despesa avulsa: um gasto só deste mês (não vira conta fixa) ──
   const [manualOpen, setManualOpen] = useState(false);
@@ -334,13 +339,17 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
   const fixedList = fixedExpenses.filter(e => !e.isVariable);
   const variableList = fixedExpenses.filter(e => e.isVariable);
 
-  // Feed dos últimos gastos (baixas de contas + despesas avulsas), mais recentes primeiro.
-  const latestExpenses = useMemo(() =>
+  // Todos os gastos (baixas de contas + avulsas + parcelas), mais recentes primeiro.
+  const isInstallmentTx = (t) => !!(t.isInstallmentPayment || t.isInstallment || t.installmentInfo);
+  const allExpenseTx = useMemo(() =>
     [...transactions]
       .filter(t => t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category))
       .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
-      .slice(0, 20)
   , [transactions]);
+  // 3 grupos: gastos fixos (baixa de conta), avulsos e parcelamentos.
+  const fixedTx = useMemo(() => allExpenseTx.filter(t => t.isFixed && !isInstallmentTx(t)), [allExpenseTx]);
+  const installmentTx = useMemo(() => allExpenseTx.filter(isInstallmentTx), [allExpenseTx]);
+  const avulsoTx = useMemo(() => allExpenseTx.filter(t => !t.isFixed && !isInstallmentTx(t)), [allExpenseTx]);
 
   // ── KPIs do topo ──
   const stats = useMemo(() => {
@@ -644,47 +653,92 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
     </div>
   );
 
-  // Feed dos últimos gastos (Lançamentos › Despesas).
-  const renderFeed = () => (
-    <div className={`rounded-2xl border ${cardBg}`}>
-      <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
-        <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Últimos gastos</p>
-        <span className="text-[10px] font-bold text-slate-500">{latestExpenses.length} lançamento{latestExpenses.length === 1 ? '' : 's'}</span>
+  // Linha de um gasto (valor em vermelho — é saída).
+  const renderExpenseRow = (t) => {
+    const cat = CATEGORIES.expense.find(c => c.id === t.category);
+    const hex = categoryHex(cat);
+    const dt = t.date ? new Date(t.date) : null;
+    const isCredit = t.paymentMethod === 'credito';
+    return (
+      <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: hex }} />
+          <div className="min-w-0">
+            <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.description || 'Gasto'}</p>
+            <p className="text-[10px] font-bold text-slate-500">
+              {dt ? dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '') : '—'}
+              {' · '}{cat?.label || 'Outro'}
+              {isCredit ? ' · crédito' : ''}
+            </p>
+          </div>
+        </div>
+        <span className="text-sm font-black tabular-nums shrink-0 text-rose-500">− R$ {fmt(parseFloat(t.amount) || 0)}</span>
       </div>
-      {latestExpenses.length === 0 ? (
-        <div className="text-center py-12">
+    );
+  };
+
+  // Configuração das 3 seções do feed de despesas.
+  const EXPENSE_SECTIONS = [
+    { key: 'fixo', title: 'Últimos gastos fixos', hint: 'Baixas das contas cadastradas', icon: Repeat, items: fixedTx },
+    { key: 'avulso', title: 'Últimos gastos avulsos', hint: 'Gastos únicos do mês', icon: Zap, items: avulsoTx },
+    { key: 'parcelamento', title: 'Últimos parcelamentos', hint: 'Parcelas lançadas no crédito', icon: CreditCard, items: installmentTx },
+  ];
+
+  // Feed dos últimos gastos, dividido em 3 partes (Lançamentos › Despesas).
+  const renderFeed = () => {
+    const totalCount = fixedTx.length + avulsoTx.length + installmentTx.length;
+    if (totalCount === 0) {
+      return (
+        <div className={`rounded-2xl border ${cardBg} text-center py-12`}>
           <DollarSign className={`w-9 h-9 mx-auto mb-2 ${isDark ? 'text-slate-700' : 'text-slate-300'}`} />
           <p className="text-sm font-bold text-slate-500">Nenhum gasto lançado ainda.</p>
           <p className="text-[11px] text-slate-500 mt-1">Use <strong>“Despesa”</strong> no topo para dar baixa numa conta ou lançar avulsa.</p>
         </div>
-      ) : (
-        <div className="divide-y divide-slate-100 dark:divide-white/[0.04]">
-          {latestExpenses.map(t => {
-            const cat = CATEGORIES.expense.find(c => c.id === t.category);
-            const hex = categoryHex(cat);
-            const dt = t.date ? new Date(t.date) : null;
-            const isCredit = t.paymentMethod === 'credito';
-            return (
-              <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: hex }} />
+      );
+    }
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {EXPENSE_SECTIONS.map(sec => {
+          const SIcon = sec.icon;
+          const top = sec.items.slice(0, 3);
+          return (
+            <div key={sec.key} className={`rounded-2xl border overflow-hidden flex flex-col ${cardBg}`}>
+              <div className={`flex items-center justify-between gap-2 px-4 py-3 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}>
+                    <SIcon className="w-[18px] h-[18px] text-rose-500" />
+                  </span>
                   <div className="min-w-0">
-                    <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.description || 'Gasto'}</p>
-                    <p className="text-[10px] font-bold text-slate-500">
-                      {dt ? dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '') : '—'}
-                      {t.isFixed ? ' · conta fixa' : ' · avulso'}
-                      {isCredit ? ' · crédito' : ''}
-                    </p>
+                    <p className={`text-sm font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{sec.title}</p>
+                    <p className="text-[10px] font-bold text-slate-500">{sec.items.length} {sec.items.length === 1 ? 'lançamento' : 'lançamentos'}</p>
                   </div>
                 </div>
-                <span className={`text-sm font-black tabular-nums shrink-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(parseFloat(t.amount) || 0)}</span>
               </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+              {top.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center py-8 px-4">
+                  <SIcon className={`w-7 h-7 mb-2 ${isDark ? 'text-slate-700' : 'text-slate-300'}`} />
+                  <p className="text-[11px] font-bold text-slate-500">{sec.hint}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Nada por aqui ainda.</p>
+                </div>
+              ) : (
+                <div className={`flex-1 divide-y ${isDark ? 'divide-white/[0.04]' : 'divide-slate-100'}`}>
+                  {top.map(renderExpenseRow)}
+                </div>
+              )}
+              {sec.items.length > 3 && (
+                <button
+                  onClick={() => { setViewPeriod('30d'); setViewAllType(sec.key); }}
+                  className={`flex items-center justify-center gap-1 px-4 py-2.5 border-t text-[11px] font-black uppercase tracking-widest transition-colors ${isDark ? 'border-white/5 text-rose-400 hover:bg-rose-500/[0.06]' : 'border-slate-100 text-rose-500 hover:bg-rose-50'}`}
+                >
+                  Ver todos <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   // ── CADASTRO: linha simples de uma conta (sem status de pagamento) ──
   const renderCadastroRow = (exp, isVariable) => {
@@ -855,9 +909,10 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
             </button>
           ) : (
             // Um único botão: abre o seletor (dar baixa numa cadastrada OU lançar avulsa).
+            // Vermelho: indica saída/despesa.
             <button
               onClick={() => setExpenseChooser(true)}
-              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
+              className="px-4 py-2 bg-rose-500 hover:bg-rose-400 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/25 flex items-center gap-2 transition-all active:scale-95"
             >
               <Plus className="w-3.5 h-3.5" /> Despesa
             </button>
@@ -1092,9 +1147,9 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
             <div className="space-y-3">
               <button
                 onClick={() => { setExpenseChooser(false); setShowPayBoard(true); }}
-                className={`w-full flex items-start gap-3 p-4 rounded-2xl border text-left transition-all active:scale-[0.99] ${isDark ? 'border-white/10 hover:border-emerald-500/40 hover:bg-emerald-500/[0.06]' : 'border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/60'}`}
+                className={`w-full flex items-start gap-3 p-4 rounded-2xl border text-left transition-all active:scale-[0.99] ${isDark ? 'border-white/10 hover:border-rose-500/40 hover:bg-rose-500/[0.06]' : 'border-slate-200 hover:border-rose-300 hover:bg-rose-50/60'}`}
               >
-                <span className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}><Repeat className="w-5 h-5" /></span>
+                <span className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-rose-500/15 text-rose-400' : 'bg-rose-100 text-rose-600'}`}><Repeat className="w-5 h-5" /></span>
                 <span className="min-w-0">
                   <span className={`block text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Despesa cadastrada</span>
                   <span className="block text-[10px] text-slate-500 mt-1 leading-relaxed">Dar baixa numa conta fixa ou variável que já está cadastrada.</span>
@@ -1102,9 +1157,9 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
               </button>
               <button
                 onClick={() => { setExpenseChooser(false); openManual(); }}
-                className={`w-full flex items-start gap-3 p-4 rounded-2xl border text-left transition-all active:scale-[0.99] ${isDark ? 'border-white/10 hover:border-amber-500/40 hover:bg-amber-500/[0.06]' : 'border-slate-200 hover:border-amber-300 hover:bg-amber-50/60'}`}
+                className={`w-full flex items-start gap-3 p-4 rounded-2xl border text-left transition-all active:scale-[0.99] ${isDark ? 'border-white/10 hover:border-rose-500/40 hover:bg-rose-500/[0.06]' : 'border-slate-200 hover:border-rose-300 hover:bg-rose-50/60'}`}
               >
-                <span className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-amber-500/15 text-amber-400' : 'bg-amber-100 text-amber-600'}`}><Zap className="w-5 h-5" /></span>
+                <span className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-rose-500/15 text-rose-400' : 'bg-rose-100 text-rose-600'}`}><Zap className="w-5 h-5" /></span>
                 <span className="min-w-0">
                   <span className={`block text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Despesa avulsa</span>
                   <span className="block text-[10px] text-slate-500 mt-1 leading-relaxed">Um gasto único deste mês (mercado, uber, farmácia…), sem virar conta fixa.</span>
@@ -1114,6 +1169,65 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
           </div>
         </div>
       )}
+
+      {/* Modal "Ver todos": lista completa de uma seção com filtro de período */}
+      {viewAllType && (() => {
+        const sec = EXPENSE_SECTIONS.find(s => s.key === viewAllType);
+        if (!sec) return null;
+        const PERIODS = [['7d', 'Últimos 7 dias', 7], ['30d', 'Últimos 30 dias', 30], ['3m', 'Últimos 3 meses', 90], ['6m', 'Últimos 6 meses', 180]];
+        const days = (PERIODS.find(p => p[0] === viewPeriod) || PERIODS[1])[2];
+        const cutoff = Date.now() - days * 86400000;
+        const list = sec.items.filter(t => (t.date ? new Date(t.date).getTime() : 0) >= cutoff);
+        const total = list.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+        const SIcon = sec.icon;
+        return (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setViewAllType(null)}>
+            <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-lg max-h-[90vh] flex flex-col relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+              <div className={`flex items-center justify-between gap-3 p-5 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><SIcon className="w-5 h-5 text-rose-500" /></span>
+                  <div className="min-w-0">
+                    <h3 className={`text-base font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{sec.title}</h3>
+                    <p className="text-[10px] font-bold text-slate-500">{sec.hint}</p>
+                  </div>
+                </div>
+                <button onClick={() => setViewAllType(null)} className={`p-2 rounded-lg shrink-0 ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
+              </div>
+
+              {/* Filtro de período */}
+              <div className={`flex items-center gap-2 px-5 py-3 border-b overflow-x-auto ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                {PERIODS.map(([id, label]) => (
+                  <button key={id} onClick={() => setViewPeriod(id)}
+                    className={`shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${viewPeriod === id ? 'bg-rose-500 text-white border-rose-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Total do período */}
+              <div className={`flex items-center justify-between px-5 py-2.5 border-b ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{list.length} {list.length === 1 ? 'lançamento' : 'lançamentos'} no período</span>
+                <span className="text-sm font-black tabular-nums text-rose-500">− R$ {fmt(total)}</span>
+              </div>
+
+              {/* Lista */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+                {list.length === 0 ? (
+                  <div className="text-center py-12">
+                    <SIcon className={`w-9 h-9 mx-auto mb-2 ${isDark ? 'text-slate-700' : 'text-slate-300'}`} />
+                    <p className="text-sm font-bold text-slate-500">Nada neste período.</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Tente um período maior acima.</p>
+                  </div>
+                ) : (
+                  <div className={`divide-y ${isDark ? 'divide-white/[0.04]' : 'divide-slate-100'}`}>
+                    {list.map(renderExpenseRow)}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal grande: baixa das contas cadastradas (Fixa × Variável, lado a lado) */}
       {showPayBoard && (
@@ -1133,7 +1247,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
 
       {/* Modal: despesa avulsa (só este mês) */}
       {manualOpen && (() => {
-        const inCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm font-bold outline-none transition-colors ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-600 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
+        const inCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm font-bold outline-none transition-colors ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-600 focus:border-rose-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-rose-500'}`;
         const lbl = 'text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5';
         const PRIOS = [['essential', 'Essencial'], ['comfort', 'Conforto'], ['superfluous', 'Supérfluo']];
         const PAYS = [['dinheiro', 'Dinheiro'], ['pix', 'Pix'], ['credito', 'Crédito']];
@@ -1141,9 +1255,12 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
             <div className={`border rounded-[2rem] w-full max-w-md p-6 space-y-4 relative animate-in zoom-in-95 duration-300 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
               <button onClick={() => setManualOpen(false)} className={`absolute top-4 right-4 p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
-              <div>
-                <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Despesa avulsa</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Um gasto só deste mês — não vira conta fixa.</p>
+              <div className="flex items-center gap-3">
+                <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><Zap className="w-5 h-5 text-rose-500" /></span>
+                <div>
+                  <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Despesa avulsa</h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Um gasto só deste mês — não vira conta fixa.</p>
+                </div>
               </div>
 
               <div>
@@ -1174,7 +1291,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
                 <div className="grid grid-cols-3 gap-2">
                   {PRIOS.map(([id, label]) => (
                     <button key={id} type="button" onClick={() => setMForm({ ...mForm, priority: id })}
-                      className={`py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${mForm.priority === id ? 'bg-emerald-500 text-slate-900 border-emerald-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
+                      className={`py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${mForm.priority === id ? 'bg-rose-500 text-white border-rose-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
                       {label}
                     </button>
                   ))}
@@ -1186,7 +1303,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
                 <div className="grid grid-cols-3 gap-2">
                   {PAYS.map(([id, label]) => (
                     <button key={id} type="button" onClick={() => setMForm({ ...mForm, pay: id })}
-                      className={`py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${mForm.pay === id ? 'bg-emerald-500 text-slate-900 border-emerald-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
+                      className={`py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${mForm.pay === id ? 'bg-rose-500 text-white border-rose-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
                       {label}
                     </button>
                   ))}
@@ -1216,7 +1333,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
 
               <div className="flex gap-2 pt-1">
                 <button onClick={() => setManualOpen(false)} disabled={mBusy} className={`flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest disabled:opacity-50 ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>Cancelar</button>
-                <button onClick={doManualExpense} disabled={mBusy || !mForm.desc.trim() || !mForm.value} className="flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest bg-emerald-500 hover:bg-emerald-400 text-slate-900 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
+                <button onClick={doManualExpense} disabled={mBusy || !mForm.desc.trim() || !mForm.value} className="flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest bg-rose-500 hover:bg-rose-400 text-white disabled:opacity-50 transition-all flex items-center justify-center gap-2">
                   {mBusy ? <><Loader2 className="w-4 h-4 animate-spin" /> Lançando...</> : 'Lançar despesa'}
                 </button>
               </div>
