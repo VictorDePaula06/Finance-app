@@ -1209,9 +1209,9 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
                 onClick={() => selStats.invoiceTotal > 0.005 && setPayingInvoice({ cardId: selectedCard.id, total: selStats.invoiceTotal, expenses: selStats.unpaidExpenses, subs: selStats.unpaidSubs, invoiceMonth: selStats.currentInvoiceMonth })}
                 disabled={selStats.invoiceTotal <= 0.005}
                 title={selStats.invoiceTotal <= 0.005 ? (selStats.nextInvoiceEstimate > 0.005 ? `Fatura do mês paga. O valor mostrado é a previsão do próximo ciclo (vence dia ${selectedCard.dueDay || 10}).` : 'Nenhuma fatura em aberto.') : ''}
-                className={`px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${selStats.invoiceTotal > 0.005 ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/25' : (isDark ? 'bg-white/5 text-slate-500 cursor-default' : 'bg-slate-100 text-slate-400 cursor-default')}`}
+                className={`px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${selStats.invoiceTotal > 0.005 ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/25' : (isDark ? 'bg-white/5 text-slate-500 cursor-default' : 'bg-slate-100 text-slate-400 cursor-default')}`}
               >
-                <CheckCircle2 className="w-3.5 h-3.5" /> {selStats.invoiceTotal > 0.005 ? 'Registrar pagamento' : (selStats.nextInvoiceEstimate > 0.005 ? 'Fatura do mês paga' : 'Sem fatura em aberto')}
+                <CheckCircle2 className="w-3.5 h-3.5" /> {selStats.invoiceTotal > 0.005 ? 'Pagar fatura' : (selStats.nextInvoiceEstimate > 0.005 ? 'Fatura do mês paga' : 'Sem fatura em aberto')}
               </button>
               <button onClick={() => { setHistoryCardId(selectedCard.id); setExpandedHistoryMonth(null); setHistoryIdx(0); }} className={`px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 border ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                 <Calendar className="w-3.5 h-3.5" /> Histórico de faturas
@@ -1232,7 +1232,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
                 ].map(f => {
                   const active = cardFilter === f.id;
                   return (
-                    <button key={f.id} onClick={() => setCardFilter(f.id)} className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest border transition-all ${active ? 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/20' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
+                    <button key={f.id} onClick={() => setCardFilter(f.id)} className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest border transition-all ${active ? 'bg-indigo-500 text-white border-indigo-500 shadow-lg shadow-indigo-500/20' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
                       {f.label}
                       <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${active ? 'bg-white/20 text-white' : (isDark ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-500')}`}>{f.count}</span>
                     </button>
@@ -1290,7 +1290,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
               {/* Filtro por tipo */}
               <div className={`flex items-center gap-2 px-5 py-2.5 border-b overflow-x-auto ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
                 {[['todos', 'Todos'], ['transacao', 'Transações'], ['parcelamento', 'Parcelamentos'], ['assinatura', 'Assinaturas']].map(([id, label]) => (
-                  <button key={id} onClick={() => setCardFilter(id)} className={`shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${cardFilter === id ? 'bg-rose-500 text-white border-rose-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>{label}</button>
+                  <button key={id} onClick={() => setCardFilter(id)} className={`shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${cardFilter === id ? 'bg-indigo-500 text-white border-indigo-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>{label}</button>
                 ))}
               </div>
               {/* Filtro por período */}
