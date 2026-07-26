@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   BarChart3, Tags, CreditCard, PiggyBank, Download, ChevronLeft,
-  Calendar, ArrowDownCircle,
+  Calendar, X, SlidersHorizontal,
 } from 'lucide-react';
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import { generateTablePDF } from '../utils/generatePDF';
@@ -31,6 +31,9 @@ const dLabel = (iso) => { const [y, m, d] = String(iso).slice(0, 10).split('-');
 export default function ReportsHub({ transactions = [], cards = [], theme = 'dark' }) {
   const isDark = theme !== 'light';
   const [report, setReport] = useState(null);
+  // Config do relatório "Gastos por período".
+  const [periodoCfgOpen, setPeriodoCfgOpen] = useState(false);
+  const [periodoCfg, setPeriodoCfg] = useState({ bucket: 'dia', dinheiro: true, pix: true, cartao: true, includeInvoice: true });
 
   // Período padrão: mês corrente.
   const now = new Date();
@@ -54,6 +57,54 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
   , [inPeriod]);
   const totalExpense = useMemo(() => expenseTx.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0), [expenseTx]);
 
+  // ── Relatório "por período": filtra por forma de pagamento e agrupa por dia/semana/mês ──
+  const paySet = useMemo(() => {
+    const s = new Set();
+    if (periodoCfg.dinheiro) s.add('dinheiro');
+    if (periodoCfg.pix) s.add('pix');
+    if (periodoCfg.cartao) s.add('credito');
+    return s;
+  }, [periodoCfg.dinheiro, periodoCfg.pix, periodoCfg.cartao]);
+
+  const periodoExpenses = useMemo(() => expenseTx.filter(t => {
+    const pm = t.paymentMethod || 'dinheiro';
+    if (!paySet.has(pm)) return false;
+    // Cartão sem "incluir fatura em aberto": exclui compras no crédito ainda não pagas.
+    if (pm === 'credito' && !periodoCfg.includeInvoice && t.invoiceStatus === 'unpaid') return false;
+    return true;
+  }), [expenseTx, paySet, periodoCfg.includeInvoice]);
+  const periodoTotal = useMemo(() => periodoExpenses.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0), [periodoExpenses]);
+
+  const periodoBuckets = useMemo(() => {
+    const map = {};
+    const keyOf = (ds) => {
+      if (periodoCfg.bucket === 'mes') {
+        const k = ds.slice(0, 7);
+        return { key: k, label: new Date(k + '-15').toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '') };
+      }
+      if (periodoCfg.bucket === 'semana') {
+        const d = new Date(ds + 'T12:00:00');
+        const day = d.getDay();
+        const diff = (day === 0 ? -6 : 1) - day; // segunda-feira da semana
+        const mon = new Date(d); mon.setDate(d.getDate() + diff);
+        const k = dayISO(mon);
+        return { key: k, label: dLabel(k) };
+      }
+      const k = ds.slice(0, 10);
+      return { key: k, label: dLabel(k) };
+    };
+    periodoExpenses.forEach(t => {
+      const ds = String(t.date || '').slice(0, 10) || (t.month ? `${t.month}-15` : '');
+      if (!ds) return;
+      const { key, label } = keyOf(ds);
+      if (!map[key]) map[key] = { id: key, label, value: 0 };
+      map[key].value += parseFloat(t.amount) || 0;
+    });
+    return Object.values(map).sort((a, b) => a.id.localeCompare(b.id));
+  }, [periodoExpenses, periodoCfg.bucket]);
+
+  const bucketLabel = { dia: 'dia', semana: 'semana', mes: 'mês' }[periodoCfg.bucket];
+
   // Gastos no cartão (crédito).
   const cardTx = useMemo(() => expenseTx.filter(t => t.paymentMethod === 'credito'), [expenseTx]);
   const totalCard = useMemo(() => cardTx.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0), [cardTx]);
@@ -65,9 +116,6 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
   , [inPeriod]);
   const totalReserva = useMemo(() => reservaTx.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0), [reservaTx]);
 
-  // Nº de dias no período (para média).
-  const days = useMemo(() => Math.max(1, Math.round((new Date(end) - new Date(start)) / 86400000) + 1), [start, end]);
-
   // Agrupamento por categoria de despesa.
   const expenseByCat = useMemo(() => {
     const map = {};
@@ -78,13 +126,6 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
         return { id, label: def.label || id, value, hex: categoryHex(def) };
       })
       .sort((a, b) => b.value - a.value);
-  }, [expenseTx]);
-
-  // Gastos por dia (para o relatório por período).
-  const byDay = useMemo(() => {
-    const map = {};
-    expenseTx.forEach(t => { const d = String(t.date || '').slice(0, 10); if (d) map[d] = (map[d] || 0) + (parseFloat(t.amount) || 0); });
-    return Object.entries(map).map(([id, value]) => ({ id, label: dLabel(id), value })).sort((a, b) => a.id.localeCompare(b.id));
   }, [expenseTx]);
 
   // Gastos por cartão.
@@ -124,16 +165,18 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
         columnStyles: { 2: { halign: 'right', fontStyle: 'bold' } },
       }, logo);
     } else {
+      const pays = [periodoCfg.dinheiro && 'Dinheiro', periodoCfg.pix && 'Pix', periodoCfg.cartao && 'Cartão'].filter(Boolean).join(', ') || '—';
       await generateTablePDF({
         title: 'Gastos por Período', subtitle,
+        note: `Agrupado por ${bucketLabel} · Formas: ${pays}${periodoCfg.cartao ? (periodoCfg.includeInvoice ? ' (incluindo fatura em aberto)' : ' (sem fatura em aberto)') : ''}`,
         summary: [
-          { label: 'Total de despesas', value: `R$ ${fmt(totalExpense)}`, color: 'red' },
-          { label: 'Lançamentos', value: String(expenseTx.length), color: 'neutral' },
-          { label: 'Média/dia', value: `R$ ${fmt(totalExpense / days)}`, color: 'amber' },
+          { label: 'Total gasto', value: `R$ ${fmt(periodoTotal)}`, color: 'red' },
+          { label: 'Lançamentos', value: String(periodoExpenses.length), color: 'neutral' },
+          { label: `Média/${bucketLabel}`, value: `R$ ${fmt(periodoBuckets.length ? periodoTotal / periodoBuckets.length : 0)}`, color: 'amber' },
         ],
-        columns: ['Descrição', 'Data', 'Categoria', 'Valor'],
-        rows: expenseTx.map(t => [t.description || 'Gasto', t.date ? new Date(t.date).toLocaleDateString('pt-BR') : '—', (CATEGORIES.expense.find(c => c.id === t.category)?.label || 'Outro'), `R$ ${fmt(parseFloat(t.amount) || 0)}`]),
-        columnStyles: { 3: { halign: 'right', fontStyle: 'bold' } },
+        columns: [`Período (${bucketLabel})`, 'Valor gasto'],
+        rows: periodoBuckets.map(b => [b.label, `R$ ${fmt(b.value)}`]),
+        columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
       }, logo);
     }
   };
@@ -159,6 +202,25 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
       })}
     </div>
   );
+
+  // ── Gráfico de barras verticais (valor em R$ por período) ──
+  const VBars = ({ data }) => {
+    if (data.length === 0) return <p className="text-center text-xs text-slate-500 py-10">Nada no período/filtros selecionados.</p>;
+    const max = Math.max(...data.map(d => d.value), 0) || 1;
+    return (
+      <div className="overflow-x-auto custom-scrollbar pb-1">
+        <div className="flex items-end gap-3 h-52 pt-6" style={{ minWidth: Math.max(data.length * 52, 260) }}>
+          {data.map(d => (
+            <div key={d.id} className="flex-1 min-w-[40px] flex flex-col items-center justify-end gap-1.5 h-full">
+              <span className="text-[9px] font-black tabular-nums text-rose-500 whitespace-nowrap">R$ {fmt(d.value)}</span>
+              <div className="w-full rounded-t-lg bg-rose-500 hover:bg-rose-400 transition-all" style={{ height: `${Math.max(4, (d.value / max) * 150)}px` }} title={`R$ ${fmt(d.value)}`} />
+              <span className="text-[9px] font-bold text-slate-500 whitespace-nowrap">{d.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   // ── Lista de lançamentos ──
   const TxList = ({ list, color = '#f43f5e', prefix = '−' }) => (
@@ -236,7 +298,7 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
               const a = ACCENT[r.accent];
               const Icon = r.icon;
               return (
-                <button key={r.id} onClick={() => setReport(r.id)} className="pat-card p-5 text-left transition-all hover:scale-[1.02] active:scale-95">
+                <button key={r.id} onClick={() => r.id === 'periodo' ? setPeriodoCfgOpen(true) : setReport(r.id)} className="pat-card p-5 text-left transition-all hover:scale-[1.02] active:scale-95">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 ${a.soft(isDark)} ${a.text}`}>
                     <Icon className="w-6 h-6" />
                   </div>
@@ -253,21 +315,21 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
           {report === 'periodo' && (
             <>
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                <KPI label="Total de despesas" value={totalExpense} color="#f43f5e" sub={`${expenseTx.length} lançamento${expenseTx.length === 1 ? '' : 's'}`} />
-                <KPI label="Média por dia" value={totalExpense / days} color="#f59e0b" sub={`${days} dia${days === 1 ? '' : 's'} no período`} />
-                <div className="pat-card p-4">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Maior categoria</p>
-                  <p className={`text-lg font-black truncate mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{expenseByCat[0]?.label || '—'}</p>
-                  <p className="text-[11px] text-rose-500 font-bold mt-0.5">{expenseByCat[0] ? `R$ ${fmt(expenseByCat[0].value)}` : ''}</p>
-                </div>
+                <KPI label="Total gasto" value={periodoTotal} color="#f43f5e" sub={`${periodoExpenses.length} lançamento${periodoExpenses.length === 1 ? '' : 's'}`} />
+                <KPI label={`Média por ${bucketLabel}`} value={periodoBuckets.length ? periodoTotal / periodoBuckets.length : 0} color="#f59e0b" sub={`${periodoBuckets.length} ${bucketLabel}${periodoBuckets.length === 1 ? '' : 's'}`} />
+                <button onClick={() => setPeriodoCfgOpen(true)} className="pat-card p-4 text-left transition-all hover:scale-[1.01]">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1"><SlidersHorizontal className="w-3 h-3" /> Filtros</p>
+                  <p className={`text-sm font-black mt-1 capitalize ${isDark ? 'text-white' : 'text-slate-800'}`}>Por {bucketLabel}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                    {[periodoCfg.dinheiro && 'Dinheiro', periodoCfg.pix && 'Pix', periodoCfg.cartao && 'Cartão'].filter(Boolean).join(', ') || 'nenhuma forma'}
+                    {periodoCfg.cartao ? (periodoCfg.includeInvoice ? ' · c/ fatura' : ' · s/ fatura') : ''}
+                  </p>
+                </button>
               </div>
               <div className="pat-card p-5">
-                <p className={`text-xs font-black mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>Gastos por dia</p>
-                <Bars data={byDay} total={Math.max(...byDay.map(d => d.value), 0)} color="#f43f5e" />
-              </div>
-              <div className="pat-card p-5">
-                <p className={`text-xs font-black mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Lançamentos do período</p>
-                <TxList list={expenseTx} />
+                <p className={`text-xs font-black mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>Gasto por {bucketLabel}</p>
+                <p className="text-[10px] text-slate-500 mb-2">Valor em reais gasto por {bucketLabel}, conforme os filtros.</p>
+                <VBars data={periodoBuckets} />
               </div>
             </>
           )}
@@ -319,6 +381,78 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* Modal: configurar o relatório "Gastos por período" */}
+      {periodoCfgOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setPeriodoCfgOpen(false)}>
+          <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-md p-6 space-y-5 relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+            <button onClick={() => setPeriodoCfgOpen(false)} className={`absolute top-4 right-4 p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
+            <div className="flex items-center gap-3">
+              <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><BarChart3 className="w-5 h-5 text-rose-500" /></span>
+              <div>
+                <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Gastos por período</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">Configure o relatório antes de gerar</p>
+              </div>
+            </div>
+
+            {/* Agrupar por */}
+            <div>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Agrupar por</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[['dia', 'Dia'], ['semana', 'Semana'], ['mes', 'Mês']].map(([id, label]) => (
+                  <button key={id} type="button" onClick={() => setPeriodoCfg({ ...periodoCfg, bucket: id })}
+                    className={`py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${periodoCfg.bucket === id ? 'bg-rose-500 text-white border-rose-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Formas de pagamento */}
+            <div>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Formas de pagamento</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[['dinheiro', 'Dinheiro'], ['pix', 'Pix'], ['cartao', 'Cartão']].map(([id, label]) => {
+                  const on = periodoCfg[id];
+                  return (
+                    <button key={id} type="button" onClick={() => setPeriodoCfg({ ...periodoCfg, [id]: !on })}
+                      className={`py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${on ? 'bg-rose-500 text-white border-rose-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Cartão: incluir fatura em aberto? */}
+            {periodoCfg.cartao && (
+              <div className={`rounded-2xl border p-3 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Compras no cartão — considerar a fatura em aberto?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[[true, 'Sim, incluir'], [false, 'Não']].map(([val, label]) => (
+                    <button key={String(val)} type="button" onClick={() => setPeriodoCfg({ ...periodoCfg, includeInvoice: val })}
+                      className={`py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${periodoCfg.includeInvoice === val ? 'bg-amber-500 text-white border-amber-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1.5">A fatura em aberto são as compras no crédito que ainda não foram pagas.</p>
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setPeriodoCfgOpen(false)} className={`flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>Cancelar</button>
+              <button
+                onClick={() => { setReport('periodo'); setPeriodoCfgOpen(false); }}
+                disabled={!periodoCfg.dinheiro && !periodoCfg.pix && !periodoCfg.cartao}
+                className="flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest bg-rose-500 hover:bg-rose-400 text-white disabled:opacity-50 transition-all"
+              >
+                Gerar relatório
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
