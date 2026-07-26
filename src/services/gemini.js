@@ -3,6 +3,7 @@ import { CATEGORIES } from '../constants/categories.js';
 import { OBJECTIVE_LABELS, RISK_LABELS } from '../constants/onboarding.js';
 import { calculateFutureProjections, calculateCumulativeBalance } from '../utils/financialLogic.js';
 import { calculateHealthIndex } from '../utils/healthScore.js';
+import { goalProgress, currentMonthExpenses } from '../utils/goalsProgress.js';
 
 // ── Chave Gemini (BYOK) — F-08 ────────────────────────────────────────────────
 // A chave do usuário NÃO é mais persistida em localStorage (texto plano em
@@ -68,6 +69,7 @@ export const calculateStatsContext = (transactions, manualConfig, isPanic = fals
     const cards = extra.cards || [];
     const fixedExpensesList = extra.fixedExpenses || [];
     const goals = extra.goals || [];
+    const expenseGoals = extra.expenseGoals || []; // metas de Cadastros › Objetivos e Metas
     const subscriptions = extra.subscriptions || [];
     const planLevel = extra.planLevel || 'free';
 
@@ -210,6 +212,36 @@ export const calculateStatsContext = (transactions, manualConfig, isPanic = fals
         }).join('\n')
         : '  - Nenhuma meta ativa.';
 
+    // ── OBJETIVOS E METAS (cadastro novo: expense_goals) ──
+    // Inclui tetos de gasto (categoria/cartão/mês) e objetivos de longo prazo
+    // (dívida/economia). Progresso calculado igual às telas (goalProgress).
+    const GOAL_TYPE_LABEL = {
+        categoria: 'Gasto por categoria', cartao: 'Gasto no cartão',
+        teto_mensal: 'Teto de gastos do mês', divida: 'Quitar dívida', economia: 'Economizar',
+    };
+    const monthExpForGoals = currentMonthExpenses(transactions);
+    const expenseGoalsText = expenseGoals.length > 0
+        ? expenseGoals.map(g => {
+            const p = goalProgress(g, monthExpForGoals);
+            const tipo = GOAL_TYPE_LABEL[g.type] || 'Meta';
+            const alvo = g.type === 'cartao'
+                ? (cards.find(c => c.id === g.cardId)?.name || 'cartão')
+                : g.type === 'categoria'
+                    ? (CATEGORIES.expense.find(c => c.id === g.category)?.label || 'categoria')
+                    : null;
+            const base = p.isCeiling ? 'gasto no mês' : 'progresso';
+            let status = '';
+            if (p.over) status = ' • ESTOUROU o limite';
+            else if (p.reached) status = ' • ATINGIDA';
+            else if (p.isCeiling) status = ` • ${(100 - p.pct).toFixed(0)}% de folga`;
+            const prazo = g.deadline ? ` • prazo ${g.deadline}` : '';
+            const ritmo = (!p.isCeiling && p.monthlyNeeded != null)
+                ? ` • falta R$ ${p.remaining.toFixed(2)} → R$ ${p.monthlyNeeded.toFixed(2)}/mês por ${p.months} ${p.months === 1 ? 'mês' : 'meses'}`
+                : '';
+            return `  - ${g.name} (${tipo}${alvo ? `: ${alvo}` : ''}): ${base} R$ ${p.done.toFixed(2)} de R$ ${p.target.toFixed(2)} (${p.pct.toFixed(0)}%)${status}${prazo}${ritmo}`;
+        }).join('\n')
+        : '  - Nenhuma meta cadastrada em Objetivos e Metas.';
+
     return `
 CONTEXTO FINANCEIRO DO USUÁRIO (Mês: ${currentMonth}):
 - DADOS DO DASHBOARD (A VERDADE ABSOLUTA):
@@ -252,6 +284,9 @@ ${installmentsText}
 
 - METAS FINANCEIRAS:
 ${goalsText}
+
+- OBJETIVOS E METAS CADASTRADOS (tetos de gasto e objetivos de longo prazo — considere-os na análise, avise se algum teto estourou ou está perto, e comente o ritmo dos objetivos):
+${expenseGoalsText}
 
 - CONSTRUÇÃO DE PATRIMÔNIO E RESERVAS:
   - Patrimônio Total Consolidado: R$ ${patrimonioTotal.toFixed(2)}

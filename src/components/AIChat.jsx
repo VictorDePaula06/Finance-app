@@ -30,6 +30,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
     const [cards, setCards] = useState([]);
     const [fixedExpenses, setFixedExpenses] = useState([]);
     const [goals, setGoals] = useState([]);
+    const [expenseGoals, setExpenseGoals] = useState([]);
     const [subscriptions, setSubscriptions] = useState([]);
     const messagesEndRef = useRef(null);
     const initialSyncDone = useRef(false);
@@ -145,8 +146,9 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                 const unsubCard = onSnapshot(mk('cards'),          snap => setCards(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
                 const unsubFix  = onSnapshot(mk('fixed_expenses'), snap => setFixedExpenses(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
                 const unsubGoal = onSnapshot(mk('goals'),          snap => setGoals(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+                const unsubEGoal = onSnapshot(mk('expense_goals'), snap => setExpenseGoals(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
                 const unsubSub  = onSnapshot(mk('subscriptions'),  snap => setSubscriptions(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
-                return () => { unsubJars(); unsubInv(); unsubCard(); unsubFix(); unsubGoal(); unsubSub(); };
+                return () => { unsubJars(); unsubInv(); unsubCard(); unsubFix(); unsubGoal(); unsubEGoal(); unsubSub(); };
             }
         }
     }, [isOpen, currentUser]);
@@ -223,7 +225,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
 
         try {
             const context = calculateStatsContext(transactions, manualConfig, isPanic, jars, investments, userPrefs?.onboarding, {
-                cards, fixedExpenses, goals, subscriptions, planLevel,
+                cards, fixedExpenses, goals, expenseGoals, subscriptions, planLevel,
             });
             const responseText = await sendMessageToGemini(messages, inputMsg, context);
 

@@ -75,6 +75,7 @@ export default function OverviewChat({ transactions = [], manualConfig = {}, onA
   const [cards, setCards] = useState([]);
   const [fixedExpenses, setFixedExpenses] = useState([]);
   const [goals, setGoals] = useState([]);
+  const [expenseGoals, setExpenseGoals] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
 
   const scrollRef = useRef(null);
@@ -90,6 +91,7 @@ export default function OverviewChat({ transactions = [], manualConfig = {}, onA
       onSnapshot(mk('cards'), s => setCards(s.docs.map(d => ({ id: d.id, ...d.data() })))),
       onSnapshot(mk('fixed_expenses'), s => setFixedExpenses(s.docs.map(d => ({ id: d.id, ...d.data() })))),
       onSnapshot(mk('goals'), s => setGoals(s.docs.map(d => ({ id: d.id, ...d.data() })))),
+      onSnapshot(mk('expense_goals'), s => setExpenseGoals(s.docs.map(d => ({ id: d.id, ...d.data() })))),
       onSnapshot(mk('subscriptions'), s => setSubscriptions(s.docs.map(d => ({ id: d.id, ...d.data() })))),
     ];
     return () => subs.forEach(u => u());
@@ -198,7 +200,7 @@ export default function OverviewChat({ transactions = [], manualConfig = {}, onA
     }
     setIsLoading(true);
     try {
-      const context = calculateStatsContext(transactions, manualConfig, false, jars, investments, userPrefs?.onboarding, { cards, fixedExpenses, goals, subscriptions, planLevel });
+      const context = calculateStatsContext(transactions, manualConfig, false, jars, investments, userPrefs?.onboarding, { cards, fixedExpenses, goals, expenseGoals, subscriptions, planLevel });
       const raw = await sendMessageToGemini(messages, msg, context);
       const { display, command } = parseAction(raw);
       if (display) addModelMsg(display);
