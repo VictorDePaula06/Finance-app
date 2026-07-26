@@ -120,12 +120,18 @@ export default function FixedIncomesTab({ transactions = [], mode = 'cadastro' }
   }, [incomes, transactions, currentMonth]);
 
   // Extrato: últimos recebimentos lançados (exclui movimentos internos).
-  const latestIncomes = useMemo(() =>
+  const incomeTx = useMemo(() =>
     [...transactions]
       .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
       .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
-      .slice(0, 30)
   , [transactions]);
+  const latestIncomes = useMemo(() => incomeTx.slice(0, 30), [incomeTx]);
+  // Total já recebido no mês corrente (todas as entradas do mês).
+  const monthReceived = useMemo(() =>
+    incomeTx
+      .filter(t => (t.month || String(t.date || '').slice(0, 7)) === currentMonth)
+      .reduce((a, t) => a + (parseFloat(t.amount) || 0), 0)
+  , [incomeTx, currentMonth]);
 
   const resetForm = () => { setForm({ name: '', value: '', day: 5, category: 'salary' }); setEditingId(null); setIsAdding(false); };
 
@@ -301,7 +307,20 @@ export default function FixedIncomesTab({ transactions = [], mode = 'cadastro' }
           )}
         </>
       ) : (
-        /* ══════════ LANÇAMENTO: extrato dos últimos recebimentos ══════════ */
+        /* ══════════ LANÇAMENTO: total recebido + extrato ══════════ */
+        <>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="pat-card p-4">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Recebido no mês</p>
+            <p className="text-2xl font-black tabular-nums mt-1 text-emerald-500">R$ {fmt(monthReceived)}</p>
+            <p className={`text-[11px] mt-0.5 capitalize ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{monthLabel}</p>
+          </div>
+          <div className="pat-card p-4">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">A receber (cadastrados)</p>
+            <p className="text-2xl font-black tabular-nums mt-1 text-amber-500">R$ {fmt(stats.pending)}</p>
+            <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>ainda não confirmados</p>
+          </div>
+        </div>
         <div className="pat-card overflow-hidden">
           <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
             <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Últimos recebimentos</p>
@@ -339,6 +358,7 @@ export default function FixedIncomesTab({ transactions = [], mode = 'cadastro' }
             </div>
           )}
         </div>
+        </>
       )}
 
       {/* Seletor "Recebimento": confirmar um cadastrado pendente ou lançar avulso */}

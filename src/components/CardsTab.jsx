@@ -55,6 +55,10 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
   // Cartão selecionado no painel de detalhe + aba do detalhe.
   const [selectedCardId, setSelectedCardId] = useState(null);
   const [detailTab, setDetailTab] = useState('lancamentos');
+  // Filtro da lista combinada (Lançamentos › Cartão): todos/transacao/parcelamento/assinatura.
+  const [cardFilter, setCardFilter] = useState('todos');
+  // Seletor "Lançar no cartão": transação × assinatura × parcelamento.
+  const [cardLaunchChooser, setCardLaunchChooser] = useState(false);
 
   // Form States
   const [newCard, setNewCard] = useState({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' });
@@ -973,7 +977,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
               : 'Pague faturas e lance compras, assinaturas e parcelas. Para cadastrar um cartão, vá em Cadastros › Cartão'}
           </p>
         </div>
-        {isCadastro && (
+        {isCadastro ? (
           <button
             onClick={() => {
               if (isLimited && cards.length >= TRIAL_CARDS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_CARDS_LIMIT} cartão do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; }
@@ -984,6 +988,14 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
             className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" /> Novo Cartão
+          </button>
+        ) : cards.length > 0 && (
+          // Um único botão: abre o seletor (transação / assinatura / parcelamento).
+          <button
+            onClick={() => setCardLaunchChooser(true)}
+            className="px-4 py-2 bg-rose-500 hover:bg-rose-400 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/25 flex items-center gap-2 transition-all active:scale-95"
+          >
+            <Plus className="w-3.5 h-3.5" /> Lançar no cartão
           </button>
         )}
       </div>
@@ -1028,99 +1040,89 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
       {/* Detalhe do cartão selecionado (largura cheia; cartão escolhido no seletor do topo) */}
         {selectedCard && selStats && (
           <div className={`rounded-2xl border p-5 ${kpiCardBg}`}>
-            {/* Cabeçalho da fatura */}
-            <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Fatura de {new Date(selStats.currentInvoiceMonth + '-15').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
-                  {selStats.currentCyclePaid && selStats.nextInvoiceEstimate <= 0.005 && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                      <CheckCircle2 className="w-2.5 h-2.5" /> Fatura paga
-                    </span>
-                  )}
+            {/* Topo: cartão grande à esquerda (com seletor) + fatura e indicadores à direita */}
+            <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-5">
+              <div className="space-y-3">
+                {/* Cartão visual grande */}
+                <div className={`aspect-[1.6/1] rounded-2xl p-5 flex flex-col justify-between text-white shadow-2xl relative overflow-hidden ${selectedCard.color}`}>
+                  <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50" />
+                  <div className="absolute -top-10 -right-10 w-36 h-36 bg-white/10 rounded-full blur-3xl" />
+                  <div className="relative z-10">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">{selectedCard.brand}</p>
+                    <h3 className="text-2xl font-black tracking-tight drop-shadow-md">{selectedCard.name}</h3>
+                  </div>
+                  <div className="relative z-10 flex justify-between items-end">
+                    <p className="font-mono text-base tracking-[0.25em] drop-shadow-sm">•••• •••• •••• {selectedCard.last4 || '0000'}</p>
+                    <div className="text-right">
+                      <p className="text-[8px] font-black uppercase opacity-60">Vencimento</p>
+                      <p className="text-sm font-bold">Dia {selectedCard.dueDay || 10}</p>
+                    </div>
+                  </div>
                 </div>
+                {/* Seletor de cartão */}
+                {cards.length > 1 && (
+                  <div className="relative">
+                    <select
+                      value={selectedCard.id}
+                      onChange={(e) => setSelectedCardId(e.target.value)}
+                      className={`w-full appearance-none pl-3 pr-9 py-2.5 rounded-xl border text-xs font-bold outline-none cursor-pointer ${isDark ? 'bg-[#161b27] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
+                    >
+                      {cards.map(c => (
+                        <option key={c.id} value={c.id} className={isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'}>{c.name} · •••• {c.last4 || '0000'}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+                  </div>
+                )}
+              </div>
+
+              {/* Direita: fatura atual + indicadores do cartão */}
+              <div className="flex flex-col gap-3">
                 {(() => {
-                  // Fatura zerada mas com assinaturas recorrentes vindo (ex.: Nubank):
-                  // mostra a ESTIMATIVA (com assinaturas) como número principal.
                   const paidWithUpcoming = selStats.currentCyclePaid && selStats.nextInvoiceEstimate > 0.005;
                   const amount = paidWithUpcoming ? selStats.nextInvoiceEstimate : selStats.invoiceTotal;
                   const color = paidWithUpcoming ? '#a855f7' : (selStats.invoiceTotal > 0.005 ? '#f59e0b' : '#10b981');
                   return (
-                    <>
+                    <div className={`rounded-xl border p-4 ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Fatura atual · <span className="capitalize">{new Date(selStats.currentInvoiceMonth + '-15').toLocaleDateString('pt-BR', { month: 'long' })}</span></p>
+                        {selStats.currentCyclePaid && selStats.nextInvoiceEstimate <= 0.005 && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"><CheckCircle2 className="w-2.5 h-2.5" /> Paga</span>
+                        )}
+                      </div>
                       <p className="text-3xl font-black tabular-nums mt-1" style={{ color }}><span className="text-base font-bold text-slate-400 mr-0.5">R$</span>{fmt(amount)}</p>
                       <p className="text-[11px] text-slate-500 mt-0.5">
                         {paidWithUpcoming
-                          ? <>Próxima fatura estimada · com assinaturas · vence dia {selectedCard.dueDay || 10}</>
+                          ? <>Próxima estimada · com assinaturas · vence dia {selectedCard.dueDay || 10}</>
                           : selStats.invoiceTotal > 0.005
                             ? <>Vence em <span className="font-bold text-rose-400">{selStats.daysUntil} {selStats.daysUntil === 1 ? 'dia' : 'dias'}</span> · {selStats.dueDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}</>
                             : 'Fatura zerada 🎉'}
                       </p>
-                    </>
+                    </div>
                   );
                 })()}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {/* Seletor de cartão */}
-                <div className="relative">
-                  <select
-                    value={selectedCard.id}
-                    onChange={(e) => setSelectedCardId(e.target.value)}
-                    className={`appearance-none pl-3 pr-8 py-2 rounded-xl border text-xs font-bold outline-none cursor-pointer max-w-[200px] ${isDark ? 'bg-[#161b27] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
-                  >
-                    {cards.map(c => (
-                      <option key={c.id} value={c.id} className={isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'}>{c.name} · •••• {c.last4 || '0000'}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
-                </div>
-                {/* Editar/excluir cartão — só em CADASTROS */}
-                {isCadastro && (
-                  <>
-                    <button onClick={() => { setEditingCardId(selectedCard.id); setNewCard({ name: selectedCard.name, color: selectedCard.color, last4: selectedCard.last4, brand: selectedCard.brand, dueDay: selectedCard.dueDay || 10, closingDay: selectedCard.closingDay || '', limit: selectedCard.limit != null ? String(selectedCard.limit) : '' }); setIsAddingCard(true); }} className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><Pencil className="w-4 h-4" /></button>
-                    <button onClick={() => setDeleteConfirm({ id: selectedCard.id, type: 'card', title: selectedCard.name })} className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5 hover:text-rose-400' : 'text-slate-500 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-4 h-4" /></button>
-                  </>
-                )}
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-4">
-              {/* Cartão visual */}
-              <div className={`aspect-[1.6/1] rounded-2xl p-4 flex flex-col justify-between text-white shadow-2xl relative overflow-hidden ${selectedCard.color}`}>
-                <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50" />
-                <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-3xl" />
-                <div className="relative z-10">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">{selectedCard.brand}</p>
-                  <h3 className="text-xl font-black tracking-tight drop-shadow-md">{selectedCard.name}</h3>
-                </div>
-                <div className="relative z-10 flex justify-between items-end">
-                  <p className="font-mono text-sm tracking-[0.25em] drop-shadow-sm">•••• •••• •••• {selectedCard.last4 || '0000'}</p>
-                  <div className="text-right">
-                    <p className="text-[8px] font-black uppercase opacity-60">Vencimento</p>
-                    <p className="text-sm font-bold">Dia {selectedCard.dueDay || 10}</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Assinaturas</p>
+                    <p className="text-sm font-black tabular-nums mt-0.5 text-violet-400">R$ {fmt(selStats.assinaturasMes)}</p>
+                    <p className="text-[9px] text-slate-500 mt-0.5">{selStats.recurring.length} no mês</p>
                   </div>
-                </div>
-              </div>
-
-              {/* Limite + stats */}
-              <div className="space-y-3">
-                <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Uso do limite</span>
-                    <span className="text-[11px] font-black tabular-nums" style={{ color: selStats.usagePct >= 80 ? '#f43f5e' : selStats.usagePct >= 50 ? '#f59e0b' : '#10b981' }}>{selStats.limit > 0 ? `${Math.round(selStats.usagePct)}%` : '—'}</span>
+                  <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Parcelas</p>
+                    <p className={`text-sm font-black tabular-nums mt-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(selStats.parcelasMes)}</p>
+                    <p className="text-[9px] text-slate-500 mt-0.5">{selStats.installments.length} {selStats.installments.length === 1 ? 'ativa' : 'ativas'}</p>
                   </div>
-                  <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-200'}`}>
-                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${selStats.limit > 0 ? selStats.usagePct : 0}%`, background: selStats.usagePct >= 80 ? '#f43f5e' : selStats.usagePct >= 50 ? '#f59e0b' : '#10b981' }} />
+                  <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Comprometido/mês</p>
+                    <p className="text-sm font-black tabular-nums mt-0.5 text-rose-400">R$ {fmt(selStats.assinaturasMes + selStats.parcelasMes)}</p>
+                    <p className="text-[9px] text-slate-500 mt-0.5">assin. + parcelas</p>
                   </div>
-                  <div className="flex items-center justify-between mt-1.5">
-                    <span className="text-[9px] text-slate-500 tabular-nums">R$ {fmt(selStats.invoiceTotal + selStats.overdueTotal)} usado</span>
-                    <span className="text-[9px] text-slate-500 tabular-nums">{selStats.limit > 0 ? `Limite R$ ${fmt(selStats.limit)}` : 'Defina o limite ✎'}</span>
+                  <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Uso do limite</p>
+                    <p className="text-sm font-black tabular-nums mt-0.5" style={{ color: selStats.usagePct >= 80 ? '#f43f5e' : selStats.usagePct >= 50 ? '#f59e0b' : '#10b981' }}>{selStats.limit > 0 ? `${Math.round(selStats.usagePct)}%` : '—'}</p>
+                    <p className="text-[9px] text-slate-500 mt-0.5">{selStats.limit > 0 ? `livre R$ ${fmt(selStats.available)}` : 'defina o limite'}</p>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}><p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Limite Total</p><p className={`text-sm font-black tabular-nums mt-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>{selStats.limit > 0 ? `R$ ${fmt(selStats.limit)}` : '—'}</p></div>
-                  <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}><p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Disponível</p><p className="text-sm font-black tabular-nums mt-0.5 text-emerald-500">{selStats.limit > 0 ? `R$ ${fmt(selStats.available)}` : '—'}</p></div>
-                  <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}><p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Parcelas no mês</p><p className={`text-sm font-black tabular-nums mt-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(selStats.parcelasMes)}</p></div>
-                  <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}><p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Assinaturas</p><p className="text-sm font-black tabular-nums mt-0.5 text-violet-400">R$ {fmt(selStats.assinaturasMes)}</p></div>
                 </div>
               </div>
             </div>
@@ -1159,126 +1161,161 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
             </div>
             )}
 
-            {/* Abas (Lançamentos / Parcelamentos / Assinaturas) DENTRO da caixa do
-                cartão. As margens negativas cancelam o p-5 do painel para a barra
-                encostar nas bordas e arredondar junto com o rodapé do card. */}
+            {/* Filtro + lista combinada (transações / parcelamentos / assinaturas).
+                As margens negativas cancelam o p-5 do painel para encostar nas bordas. */}
             <div className="-mx-5 -mb-5 mt-5 rounded-b-2xl overflow-hidden">
-          <div className={`flex items-stretch border-y ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
-            {[
-              { id: 'lancamentos', label: 'Lançamentos', count: selStats.invoiceItems.length },
-              { id: 'parcelamentos', label: 'Parcelamentos', count: selStats.installments.length },
-              { id: 'assinaturas', label: 'Assinaturas', count: selStats.recurring.length },
-            ].map(t => (
-              <button key={t.id} onClick={() => setDetailTab(t.id)} className={`flex-1 py-3 text-[12px] font-bold transition-all inline-flex items-center justify-center gap-1.5 ${detailTab === t.id ? (isDark ? 'text-white bg-white/[0.03]' : 'text-slate-900 bg-slate-50') : 'text-slate-500 hover:text-slate-400'} ${detailTab === t.id ? 'border-b-2 border-emerald-500' : ''}`}>
-                {t.label} <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${detailTab === t.id ? 'bg-emerald-500/15 text-emerald-400' : (isDark ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-500')}`}>{t.count}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Ações de adicionar (acima da lista) — só em LANÇAMENTOS */}
-          <div className={`${isCadastro ? 'hidden' : 'flex'} items-center gap-2 px-3 py-2.5 border-b flex-wrap ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
-            <button onClick={openAddCardTx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black text-white bg-emerald-500 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"><Plus className="w-3.5 h-3.5" /> Transação</button>
-            <button onClick={() => { if (isLimited && subscriptions.length >= TRIAL_SUBS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_SUBS_LIMIT} assinaturas do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; } setNewSub({ name: '', value: '', day: 1, cardId: selectedCard.id, category: 'subscriptions', priority: 'comfort' }); setIsAddingSub(true); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Plus className="w-3.5 h-3.5" /> Assinatura</button>
-            <button onClick={() => { setNewInstallment({ name: '', value: '', valueMode: 'total', installments: '2', day: 1, cardId: selectedCard.id, category: 'shopping', priority: 'comfort' }); setIsAddingInstallment(true); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Plus className="w-3.5 h-3.5" /> Parcelamento</button>
-          </div>
-
-          <div className="p-3">
-            {detailTab === 'lancamentos' && (
-              <>
-                <div className="flex items-center justify-between px-1 pb-2">
-                  <span className="text-[11px] font-bold text-slate-500">Lançamentos de {new Date(selStats.currentInvoiceMonth + '-15').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</span>
-                  <span className="text-[12px] font-black tabular-nums text-rose-400">R$ {fmt(selStats.invoiceTotal)}</span>
-                </div>
-                {selStats.invoiceItems.length === 0 ? (
-                  <p className="text-center text-xs text-slate-500 py-8">Nenhum lançamento nesta fatura.</p>
-                ) : selStats.invoiceItems.map(it => {
-                  const cat = CATEGORIES.expense.find(c => c.id === it.category);
-                  const Icon = cat?.icon || ShoppingBag;
-                  const hex = categoryHex(cat || {});
-                  const pm = { essential: { l: 'Essencial', c: 'text-blue-400' }, comfort: { l: 'Conforto', c: 'text-amber-500' }, superfluous: { l: 'Supérfluo', c: 'text-rose-400' } }[it.priority] || { l: '', c: '' };
+              {/* Chips de filtro */}
+              <div className={`flex items-center gap-2 px-4 py-3 border-y overflow-x-auto ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                {[
+                  { id: 'todos', label: 'Todos', count: selStats.unpaidExpenses.length + selStats.installments.length + selStats.recurring.length },
+                  { id: 'transacao', label: 'Transações', count: selStats.unpaidExpenses.length },
+                  { id: 'parcelamento', label: 'Parcelamentos', count: selStats.installments.length },
+                  { id: 'assinatura', label: 'Assinaturas', count: selStats.recurring.length },
+                ].map(f => {
+                  const active = cardFilter === f.id;
                   return (
-                    <div key={it.key} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
-                      <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{it.name}</p>
-                        <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 mt-0.5">
-                          {it.date && <span className="text-[10px] text-slate-500">{new Date(it.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}</span>}
-                          <span className="text-[10px] text-slate-500">· {cat?.label || 'Outro'}</span>
-                          {pm.l && <span className={`text-[9px] font-bold ${pm.c}`}>{pm.l}</span>}
-                          {it.installment && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400">{it.installment}</span>}
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-[13px] font-black tabular-nums text-rose-400">R$ {fmt(it.amount)}</p>
-                        {it.totalLabel && <p className="text-[9px] text-slate-500">{it.totalLabel}</p>}
-                      </div>
-                    </div>
+                    <button key={f.id} onClick={() => setCardFilter(f.id)} className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest border transition-all ${active ? 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/20' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
+                      {f.label}
+                      <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${active ? 'bg-white/20 text-white' : (isDark ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-500')}`}>{f.count}</span>
+                    </button>
                   );
                 })}
-              </>
-            )}
+              </div>
 
-            {detailTab === 'parcelamentos' && (
-              selStats.installments.length === 0 ? (
-                <p className="text-center text-xs text-slate-500 py-8">Nenhum parcelamento neste cartão.</p>
-              ) : selStats.installments.map(sub => {
-                const cat = CATEGORIES.expense.find(c => c.id === sub.category);
-                const Icon = cat?.icon || ShoppingBag;
-                const hex = categoryHex(cat || {});
-                const total = sub.totalInstallments || 1;
-                const paid = Math.max(0, (sub.currentInstallment || 1) - 1);
-                const pct = (paid / total) * 100;
-                return (
-                  <div key={sub.id} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
-                    <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
-                    <div className="min-w-0 flex-1">
-                      <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{sub.name}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className={`flex-1 h-1.5 rounded-full overflow-hidden max-w-[140px] ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}><div className="h-full rounded-full bg-rose-500" style={{ width: `${pct}%` }} /></div>
-                        <span className="text-[10px] text-slate-500 tabular-nums">{paid}/{total} pagas</span>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0 flex items-center gap-2">
-                      <span className="text-[13px] font-black tabular-nums text-rose-400">R$ {fmt(sub.value)}</span>
-                      <button onClick={() => openEditSub(sub)} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5 hover:text-rose-400' : 'text-slate-400 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-3.5 h-3.5" /></button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-
-            {detailTab === 'assinaturas' && (
-              selStats.recurring.length === 0 ? (
-                <p className="text-center text-xs text-slate-500 py-8">Nenhuma assinatura neste cartão.</p>
-              ) : selStats.recurring.map(sub => {
-                const cat = CATEGORIES.expense.find(c => c.id === sub.category);
-                const Icon = cat?.icon || ShoppingBag;
-                const hex = categoryHex(cat || {});
-                return (
-                  <div key={sub.id} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
-                    <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
-                    <div className="min-w-0 flex-1">
-                      <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{sub.name}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Na fatura · vence dia {selectedCard.dueDay || sub.day}</p>
-                    </div>
-                    <div className="text-right shrink-0 flex items-center gap-2">
-                      <span className="text-[13px] font-black tabular-nums text-violet-400">R$ {fmt(sub.value)}</span>
-                      <button onClick={() => openEditSub(sub)} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5 hover:text-rose-400' : 'text-slate-400 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-3.5 h-3.5" /></button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
+              <div className="p-3">
+                {(() => {
+                  const showTx = cardFilter === 'todos' || cardFilter === 'transacao';
+                  const showInst = cardFilter === 'todos' || cardFilter === 'parcelamento';
+                  const showSub = cardFilter === 'todos' || cardFilter === 'assinatura';
+                  const nTx = showTx ? selStats.unpaidExpenses.length : 0;
+                  const nInst = showInst ? selStats.installments.length : 0;
+                  const nSub = showSub ? selStats.recurring.length : 0;
+                  if (nTx + nInst + nSub === 0) {
+                    return <p className="text-center text-xs text-slate-500 py-10">Nada para mostrar neste filtro.</p>;
+                  }
+                  const groupLabel = (txt) => <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1 pt-3 pb-1 first:pt-1">{txt}</p>;
+                  const PM = { essential: { l: 'Essencial', c: 'text-blue-400' }, comfort: { l: 'Conforto', c: 'text-amber-500' }, superfluous: { l: 'Supérfluo', c: 'text-rose-400' } };
+                  return (
+                    <>
+                      {showTx && selStats.unpaidExpenses.length > 0 && (
+                        <>
+                          {cardFilter === 'todos' && groupLabel('Transações')}
+                          {selStats.unpaidExpenses.map(t => {
+                            const cat = CATEGORIES.expense.find(c => c.id === t.category);
+                            const Icon = cat?.icon || ShoppingBag;
+                            const hex = categoryHex(cat || {});
+                            const pm = PM[t.priority] || { l: '', c: '' };
+                            return (
+                              <div key={t.id} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
+                                <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
+                                <div className="min-w-0 flex-1">
+                                  <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.description || 'Compra'}</p>
+                                  <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 mt-0.5">
+                                    {t.date && <span className="text-[10px] text-slate-500">{new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}</span>}
+                                    <span className="text-[10px] text-slate-500">· {cat?.label || 'Outro'}</span>
+                                    {pm.l && <span className={`text-[9px] font-bold ${pm.c}`}>{pm.l}</span>}
+                                    {t.installmentInfo && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400">{t.installmentInfo}</span>}
+                                  </div>
+                                </div>
+                                <p className="text-[13px] font-black tabular-nums text-rose-400 shrink-0">R$ {fmt(parseFloat(t.amount) || 0)}</p>
+                              </div>
+                            );
+                          })}
+                        </>
+                      )}
+                      {showInst && selStats.installments.length > 0 && (
+                        <>
+                          {cardFilter === 'todos' && groupLabel('Parcelamentos')}
+                          {selStats.installments.map(sub => {
+                            const cat = CATEGORIES.expense.find(c => c.id === sub.category);
+                            const Icon = cat?.icon || ShoppingBag;
+                            const hex = categoryHex(cat || {});
+                            const total = sub.totalInstallments || 1;
+                            const paid = Math.max(0, (sub.currentInstallment || 1) - 1);
+                            const pct = (paid / total) * 100;
+                            return (
+                              <div key={sub.id} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
+                                <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
+                                <div className="min-w-0 flex-1">
+                                  <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{sub.name}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <div className={`flex-1 h-1.5 rounded-full overflow-hidden max-w-[140px] ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}><div className="h-full rounded-full bg-rose-500" style={{ width: `${pct}%` }} /></div>
+                                    <span className="text-[10px] text-slate-500 tabular-nums">{paid}/{total} pagas</span>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0 flex items-center gap-2">
+                                  <span className="text-[13px] font-black tabular-nums text-rose-400">R$ {fmt(sub.value)}</span>
+                                  <button onClick={() => openEditSub(sub)} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5 hover:text-rose-400' : 'text-slate-400 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </>
+                      )}
+                      {showSub && selStats.recurring.length > 0 && (
+                        <>
+                          {cardFilter === 'todos' && groupLabel('Assinaturas')}
+                          {selStats.recurring.map(sub => {
+                            const cat = CATEGORIES.expense.find(c => c.id === sub.category);
+                            const Icon = cat?.icon || ShoppingBag;
+                            const hex = categoryHex(cat || {});
+                            return (
+                              <div key={sub.id} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
+                                <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
+                                <div className="min-w-0 flex-1">
+                                  <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{sub.name}</p>
+                                  <p className="text-[10px] text-slate-500 mt-0.5">Na fatura · vence dia {selectedCard.dueDay || sub.day}</p>
+                                </div>
+                                <div className="text-right shrink-0 flex items-center gap-2">
+                                  <span className="text-[13px] font-black tabular-nums text-violet-400">R$ {fmt(sub.value)}</span>
+                                  <button onClick={() => openEditSub(sub)} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5 hover:text-rose-400' : 'text-slate-400 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         )}
       </>
       )}
 
+
+      {/* MODAL: seletor "Lançar no cartão" (transação / assinatura / parcelamento) */}
+      {cardLaunchChooser && selectedCard && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setCardLaunchChooser(false)}>
+          <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-md p-6 relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+            <button onClick={() => setCardLaunchChooser(false)} className={`absolute top-4 right-4 p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
+            <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Lançar no cartão</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5 mb-5">{selectedCard.name} · •••• {selectedCard.last4 || '0000'} — o que você quer lançar?</p>
+            <div className="space-y-3">
+              {[
+                { icon: ShoppingBag, title: 'Transação', desc: 'Uma compra no crédito que entra na fatura.', onClick: () => { setCardLaunchChooser(false); openAddCardTx(); } },
+                { icon: Repeat, title: 'Assinatura recorrente', desc: 'Um valor que se repete todo mês (Netflix, Spotify…).', onClick: () => { if (isLimited && subscriptions.length >= TRIAL_SUBS_LIMIT) { openTrialModal(`Você atingiu o limite de ${TRIAL_SUBS_LIMIT} assinaturas do ${planLevel === 'free' ? 'Plano Gratuito' : 'período de teste'}.`); return; } setCardLaunchChooser(false); setNewSub({ name: '', value: '', day: 1, cardId: selectedCard.id, category: 'subscriptions', priority: 'comfort' }); setIsAddingSub(true); } },
+                { icon: Hash, title: 'Parcelamento', desc: 'Uma compra dividida em várias parcelas.', onClick: () => { setCardLaunchChooser(false); setNewInstallment({ name: '', value: '', valueMode: 'total', installments: '2', day: 1, cardId: selectedCard.id, category: 'shopping', priority: 'comfort' }); setIsAddingInstallment(true); } },
+              ].map((opt) => {
+                const OIcon = opt.icon;
+                return (
+                  <button key={opt.title} onClick={opt.onClick} className={`w-full flex items-start gap-3 p-4 rounded-2xl border text-left transition-all active:scale-[0.99] ${isDark ? 'border-white/10 hover:border-rose-500/40 hover:bg-rose-500/[0.06]' : 'border-slate-200 hover:border-rose-300 hover:bg-rose-50/60'}`}>
+                    <span className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-rose-500/15 text-rose-400' : 'bg-rose-100 text-rose-600'}`}><OIcon className="w-5 h-5" /></span>
+                    <span className="min-w-0">
+                      <span className={`block text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{opt.title}</span>
+                      <span className="block text-[10px] text-slate-500 mt-1 leading-relaxed">{opt.desc}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: ADD CARD */}
       {isAddingCard && (
