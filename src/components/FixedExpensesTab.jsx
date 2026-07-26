@@ -308,20 +308,6 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
 
   const getPaid = (exp) => paidIndex[(exp.name || '').trim().toLowerCase()] || null;
 
-  // Abas de mês: 3 meses anteriores + atual + 1 futuro (chaves locais, sem UTC).
-  const monthTabs = useMemo(() => {
-    const arr = [];
-    for (let off = -3; off <= 1; off++) {
-      const d = new Date(now.getFullYear(), now.getMonth() + off, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      let label = d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
-      label = label.charAt(0).toUpperCase() + label.slice(1);
-      arr.push({ key, label });
-    }
-    return arr;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const isCurrentMonth = selectedMonth === currentMonthStr;
   const todayDay = now.getDate();
 
@@ -631,20 +617,15 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
     );
   };
 
-  // Board de contas cadastradas (abas de mês + colunas Fixa/Variável).
-  // Em Cadastros aparece inline; em Lançamentos vai para o modal "Despesa cadastrada".
+  // Board de contas cadastradas (colunas Fixa/Variável) — SEMPRE do mês atual.
+  // A baixa só acontece no mês corrente; meses anteriores não são navegáveis aqui.
+  const currentMonthName = new Date(currentMonthStr + '-15').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   const renderBillsBoard = () => (
     <div className={`rounded-2xl border overflow-hidden ${cardBg}`}>
-      <div className={`flex items-center gap-1 px-4 pt-3 border-b overflow-x-auto ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
-        {monthTabs.map(mt => {
-          const active = mt.key === selectedMonth;
-          return (
-            <button key={mt.key} onClick={() => setSelectedMonth(mt.key)}
-              className={`px-3 py-2 text-sm font-bold border-b-2 -mb-px transition-colors whitespace-nowrap ${active ? 'text-emerald-400 border-emerald-400' : `border-transparent ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}`}>
-              {mt.label}
-            </button>
-          );
-        })}
+      <div className={`flex items-center justify-between gap-2 px-4 py-2.5 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+        <span className={`text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+          <Calendar className="w-3.5 h-3.5 text-emerald-500" /> Contas de <span className="capitalize text-emerald-500">{currentMonthName}</span>
+        </span>
       </div>
       <div className={`grid grid-cols-1 lg:grid-cols-2 ${isDark ? 'lg:divide-x divide-white/5' : 'lg:divide-x divide-slate-100'}`}>
         {renderColumn(fixedList, false)}
@@ -1151,7 +1132,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
               >
                 <span className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-rose-500/15 text-rose-400' : 'bg-rose-100 text-rose-600'}`}><Repeat className="w-5 h-5" /></span>
                 <span className="min-w-0">
-                  <span className={`block text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Despesa cadastrada</span>
+                  <span className={`block text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Despesa Fixa</span>
                   <span className="block text-[10px] text-slate-500 mt-1 leading-relaxed">Dar baixa numa conta fixa ou variável que já está cadastrada.</span>
                 </span>
               </button>
@@ -1182,7 +1163,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
         const SIcon = sec.icon;
         return (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setViewAllType(null)}>
-            <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-lg max-h-[90vh] flex flex-col relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+            <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-lg h-[80vh] max-h-[680px] flex flex-col relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
               <div className={`flex items-center justify-between gap-3 p-5 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><SIcon className="w-5 h-5 text-rose-500" /></span>
@@ -1282,7 +1263,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
               <div>
                 <label className={lbl}>Categoria</label>
                 <select className={inCls} value={mForm.category} onChange={e => setMForm({ ...mForm, category: e.target.value })}>
-                  {(CATEGORIES.expense || []).map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                  {(CATEGORIES.expense || []).map(c => <option key={c.id} value={c.id} className={isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'}>{c.label}</option>)}
                 </select>
               </div>
 
@@ -1317,7 +1298,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
                     <p className="text-[11px] text-amber-500">Nenhum cartão. Cadastre em Cadastros › Cartão para lançar no crédito.</p>
                   ) : (
                     <select className={inCls} value={mForm.cardId} onChange={e => setMForm({ ...mForm, cardId: e.target.value })}>
-                      {cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {cards.map(c => <option key={c.id} value={c.id} className={isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'}>{c.name}</option>)}
                     </select>
                   )}
                   <p className="text-[10px] text-slate-500 mt-1.5">No crédito, o gasto entra na fatura e sai do saldo só quando você pagar a fatura.</p>
@@ -1467,7 +1448,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
                   onChange={(e) => { const newCat = e.target.value; const catDef = CATEGORIES.expense.find(c => c.id === newCat); setNewExpense({ ...newExpense, category: newCat, priority: catDef?.defaultPriority || newExpense.priority }); }}
                   className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none transition-all appearance-none ${isDark ? 'bg-slate-800 border-white/5 text-white' : 'bg-slate-50 border-slate-100 text-slate-800'}`}
                 >
-                  {CATEGORIES.expense.map(cat => (<option key={cat.id} value={cat.id}>{cat.label}</option>))}
+                  {CATEGORIES.expense.map(cat => (<option key={cat.id} value={cat.id} className={isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'}>{cat.label}</option>))}
                 </select>
               </div>
 
