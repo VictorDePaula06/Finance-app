@@ -1,34 +1,34 @@
 import React, { useState, useMemo } from 'react';
 import {
-  PieChart, TrendingUp, TrendingDown, Tags, Download, ChevronLeft,
-  Wallet, Calendar, ArrowUpCircle, ArrowDownCircle,
+  BarChart3, Tags, CreditCard, PiggyBank, Download, ChevronLeft,
+  Calendar, ArrowDownCircle,
 } from 'lucide-react';
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import { generateTablePDF } from '../utils/generatePDF';
 import logo from '../assets/logo.png';
 
-// Relatórios disponíveis — sem Investimentos e sem Patrimônio.
+// Relatórios disponíveis.
 const REPORTS = [
-  { id: 'visao',      label: 'Visão Geral', desc: 'Panorama da sua vida financeira', icon: PieChart,     accent: 'teal' },
-  { id: 'receitas',   label: 'Receitas',    desc: 'Análise das suas entradas',       icon: TrendingUp,   accent: 'emerald' },
-  { id: 'despesas',   label: 'Despesas',    desc: 'Análise dos seus gastos',         icon: TrendingDown, accent: 'rose' },
-  { id: 'categorias', label: 'Categorias',  desc: 'Gasto por categoria',             icon: Tags,         accent: 'violet' },
+  { id: 'periodo',    label: 'Gastos por período',  desc: 'Total e evolução dos gastos', icon: BarChart3,  accent: 'rose' },
+  { id: 'categorias', label: 'Gastos por categoria', desc: 'Gasto por categoria',        icon: Tags,       accent: 'violet' },
+  { id: 'cartao',     label: 'Gastos no cartão',     desc: 'Compras no crédito',         icon: CreditCard, accent: 'amber' },
+  { id: 'reservas',   label: 'Aportes em Reservas',  desc: 'Quanto você guardou',        icon: PiggyBank,  accent: 'emerald' },
 ];
 
 const ACCENT = {
-  teal:    { text: 'text-teal-500',    soft: (d) => d ? 'bg-teal-500/10'    : 'bg-teal-50',    ring: '#14b8a6' },
-  emerald: { text: 'text-emerald-500', soft: (d) => d ? 'bg-emerald-500/10' : 'bg-emerald-50', ring: '#10b981' },
   rose:    { text: 'text-rose-500',    soft: (d) => d ? 'bg-rose-500/10'    : 'bg-rose-50',    ring: '#f43f5e' },
   violet:  { text: 'text-violet-500',  soft: (d) => d ? 'bg-violet-500/10'  : 'bg-violet-50',  ring: '#8b5cf6' },
+  amber:   { text: 'text-amber-500',   soft: (d) => d ? 'bg-amber-500/10'   : 'bg-amber-50',   ring: '#f59e0b' },
+  emerald: { text: 'text-emerald-500', soft: (d) => d ? 'bg-emerald-500/10' : 'bg-emerald-50', ring: '#10b981' },
 };
 
-const INTERNAL_INCOME = ['initial_balance', 'carryover', 'vault_redemption'];
 const INTERNAL_EXPENSE = ['investment', 'vault', 'credit_card_bill'];
 
 const fmt = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dayISO = (d) => d.toISOString().slice(0, 10);
+const dLabel = (iso) => { const [y, m, d] = String(iso).slice(0, 10).split('-'); return d ? `${d}/${m}` : iso; };
 
-export default function ReportsHub({ transactions = [], theme = 'dark' }) {
+export default function ReportsHub({ transactions = [], cards = [], theme = 'dark' }) {
   const isDark = theme !== 'light';
   const [report, setReport] = useState(null);
 
@@ -47,74 +47,99 @@ export default function ReportsHub({ transactions = [], theme = 'dark' }) {
     return d && d >= start && d <= end;
   }), [transactions, start, end]);
 
-  const incomeTx = useMemo(() => inPeriod.filter(t => t.type === 'income' && !INTERNAL_INCOME.includes(t.category)), [inPeriod]);
-  const expenseTx = useMemo(() => inPeriod.filter(t => t.type === 'expense' && !INTERNAL_EXPENSE.includes(t.category)), [inPeriod]);
-
-  const totalIncome = useMemo(() => incomeTx.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0), [incomeTx]);
+  // Despesas "de consumo" (exclui aportes e pagamento de fatura).
+  const expenseTx = useMemo(() =>
+    inPeriod.filter(t => t.type === 'expense' && !INTERNAL_EXPENSE.includes(t.category))
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+  , [inPeriod]);
   const totalExpense = useMemo(() => expenseTx.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0), [expenseTx]);
-  const saldo = totalIncome - totalExpense;
-  const savingsRate = totalIncome > 0 ? (saldo / totalIncome) * 100 : 0;
 
-  // Agrupamento por categoria.
-  const byCategory = (list, group) => {
+  // Gastos no cartão (crédito).
+  const cardTx = useMemo(() => expenseTx.filter(t => t.paymentMethod === 'credito'), [expenseTx]);
+  const totalCard = useMemo(() => cardTx.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0), [cardTx]);
+
+  // Aportes em reservas.
+  const reservaTx = useMemo(() =>
+    inPeriod.filter(t => t.type === 'expense' && (t.category === 'investment' || t.category === 'vault'))
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+  , [inPeriod]);
+  const totalReserva = useMemo(() => reservaTx.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0), [reservaTx]);
+
+  // Nº de dias no período (para média).
+  const days = useMemo(() => Math.max(1, Math.round((new Date(end) - new Date(start)) / 86400000) + 1), [start, end]);
+
+  // Agrupamento por categoria de despesa.
+  const expenseByCat = useMemo(() => {
     const map = {};
-    list.forEach(t => { const c = t.category || 'other'; map[c] = (map[c] || 0) + (parseFloat(t.amount) || 0); });
+    expenseTx.forEach(t => { const c = t.category || 'other'; map[c] = (map[c] || 0) + (parseFloat(t.amount) || 0); });
     return Object.entries(map)
       .map(([id, value]) => {
-        const def = (CATEGORIES[group] || []).find(c => c.id === id) || { label: 'Outros', id };
+        const def = (CATEGORIES.expense || []).find(c => c.id === id) || { label: 'Outros', id };
         return { id, label: def.label || id, value, hex: categoryHex(def) };
       })
       .sort((a, b) => b.value - a.value);
-  };
-  const expenseByCat = useMemo(() => byCategory(expenseTx, 'expense'), [expenseTx]);
-  const incomeByCat = useMemo(() => byCategory(incomeTx, 'income'), [incomeTx]);
-
-  const priority = useMemo(() => {
-    const p = { essential: 0, comfort: 0, superfluous: 0 };
-    expenseTx.forEach(t => { p[t.priority] = (p[t.priority] || 0) + (parseFloat(t.amount) || 0); });
-    return p;
   }, [expenseTx]);
+
+  // Gastos por dia (para o relatório por período).
+  const byDay = useMemo(() => {
+    const map = {};
+    expenseTx.forEach(t => { const d = String(t.date || '').slice(0, 10); if (d) map[d] = (map[d] || 0) + (parseFloat(t.amount) || 0); });
+    return Object.entries(map).map(([id, value]) => ({ id, label: dLabel(id), value })).sort((a, b) => a.id.localeCompare(b.id));
+  }, [expenseTx]);
+
+  // Gastos por cartão.
+  const cardName = (id) => cards.find(c => c.id === id)?.name || 'Sem cartão';
+  const byCard = useMemo(() => {
+    const map = {};
+    cardTx.forEach(t => { const id = t.selectedCardId || 'none'; map[id] = (map[id] || 0) + (parseFloat(t.amount) || 0); });
+    return Object.entries(map).map(([id, value]) => ({ id, label: cardName(id === 'none' ? null : id), value })).sort((a, b) => b.value - a.value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardTx, cards]);
 
   // ── Exportar PDF do relatório atual ──
   const handleExport = async () => {
     const subtitle = periodLabel;
-    const meta = REPORTS.find(r => r.id === report);
-    if (report === 'receitas') {
+    if (report === 'categorias') {
       await generateTablePDF({
-        title: 'Relatório de Receitas', subtitle,
-        summary: [{ label: 'Total de receitas', value: `R$ ${fmt(totalIncome)}`, color: 'green' }, { label: 'Lançamentos', value: String(incomeTx.length), color: 'neutral' }],
-        columns: ['Origem', 'Valor'],
-        rows: incomeByCat.map(c => [c.label, `R$ ${fmt(c.value)}`]),
-        columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
-      }, logo);
-    } else if (report === 'despesas' || report === 'categorias') {
-      await generateTablePDF({
-        title: report === 'categorias' ? 'Gastos por Categoria' : 'Relatório de Despesas', subtitle,
+        title: 'Gastos por Categoria', subtitle,
         summary: [{ label: 'Total de despesas', value: `R$ ${fmt(totalExpense)}`, color: 'red' }, { label: 'Categorias', value: String(expenseByCat.length), color: 'neutral' }],
         columns: ['Categoria', 'Valor', '%'],
         rows: expenseByCat.map(c => [c.label, `R$ ${fmt(c.value)}`, totalExpense > 0 ? `${((c.value / totalExpense) * 100).toFixed(1)}%` : '0%']),
         columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { halign: 'right' } },
       }, logo);
+    } else if (report === 'cartao') {
+      await generateTablePDF({
+        title: 'Gastos no Cartão', subtitle,
+        summary: [{ label: 'Total no crédito', value: `R$ ${fmt(totalCard)}`, color: 'amber' }, { label: 'Compras', value: String(cardTx.length), color: 'neutral' }],
+        columns: ['Descrição', 'Cartão', 'Valor'],
+        rows: cardTx.map(t => [t.description || 'Compra', cardName(t.selectedCardId), `R$ ${fmt(parseFloat(t.amount) || 0)}`]),
+        columnStyles: { 2: { halign: 'right', fontStyle: 'bold' } },
+      }, logo);
+    } else if (report === 'reservas') {
+      await generateTablePDF({
+        title: 'Aportes em Reservas', subtitle,
+        summary: [{ label: 'Total aportado', value: `R$ ${fmt(totalReserva)}`, color: 'green' }, { label: 'Aportes', value: String(reservaTx.length), color: 'neutral' }],
+        columns: ['Descrição', 'Data', 'Valor'],
+        rows: reservaTx.map(t => [t.description || 'Aporte', t.date ? new Date(t.date).toLocaleDateString('pt-BR') : '—', `R$ ${fmt(parseFloat(t.amount) || 0)}`]),
+        columnStyles: { 2: { halign: 'right', fontStyle: 'bold' } },
+      }, logo);
     } else {
       await generateTablePDF({
-        title: 'Visão Geral', subtitle,
+        title: 'Gastos por Período', subtitle,
         summary: [
-          { label: 'Receitas', value: `R$ ${fmt(totalIncome)}`, color: 'green' },
-          { label: 'Despesas', value: `R$ ${fmt(totalExpense)}`, color: 'red' },
-          { label: 'Saldo', value: `R$ ${fmt(saldo)}`, color: saldo >= 0 ? 'blue' : 'amber' },
+          { label: 'Total de despesas', value: `R$ ${fmt(totalExpense)}`, color: 'red' },
+          { label: 'Lançamentos', value: String(expenseTx.length), color: 'neutral' },
+          { label: 'Média/dia', value: `R$ ${fmt(totalExpense / days)}`, color: 'amber' },
         ],
-        columns: ['Categoria de gasto', 'Valor', '%'],
-        rows: expenseByCat.map(c => [c.label, `R$ ${fmt(c.value)}`, totalExpense > 0 ? `${((c.value / totalExpense) * 100).toFixed(1)}%` : '0%']),
-        columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { halign: 'right' } },
+        columns: ['Descrição', 'Data', 'Categoria', 'Valor'],
+        rows: expenseTx.map(t => [t.description || 'Gasto', t.date ? new Date(t.date).toLocaleDateString('pt-BR') : '—', (CATEGORIES.expense.find(c => c.id === t.category)?.label || 'Outro'), `R$ ${fmt(parseFloat(t.amount) || 0)}`]),
+        columnStyles: { 3: { halign: 'right', fontStyle: 'bold' } },
       }, logo);
     }
-    void meta;
   };
 
-  const inputCls = `px-3 py-2 rounded-xl border text-xs font-bold outline-none transition-colors ${isDark ? 'bg-white/5 border-white/10 text-white focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 focus:border-emerald-500'}`;
-
-  // ── Barra de categoria ──
-  const CatBars = ({ data, total, color }) => (
+  // ── Barras genéricas (categoria / dia / cartão) ──
+  const Bars = ({ data, total, color }) => (
     <div className="space-y-2.5">
       {data.length === 0 ? (
         <p className="text-center text-xs text-slate-500 py-8">Nada no período selecionado.</p>
@@ -135,15 +160,44 @@ export default function ReportsHub({ transactions = [], theme = 'dark' }) {
     </div>
   );
 
-  const KPI = ({ label, value, color, icon: Icon }) => (
-    <div className="pat-card p-4">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">{label}</span>
-        {Icon && <Icon className="w-4 h-4" style={{ color }} />}
+  // ── Lista de lançamentos ──
+  const TxList = ({ list, color = '#f43f5e', prefix = '−' }) => (
+    list.length === 0 ? (
+      <p className="text-center text-xs text-slate-500 py-8">Nenhum lançamento no período.</p>
+    ) : (
+      <div className={`divide-y ${isDark ? 'divide-white/[0.04]' : 'divide-slate-100'}`}>
+        {list.map(t => {
+          const cat = CATEGORIES.expense.find(c => c.id === t.category);
+          const hex = categoryHex(cat || {});
+          return (
+            <div key={t.id} className="flex items-center justify-between gap-3 py-2.5">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: hex }} />
+                <div className="min-w-0">
+                  <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.description || 'Lançamento'}</p>
+                  <p className="text-[10px] font-bold text-slate-500">
+                    {t.date ? new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '') : '—'}
+                    {t.selectedCardId ? ` · ${cardName(t.selectedCardId)}` : (cat ? ` · ${cat.label}` : '')}
+                  </p>
+                </div>
+              </div>
+              <span className="text-sm font-black tabular-nums shrink-0" style={{ color }}>{prefix} R$ {fmt(parseFloat(t.amount) || 0)}</span>
+            </div>
+          );
+        })}
       </div>
-      <p className="text-2xl font-black tabular-nums" style={{ color }}>R$ {fmt(value)}</p>
+    )
+  );
+
+  const KPI = ({ label, value, color, sub }) => (
+    <div className="pat-card p-4">
+      <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">{label}</p>
+      <p className="text-2xl font-black tabular-nums mt-1" style={{ color }}>R$ {fmt(value)}</p>
+      {sub && <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{sub}</p>}
     </div>
   );
+
+  const meta = report ? REPORTS.find(r => r.id === report) : null;
 
   return (
     <div className="space-y-5">
@@ -154,8 +208,8 @@ export default function ReportsHub({ transactions = [], theme = 'dark' }) {
             <button onClick={() => setReport(null)} className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><ChevronLeft className="w-5 h-5" /></button>
           )}
           <div>
-            <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{report ? REPORTS.find(r => r.id === report)?.label : 'Relatórios'}</h1>
-            <p className={`text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{report ? REPORTS.find(r => r.id === report)?.desc : 'Acompanhe análises completas da sua vida financeira'}</p>
+            <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{meta ? meta.label : 'Relatórios'}</h1>
+            <p className={`text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{meta ? meta.desc : 'Acompanhe análises completas da sua vida financeira'}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -196,51 +250,24 @@ export default function ReportsHub({ transactions = [], theme = 'dark' }) {
       ) : (
         /* ── Relatório selecionado ── */
         <div className="space-y-4">
-          {report === 'visao' && (
+          {report === 'periodo' && (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <KPI label="Receitas" value={totalIncome} color="#10b981" icon={ArrowUpCircle} />
-                <KPI label="Despesas" value={totalExpense} color="#f43f5e" icon={ArrowDownCircle} />
-                <KPI label="Saldo" value={saldo} color={saldo >= 0 ? '#3b82f6' : '#f59e0b'} icon={Wallet} />
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                <KPI label="Total de despesas" value={totalExpense} color="#f43f5e" sub={`${expenseTx.length} lançamento${expenseTx.length === 1 ? '' : 's'}`} />
+                <KPI label="Média por dia" value={totalExpense / days} color="#f59e0b" sub={`${days} dia${days === 1 ? '' : 's'} no período`} />
                 <div className="pat-card p-4">
-                  <div className="flex items-center justify-between mb-1.5"><span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Taxa de poupança</span><PieChart className="w-4 h-4 text-teal-500" /></div>
-                  <p className="text-2xl font-black tabular-nums text-teal-500">{savingsRate.toFixed(0)}%</p>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Maior categoria</p>
+                  <p className={`text-lg font-black truncate mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{expenseByCat[0]?.label || '—'}</p>
+                  <p className="text-[11px] text-rose-500 font-bold mt-0.5">{expenseByCat[0] ? `R$ ${fmt(expenseByCat[0].value)}` : ''}</p>
                 </div>
               </div>
               <div className="pat-card p-5">
-                <p className={`text-xs font-black mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>Para onde foi o dinheiro</p>
-                <CatBars data={expenseByCat} total={totalExpense} />
-              </div>
-            </>
-          )}
-
-          {report === 'receitas' && (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <KPI label="Total de receitas" value={totalIncome} color="#10b981" icon={ArrowUpCircle} />
-                <div className="pat-card p-4">
-                  <div className="flex items-center justify-between mb-1.5"><span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Lançamentos</span><TrendingUp className="w-4 h-4 text-emerald-500" /></div>
-                  <p className={`text-2xl font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>{incomeTx.length}</p>
-                </div>
+                <p className={`text-xs font-black mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>Gastos por dia</p>
+                <Bars data={byDay} total={Math.max(...byDay.map(d => d.value), 0)} color="#f43f5e" />
               </div>
               <div className="pat-card p-5">
-                <p className={`text-xs font-black mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>Receitas por origem</p>
-                <CatBars data={incomeByCat} total={totalIncome} color="#10b981" />
-              </div>
-            </>
-          )}
-
-          {report === 'despesas' && (
-            <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <KPI label="Total de despesas" value={totalExpense} color="#f43f5e" icon={ArrowDownCircle} />
-                <KPI label="Essenciais" value={priority.essential} color="#3b82f6" />
-                <KPI label="Conforto" value={priority.comfort} color="#f59e0b" />
-                <KPI label="Supérfluos" value={priority.superfluous} color="#f43f5e" />
-              </div>
-              <div className="pat-card p-5">
-                <p className={`text-xs font-black mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>Despesas por categoria</p>
-                <CatBars data={expenseByCat} total={totalExpense} />
+                <p className={`text-xs font-black mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Lançamentos do período</p>
+                <TxList list={expenseTx} />
               </div>
             </>
           )}
@@ -251,8 +278,46 @@ export default function ReportsHub({ transactions = [], theme = 'dark' }) {
                 <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Gasto por categoria</p>
                 <span className="text-[11px] font-black tabular-nums text-rose-500">R$ {fmt(totalExpense)}</span>
               </div>
-              <CatBars data={expenseByCat} total={totalExpense} />
+              <Bars data={expenseByCat} total={totalExpense} />
             </div>
+          )}
+
+          {report === 'cartao' && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <KPI label="Total no cartão" value={totalCard} color="#f59e0b" sub={`${cardTx.length} compra${cardTx.length === 1 ? '' : 's'} no crédito`} />
+                <div className="pat-card p-4">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Cartões usados</p>
+                  <p className={`text-2xl font-black tabular-nums mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{byCard.length}</p>
+                </div>
+              </div>
+              {byCard.length > 0 && (
+                <div className="pat-card p-5">
+                  <p className={`text-xs font-black mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>Por cartão</p>
+                  <Bars data={byCard} total={totalCard} color="#f59e0b" />
+                </div>
+              )}
+              <div className="pat-card p-5">
+                <p className={`text-xs font-black mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Compras no crédito</p>
+                <TxList list={cardTx} color="#f59e0b" />
+              </div>
+            </>
+          )}
+
+          {report === 'reservas' && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <KPI label="Total aportado" value={totalReserva} color="#10b981" sub={`${reservaTx.length} aporte${reservaTx.length === 1 ? '' : 's'} no período`} />
+                <div className="pat-card p-4">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Média por aporte</p>
+                  <p className="text-2xl font-black tabular-nums mt-1 text-emerald-500">R$ {fmt(reservaTx.length ? totalReserva / reservaTx.length : 0)}</p>
+                </div>
+              </div>
+              <div className="pat-card p-5">
+                <p className={`text-xs font-black mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Aportes do período</p>
+                <TxList list={reservaTx} color="#10b981" prefix="+" />
+              </div>
+            </>
           )}
         </div>
       )}
