@@ -51,6 +51,9 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const [editingId, setEditingId] = useState(null);
     const [editingIsSubscription, setEditingIsSubscription] = useState(false);
     const [subTab, setSubTab] = useState(initialSubTab || 'despesas'); // 'despesas' | 'reservas'
+    // "Ver todos" dos aportes em reserva + filtro de período.
+    const [reserveViewAll, setReserveViewAll] = useState(false);
+    const [reservePeriod, setReservePeriod] = useState('30d');
 
     // Sincroniza com a sub-aba vinda da sidebar/URL (ex: clicar em "Aportes")
     useEffect(() => {
@@ -247,6 +250,33 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
     const investmentExits = useMemo(() => {
         return monthExits.filter(t => t.category === 'investment');
     }, [monthExits]);
+
+    // Todos os aportes em reserva (não limitado ao mês) — mais recentes primeiro.
+    const allReserveAportes = useMemo(() =>
+        [...(transactions || [])]
+            .filter(t => t.type === 'expense' && (t.category === 'investment' || t.category === 'vault'))
+            .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+    , [transactions]);
+
+    // Total guardado nas reservas/cofrinhos.
+    const totalReserve = useMemo(() =>
+        (savingsJars || []).reduce((a, j) => a + (parseFloat(j.balance) || 0), 0)
+    , [savingsJars]);
+
+    // Gasto médio mensal (últimos 3 meses com movimento) para estimar a cobertura.
+    const monthlyExpenseAvg = useMemo(() => {
+        const now = new Date();
+        const keys = [0, 1, 2].map(off => {
+            const d = new Date(now.getFullYear(), now.getMonth() - off, 1);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        });
+        const sums = keys.map(m => (transactions || [])
+            .filter(t => t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category) && (t.month || String(t.date || '').slice(0, 7)) === m)
+            .reduce((a, t) => a + (parseFloat(t.amount) || 0), 0));
+        const active = sums.filter(s => s > 0);
+        return active.length ? active.reduce((a, b) => a + b, 0) / active.length : 0;
+    }, [transactions]);
+    const coverMonths = monthlyExpenseAvg > 0 ? totalReserve / monthlyExpenseAvg : 0;
 
     // Available categories for filter chips
     const availableCategories = useMemo(() => {
@@ -764,6 +794,30 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
     const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 
+    // Linha de um aporte em reserva (lista + modal "ver todos").
+    const renderAporteRow = (t) => {
+        const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, label: 'Reserva' };
+        const Icon = cat.icon || Circle;
+        return (
+            <div key={t.id} className={`group flex items-center justify-between gap-3 px-5 py-3 transition-colors ${theme === 'light' ? 'hover:bg-slate-50' : 'hover:bg-white/[0.02]'}`}>
+                <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-500/15 text-emerald-500 shrink-0"><Icon className="w-[18px] h-[18px]" /></span>
+                    <div className="min-w-0">
+                        <p className={`text-sm font-bold truncate ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{t.description || 'Aporte'}</p>
+                        <p className="text-[10px] font-bold text-slate-500">{t.date ? new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '') : '—'}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm font-black tabular-nums text-emerald-500">+ {formatCurrency(parseFloat(t.amount) || 0)}</span>
+                    <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => handleEdit(t)} className="p-1.5 text-slate-400 hover:text-emerald-400 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleDelete(t)} className="p-1.5 text-slate-400 hover:text-rose-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="max-w-5xl mx-auto space-y-6 pb-20 px-2 sm:px-4 md:px-0">
             {/* Header — título reflete a sub-aba atual (navegação fica na sidebar) */}
@@ -773,7 +827,31 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                 </h2>
             </div>
 
-            {/* Cards Row — ACIMA do seletor de mês */}
+            {/* Reservas: cabeçalho com ícone + total guardado + cobertura em meses */}
+            {subTab === 'reservas' ? (
+              <div className="pat-card p-6 flex items-center gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="relative shrink-0 w-24 h-24 rounded-3xl flex items-center justify-center bg-gradient-to-br from-emerald-400/20 to-emerald-600/10 border border-emerald-500/20">
+                  <PiggyBank className="w-12 h-12 text-emerald-500" strokeWidth={1.5} />
+                  <span className="absolute -bottom-1.5 -right-1.5 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 border-2 border-white/10">
+                    <Shield className="w-4 h-4 text-white" fill="currentColor" />
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total da Reserva</p>
+                    <p className={`text-3xl font-black tabular-nums mt-1 ${hideBalance ? 'blur-md' : ''} text-emerald-500`}>{hideBalance ? 'R$ 0,00' : formatCurrency(totalReserve)}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">guardado em cofrinhos e reservas</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cobertura</p>
+                    <p className={`text-3xl font-black tabular-nums mt-1 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                      {coverMonths > 0 ? coverMonths.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '—'}<span className="text-base font-bold text-slate-400 ml-1">{coverMonths > 0 ? 'meses' : ''}</span>
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{monthlyExpenseAvg > 0 ? `com gasto médio de ${formatCurrency(monthlyExpenseAvg)}/mês` : 'lance despesas para estimar'}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {/* Saldo em Carteira */}
                 <div className={`p-5 rounded-xl flex flex-col justify-center gap-3 pat-card`}>
@@ -828,8 +906,10 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     </div>
                 </div>
             </div>
+            )}
 
-            {/* Month Selector — ABAIXO dos cards */}
+            {/* Month Selector — ABAIXO dos cards (só em Despesas) */}
+            {subTab !== 'reservas' && (
             <div className="flex flex-col items-center gap-4 mb-2">
                 <div className={`flex items-center rounded-lg border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
                     <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
@@ -843,6 +923,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     </button>
                 </div>
             </div>
+            )}
 
             {/* Transactions List */}
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -1097,71 +1178,80 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                         </div>
                     </div>
                 ) : (
-                    /* COLUNA: RESERVAS */
-                    <div className={`p-8 rounded-2xl pat-card`}>
-                        <div className="flex items-center justify-between mb-8">
-                            <h3 className={`text-base font-medium uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>Histórico de Aportes</h3>
+                    /* RESERVAS: últimos aportes (4) + ver todos */
+                    <div className={`rounded-2xl pat-card overflow-hidden`}>
+                        <div className={`flex items-center justify-between gap-3 px-5 py-4 border-b ${theme === 'light' ? 'border-slate-100' : 'border-white/5'}`}>
+                            <h3 className={`text-sm font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Últimos lançamentos em reservas</h3>
                             <button
-                                onClick={() => {
-                                    setStep('investment');
-                                    setShowModal(true);
-                                }}
-                                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-500/90 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(59,130,246,0.15)]"
+                                onClick={() => { setStep('investment'); setShowModal(true); }}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/25 active:scale-95"
                             >
-                                <span className="text-lg leading-none">+</span> Novo Aporte
+                                <Plus className="w-3.5 h-3.5" /> Novo aporte
                             </button>
                         </div>
 
-                        <div className="w-full">
-                            {/* Table Header - Hidden on Mobile */}
-                            <div className={`hidden sm:grid grid-cols-[1fr_1fr_1fr] pb-4 border-b mb-2 px-2 ${theme === 'light' ? 'border-slate-200' : 'border-slate-700'}`}>
-                                <span className="text-[10px] font-medium text-slate-400 uppercase">Reserva</span>
-                                <span className="text-[10px] font-medium text-slate-400 uppercase">Data</span>
-                                <span className="text-[10px] font-medium text-slate-400 uppercase text-right">Valor</span>
+                        {allReserveAportes.length === 0 ? (
+                            <div className="py-12 text-center">
+                                <PiggyBank className={`w-9 h-9 mx-auto mb-2 ${theme === 'light' ? 'text-slate-300' : 'text-slate-700'}`} />
+                                <p className="text-sm font-bold text-slate-500">Nenhum aporte lançado ainda.</p>
+                                <p className="text-[11px] text-slate-500 mt-1">Use <strong>“Novo aporte”</strong> para guardar dinheiro numa reserva.</p>
                             </div>
+                        ) : (
+                            <>
+                                <div className={`divide-y ${theme === 'light' ? 'divide-slate-100' : 'divide-white/[0.04]'}`}>
+                                    {allReserveAportes.slice(0, 4).map(renderAporteRow)}
+                                </div>
+                                {allReserveAportes.length > 4 && (
+                                    <button
+                                        onClick={() => { setReservePeriod('30d'); setReserveViewAll(true); }}
+                                        className={`w-full flex items-center justify-center gap-1 py-3 border-t text-[11px] font-black uppercase tracking-widest transition-colors ${theme === 'light' ? 'border-slate-100 text-blue-500 hover:bg-blue-50' : 'border-white/5 text-blue-400 hover:bg-blue-500/[0.06]'}`}
+                                    >
+                                        Ver todos ({allReserveAportes.length}) <ChevronRight className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
 
-                            <div className="space-y-1">
-                                {investmentExits.length === 0 ? (
-                                    <div className="py-8 text-center text-sm text-slate-500">Nenhum aporte recente encontrado.</div>
+            {/* Modal "Ver todos" — aportes em reserva com filtro de período */}
+            {reserveViewAll && (() => {
+                const PERIODS = [['7d', 'Últimos 7 dias', 7], ['30d', 'Últimos 30 dias', 30], ['3m', 'Últimos 3 meses', 90], ['6m', 'Últimos 6 meses', 180]];
+                const days = (PERIODS.find(p => p[0] === reservePeriod) || PERIODS[1])[2];
+                const cutoff = Date.now() - days * 86400000;
+                const list = allReserveAportes.filter(t => (t.date ? new Date(t.date).getTime() : 0) >= cutoff);
+                const total = list.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+                return (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setReserveViewAll(false)}>
+                        <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-lg h-[80vh] max-h-[680px] flex flex-col relative animate-in zoom-in-95 duration-300 shadow-2xl ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-slate-900 border-white/10'}`}>
+                            <div className={`flex items-center justify-between gap-3 p-5 border-b ${theme === 'light' ? 'border-slate-100' : 'border-white/[0.06]'}`}>
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <span className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-500/15 text-emerald-500"><PiggyBank className="w-5 h-5" /></span>
+                                    <h3 className={`text-base font-black ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Aportes em reserva</h3>
+                                </div>
+                                <button onClick={() => setReserveViewAll(false)} className={`p-2 rounded-lg shrink-0 ${theme === 'light' ? 'text-slate-500 hover:bg-slate-100' : 'text-slate-400 hover:bg-white/5'}`}><X className="w-5 h-5" /></button>
+                            </div>
+                            <div className={`flex items-center gap-2 px-5 py-3 border-b overflow-x-auto ${theme === 'light' ? 'border-slate-100' : 'border-white/[0.06]'}`}>
+                                {PERIODS.map(([id, label]) => (
+                                    <button key={id} onClick={() => setReservePeriod(id)} className={`shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${reservePeriod === id ? 'bg-emerald-500 text-white border-emerald-500' : (theme === 'light' ? 'border-slate-200 text-slate-500 hover:bg-slate-50' : 'border-white/10 text-slate-400 hover:bg-white/5')}`}>{label}</button>
+                                ))}
+                            </div>
+                            <div className={`flex items-center justify-between px-5 py-2.5 border-b ${theme === 'light' ? 'border-slate-100 bg-slate-50' : 'border-white/[0.06] bg-white/[0.02]'}`}>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{list.length} {list.length === 1 ? 'aporte' : 'aportes'}</span>
+                                <span className="text-sm font-black tabular-nums text-emerald-500">+ {formatCurrency(total)}</span>
+                            </div>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+                                {list.length === 0 ? (
+                                    <p className="text-center text-xs text-slate-500 py-12">Nada neste período.</p>
                                 ) : (
-                                    investmentExits.slice(0, 15).map(t => {
-                                        const cat = CATEGORIES.expense.find(c => c.id === t.category) || { icon: Circle, color: 'text-slate-400', label: 'Outros' };
-                                        const Icon = cat.icon;
-                                        return (
-                                            <div key={t.id} className={`grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_1fr_1fr] items-center py-4 px-2 hover:bg-white/5 rounded-xl transition-colors group gap-2 sm:gap-4 border-b sm:border-b-0 ${theme === 'light' ? 'border-slate-100' : 'border-slate-700/30'}`}>
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-blue-500/20 text-blue-400 shrink-0">
-                                                        <Icon className="w-4 h-4" />
-                                                    </div>
-                                                    <div className="flex flex-col min-w-0">
-                                                        <span className={`text-[13px] truncate ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>{t.description}</span>
-                                                        <span className="text-[11px] text-slate-400 sm:hidden">
-                                                            {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div className={`text-[13px] hidden sm:block ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
-                                                    {new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}.
-                                                </div>
-                                                <div className="flex items-center justify-end gap-3 relative">
-                                                    <span className="text-[13px] font-medium text-blue-400">
-                                                        + {formatCurrency(parseFloat(t.amount))}
-                                                    </span>
-                                                    {/* Actions: always visible on mobile, slide-in on hover for desktop */}
-                                                    <div className={`sm:absolute sm:right-0 sm:translate-x-16 sm:opacity-0 sm:group-hover:translate-x-0 sm:group-hover:opacity-100 transition-all flex gap-1 sm:pl-2 ${theme === 'light' ? 'sm:bg-white' : 'sm:bg-[#1e2330]'}`}>
-                                                        <button onClick={() => handleEdit(t)} className={`p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Pencil className="w-4 h-4 sm:w-3 sm:h-3" /></button>
-                                                        <button onClick={() => handleDelete(t)} className={`p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Trash2 className="w-4 h-4 sm:w-3 sm:h-3" /></button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
+                                    <div className={`divide-y ${theme === 'light' ? 'divide-slate-100' : 'divide-white/[0.04]'}`}>{list.map(renderAporteRow)}</div>
                                 )}
                             </div>
                         </div>
                     </div>
-                )}
-            </div>
+                );
+            })()}
 
             {/* Modal Overlay */}
             {showModal && (
