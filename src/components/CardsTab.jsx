@@ -865,6 +865,99 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
   const selectedCard = cards.find(c => c.id === selectedCardId) || cards[0] || null;
   const selStats = selectedCard ? cardStats(selectedCard) : null;
 
+  // ── CADASTRO: resumo simples (nº de cartões + limite total somado) ──
+  const renderCadastroSummary = () => {
+    const totalLimit = cards.reduce((a, c) => a + (parseFloat(c.limit) || 0), 0);
+    return (
+      <div className="grid grid-cols-2 gap-3">
+        <div className={`relative rounded-2xl border overflow-hidden ${kpiCardBg}`}>
+          <div className="h-1 w-full bg-blue-500" />
+          <div className="p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cartões cadastrados</p>
+            <p className={`text-2xl font-black tabular-nums mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{cards.length}</p>
+          </div>
+        </div>
+        <div className={`relative rounded-2xl border overflow-hidden ${kpiCardBg}`}>
+          <div className="h-1 w-full bg-emerald-500" />
+          <div className="p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Limite total</p>
+            <p className="text-2xl font-black tabular-nums mt-1 text-emerald-500">{totalLimit > 0 ? `R$ ${fmt(totalLimit)}` : '—'}</p>
+            <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>somando todos os cartões</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── CADASTRO: painéis com o cartão e seus DADOS (sem faturas/transações) ──
+  const renderCadastroCards = () => (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {cards.map(card => {
+        const closing = card.closingDay || ((card.dueDay - 7 > 0) ? card.dueDay - 7 : 25);
+        const limit = parseFloat(card.limit) || 0;
+        return (
+          <div key={card.id} className="pat-card p-5">
+            {/* Cabeçalho: nome + ações (editar/excluir) */}
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-blue-500/10' : 'bg-blue-50'}`}>
+                  <CreditCard className="w-[18px] h-[18px] text-blue-500" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className={`font-black text-base tracking-tight leading-tight truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{card.name}</h3>
+                  <p className="text-[10px] font-bold text-slate-500">{card.brand} · •••• {card.last4 || '0000'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button
+                  onClick={() => { setEditingCardId(card.id); setNewCard({ name: card.name, color: card.color, last4: card.last4, brand: card.brand, dueDay: card.dueDay || 10, closingDay: card.closingDay || '', limit: card.limit != null ? String(card.limit) : '' }); setIsAddingCard(true); }}
+                  title="Editar" className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}
+                ><Pencil className="w-3.5 h-3.5" /></button>
+                <button
+                  onClick={() => setDeleteConfirm({ id: card.id, type: 'card', title: card.name })}
+                  title="Excluir" className={`p-2 rounded-lg text-rose-400 ${isDark ? 'hover:bg-rose-500/10' : 'hover:bg-rose-50'}`}
+                ><Trash2 className="w-3.5 h-3.5" /></button>
+              </div>
+            </div>
+
+            {/* Cartão visual */}
+            <div className={`aspect-[1.6/1] rounded-2xl p-4 flex flex-col justify-between text-white shadow-2xl relative overflow-hidden ${card.color}`}>
+              <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50" />
+              <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-3xl" />
+              <div className="relative z-10">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">{card.brand}</p>
+                <h3 className="text-xl font-black tracking-tight drop-shadow-md">{card.name}</h3>
+              </div>
+              <div className="relative z-10 flex justify-between items-end">
+                <p className="font-mono text-sm tracking-[0.25em] drop-shadow-sm">•••• •••• •••• {card.last4 || '0000'}</p>
+                <div className="text-right">
+                  <p className="text-[8px] font-black uppercase opacity-60">Vencimento</p>
+                  <p className="text-sm font-bold">Dia {card.dueDay || 10}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Dados do cartão */}
+            <div className="grid grid-cols-3 gap-2 mt-4">
+              <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Vencimento</p>
+                <p className={`text-sm font-black tabular-nums mt-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>Dia {card.dueDay || 10}</p>
+              </div>
+              <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Fechamento</p>
+                <p className={`text-sm font-black tabular-nums mt-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>Dia {closing}</p>
+              </div>
+              <div className={`rounded-xl border p-3 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Limite</p>
+                <p className="text-sm font-black tabular-nums mt-0.5 text-emerald-500">{limit > 0 ? `R$ ${fmt(limit)}` : '—'}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
       <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
@@ -895,7 +988,8 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
         )}
       </div>
 
-      {/* KPIs com linha de destaque */}
+      {/* Cadastro: resumo simples. Lançamentos: KPIs de fatura/comprometimento. */}
+      {isCadastro ? renderCadastroSummary() : (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {KPIS.map((k) => {
           const hex = { rose: '#f43f5e', purple: '#a855f7', amber: '#f59e0b', emerald: '#10b981' }[k.accent];
@@ -911,6 +1005,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
           );
         })}
       </div>
+      )}
 
       {cards.length === 0 ? (
         <div className={`p-12 rounded-2xl border text-center ${kpiCardBg}`}>
@@ -925,6 +1020,9 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
             <p className="text-[11px] text-slate-500">Use <strong>“Novo Cartão”</strong> no topo desta tela.</p>
           )}
         </div>
+      ) : isCadastro ? (
+        /* Cadastro: só o cartão e seus dados, em painéis (sem faturas/transações). */
+        renderCadastroCards()
       ) : (
       <>
       {/* Detalhe do cartão selecionado (largura cheia; cartão escolhido no seletor do topo) */}
