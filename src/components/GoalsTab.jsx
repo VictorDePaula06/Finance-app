@@ -284,6 +284,103 @@ export default function GoalsTab({ transactions = [], manualConfig = {}, onUpdat
 
   const sorted = [...goals].sort((a, b) => (a.type || '').localeCompare(b.type || '') || (b.createdAt || 0) - (a.createdAt || 0));
 
+  // Título de cada painel (agrupamento por tipo de meta).
+  const GROUP_TITLE = {
+    categoria: 'Metas por Categoria',
+    cartao: 'Metas de Cartão',
+    teto_mensal: 'Teto de Gastos',
+    divida: 'Dívidas a Quitar',
+    economia: 'Minhas Economias',
+  };
+
+  // ── Linha de uma meta (usada dentro de cada painel) ──
+  const renderGoalRow = (g) => {
+    const meta = typeMeta(g.type);
+    const tint = TINTS[meta.tint];
+    const p = computeProgress(g);
+    const barColor = p.over ? '#f43f5e' : (p.reached ? '#10b981' : tint.bar);
+    const Icon = meta.icon;
+    return (
+      <div key={g.id} className={`p-3.5 rounded-xl border ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+        <div className="flex items-start justify-between gap-3">
+          <button type="button" onClick={() => setDetailGoal(g)} className="flex items-start gap-3 min-w-0 flex-1 text-left">
+            <span className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? tint.softDark : tint.softLight} ${tint.text}`}>
+              <Icon className="w-4.5 h-4.5" />
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className={`text-sm font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{g.name}</p>
+                {p.over && (
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-500 border border-rose-500/20">Estourou</span>
+                )}
+                {p.reached && (
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Atingida</span>
+                )}
+              </div>
+              <p className="text-[10px] font-bold text-slate-500 mt-0.5">
+                {p.isCeiling ? 'Gasto no mês' : 'Progresso'}: R$ {fmt(p.done)} de R$ {fmt(p.target)}
+                {g.deadline ? <> · <Calendar className="w-3 h-3 inline -mt-0.5" /> até {new Date(g.deadline + 'T00:00:00').toLocaleDateString('pt-BR')}</> : null}
+                {meta.auto ? <span className="text-emerald-500 font-black"> · ver gastos →</span> : null}
+              </p>
+            </div>
+          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            {!meta.auto && (
+              <button
+                onClick={() => { setProgressFor(g); setProgressValue(String(g.progress ?? '')); }}
+                title="Atualizar progresso"
+                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}
+              >
+                Atualizar
+              </button>
+            )}
+            <button onClick={() => startEdit(g)} title="Editar" className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setDeleteConfirm(g.id)} title="Excluir" className={`p-2 rounded-lg text-rose-400 ${isDark ? 'hover:bg-rose-500/10' : 'hover:bg-rose-50'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+          </div>
+        </div>
+
+        <div className={`w-full h-1.5 rounded-full overflow-hidden mt-2.5 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`}>
+          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${p.pct}%`, background: barColor }} />
+        </div>
+      </div>
+    );
+  };
+
+  // ── Painéis por tipo de meta (só aparecem os que têm metas) ──
+  const renderGoalPanels = () => (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {GOAL_TYPES.map(t => {
+        const items = sorted.filter(g => g.type === t.id);
+        if (items.length === 0) return null;
+        const tint = TINTS[t.tint];
+        const Icon = t.icon;
+        const total = items.reduce((a, g) => a + (Number(g.targetValue) || 0), 0);
+        return (
+          <div key={t.id} className="pat-card p-5">
+            <div className={`flex items-center justify-between gap-3 pb-4 mb-3 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? tint.softDark : tint.softLight} ${tint.text}`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className={`font-black text-base tracking-tight leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{GROUP_TITLE[t.id]}</h3>
+                  <p className="text-[10px] font-bold text-slate-500 mt-0.5">{items.length} {items.length === 1 ? 'meta' : 'metas'} · {t.auto ? 'teto mensal' : 'longo prazo'}</p>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">{t.auto ? 'Limite total' : 'Alvo total'}</p>
+                <p className={`text-lg font-black tabular-nums leading-tight ${tint.text}`}>R$ {fmt(total)}</p>
+              </div>
+            </div>
+            <div className="space-y-2.5">
+              {items.map(renderGoalRow)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Cabeçalho */}
@@ -334,78 +431,16 @@ export default function GoalsTab({ transactions = [], manualConfig = {}, onUpdat
         ))}
       </div>
 
-      {/* Lista */}
-      <div className="pat-card p-4">
-        <div className="flex items-center justify-between mb-3">
-          <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Metas cadastradas</p>
-          <span className={`text-[10px] font-bold capitalize ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{monthLabel}</span>
-        </div>
-
-        {sorted.length === 0 ? (
+      {/* Lista: painéis por tipo de meta (padrão dos demais cadastros) */}
+      {sorted.length === 0 ? (
+        <div className="pat-card p-4">
           <div className="text-center py-10">
             <Target className={`w-10 h-10 mx-auto mb-3 ${isDark ? 'text-slate-700' : 'text-slate-300'}`} />
             <p className="text-sm font-bold text-slate-500">Nenhuma meta cadastrada.</p>
             <p className="text-[11px] text-slate-500 mt-1">Use <strong>“Nova meta”</strong> no topo para começar.</p>
           </div>
-        ) : (
-          <div className="space-y-2.5">
-            {sorted.map(g => {
-              const meta = typeMeta(g.type);
-              const tint = TINTS[meta.tint];
-              const p = computeProgress(g);
-              const barColor = p.over ? '#f43f5e' : (p.reached ? '#10b981' : tint.bar);
-              const Icon = meta.icon;
-              return (
-                <div key={g.id} className={`p-3.5 rounded-xl border ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <button type="button" onClick={() => setDetailGoal(g)} className="flex items-start gap-3 min-w-0 flex-1 text-left">
-                      <span className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? tint.softDark : tint.softLight} ${tint.text}`}>
-                        <Icon className="w-4.5 h-4.5" />
-                      </span>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className={`text-sm font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{g.name}</p>
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${isDark ? tint.softDark : tint.softLight} ${tint.text}`}>
-                            {meta.short}
-                          </span>
-                          {p.over && (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-500 border border-rose-500/20">Estourou</span>
-                          )}
-                          {p.reached && (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Atingida</span>
-                          )}
-                        </div>
-                        <p className="text-[10px] font-bold text-slate-500 mt-0.5">
-                          {p.isCeiling ? 'Gasto no mês' : 'Progresso'}: R$ {fmt(p.done)} de R$ {fmt(p.target)}
-                          {g.deadline ? <> · <Calendar className="w-3 h-3 inline -mt-0.5" /> até {new Date(g.deadline + 'T00:00:00').toLocaleDateString('pt-BR')}</> : null}
-                          {meta.auto ? <span className="text-emerald-500 font-black"> · ver gastos →</span> : null}
-                        </p>
-                      </div>
-                    </button>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {!meta.auto && (
-                        <button
-                          onClick={() => { setProgressFor(g); setProgressValue(String(g.progress ?? '')); }}
-                          title="Atualizar progresso"
-                          className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}
-                        >
-                          Atualizar
-                        </button>
-                      )}
-                      <button onClick={() => startEdit(g)} title="Editar" className={`p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => setDeleteConfirm(g.id)} title="Excluir" className={`p-2 rounded-lg text-rose-400 ${isDark ? 'hover:bg-rose-500/10' : 'hover:bg-rose-50'}`}><Trash2 className="w-3.5 h-3.5" /></button>
-                    </div>
-                  </div>
-
-                  <div className={`w-full h-1.5 rounded-full overflow-hidden mt-2.5 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`}>
-                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${p.pct}%`, background: barColor }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+        </div>
+      ) : renderGoalPanels()}
 
       {/* Modal: escolher o TIPO da meta */}
       {choosingType && (
