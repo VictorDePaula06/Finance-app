@@ -59,6 +59,9 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
   const [cardFilter, setCardFilter] = useState('todos');
   // Seletor "Lançar no cartão": transação × assinatura × parcelamento.
   const [cardLaunchChooser, setCardLaunchChooser] = useState(false);
+  // "Ver todos" da lista do cartão + filtro de período.
+  const [cardViewAll, setCardViewAll] = useState(false);
+  const [cardPeriod, setCardPeriod] = useState('30d');
 
   // Form States
   const [newCard, setNewCard] = useState({ name: '', color: 'bg-blue-600', last4: '', brand: 'Visa', dueDay: 10, closingDay: '', limit: '' });
@@ -869,6 +872,80 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
   const selectedCard = cards.find(c => c.id === selectedCardId) || cards[0] || null;
   const selStats = selectedCard ? cardStats(selectedCard) : null;
 
+  // ── Lista unificada do cartão (transações + parcelamentos + assinaturas) ──
+  const PM_META = { essential: { l: 'Essencial', c: 'text-blue-400' }, comfort: { l: 'Conforto', c: 'text-amber-500' }, superfluous: { l: 'Supérfluo', c: 'text-rose-400' } };
+  // Modelo comum para poder misturar/ordenar/filtrar tudo junto.
+  const cardItemsAll = selStats ? [
+    ...selStats.unpaidExpenses.map(t => ({ kind: 'transacao', id: t.id, name: t.description || 'Compra', amount: parseFloat(t.amount) || 0, date: t.date || null, sortKey: t.date || (t.createdAt ? new Date(t.createdAt).toISOString() : ''), category: t.category, priority: t.priority, installmentInfo: t.installmentInfo, raw: t })),
+    ...selStats.installments.map(s => ({ kind: 'parcelamento', id: s.id, name: s.name, amount: parseFloat(s.value) || 0, date: null, sortKey: s.createdAt ? new Date(s.createdAt).toISOString() : '', category: s.category, sub: s })),
+    ...selStats.recurring.map(s => ({ kind: 'assinatura', id: s.id, name: s.name, amount: parseFloat(s.value) || 0, date: null, sortKey: s.createdAt ? new Date(s.createdAt).toISOString() : '', category: s.category, sub: s })),
+  ].sort((a, b) => String(b.sortKey).localeCompare(String(a.sortKey))) : [];
+  const cardFilterMatch = (it) => cardFilter === 'todos'
+    || (cardFilter === 'transacao' && it.kind === 'transacao')
+    || (cardFilter === 'parcelamento' && it.kind === 'parcelamento')
+    || (cardFilter === 'assinatura' && it.kind === 'assinatura');
+
+  // Uma linha da lista, conforme o tipo do item.
+  const renderCardItemRow = (item) => {
+    const cat = CATEGORIES.expense.find(c => c.id === item.category);
+    const Icon = cat?.icon || ShoppingBag;
+    const hex = categoryHex(cat || {});
+    if (item.kind === 'parcelamento') {
+      const sub = item.sub; const total = sub.totalInstallments || 1; const paid = Math.max(0, (sub.currentInstallment || 1) - 1); const pct = (paid / total) * 100;
+      return (
+        <div key={`p-${item.id}`} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
+          <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
+          <div className="min-w-0 flex-1">
+            <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{sub.name}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <div className={`flex-1 h-1.5 rounded-full overflow-hidden max-w-[140px] ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}><div className="h-full rounded-full bg-rose-500" style={{ width: `${pct}%` }} /></div>
+              <span className="text-[10px] text-slate-500 tabular-nums">{paid}/{total} pagas</span>
+            </div>
+          </div>
+          <div className="text-right shrink-0 flex items-center gap-2">
+            <span className="text-[13px] font-black tabular-nums text-rose-400">R$ {fmt(sub.value)}</span>
+            <button onClick={() => openEditSub(sub)} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5 hover:text-rose-400' : 'text-slate-400 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+          </div>
+        </div>
+      );
+    }
+    if (item.kind === 'assinatura') {
+      const sub = item.sub;
+      return (
+        <div key={`a-${item.id}`} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
+          <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
+          <div className="min-w-0 flex-1">
+            <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{sub.name}</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">Assinatura · vence dia {selectedCard?.dueDay || sub.day}</p>
+          </div>
+          <div className="text-right shrink-0 flex items-center gap-2">
+            <span className="text-[13px] font-black tabular-nums text-violet-400">R$ {fmt(sub.value)}</span>
+            <button onClick={() => openEditSub(sub)} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5 hover:text-rose-400' : 'text-slate-400 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+          </div>
+        </div>
+      );
+    }
+    // transação
+    const pm = PM_META[item.priority] || { l: '', c: '' };
+    return (
+      <div key={`t-${item.id}`} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
+        <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
+        <div className="min-w-0 flex-1">
+          <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.name}</p>
+          <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 mt-0.5">
+            {item.date && <span className="text-[10px] text-slate-500">{new Date(item.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}</span>}
+            <span className="text-[10px] text-slate-500">· {cat?.label || 'Outro'}</span>
+            {pm.l && <span className={`text-[9px] font-bold ${pm.c}`}>{pm.l}</span>}
+            {item.installmentInfo && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400">{item.installmentInfo}</span>}
+          </div>
+        </div>
+        <p className="text-[13px] font-black tabular-nums text-rose-400 shrink-0">R$ {fmt(item.amount)}</p>
+      </div>
+    );
+  };
+
   // ── CADASTRO: resumo simples (nº de cartões + limite total somado) ──
   const renderCadastroSummary = () => {
     const totalLimit = cards.reduce((a, c) => a + (parseFloat(c.limit) || 0), 0);
@@ -1000,24 +1077,8 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
         )}
       </div>
 
-      {/* Cadastro: resumo simples. Lançamentos: KPIs de fatura/comprometimento. */}
-      {isCadastro ? renderCadastroSummary() : (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {KPIS.map((k) => {
-          const hex = { rose: '#f43f5e', purple: '#a855f7', amber: '#f59e0b', emerald: '#10b981' }[k.accent];
-          return (
-            <div key={k.label} className={`relative rounded-2xl border overflow-hidden ${kpiCardBg}`}>
-              <div className="h-1 w-full" style={{ background: hex }} />
-              <div className="p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{k.label}</p>
-                <p className="text-2xl font-black tabular-nums mt-1" style={{ color: hex }}>R$ {fmt(k.value)}</p>
-                <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{k.hint}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      )}
+      {/* Cadastro: resumo simples. Lançamentos: indicadores ficam dentro do cartão. */}
+      {isCadastro && renderCadastroSummary()}
 
       {cards.length === 0 ? (
         <div className={`p-12 rounded-2xl border text-center ${kpiCardBg}`}>
@@ -1141,22 +1202,19 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
               </button>
             )}
 
-            {/* Ações de fatura — só em LANÇAMENTOS (Cadastros não movimenta nada) */}
+            {/* Ações de fatura — mesmo formato do "Lançar no cartão" (rose pill) */}
             {!isCadastro && (
             <div className="flex items-center gap-2 mt-4 flex-wrap">
               <button
                 onClick={() => selStats.invoiceTotal > 0.005 && setPayingInvoice({ cardId: selectedCard.id, total: selStats.invoiceTotal, expenses: selStats.unpaidExpenses, subs: selStats.unpaidSubs, invoiceMonth: selStats.currentInvoiceMonth })}
                 disabled={selStats.invoiceTotal <= 0.005}
                 title={selStats.invoiceTotal <= 0.005 ? (selStats.nextInvoiceEstimate > 0.005 ? `Fatura do mês paga. O valor mostrado é a previsão do próximo ciclo (vence dia ${selectedCard.dueDay || 10}).` : 'Nenhuma fatura em aberto.') : ''}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all active:scale-95 ${selStats.invoiceTotal > 0.005 ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/25' : (isDark ? 'bg-emerald-500/10 text-emerald-400 cursor-default' : 'bg-emerald-50 text-emerald-600 cursor-default')}`}
+                className={`px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 ${selStats.invoiceTotal > 0.005 ? 'bg-rose-500 hover:bg-rose-400 text-white shadow-lg shadow-rose-500/25' : (isDark ? 'bg-white/5 text-slate-500 cursor-default' : 'bg-slate-100 text-slate-400 cursor-default')}`}
               >
-                <CheckCircle2 className="w-4 h-4" /> {selStats.invoiceTotal > 0.005 ? 'Registrar pagamento' : (selStats.nextInvoiceEstimate > 0.005 ? 'Fatura do mês paga' : 'Sem fatura em aberto')}
+                <CheckCircle2 className="w-3.5 h-3.5" /> {selStats.invoiceTotal > 0.005 ? 'Registrar pagamento' : (selStats.nextInvoiceEstimate > 0.005 ? 'Fatura do mês paga' : 'Sem fatura em aberto')}
               </button>
-              <button onClick={() => setViewingInvoiceCardId(selectedCard.id)} className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                <Eye className="w-4 h-4" /> Ver lançamentos
-              </button>
-              <button onClick={() => { setHistoryCardId(selectedCard.id); setExpandedHistoryMonth(null); setHistoryIdx(0); }} className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                <Calendar className="w-4 h-4" /> Histórico de faturas
+              <button onClick={() => { setHistoryCardId(selectedCard.id); setExpandedHistoryMonth(null); setHistoryIdx(0); }} className="px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 bg-rose-500 hover:bg-rose-400 text-white shadow-lg shadow-rose-500/25">
+                <Calendar className="w-3.5 h-3.5" /> Histórico de faturas
               </button>
             </div>
             )}
@@ -1184,98 +1242,20 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
 
               <div className="p-3">
                 {(() => {
-                  const showTx = cardFilter === 'todos' || cardFilter === 'transacao';
-                  const showInst = cardFilter === 'todos' || cardFilter === 'parcelamento';
-                  const showSub = cardFilter === 'todos' || cardFilter === 'assinatura';
-                  const nTx = showTx ? selStats.unpaidExpenses.length : 0;
-                  const nInst = showInst ? selStats.installments.length : 0;
-                  const nSub = showSub ? selStats.recurring.length : 0;
-                  if (nTx + nInst + nSub === 0) {
+                  const filtered = cardItemsAll.filter(cardFilterMatch);
+                  if (filtered.length === 0) {
                     return <p className="text-center text-xs text-slate-500 py-10">Nada para mostrar neste filtro.</p>;
                   }
-                  const groupLabel = (txt) => <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1 pt-3 pb-1 first:pt-1">{txt}</p>;
-                  const PM = { essential: { l: 'Essencial', c: 'text-blue-400' }, comfort: { l: 'Conforto', c: 'text-amber-500' }, superfluous: { l: 'Supérfluo', c: 'text-rose-400' } };
                   return (
                     <>
-                      {showTx && selStats.unpaidExpenses.length > 0 && (
-                        <>
-                          {cardFilter === 'todos' && groupLabel('Transações')}
-                          {selStats.unpaidExpenses.map(t => {
-                            const cat = CATEGORIES.expense.find(c => c.id === t.category);
-                            const Icon = cat?.icon || ShoppingBag;
-                            const hex = categoryHex(cat || {});
-                            const pm = PM[t.priority] || { l: '', c: '' };
-                            return (
-                              <div key={t.id} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
-                                <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
-                                <div className="min-w-0 flex-1">
-                                  <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.description || 'Compra'}</p>
-                                  <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 mt-0.5">
-                                    {t.date && <span className="text-[10px] text-slate-500">{new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}</span>}
-                                    <span className="text-[10px] text-slate-500">· {cat?.label || 'Outro'}</span>
-                                    {pm.l && <span className={`text-[9px] font-bold ${pm.c}`}>{pm.l}</span>}
-                                    {t.installmentInfo && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400">{t.installmentInfo}</span>}
-                                  </div>
-                                </div>
-                                <p className="text-[13px] font-black tabular-nums text-rose-400 shrink-0">R$ {fmt(parseFloat(t.amount) || 0)}</p>
-                              </div>
-                            );
-                          })}
-                        </>
-                      )}
-                      {showInst && selStats.installments.length > 0 && (
-                        <>
-                          {cardFilter === 'todos' && groupLabel('Parcelamentos')}
-                          {selStats.installments.map(sub => {
-                            const cat = CATEGORIES.expense.find(c => c.id === sub.category);
-                            const Icon = cat?.icon || ShoppingBag;
-                            const hex = categoryHex(cat || {});
-                            const total = sub.totalInstallments || 1;
-                            const paid = Math.max(0, (sub.currentInstallment || 1) - 1);
-                            const pct = (paid / total) * 100;
-                            return (
-                              <div key={sub.id} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
-                                <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
-                                <div className="min-w-0 flex-1">
-                                  <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{sub.name}</p>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <div className={`flex-1 h-1.5 rounded-full overflow-hidden max-w-[140px] ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}><div className="h-full rounded-full bg-rose-500" style={{ width: `${pct}%` }} /></div>
-                                    <span className="text-[10px] text-slate-500 tabular-nums">{paid}/{total} pagas</span>
-                                  </div>
-                                </div>
-                                <div className="text-right shrink-0 flex items-center gap-2">
-                                  <span className="text-[13px] font-black tabular-nums text-rose-400">R$ {fmt(sub.value)}</span>
-                                  <button onClick={() => openEditSub(sub)} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
-                                  <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5 hover:text-rose-400' : 'text-slate-400 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-3.5 h-3.5" /></button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </>
-                      )}
-                      {showSub && selStats.recurring.length > 0 && (
-                        <>
-                          {cardFilter === 'todos' && groupLabel('Assinaturas')}
-                          {selStats.recurring.map(sub => {
-                            const cat = CATEGORIES.expense.find(c => c.id === sub.category);
-                            const Icon = cat?.icon || ShoppingBag;
-                            const hex = categoryHex(cat || {});
-                            return (
-                              <div key={sub.id} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
-                                <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
-                                <div className="min-w-0 flex-1">
-                                  <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{sub.name}</p>
-                                  <p className="text-[10px] text-slate-500 mt-0.5">Na fatura · vence dia {selectedCard.dueDay || sub.day}</p>
-                                </div>
-                                <div className="text-right shrink-0 flex items-center gap-2">
-                                  <span className="text-[13px] font-black tabular-nums text-violet-400">R$ {fmt(sub.value)}</span>
-                                  <button onClick={() => openEditSub(sub)} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
-                                  <button onClick={() => setDeleteConfirm({ id: sub.id, type: 'sub', title: sub.name })} className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5 hover:text-rose-400' : 'text-slate-400 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-3.5 h-3.5" /></button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </>
+                      {filtered.slice(0, 4).map(renderCardItemRow)}
+                      {filtered.length > 4 && (
+                        <button
+                          onClick={() => { setCardPeriod('30d'); setCardViewAll(true); }}
+                          className={`mt-2 w-full flex items-center justify-center gap-1 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-colors ${isDark ? 'text-rose-400 hover:bg-rose-500/[0.06]' : 'text-rose-500 hover:bg-rose-50'}`}
+                        >
+                          Ver todos ({filtered.length}) <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
                       )}
                     </>
                   );
@@ -1287,6 +1267,53 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
       </>
       )}
 
+
+      {/* MODAL: "Ver todos" da lista do cartão (filtro por tipo + período) */}
+      {cardViewAll && selectedCard && selStats && (() => {
+        const PERIODS = [['7d', 'Últimos 7 dias', 7], ['30d', 'Últimos 30 dias', 30], ['3m', 'Últimos 3 meses', 90], ['6m', 'Últimos 6 meses', 180]];
+        const days = (PERIODS.find(p => p[0] === cardPeriod) || PERIODS[1])[2];
+        const cutoff = Date.now() - days * 86400000;
+        // Itens com data (transações) filtram por período; recorrentes/parcelas sempre aparecem.
+        const list = cardItemsAll.filter(cardFilterMatch).filter(it => !it.date || new Date(it.date).getTime() >= cutoff);
+        const total = list.reduce((a, it) => a + (it.amount || 0), 0);
+        return (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setCardViewAll(false)}>
+            <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-lg h-[80vh] max-h-[680px] flex flex-col relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+              <div className={`flex items-center justify-between gap-3 p-5 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                <div className="min-w-0">
+                  <h3 className={`text-base font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>Lançamentos do cartão</h3>
+                  <p className="text-[10px] font-bold text-slate-500">{selectedCard.name} · •••• {selectedCard.last4 || '0000'}</p>
+                </div>
+                <button onClick={() => setCardViewAll(false)} className={`p-2 rounded-lg shrink-0 ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
+              </div>
+
+              {/* Filtro por tipo */}
+              <div className={`flex items-center gap-2 px-5 py-2.5 border-b overflow-x-auto ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                {[['todos', 'Todos'], ['transacao', 'Transações'], ['parcelamento', 'Parcelamentos'], ['assinatura', 'Assinaturas']].map(([id, label]) => (
+                  <button key={id} onClick={() => setCardFilter(id)} className={`shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${cardFilter === id ? 'bg-rose-500 text-white border-rose-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>{label}</button>
+                ))}
+              </div>
+              {/* Filtro por período */}
+              <div className={`flex items-center gap-2 px-5 py-2.5 border-b overflow-x-auto ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                {PERIODS.map(([id, label]) => (
+                  <button key={id} onClick={() => setCardPeriod(id)} className={`shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${cardPeriod === id ? 'bg-slate-500/80 text-white border-slate-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>{label}</button>
+                ))}
+              </div>
+
+              <div className={`flex items-center justify-between px-5 py-2.5 border-b ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{list.length} {list.length === 1 ? 'item' : 'itens'}</span>
+                <span className="text-sm font-black tabular-nums text-rose-500">R$ {fmt(total)}</span>
+              </div>
+
+              <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 px-3">
+                {list.length === 0 ? (
+                  <p className="text-center text-xs text-slate-500 py-12">Nada neste filtro/período.</p>
+                ) : list.map(renderCardItemRow)}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* MODAL: seletor "Lançar no cartão" (transação / assinatura / parcelamento) */}
       {cardLaunchChooser && selectedCard && (
