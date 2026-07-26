@@ -257,63 +257,63 @@ export default function EmergencyReserveTab() {
 
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-            {/* Header Area */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                <div>
-                    <h2 className={`text-2xl md:text-3xl font-black tracking-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Reserva para Emergências</h2>
-                    <p className="text-[11px] font-medium text-slate-500 mt-0.5">Sua segurança financeira em primeiro lugar</p>
+            {/* Header Area — ícone de reserva (versão cadastro, com selo +) à esquerda */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="relative shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center bg-gradient-to-br from-emerald-400/20 to-teal-600/10 border border-emerald-500/20">
+                        <ShieldCheck className="w-8 h-8 text-emerald-500" strokeWidth={1.5} />
+                        <span className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 border-2 border-white/10">
+                            <Plus className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+                        </span>
+                    </div>
+                    <div>
+                        <h2 className={`text-2xl md:text-3xl font-black tracking-tight ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>Cadastro de Reservas</h2>
+                        <p className="text-[11px] font-medium text-slate-500 mt-0.5">Cadastre cofrinhos, reservas e Tesouro — a baixa/aporte é feita em Lançamentos › Reservas</p>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-medium text-slate-500">Atualizado recentemente</span>
-                </div>
+                <button
+                    onClick={() => {
+                        if (isReserveLimited && reserves.length >= FREE_RESERVE_LIMIT) { setShowLimitModal(true); return; }
+                        setIsEditing(null);
+                        setFormData({ type: 'tesouro', name: '', balance: '', cdiPercent: '100', appliedValue: '', appliedDate: '' });
+                        setIsAdding(true);
+                    }}
+                    className="shrink-0 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
+                >
+                    <Plus className="w-3.5 h-3.5" /> Nova Reserva
+                </button>
             </div>
 
-            {/* Top Pill Dashboard */}
-            <div className={`flex flex-wrap items-center gap-6 md:gap-12 p-5 rounded-2xl border pat-card ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
-                <div className="flex flex-col">
-                    <span className="text-[11px] font-medium text-slate-400 mb-1">Total Consolidado:</span>
-                    <span className={`text-xl font-black ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`}>
-                        R$ {totalReserve.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
+            {/* Painel de dados do cadastro */}
+            <div className="pat-card p-5 grid grid-cols-2 lg:grid-cols-4 gap-5">
+                <div>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Total Consolidado</span>
+                    <p className={`text-2xl font-black tabular-nums mt-1 ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`}>R$ {totalReserve.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">Rendimento Diário <TrendingUp className="w-3 h-3" /></span>
+                    <p className={`text-2xl font-black tabular-nums mt-1 ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`}>+R$ {totalDailyYield.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Reservas cadastradas</span>
+                    <p className={`text-2xl font-black tabular-nums mt-1 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>{reserves.length}</p>
                 </div>
                 <div className="flex flex-col">
-                    <span className="text-[11px] font-medium text-slate-400 mb-1 flex items-center gap-1">Rendimento Diário <TrendingUp className="w-3 h-3" /></span>
-                    <span className={`text-xl font-black ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`}>
-                        +R$ {totalDailyYield.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                </div>
-                
-                <div className="flex flex-col flex-1 min-w-[200px]">
-                     <div className="flex items-center justify-between mb-1">
-                        <span className="text-[11px] font-medium text-slate-400">Status da Meta ({reserveGoal ? 'R$ ' + reserveGoal.toLocaleString('pt-BR') : 'Não definida'})</span>
-                        <button onClick={() => { setGoalInput(reserveGoal ? reserveGoal.toString() : ''); setIsSettingGoal(true); }} className="text-slate-500 hover:text-emerald-400 transition-colors">
-                            <Edit2 className="w-3 h-3" />
-                        </button>
+                    <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Meta</span>
+                        <button onClick={() => { setGoalInput(reserveGoal ? reserveGoal.toString() : ''); setIsSettingGoal(true); }} className="text-slate-500 hover:text-emerald-400 transition-colors"><Edit2 className="w-3 h-3" /></button>
                     </div>
                     {reserveGoal ? (
-                        <div className={`w-full h-1.5 rounded-full relative overflow-hidden mt-1 ${theme === 'light' ? 'bg-slate-200' : 'bg-white/10'}`}>
-                            <div className="absolute left-0 top-0 h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${Math.min((totalReserve / reserveGoal) * 100, 100)}%` }}></div>
-                        </div>
+                        <>
+                            <p className={`text-sm font-black tabular-nums mt-1 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>R$ {reserveGoal.toLocaleString('pt-BR')}</p>
+                            <div className={`w-full h-1.5 rounded-full relative overflow-hidden mt-1.5 ${theme === 'light' ? 'bg-slate-200' : 'bg-white/10'}`}>
+                                <div className="absolute left-0 top-0 h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${Math.min((totalReserve / reserveGoal) * 100, 100)}%` }}></div>
+                            </div>
+                            <span className="text-[9px] font-bold text-slate-500 mt-1">{Math.min(Math.round((totalReserve / reserveGoal) * 100), 100)}% da meta</span>
+                        </>
                     ) : (
-                        <button onClick={() => setIsSettingGoal(true)} className="text-[10px] font-bold text-emerald-500 mt-1 uppercase tracking-widest hover:underline">Configurar Meta</button>
+                        <button onClick={() => setIsSettingGoal(true)} className="text-[10px] font-black text-emerald-500 mt-1 uppercase tracking-widest hover:underline text-left">Configurar meta</button>
                     )}
-                </div>
-
-                <div className="ml-auto flex items-center gap-3">
-                    <button
-                        onClick={() => {
-                            if (isReserveLimited && reserves.length >= FREE_RESERVE_LIMIT) {
-                                setShowLimitModal(true);
-                                return;
-                            }
-                            setIsEditing(null);
-                            setFormData({ type: 'tesouro', name: '', balance: '', cdiPercent: '100', appliedValue: '', appliedDate: '' });
-                            setIsAdding(true);
-                        }}
-                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
-                    >
-                        <Plus className="w-3.5 h-3.5" /> Adicionar
-                    </button>
                 </div>
             </div>
 
