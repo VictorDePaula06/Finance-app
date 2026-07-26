@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowUpCircle, Plus, Trash2, Pencil, CheckCircle2, Calendar, X, Wallet, Repeat, AlertCircle, Loader2, Home, Gift, CircleDollarSign } from 'lucide-react';
+import { ArrowUpCircle, Plus, Trash2, Pencil, CheckCircle2, Calendar, X, Wallet, AlertCircle, Loader2, Home, Gift, CircleDollarSign } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
@@ -52,6 +52,8 @@ export default function FixedIncomesTab({ transactions = [], mode = 'cadastro' }
   const [busy, setBusy] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  // Seletor "Recebimento": confirma um cadastrado pendente OU lança um avulso.
+  const [receiveChooser, setReceiveChooser] = useState(false);
   // Recebimento avulso: entrada de uma vez só, apenas neste mês (não vira cadastro).
   const [manualOpen, setManualOpen] = useState(false);
   const [mForm, setMForm] = useState({ desc: '', value: '', date: new Date().toISOString().slice(0, 10) });
@@ -116,6 +118,14 @@ export default function FixedIncomesTab({ transactions = [], mode = 'cadastro' }
     return { total, received, pending: Math.max(0, total - received) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incomes, transactions, currentMonth]);
+
+  // Extrato: últimos recebimentos lançados (exclui movimentos internos).
+  const latestIncomes = useMemo(() =>
+    [...transactions]
+      .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+      .slice(0, 30)
+  , [transactions]);
 
   const resetForm = () => { setForm({ name: '', value: '', day: 5, category: 'salary' }); setEditingId(null); setIsAdding(false); };
 
@@ -212,13 +222,12 @@ export default function FixedIncomesTab({ transactions = [], mode = 'cadastro' }
             <Plus className="w-3.5 h-3.5" /> Novo recebimento
           </button>
         ) : (
-          // Botão pequeno: lançar uma entrada avulsa só deste mês (sem cadastrar).
+          // Um único botão "Recebimento": abre o seletor (confirmar cadastrado ou avulso).
           <button
-            onClick={() => { setMError(null); setMForm({ desc: '', value: '', date: new Date().toISOString().slice(0, 10) }); setManualOpen(true); }}
-            title="Lançar um recebimento avulso deste mês"
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border flex items-center gap-1.5 transition-all ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            onClick={() => setReceiveChooser(true)}
+            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95"
           >
-            <Plus className="w-3 h-3" /> Recebimento avulso
+            <Plus className="w-3.5 h-3.5" /> Recebimento
           </button>
         )}
       </div>
@@ -292,88 +301,98 @@ export default function FixedIncomesTab({ transactions = [], mode = 'cadastro' }
           )}
         </>
       ) : (
-        /* ══════════ LANÇAMENTO: ação do mês (KPIs + checklist) ══════════ */
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { label: 'Previsto no mês', value: stats.total, icon: Repeat, color: 'text-slate-400' },
-              { label: 'Já recebido', value: stats.received, icon: CheckCircle2, color: 'text-emerald-500' },
-              { label: 'A receber', value: stats.pending, icon: Wallet, color: 'text-amber-500' },
-            ].map((k, i) => (
-              <div key={i} className="pat-card p-4">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{k.label}</span>
-                  <k.icon className={`w-4 h-4 ${k.color}`} />
-                </div>
-                <p className={`text-xl font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(k.value)}</p>
-              </div>
-            ))}
+        /* ══════════ LANÇAMENTO: extrato dos últimos recebimentos ══════════ */
+        <div className="pat-card overflow-hidden">
+          <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+            <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Últimos recebimentos</p>
+            <span className="text-[10px] font-bold text-slate-500">{latestIncomes.length} lançamento{latestIncomes.length === 1 ? '' : 's'}</span>
           </div>
-
-          {sorted.length === 0 ? (
-            <div className="pat-card p-4 text-center py-12">
+          {latestIncomes.length === 0 ? (
+            <div className="text-center py-12">
               <ArrowUpCircle className={`w-10 h-10 mx-auto mb-3 ${isDark ? 'text-slate-700' : 'text-slate-300'}`} />
-              <p className="text-sm font-bold text-slate-500">Nada para confirmar.</p>
-              <p className="text-[11px] text-slate-500 mt-1">Cadastre em Cadastros › Recebimentos Fixos, ou use “Recebimento avulso”.</p>
+              <p className="text-sm font-bold text-slate-500">Nenhum recebimento lançado ainda.</p>
+              <p className="text-[11px] text-slate-500 mt-1">Use <strong>“Recebimento”</strong> no topo para confirmar um cadastrado ou lançar um avulso.</p>
             </div>
-          ) : (() => {
-            const pendingList = sorted.filter(inc => !isReceived(inc));
-            const receivedList = sorted.filter(inc => isReceived(inc));
-            return (
-              <>
-                {/* A confirmar */}
-                <div className="pat-card p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className={`text-xs font-black flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}><Wallet className="w-4 h-4 text-amber-500" /> A receber este mês</p>
-                    <span className="text-[10px] font-bold text-slate-500 capitalize">{monthLabel}</span>
+          ) : (
+            <div className={`divide-y ${isDark ? 'divide-white/[0.04]' : 'divide-slate-100'}`}>
+              {latestIncomes.map(t => {
+                const dt = t.date ? new Date(t.date) : null;
+                return (
+                  <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
+                        <ArrowUpCircle className="w-[18px] h-[18px] text-emerald-500" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.description || 'Recebimento'}</p>
+                        <p className="text-[10px] font-bold text-slate-500">
+                          {dt ? dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '') : '—'}
+                          {' · '}{catLabel(t.category)}
+                          {t.isFixed ? ' · fixo' : ' · avulso'}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-sm font-black tabular-nums text-emerald-500 shrink-0">+ R$ {fmt(parseFloat(t.amount) || 0)}</span>
                   </div>
-                  {pendingList.length === 0 ? (
-                    <div className="text-center py-6">
-                      <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-emerald-500" />
-                      <p className="text-xs font-black text-emerald-500">Tudo recebido este mês! 🎉</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {pendingList.map(inc => (
-                        <div key={inc.id} className={`flex items-center justify-between gap-3 p-3 rounded-xl border ${isDark ? 'border-amber-500/20 bg-amber-500/[0.05]' : 'border-amber-100 bg-amber-50/60'}`}>
-                          <div className="min-w-0">
-                            <p className={`text-sm font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{inc.name}</p>
-                            <p className="text-[10px] font-bold text-slate-500">Previsto R$ {fmt(inc.value)} · dia {inc.day || 1}</p>
-                          </div>
-                          <button
-                            onClick={() => { setConfirming(inc); setActualValue(String(inc.value ?? '')); }}
-                            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest bg-emerald-500 hover:bg-emerald-400 text-white transition-all active:scale-95"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Confirmar
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Já recebidos */}
-                {receivedList.length > 0 && (
-                  <div className="pat-card p-4">
-                    <p className={`text-xs font-black flex items-center gap-2 mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Já recebidos</p>
-                    <div className="space-y-1.5">
-                      {receivedList.map(inc => (
-                        <div key={inc.id} className="flex items-center justify-between gap-3 px-1 py-1.5">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                            <p className={`text-[13px] font-bold truncate ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{inc.name}</p>
-                          </div>
-                          <span className="text-[13px] font-black tabular-nums text-emerald-500 shrink-0">R$ {fmt(inc.lastReceivedValue ?? inc.value)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            );
-          })()}
-        </>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
+
+      {/* Seletor "Recebimento": confirmar um cadastrado pendente ou lançar avulso */}
+      {receiveChooser && (() => {
+        const pendingList = sorted.filter(inc => !isReceived(inc));
+        return (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setReceiveChooser(false)}>
+            <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-md p-6 relative animate-in zoom-in-95 duration-300 shadow-2xl max-h-[88vh] overflow-y-auto custom-scrollbar ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+              <button onClick={() => setReceiveChooser(false)} className={`absolute top-4 right-4 p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
+              <div className="mb-4">
+                <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Lançar recebimento</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5 capitalize">{monthLabel}</p>
+              </div>
+
+              {/* Cadastrados pendentes: confirmar o recebimento do mês */}
+              {pendingList.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-amber-500" /> A receber este mês</p>
+                  <div className="space-y-2">
+                    {pendingList.map(inc => (
+                      <div key={inc.id} className={`flex items-center justify-between gap-3 p-3 rounded-xl border ${isDark ? 'border-amber-500/20 bg-amber-500/[0.05]' : 'border-amber-100 bg-amber-50/60'}`}>
+                        <div className="min-w-0">
+                          <p className={`text-sm font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{inc.name}</p>
+                          <p className="text-[10px] font-bold text-slate-500">Previsto R$ {fmt(inc.value)} · dia {inc.day || 1}</p>
+                        </div>
+                        <button
+                          onClick={() => { setReceiveChooser(false); setConfirming(inc); setActualValue(String(inc.value ?? '')); }}
+                          className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest bg-emerald-500 hover:bg-emerald-400 text-white transition-all active:scale-95"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Confirmar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Flag: recebimento avulso */}
+              <button
+                onClick={() => { setReceiveChooser(false); setMError(null); setMForm({ desc: '', value: '', date: new Date().toISOString().slice(0, 10) }); setManualOpen(true); }}
+                className={`w-full flex items-center gap-3 p-4 rounded-2xl border text-left transition-all active:scale-[0.99] ${isDark ? 'border-white/10 hover:bg-white/[0.04]' : 'border-slate-200 hover:bg-slate-50'}`}
+              >
+                <span className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'} text-emerald-500`}>
+                  <Plus className="w-5 h-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className={`block text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Recebimento avulso</span>
+                  <span className="block text-[10px] text-slate-500 mt-0.5 leading-relaxed">Uma entrada só deste mês — não vira recebimento fixo.</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal: cadastrar / editar */}
       {isAdding && (
