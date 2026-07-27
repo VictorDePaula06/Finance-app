@@ -318,44 +318,74 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
     );
   };
 
-  // ── Gráfico de pizza (donut) por categoria ──
+  // ── Gráfico de pizza (donut) por categoria, interativo ──
   const PieDonut = ({ data, total }) => {
+    const [active, setActive] = useState(null);
     if (!data.length || total <= 0) return <p className="text-center text-xs text-slate-500 py-10">Nada no período/filtros selecionados.</p>;
-    const size = 200, r = 72, cx = size / 2, cy = size / 2, sw = 30;
+    const size = 220, r = 78, cx = size / 2, cy = size / 2, sw = 30;
     const circ = 2 * Math.PI * r;
-    let acc = 0;
-    // Junta categorias muito pequenas (<2%) em "Outros" para a pizza não ficar poluída.
+    // Junta categorias muito pequenas (<2%) numa fatia "Demais" (não colide com a categoria real "Outros").
     const big = data.filter(d => d.value / total >= 0.02);
     const restVal = total - big.reduce((a, d) => a + d.value, 0);
-    const slices = restVal > 0.005 ? [...big, { id: '__outros', label: 'Outros', value: restVal, hex: '#64748b' }] : big;
+    const slices = restVal > 0.005 ? [...big, { id: '__demais', label: 'Demais categorias', value: restVal, hex: '#64748b' }] : big;
+    let acc = 0;
+    const segs = slices.map((d) => {
+      const frac = d.value / total;
+      const seg = { ...d, frac, offset: acc };
+      acc += frac;
+      return seg;
+    });
+    const sel = active != null ? segs[active] : null;
     return (
-      <div className="flex flex-col sm:flex-row items-center gap-5">
+      <div className="flex flex-col sm:flex-row items-center gap-6">
         <div className="relative shrink-0" style={{ width: size, height: size }}>
           <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} className="-rotate-90">
             <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth={sw} stroke={isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9'} />
-            {slices.map(d => {
-              const frac = d.value / total;
-              const dash = frac * circ;
-              const el = <circle key={d.id} cx={cx} cy={cy} r={r} fill="none" strokeWidth={sw} stroke={d.hex} strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={-acc * circ} />;
-              acc += frac;
-              return el;
+            {segs.map((d, i) => {
+              const on = active === i;
+              const dim = active != null && !on;
+              const gap = segs.length > 1 ? 0.006 * circ : 0; // respiro entre fatias
+              const dash = Math.max(0, d.frac * circ - gap);
+              return (
+                <circle key={d.id} cx={cx} cy={cy} r={r} fill="none"
+                  strokeWidth={on ? sw + 8 : sw}
+                  stroke={d.hex}
+                  strokeDasharray={`${dash} ${circ - dash}`}
+                  strokeDashoffset={-d.offset * circ}
+                  style={{ opacity: dim ? 0.3 : 1, transition: 'opacity .2s, stroke-width .2s', cursor: 'pointer' }}
+                  onMouseEnter={() => setActive(i)}
+                  onMouseLeave={() => setActive(null)}
+                />
+              );
             })}
           </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Total</span>
-            <span className={`text-lg font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(total)}</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 pointer-events-none">
+            {sel ? (
+              <>
+                <span className="text-[10px] font-black uppercase tracking-widest truncate max-w-full" style={{ color: sel.hex }}>{sel.label}</span>
+                <span className={`text-lg font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(sel.value)}</span>
+                <span className="text-[11px] font-bold text-slate-500">{(sel.frac * 100).toFixed(1)}%</span>
+              </>
+            ) : (
+              <>
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Total</span>
+                <span className={`text-xl font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(total)}</span>
+              </>
+            )}
           </div>
         </div>
-        {/* Legenda */}
-        <div className="flex-1 min-w-0 w-full space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
-          {slices.map(d => {
-            const pct = (d.value / total) * 100;
+        {/* Legenda (hover sincronizado com a pizza) */}
+        <div className="flex-1 min-w-0 w-full space-y-0.5 max-h-[240px] overflow-y-auto custom-scrollbar pr-1">
+          {segs.map((d, i) => {
+            const on = active === i;
             return (
-              <div key={d.id} className="flex items-center gap-2.5">
+              <div key={d.id}
+                onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)}
+                className={`flex items-center gap-2.5 px-2 py-1.5 rounded-lg cursor-default transition-colors ${on ? (isDark ? 'bg-white/5' : 'bg-slate-100') : ''}`}>
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.hex }} />
                 <span className={`text-[13px] font-bold truncate flex-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{d.label}</span>
                 <span className="text-[12px] font-black tabular-nums shrink-0" style={{ color: d.hex }}>R$ {fmt(d.value)}</span>
-                <span className="text-[10px] font-bold text-slate-500 tabular-nums shrink-0 w-9 text-right">{pct.toFixed(0)}%</span>
+                <span className="text-[10px] font-bold text-slate-500 tabular-nums shrink-0 w-10 text-right">{(d.frac * 100).toFixed(0)}%</span>
               </div>
             );
           })}
