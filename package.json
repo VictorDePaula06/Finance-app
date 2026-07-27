@@ -1,7 +1,7 @@
 {
   "name": "finance-app",
   "private": true,
-  "version": "11.5.26",
+  "version": "11.5.27",
   "type": "module",
   "scripts": {
     "dev": "vite",
