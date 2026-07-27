@@ -77,32 +77,50 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
   const periodoTotal = useMemo(() => periodoExpenses.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0), [periodoExpenses]);
 
   const periodoBuckets = useMemo(() => {
-    const map = {};
+    // Chave do bucket a partir de uma data (YYYY-MM-DD).
     const keyOf = (ds) => {
-      if (periodoCfg.bucket === 'mes') {
-        const k = ds.slice(0, 7);
-        return { key: k, label: new Date(k + '-15').toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '') };
-      }
+      if (periodoCfg.bucket === 'mes') return ds.slice(0, 7);
       if (periodoCfg.bucket === 'semana') {
         const d = new Date(ds + 'T12:00:00');
         const day = d.getDay();
         const diff = (day === 0 ? -6 : 1) - day; // segunda-feira da semana
         const mon = new Date(d); mon.setDate(d.getDate() + diff);
-        const k = dayISO(mon);
-        return { key: k, label: dLabel(k) };
+        return dayISO(mon);
       }
-      const k = ds.slice(0, 10);
-      return { key: k, label: dLabel(k) };
+      return ds.slice(0, 10);
     };
+    // Soma os gastos por bucket.
+    const sums = {};
     periodoExpenses.forEach(t => {
       const ds = String(t.date || '').slice(0, 10) || (t.month ? `${t.month}-15` : '');
       if (!ds) return;
-      const { key, label } = keyOf(ds);
-      if (!map[key]) map[key] = { id: key, label, value: 0 };
-      map[key].value += parseFloat(t.amount) || 0;
+      const k = keyOf(ds);
+      sums[k] = (sums[k] || 0) + (parseFloat(t.amount) || 0);
     });
-    return Object.values(map).sort((a, b) => a.id.localeCompare(b.id));
-  }, [periodoExpenses, periodoCfg.bucket]);
+    // Gera a faixa CONTÍNUA (inclui buckets sem gasto = 0).
+    const out = [];
+    const s = new Date(start + 'T12:00:00');
+    const e = new Date(end + 'T12:00:00');
+    if (isNaN(s) || isNaN(e) || s > e) return out;
+    if (periodoCfg.bucket === 'mes') {
+      let y = s.getFullYear(), m = s.getMonth();
+      const ey = e.getFullYear(), em = e.getMonth();
+      while (y < ey || (y === ey && m <= em)) {
+        const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+        out.push({ id: key, label: new Date(key + '-15').toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', ''), value: sums[key] || 0 });
+        m++; if (m > 11) { m = 0; y++; }
+      }
+    } else if (periodoCfg.bucket === 'semana') {
+      const cur = new Date(s);
+      const day = cur.getDay(); const diff = (day === 0 ? -6 : 1) - day;
+      cur.setDate(cur.getDate() + diff);
+      while (cur <= e) { const key = dayISO(cur); out.push({ id: key, label: dLabel(key), value: sums[key] || 0 }); cur.setDate(cur.getDate() + 7); }
+    } else {
+      const cur = new Date(s);
+      while (cur <= e) { const key = dayISO(cur); out.push({ id: key, label: dLabel(key), value: sums[key] || 0 }); cur.setDate(cur.getDate() + 1); }
+    }
+    return out;
+  }, [periodoExpenses, periodoCfg.bucket, start, end]);
 
   const bucketLabel = { dia: 'dia', semana: 'semana', mes: 'mês' }[periodoCfg.bucket];
 
@@ -204,18 +222,21 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
     </div>
   );
 
-  // ── Gráfico de barras verticais (valor em R$ por período) ──
+  // ── Gráfico de barras verticais finas (valor em R$ por período) ──
   const VBars = ({ data }) => {
     if (data.length === 0) return <p className="text-center text-xs text-slate-500 py-10">Nada no período/filtros selecionados.</p>;
     const max = Math.max(...data.map(d => d.value), 0) || 1;
+    const showVals = data.length <= 16;           // valores só quando cabem
+    const step = data.length > 24 ? 5 : (data.length > 14 ? 3 : 1); // rótulos espaçados
+    const slot = 22;                              // largura de cada coluna (barra fina)
     return (
       <div className="overflow-x-auto custom-scrollbar pb-1">
-        <div className="flex items-end gap-3 h-52 pt-6" style={{ minWidth: Math.max(data.length * 52, 260) }}>
-          {data.map(d => (
-            <div key={d.id} className="flex-1 min-w-[40px] flex flex-col items-center justify-end gap-1.5 h-full">
-              <span className="text-[9px] font-black tabular-nums text-indigo-500 whitespace-nowrap">R$ {fmt(d.value)}</span>
-              <div className="w-full rounded-t-lg bg-indigo-500 hover:bg-indigo-400 transition-all" style={{ height: `${Math.max(4, (d.value / max) * 150)}px` }} title={`R$ ${fmt(d.value)}`} />
-              <span className="text-[9px] font-bold text-slate-500 whitespace-nowrap">{d.label}</span>
+        <div className="flex items-end justify-start gap-1.5 pt-6" style={{ height: 190, minWidth: Math.max(data.length * slot, 260) }}>
+          {data.map((d, i) => (
+            <div key={d.id} className="flex flex-col items-center justify-end h-full shrink-0" style={{ width: slot }} title={`${d.label}: R$ ${fmt(d.value)}`}>
+              {showVals && d.value > 0 && <span className="text-[8px] font-black tabular-nums text-indigo-400 mb-1 whitespace-nowrap">{fmt(d.value)}</span>}
+              <div className={`w-2.5 rounded-t transition-all ${d.value > 0 ? 'bg-indigo-500 hover:bg-indigo-400' : (isDark ? 'bg-white/5' : 'bg-slate-100')}`} style={{ height: `${d.value > 0 ? Math.max(3, (d.value / max) * 140) : 2}px` }} />
+              <span className="text-[8px] font-bold text-slate-500 mt-1 h-3 whitespace-nowrap">{i % step === 0 ? d.label : ''}</span>
             </div>
           ))}
         </div>
