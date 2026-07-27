@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   BarChart3, Tags, CreditCard, PiggyBank, Download, ChevronLeft,
   Calendar, CalendarDays, CalendarRange, Banknote, Zap, Check, Minus, Info,
@@ -232,8 +232,11 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
     const slot = 46;                                       // largura da coluna quando rola
     const step = data.length > 24 ? 4 : (data.length > 14 ? 2 : 1); // rótulos espaçados
     const showVals = (i) => data.length <= 16 || i % step === 0;    // valor onde há rótulo
+    const scrollRef = useRef(null);
+    // Abre já rolado até o fim (períodos mais recentes, onde há gastos).
+    useEffect(() => { if (scroll && scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth; }, [scroll, data.length]);
     return (
-      <div className={scroll ? 'overflow-x-auto custom-scrollbar pb-1' : ''}>
+      <div ref={scrollRef} className={scroll ? 'overflow-x-auto custom-scrollbar pb-1' : ''}>
         <div className="flex items-end gap-2 pt-7" style={{ height: 320, width: scroll ? data.length * slot : '100%' }}>
           {data.map((d, i) => (
             <div key={d.id} className={`flex flex-col items-center justify-end h-full ${scroll ? 'shrink-0' : 'flex-1 min-w-0'}`} style={scroll ? { width: slot } : undefined} title={`${d.label}: R$ ${fmt(d.value)}`}>
