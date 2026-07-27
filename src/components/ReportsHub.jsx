@@ -35,6 +35,9 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
   // Config do relatório "Gastos por período".
   const [periodoCfgOpen, setPeriodoCfgOpen] = useState(false);
   const [periodoCfg, setPeriodoCfg] = useState({ bucket: 'dia', dinheiro: true, pix: true, cartao: true, includeInvoice: true });
+  // Config do relatório "Gastos por categoria".
+  const [catCfgOpen, setCatCfgOpen] = useState(false);
+  const [catCfg, setCatCfg] = useState({ dinheiro: true, pix: true, cartao: true, includeInvoice: true });
 
   // Período padrão: mês corrente.
   const now = new Date();
@@ -136,17 +139,33 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
   , [inPeriod]);
   const totalReserva = useMemo(() => reservaTx.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0), [reservaTx]);
 
-  // Agrupamento por categoria de despesa.
-  const expenseByCat = useMemo(() => {
+  // Agrupamento por categoria de despesa (todas as despesas do período).
+  const groupByCat = (list) => {
     const map = {};
-    expenseTx.forEach(t => { const c = t.category || 'other'; map[c] = (map[c] || 0) + (parseFloat(t.amount) || 0); });
+    list.forEach(t => { const c = t.category || 'other'; map[c] = (map[c] || 0) + (parseFloat(t.amount) || 0); });
     return Object.entries(map)
       .map(([id, value]) => {
         const def = (CATEGORIES.expense || []).find(c => c.id === id) || { label: 'Outros', id };
         return { id, label: def.label || id, value, hex: categoryHex(def) };
       })
       .sort((a, b) => b.value - a.value);
-  }, [expenseTx]);
+  };
+  // ── Relatório "por categoria": filtra por forma de pagamento (config própria) ──
+  const catPaySet = useMemo(() => {
+    const s = new Set();
+    if (catCfg.dinheiro) s.add('dinheiro');
+    if (catCfg.pix) s.add('pix');
+    if (catCfg.cartao) s.add('credito');
+    return s;
+  }, [catCfg.dinheiro, catCfg.pix, catCfg.cartao]);
+  const catExpenses = useMemo(() => expenseTx.filter(t => {
+    const pm = t.paymentMethod || 'dinheiro';
+    if (!catPaySet.has(pm)) return false;
+    if (pm === 'credito' && !catCfg.includeInvoice && t.invoiceStatus === 'unpaid') return false;
+    return true;
+  }), [expenseTx, catPaySet, catCfg.includeInvoice]);
+  const catTotal = useMemo(() => catExpenses.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0), [catExpenses]);
+  const catByCat = useMemo(() => groupByCat(catExpenses), [catExpenses]);
 
   // Gastos por cartão.
   const cardName = (id) => cards.find(c => c.id === id)?.name || 'Sem cartão';
@@ -161,11 +180,13 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
   const handleExport = async () => {
     const subtitle = periodLabel;
     if (report === 'categorias') {
+      const pays = [catCfg.dinheiro && 'Dinheiro', catCfg.pix && 'Pix', catCfg.cartao && 'Cartão'].filter(Boolean).join(', ') || '—';
       await generateTablePDF({
         title: 'Gastos por Categoria', subtitle,
-        summary: [{ label: 'Total de despesas', value: `R$ ${fmt(totalExpense)}`, color: 'red' }, { label: 'Categorias', value: String(expenseByCat.length), color: 'neutral' }],
+        note: `Formas: ${pays}${catCfg.cartao ? (catCfg.includeInvoice ? ' (incluindo fatura em aberto)' : ' (sem fatura em aberto)') : ''}`,
+        summary: [{ label: 'Total de despesas', value: `R$ ${fmt(catTotal)}`, color: 'red' }, { label: 'Categorias', value: String(catByCat.length), color: 'neutral' }],
         columns: ['Categoria', 'Valor', '%'],
-        rows: expenseByCat.map(c => [c.label, `R$ ${fmt(c.value)}`, totalExpense > 0 ? `${((c.value / totalExpense) * 100).toFixed(1)}%` : '0%']),
+        rows: catByCat.map(c => [c.label, `R$ ${fmt(c.value)}`, catTotal > 0 ? `${((c.value / catTotal) * 100).toFixed(1)}%` : '0%']),
         columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { halign: 'right' } },
       }, logo);
     } else if (report === 'cartao') {
@@ -297,6 +318,52 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
     );
   };
 
+  // ── Gráfico de pizza (donut) por categoria ──
+  const PieDonut = ({ data, total }) => {
+    if (!data.length || total <= 0) return <p className="text-center text-xs text-slate-500 py-10">Nada no período/filtros selecionados.</p>;
+    const size = 200, r = 72, cx = size / 2, cy = size / 2, sw = 30;
+    const circ = 2 * Math.PI * r;
+    let acc = 0;
+    // Junta categorias muito pequenas (<2%) em "Outros" para a pizza não ficar poluída.
+    const big = data.filter(d => d.value / total >= 0.02);
+    const restVal = total - big.reduce((a, d) => a + d.value, 0);
+    const slices = restVal > 0.005 ? [...big, { id: '__outros', label: 'Outros', value: restVal, hex: '#64748b' }] : big;
+    return (
+      <div className="flex flex-col sm:flex-row items-center gap-5">
+        <div className="relative shrink-0" style={{ width: size, height: size }}>
+          <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} className="-rotate-90">
+            <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth={sw} stroke={isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9'} />
+            {slices.map(d => {
+              const frac = d.value / total;
+              const dash = frac * circ;
+              const el = <circle key={d.id} cx={cx} cy={cy} r={r} fill="none" strokeWidth={sw} stroke={d.hex} strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={-acc * circ} />;
+              acc += frac;
+              return el;
+            })}
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Total</span>
+            <span className={`text-lg font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {fmt(total)}</span>
+          </div>
+        </div>
+        {/* Legenda */}
+        <div className="flex-1 min-w-0 w-full space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+          {slices.map(d => {
+            const pct = (d.value / total) * 100;
+            return (
+              <div key={d.id} className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.hex }} />
+                <span className={`text-[13px] font-bold truncate flex-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{d.label}</span>
+                <span className="text-[12px] font-black tabular-nums shrink-0" style={{ color: d.hex }}>R$ {fmt(d.value)}</span>
+                <span className="text-[10px] font-bold text-slate-500 tabular-nums shrink-0 w-9 text-right">{pct.toFixed(0)}%</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   // ── Lista de lançamentos ──
   const TxList = ({ list, color = '#f43f5e', prefix = '−' }) => (
     list.length === 0 ? (
@@ -351,7 +418,7 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
         </div>
         {report && (
           <div className="flex items-center gap-2 flex-wrap">
-            {report !== 'periodo' && (
+            {report !== 'periodo' && report !== 'categorias' && (
               <div className={`flex items-center gap-1.5 px-2 rounded-xl border ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                 <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <input type="date" value={start} max={end} onChange={e => setStart(e.target.value)} className={`bg-transparent text-xs font-bold py-2 outline-none ${isDark ? 'text-white' : 'text-slate-800'}`} />
@@ -375,7 +442,7 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
               const a = ACCENT[r.accent];
               const Icon = r.icon;
               return (
-                <button key={r.id} onClick={() => r.id === 'periodo' ? setPeriodoCfgOpen(true) : setReport(r.id)} className="pat-card p-5 text-left transition-all hover:scale-[1.02] active:scale-95">
+                <button key={r.id} onClick={() => r.id === 'periodo' ? setPeriodoCfgOpen(true) : r.id === 'categorias' ? setCatCfgOpen(true) : setReport(r.id)} className="pat-card p-5 text-left transition-all hover:scale-[1.02] active:scale-95">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 ${a.soft(isDark)} ${a.text}`}>
                     <Icon className="w-6 h-6" />
                   </div>
@@ -487,15 +554,85 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
             );
           })()}
 
-          {report === 'categorias' && (
-            <div className="pat-card p-5">
-              <div className="flex items-center justify-between mb-3">
-                <p className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Gasto por categoria</p>
-                <span className="text-[11px] font-black tabular-nums text-rose-500">R$ {fmt(totalExpense)}</span>
+          {report === 'categorias' && (() => {
+            const top = catByCat[0];
+            const top3 = catByCat.slice(0, 3).reduce((a, c) => a + c.value, 0);
+            return (
+            <>
+              {/* KPIs */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="pat-card p-4">
+                  <div className="flex items-center gap-3">
+                    <span className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><Wallet className="w-5 h-5 text-rose-500" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total gasto</p>
+                      <p className="text-2xl font-black tabular-nums text-rose-500 leading-tight">R$ {fmt(catTotal)}</p>
+                      <p className="text-[11px] text-slate-500">{catExpenses.length} lançamento{catExpenses.length === 1 ? '' : 's'}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="pat-card p-4">
+                  <div className="flex items-center gap-3">
+                    <span className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}><Tags className="w-5 h-5 text-violet-500" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categorias</p>
+                      <p className={`text-2xl font-black tabular-nums leading-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{catByCat.length}</p>
+                      <p className="text-[11px] text-slate-500">com gasto no período</p>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => setCatCfgOpen(true)} className="pat-card p-4 text-left transition-all hover:scale-[1.01]">
+                  <div className="flex items-center gap-3">
+                    <span className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? 'bg-teal-500/10' : 'bg-teal-50'}`}><SlidersHorizontal className="w-5 h-5 text-teal-500" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Filtros aplicados</p>
+                      <p className={`text-lg font-black leading-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Por categoria</p>
+                      <p className="text-[11px] text-slate-500 truncate">
+                        {[catCfg.dinheiro && 'Dinheiro', catCfg.pix && 'Pix', catCfg.cartao && 'Cartão'].filter(Boolean).join(', ') || 'nenhuma forma'}
+                        {catCfg.cartao ? (catCfg.includeInvoice ? ' · c/ fatura' : ' · s/ fatura') : ''}
+                      </p>
+                    </div>
+                  </div>
+                </button>
               </div>
-              <Bars data={expenseByCat} total={totalExpense} />
-            </div>
-          )}
+
+              {/* Pizza */}
+              <div className="pat-card p-5">
+                <p className={`text-sm font-black mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>Gasto por categoria</p>
+                <p className="text-[10px] text-slate-500 mb-4">Distribuição dos gastos por categoria, conforme os filtros.</p>
+                <PieDonut data={catByCat} total={catTotal} />
+              </div>
+
+              {/* Insights */}
+              <div className="pat-card p-5">
+                <p className={`text-sm font-black mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Insights do período</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-start gap-3">
+                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><Flame className="w-4 h-4 text-rose-500" /></span>
+                    <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      {top && top.value > 0
+                        ? <>Sua maior categoria é <span className="font-black" style={{ color: top.hex }}>{top.label}</span>, com <span className="font-black">R$ {fmt(top.value)}</span> ({((top.value / catTotal) * 100).toFixed(0)}% do total).</>
+                        : 'Ainda não há gastos no período selecionado.'}
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-amber-500/10' : 'bg-amber-50'}`}><BarChart3 className="w-4 h-4 text-amber-500" /></span>
+                    <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      As <span className="font-black text-amber-500">3 maiores</span> categorias somam <span className="font-black">R$ {fmt(top3)}</span>{catTotal > 0 ? <> ({((top3 / catTotal) * 100).toFixed(0)}% do total)</> : ''}.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}><Target className="w-4 h-4 text-violet-500" /></span>
+                    <p className={`flex-1 text-[12px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      {top ? <>Que tal definir um teto de gastos para <span className="font-black">{top.label}</span>?</> : 'Defina tetos de gasto por categoria para manter o controle.'}
+                    </p>
+                    <button onClick={() => setCatCfgOpen(true)} className={`shrink-0 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${isDark ? 'border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}>Definir teto</button>
+                  </div>
+                </div>
+              </div>
+            </>
+            );
+          })()}
 
           {report === 'cartao' && (
             <>
@@ -640,6 +777,96 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
                 className="flex-1 py-3.5 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/25 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
               >
                 <BarChart3 className="w-4 h-4" /> Gerar relatório
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: configurar o relatório "Gastos por categoria" */}
+      {catCfgOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setCatCfgOpen(false)}>
+          <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-xl p-7 relative animate-in zoom-in-95 duration-300 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className="relative text-center mb-6">
+              <button onClick={() => setCatCfgOpen(false)} className={`absolute top-0 right-0 p-1.5 rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
+              <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Gastos por categoria</h3>
+              <p className="text-[12px] text-slate-500 mt-1">Configure o relatório antes de gerar.</p>
+            </div>
+
+            {/* Período */}
+            <div className="mb-5">
+              <p className={`text-[13px] font-black mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Período</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-1">De</label>
+                  <div className={`flex items-center gap-2 px-3 rounded-xl border ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'}`}>
+                    <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                    <input type="date" value={start} max={end} onChange={e => setStart(e.target.value)} className={`w-full bg-transparent text-sm font-bold py-2.5 outline-none ${isDark ? 'text-white' : 'text-slate-800'}`} />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-1">Até</label>
+                  <div className={`flex items-center gap-2 px-3 rounded-xl border ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'}`}>
+                    <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                    <input type="date" value={end} min={start} onChange={e => setEnd(e.target.value)} className={`w-full bg-transparent text-sm font-bold py-2.5 outline-none ${isDark ? 'text-white' : 'text-slate-800'}`} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Formas de pagamento */}
+            <div className="mb-5">
+              <p className={`text-[13px] font-black mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Formas de pagamento</p>
+              <div className="grid grid-cols-3 gap-2.5">
+                {[['dinheiro', 'Dinheiro', Banknote], ['pix', 'Pix', Zap], ['cartao', 'Cartão', CreditCard]].map(([id, label, Icon]) => {
+                  const on = catCfg[id];
+                  return (
+                    <button key={id} type="button" onClick={() => setCatCfg({ ...catCfg, [id]: !on })}
+                      className={`rounded-xl border p-3.5 flex flex-col items-center justify-center gap-1.5 transition-all ${on ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400' : (isDark ? 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-white/20' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300')}`}>
+                      <Icon className="w-5 h-5" strokeWidth={1.75} />
+                      <span className="text-[12px] font-bold">{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Cartão: incluir fatura em aberto? */}
+            {catCfg.cartao && (
+              <div className="mb-5">
+                <p className={`text-[13px] font-black mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Compras no cartão: considerar a fatura em aberto?</p>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {[[true, 'Sim, incluir', Check], [false, 'Não', Minus]].map(([val, label, Icon]) => {
+                    const sel = catCfg.includeInvoice === val;
+                    return (
+                      <button key={String(val)} type="button" onClick={() => setCatCfg({ ...catCfg, includeInvoice: val })}
+                        className={`rounded-xl border p-3 flex items-center justify-center gap-2 transition-all ${sel ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400' : (isDark ? 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-white/20' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300')}`}>
+                        <Icon className="w-4 h-4" strokeWidth={2} />
+                        <span className="text-[12px] font-bold">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Caixa de info */}
+            <div className={`flex items-start gap-3 rounded-2xl border p-4 mb-6 ${isDark ? 'bg-emerald-500/[0.06] border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
+              <span className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5"><Info className="w-3.5 h-3.5 text-emerald-500" /></span>
+              <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                O relatório será gerado em <span className="font-black text-emerald-500">pizza</span>, mostrando a distribuição dos gastos por categoria
+                {catCfg.cartao ? (catCfg.includeInvoice ? ', incluindo a fatura em aberto.' : ', sem a fatura em aberto.') : '.'}
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setCatCfgOpen(false)} className={`flex-1 py-3.5 rounded-xl text-[13px] font-bold transition-colors ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Cancelar</button>
+              <button
+                onClick={() => { setReport('categorias'); setCatCfgOpen(false); }}
+                disabled={!catCfg.dinheiro && !catCfg.pix && !catCfg.cartao}
+                className="flex-1 py-3.5 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/25 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <Tags className="w-4 h-4" /> Gerar relatório
               </button>
             </div>
           </div>
