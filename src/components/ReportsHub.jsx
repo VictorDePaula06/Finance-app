@@ -275,19 +275,21 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
             <p className={`text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{meta ? meta.desc : 'Acompanhe análises completas da sua vida financeira'}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className={`flex items-center gap-1.5 px-2 rounded-xl border ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <input type="date" value={start} max={end} onChange={e => setStart(e.target.value)} className={`bg-transparent text-xs font-bold py-2 outline-none ${isDark ? 'text-white' : 'text-slate-800'}`} />
-            <span className="text-slate-500 text-xs">–</span>
-            <input type="date" value={end} min={start} onChange={e => setEnd(e.target.value)} className={`bg-transparent text-xs font-bold py-2 outline-none ${isDark ? 'text-white' : 'text-slate-800'}`} />
-          </div>
-          {report && (
+        {report && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {report !== 'periodo' && (
+              <div className={`flex items-center gap-1.5 px-2 rounded-xl border ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <input type="date" value={start} max={end} onChange={e => setStart(e.target.value)} className={`bg-transparent text-xs font-bold py-2 outline-none ${isDark ? 'text-white' : 'text-slate-800'}`} />
+                <span className="text-slate-500 text-xs">–</span>
+                <input type="date" value={end} min={start} onChange={e => setEnd(e.target.value)} className={`bg-transparent text-xs font-bold py-2 outline-none ${isDark ? 'text-white' : 'text-slate-800'}`} />
+              </div>
+            )}
             <button onClick={handleExport} className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all active:scale-95">
               <Download className="w-3.5 h-3.5" /> Exportar
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {!report ? (
@@ -396,6 +398,27 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
               <p className="text-[12px] text-slate-500 mt-1">Configure o relatório antes de gerar.</p>
             </div>
 
+            {/* Período */}
+            <div className="mb-5">
+              <p className={`text-[13px] font-black mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Período</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-1">De</label>
+                  <div className={`flex items-center gap-2 px-3 rounded-xl border ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'}`}>
+                    <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                    <input type="date" value={start} max={end} onChange={e => setStart(e.target.value)} className={`w-full bg-transparent text-sm font-bold py-2.5 outline-none ${isDark ? 'text-white' : 'text-slate-800'}`} />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 block mb-1">Até</label>
+                  <div className={`flex items-center gap-2 px-3 rounded-xl border ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'}`}>
+                    <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                    <input type="date" value={end} min={start} onChange={e => setEnd(e.target.value)} className={`w-full bg-transparent text-sm font-bold py-2.5 outline-none ${isDark ? 'text-white' : 'text-slate-800'}`} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Agrupar por — cards com ícone */}
             <div className="mb-5">
               <p className={`text-[13px] font-black mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Agrupar por</p>
@@ -404,7 +427,7 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
                   const sel = periodoCfg.bucket === id;
                   return (
                     <button key={id} type="button" onClick={() => setPeriodoCfg({ ...periodoCfg, bucket: id })}
-                      className={`rounded-xl border p-3.5 flex flex-col items-center justify-center gap-1.5 transition-all ${sel ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : (isDark ? 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-white/20' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300')}`}>
+                      className={`rounded-xl border p-3.5 flex flex-col items-center justify-center gap-1.5 transition-all ${sel ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400' : (isDark ? 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-white/20' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300')}`}>
                       <Icon className="w-5 h-5" strokeWidth={1.75} />
                       <span className="text-[12px] font-bold">{label}</span>
                     </button>
@@ -421,7 +444,7 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
                   const on = periodoCfg[id];
                   return (
                     <button key={id} type="button" onClick={() => setPeriodoCfg({ ...periodoCfg, [id]: !on })}
-                      className={`rounded-xl border p-3.5 flex flex-col items-center justify-center gap-1.5 transition-all ${on ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : (isDark ? 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-white/20' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300')}`}>
+                      className={`rounded-xl border p-3.5 flex flex-col items-center justify-center gap-1.5 transition-all ${on ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400' : (isDark ? 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-white/20' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300')}`}>
                       <Icon className="w-5 h-5" strokeWidth={1.75} />
                       <span className="text-[12px] font-bold">{label}</span>
                     </button>
@@ -439,7 +462,7 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
                     const sel = periodoCfg.includeInvoice === val;
                     return (
                       <button key={String(val)} type="button" onClick={() => setPeriodoCfg({ ...periodoCfg, includeInvoice: val })}
-                        className={`rounded-xl border p-3 flex items-center justify-center gap-2 transition-all ${sel ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : (isDark ? 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-white/20' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300')}`}>
+                        className={`rounded-xl border p-3 flex items-center justify-center gap-2 transition-all ${sel ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400' : (isDark ? 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-white/20' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300')}`}>
                         <Icon className="w-4 h-4" strokeWidth={2} />
                         <span className="text-[12px] font-bold">{label}</span>
                       </button>
