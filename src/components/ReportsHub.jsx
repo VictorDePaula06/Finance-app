@@ -123,6 +123,7 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
   }, [periodoExpenses, periodoCfg.bucket, start, end]);
 
   const bucketLabel = { dia: 'dia', semana: 'semana', mes: 'mês' }[periodoCfg.bucket];
+  const bucketPlural = { dia: 'dias', semana: 'semanas', mes: 'meses' }[periodoCfg.bucket];
 
   // Gastos no cartão (crédito).
   const cardTx = useMemo(() => expenseTx.filter(t => t.paymentMethod === 'credito'), [expenseTx]);
@@ -226,17 +227,19 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
   const VBars = ({ data }) => {
     if (data.length === 0) return <p className="text-center text-xs text-slate-500 py-10">Nada no período/filtros selecionados.</p>;
     const max = Math.max(...data.map(d => d.value), 0) || 1;
-    const showVals = data.length <= 16;           // valores só quando cabem
-    const step = data.length > 24 ? 5 : (data.length > 14 ? 3 : 1); // rótulos espaçados
-    const scroll = data.length > 31;              // muitos períodos: rola horizontal
+    // Poucos períodos: preenchem a largura da caixa. Muitos: largura fixa + rolagem.
+    const scroll = data.length > 14;
+    const slot = 46;                                       // largura da coluna quando rola
+    const step = data.length > 24 ? 4 : (data.length > 14 ? 2 : 1); // rótulos espaçados
+    const showVals = (i) => data.length <= 16 || i % step === 0;    // valor onde há rótulo
     return (
       <div className={scroll ? 'overflow-x-auto custom-scrollbar pb-1' : ''}>
-        <div className="flex items-end gap-2 pt-7 w-full" style={{ height: 320, ...(scroll ? { minWidth: data.length * 28 } : {}) }}>
+        <div className="flex items-end gap-2 pt-7" style={{ height: 320, width: scroll ? data.length * slot : '100%' }}>
           {data.map((d, i) => (
-            <div key={d.id} className={`flex flex-col items-center justify-end h-full ${scroll ? 'shrink-0' : 'flex-1 min-w-0'}`} style={scroll ? { width: 28 } : undefined} title={`${d.label}: R$ ${fmt(d.value)}`}>
-              {showVals && d.value > 0 && <span className="text-[11px] font-black tabular-nums text-indigo-400 mb-1.5 whitespace-nowrap">R$ {fmt(d.value)}</span>}
-              <div className={`w-5 rounded-t-md transition-all ${d.value > 0 ? 'bg-indigo-500 hover:bg-indigo-400' : (isDark ? 'bg-white/5' : 'bg-slate-100')}`} style={{ height: `${d.value > 0 ? Math.max(4, (d.value / max) * 250) : 3}px` }} />
-              <span className="text-[10px] font-bold text-slate-500 mt-1.5 h-4 truncate max-w-full">{i % step === 0 ? d.label : ''}</span>
+            <div key={d.id} className={`flex flex-col items-center justify-end h-full ${scroll ? 'shrink-0' : 'flex-1 min-w-0'}`} style={scroll ? { width: slot } : undefined} title={`${d.label}: R$ ${fmt(d.value)}`}>
+              {d.value > 0 && showVals(i) && <span className="text-[11px] font-black tabular-nums text-indigo-400 mb-1.5 whitespace-nowrap">R$ {fmt(d.value)}</span>}
+              <div className={`w-5 rounded-t-md transition-all ${d.value > 0 ? 'bg-indigo-500 hover:bg-indigo-400' : (isDark ? 'bg-white/5' : 'bg-slate-100')}`} style={{ height: `${d.value > 0 ? Math.max(4, (d.value / max) * 240) : 3}px` }} />
+              <span className="text-[10px] font-bold text-slate-500 mt-1.5 h-4 whitespace-nowrap">{i % step === 0 ? d.label : ''}</span>
             </div>
           ))}
         </div>
@@ -340,7 +343,7 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
             <>
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                 <KPI label="Total gasto" value={periodoTotal} color="#6366f1" sub={`${periodoExpenses.length} lançamento${periodoExpenses.length === 1 ? '' : 's'}`} />
-                <KPI label={`Média por ${bucketLabel}`} value={periodoBuckets.length ? periodoTotal / periodoBuckets.length : 0} color="#f59e0b" sub={`${periodoBuckets.length} ${bucketLabel}${periodoBuckets.length === 1 ? '' : 's'}`} />
+                <KPI label={`Média por ${bucketLabel}`} value={periodoBuckets.length ? periodoTotal / periodoBuckets.length : 0} color="#f59e0b" sub={`${periodoBuckets.length} ${periodoBuckets.length === 1 ? bucketLabel : bucketPlural}`} />
                 <button onClick={() => setPeriodoCfgOpen(true)} className="pat-card p-4 text-left transition-all hover:scale-[1.01]">
                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1"><SlidersHorizontal className="w-3 h-3" /> Filtros</p>
                   <p className={`text-sm font-black mt-1 capitalize ${isDark ? 'text-white' : 'text-slate-800'}`}>Por {bucketLabel}</p>
