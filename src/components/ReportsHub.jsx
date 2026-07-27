@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   BarChart3, Tags, CreditCard, PiggyBank, Download, ChevronLeft,
   Calendar, CalendarDays, CalendarRange, Banknote, Zap, Check, Minus, Info,
-  X, SlidersHorizontal,
+  X, SlidersHorizontal, Wallet, TrendingUp, Flame, Target, ChevronDown,
 } from 'lucide-react';
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import { generateTablePDF } from '../utils/generatePDF';
@@ -223,27 +223,75 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
     </div>
   );
 
-  // ── Gráfico de barras verticais finas (valor em R$ por período) ──
-  const VBars = ({ data }) => {
-    if (data.length === 0) return <p className="text-center text-xs text-slate-500 py-10">Nada no período/filtros selecionados.</p>;
-    const max = Math.max(...data.map(d => d.value), 0) || 1;
-    // Poucos períodos: preenchem a largura da caixa. Muitos: largura fixa + rolagem.
-    const scroll = data.length > 14;
-    const slot = 46;                                       // largura da coluna quando rola
-    const step = data.length > 24 ? 4 : (data.length > 14 ? 2 : 1); // rótulos de data espaçados
-    const scrollRef = useRef(null);
-    // Abre já rolado até o fim (períodos mais recentes, onde há gastos).
-    useEffect(() => { if (scroll && scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth; }, [scroll, data.length]);
+  // Arredonda pra um teto "bonito" (usado na escala do eixo Y).
+  const niceCeil = (v) => {
+    if (v <= 0) return 100;
+    const p = Math.pow(10, Math.floor(Math.log10(v)));
+    const n = v / p;
+    const m = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
+    return m * p;
+  };
+  const fmtInt = (v) => Math.round(v).toLocaleString('pt-BR');
+
+  // ── Mini-gráfico (sparkline) para os cartões de KPI ──
+  const Sparkline = ({ values, color }) => {
+    const vals = (values || []).map(v => v || 0);
+    if (vals.length < 2) return null;
+    const w = 120, h = 40, mx = Math.max(...vals, 1);
+    const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * w},${h - (v / mx) * (h - 4) - 2}`);
     return (
-      <div ref={scrollRef} className={scroll ? 'overflow-x-auto custom-scrollbar pb-1' : ''}>
-        <div className="flex items-end gap-2 pt-7" style={{ height: 320, width: scroll ? data.length * slot : '100%' }}>
-          {data.map((d, i) => (
-            <div key={d.id} className={`flex flex-col items-center justify-end h-full ${scroll ? 'shrink-0' : 'flex-1 min-w-0'}`} style={scroll ? { width: slot } : undefined} title={`${d.label}: R$ ${fmt(d.value)}`}>
-              {d.value > 0 && <span className="text-[9px] font-black tabular-nums text-indigo-400 mb-1 whitespace-nowrap">{fmt(d.value)}</span>}
-              <div className={`w-5 rounded-t-md transition-all ${d.value > 0 ? 'bg-indigo-500 hover:bg-indigo-400' : (isDark ? 'bg-white/5' : 'bg-slate-100')}`} style={{ height: `${d.value > 0 ? Math.max(4, (d.value / max) * 240) : 3}px` }} />
-              <span className="text-[10px] font-bold text-slate-500 mt-1.5 h-4 whitespace-nowrap">{i % step === 0 ? d.label : ''}</span>
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="absolute bottom-0 right-0 w-3/5 h-10 opacity-60 pointer-events-none">
+        <path d={`M0,${h} L ${pts.join(' L ')} L ${w},${h} Z`} fill={color} opacity="0.15" />
+        <path d={`M ${pts.join(' L ')}`} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+    );
+  };
+
+  // ── Gráfico de barras com eixo Y, valores e rótulos ──
+  const PeriodChart = ({ data }) => {
+    const scrollRef = useRef(null);
+    const scroll = data.length > 14;
+    useEffect(() => { if (scroll && scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth; }, [scroll, data.length]);
+    if (data.length === 0) return <p className="text-center text-xs text-slate-500 py-10">Nada no período/filtros selecionados.</p>;
+    const rawMax = Math.max(...data.map(d => d.value), 0);
+    const stepY = niceCeil((rawMax || 100) / 4);
+    const niceMax = stepY * 4 || 100;
+    const ticks = [4, 3, 2, 1, 0].map(n => n * stepY); // de cima pra baixo
+    const H = 280;
+    const slot = 56;
+    const stepX = data.length > 24 ? 4 : (data.length > 14 ? 2 : 1);
+    return (
+      <div className="flex gap-2">
+        {/* Eixo Y */}
+        <div className="flex flex-col justify-between shrink-0 text-right" style={{ height: H, width: 44 }}>
+          {ticks.map((t, i) => <span key={i} className="text-[10px] font-bold text-slate-500 tabular-nums leading-none">{fmtInt(t)}</span>)}
+        </div>
+        {/* Área do gráfico */}
+        <div ref={scrollRef} className={`flex-1 min-w-0 ${scroll ? 'overflow-x-auto custom-scrollbar pb-1' : ''}`}>
+          <div style={{ width: scroll ? data.length * slot : '100%' }}>
+            {/* plot com gridlines + barras */}
+            <div className="relative" style={{ height: H }}>
+              {ticks.map((t, i) => (
+                <div key={i} className={`absolute left-0 right-0 border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`} style={{ top: `${(i / 4) * H}px` }} />
+              ))}
+              <div className="absolute inset-0 flex items-end gap-2">
+                {data.map((d) => (
+                  <div key={d.id} className={`flex flex-col items-center justify-end h-full ${scroll ? 'shrink-0' : 'flex-1 min-w-0'}`} style={scroll ? { width: slot } : undefined} title={`${d.label}: R$ ${fmt(d.value)}`}>
+                    {d.value > 0 && <span className="text-[10px] font-black tabular-nums text-indigo-400 mb-1 whitespace-nowrap">{fmt(d.value)}</span>}
+                    <div className={`w-5 rounded-t-md transition-all ${d.value > 0 ? 'bg-indigo-500 hover:bg-indigo-400' : (isDark ? 'bg-white/5' : 'bg-slate-100')}`} style={{ height: `${d.value > 0 ? Math.max(4, (d.value / niceMax) * H) : 3}px` }} />
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
+            {/* rótulos X */}
+            <div className="flex gap-2 mt-2">
+              {data.map((d, i) => (
+                <div key={d.id} className={`text-center ${scroll ? 'shrink-0' : 'flex-1 min-w-0'}`} style={scroll ? { width: slot } : undefined}>
+                  <span className="text-[10px] font-bold text-slate-500 whitespace-nowrap">{i % stepX === 0 ? d.label : ''}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -341,27 +389,103 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
       ) : (
         /* ── Relatório selecionado ── */
         <div className="space-y-4">
-          {report === 'periodo' && (
+          {report === 'periodo' && (() => {
+            const avg = periodoBuckets.length ? periodoTotal / periodoBuckets.length : 0;
+            const sparkVals = periodoBuckets.map(b => b.value);
+            const maxBucket = periodoBuckets.reduce((a, b) => (b.value > (a?.value || 0) ? b : a), null);
+            const aboveAvg = periodoBuckets.filter(b => b.value > avg && b.value > 0).length;
+            const maxPhrase = maxBucket ? ({ dia: `no dia ${maxBucket.label}`, semana: `na semana de ${maxBucket.label}`, mes: `em ${maxBucket.label}` }[periodoCfg.bucket]) : '';
+            return (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                <KPI label="Total gasto" value={periodoTotal} color="#6366f1" sub={`${periodoExpenses.length} lançamento${periodoExpenses.length === 1 ? '' : 's'}`} />
-                <KPI label={`Média por ${bucketLabel}`} value={periodoBuckets.length ? periodoTotal / periodoBuckets.length : 0} color="#f59e0b" sub={`${periodoBuckets.length} ${periodoBuckets.length === 1 ? bucketLabel : bucketPlural}`} />
+              {/* KPIs com ícone + mini-gráfico */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="pat-card p-4 relative overflow-hidden">
+                  <Sparkline values={sparkVals} color="#6366f1" />
+                  <div className="relative flex items-center gap-3">
+                    <span className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? 'bg-indigo-500/10' : 'bg-indigo-50'}`}><Wallet className="w-5 h-5 text-indigo-400" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total gasto</p>
+                      <p className="text-2xl font-black tabular-nums text-indigo-400 leading-tight">R$ {fmt(periodoTotal)}</p>
+                      <p className="text-[11px] text-slate-500">{periodoExpenses.length} lançamento{periodoExpenses.length === 1 ? '' : 's'}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="pat-card p-4 relative overflow-hidden">
+                  <Sparkline values={sparkVals} color="#f59e0b" />
+                  <div className="relative flex items-center gap-3">
+                    <span className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? 'bg-amber-500/10' : 'bg-amber-50'}`}><TrendingUp className="w-5 h-5 text-amber-500" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Média por {bucketLabel}</p>
+                      <p className="text-2xl font-black tabular-nums text-amber-500 leading-tight">R$ {fmt(avg)}</p>
+                      <p className="text-[11px] text-slate-500">{periodoBuckets.length} {periodoBuckets.length === 1 ? bucketLabel : bucketPlural}</p>
+                    </div>
+                  </div>
+                </div>
                 <button onClick={() => setPeriodoCfgOpen(true)} className="pat-card p-4 text-left transition-all hover:scale-[1.01]">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1"><SlidersHorizontal className="w-3 h-3" /> Filtros</p>
-                  <p className={`text-sm font-black mt-1 capitalize ${isDark ? 'text-white' : 'text-slate-800'}`}>Por {bucketLabel}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">
-                    {[periodoCfg.dinheiro && 'Dinheiro', periodoCfg.pix && 'Pix', periodoCfg.cartao && 'Cartão'].filter(Boolean).join(', ') || 'nenhuma forma'}
-                    {periodoCfg.cartao ? (periodoCfg.includeInvoice ? ' · c/ fatura' : ' · s/ fatura') : ''}
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <span className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? 'bg-teal-500/10' : 'bg-teal-50'}`}><SlidersHorizontal className="w-5 h-5 text-teal-500" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Filtros aplicados</p>
+                      <p className={`text-lg font-black capitalize leading-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Por {bucketLabel}</p>
+                      <p className="text-[11px] text-slate-500 truncate">
+                        {[periodoCfg.dinheiro && 'Dinheiro', periodoCfg.pix && 'Pix', periodoCfg.cartao && 'Cartão'].filter(Boolean).join(', ') || 'nenhuma forma'}
+                        {periodoCfg.cartao ? (periodoCfg.includeInvoice ? ' · c/ fatura' : ' · s/ fatura') : ''}
+                      </p>
+                    </div>
+                  </div>
                 </button>
               </div>
+
+              {/* Gráfico */}
               <div className="pat-card p-5">
-                <p className={`text-xs font-black mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>Gasto por {bucketLabel}</p>
-                <p className="text-[10px] text-slate-500 mb-2">Valor em reais gasto por {bucketLabel}, conforme os filtros.</p>
-                <VBars data={periodoBuckets} />
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div>
+                    <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Gasto por {bucketLabel}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Valor em reais gasto por {bucketLabel}, conforme os filtros.</p>
+                  </div>
+                  <div className="relative shrink-0">
+                    <select value={periodoCfg.bucket} onChange={e => setPeriodoCfg({ ...periodoCfg, bucket: e.target.value })}
+                      className={`appearance-none pl-3 pr-8 py-2 rounded-xl border text-xs font-bold outline-none cursor-pointer ${isDark ? 'bg-[#161b27] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
+                      <option value="dia" className={isDark ? 'bg-slate-800 text-white' : ''}>Por Dia</option>
+                      <option value="semana" className={isDark ? 'bg-slate-800 text-white' : ''}>Por Semana</option>
+                      <option value="mes" className={isDark ? 'bg-slate-800 text-white' : ''}>Por Mês</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+                  </div>
+                </div>
+                <PeriodChart data={periodoBuckets} />
+              </div>
+
+              {/* Insights do período */}
+              <div className="pat-card p-5">
+                <p className={`text-sm font-black mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Insights do período</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-start gap-3">
+                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}><BarChart3 className="w-4 h-4 text-emerald-500" /></span>
+                    <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      {maxBucket && maxBucket.value > 0
+                        ? <>Seu maior gasto {bucketLabel === 'mês' ? 'mensal' : bucketLabel === 'semana' ? 'semanal' : 'diário'} foi de <span className="font-black text-emerald-500">R$ {fmt(maxBucket.value)}</span> {maxPhrase}.</>
+                        : 'Ainda não há gastos no período selecionado.'}
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-amber-500/10' : 'bg-amber-50'}`}><Flame className="w-4 h-4 text-amber-500" /></span>
+                    <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      Você teve <span className="font-black text-amber-500">{aboveAvg}</span> {aboveAvg === 1 ? (bucketLabel === 'mês' ? 'mês' : bucketLabel) : bucketPlural} com gastos acima da média de <span className="font-black">R$ {fmt(avg)}</span>.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}><Target className="w-4 h-4 text-violet-500" /></span>
+                    <p className={`flex-1 text-[12px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      Que tal definir um limite {bucketLabel === 'mês' ? 'mensal' : bucketLabel === 'semana' ? 'semanal' : 'diário'} de gastos para manter o controle?
+                    </p>
+                    <button onClick={() => setPeriodoCfgOpen(true)} className={`shrink-0 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${isDark ? 'border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}>Definir limite</button>
+                  </div>
+                </div>
               </div>
             </>
-          )}
+            );
+          })()}
 
           {report === 'categorias' && (
             <div className="pat-card p-5">
