@@ -231,12 +231,12 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
     const scroll = data.length > 31;              // muitos períodos: rola horizontal
     return (
       <div className={scroll ? 'overflow-x-auto custom-scrollbar pb-1' : ''}>
-        <div className="flex items-end gap-1.5 pt-6 w-full" style={{ height: 190, ...(scroll ? { minWidth: data.length * 22 } : {}) }}>
+        <div className="flex items-end gap-2 pt-7 w-full" style={{ height: 320, ...(scroll ? { minWidth: data.length * 28 } : {}) }}>
           {data.map((d, i) => (
-            <div key={d.id} className={`flex flex-col items-center justify-end h-full ${scroll ? 'shrink-0' : 'flex-1 min-w-0'}`} style={scroll ? { width: 22 } : undefined} title={`${d.label}: R$ ${fmt(d.value)}`}>
-              {showVals && d.value > 0 && <span className="text-[8px] font-black tabular-nums text-indigo-400 mb-1 whitespace-nowrap">{fmt(d.value)}</span>}
-              <div className={`w-3 rounded-t transition-all ${d.value > 0 ? 'bg-indigo-500 hover:bg-indigo-400' : (isDark ? 'bg-white/5' : 'bg-slate-100')}`} style={{ height: `${d.value > 0 ? Math.max(3, (d.value / max) * 140) : 2}px` }} />
-              <span className="text-[8px] font-bold text-slate-500 mt-1 h-3 truncate max-w-full">{i % step === 0 ? d.label : ''}</span>
+            <div key={d.id} className={`flex flex-col items-center justify-end h-full ${scroll ? 'shrink-0' : 'flex-1 min-w-0'}`} style={scroll ? { width: 28 } : undefined} title={`${d.label}: R$ ${fmt(d.value)}`}>
+              {showVals && d.value > 0 && <span className="text-[11px] font-black tabular-nums text-indigo-400 mb-1.5 whitespace-nowrap">R$ {fmt(d.value)}</span>}
+              <div className={`w-5 rounded-t-md transition-all ${d.value > 0 ? 'bg-indigo-500 hover:bg-indigo-400' : (isDark ? 'bg-white/5' : 'bg-slate-100')}`} style={{ height: `${d.value > 0 ? Math.max(4, (d.value / max) * 250) : 3}px` }} />
+              <span className="text-[10px] font-bold text-slate-500 mt-1.5 h-4 truncate max-w-full">{i % step === 0 ? d.label : ''}</span>
             </div>
           ))}
         </div>
