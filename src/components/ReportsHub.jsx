@@ -230,8 +230,7 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
     // Poucos períodos: preenchem a largura da caixa. Muitos: largura fixa + rolagem.
     const scroll = data.length > 14;
     const slot = 46;                                       // largura da coluna quando rola
-    const step = data.length > 24 ? 4 : (data.length > 14 ? 2 : 1); // rótulos espaçados
-    const showVals = (i) => data.length <= 16 || i % step === 0;    // valor onde há rótulo
+    const step = data.length > 24 ? 4 : (data.length > 14 ? 2 : 1); // rótulos de data espaçados
     const scrollRef = useRef(null);
     // Abre já rolado até o fim (períodos mais recentes, onde há gastos).
     useEffect(() => { if (scroll && scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth; }, [scroll, data.length]);
@@ -240,7 +239,7 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
         <div className="flex items-end gap-2 pt-7" style={{ height: 320, width: scroll ? data.length * slot : '100%' }}>
           {data.map((d, i) => (
             <div key={d.id} className={`flex flex-col items-center justify-end h-full ${scroll ? 'shrink-0' : 'flex-1 min-w-0'}`} style={scroll ? { width: slot } : undefined} title={`${d.label}: R$ ${fmt(d.value)}`}>
-              {d.value > 0 && showVals(i) && <span className="text-[11px] font-black tabular-nums text-indigo-400 mb-1.5 whitespace-nowrap">R$ {fmt(d.value)}</span>}
+              {d.value > 0 && <span className="text-[9px] font-black tabular-nums text-indigo-400 mb-1 whitespace-nowrap">{fmt(d.value)}</span>}
               <div className={`w-5 rounded-t-md transition-all ${d.value > 0 ? 'bg-indigo-500 hover:bg-indigo-400' : (isDark ? 'bg-white/5' : 'bg-slate-100')}`} style={{ height: `${d.value > 0 ? Math.max(4, (d.value / max) * 240) : 3}px` }} />
               <span className="text-[10px] font-bold text-slate-500 mt-1.5 h-4 whitespace-nowrap">{i % step === 0 ? d.label : ''}</span>
             </div>
