@@ -387,7 +387,7 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
       {/* Modal: configurar o relatório "Gastos por período" */}
       {periodoCfgOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setPeriodoCfgOpen(false)}>
-          <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-md p-6 space-y-5 relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+          <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-lg p-7 space-y-6 relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
             <button onClick={() => setPeriodoCfgOpen(false)} className={`absolute top-4 right-4 p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
             <div className="flex items-center gap-3">
               <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-indigo-500/10' : 'bg-indigo-50'}`}><BarChart3 className="w-5 h-5 text-indigo-500" /></span>
@@ -403,7 +403,7 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
               <div className="grid grid-cols-3 gap-2">
                 {[['dia', 'Dia'], ['semana', 'Semana'], ['mes', 'Mês']].map(([id, label]) => (
                   <button key={id} type="button" onClick={() => setPeriodoCfg({ ...periodoCfg, bucket: id })}
-                    className={`py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${periodoCfg.bucket === id ? 'bg-indigo-500 text-white border-indigo-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
+                    className={`py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${periodoCfg.bucket === id ? 'bg-emerald-500 text-white border-emerald-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
                     {label}
                   </button>
                 ))}
@@ -418,7 +418,7 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
                   const on = periodoCfg[id];
                   return (
                     <button key={id} type="button" onClick={() => setPeriodoCfg({ ...periodoCfg, [id]: !on })}
-                      className={`py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${on ? 'bg-indigo-500 text-white border-indigo-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
+                      className={`py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${on ? 'bg-emerald-500 text-white border-emerald-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
                       {label}
                     </button>
                   );
@@ -447,9 +447,9 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
               <button
                 onClick={() => { setReport('periodo'); setPeriodoCfgOpen(false); }}
                 disabled={!periodoCfg.dinheiro && !periodoCfg.pix && !periodoCfg.cartao}
-                className="flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest bg-indigo-500 hover:bg-indigo-400 text-white disabled:opacity-50 transition-all"
+                className="flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/25 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                Gerar relatório
+                <BarChart3 className="w-3.5 h-3.5" /> Gerar relatório
               </button>
             </div>
           </div>
