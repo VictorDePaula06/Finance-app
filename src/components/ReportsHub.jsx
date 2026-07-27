@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import {
   BarChart3, Tags, CreditCard, PiggyBank, Download, ChevronLeft,
-  Calendar, X, SlidersHorizontal,
+  Calendar, CalendarDays, CalendarRange, Banknote, Zap, Check, Minus, Info,
+  X, SlidersHorizontal,
 } from 'lucide-react';
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import { generateTablePDF } from '../utils/generatePDF';
@@ -387,69 +388,85 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
       {/* Modal: configurar o relatório "Gastos por período" */}
       {periodoCfgOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setPeriodoCfgOpen(false)}>
-          <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-lg p-7 space-y-6 relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
-            <button onClick={() => setPeriodoCfgOpen(false)} className={`absolute top-4 right-4 p-2 rounded-lg ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
-            <div className="flex items-center gap-3">
-              <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-indigo-500/10' : 'bg-indigo-50'}`}><BarChart3 className="w-5 h-5 text-indigo-500" /></span>
-              <div>
-                <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Gastos por período</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Configure o relatório antes de gerar</p>
-              </div>
+          <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-xl p-7 relative animate-in zoom-in-95 duration-300 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+            {/* Cabeçalho — título centralizado + X, no padrão "Novo Ativo" */}
+            <div className="relative text-center mb-6">
+              <button onClick={() => setPeriodoCfgOpen(false)} className={`absolute top-0 right-0 p-1.5 rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
+              <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Gastos por período</h3>
+              <p className="text-[12px] text-slate-500 mt-1">Configure o relatório antes de gerar.</p>
             </div>
 
-            {/* Agrupar por */}
-            <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Agrupar por</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[['dia', 'Dia'], ['semana', 'Semana'], ['mes', 'Mês']].map(([id, label]) => (
-                  <button key={id} type="button" onClick={() => setPeriodoCfg({ ...periodoCfg, bucket: id })}
-                    className={`py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${periodoCfg.bucket === id ? 'bg-emerald-500 text-white border-emerald-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Formas de pagamento */}
-            <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Formas de pagamento</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[['dinheiro', 'Dinheiro'], ['pix', 'Pix'], ['cartao', 'Cartão']].map(([id, label]) => {
-                  const on = periodoCfg[id];
+            {/* Agrupar por — cards com ícone */}
+            <div className="mb-5">
+              <p className={`text-[13px] font-black mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Agrupar por</p>
+              <div className="grid grid-cols-3 gap-2.5">
+                {[['dia', 'Dia', CalendarDays], ['semana', 'Semana', CalendarRange], ['mes', 'Mês', Calendar]].map(([id, label, Icon]) => {
+                  const sel = periodoCfg.bucket === id;
                   return (
-                    <button key={id} type="button" onClick={() => setPeriodoCfg({ ...periodoCfg, [id]: !on })}
-                      className={`py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${on ? 'bg-emerald-500 text-white border-emerald-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
-                      {label}
+                    <button key={id} type="button" onClick={() => setPeriodoCfg({ ...periodoCfg, bucket: id })}
+                      className={`rounded-xl border p-3.5 flex flex-col items-center justify-center gap-1.5 transition-all ${sel ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : (isDark ? 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-white/20' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300')}`}>
+                      <Icon className="w-5 h-5" strokeWidth={1.75} />
+                      <span className="text-[12px] font-bold">{label}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Cartão: incluir fatura em aberto? */}
-            {periodoCfg.cartao && (
-              <div className={`rounded-2xl border p-3 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Compras no cartão — considerar a fatura em aberto?</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[[true, 'Sim, incluir'], [false, 'Não']].map(([val, label]) => (
-                    <button key={String(val)} type="button" onClick={() => setPeriodoCfg({ ...periodoCfg, includeInvoice: val })}
-                      className={`py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${periodoCfg.includeInvoice === val ? 'bg-amber-500 text-white border-amber-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
-                      {label}
+            {/* Formas de pagamento — cards com ícone */}
+            <div className="mb-5">
+              <p className={`text-[13px] font-black mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Formas de pagamento</p>
+              <div className="grid grid-cols-3 gap-2.5">
+                {[['dinheiro', 'Dinheiro', Banknote], ['pix', 'Pix', Zap], ['cartao', 'Cartão', CreditCard]].map(([id, label, Icon]) => {
+                  const on = periodoCfg[id];
+                  return (
+                    <button key={id} type="button" onClick={() => setPeriodoCfg({ ...periodoCfg, [id]: !on })}
+                      className={`rounded-xl border p-3.5 flex flex-col items-center justify-center gap-1.5 transition-all ${on ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : (isDark ? 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-white/20' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300')}`}>
+                      <Icon className="w-5 h-5" strokeWidth={1.75} />
+                      <span className="text-[12px] font-bold">{label}</span>
                     </button>
-                  ))}
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Cartão: incluir fatura em aberto? — cards Sim/Não */}
+            {periodoCfg.cartao && (
+              <div className="mb-5">
+                <p className={`text-[13px] font-black mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Compras no cartão: considerar a fatura em aberto?</p>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {[[true, 'Sim, incluir', Check], [false, 'Não', Minus]].map(([val, label, Icon]) => {
+                    const sel = periodoCfg.includeInvoice === val;
+                    return (
+                      <button key={String(val)} type="button" onClick={() => setPeriodoCfg({ ...periodoCfg, includeInvoice: val })}
+                        className={`rounded-xl border p-3 flex items-center justify-center gap-2 transition-all ${sel ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : (isDark ? 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-white/20' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300')}`}>
+                        <Icon className="w-4 h-4" strokeWidth={2} />
+                        <span className="text-[12px] font-bold">{label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1.5">A fatura em aberto são as compras no crédito que ainda não foram pagas.</p>
               </div>
             )}
 
-            <div className="flex gap-2 pt-1">
-              <button onClick={() => setPeriodoCfgOpen(false)} className={`flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>Cancelar</button>
+            {/* Caixa de info — padrão emerald da tela "Novo Ativo" */}
+            <div className={`flex items-start gap-3 rounded-2xl border p-4 mb-6 ${isDark ? 'bg-emerald-500/[0.06] border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
+              <span className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5"><Info className="w-3.5 h-3.5 text-emerald-500" /></span>
+              <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                O relatório será gerado em <span className="font-black text-emerald-500">barras</span>, mostrando o valor em reais gasto por {bucketLabel}
+                {periodoCfg.cartao ? (periodoCfg.includeInvoice ? ', incluindo a fatura em aberto.' : ', sem a fatura em aberto.') : '.'}
+              </p>
+            </div>
+
+            {/* Rodapé — Cancelar + Gerar (padrão "Salvar Ativo") */}
+            <div className="flex gap-3">
+              <button onClick={() => setPeriodoCfgOpen(false)} className={`flex-1 py-3.5 rounded-xl text-[13px] font-bold transition-colors ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Cancelar</button>
               <button
                 onClick={() => { setReport('periodo'); setPeriodoCfgOpen(false); }}
                 disabled={!periodoCfg.dinheiro && !periodoCfg.pix && !periodoCfg.cartao}
-                className="flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/25 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
+                className="flex-1 py-3.5 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/25 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                <BarChart3 className="w-3.5 h-3.5" /> Gerar relatório
+                <BarChart3 className="w-4 h-4" /> Gerar relatório
               </button>
             </div>
           </div>
