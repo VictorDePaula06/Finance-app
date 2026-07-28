@@ -139,6 +139,23 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
   , [inPeriod]);
   const totalReserva = useMemo(() => reservaTx.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0), [reservaTx]);
 
+  // Aportes agrupados por mês (faixa contínua do período, meses sem aporte = 0).
+  const reservaByMonth = useMemo(() => {
+    const sums = {};
+    reservaTx.forEach(t => { const m = String(t.date || '').slice(0, 7) || t.month; if (m) sums[m] = (sums[m] || 0) + (parseFloat(t.amount) || 0); });
+    const out = [];
+    const s = new Date(start + 'T12:00:00'), e = new Date(end + 'T12:00:00');
+    if (isNaN(s) || isNaN(e) || s > e) return out;
+    let y = s.getFullYear(), m = s.getMonth();
+    const ey = e.getFullYear(), em = e.getMonth();
+    while (y < ey || (y === ey && m <= em)) {
+      const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+      out.push({ id: key, label: new Date(key + '-15').toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', ''), value: sums[key] || 0 });
+      m++; if (m > 11) { m = 0; y++; }
+    }
+    return out;
+  }, [reservaTx, start, end]);
+
   // Agrupamento por categoria de despesa (todas as despesas do período).
   const groupByCat = (list) => {
     const map = {};
@@ -269,7 +286,7 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
   };
 
   // ── Gráfico de barras com eixo Y, valores e rótulos ──
-  const PeriodChart = ({ data }) => {
+  const PeriodChart = ({ data, color = '#6366f1' }) => {
     const scrollRef = useRef(null);
     const scroll = data.length > 14;
     useEffect(() => { if (scroll && scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth; }, [scroll, data.length]);
@@ -298,8 +315,8 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
               <div className="absolute inset-0 flex items-end gap-2">
                 {data.map((d) => (
                   <div key={d.id} className={`flex flex-col items-center justify-end h-full ${scroll ? 'shrink-0' : 'flex-1 min-w-0'}`} style={scroll ? { width: slot } : undefined} title={`${d.label}: R$ ${fmt(d.value)}`}>
-                    {d.value > 0 && <span className="text-[10px] font-black tabular-nums text-indigo-400 mb-1 whitespace-nowrap">{fmt(d.value)}</span>}
-                    <div className={`w-5 rounded-t-md transition-all ${d.value > 0 ? 'bg-indigo-500 hover:bg-indigo-400' : (isDark ? 'bg-white/5' : 'bg-slate-100')}`} style={{ height: `${d.value > 0 ? Math.max(4, (d.value / niceMax) * H) : 3}px` }} />
+                    {d.value > 0 && <span className="text-[10px] font-black tabular-nums mb-1 whitespace-nowrap" style={{ color }}>{fmt(d.value)}</span>}
+                    <div className="w-5 rounded-t-md transition-all hover:opacity-80" style={{ height: `${d.value > 0 ? Math.max(4, (d.value / niceMax) * H) : 3}px`, background: d.value > 0 ? color : (isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9') }} />
                   </div>
                 ))}
               </div>
@@ -686,21 +703,83 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
             </>
           )}
 
-          {report === 'reservas' && (
+          {report === 'reservas' && (() => {
+            const mesesComAporte = reservaByMonth.filter(m => m.value > 0).length;
+            const maxMes = reservaByMonth.reduce((a, b) => (b.value > (a?.value || 0) ? b : a), null);
+            const avgMes = reservaByMonth.length ? totalReserva / reservaByMonth.length : 0;
+            return (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <KPI label="Total aportado" value={totalReserva} color="#10b981" sub={`${reservaTx.length} aporte${reservaTx.length === 1 ? '' : 's'} no período`} />
+              {/* KPIs */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="pat-card p-4 relative overflow-hidden">
+                  <Sparkline values={reservaByMonth.map(m => m.value)} color="#10b981" />
+                  <div className="relative flex items-center gap-3">
+                    <span className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}><PiggyBank className="w-5 h-5 text-emerald-500" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total aportado</p>
+                      <p className="text-2xl font-black tabular-nums text-emerald-500 leading-tight">R$ {fmt(totalReserva)}</p>
+                      <p className="text-[11px] text-slate-500">{reservaTx.length} aporte{reservaTx.length === 1 ? '' : 's'}</p>
+                    </div>
+                  </div>
+                </div>
                 <div className="pat-card p-4">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Média por aporte</p>
-                  <p className="text-2xl font-black tabular-nums mt-1 text-emerald-500">R$ {fmt(reservaTx.length ? totalReserva / reservaTx.length : 0)}</p>
+                  <div className="flex items-center gap-3">
+                    <span className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? 'bg-amber-500/10' : 'bg-amber-50'}`}><TrendingUp className="w-5 h-5 text-amber-500" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Média por mês</p>
+                      <p className="text-2xl font-black tabular-nums text-amber-500 leading-tight">R$ {fmt(avgMes)}</p>
+                      <p className="text-[11px] text-slate-500">{reservaByMonth.length} {reservaByMonth.length === 1 ? 'mês' : 'meses'}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="pat-card p-4">
+                  <div className="flex items-center gap-3">
+                    <span className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? 'bg-teal-500/10' : 'bg-teal-50'}`}><Calendar className="w-5 h-5 text-teal-500" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Meses com aporte</p>
+                      <p className={`text-2xl font-black tabular-nums leading-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{mesesComAporte}</p>
+                      <p className="text-[11px] text-slate-500">de {reservaByMonth.length} no período</p>
+                    </div>
+                  </div>
                 </div>
               </div>
+
+              {/* Gráfico de barras por mês */}
               <div className="pat-card p-5">
-                <p className={`text-xs font-black mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Aportes do período</p>
-                <TxList list={reservaTx} color="#10b981" prefix="+" />
+                <p className={`text-sm font-black mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>Aportes por mês</p>
+                <p className="text-[10px] text-slate-500 mb-4">Valor guardado em reservas por mês, no período.</p>
+                <PeriodChart data={reservaByMonth} color="#10b981" />
+              </div>
+
+              {/* Insights */}
+              <div className="pat-card p-5">
+                <p className={`text-sm font-black mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Insights do período</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-start gap-3">
+                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}><PiggyBank className="w-4 h-4 text-emerald-500" /></span>
+                    <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      {maxMes && maxMes.value > 0
+                        ? <>Seu melhor mês foi <span className="font-black text-emerald-500">{maxMes.label}</span>, com <span className="font-black">R$ {fmt(maxMes.value)}</span> guardados.</>
+                        : 'Ainda não há aportes no período selecionado.'}
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-amber-500/10' : 'bg-amber-50'}`}><TrendingUp className="w-4 h-4 text-amber-500" /></span>
+                    <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      Você guardou em <span className="font-black text-amber-500">{mesesComAporte}</span> {mesesComAporte === 1 ? 'mês' : 'meses'}, uma média de <span className="font-black">R$ {fmt(avgMes)}</span>/mês.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}><Target className="w-4 h-4 text-violet-500" /></span>
+                    <p className={`flex-1 text-[12px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      Que tal manter um valor fixo guardado todo mês para acelerar sua reserva?
+                    </p>
+                  </div>
+                </div>
               </div>
             </>
-          )}
+            );
+          })()}
         </div>
       )}
 
