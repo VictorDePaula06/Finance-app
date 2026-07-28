@@ -897,6 +897,7 @@ function Dashboard() {
               transactions={transactions}
               cards={cards}
               subscriptions={subscriptions}
+              fixedExpenses={fixedExpensesList}
               manualConfig={manualConfig}
               onUpdateConfig={updateManualConfig}
               initialView={

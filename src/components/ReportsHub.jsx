@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   BarChart3, Tags, CreditCard, PiggyBank, Download, ChevronLeft,
   Calendar, CalendarDays, CalendarRange, Banknote, Zap, Check, Minus, Info,
-  X, SlidersHorizontal, Wallet, TrendingUp, Flame, Target, ChevronDown,
+  X, SlidersHorizontal, Wallet, TrendingUp, Flame, Target, ChevronDown, Repeat,
 } from 'lucide-react';
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import { generateTablePDF } from '../utils/generatePDF';
@@ -12,7 +12,7 @@ import logo from '../assets/logo.png';
 const REPORTS = [
   { id: 'periodo',    label: 'Gastos por período',  desc: 'Total e evolução dos gastos', icon: BarChart3,  accent: 'rose' },
   { id: 'categorias', label: 'Gastos por categoria', desc: 'Gasto por categoria',        icon: Tags,       accent: 'violet' },
-  { id: 'cartao',     label: 'Gastos no cartão',     desc: 'Compras no crédito',         icon: CreditCard, accent: 'amber' },
+  { id: 'custo',      label: 'Meu custo mensal',     desc: 'Contas fixas, assinaturas e parcelas', icon: Repeat, accent: 'amber' },
   { id: 'reservas',   label: 'Aportes em Reservas',  desc: 'Quanto você guardou',        icon: PiggyBank,  accent: 'emerald' },
 ];
 
@@ -29,7 +29,7 @@ const fmt = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDig
 const dayISO = (d) => d.toISOString().slice(0, 10);
 const dLabel = (iso) => { const [y, m, d] = String(iso).slice(0, 10).split('-'); return d ? `${d}/${m}` : iso; };
 
-export default function ReportsHub({ transactions = [], cards = [], theme = 'dark' }) {
+export default function ReportsHub({ transactions = [], cards = [], subscriptions = [], fixedExpenses = [], theme = 'dark' }) {
   const isDark = theme !== 'light';
   const [report, setReport] = useState(null);
   // Config do relatório "Gastos por período".
@@ -156,6 +156,27 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
     return out;
   }, [reservaTx, start, end]);
 
+  // ── Meu custo mensal: contas fixas + assinaturas + parcelas (não depende do período) ──
+  const custo = useMemo(() => {
+    const recur = (subscriptions || []).filter(s => s.type !== 'installment');
+    const inst = (subscriptions || []).filter(s => s.type === 'installment');
+    const fixas = (fixedExpenses || []).reduce((a, e) => a + (parseFloat(e.value) || 0), 0);
+    const assin = recur.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+    const parc = inst.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+    return { fixas, assin, parc, total: fixas + assin + parc, nFixas: (fixedExpenses || []).length, nAssin: recur.length, nParc: inst.length, recur, inst };
+  }, [subscriptions, fixedExpenses]);
+  const custoGroups = useMemo(() => ([
+    { id: 'fixas', label: 'Contas fixas', value: custo.fixas, hex: '#f59e0b' },
+    { id: 'assin', label: 'Assinaturas', value: custo.assin, hex: '#8b5cf6' },
+    { id: 'parc', label: 'Parcelas', value: custo.parc, hex: '#f43f5e' },
+  ].filter(g => g.value > 0)), [custo]);
+  // Maiores itens recorrentes (fixas + assinaturas + parcelas).
+  const custoItems = useMemo(() => ([
+    ...(fixedExpenses || []).map(e => ({ id: 'f' + e.id, name: e.name, value: parseFloat(e.value) || 0, tipo: e.isVariable ? 'Conta variável' : 'Conta fixa', hex: '#f59e0b' })),
+    ...custo.recur.map(s => ({ id: 'a' + s.id, name: s.name, value: parseFloat(s.value) || 0, tipo: 'Assinatura', hex: '#8b5cf6' })),
+    ...custo.inst.map(s => ({ id: 'p' + s.id, name: s.name, value: parseFloat(s.value) || 0, tipo: `Parcela ${s.currentInstallment || 1}/${s.totalInstallments || 1}`, hex: '#f43f5e' })),
+  ].sort((a, b) => b.value - a.value)), [fixedExpenses, custo]);
+
   // Agrupamento por categoria de despesa (todas as despesas do período).
   const groupByCat = (list) => {
     const map = {};
@@ -206,12 +227,16 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
         rows: catByCat.map(c => [c.label, `R$ ${fmt(c.value)}`, catTotal > 0 ? `${((c.value / catTotal) * 100).toFixed(1)}%` : '0%']),
         columnStyles: { 1: { halign: 'right', fontStyle: 'bold' }, 2: { halign: 'right' } },
       }, logo);
-    } else if (report === 'cartao') {
+    } else if (report === 'custo') {
       await generateTablePDF({
-        title: 'Gastos no Cartão', subtitle,
-        summary: [{ label: 'Total no crédito', value: `R$ ${fmt(totalCard)}`, color: 'amber' }, { label: 'Compras', value: String(cardTx.length), color: 'neutral' }],
-        columns: ['Descrição', 'Cartão', 'Valor'],
-        rows: cardTx.map(t => [t.description || 'Compra', cardName(t.selectedCardId), `R$ ${fmt(parseFloat(t.amount) || 0)}`]),
+        title: 'Meu Custo Mensal', subtitle: 'Compromissos recorrentes',
+        summary: [
+          { label: 'Custo mensal', value: `R$ ${fmt(custo.total)}`, color: 'blue' },
+          { label: 'Contas fixas', value: `R$ ${fmt(custo.fixas)}`, color: 'amber' },
+          { label: 'Assin. + parcelas', value: `R$ ${fmt(custo.assin + custo.parc)}`, color: 'violet' },
+        ],
+        columns: ['Item', 'Tipo', 'Valor/mês'],
+        rows: custoItems.map(it => [it.name, it.tipo, `R$ ${fmt(it.value)}`]),
         columnStyles: { 2: { halign: 'right', fontStyle: 'bold' } },
       }, logo);
     } else if (report === 'reservas') {
@@ -465,7 +490,7 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
         </div>
         {report && (
           <div className="flex items-center gap-2 flex-wrap">
-            {report !== 'periodo' && report !== 'categorias' && (
+            {report !== 'periodo' && report !== 'categorias' && report !== 'custo' && (
               <div className={`flex items-center gap-1.5 px-2 rounded-xl border ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                 <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <input type="date" value={start} max={end} onChange={e => setStart(e.target.value)} className={`bg-transparent text-xs font-bold py-2 outline-none ${isDark ? 'text-white' : 'text-slate-800'}`} />
@@ -681,27 +706,101 @@ export default function ReportsHub({ transactions = [], cards = [], theme = 'dar
             );
           })()}
 
-          {report === 'cartao' && (
+          {report === 'custo' && (() => {
+            const pctFixas = custo.total > 0 ? (custo.fixas / custo.total) * 100 : 0;
+            return (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <KPI label="Total no cartão" value={totalCard} color="#f59e0b" sub={`${cardTx.length} compra${cardTx.length === 1 ? '' : 's'} no crédito`} />
+              {/* KPIs */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="pat-card p-4">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Cartões usados</p>
-                  <p className={`text-2xl font-black tabular-nums mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{byCard.length}</p>
+                  <div className="flex items-center gap-3">
+                    <span className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? 'bg-blue-500/10' : 'bg-blue-50'}`}><Repeat className="w-5 h-5 text-blue-500" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Custo mensal</p>
+                      <p className="text-2xl font-black tabular-nums text-blue-500 leading-tight">R$ {fmt(custo.total)}</p>
+                      <p className="text-[11px] text-slate-500">todo mês, aproximadamente</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="pat-card p-4">
+                  <div className="flex items-center gap-3">
+                    <span className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? 'bg-amber-500/10' : 'bg-amber-50'}`}><Wallet className="w-5 h-5 text-amber-500" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Contas fixas</p>
+                      <p className="text-2xl font-black tabular-nums text-amber-500 leading-tight">R$ {fmt(custo.fixas)}</p>
+                      <p className="text-[11px] text-slate-500">{custo.nFixas} conta{custo.nFixas === 1 ? '' : 's'}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="pat-card p-4">
+                  <div className="flex items-center gap-3">
+                    <span className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}><CreditCard className="w-5 h-5 text-violet-500" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Assinaturas + parcelas</p>
+                      <p className="text-2xl font-black tabular-nums text-violet-500 leading-tight">R$ {fmt(custo.assin + custo.parc)}</p>
+                      <p className="text-[11px] text-slate-500">{custo.nAssin} assin. · {custo.nParc} parc.</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-              {byCard.length > 0 && (
-                <div className="pat-card p-5">
-                  <p className={`text-xs font-black mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>Por cartão</p>
-                  <Bars data={byCard} total={totalCard} color="#f59e0b" />
-                </div>
-              )}
+
+              {/* Composição do custo (pizza) */}
               <div className="pat-card p-5">
-                <p className={`text-xs font-black mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Compras no crédito</p>
-                <TxList list={cardTx} color="#f59e0b" />
+                <p className={`text-sm font-black mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>Composição do custo mensal</p>
+                <p className="text-[10px] text-slate-500 mb-4">Quanto cada tipo de compromisso pesa no seu mês.</p>
+                <PieDonut data={custoGroups} total={custo.total} />
+              </div>
+
+              {/* Maiores compromissos */}
+              <div className="pat-card p-5">
+                <p className={`text-sm font-black mb-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>Maiores compromissos do mês</p>
+                {custoItems.length === 0 ? (
+                  <p className="text-center text-xs text-slate-500 py-8">Nenhum compromisso recorrente cadastrado.</p>
+                ) : (
+                  <div className={`divide-y ${isDark ? 'divide-white/[0.04]' : 'divide-slate-100'}`}>
+                    {custoItems.slice(0, 8).map(it => (
+                      <div key={it.id} className="flex items-center justify-between gap-3 py-2.5">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: it.hex }} />
+                          <div className="min-w-0">
+                            <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{it.name}</p>
+                            <p className="text-[10px] font-bold text-slate-500">{it.tipo}</p>
+                          </div>
+                        </div>
+                        <span className="text-sm font-black tabular-nums shrink-0" style={{ color: it.hex }}>R$ {fmt(it.value)}<span className="text-[10px] text-slate-500">/mês</span></span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Insights */}
+              <div className="pat-card p-5">
+                <p className={`text-sm font-black mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Insights</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-start gap-3">
+                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-blue-500/10' : 'bg-blue-50'}`}><Repeat className="w-4 h-4 text-blue-500" /></span>
+                    <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      Seu custo fixo mensal é de <span className="font-black text-blue-500">R$ {fmt(custo.total)}</span> em compromissos recorrentes.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-amber-500/10' : 'bg-amber-50'}`}><Wallet className="w-4 h-4 text-amber-500" /></span>
+                    <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      As <span className="font-black text-amber-500">contas fixas</span> representam <span className="font-black">{pctFixas.toFixed(0)}%</span> do seu custo mensal.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}><CreditCard className="w-4 h-4 text-violet-500" /></span>
+                    <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      Você tem <span className="font-black text-violet-500">{custo.nAssin}</span> assinatura{custo.nAssin === 1 ? '' : 's'} somando <span className="font-black">R$ {fmt(custo.assin)}</span>/mês.
+                    </p>
+                  </div>
+                </div>
               </div>
             </>
-          )}
+            );
+          })()}
 
           {report === 'reservas' && (() => {
             const mesesComAporte = reservaByMonth.filter(m => m.value > 0).length;
