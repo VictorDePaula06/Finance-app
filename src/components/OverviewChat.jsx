@@ -31,28 +31,23 @@ function buildSummary({ transactions, manualConfig, walletStats, healthIndex, in
   const objLabel = OBJECTIVE_LABELS_SHORT[primaryObjective] || '';
   const aporteAlvo = parseFloat(ob.monthlyContribution) || 0;
 
+  // Resumo QUALITATIVO — sem citar valores em R$ (análise geral).
   const L = [];
-  L.push('Oi! Dei uma olhada no seu mês 👀');
-  if (hasDebt) L.push(`⚠️ **Prioridade:** você tem **R$ ${fmtMoney(totalDebt)}** em dívidas — quitar vem antes de qualquer investimento (veja em *Gerenciamento de Dívidas*).`);
-  L.push(`Os gastos **essenciais** somaram **R$ ${fmtMoney(essential)}** e os **supérfluos** **R$ ${fmtMoney(superf)}** (${supPct}% dos gastos${supPct > 30 ? ' — acima do ideal de 30%' : ' — dentro do ideal'}).`);
-  L.push(sobrou >= 0 ? `Você está **no positivo**: sobram **R$ ${fmtMoney(sobrou)}** este mês.` : `Atenção: você gastou **R$ ${fmtMoney(Math.abs(sobrou))}** a mais do que ganhou neste mês.`);
+  L.push('Oi! Dei uma olhada geral no seu mês 👀');
+  if (hasDebt) L.push('⚠️ **Prioridade:** você tem dívidas em aberto — quitá-las vem antes de investir (veja em *Gerenciamento de Dívidas*).');
+  L.push(supPct > 30
+    ? 'Seus gastos **supérfluos** estão **acima do ideal** — dá pra enxugar um pouco.'
+    : 'Seus gastos **supérfluos** estão **sob controle** (dentro do ideal). 👍');
+  L.push(sobrou >= 0
+    ? 'No geral, você está **no positivo** este mês.'
+    : 'Atenção: neste mês você **gastou mais do que ganhou** — vale rever os supérfluos.');
   L.push(reserveAmount > 0
-    ? `Sua **reserva de emergência** cobre **${reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ${reserveMonths === 1 ? 'mês' : 'meses'}** de despesas${reserveMonths < 6 ? ' — mire ao menos 6 meses.' : ' — ótimo nível!'}`
+    ? (reserveMonths < 6
+      ? 'Sua **reserva de emergência** ainda está **abaixo do ideal** — mire pelo menos 6 meses de cobertura.'
+      : 'Sua **reserva de emergência** está em **ótimo nível**! 🎉')
     : 'Você ainda **não tem reserva de emergência** — vale começar a construir uma.');
-  if (!hasDebt && (objLabel || aporteAlvo > 0)) {
-    let s = '';
-    if (objLabel) s += `Seu objetivo é **${objLabel}**. `;
-    if (aporteAlvo > 0) {
-      s += sobrou >= aporteAlvo
-        ? `Sua meta de aporte é **R$ ${fmtMoney(aporteAlvo)}/mês** e a sobra já cobre isso — **bom momento para investir.**`
-        : sobrou > 0
-          ? `Sua meta de aporte é **R$ ${fmtMoney(aporteAlvo)}/mês**; faltam **R$ ${fmtMoney(aporteAlvo - sobrou)}** para o aporte completo.`
-          : `Sua meta de aporte é **R$ ${fmtMoney(aporteAlvo)}/mês**, mas não houve sobra — reveja os supérfluos.`;
-    } else {
-      s += 'Defina um aporte mensal em *Construção de Patrimônio* para eu acompanhar seu ritmo.';
-    }
-    L.push(s);
-  }
+  if (objLabel) L.push(`Seu objetivo principal é **${objLabel}**. Acompanhe suas **metas** em *Objetivos / Metas* que eu fico de olho no seu progresso.`);
+  else L.push('Cadastre suas **metas** em *Objetivos / Metas* que eu acompanho seu progresso por aqui.');
   L.push('Pode me perguntar qualquer coisa ou **registrar um gasto** aqui mesmo. 😊');
   return L.join('\n\n');
 }
@@ -200,7 +195,13 @@ export default function OverviewChat({ transactions = [], manualConfig = {}, onA
     }
     setIsLoading(true);
     try {
-      const context = calculateStatsContext(transactions, manualConfig, false, jars, investments, userPrefs?.onboarding, { cards, fixedExpenses, goals, expenseGoals, subscriptions, planLevel });
+      const context = calculateStatsContext(transactions, manualConfig, false, jars, investments, userPrefs?.onboarding, { cards, fixedExpenses, goals, expenseGoals, subscriptions, planLevel })
+        + `\n\n── INSTRUÇÕES DESTE CHAT (Visão Geral) ──\n`
+        + `- NÃO cite valores monetários específicos (nada de "R$ X" ou números de reais). Use os dados só para entender a situação.\n`
+        + `- Faça uma análise GERAL e qualitativa (ex.: "seus gastos supérfluos estão altos", "sua reserva está baixa", "você está no positivo").\n`
+        + `- Comente também sobre as METAS/OBJETIVOS cadastrados (progresso, se algum teto estourou, ritmo) — sempre sem citar valores.\n`
+        + `- Se o usuário pedir explicitamente um número/valor, oriente-o a ver nos cartões/relatórios do app.\n`
+        + `- Seja breve, clara e acolhedora.`;
       const raw = await sendMessageToGemini(messages, msg, context);
       const { display, command } = parseAction(raw);
       if (display) addModelMsg(display);

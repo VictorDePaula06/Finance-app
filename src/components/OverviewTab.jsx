@@ -1,11 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { AreaChart, Area, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Eye, EyeOff, CreditCard, ChevronRight, TrendingUp, TrendingDown, ShieldCheck, ArrowUpRight, ArrowDownRight, Wallet, X } from 'lucide-react';
+import { Eye, EyeOff, CreditCard, ChevronRight, TrendingUp, TrendingDown, ShieldCheck, ArrowUpRight, ArrowDownRight, Wallet, X, PiggyBank } from 'lucide-react';
 import FinancialHealthIndex from './FinancialHealthIndex';
 import GoalsOverviewCard from './GoalsOverviewCard';
+import { CATEGORIES } from '../constants/categories';
 
+// Cores curadas p/ o donut (fallback em cinza). Podem não existir pra toda categoria.
 const CAT_COLORS = { housing: '#FB7185', food: '#FB923C', fast_food: '#F59E0B', transport: '#FACC15', health: '#F87171', education: '#60A5FA', pets: '#B45309', personal_care: '#F9A8D4', subscriptions: '#C084FC', credit_card: '#8B5CF6', church: '#93C5FD', taxes: '#64748B', leisure: '#818CF8', shopping: '#F472B6', credit_card_bill: '#8B5CF6', conta_fixa: '#6366F1', loan: '#FB7185', other: '#94A3B8' };
-const CAT_LABELS = { housing: 'Moradia', food: 'Alimentação', fast_food: 'Fast Food', transport: 'Transporte', health: 'Saúde', education: 'Educação', pets: 'Pets', personal_care: 'Cuidados', subscriptions: 'Assinaturas', credit_card: 'Cartão', church: 'Igreja', taxes: 'Taxas', leisure: 'Lazer', shopping: 'Compras', credit_card_bill: 'Fatura', conta_fixa: 'Conta Fixa', loan: 'Empréstimo', other: 'Outros' };
+// Rótulos derivados da FONTE ÚNICA (constants/categories) — sempre iguais ao resto do app.
+const CAT_LABELS = Object.fromEntries((CATEGORIES.expense || []).map(c => [c.id, c.label]));
 
 export default function OverviewTab({
     transactions,
@@ -318,7 +321,7 @@ export default function OverviewTab({
                     </div>
 
                     <div className={`p-5 rounded-2xl border flex flex-col ${card}`}>
-                        <h3 className={`flex items-center gap-2 text-sm font-black ${textColor} mb-3`}><ShieldCheck className="w-4 h-4 text-emerald-500" /> Reserva de emergência</h3>
+                        <h3 className={`flex items-center gap-2 text-sm font-black ${textColor} mb-3`}><PiggyBank className="w-4 h-4 text-emerald-500" /> Reserva de emergência</h3>
                         <div className="flex-1">
                             <p className={`text-2xl md:text-3xl font-black tracking-tight tabular-nums ${hideBalance ? 'blur-md select-none' : 'text-emerald-500'}`}>{hideBalance ? 'R$ ••••' : formatCurrency(reserveAmount)}</p>
                             <p className="text-[12px] font-bold text-emerald-400 mt-1">{reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} {reserveMonths === 1 ? 'mês' : 'meses'} de cobertura</p>
@@ -342,7 +345,7 @@ export default function OverviewTab({
                     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowReserve(false)}>
                         <div className={`w-full max-w-md rounded-2xl border p-5 relative animate-in zoom-in-95 duration-200 max-h-[88vh] overflow-y-auto custom-scrollbar shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`} onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => setShowReserve(false)} className={`absolute top-4 right-4 p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-slate-100 text-slate-400'}`}><X className="w-4 h-4" /></button>
-                            <h3 className={`flex items-center gap-2 text-base font-black ${textColor}`}><ShieldCheck className="w-5 h-5 text-emerald-500" /> Reserva de emergência</h3>
+                            <h3 className={`flex items-center gap-2 text-base font-black ${textColor}`}><PiggyBank className="w-5 h-5 text-emerald-500" /> Reserva de emergência</h3>
                             <p className={`text-3xl font-black tabular-nums mt-3 ${hideBalance ? 'blur-md select-none' : 'text-emerald-500'}`}>{hideBalance ? 'R$ ••••' : formatCurrency(reserveAmount)}</p>
                             <p className="text-[12px] font-bold text-emerald-400">{reserveMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} {reserveMonths === 1 ? 'mês' : 'meses'} de cobertura</p>
                             <div className={`w-full h-2 rounded-full overflow-hidden mt-3 ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}><div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(3, reservePct)}%` }} /></div>
@@ -415,7 +418,7 @@ export default function OverviewTab({
                         <div className="hidden lg:flex items-stretch gap-3 flex-1 min-w-0">
                             <div className={`shrink-0 w-44 rounded-2xl border px-4 py-3 flex flex-col justify-center ${theme === 'light' ? 'bg-emerald-50/70 border-emerald-200' : 'bg-emerald-500/[0.07] border-emerald-500/25'}`}>
                                 <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-emerald-400">
-                                    <ShieldCheck className="w-3.5 h-3.5" /> Reserva de emergência
+                                    <PiggyBank className="w-3.5 h-3.5" /> Reserva de emergência
                                 </span>
                                 <div className={`text-xl font-black tabular-nums mt-1 ${hideBalance ? 'blur-md select-none' : 'text-emerald-400'}`}>
                                     {hideBalance ? 'R$ 0,00' : formatCurrency(reserveAmount)}

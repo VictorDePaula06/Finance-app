@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Coins, ShieldCheck, ShoppingBag, Clock, ArrowRight, CreditCard, AlertTriangle } from 'lucide-react';
+import { Coins, ShieldCheck, ShoppingBag, Clock, ArrowRight, CreditCard, AlertTriangle, HeartPulse, DollarSign } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
 const fmtCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
@@ -46,24 +46,21 @@ function ScoreGauge({ score, ringColor, isDark }) {
     );
 }
 
-// ── Semáforo ────────────────────────────────────────────────────────────────
-function TrafficLight({ activeState, statusLabel, accentText }) {
+// ── Selo de Saúde Financeira (pulso + cifrão) ─────────────────────────────────
+function HealthBadge({ ringColor, statusLabel, accentText, accentSoft }) {
     return (
         <div className="flex flex-col items-center gap-1.5 shrink-0">
-            <div className="flex flex-col gap-1 p-1 rounded-xl bg-black/30 border border-white/5">
-                {LIGHTS.slice().reverse().map(light => {
-                    const on = light.state === activeState;
-                    return (
-                        <div
-                            key={light.state}
-                            className="w-3.5 h-3.5 rounded-full transition-all duration-500"
-                            style={{
-                                backgroundColor: on ? light.color : 'rgba(120,120,120,0.18)',
-                                boxShadow: on ? `0 0 12px ${light.color}` : 'none',
-                            }}
-                        />
-                    );
-                })}
+            <div
+                className={`relative w-16 h-16 rounded-2xl flex items-center justify-center ${accentSoft}`}
+                style={{ border: `1.5px solid ${ringColor}`, boxShadow: `0 0 16px ${ringColor}22` }}
+            >
+                <HeartPulse className="w-8 h-8" style={{ color: ringColor }} strokeWidth={1.75} />
+                <span
+                    className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full flex items-center justify-center border-2 border-[#131621]"
+                    style={{ background: ringColor }}
+                >
+                    <DollarSign className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+                </span>
             </div>
             <span className={`text-[10px] font-black uppercase tracking-widest ${accentText}`}>{statusLabel}</span>
         </div>
@@ -114,7 +111,7 @@ export default function FinancialHealthIndex({ data, invoiceInfo = null }) {
 
                 {/* Topo: semáforo + texto + gauge */}
                 <div className="p-4 md:p-5 flex flex-col md:flex-row items-center gap-4">
-                    <TrafficLight activeState={data.state} statusLabel={data.statusLabel} accentText={acc.text} />
+                    <HealthBadge ringColor={acc.ring} statusLabel={data.statusLabel} accentText={acc.text} accentSoft={acc.soft} />
 
                     <div className="flex-1 min-w-0 text-center md:text-left">
                         <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full ${acc.soft} ${acc.text} mb-1.5`}>
