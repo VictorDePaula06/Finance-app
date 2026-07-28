@@ -29,6 +29,7 @@ import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc
 import TrialLimitModal from './TrialLimitModal';
 import OverdraftWarningModal from './OverdraftWarningModal';
 import ConfirmSaveDialog from './ConfirmSaveDialog';
+import { EditTxModal, DeleteTxDialog } from './TransactionActions';
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import { generateTablePDF } from '../utils/generatePDF';
 import logo from '../assets/logo.png';
@@ -98,6 +99,9 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
   // "Ver todos" por seção (fixo/avulso/parcelamento) com filtro de período.
   const [viewAllType, setViewAllType] = useState(null);
   const [viewPeriod, setViewPeriod] = useState('30d');
+  // Editar/excluir um gasto já lançado (feed / ver todos).
+  const [editTx, setEditTx] = useState(null);
+  const [deleteTx, setDeleteTx] = useState(null);
 
   // ── Despesa avulsa: um gasto só deste mês (não vira conta fixa) ──
   const [manualOpen, setManualOpen] = useState(false);
@@ -641,7 +645,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
     const dt = t.date ? new Date(t.date) : null;
     const isCredit = t.paymentMethod === 'credito';
     return (
-      <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+      <div key={t.id} className={`group flex items-center justify-between gap-3 px-4 py-2.5 transition-colors ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
         <div className="flex items-center gap-3 min-w-0">
           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: hex }} />
           <div className="min-w-0">
@@ -653,7 +657,11 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
             </p>
           </div>
         </div>
-        <span className="text-sm font-black tabular-nums shrink-0 text-rose-500">− R$ {fmt(parseFloat(t.amount) || 0)}</span>
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-sm font-black tabular-nums text-rose-500">− R$ {fmt(parseFloat(t.amount) || 0)}</span>
+          <button onClick={() => setEditTx(t)} title="Editar" className={`p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+          <button onClick={() => setDeleteTx(t)} title="Excluir" className={`p-2 rounded-lg text-rose-400 opacity-0 group-hover:opacity-100 transition-all ${isDark ? 'hover:bg-rose-500/10' : 'hover:bg-rose-50'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+        </div>
       </div>
     );
   };
@@ -1485,6 +1493,10 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
           </form>
         </div>
       )}
+
+      {/* Editar / excluir um gasto lançado */}
+      <EditTxModal tx={editTx} categories={CATEGORIES.expense} onClose={() => setEditTx(null)} />
+      <DeleteTxDialog tx={deleteTx} onClose={() => setDeleteTx(null)} />
     </div>
   );
 }

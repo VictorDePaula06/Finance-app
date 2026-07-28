@@ -5,6 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import ConfirmSaveDialog from './ConfirmSaveDialog';
+import { EditTxModal, DeleteTxDialog } from './TransactionActions';
+import { CATEGORIES } from '../constants/categories';
 
 // Categorias de entrada recorrente (espelha o conceito das contas fixas, do lado da receita).
 const INCOME_CATEGORIES = [
@@ -52,6 +54,9 @@ export default function FixedIncomesTab({ transactions = [], mode = 'cadastro' }
   const [busy, setBusy] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  // Editar/excluir um recebimento já lançado (extrato).
+  const [editTx, setEditTx] = useState(null);
+  const [deleteTx, setDeleteTx] = useState(null);
   // Seletor "Recebimento": confirma um cadastrado pendente OU lança um avulso.
   const [receiveChooser, setReceiveChooser] = useState(false);
   // Recebimento avulso: entrada de uma vez só, apenas neste mês (não vira cadastro).
@@ -337,7 +342,7 @@ export default function FixedIncomesTab({ transactions = [], mode = 'cadastro' }
               {latestIncomes.map(t => {
                 const dt = t.date ? new Date(t.date) : null;
                 return (
-                  <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div key={t.id} className={`group flex items-center justify-between gap-3 px-4 py-3 transition-colors ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
                     <div className="flex items-center gap-3 min-w-0">
                       <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
                         <ArrowUpCircle className="w-[18px] h-[18px] text-emerald-500" />
@@ -351,7 +356,11 @@ export default function FixedIncomesTab({ transactions = [], mode = 'cadastro' }
                         </p>
                       </div>
                     </div>
-                    <span className="text-sm font-black tabular-nums text-emerald-500 shrink-0">+ R$ {fmt(parseFloat(t.amount) || 0)}</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="text-sm font-black tabular-nums text-emerald-500">+ R$ {fmt(parseFloat(t.amount) || 0)}</span>
+                      <button onClick={() => setEditTx(t)} title="Editar" className={`p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setDeleteTx(t)} title="Excluir" className={`p-2 rounded-lg text-rose-400 opacity-0 group-hover:opacity-100 transition-all ${isDark ? 'hover:bg-rose-500/10' : 'hover:bg-rose-50'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
                   </div>
                 );
               })}
@@ -559,6 +568,10 @@ export default function FixedIncomesTab({ transactions = [], mode = 'cadastro' }
           </div>
         </div>
       )}
+
+      {/* Editar / excluir um recebimento lançado */}
+      <EditTxModal tx={editTx} categories={CATEGORIES.income} onClose={() => setEditTx(null)} />
+      <DeleteTxDialog tx={deleteTx} onClose={() => setDeleteTx(null)} />
     </div>
   );
 }

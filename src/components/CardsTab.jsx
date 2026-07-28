@@ -930,7 +930,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
     // transação
     const pm = PM_META[item.priority] || { l: '', c: '' };
     return (
-      <div key={`t-${item.id}`} className={`flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
+      <div key={`t-${item.id}`} className={`group flex items-center gap-3 px-1 py-2.5 ${isDark ? 'border-t border-white/[0.04]' : 'border-t border-slate-50'}`}>
         <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}><Icon className="w-[18px] h-[18px]" /></span>
         <div className="min-w-0 flex-1">
           <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.name}</p>
@@ -941,7 +941,11 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
             {item.installmentInfo && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400">{item.installmentInfo}</span>}
           </div>
         </div>
-        <p className="text-[13px] font-black tabular-nums text-rose-400 shrink-0">R$ {fmt(item.amount)}</p>
+        <div className="text-right shrink-0 flex items-center gap-2">
+          <span className="text-[13px] font-black tabular-nums text-rose-400">R$ {fmt(item.amount)}</span>
+          <button onClick={() => openEditTransaction(item.raw)} title="Editar" className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+          <button onClick={() => setDeleteConfirm({ id: item.id, type: 'transaction', title: item.name })} title="Excluir" className={`p-1.5 rounded-lg ${isDark ? 'text-slate-500 hover:bg-white/5 hover:text-rose-400' : 'text-slate-400 hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+        </div>
       </div>
     );
   };
