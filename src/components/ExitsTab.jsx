@@ -35,7 +35,7 @@ import { collection, addDoc, deleteDoc, doc, updateDoc, query, where, onSnapshot
 import { CATEGORIES } from '../constants/categories';
 import { isMonthlyExpenseTx, txMonthKey } from '../utils/financialLogic';
 
-export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.65, cards = [], subscriptions = [], walletStats, hideBalance, toggleHideBalance, setActiveTab, initialSubTab, expenseBasis = 'competencia' }) {
+export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.65, cards = [], subscriptions = [], walletStats, hideBalance, toggleHideBalance, setActiveTab, initialSubTab, expenseBasis = 'competencia', reserveMonthlyBase = 0 }) {
     const { theme } = useTheme();
     const { currentUser, planLevel, isAdmin, isTrial } = useAuth();
 
@@ -263,20 +263,10 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
         (savingsJars || []).reduce((a, j) => a + (parseFloat(j.balance) || 0), 0)
     , [savingsJars]);
 
-    // Gasto médio mensal (últimos 3 meses com movimento) para estimar a cobertura.
-    const monthlyExpenseAvg = useMemo(() => {
-        const now = new Date();
-        const keys = [0, 1, 2].map(off => {
-            const d = new Date(now.getFullYear(), now.getMonth() - off, 1);
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        });
-        const sums = keys.map(m => (transactions || [])
-            .filter(t => t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category) && (t.month || String(t.date || '').slice(0, 7)) === m)
-            .reduce((a, t) => a + (parseFloat(t.amount) || 0), 0));
-        const active = sums.filter(s => s > 0);
-        return active.length ? active.reduce((a, b) => a + b, 0) / active.length : 0;
-    }, [transactions]);
-    const coverMonths = monthlyExpenseAvg > 0 ? totalReserve / monthlyExpenseAvg : 0;
+    // Cobertura da reserva = reserva ÷ custo mensal de referência. Usa o MESMO
+    // custo mensal do Índice de Saúde (vem por prop reserveMonthlyBase), para o
+    // número de "meses de cobertura" ser idêntico ao da Visão Geral.
+    const coverMonths = reserveMonthlyBase > 0 ? totalReserve / reserveMonthlyBase : 0;
 
     // Available categories for filter chips
     const availableCategories = useMemo(() => {
@@ -847,7 +837,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                     <p className={`text-3xl font-black tabular-nums mt-1 ${theme === 'light' ? 'text-slate-800' : 'text-white'}`}>
                       {coverMonths > 0 ? coverMonths.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '—'}<span className="text-base font-bold text-slate-400 ml-1">{coverMonths > 0 ? 'meses' : ''}</span>
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{monthlyExpenseAvg > 0 ? `com gasto médio de ${formatCurrency(monthlyExpenseAvg)}/mês` : 'lance despesas para estimar'}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{reserveMonthlyBase > 0 ? `sobre um custo mensal de ${formatCurrency(reserveMonthlyBase)}` : 'defina seu custo mensal para estimar'}</p>
                   </div>
                 </div>
               </div>

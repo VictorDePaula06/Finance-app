@@ -4,6 +4,7 @@ import { Eye, EyeOff, CreditCard, ChevronRight, TrendingUp, TrendingDown, Shield
 import FinancialHealthIndex from './FinancialHealthIndex';
 import GoalsOverviewCard from './GoalsOverviewCard';
 import { CATEGORIES } from '../constants/categories';
+import { isMonthlyExpenseTx, getExpenseBasis } from '../utils/financialLogic';
 
 // Cores curadas p/ o donut (fallback em cinza). Podem não existir pra toda categoria.
 const CAT_COLORS = { housing: '#FB7185', food: '#FB923C', fast_food: '#F59E0B', transport: '#FACC15', health: '#F87171', education: '#60A5FA', pets: '#B45309', personal_care: '#F9A8D4', subscriptions: '#C084FC', credit_card: '#8B5CF6', church: '#93C5FD', taxes: '#64748B', leisure: '#818CF8', shopping: '#F472B6', credit_card_bill: '#8B5CF6', conta_fixa: '#6366F1', loan: '#FB7185', other: '#94A3B8' };
@@ -168,9 +169,12 @@ export default function OverviewTab({
     // fatura), distribuído pela categoria REAL — e NÃO mostra "Fatura"
     // (credit_card_bill é o pagamento da fatura, não um gasto por categoria).
     const categoryData = useMemo(() => {
+        // Mesmo critério de "gasto do mês" (respeita o regime competência/caixa),
+        // para o total do donut bater com o KPI "Gastos no mês".
+        const basis = getExpenseBasis(manualConfig);
         const grouped = {};
         transactions.forEach(t => {
-            if (t.type !== 'expense' || ['investment', 'vault', 'credit_card_bill'].includes(t.category)) return;
+            if (!isMonthlyExpenseTx(t, basis)) return;
             if (mkOf(t) !== monthKey) return;
             const c = t.category || 'other';
             grouped[c] = (grouped[c] || 0) + (parseFloat(t.amount) || 0);
@@ -185,7 +189,7 @@ export default function OverviewTab({
             rows = [...rows.slice(0, 5), { id: 'other', value: tailSum, label: 'Outros', color: CAT_COLORS.other, pct: total > 0 ? (tailSum / total) * 100 : 0 }];
         }
         return { rows, total };
-    }, [transactions, monthKey]);
+    }, [transactions, monthKey, manualConfig]);
 
     // Ganhos/Gastos do mês atual vs anterior (para a variação %).
     const monthlyAgg = useMemo(() => {

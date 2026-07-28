@@ -614,6 +614,15 @@ function Dashboard() {
   }, [fixedExpensesList, subscriptions]);
 
   const effectiveConfig = { ...manualConfig, fixedExpenses: autoFixedExpenses || manualConfig.fixedExpenses };
+  // Custo mensal de referência p/ "meses de cobertura" da reserva — MESMO critério
+  // do Índice de Saúde (healthScore): contas fixas cadastradas → gasto do mês → 70% da renda.
+  // Assim o número de "meses de cobertura" é o mesmo na Visão Geral e em Lançamentos › Reservas.
+  const reserveMonthlyBase = useMemo(() => {
+    const income = walletStats.income > 0 ? walletStats.income : (parseFloat(manualConfig.income) || 0);
+    if (autoFixedExpenses > 0) return autoFixedExpenses;
+    if (walletStats.expense > 0) return walletStats.expense;
+    return income * 0.7;
+  }, [autoFixedExpenses, walletStats, manualConfig]);
   // Índice de Saúde Financeira (Gastos) — reformulado e configurável (sobra, reserva, supérfluos).
   const healthIndex = calculateHealthIndex(transactions, effectiveConfig, investmentStats.totalGuarded);
   // Dívida total em aberto (saldo devedor das dívidas ativas).
@@ -982,6 +991,7 @@ function Dashboard() {
                 setActiveTab={setActiveTab}
                 initialSubTab="reservas"
                 expenseBasis={getExpenseBasis(manualConfig)}
+                reserveMonthlyBase={reserveMonthlyBase}
               />
             </div>
           )}
