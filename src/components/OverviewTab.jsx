@@ -29,6 +29,7 @@ export default function OverviewTab({
     setActiveModule
 }) {
     const [showReserve, setShowReserve] = useState(false);
+    const [showAllCats, setShowAllCats] = useState(false);
 
     const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 
@@ -180,15 +181,16 @@ export default function OverviewTab({
             grouped[c] = (grouped[c] || 0) + (parseFloat(t.amount) || 0);
         });
         const total = Object.values(grouped).reduce((a, b) => a + b, 0);
-        let rows = Object.entries(grouped)
+        const allRows = Object.entries(grouped)
             .map(([id, value]) => ({ id, value, label: CAT_LABELS[id] || 'Outros', color: CAT_COLORS[id] || CAT_COLORS.other, pct: total > 0 ? (value / total) * 100 : 0 }))
             .sort((a, b) => b.value - a.value);
-        if (rows.length > 6) {
-            const tail = rows.slice(5);
+        let rows = allRows;
+        if (allRows.length > 6) {
+            const tail = allRows.slice(5);
             const tailSum = tail.reduce((a, r) => a + r.value, 0);
-            rows = [...rows.slice(0, 5), { id: 'other', value: tailSum, label: 'Outros', color: CAT_COLORS.other, pct: total > 0 ? (tailSum / total) * 100 : 0 }];
+            rows = [...allRows.slice(0, 5), { id: 'other', value: tailSum, label: 'Outros', color: CAT_COLORS.other, pct: total > 0 ? (tailSum / total) * 100 : 0 }];
         }
-        return { rows, total };
+        return { rows, allRows, total };
     }, [transactions, monthKey, manualConfig]);
 
     // Ganhos/Gastos do mês atual vs anterior (para a variação %).
@@ -321,7 +323,7 @@ export default function OverviewTab({
                                 </div>
                             </div>
                         )}
-                        <button onClick={() => setActiveTab && setActiveTab('analise')} className={`mt-4 w-full py-2 rounded-xl text-[11px] font-bold transition-colors ${isDark ? 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>Ver todas as categorias →</button>
+                        <button onClick={() => setShowAllCats(true)} className={`mt-4 w-full py-2 rounded-xl text-[11px] font-bold transition-colors ${isDark ? 'bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>Ver todas as categorias →</button>
                     </div>
 
                     <div className={`p-5 rounded-2xl border flex flex-col ${card}`}>
@@ -343,6 +345,43 @@ export default function OverviewTab({
 
                 {/* Índice de Saúde Financeira (score) — no lugar de "Insights para você" */}
                 <FinancialHealthIndex data={healthIndex} config={manualConfig} onUpdateConfig={onUpdateConfig} invoiceInfo={invoiceInfo} />
+
+                {/* Janela: todas as categorias de gasto do mês */}
+                {showAllCats && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowAllCats(false)}>
+                        <div className={`w-full max-w-md rounded-2xl border relative animate-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`} onClick={(e) => e.stopPropagation()}>
+                            <div className={`flex items-center justify-between gap-3 p-5 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                                <div>
+                                    <h3 className={`text-base font-black ${textColor}`}>Gastos por categoria</h3>
+                                    <p className="text-[11px] text-slate-500">Todas as categorias deste mês</p>
+                                </div>
+                                <button onClick={() => setShowAllCats(false)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-white/10 text-slate-400' : 'hover:bg-slate-100 text-slate-400'}`}><X className="w-4 h-4" /></button>
+                            </div>
+                            <div className={`flex items-center justify-between px-5 py-2.5 border-b ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{categoryData.allRows.length} {categoryData.allRows.length === 1 ? 'categoria' : 'categorias'}</span>
+                                <span className={`text-sm font-black tabular-nums ${hideBalance ? 'blur-sm' : 'text-rose-500'}`}>{hideBalance ? 'R$ ••••' : formatCurrency(categoryData.total)}</span>
+                            </div>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-3">
+                                {categoryData.allRows.length === 0 ? (
+                                    <p className="text-center text-xs text-slate-500 py-8">Nenhum gasto neste mês ainda.</p>
+                                ) : categoryData.allRows.map(r => (
+                                    <div key={r.id}>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="flex items-center gap-2 min-w-0">
+                                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: r.color }} />
+                                                <span className={`text-[13px] font-bold truncate ${textColor}`}>{r.label}</span>
+                                            </span>
+                                            <span className="text-[13px] font-black tabular-nums shrink-0 ml-2" style={{ color: r.color }}>{hideBalance ? 'R$ ••••' : formatCurrency(r.value)} <span className="text-[10px] text-slate-500">· {r.pct.toFixed(0)}%</span></span>
+                                        </div>
+                                        <div className={`h-2 w-full rounded-full overflow-hidden ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                                            <div className="h-full rounded-full" style={{ width: `${Math.max(2, r.pct)}%`, background: r.color }} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Detalhes da Reserva — janela dentro do Controle de Gastos (só leitura). */}
                 {showReserve && (
