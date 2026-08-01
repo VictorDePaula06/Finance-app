@@ -99,6 +99,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
   // "Ver todos" por seção (fixo/avulso/parcelamento) com filtro de período.
   const [viewAllType, setViewAllType] = useState(null);
   const [viewPeriod, setViewPeriod] = useState('30d');
+  const [viewAllFilter, setViewAllFilter] = useState('todos'); // todos | fixo | avulso | parcelamento
   // Editar/excluir um gasto já lançado (feed / ver todos).
   const [editTx, setEditTx] = useState(null);
   const [deleteTx, setDeleteTx] = useState(null);
@@ -336,10 +337,6 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
       .filter(t => t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category))
       .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
   , [transactions]);
-  // 3 grupos: gastos fixos (baixa de conta), avulsos e parcelamentos.
-  const fixedTx = useMemo(() => allExpenseTx.filter(t => t.isFixed && !isInstallmentTx(t)), [allExpenseTx]);
-  const installmentTx = useMemo(() => allExpenseTx.filter(isInstallmentTx), [allExpenseTx]);
-  const avulsoTx = useMemo(() => allExpenseTx.filter(t => !t.isFixed && !isInstallmentTx(t)), [allExpenseTx]);
 
   // ── KPIs do topo ──
   const stats = useMemo(() => {
@@ -638,45 +635,50 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
     </div>
   );
 
-  // Linha de um gasto (valor em vermelho — é saída).
+  // Tipo do lançamento (uma coluna).
+  const txKind = (t) => isInstallmentTx(t) ? 'Parcela' : (t.isFixed ? 'Fixo' : 'Avulso');
+  const KIND_CLS = {
+    Fixo: isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600',
+    Parcela: isDark ? 'bg-violet-500/10 text-violet-400' : 'bg-violet-50 text-violet-600',
+    Avulso: isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500',
+  };
+
+  // Linha de um gasto — compacta, com colunas (tipo · prioridade · valor). Editável.
   const renderExpenseRow = (t) => {
     const cat = CATEGORIES.expense.find(c => c.id === t.category);
     const hex = categoryHex(cat);
+    const Icon = cat?.icon || DollarSign;
     const dt = t.date ? new Date(t.date) : null;
     const isCredit = t.paymentMethod === 'credito';
+    const prio = PRIORITY[t.priority];
+    const kind = txKind(t);
     return (
-      <div key={t.id} className={`group flex items-center justify-between gap-3 px-4 py-2.5 transition-colors ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: hex }} />
-          <div className="min-w-0">
-            <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.description || 'Gasto'}</p>
-            <p className="text-[10px] font-bold text-slate-500">
-              {dt ? dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '') : '—'}
-              {' · '}{cat?.label || 'Outro'}
-              {isCredit ? ' · crédito' : ''}
-            </p>
+      <div key={t.id} className={`group flex items-center gap-3 px-4 py-2 transition-colors ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
+        <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${hex}1a`, color: hex }}><Icon className="w-4 h-4" /></span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.description || 'Gasto'}</p>
+            <span className={`shrink-0 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${KIND_CLS[kind]}`}>{kind}</span>
           </div>
+          <p className="text-[10px] font-bold text-slate-500 truncate">
+            {dt ? dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '') : '—'}
+            {' · '}{cat?.label || 'Outro'}
+            {isCredit ? ' · crédito' : ''}
+          </p>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <span className="text-sm font-black tabular-nums text-rose-500">− R$ {fmt(parseFloat(t.amount) || 0)}</span>
-          <button onClick={() => setEditTx(t)} title="Editar" className={`p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
-          <button onClick={() => setDeleteTx(t)} title="Excluir" className={`p-2 rounded-lg text-rose-400 opacity-0 group-hover:opacity-100 transition-all ${isDark ? 'hover:bg-rose-500/10' : 'hover:bg-rose-50'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+        {prio && <span className={`hidden sm:inline shrink-0 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${prio.tint}`}>{prio.label}</span>}
+        <span className="text-[13px] font-black tabular-nums text-rose-500 shrink-0 w-24 text-right">− R$ {fmt(parseFloat(t.amount) || 0)}</span>
+        <div className="flex items-center shrink-0">
+          <button onClick={() => setEditTx(t)} title="Editar" className={`p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+          <button onClick={() => setDeleteTx(t)} title="Excluir" className={`p-1.5 rounded-lg text-rose-400 opacity-0 group-hover:opacity-100 transition-all ${isDark ? 'hover:bg-rose-500/10' : 'hover:bg-rose-50'}`}><Trash2 className="w-3.5 h-3.5" /></button>
         </div>
       </div>
     );
   };
 
-  // Configuração das 3 seções do feed de despesas.
-  const EXPENSE_SECTIONS = [
-    { key: 'fixo', title: 'Últimos gastos fixos', hint: 'Baixas das contas cadastradas', icon: Repeat, items: fixedTx },
-    { key: 'avulso', title: 'Últimos gastos avulsos', hint: 'Gastos únicos do mês', icon: Zap, items: avulsoTx },
-    { key: 'parcelamento', title: 'Últimos parcelamentos', hint: 'Parcelas lançadas no crédito', icon: CreditCard, items: installmentTx },
-  ];
-
-  // Feed dos últimos gastos, dividido em 3 partes (Lançamentos › Despesas).
+  // Feed único dos últimos gastos (últimos 8, compactos) + "Ver todos".
   const renderFeed = () => {
-    const totalCount = fixedTx.length + avulsoTx.length + installmentTx.length;
-    if (totalCount === 0) {
+    if (allExpenseTx.length === 0) {
       return (
         <div className={`rounded-2xl border ${cardBg} text-center py-12`}>
           <DollarSign className={`w-9 h-9 mx-auto mb-2 ${isDark ? 'text-slate-700' : 'text-slate-300'}`} />
@@ -686,45 +688,27 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
       );
     }
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {EXPENSE_SECTIONS.map(sec => {
-          const SIcon = sec.icon;
-          const top = sec.items.slice(0, 3);
-          return (
-            <div key={sec.key} className={`rounded-2xl border overflow-hidden flex flex-col ${cardBg}`}>
-              <div className={`flex items-center justify-between gap-2 px-4 py-3 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}>
-                    <SIcon className="w-[18px] h-[18px] text-rose-500" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className={`text-sm font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{sec.title}</p>
-                    <p className="text-[10px] font-bold text-slate-500">{sec.items.length} {sec.items.length === 1 ? 'lançamento' : 'lançamentos'}</p>
-                  </div>
-                </div>
-              </div>
-              {top.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center py-8 px-4">
-                  <SIcon className={`w-7 h-7 mb-2 ${isDark ? 'text-slate-700' : 'text-slate-300'}`} />
-                  <p className="text-[11px] font-bold text-slate-500">{sec.hint}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Nada por aqui ainda.</p>
-                </div>
-              ) : (
-                <div className={`flex-1 divide-y ${isDark ? 'divide-white/[0.04]' : 'divide-slate-100'}`}>
-                  {top.map(renderExpenseRow)}
-                </div>
-              )}
-              {sec.items.length > 3 && (
-                <button
-                  onClick={() => { setViewPeriod('30d'); setViewAllType(sec.key); }}
-                  className={`flex items-center justify-center gap-1 px-4 py-2.5 border-t text-[11px] font-black uppercase tracking-widest transition-colors ${isDark ? 'border-white/5 text-rose-400 hover:bg-rose-500/[0.06]' : 'border-slate-100 text-rose-500 hover:bg-rose-50'}`}
-                >
-                  Ver todos <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              )}
+      <div className={`rounded-2xl border overflow-hidden ${cardBg}`}>
+        <div className={`flex items-center justify-between gap-2 px-4 py-3 border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><DollarSign className="w-[18px] h-[18px] text-rose-500" /></span>
+            <div className="min-w-0">
+              <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Últimos gastos</p>
+              <p className="text-[10px] font-bold text-slate-500">{allExpenseTx.length} {allExpenseTx.length === 1 ? 'lançamento' : 'lançamentos'}</p>
             </div>
-          );
-        })}
+          </div>
+        </div>
+        <div className={`divide-y ${isDark ? 'divide-white/[0.04]' : 'divide-slate-100'}`}>
+          {allExpenseTx.slice(0, 8).map(renderExpenseRow)}
+        </div>
+        {allExpenseTx.length > 8 && (
+          <button
+            onClick={() => { setViewPeriod('30d'); setViewAllFilter('todos'); setViewAllType('todos'); }}
+            className={`w-full flex items-center justify-center gap-1 px-4 py-3 border-t text-[11px] font-black uppercase tracking-widest transition-colors ${isDark ? 'border-white/5 text-rose-400 hover:bg-rose-500/[0.06]' : 'border-slate-100 text-rose-500 hover:bg-rose-50'}`}
+          >
+            Ver todos ({allExpenseTx.length}) <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
     );
   };
@@ -1159,43 +1143,54 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
         </div>
       )}
 
-      {/* Modal "Ver todos": lista completa de uma seção com filtro de período */}
+      {/* Modal "Ver todos": todos os gastos com filtro por tipo e período */}
       {viewAllType && (() => {
-        const sec = EXPENSE_SECTIONS.find(s => s.key === viewAllType);
-        if (!sec) return null;
         const PERIODS = [['7d', 'Últimos 7 dias', 7], ['30d', 'Últimos 30 dias', 30], ['3m', 'Últimos 3 meses', 90], ['6m', 'Últimos 6 meses', 180]];
+        const KINDS = [['todos', 'Todos'], ['fixo', 'Fixos'], ['avulso', 'Avulsos'], ['parcelamento', 'Parcelamentos']];
         const days = (PERIODS.find(p => p[0] === viewPeriod) || PERIODS[1])[2];
         const cutoff = Date.now() - days * 86400000;
-        const list = sec.items.filter(t => (t.date ? new Date(t.date).getTime() : 0) >= cutoff);
+        const byKind = (t) => viewAllFilter === 'todos'
+          || (viewAllFilter === 'parcelamento' && isInstallmentTx(t))
+          || (viewAllFilter === 'fixo' && t.isFixed && !isInstallmentTx(t))
+          || (viewAllFilter === 'avulso' && !t.isFixed && !isInstallmentTx(t));
+        const list = allExpenseTx.filter(byKind).filter(t => (t.date ? new Date(t.date).getTime() : 0) >= cutoff);
         const total = list.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
-        const SIcon = sec.icon;
         return (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setViewAllType(null)}>
-            <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-lg h-[80vh] max-h-[680px] flex flex-col relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+            <div onClick={e => e.stopPropagation()} className={`border rounded-[2rem] w-full max-w-lg h-[82vh] max-h-[720px] flex flex-col relative animate-in zoom-in-95 duration-300 shadow-2xl ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
               <div className={`flex items-center justify-between gap-3 p-5 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><SIcon className="w-5 h-5 text-rose-500" /></span>
+                  <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><DollarSign className="w-5 h-5 text-rose-500" /></span>
                   <div className="min-w-0">
-                    <h3 className={`text-base font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{sec.title}</h3>
-                    <p className="text-[10px] font-bold text-slate-500">{sec.hint}</p>
+                    <h3 className={`text-base font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>Todos os gastos</h3>
+                    <p className="text-[10px] font-bold text-slate-500">Filtre por tipo e período</p>
                   </div>
                 </div>
                 <button onClick={() => setViewAllType(null)} className={`p-2 rounded-lg shrink-0 ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-5 h-5" /></button>
               </div>
 
-              {/* Filtro de período */}
-              <div className={`flex items-center gap-2 px-5 py-3 border-b overflow-x-auto ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+              {/* Filtro por tipo */}
+              <div className={`flex items-center gap-2 px-5 py-2.5 border-b overflow-x-auto ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                {KINDS.map(([id, label]) => (
+                  <button key={id} onClick={() => setViewAllFilter(id)}
+                    className={`shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${viewAllFilter === id ? 'bg-rose-500 text-white border-rose-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {/* Filtro por período */}
+              <div className={`flex items-center gap-2 px-5 py-2.5 border-b overflow-x-auto ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
                 {PERIODS.map(([id, label]) => (
                   <button key={id} onClick={() => setViewPeriod(id)}
-                    className={`shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${viewPeriod === id ? 'bg-rose-500 text-white border-rose-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
+                    className={`shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${viewPeriod === id ? 'bg-slate-500/80 text-white border-slate-500' : (isDark ? 'border-white/10 text-slate-400 hover:bg-white/5' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}`}>
                     {label}
                   </button>
                 ))}
               </div>
 
-              {/* Total do período */}
+              {/* Total */}
               <div className={`flex items-center justify-between px-5 py-2.5 border-b ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{list.length} {list.length === 1 ? 'lançamento' : 'lançamentos'} no período</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{list.length} {list.length === 1 ? 'lançamento' : 'lançamentos'}</span>
                 <span className="text-sm font-black tabular-nums text-rose-500">− R$ {fmt(total)}</span>
               </div>
 
@@ -1203,9 +1198,9 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
               <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
                 {list.length === 0 ? (
                   <div className="text-center py-12">
-                    <SIcon className={`w-9 h-9 mx-auto mb-2 ${isDark ? 'text-slate-700' : 'text-slate-300'}`} />
-                    <p className="text-sm font-bold text-slate-500">Nada neste período.</p>
-                    <p className="text-[11px] text-slate-500 mt-1">Tente um período maior acima.</p>
+                    <DollarSign className={`w-9 h-9 mx-auto mb-2 ${isDark ? 'text-slate-700' : 'text-slate-300'}`} />
+                    <p className="text-sm font-bold text-slate-500">Nada neste filtro/período.</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Tente outro tipo ou um período maior.</p>
                   </div>
                 ) : (
                   <div className={`divide-y ${isDark ? 'divide-white/[0.04]' : 'divide-slate-100'}`}>
