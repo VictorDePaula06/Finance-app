@@ -46,13 +46,17 @@ async function sendText(to, body) {
   const pid = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const token = process.env.WHATSAPP_TOKEN;
   try {
-    await fetch(`${GRAPH}/${pid}/messages`, {
+    const resp = await fetch(`${GRAPH}/${pid}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body: body.slice(0, 4000) } }),
     });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      console.error(`WhatsApp send FALHOU (${resp.status}):`, errText);
+    }
   } catch (e) {
-    console.error('Erro ao enviar WhatsApp:', e);
+    console.error('Erro ao enviar WhatsApp:', e?.message || e);
   }
 }
 
