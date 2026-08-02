@@ -51,10 +51,8 @@ async function sendText(to, body) {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body: body.slice(0, 4000) } }),
     });
-    if (!resp.ok) {
-      const errText = await resp.text().catch(() => '');
-      console.error(`WhatsApp send FALHOU (${resp.status}):`, errText);
-    }
+    const respText = await resp.text().catch(() => '');
+    console.log(`WA send -> to=${to} status=${resp.status} resp=${respText.slice(0, 300)}`);
   } catch (e) {
     console.error('Erro ao enviar WhatsApp:', e?.message || e);
   }
@@ -170,6 +168,7 @@ export default async function handler(req, res) {
 
     const from = msg.from; // telefone E.164 só dígitos
     const text = msg.text?.body || '';
+    console.log(`WA in <- from=${from} text="${text.slice(0, 80)}"`);
     const db = initAdmin();
 
     // 1. Vínculo do número
