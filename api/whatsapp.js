@@ -156,14 +156,13 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Responde 200 rápido pra Meta não reenviar; processa em seguida.
-  res.status(200).json({ received: true });
-
+  // IMPORTANTE (Vercel): processa TUDO antes de responder 200 — se responder
+  // antes, a função é congelada e a resposta da Alívia não chega a ser enviada.
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
     const value = body?.entry?.[0]?.changes?.[0]?.value;
     const msg = value?.messages?.[0];
-    if (!msg || msg.type !== 'text') return; // ignora status/entregas e não-texto
+    if (!msg || msg.type !== 'text') return res.status(200).json({ ok: true }); // ignora status/entregas e não-texto
 
     const from = msg.from; // telefone E.164 só dígitos
     const text = msg.text?.body || '';
@@ -182,7 +181,7 @@ export default async function handler(req, res) {
       } else {
         await sendText(from, 'Oi! Sou a Alívia 💚\nPara conectar, abra o app em *Ajustes › Conectar WhatsApp*, gere seu código e me envie ele aqui.');
       }
-      return;
+      return res.status(200).json({ ok: true });
     }
 
     const uid = userDoc.data().uid;
@@ -203,12 +202,12 @@ export default async function handler(req, res) {
         });
         await sessRef.set({ uid, history, pending: null }, { merge: true });
         await sendText(from, `Lançado! ✅ *${p.description}* foi registrado nas suas despesas.`);
-        return;
+        return res.status(200).json({ ok: true });
       }
       if (no(text)) {
         await sessRef.set({ uid, history, pending: null }, { merge: true });
         await sendText(from, 'Sem problema, cancelei. 👍');
-        return;
+        return res.status(200).json({ ok: true });
       }
       // Se não confirmou nem cancelou, segue como conversa normal (limpa pendência).
       await sessRef.set({ uid, pending: null }, { merge: true });
@@ -227,7 +226,10 @@ export default async function handler(req, res) {
       await sessRef.set({ uid, history: newHistory, pending: null }, { merge: true });
       await sendText(from, reply);
     }
+    return res.status(200).json({ ok: true });
   } catch (e) {
     console.error('Erro no webhook WhatsApp:', e);
+    // Responde 200 mesmo com erro para a Meta não ficar reenviando em loop.
+    return res.status(200).json({ ok: false });
   }
 }
