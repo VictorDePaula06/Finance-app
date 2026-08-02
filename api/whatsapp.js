@@ -1,0 +1,233 @@
+/**
+ * Vercel Serverless Function: /api/whatsapp
+ *
+ * Webhook da Alívia no WhatsApp (Meta Cloud API).
+ *  - GET  : verificação do webhook (hub.challenge).
+ *  - POST : recebe mensagens do usuário e responde.
+ *
+ * Fluxo:
+ *  1. Número não vinculado → espera o CÓDIGO DE VÍNCULO gerado no app.
+ *  2. Vinculado → conversa com a Alívia (Gemini). Sem citar valores; fala das metas.
+ *  3. Detecção de gasto → pede CONFIRMAÇÃO ("responda SIM") antes de lançar.
+ *
+ * Variáveis de ambiente (Vercel):
+ *  - WHATSAPP_VERIFY_TOKEN      (string que VOCÊ escolhe; usada só na verificação)
+ *  - WHATSAPP_TOKEN            (token de acesso da Meta — SECRETO)
+ *  - WHATSAPP_PHONE_NUMBER_ID  (ex.: 1233457129856835)
+ *  - GEMINI_API_KEY           (chave do Gemini do servidor — SECRETA)
+ *  - FIREBASE_SERVICE_ACCOUNT_KEY  (JSON do service account — já usado no send-push)
+ *
+ * Coleções Firestore:
+ *  - wa_links/{codigo}    { uid, createdAt }           → código de vínculo (uso único)
+ *  - wa_users/{telefone}  { uid, linkedAt }            → telefone (E.164 só dígitos) → uid
+ *  - wa_sessions/{telefone} { pending, history, uid }  → estado da conversa
+ */
+
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+
+const GRAPH = 'https://graph.facebook.com/v20.0';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+
+// Categorias de despesa válidas (espelha src/constants/categories.js).
+const EXPENSE_CATS = ['housing', 'food', 'fast_food', 'transport', 'health', 'education', 'pets', 'personal_care', 'subscriptions', 'credit_card', 'church', 'taxes', 'leisure', 'shopping', 'conta_fixa', 'other'];
+const PRIORITIES = ['essential', 'comfort', 'superfluous'];
+
+function initAdmin() {
+  if (!getApps().length) {
+    const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    initializeApp({ credential: cert(sa) });
+  }
+  return getFirestore();
+}
+
+// Envia uma mensagem de texto de volta pelo WhatsApp.
+async function sendText(to, body) {
+  const pid = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = process.env.WHATSAPP_TOKEN;
+  try {
+    await fetch(`${GRAPH}/${pid}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body: body.slice(0, 4000) } }),
+    });
+  } catch (e) {
+    console.error('Erro ao enviar WhatsApp:', e);
+  }
+}
+
+// Monta um contexto QUALITATIVO do usuário (sem valores) para a Alívia.
+async function buildUserContext(db, uid) {
+  const monthKey = new Date().toISOString().slice(0, 7);
+  const num = (v) => parseFloat(v) || 0;
+  try {
+    const [txSnap, goalSnap, jarSnap] = await Promise.all([
+      db.collection('transactions').where('userId', '==', uid).get(),
+      db.collection('expense_goals').where('userId', '==', uid).get(),
+      db.collection('savings_jars').where('userId', '==', uid).get(),
+    ]);
+    let income = 0, expense = 0, essential = 0, superf = 0;
+    txSnap.forEach(d => {
+      const t = d.data();
+      const m = t.month || String(t.date || '').slice(0, 7);
+      if (m !== monthKey) return;
+      if (t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category)) income += num(t.amount);
+      if (t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category)) {
+        expense += num(t.amount);
+        if (t.priority === 'essential') essential += num(t.amount); else if (t.priority === 'superfluous') superf += num(t.amount);
+      }
+    });
+    const reserve = jarSnap.docs.reduce((a, d) => a + num(d.data().balance), 0);
+    const goals = goalSnap.docs.map(d => d.data()).map(g => `${g.name || 'meta'} (${g.type || 'meta'})`);
+    const supHigh = expense > 0 && (superf / expense) > 0.3;
+    return [
+      `Situação do mês (use como base, NÃO cite números):`,
+      `- Saldo do mês: ${income - expense >= 0 ? 'positivo (ganhou mais do que gastou)' : 'negativo (gastou mais do que ganhou)'}.`,
+      `- Gastos supérfluos: ${supHigh ? 'ALTOS (acima do ideal)' : 'sob controle'}.`,
+      `- Reserva de emergência: ${reserve > 0 ? 'existe (comente se parece baixa ou boa)' : 'ainda NÃO tem'}.`,
+      `- Metas cadastradas: ${goals.length ? goals.join(', ') : 'nenhuma'}.`,
+    ].join('\n');
+  } catch (e) {
+    console.error('Erro no contexto:', e);
+    return 'Sem dados suficientes para análise detalhada.';
+  }
+}
+
+const SYSTEM = `Você é a **Alívia**, assistente financeira acolhedora, respondendo pelo WhatsApp.
+REGRAS:
+- NÃO cite valores monetários específicos (nada de "R$ X"). Faça análise geral e qualitativa.
+- Comente também sobre as metas/objetivos do usuário quando fizer sentido.
+- Seja breve (WhatsApp), clara e simpática. Pode usar emojis com moderação.
+- Se o usuário claramente quiser REGISTRAR UM GASTO (ex.: "gastei 50 no mercado", "uber 23", "farmácia 40"),
+  responda SOMENTE com um JSON, sem mais nada, no formato:
+  {"action":"add_expense","description":"<texto>","amount":<número>,"category":"<id>","priority":"<id>"}
+  category ∈ [${EXPENSE_CATS.join(', ')}]; priority ∈ [${PRIORITIES.join(', ')}].
+  Escolha a categoria/prioridade mais provável. Se não for um gasto, responda normalmente em texto.`;
+
+async function askGemini(history, contextText, userMsg) {
+  const key = process.env.GEMINI_API_KEY;
+  const contents = [
+    ...(history || []).slice(-6).map(h => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.text }] })),
+    { role: 'user', parts: [{ text: userMsg }] },
+  ];
+  const body = {
+    system_instruction: { parts: [{ text: `${SYSTEM}\n\n${contextText}` }] },
+    contents,
+    generationConfig: { temperature: 0.7, maxOutputTokens: 600 },
+  };
+  const r = await fetch(`${GEMINI_URL}?key=${key}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const j = await r.json();
+  return j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'Desculpe, não consegui responder agora. 😅';
+}
+
+function parseExpense(text) {
+  const m = text.match(/\{[\s\S]*"action"\s*:\s*"add_expense"[\s\S]*\}/);
+  if (!m) return null;
+  try {
+    const j = JSON.parse(m[0]);
+    const amount = parseFloat(j.amount) || 0;
+    if (amount <= 0 || !j.description) return null;
+    return {
+      description: String(j.description).slice(0, 120),
+      amount,
+      category: EXPENSE_CATS.includes(j.category) ? j.category : 'other',
+      priority: PRIORITIES.includes(j.priority) ? j.priority : 'comfort',
+    };
+  } catch { return null; }
+}
+
+const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const yes = (t) => /^(sim|confirmar|isso|ok|pode|s)\b/i.test(t.trim());
+const no = (t) => /^(n[aã]o|cancelar|nao|n)\b/i.test(t.trim());
+
+export default async function handler(req, res) {
+  // ── Verificação do webhook (GET) ──
+  if (req.method === 'GET') {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+    if (mode === 'subscribe' && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+      return res.status(200).send(challenge);
+    }
+    return res.status(403).send('Forbidden');
+  }
+
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Responde 200 rápido pra Meta não reenviar; processa em seguida.
+  res.status(200).json({ received: true });
+
+  try {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    const value = body?.entry?.[0]?.changes?.[0]?.value;
+    const msg = value?.messages?.[0];
+    if (!msg || msg.type !== 'text') return; // ignora status/entregas e não-texto
+
+    const from = msg.from; // telefone E.164 só dígitos
+    const text = msg.text?.body || '';
+    const db = initAdmin();
+
+    // 1. Vínculo do número
+    const userDoc = await db.collection('wa_users').doc(from).get();
+    if (!userDoc.exists) {
+      const code = text.trim().toUpperCase().replace(/\s+/g, '');
+      const linkRef = db.collection('wa_links').doc(code);
+      const linkSnap = await linkRef.get();
+      if (linkSnap.exists) {
+        await db.collection('wa_users').doc(from).set({ uid: linkSnap.data().uid, linkedAt: Date.now() });
+        await linkRef.delete();
+        await sendText(from, 'Pronto, seu WhatsApp foi vinculado à sua conta Alívia! ✅\n\nPode me perguntar sobre suas finanças ou registrar um gasto (ex.: "mercado 120").');
+      } else {
+        await sendText(from, 'Oi! Sou a Alívia 💚\nPara conectar, abra o app em *Ajustes › Conectar WhatsApp*, gere seu código e me envie ele aqui.');
+      }
+      return;
+    }
+
+    const uid = userDoc.data().uid;
+    const sessRef = db.collection('wa_sessions').doc(from);
+    const sess = (await sessRef.get()).data() || {};
+    const history = sess.history || [];
+
+    // 2. Confirmação de gasto pendente
+    if (sess.pending?.type === 'expense') {
+      if (yes(text)) {
+        const p = sess.pending.data;
+        const now = new Date();
+        await db.collection('transactions').add({
+          description: p.description, amount: p.amount, type: 'expense',
+          category: p.category, priority: p.priority,
+          date: now.toISOString(), month: now.toISOString().slice(0, 7),
+          userId: uid, createdAt: Date.now(), isFixed: false, paymentMethod: 'pix', source: 'whatsapp',
+        });
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, `Lançado! ✅ *${p.description}* foi registrado nas suas despesas.`);
+        return;
+      }
+      if (no(text)) {
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, 'Sem problema, cancelei. 👍');
+        return;
+      }
+      // Se não confirmou nem cancelou, segue como conversa normal (limpa pendência).
+      await sessRef.set({ uid, pending: null }, { merge: true });
+    }
+
+    // 3. Conversa com a Alívia
+    const ctx = await buildUserContext(db, uid);
+    const reply = await askGemini(history, ctx, text);
+    const expense = parseExpense(reply);
+
+    if (expense) {
+      await sessRef.set({ uid, history, pending: { type: 'expense', data: expense } }, { merge: true });
+      await sendText(from, `Quer que eu registre este gasto?\n\n• *${expense.description}*\n• Valor: R$ ${money(expense.amount)}\n\nResponda *SIM* para confirmar ou *NÃO* para cancelar.`);
+    } else {
+      const newHistory = [...history, { role: 'user', text }, { role: 'model', text: reply }].slice(-12);
+      await sessRef.set({ uid, history: newHistory, pending: null }, { merge: true });
+      await sendText(from, reply);
+    }
+  } catch (e) {
+    console.error('Erro no webhook WhatsApp:', e);
+  }
+}
