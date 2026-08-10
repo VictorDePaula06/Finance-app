@@ -17,6 +17,7 @@ function Shell() {
   const { user, authReady, firebaseReady, demo, prefs, prefsLoaded } = useStore();
   const [tab, setTab] = useState('geral');
   const [module, setModule] = useState('gastos'); // 'gastos' | 'patrimonio'
+  const [settingsOpen, setSettingsOpen] = useState(false); // Ajustes como tela sobreposta
 
   // Carregando auth
   if (firebaseReady && !authReady) {
@@ -36,23 +37,31 @@ function Shell() {
     (prefs?.hasAcceptedTerms !== true || prefs?.termsVersion !== CURRENT_TERMS_VERSION);
   if (needsTerms) return <TermsGate />;
 
+  // Ajustes: tela sobreposta, independente do módulo (não força trocar p/ Gastos).
+  if (settingsOpen) {
+    return (
+      <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar pb-6">
+        <AjustesTab onBack={() => setSettingsOpen(false)} />
+      </main>
+    );
+  }
+
   // Módulo Patrimônio: abas próprias (Geral, Monitor, Reserva, Investimentos,
-  // Rebalanceamento). A engrenagem leva aos Ajustes no módulo Gastos.
+  // Rebalanceamento). A engrenagem abre os Ajustes sem sair do Patrimônio.
   if (module === 'patrimonio') {
     return (
-      <PatrimonioShell module={module} onModule={setModule} onOpenSettings={() => { setModule('gastos'); setTab('ajustes'); }} />
+      <PatrimonioShell module={module} onModule={setModule} onOpenSettings={() => setSettingsOpen(true)} />
     );
   }
 
   return (
     <>
-      <main className="flex-1 overflow-y-auto no-scrollbar pb-24">
-        {tab === 'geral' && <GeralTab module={module} onModule={setModule} onOpenSettings={() => setTab('ajustes')} />}
+      <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar pb-24">
+        {tab === 'geral' && <GeralTab module={module} onModule={setModule} onOpenSettings={() => setSettingsOpen(true)} onGoToCard={() => setTab('cartao')} />}
         {tab === 'recebimentos' && <RecebimentosTab />}
         {tab === 'lancamentos' && <LancamentosTab />}
         {tab === 'cartao' && <CartaoTab />}
         {tab === 'analises' && <AnalisesTab />}
-        {tab === 'ajustes' && <AjustesTab />}
       </main>
       <BottomNav tab={tab} setTab={setTab} />
     </>
@@ -63,8 +72,8 @@ export default function App() {
   return (
     <ThemeProvider>
       <StoreProvider>
-        <div className="min-h-screen w-full flex justify-center bg-bg">
-          <div className="relative w-full max-w-[440px] min-h-screen bg-ink flex flex-col shadow-2xl shadow-black/50 overflow-hidden">
+        <div className="h-[100dvh] w-full flex justify-center bg-bg">
+          <div className="relative w-full max-w-[440px] h-[100dvh] bg-ink flex flex-col shadow-2xl shadow-black/50 overflow-hidden">
             <Shell />
           </div>
         </div>

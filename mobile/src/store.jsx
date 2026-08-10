@@ -4,14 +4,19 @@ import { collection, query, where, onSnapshot, doc, getDoc, setDoc, addDoc, dele
 import { auth, db, firebaseReady } from './services/firebase.js';
 import { signInWithGoogle, signOutAll } from './services/auth.js';
 import { DEMO } from './data/sample.js';
-import { buildTransactionDocs, buildCardDoc, buildInvestmentDoc, buildJarDoc } from './lib/db.js';
+import { buildTransactionDocs, buildCardDoc, buildInvestmentDoc, buildJarDoc, buildFixedIncomeDoc, buildFixedExpenseDoc, buildSubscriptionDoc } from './lib/db.js';
+import { isoForMonthDay, computeCardInvoice } from './lib/finance.js';
+import { computePlanLevel, isPremiumLevel } from './lib/plan.js';
 import { CURRENT_TERMS_VERSION } from './lib/terms.js';
 
 const Ctx = createContext(null);
 export const useStore = () => useContext(Ctx);
 
-const COLLECTIONS = ['transactions', 'savings_jars', 'cards', 'subscriptions', 'investments', 'goals'];
-const EMPTY = { transactions: [], savings_jars: [], cards: [], subscriptions: [], investments: [], goals: [] };
+// Converte texto "1.234,56" → 1234.56 (mesma regra dos builders).
+const numBR = (v) => parseFloat(String(v ?? '').replace(/\./g, '').replace(',', '.')) || 0;
+
+const COLLECTIONS = ['transactions', 'savings_jars', 'cards', 'subscriptions', 'investments', 'goals', 'fixed_incomes', 'fixed_expenses'];
+const EMPTY = { transactions: [], savings_jars: [], cards: [], subscriptions: [], investments: [], goals: [], fixed_incomes: [], fixed_expenses: [] };
 
 export function StoreProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -24,6 +29,9 @@ export function StoreProvider({ children }) {
   const [authError, setAuthError] = useState(null);
   const [authBusy, setAuthBusy] = useState(false);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
+  // Plano do usuário (mesma fonte do site): doc users/{uid} + customers/{uid}/subscriptions.
+  const [userDoc, setUserDoc] = useState(null);
+  const [stripeSubs, setStripeSubs] = useState([]);
 
   // Autenticação real (mesma do site — Firebase Auth, login Google).
   useEffect(() => {
@@ -64,7 +72,11 @@ export function StoreProvider({ children }) {
       (snap) => { setPrefs(snap.exists() ? snap.data() : {}); setPrefsLoaded(true); },
       () => { setPrefsLoaded(true); }
     );
-    return () => { unsubs.forEach(u => u()); unsubPrefs(); };
+    // Plano: doc do usuário (subscription.status lifetime) + assinaturas Stripe.
+    const unsubUser = onSnapshot(doc(db, 'users', user.uid), (snap) => setUserDoc(snap.exists() ? snap.data() : null), () => {});
+    const unsubSubs = onSnapshot(collection(db, 'customers', user.uid, 'subscriptions'),
+      (snap) => setStripeSubs(snap.docs.map(d => d.data())), () => setStripeSubs([]));
+    return () => { unsubs.forEach(u => u()); unsubPrefs(); unsubUser(); unsubSubs(); };
   }, [user, demo]);
 
   const login = async () => {
@@ -89,6 +101,8 @@ export function StoreProvider({ children }) {
       subscriptions: [...(DEMO.subscriptions || [])],
       investments: [...(DEMO.investments || [])],
       goals: [...(DEMO.goals || [])],
+      fixed_incomes: [...(DEMO.fixed_incomes || [])],
+      fixed_expenses: [...(DEMO.fixed_expenses || [])],
     });
     setDemo(true);
   };
@@ -139,6 +153,183 @@ export function StoreProvider({ children }) {
     if (!firebaseReady || !user) return false;
     try { await deleteDoc(doc(db, 'cards', id)); return true; }
     catch (e) { console.error('deleteCard', e); return false; }
+  };
+
+  // ----- Recebimentos fixos, contas fixas e assinaturas (templates) -----
+
+  const addFixedIncome = async (input) => {
+    const uid = demo ? (DEMO.user?.uid || 'demo') : user?.uid;
+    const docData = buildFixedIncomeDoc(input, uid);
+    if (demo) { setDemoData(prev => ({ ...prev, fixed_incomes: [...prev.fixed_incomes, { id: `demo_${Date.now()}`, ...docData }] })); return true; }
+    if (!firebaseReady || !user) return false;
+    try { await addDoc(collection(db, 'fixed_incomes'), docData); return true; }
+    catch (e) { console.error('addFixedIncome', e); return false; }
+  };
+  const deleteFixedIncome = async (id) => {
+    if (demo) { setDemoData(prev => ({ ...prev, fixed_incomes: prev.fixed_incomes.filter(x => x.id !== id) })); return true; }
+    if (!firebaseReady || !user) return false;
+    try { await deleteDoc(doc(db, 'fixed_incomes', id)); return true; }
+    catch (e) { console.error('deleteFixedIncome', e); return false; }
+  };
+
+  const addFixedExpense = async (input) => {
+    const uid = demo ? (DEMO.user?.uid || 'demo') : user?.uid;
+    const docData = buildFixedExpenseDoc(input, uid);
+    if (demo) { setDemoData(prev => ({ ...prev, fixed_expenses: [...prev.fixed_expenses, { id: `demo_${Date.now()}`, ...docData }] })); return true; }
+    if (!firebaseReady || !user) return false;
+    try { await addDoc(collection(db, 'fixed_expenses'), docData); return true; }
+    catch (e) { console.error('addFixedExpense', e); return false; }
+  };
+  const deleteFixedExpense = async (id) => {
+    if (demo) { setDemoData(prev => ({ ...prev, fixed_expenses: prev.fixed_expenses.filter(x => x.id !== id) })); return true; }
+    if (!firebaseReady || !user) return false;
+    try { await deleteDoc(doc(db, 'fixed_expenses', id)); return true; }
+    catch (e) { console.error('deleteFixedExpense', e); return false; }
+  };
+
+  // Confirma o recebimento de um fixo no mês: lança a entrada (isFixed) e marca
+  // o mês no template (mesmo comportamento do site, FixedIncomesTab.handleConfirm).
+  const confirmFixedIncome = async (inc, monthKey, value) => {
+    const uid = demo ? (DEMO.user?.uid || 'demo') : user?.uid;
+    const amount = (value != null && value !== '') ? numBR(value) : (parseFloat(inc.value) || 0);
+    if (amount <= 0) return false;
+    const date = isoForMonthDay(monthKey, inc.day);
+    const tx = {
+      description: String(inc.name || '').trim(), amount, type: 'income',
+      category: inc.category || 'salary', date, month: monthKey,
+      userId: uid, createdAt: Date.now(), isFixed: true, paymentMethod: 'pix',
+    };
+    if (demo) {
+      setDemoData(prev => ({
+        ...prev,
+        transactions: [{ id: `demo_${Date.now()}`, ...tx }, ...prev.transactions],
+        fixed_incomes: prev.fixed_incomes.map(f => f.id === inc.id ? { ...f, lastReceivedMonth: monthKey, lastReceivedValue: amount } : f),
+      }));
+      return true;
+    }
+    if (!firebaseReady || !user) return false;
+    try {
+      await addDoc(collection(db, 'transactions'), tx);
+      await setDoc(doc(db, 'fixed_incomes', inc.id), { lastReceivedMonth: monthKey, lastReceivedValue: amount }, { merge: true });
+      return true;
+    } catch (e) { console.error('confirmFixedIncome', e); return false; }
+  };
+
+  // Confirma o pagamento de uma conta fixa no mês (FixedExpensesTab.executePayExpense).
+  const confirmFixedExpense = async (exp, monthKey, value) => {
+    const uid = demo ? (DEMO.user?.uid || 'demo') : user?.uid;
+    const amount = (value != null && value !== '') ? numBR(value) : (parseFloat(exp.value) || 0);
+    if (amount <= 0) return false;
+    const date = isoForMonthDay(monthKey, exp.day);
+    const tx = {
+      description: String(exp.name || '').trim(), amount, type: 'expense',
+      category: exp.category || 'housing', date, month: monthKey,
+      userId: uid, createdAt: Date.now(), isFixed: true, paymentMethod: 'pix',
+      priority: exp.priority || 'essential',
+    };
+    const patch = { lastPaidMonth: monthKey };
+    if (exp.isVariable) { patch.lastPaidValue = amount; patch.lastPaidValueMonth = monthKey; }
+    if (demo) {
+      setDemoData(prev => ({
+        ...prev,
+        transactions: [{ id: `demo_${Date.now()}`, ...tx }, ...prev.transactions],
+        fixed_expenses: prev.fixed_expenses.map(f => f.id === exp.id ? { ...f, ...patch } : f),
+      }));
+      return true;
+    }
+    if (!firebaseReady || !user) return false;
+    try {
+      await addDoc(collection(db, 'transactions'), tx);
+      await setDoc(doc(db, 'fixed_expenses', exp.id), patch, { merge: true });
+      return true;
+    } catch (e) { console.error('confirmFixedExpense', e); return false; }
+  };
+
+  const addSubscription = async (input) => {
+    const uid = demo ? (DEMO.user?.uid || 'demo') : user?.uid;
+    const docData = buildSubscriptionDoc(input, uid, data.cards || demoData.cards || []);
+    if (demo) { setDemoData(prev => ({ ...prev, subscriptions: [...prev.subscriptions, { id: `demo_${Date.now()}`, ...docData }] })); return true; }
+    if (!firebaseReady || !user) return false;
+    try { await addDoc(collection(db, 'subscriptions'), docData); return true; }
+    catch (e) { console.error('addSubscription', e); return false; }
+  };
+  const deleteSubscription = async (id) => {
+    if (demo) { setDemoData(prev => ({ ...prev, subscriptions: prev.subscriptions.filter(x => x.id !== id) })); return true; }
+    if (!firebaseReady || !user) return false;
+    try { await deleteDoc(doc(db, 'subscriptions', id)); return true; }
+    catch (e) { console.error('deleteSubscription', e); return false; }
+  };
+  // Edita os campos de uma assinatura (nome, valor, cartão, categoria, dia).
+  const updateSubscription = async (id, input) => {
+    const cardsList = data.cards || demoData.cards || [];
+    let day = parseInt(input.day) || 1;
+    if (input.cardId) { const c = cardsList.find(x => x.id === input.cardId); if (c) day = parseInt(c.dueDay) || day; }
+    const patch = {
+      name: String(input.name || '').trim(),
+      value: numBR(input.value),
+      cardId: input.cardId || '',
+      category: input.category || 'subscriptions',
+      priority: input.priority || 'comfort',
+      day: Math.min(31, Math.max(1, day)),
+    };
+    if (demo) { setDemoData(prev => ({ ...prev, subscriptions: prev.subscriptions.map(s => s.id === id ? { ...s, ...patch } : s) })); return true; }
+    if (!firebaseReady || !user) return false;
+    try { await setDoc(doc(db, 'subscriptions', id), patch, { merge: true }); return true; }
+    catch (e) { console.error('updateSubscription', e); return false; }
+  };
+
+  // Paga a fatura do cartão (FixedExpensesTab.executePayInvoice do site):
+  //  1) lança "Pagamento de Fatura" (category credit_card_bill, afeta a carteira);
+  //  2) marca as compras não pagas como invoiceStatus 'paid';
+  //  3) assinaturas: recorrente → lastPaidMonth; parcela → avança/encerra.
+  const payCardInvoice = async (card) => {
+    const uid = demo ? (DEMO.user?.uid || 'demo') : user?.uid;
+    const txSource = demo ? demoData.transactions : (data.transactions || []);
+    const subSource = demo ? demoData.subscriptions : (data.subscriptions || []);
+    const { total, unpaid, subs, currInv } = computeCardInvoice(card, subSource, txSource);
+    if (total <= 0.005) return false;
+    const now = new Date();
+    const billTx = {
+      description: `Pagamento de Fatura - ${card.name || 'Cartão'}`,
+      amount: total, type: 'expense', category: 'credit_card_bill',
+      date: now.toISOString(), month: now.toISOString().slice(0, 7),
+      invoiceMonthPaid: currInv, createdAt: Date.now(), paymentMethod: 'pix',
+      selectedCardId: card.id, userId: uid,
+    };
+    const advanceSub = (s) => {
+      if (s.type === 'installment') {
+        const next = (s.currentInstallment || 1) + 1;
+        return next > (s.totalInstallments || 1) ? null : { ...s, currentInstallment: next };
+      }
+      return { ...s, lastPaidMonth: currInv };
+    };
+    if (demo) {
+      const paidIds = new Set(unpaid.map(t => t.id));
+      const subIds = new Set(subs.map(s => s.id));
+      setDemoData(prev => ({
+        ...prev,
+        transactions: [{ id: `demo_${Date.now()}`, ...billTx },
+          ...prev.transactions.map(t => paidIds.has(t.id) ? { ...t, invoiceStatus: 'paid', paidInInvoice: currInv } : t)],
+        subscriptions: prev.subscriptions.flatMap(s => {
+          if (!subIds.has(s.id)) return [s];
+          const nx = advanceSub(s);
+          return nx ? [nx] : [];
+        }),
+      }));
+      return true;
+    }
+    if (!firebaseReady || !user) return false;
+    try {
+      await addDoc(collection(db, 'transactions'), billTx);
+      await Promise.all(unpaid.map(t => setDoc(doc(db, 'transactions', t.id), { invoiceStatus: 'paid', paidInInvoice: currInv }, { merge: true })));
+      await Promise.all(subs.map(s => {
+        const nx = advanceSub(s);
+        if (!nx) return deleteDoc(doc(db, 'subscriptions', s.id));
+        if (s.type === 'installment') return setDoc(doc(db, 'subscriptions', s.id), { currentInstallment: nx.currentInstallment }, { merge: true });
+        return setDoc(doc(db, 'subscriptions', s.id), { lastPaidMonth: currInv }, { merge: true });
+      }));
+      return true;
+    } catch (e) { console.error('payCardInvoice', e); return false; }
   };
 
   // ----- Patrimônio: investimentos e reservas -----
@@ -208,12 +399,16 @@ export function StoreProvider({ children }) {
     }
   };
 
-  const actions = { login, enterDemo, logout, savePref, updateName, acceptTerms, addTransaction, addCard, deleteTransaction, deleteCard, addInvestment, deleteInvestment, addJar, adjustJar, deleteJar, authError, authBusy };
+  const actions = { login, enterDemo, logout, savePref, updateName, acceptTerms, addTransaction, addCard, deleteTransaction, deleteCard, addInvestment, deleteInvestment, addJar, adjustJar, deleteJar, addFixedIncome, deleteFixedIncome, addFixedExpense, deleteFixedExpense, confirmFixedIncome, confirmFixedExpense, addSubscription, deleteSubscription, updateSubscription, payCardInvoice, authError, authBusy };
+
+  // Plano do usuário (free/standard/premium/lifetime) — mesma régua do site.
+  const plan = demo ? (DEMO.plan || 'free') : computePlanLevel({ email: user?.email, userDoc, stripeSubs });
+  const isPremium = isPremiumLevel(plan);
 
   // No modo demonstração, servimos os dados de exemplo (em memória, editáveis).
   const value = demo
-    ? { user: DEMO.user, authReady: true, firebaseReady, demo: true, prefsLoaded: true, ...actions, ...demoData, prefs: demoPrefs || DEMO.prefs }
-    : { user, authReady, firebaseReady, demo: false, prefsLoaded, ...actions, ...data, prefs };
+    ? { user: DEMO.user, authReady: true, firebaseReady, demo: true, prefsLoaded: true, plan, isPremium, ...actions, ...demoData, prefs: demoPrefs || DEMO.prefs }
+    : { user, authReady, firebaseReady, demo: false, prefsLoaded, plan, isPremium, ...actions, ...data, prefs };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

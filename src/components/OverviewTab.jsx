@@ -425,7 +425,7 @@ export default function OverviewTab({
                             </div>
 
                             <div className={`mt-5 p-3 rounded-xl border text-[11px] leading-relaxed ${isDark ? 'bg-emerald-500/[0.06] border-emerald-500/15 text-slate-300' : 'bg-emerald-50 border-emerald-100 text-slate-600'}`}>
-                                Para <strong>cadastrar ou gerenciar</strong> suas reservas e cofrinhos, use <strong>Cadastros › Reservas / Cofrinhos</strong>. Para <strong>aportar</strong>, vá em <strong>Lançamentos › Reservas</strong>.
+                                Para <strong>cadastrar ou gerenciar</strong> suas reservas e cofrinhos, use <strong>Recorrentes › Reservas / Cofrinhos</strong>. Para <strong>aportar</strong>, vá em <strong>Lançamentos › Reservas</strong>.
                             </div>
                             <button onClick={() => { setShowReserve(false); setActiveTab && setActiveTab('cad_reservas'); }} className="mt-3 w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-[12px] uppercase tracking-wider transition-colors">Gerenciar reservas →</button>
                         </div>

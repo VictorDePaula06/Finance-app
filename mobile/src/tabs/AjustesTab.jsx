@@ -1,21 +1,35 @@
 import React, { useState } from 'react';
-import { User, Star, Bell, Moon, SlidersHorizontal, Shield, Download, HelpCircle, LogOut, Trash2 } from 'lucide-react';
+import { User, Star, Bell, Moon, Sparkles, Key, Shield, Download, HelpCircle, LogOut, Trash2, Check, ChevronLeft } from 'lucide-react';
 import { TabHeader, Card, Row, SettingRow, Segment, Switch } from '../components/ui.jsx';
+import Sheet from '../components/Sheet.jsx';
+import AliviaConfigForm from '../components/forms/AliviaConfigForm.jsx';
+import { PLAN_LABEL } from '../lib/plan.js';
 import { useStore } from '../store.jsx';
 import { useTheme } from '../theme.jsx';
 import logo from '../assets/logo.png';
 
 const SITE = 'https://soualivia.com.br';
 
-export default function AjustesTab() {
-  const { user, logout, prefs, savePref, updateName, demo, transactions, savings_jars, cards, subscriptions } = useStore();
+export default function AjustesTab({ onBack }) {
+  const { user, logout, prefs, savePref, updateName, demo, plan, transactions, savings_jars, cards, subscriptions } = useStore();
   const { theme, setTheme } = useTheme();
 
   const name = user?.displayName || 'Usuário';
   const email = user?.email || '';
   const initial = (user?.displayName || user?.email || 'U').charAt(0).toUpperCase();
 
-  const basis = prefs?.expenseBasis === 'caixa' ? 'caixa' : 'competencia';
+  const [sheet, setSheet] = useState(null); // 'alivia' | 'gemini'
+  const [keyInput, setKeyInput] = useState('');
+  const [keySaved, setKeySaved] = useState(false);
+  const hasKey = !!(prefs?.apiKey || prefs?.manualConfig?.geminiKey);
+  const openGemini = () => { setKeyInput(prefs?.manualConfig?.geminiKey || prefs?.apiKey || ''); setKeySaved(false); setSheet('gemini'); };
+  const saveGemini = async () => {
+    const k = keyInput.trim();
+    await savePref({ apiKey: k, manualConfig: { ...(prefs?.manualConfig || {}), geminiKey: k } });
+    setKeySaved(true);
+    setTimeout(() => setSheet(null), 700);
+  };
+
   const [notif, setNotif] = useState(() => {
     try { return localStorage.getItem('alivia_mobile_notif') !== 'off'; } catch { return true; }
   });
@@ -43,7 +57,11 @@ export default function AjustesTab() {
 
   return (
     <div className="pb-6">
-      <TabHeader title="Ajustes" />
+      <TabHeader title="Ajustes" right={onBack ? (
+        <button onClick={onBack} aria-label="Voltar" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-fg/[0.06] text-fg/70 text-[12px] font-bold active:scale-95 transition shrink-0">
+          <ChevronLeft className="w-4 h-4" /> Voltar
+        </button>
+      ) : undefined} />
 
       {/* Perfil */}
       <div className="px-5 mt-3">
@@ -62,7 +80,15 @@ export default function AjustesTab() {
       <div className="px-5 mt-4">
         <Card>
           <Row icon={User} iconColor="#60a5fa" iconBg="rgba(96,165,250,0.12)" title="Editar nome" subtitle={name} chevron onClick={editName} />
-          <Row icon={Star} iconColor="#f59e0b" iconBg="rgba(245,158,11,0.12)" title="Meu plano" subtitle="Gerenciar assinatura (no site)" chevron onClick={() => open(SITE)} last />
+          <Row icon={Star} iconColor="#f59e0b" iconBg="rgba(245,158,11,0.12)" title="Meu plano" subtitle={`${PLAN_LABEL[plan] || 'Gratuito'} · gerenciar no site`} chevron onClick={() => open(SITE)} last />
+        </Card>
+      </div>
+
+      {/* Configurar Alívia (mesmas configs do site) */}
+      <div className="px-5 mt-4">
+        <Card>
+          <Row icon={Sparkles} iconColor="#10b981" iconBg="rgba(16,185,129,0.12)" title="Configurar Alívia" subtitle="Renda, regime e metas do Índice" chevron onClick={() => setSheet('alivia')} />
+          <Row icon={Key} iconColor="#a855f7" iconBg="rgba(168,85,247,0.12)" title="Inteligência Artificial" subtitle={hasKey ? 'Chave Gemini configurada' : 'Adicionar chave Gemini'} chevron onClick={openGemini} last />
         </Card>
       </div>
 
@@ -71,8 +97,6 @@ export default function AjustesTab() {
         <Card>
           <SettingRow icon={Moon} iconColor="#94a3b8" iconBg="rgba(148,163,184,0.12)" title="Tema"
             right={<Segment value={theme} onChange={setTheme} options={[{ value: 'dark', label: 'Escuro' }, { value: 'light', label: 'Claro' }]} />} />
-          <SettingRow icon={SlidersHorizontal} iconColor="#10b981" iconBg="rgba(16,185,129,0.12)" title="Regime de apuração" subtitle="Como contam os gastos do mês"
-            right={<Segment value={basis} onChange={(v) => savePref({ expenseBasis: v })} options={[{ value: 'competencia', label: 'Competência' }, { value: 'caixa', label: 'Caixa' }]} />} />
           <SettingRow icon={Bell} iconColor="#a855f7" iconBg="rgba(168,85,247,0.12)" title="Notificações" subtitle={notif ? 'Ativadas' : 'Desativadas'}
             right={<Switch on={notif} onClick={toggleNotif} />} last />
         </Card>
@@ -99,6 +123,36 @@ export default function AjustesTab() {
         <img src={logo} alt="Alívia" className="w-8 h-8 object-contain" />
         <span className="text-[10px] tracking-widest uppercase font-bold">Alívia</span>
       </div>
+
+      {sheet === 'alivia' && (
+        <Sheet title="Configurar Alívia" subtitle="Como a Alívia conta seus gastos e calcula sua saúde" onClose={() => setSheet(null)}>
+          <AliviaConfigForm prefs={prefs} onSave={savePref} onDone={() => setSheet(null)} />
+        </Sheet>
+      )}
+
+      {sheet === 'gemini' && (
+        <Sheet title="Inteligência Artificial" subtitle="Sua chave Gemini (BYOK)" onClose={() => setSheet(null)}>
+          <div className="space-y-4">
+            <p className="text-[12px] text-fg/50 leading-snug">
+              A Alívia usa a API do Google Gemini com a <span className="font-bold text-fg/70">sua própria chave</span>. Gere gratuitamente em <span className="text-info font-semibold">aistudio.google.com/apikey</span> e cole abaixo.
+            </p>
+            <input
+              value={keyInput}
+              onChange={(e) => setKeyInput(e.target.value)}
+              placeholder="Cole sua Gemini API Key (AIza...)"
+              autoCapitalize="off" autoCorrect="off" spellCheck={false}
+              className="w-full rounded-xl bg-fg/[0.05] border border-fg/[0.08] px-3.5 py-3 text-[14px] text-fg placeholder:text-fg/30 outline-none focus:border-fg/25 transition"
+            />
+            <div className="grid grid-cols-2 gap-2.5">
+              <button onClick={() => { setKeyInput(''); }} className="py-3.5 rounded-2xl bg-fg/[0.06] text-fg/70 font-bold text-[14px] active:scale-95 transition">Limpar</button>
+              <button onClick={saveGemini} className="py-3.5 rounded-2xl bg-emerald-500 text-white font-extrabold text-[14px] flex items-center justify-center gap-2 active:scale-95 transition">
+                <Check className="w-4 h-4" /> {keySaved ? 'Salvo!' : 'Salvar'}
+              </button>
+            </div>
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="block text-center text-[12px] font-bold text-info">Gerar chave gratuita →</a>
+          </div>
+        </Sheet>
+      )}
     </div>
   );
 }

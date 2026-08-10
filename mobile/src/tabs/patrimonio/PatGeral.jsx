@@ -1,19 +1,12 @@
 import React, { useMemo } from 'react';
-import { Landmark, PiggyBank, TrendingUp, Target, ChevronRight } from 'lucide-react';
+import { Landmark, Target } from 'lucide-react';
 import { useStore } from '../../store.jsx';
 import { reserveTotal, fmt } from '../../lib/finance.js';
-import { summarizeInvestments } from '../../lib/patrimonio.js';
+import { summarizeInvestments, investmentMetrics, isActiveInvestment, ASSET_LABEL } from '../../lib/patrimonio.js';
+import AssetLogo from '../../components/AssetLogo.jsx';
 
-const Stat = ({ label, value, tone, Icon, onClick }) => (
-  <button onClick={onClick} className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-fg/[0.03] transition text-left border-b border-fg/[0.04] last:border-0">
-    <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0`} style={{ background: `${tone}22` }}><Icon className="w-[18px] h-[18px]" style={{ color: tone }} /></span>
-    <div className="flex-1 min-w-0">
-      <p className="text-[13px] font-semibold">{label}</p>
-    </div>
-    <span className="text-[14px] font-extrabold tabular-nums" style={{ color: tone }}>R$ {fmt(value)}</span>
-    <ChevronRight className="w-4 h-4 text-fg/25 shrink-0" />
-  </button>
-);
+const CLASS_COLOR = { renda_fixa: '#6366f1', acoes: '#a855f7', etfs: '#3b82f6', fiis: '#14b8a6', crypto: '#f59e0b', outros: '#64748b' };
+const RESERVE_COLOR = '#10b981';
 
 export default function PatGeral({ livePrices, onNavigate }) {
   const { savings_jars = [], investments = [], goals = [] } = useStore();
@@ -21,6 +14,25 @@ export default function PatGeral({ livePrices, onNavigate }) {
   const inv = useMemo(() => summarizeInvestments(investments, { livePrices }), [investments, livePrices]);
   const total = reserve + inv.current;
   const activeGoals = goals.filter((g) => (g.status || 'active') === 'active');
+
+  // Composição do patrimônio: Reservas + cada classe de investimento (igual ao web).
+  const composition = useMemo(() => {
+    const rows = [];
+    if (reserve > 0.005) rows.push({ key: 'reserve', name: 'Reservas', value: reserve, color: RESERVE_COLOR });
+    Object.entries(inv.byClass || {}).forEach(([k, v]) => {
+      if (v > 0.005) rows.push({ key: k, name: ASSET_LABEL[k] || 'Outros', value: v, color: CLASS_COLOR[k] || '#64748b' });
+    });
+    return rows.sort((a, b) => b.value - a.value);
+  }, [reserve, inv.byClass]);
+  const compTotal = composition.reduce((a, r) => a + r.value, 0);
+
+  // Principais ativos (top 5 por valor, sem vendidos).
+  const topAssets = useMemo(() => investments
+    .filter((a) => isActiveInvestment(a, { livePrices }))
+    .map((a) => ({ a, value: investmentMetrics(a, { livePrices }).current }))
+    .filter((x) => x.value > 0.005)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5), [investments, livePrices]);
 
   return (
     <div className="px-5 pt-4 pb-6">
@@ -35,11 +47,54 @@ export default function PatGeral({ livePrices, onNavigate }) {
         </div>
       </div>
 
-      {/* Atalhos */}
-      <div className="mt-4 rounded-2xl bg-card border border-fg/[0.06] shadow-sm shadow-black/5 overflow-hidden">
-        <Stat label="Reserva de emergência" value={reserve} tone="#34d399" Icon={PiggyBank} onClick={() => onNavigate?.('reserva')} />
-        <Stat label="Investimentos" value={inv.current} tone="#c084fc" Icon={TrendingUp} onClick={() => onNavigate?.('investimentos')} />
+      {/* Composição do patrimônio */}
+      <p className="text-[11px] font-black uppercase tracking-widest text-fg/35 mt-6 mb-2">Composição do patrimônio</p>
+      <div className="rounded-2xl bg-card border border-fg/[0.06] shadow-sm shadow-black/5 p-4">
+        {composition.length === 0 ? (
+          <p className="text-center text-[13px] text-fg/40 py-6">Sem patrimônio registrado ainda.</p>
+        ) : (
+          <>
+            {/* Barra empilhada */}
+            <div className="flex h-2.5 rounded-full overflow-hidden mb-4">
+              {composition.map((r) => (
+                <div key={r.key} style={{ width: `${(r.value / compTotal) * 100}%`, background: r.color }} />
+              ))}
+            </div>
+            <div className="space-y-2.5">
+              {composition.map((r) => (
+                <div key={r.key} className="flex items-center gap-2.5">
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: r.color }} />
+                  <span className="text-[13px] font-semibold flex-1 min-w-0 truncate">{r.name}</span>
+                  <span className="text-[12px] font-bold tabular-nums">R$ {fmt(r.value)}</span>
+                  <span className="text-[10px] font-bold text-fg/40 tabular-nums w-9 text-right">{Math.round((r.value / compTotal) * 100)}%</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Principais ativos */}
+      {topAssets.length > 0 && (
+        <>
+          <div className="flex items-center justify-between mt-6 mb-2">
+            <span className="text-[11px] font-black uppercase tracking-widest text-fg/35">Principais ativos</span>
+            <button onClick={() => onNavigate?.('investimentos')} className="text-[11px] font-bold text-info active:scale-95 transition">Ver todos</button>
+          </div>
+          <div className="rounded-2xl bg-card border border-fg/[0.06] shadow-sm shadow-black/5 overflow-hidden">
+            {topAssets.map(({ a, value }, i) => (
+              <button key={a.id} onClick={() => onNavigate?.('investimentos')} className={`w-full text-left flex items-center gap-3 px-4 py-3 active:bg-fg/[0.03] transition ${i === topAssets.length - 1 ? '' : 'border-b border-fg/[0.04]'}`}>
+                <AssetLogo asset={a} size={34} color={CLASS_COLOR[a.type] || '#94a3b8'} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold truncate">{a.name || a.symbol || 'Ativo'}</p>
+                  <p className="text-[11px] text-fg/40 truncate">{ASSET_LABEL[a.type] || 'Outros'}</p>
+                </div>
+                <span className="text-[13px] font-extrabold tabular-nums shrink-0">R$ {fmt(value)}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Metas */}
       <p className="text-[11px] font-black uppercase tracking-widest text-fg/35 mt-6 mb-2">Metas</p>

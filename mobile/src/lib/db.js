@@ -158,6 +158,55 @@ export function buildJarDoc(input, uid) {
   };
 }
 
+// Recebimento fixo (coleção 'fixed_incomes') — igual ao site (FixedIncomesTab).
+// Template recorrente (ex.: salário). O recebimento do mês vira uma transação.
+export function buildFixedIncomeDoc(input, uid) {
+  return {
+    name: String(input.name || '').trim(),
+    value: numBR(input.value),
+    day: Math.min(31, Math.max(1, parseInt(input.day) || 1)),
+    category: input.category || 'salary',
+    userId: uid,
+    createdAt: Date.now(),
+  };
+}
+
+// Conta fixa (coleção 'fixed_expenses') — igual ao site (FixedExpensesTab).
+// Template recorrente (ex.: aluguel). isVariable = conta que muda de valor.
+export function buildFixedExpenseDoc(input, uid) {
+  return {
+    name: String(input.name || '').trim(),
+    value: numBR(input.value),
+    day: Math.min(31, Math.max(1, parseInt(input.day) || 1)),
+    category: input.category || 'housing',
+    priority: input.priority || 'essential',
+    isVariable: !!input.isVariable,
+    userId: uid,
+    createdAt: Date.now(),
+  };
+}
+
+// Assinatura recorrente de cartão (coleção 'subscriptions') — igual ao site
+// (CardsTab.handleAddSubscription). O dia segue o vencimento do cartão vinculado.
+export function buildSubscriptionDoc(input, uid, cards = []) {
+  let day = parseInt(input.day) || 1;
+  if (input.cardId) {
+    const linked = cards.find(c => c.id === input.cardId);
+    if (linked) day = parseInt(linked.dueDay) || day;
+  }
+  return {
+    name: String(input.name || '').trim(),
+    value: numBR(input.value),
+    day: Math.min(31, Math.max(1, day)),
+    cardId: input.cardId || '',
+    category: input.category || 'subscriptions',
+    priority: input.priority || 'comfort',
+    type: 'recurring',
+    userId: uid,
+    createdAt: Date.now(),
+  };
+}
+
 // Documento de cartão (coleção 'cards') — igual ao site (CardsTab.handleAddCard).
 export function buildCardDoc(input, uid) {
   const dueDay = parseInt(input.dueDay) || 10;

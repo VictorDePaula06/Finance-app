@@ -31,7 +31,7 @@ import ConfirmSaveDialog from './ConfirmSaveDialog';
 import { generateTablePDF } from '../utils/generatePDF';
 import logo from '../assets/logo.png';
 
-// mode="cadastro"   → Cadastros › Cartão. Só cadastra/edita/exclui cartões.
+// mode="cadastro"   → Recorrentes › Cartão. Só cadastra/edita/exclui cartões.
 // mode="lancamento" → Lançamentos › Cartão de Crédito. Só movimenta (fatura,
 //                     transações, assinaturas, parcelas). Não cadastra cartão.
 const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancamento' }) => {
@@ -1055,7 +1055,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
           <p className={`text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             {isCadastro
               ? 'Cadastre seus cartões (limite, fechamento e vencimento) — as faturas você movimenta em Lançamentos'
-              : 'Pague faturas e lance compras, assinaturas e parcelas. Para cadastrar um cartão, vá em Cadastros › Cartão'}
+              : 'Pague faturas e lance compras, assinaturas e parcelas. Para cadastrar um cartão, vá em Recorrentes › Cartão'}
           </p>
         </div>
         {isCadastro ? (
@@ -1091,7 +1091,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
           <p className="text-sm text-slate-500 mb-4 mt-1">
             {isCadastro
               ? 'Adicione seus cartões para acompanhar faturas, parcelamentos e assinaturas.'
-              : 'Cadastre um cartão em Cadastros › Cartão para poder lançar aqui.'}
+              : 'Cadastre um cartão em Recorrentes › Cartão para poder lançar aqui.'}
           </p>
           {isCadastro && (
             <p className="text-[11px] text-slate-500">Use <strong>“Novo Cartão”</strong> no topo desta tela.</p>

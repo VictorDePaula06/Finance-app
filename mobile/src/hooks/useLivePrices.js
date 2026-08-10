@@ -39,19 +39,30 @@ export function useLivePrices(investments = [], enabled = true) {
         } catch { /* ignora */ }
       }
 
-      // Ações / ETFs / FIIs (brapi.dev)
+      // Ações / ETFs / FIIs — via serverless de produção (mesmo proxy do site,
+      // sem CORS e com fonte confiável). O app é estático, então não tem /api local.
       const stocks = [...new Set(investments.filter(a => ['acoes', 'etfs', 'fiis'].includes(a.type) && a.symbol).map(a => a.symbol.toUpperCase()))];
-      await Promise.all(stocks.map(async (t) => {
+      if (stocks.length) {
+        const types = stocks.map(t => investments.find(a => a.symbol?.toUpperCase() === t)?.type || 'acoes');
+        let ok = false;
         try {
-          const r = await fetch(`https://brapi.dev/api/quote/${t}`);
-          if (r.ok) {
-            const d = await r.json();
-            const res = d?.results?.[0];
-            if (res?.regularMarketPrice) next[t] = parseFloat(res.regularMarketPrice);
-            if (res?.regularMarketChangePercent != null) next[`${t}_chg`] = parseFloat(res.regularMarketChangePercent);
-          }
-        } catch { /* ignora */ }
-      }));
+          const r = await fetch(`https://www.soualivia.com.br/api/prices?tickers=${stocks.join(',')}&types=${types.join(',')}`);
+          if (r.ok) { const d = await r.json(); if (d?.prices) { Object.assign(next, d.prices); ok = true; } }
+        } catch { /* tenta brapi direto abaixo */ }
+        // Fallback: brapi.dev direto (funciona em dev / quando o serverless falha).
+        if (!ok) {
+          await Promise.all(stocks.map(async (t) => {
+            try {
+              const r = await fetch(`https://brapi.dev/api/quote/${t}`);
+              if (r.ok) {
+                const res = (await r.json())?.results?.[0];
+                if (res?.regularMarketPrice) next[t] = parseFloat(res.regularMarketPrice);
+                if (res?.regularMarketChangePercent != null) next[`${t}_chg`] = parseFloat(res.regularMarketChangePercent);
+              }
+            } catch { /* ignora */ }
+          }));
+        }
+      }
 
       if (!cancelled) setLivePrices(prev => ({ ...prev, ...next }));
     };

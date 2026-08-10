@@ -1,34 +1,35 @@
 import React, { useState, useMemo } from 'react';
 import { TrendingDown, Plus } from 'lucide-react';
-import { TabHeader, Card, Chip, TxRow, SectionLabel } from '../components/ui.jsx';
-import Sheet from '../components/Sheet.jsx';
-import TxForm from '../components/forms/TxForm.jsx';
+import { TabHeader, Card, Chip, TxRow, SectionLabel, MonthNav } from '../components/ui.jsx';
+import MonthlySheet from '../components/MonthlySheet.jsx';
 import TxDetailSheet from '../components/TxDetailSheet.jsx';
 import { useFinance } from '../hooks/useFinance.js';
 import { useStore } from '../store.jsx';
-import { fmt, fmtDay, txMonthKey, isMonthlyExpenseTx } from '../lib/finance.js';
+import { fmt, fmtDay, txMonthKey, isMonthlyExpenseTx, monthKeyNow, shiftMonth, monthLabel } from '../lib/finance.js';
 import { catMeta } from '../lib/categories.js';
 
 const FILTERS = ['Tudo', 'Fixas', 'Cartão', 'Pix'];
 const PAY_LABEL = { credito: 'Crédito', debito: 'Débito', pix: 'Pix', dinheiro: 'Dinheiro', boleto: 'Boleto' };
 
 const AddBtn = ({ onClick }) => (
-  <button onClick={onClick} aria-label="Adicionar" className="w-9 h-9 rounded-full bg-neg/15 text-neg flex items-center justify-center active:scale-90 transition shrink-0">
+  <button onClick={onClick} aria-label="Adicionar lançamento" className="w-9 h-9 rounded-full bg-neg/15 text-neg flex items-center justify-center active:scale-90 transition shrink-0">
     <Plus className="w-5 h-5" />
   </button>
 );
 
 export default function LancamentosTab() {
-  const { transactions, monthKey, basis, cards } = useFinance();
-  const { addTransaction } = useStore();
+  const { transactions, basis, cards, fixed_expenses } = useFinance();
+  const { addTransaction, addFixedExpense, deleteFixedExpense, confirmFixedExpense } = useStore();
   const [filter, setFilter] = useState('Tudo');
-  const [open, setOpen] = useState(false);
+  const [month, setMonth] = useState(monthKeyNow());
+  const [hub, setHub] = useState(false);
   const [detail, setDetail] = useState(null);
+  const now = monthKeyNow();
 
   const monthExpenses = useMemo(() => transactions
-    .filter(t => isMonthlyExpenseTx(t, basis) && txMonthKey(t) === monthKey)
+    .filter(t => isMonthlyExpenseTx(t, basis) && txMonthKey(t) === month)
     .sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))),
-    [transactions, monthKey, basis]);
+    [transactions, month, basis]);
 
   const list = monthExpenses.filter(t => {
     if (filter === 'Tudo') return true;
@@ -41,9 +42,16 @@ export default function LancamentosTab() {
 
   return (
     <div className="pb-6">
-      <TabHeader title="Lançamentos" subtitle="O que saiu este mês" right={<AddBtn onClick={() => setOpen(true)} />} />
+      <TabHeader title="Lançamentos" subtitle="O que saiu no mês" right={<AddBtn onClick={() => setHub(true)} />} />
 
-      <div className="px-5 flex gap-2 overflow-x-auto no-scrollbar mt-1">
+      <MonthNav
+        label={monthLabel(month)}
+        onPrev={() => setMonth(m => shiftMonth(m, -1))}
+        onNext={() => setMonth(m => shiftMonth(m, 1))}
+        canNext={month < now}
+      />
+
+      <div className="px-5 flex gap-2 overflow-x-auto no-scrollbar mt-3">
         {FILTERS.map(f => <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>)}
       </div>
 
@@ -55,7 +63,7 @@ export default function LancamentosTab() {
         </Card>
       </div>
 
-      <SectionLabel>Lançamentos</SectionLabel>
+      <SectionLabel>Lançamentos do mês</SectionLabel>
       <div className="px-5">
         <Card>
           {list.length === 0 ? (
@@ -69,10 +77,19 @@ export default function LancamentosTab() {
         </Card>
       </div>
 
-      {open && (
-        <Sheet title="Novo lançamento" subtitle="Registre um gasto do mês" onClose={() => setOpen(false)}>
-          <TxForm kind="expense" cards={cards} onSubmit={addTransaction} onDone={() => setOpen(false)} />
-        </Sheet>
+      {hub && (
+        <MonthlySheet
+          kind="expense"
+          month={month}
+          items={fixed_expenses}
+          transactions={transactions}
+          cards={cards}
+          onConfirm={(item, val) => confirmFixedExpense(item, month, val)}
+          onAddFixed={addFixedExpense}
+          onDeleteFixed={deleteFixedExpense}
+          onAddAvulso={addTransaction}
+          onClose={() => setHub(false)}
+        />
       )}
       {detail && <TxDetailSheet tx={detail} onClose={() => setDetail(null)} />}
     </div>

@@ -1415,7 +1415,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
 
                                     {/* Flag: Parcelamento (característica da compra).
                                         "Assinatura/recorrente" saiu daqui de propósito: cadastrar
-                                        recorrência é em Cadastros › Contas Fixas. Lançamentos só lança. */}
+                                        recorrência é em Recorrentes › Contas Fixas. Lançamentos só lança. */}
                                     <div className="grid grid-cols-1 gap-3">
                                         <label className={`flex items-center gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${
                                             isInstallment ? (theme === 'light' ? 'bg-rose-50 border-rose-200' : 'bg-rose-500/10 border-rose-500/30') : (theme === 'light' ? 'bg-slate-50 border-slate-100' : 'bg-white/5 border-white/5')
@@ -1432,7 +1432,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                             <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>Esse gasto foi um parcelamento</span>
                                         </label>
                                         <p className={`text-[10px] leading-relaxed px-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-500'}`}>
-                                            É uma conta que se repete todo mês? Cadastre em <strong>Cadastros › Contas Fixas</strong> e depois dê baixa por aqui.
+                                            É uma conta que se repete todo mês? Cadastre em <strong>Recorrentes › Contas Fixas</strong> e depois dê baixa por aqui.
                                         </p>
                                     </div>
 
@@ -1709,11 +1709,11 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                     </option>
                                                 ))}
                                                 {/* "Criar nova caixinha" saiu daqui: cadastro de cofrinho é em
-                                                    Cadastros › Reservas/Cofrinhos. Lançamentos só aporta. */}
+                                                    Recorrentes › Reservas/Cofrinhos. Lançamentos só aporta. */}
                                             </select>
                                             {(!savingsJars || savingsJars.length === 0) && (
                                                 <p className="text-[10px] text-amber-500 mt-2 ml-1 leading-relaxed">
-                                                    Você ainda não tem cofrinhos. Cadastre um em <strong>Cadastros › Reservas/Cofrinhos</strong> para poder aportar aqui.
+                                                    Você ainda não tem cofrinhos. Cadastre um em <strong>Recorrentes › Reservas/Cofrinhos</strong> para poder aportar aqui.
                                                 </p>
                                             )}
                                         </div>

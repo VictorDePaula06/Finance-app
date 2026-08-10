@@ -34,7 +34,7 @@ import { CATEGORIES, categoryHex } from '../constants/categories';
 import { generateTablePDF } from '../utils/generatePDF';
 import logo from '../assets/logo.png';
 
-// mode="cadastro"   → Cadastros › Contas Fixas. Só cadastra/edita/exclui (sem baixa).
+// mode="cadastro"   → Recorrentes › Contas Fixas. Só cadastra/edita/exclui (sem baixa).
 // mode="lancamento" → Lançamentos › Despesas. Só dá baixa/estorna (sem cadastrar).
 export default function FixedExpensesTab({ transactions = [], setActiveTab, walletStats, hideBalance, toggleHideBalance, expenseBasis = 'competencia', mode = 'cadastro' }) {
   const { theme } = useTheme();
@@ -1298,7 +1298,7 @@ export default function FixedExpensesTab({ transactions = [], setActiveTab, wall
                 <div>
                   <label className={lbl}>Cartão</label>
                   {cards.length === 0 ? (
-                    <p className="text-[11px] text-amber-500">Nenhum cartão. Cadastre em Cadastros › Cartão para lançar no crédito.</p>
+                    <p className="text-[11px] text-amber-500">Nenhum cartão. Cadastre em Recorrentes › Cartão para lançar no crédito.</p>
                   ) : (
                     <select className={inCls} value={mForm.cardId} onChange={e => setMForm({ ...mForm, cardId: e.target.value })}>
                       {cards.map(c => <option key={c.id} value={c.id} className={isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'}>{c.name}</option>)}

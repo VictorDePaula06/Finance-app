@@ -4,7 +4,7 @@ import * as F from '../lib/finance.js';
 
 // Deriva os números do app a partir dos dados reais do Firestore (mesmo banco do site).
 export function useFinance() {
-  const { transactions, savings_jars, cards, subscriptions, prefs, user } = useStore();
+  const { transactions, savings_jars, cards, subscriptions, prefs, user, fixed_incomes, fixed_expenses } = useStore();
 
   return useMemo(() => {
     const monthKey = F.monthKeyNow();
@@ -17,11 +17,12 @@ export function useFinance() {
     const reserve = F.reserveTotal(savings_jars);
     const invoice = F.computeInvoice(cards, subscriptions, transactions);
     const fixedExpenses = parseFloat(prefs?.manualConfig?.fixedExpenses) || 0;
-    const health = F.computeHealth({ income, expense, reserve, fixedExpenses });
+    const health = F.computeHealth({ income, expense, reserve, fixedExpenses, config: prefs?.manualConfig?.healthConfig });
 
     return {
       monthKey, basis, balance, income, incomeTx, expense, reserve, invoice, health,
       transactions, cards, subscriptions, savings_jars, prefs, user,
+      fixed_incomes: fixed_incomes || [], fixed_expenses: fixed_expenses || [],
     };
-  }, [transactions, savings_jars, cards, subscriptions, prefs, user]);
+  }, [transactions, savings_jars, cards, subscriptions, prefs, user, fixed_incomes, fixed_expenses]);
 }

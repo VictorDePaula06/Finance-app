@@ -33,13 +33,15 @@ export default function Login() {
         </div>
       )}
 
-      {/* Modo demonstração — funciona sem Firebase (ideal para testar no emulador) */}
-      <button
-        onClick={enterDemo}
-        className="mt-3 w-full max-w-[300px] py-3 rounded-2xl bg-fg/[0.06] text-fg/80 font-semibold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition"
-      >
-        <Play className="w-4 h-4" /> Ver em modo demonstração
-      </button>
+      {/* Modo demonstração — SÓ em desenvolvimento (não aparece no app publicado). */}
+      {import.meta.env.DEV && (
+        <button
+          onClick={enterDemo}
+          className="mt-3 w-full max-w-[300px] py-3 rounded-2xl bg-fg/[0.06] text-fg/80 font-semibold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition"
+        >
+          <Play className="w-4 h-4" /> Ver em modo demonstração (dev)
+        </button>
+      )}
 
       {authError && (
         <div className="mt-5 w-full max-w-[320px] rounded-2xl bg-rose-500/10 border border-rose-500/25 p-3.5 text-left">

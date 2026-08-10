@@ -1,7 +1,59 @@
-import React from 'react';
-import { ChevronRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronRight, ChevronLeft, Trash2 } from 'lucide-react';
 
 export const fmt = (v) => (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Linha de item recorrente (recebimento fixo, conta fixa, assinatura).
+// Mostra ícone da categoria, nome, subtítulo (dia · categoria) e o valor.
+// Exclusão em 2 toques (tap na lixeira → "Excluir?" → confirma), evitando
+// remoções acidentais sem precisar de modal.
+export const RecurringRow = ({ cat, name, sub, amount, sign = '−', tone = 'neg', last, onDelete }) => {
+  const [confirm, setConfirm] = useState(false);
+  const Icon = cat?.Icon;
+  const valueColor = tone === 'pos' ? 'text-pos' : tone === 'info' ? 'text-info' : 'text-neg';
+  return (
+    <div className={`flex items-center gap-3 px-4 py-3 ${last ? '' : 'border-b border-fg/[0.04]'}`}>
+      <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${cat?.color}22` }}>
+        {Icon && <Icon className="w-[18px] h-[18px]" style={{ color: cat?.color }} />}
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-semibold truncate">{name}</p>
+        {sub && <p className="text-[11px] text-fg/40 truncate mt-0.5">{sub}</p>}
+      </div>
+      {confirm ? (
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button onClick={() => setConfirm(false)} className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-fg/[0.06] text-fg/60 active:scale-95 transition">Cancelar</button>
+          <button onClick={() => { setConfirm(false); onDelete && onDelete(); }} className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-rose-500 text-white active:scale-95 transition">Excluir</button>
+        </div>
+      ) : (
+        <>
+          <span className={`text-[14px] font-extrabold tabular-nums shrink-0 ${valueColor}`}>{sign} R$ {fmt(amount)}</span>
+          {onDelete && (
+            <button onClick={() => setConfirm(true)} aria-label="Excluir" className="w-8 h-8 -mr-1.5 rounded-lg flex items-center justify-center text-fg/25 active:text-neg active:scale-90 transition shrink-0">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+// Navegador de mês (setas ‹ ›), espelhando o site. `label` já vem formatado.
+// `canNext` desabilita avançar além do mês atual (evita meses futuros vazios).
+export const MonthNav = ({ label, onPrev, onNext, canNext = true }) => (
+  <div className="px-5 mt-2 flex items-center justify-between">
+    <button onClick={onPrev} aria-label="Mês anterior"
+      className="w-9 h-9 rounded-full bg-fg/[0.06] text-fg/70 flex items-center justify-center active:scale-90 transition">
+      <ChevronLeft className="w-5 h-5" />
+    </button>
+    <span className="text-[13px] font-bold tracking-tight first-letter:uppercase">{label}</span>
+    <button onClick={onNext} disabled={!canNext} aria-label="Próximo mês"
+      className={`w-9 h-9 rounded-full flex items-center justify-center transition ${canNext ? 'bg-fg/[0.06] text-fg/70 active:scale-90' : 'opacity-30 text-fg/40'}`}>
+      <ChevronRight className="w-5 h-5" />
+    </button>
+  </div>
+);
 
 // Cabeçalho de aba (título + subtítulo + ação à direita).
 export const TabHeader = ({ title, subtitle, right }) => (

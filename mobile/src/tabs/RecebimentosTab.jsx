@@ -1,47 +1,45 @@
 import React, { useState, useMemo } from 'react';
 import { TrendingUp, Plus } from 'lucide-react';
-import { TabHeader, Card, Chip, TxRow, SectionLabel } from '../components/ui.jsx';
-import Sheet from '../components/Sheet.jsx';
-import TxForm from '../components/forms/TxForm.jsx';
+import { TabHeader, Card, TxRow, SectionLabel, MonthNav } from '../components/ui.jsx';
+import MonthlySheet from '../components/MonthlySheet.jsx';
 import TxDetailSheet from '../components/TxDetailSheet.jsx';
 import { useFinance } from '../hooks/useFinance.js';
 import { useStore } from '../store.jsx';
-import { fmt, fmtDay, txMonthKey } from '../lib/finance.js';
+import { fmt, fmtDay, txMonthKey, monthKeyNow, shiftMonth, monthLabel } from '../lib/finance.js';
 import { catMeta } from '../lib/categories.js';
 
-const PERIODS = [
-  { id: 'month', label: 'Este mês' },
-  { id: 'all', label: 'Tudo' },
-];
-
 const AddBtn = ({ onClick }) => (
-  <button onClick={onClick} aria-label="Adicionar" className="w-9 h-9 rounded-full bg-pos/15 text-pos flex items-center justify-center active:scale-90 transition shrink-0">
+  <button onClick={onClick} aria-label="Adicionar recebimento" className="w-9 h-9 rounded-full bg-pos/15 text-pos flex items-center justify-center active:scale-90 transition shrink-0">
     <Plus className="w-5 h-5" />
   </button>
 );
 
 export default function RecebimentosTab() {
-  const { transactions, monthKey } = useFinance();
-  const { addTransaction } = useStore();
-  const [period, setPeriod] = useState('month');
-  const [open, setOpen] = useState(false);
+  const { transactions, fixed_incomes } = useFinance();
+  const { addTransaction, addFixedIncome, deleteFixedIncome, confirmFixedIncome } = useStore();
+  const [month, setMonth] = useState(monthKeyNow());
+  const [hub, setHub] = useState(false);
   const [detail, setDetail] = useState(null);
+  const now = monthKeyNow();
 
   const list = useMemo(() => transactions
     .filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
-    .filter(t => period === 'all' || txMonthKey(t) === monthKey)
+    .filter(t => txMonthKey(t) === month)
     .sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))),
-    [transactions, period, monthKey]);
+    [transactions, month]);
 
   const total = list.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
 
   return (
     <div className="pb-6">
-      <TabHeader title="Recebimentos" subtitle="O que entrou na sua conta" right={<AddBtn onClick={() => setOpen(true)} />} />
+      <TabHeader title="Recebimentos" subtitle="O que entrou na sua conta" right={<AddBtn onClick={() => setHub(true)} />} />
 
-      <div className="px-5 flex gap-2 mt-1">
-        {PERIODS.map(p => <Chip key={p.id} active={period === p.id} onClick={() => setPeriod(p.id)}>{p.label}</Chip>)}
-      </div>
+      <MonthNav
+        label={monthLabel(month)}
+        onPrev={() => setMonth(m => shiftMonth(m, -1))}
+        onNext={() => setMonth(m => shiftMonth(m, 1))}
+        canNext={month < now}
+      />
 
       <div className="px-5 mt-5">
         <Card className="p-5 bg-gradient-to-br from-emerald-500/15 via-card to-card border-emerald-500/15">
@@ -51,7 +49,7 @@ export default function RecebimentosTab() {
         </Card>
       </div>
 
-      <SectionLabel>Lançamentos</SectionLabel>
+      <SectionLabel>Recebimentos do mês</SectionLabel>
       <div className="px-5">
         <Card>
           {list.length === 0 ? (
@@ -63,10 +61,18 @@ export default function RecebimentosTab() {
         </Card>
       </div>
 
-      {open && (
-        <Sheet title="Novo recebimento" subtitle="Some ao que entrou este mês" onClose={() => setOpen(false)}>
-          <TxForm kind="income" onSubmit={addTransaction} onDone={() => setOpen(false)} />
-        </Sheet>
+      {hub && (
+        <MonthlySheet
+          kind="income"
+          month={month}
+          items={fixed_incomes}
+          transactions={transactions}
+          onConfirm={(item, val) => confirmFixedIncome(item, month, val)}
+          onAddFixed={addFixedIncome}
+          onDeleteFixed={deleteFixedIncome}
+          onAddAvulso={addTransaction}
+          onClose={() => setHub(false)}
+        />
       )}
       {detail && <TxDetailSheet tx={detail} onClose={() => setDetail(null)} />}
     </div>

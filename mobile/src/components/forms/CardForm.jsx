@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Check } from 'lucide-react';
 import { Field, TextInput, Select, SubmitBtn } from './fields.jsx';
+import { CARD_COLORS } from '../../lib/cardColors.js';
 
 const BRANDS = ['Visa', 'Mastercard', 'Elo', 'American Express', 'Hipercard', 'Outro'];
 const onlyDigits = (s, n) => String(s).replace(/\D/g, '').slice(0, n);
@@ -13,6 +14,7 @@ export default function CardForm({ onSubmit, onDone }) {
   const [dueDay, setDueDay] = useState('10');
   const [closingDay, setClosingDay] = useState('');
   const [limit, setLimit] = useState('');
+  const [color, setColor] = useState(CARD_COLORS[0]);
   const [saving, setSaving] = useState(false);
 
   const valid = name.trim().length > 0;
@@ -25,6 +27,7 @@ export default function CardForm({ onSubmit, onDone }) {
       name: name.trim(),
       brand,
       last4,
+      color,
       dueDay: parseInt(dueDay) || 10,
       closingDay: closingDay ? parseInt(closingDay) : '',
       limit: limit ? parseFloat(String(limit).replace(/\./g, '').replace(',', '.')) : '',
@@ -62,6 +65,22 @@ export default function CardForm({ onSubmit, onDone }) {
 
       <Field label="Limite" hint="Opcional — usado para mostrar o uso da fatura">
         <TextInput inputMode="decimal" value={limit} onChange={(e) => setLimit(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="Ex.: 5000" />
+      </Field>
+
+      <Field label="Cor do cartão">
+        <div className="flex gap-3 pt-1">
+          {CARD_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setColor(c)}
+              aria-label={`Cor ${c}`}
+              className={`w-9 h-9 rounded-full ${c} flex items-center justify-center transition active:scale-90 ${color === c ? 'ring-2 ring-fg ring-offset-2 ring-offset-card' : ''}`}
+            >
+              {color === c && <Check className="w-4 h-4 text-white" />}
+            </button>
+          ))}
+        </div>
       </Field>
 
       <SubmitBtn disabled={!valid || saving} tone="info">

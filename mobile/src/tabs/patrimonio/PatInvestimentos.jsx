@@ -6,7 +6,7 @@ import AssetLogo from '../../components/AssetLogo.jsx';
 import InvestmentForm from '../../components/forms/InvestmentForm.jsx';
 import { useStore } from '../../store.jsx';
 import { fmt } from '../../lib/finance.js';
-import { investmentMetrics, summarizeInvestments, ASSET_LABEL } from '../../lib/patrimonio.js';
+import { investmentMetrics, summarizeInvestments, isActiveInvestment, ASSET_LABEL } from '../../lib/patrimonio.js';
 
 const CLASS_HEX = { renda_fixa: '#3b82f6', acoes: '#a855f7', etfs: '#a855f7', fiis: '#10b981', crypto: '#f59e0b', outros: '#94a3b8' };
 
@@ -23,6 +23,18 @@ export default function PatInvestimentos({ livePrices = {} }) {
   const summary = useMemo(() => summarizeInvestments(investments, { livePrices }), [investments, livePrices]);
   const profitPct = summary.cost > 0 ? (summary.profit / summary.cost) * 100 : 0;
   const up = summary.profit >= 0;
+
+  // Ativos (sem vendidos) agrupados por categoria, ordenados por valor.
+  const groups = useMemo(() => {
+    const active = investments.filter((a) => isActiveInvestment(a, { livePrices }));
+    const order = ['renda_fixa', 'acoes', 'etfs', 'fiis', 'crypto', 'outros'];
+    const map = {};
+    active.forEach((a) => { const t = order.includes(a.type) ? a.type : 'outros'; (map[t] = map[t] || []).push(a); });
+    return order.filter((t) => map[t]).map((t) => {
+      const items = map[t].map((a) => ({ a, cur: investmentMetrics(a, { livePrices }).current })).sort((x, y) => y.cur - x.cur);
+      return { type: t, items, total: items.reduce((s, it) => s + it.cur, 0) };
+    });
+  }, [investments, livePrices]);
 
   const openDetail = (a) => { setConfirming(false); setDetail(a); };
   const doDelete = async () => { await deleteInvestment(detail.id); setDetail(null); };
@@ -57,31 +69,43 @@ export default function PatInvestimentos({ livePrices = {} }) {
         </Card>
       </div>
 
-      <SectionLabel>Ativos</SectionLabel>
-      <div className="px-5">
-        <Card>
-          {investments.length === 0 ? (
-            <p className="text-center text-[13px] text-fg/40 py-10">Nenhum investimento cadastrado. Cadastre no site.</p>
-          ) : investments.map((a, i) => {
-            const m = investmentMetrics(a, { livePrices });
-            const pl = m.invested > 0 ? ((m.current - m.invested) / m.invested) * 100 : 0;
-            const aUp = pl >= 0;
-            const hex = CLASS_HEX[a.type] || '#94a3b8';
-            return (
-              <button key={a.id} onClick={() => openDetail(a)} className={`w-full text-left flex items-center gap-3 px-4 py-3 active:bg-fg/[0.03] transition ${i === investments.length - 1 ? '' : 'border-b border-fg/[0.04]'}`}>
-                <AssetLogo asset={a} size={36} color={hex} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-semibold truncate">{a.name || a.symbol || 'Ativo'}</p>
-                  <p className="text-[11px] text-fg/40 truncate">{ASSET_LABEL[a.type] || 'Outros'}{a.quantity ? ` · ${a.quantity} un.` : ''}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[14px] font-extrabold tabular-nums">R$ {fmt(m.current)}</p>
-                  {m.invested > 0 && <p className={`text-[11px] font-bold ${aUp ? 'text-pos' : 'text-neg'}`}>{aUp ? '+' : '−'}{Math.abs(pl).toFixed(1)}%</p>}
-                </div>
-              </button>
-            );
-          })}
-        </Card>
+      <SectionLabel>Ativos por categoria</SectionLabel>
+      <div className="px-5 space-y-4">
+        {groups.length === 0 ? (
+          <Card><p className="text-center text-[13px] text-fg/40 py-10">Nenhum investimento ativo. Cadastre um ou veja no site.</p></Card>
+        ) : groups.map((g) => {
+          const hex = CLASS_HEX[g.type] || '#94a3b8';
+          return (
+            <div key={g.type}>
+              <div className="flex items-center justify-between px-1 mb-1.5">
+                <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-fg/45">
+                  <span className="w-2 h-2 rounded-full" style={{ background: hex }} /> {ASSET_LABEL[g.type] || 'Outros'}
+                </span>
+                <span className="text-[11px] font-bold text-fg/40 tabular-nums">R$ {fmt(g.total)}</span>
+              </div>
+              <Card>
+                {g.items.map(({ a, cur }, i) => {
+                  const m = investmentMetrics(a, { livePrices });
+                  const pl = m.invested > 0 ? ((m.current - m.invested) / m.invested) * 100 : 0;
+                  const aUp = pl >= 0;
+                  return (
+                    <button key={a.id} onClick={() => openDetail(a)} className={`w-full text-left flex items-center gap-3 px-4 py-3 active:bg-fg/[0.03] transition ${i === g.items.length - 1 ? '' : 'border-b border-fg/[0.04]'}`}>
+                      <AssetLogo asset={a} size={36} color={hex} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[14px] font-semibold truncate">{a.name || a.symbol || 'Ativo'}</p>
+                        <p className="text-[11px] text-fg/40 truncate">{a.symbol || ASSET_LABEL[a.type]}{a.quantity ? ` · ${a.quantity} un.` : ''}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-[14px] font-extrabold tabular-nums">R$ {fmt(cur)}</p>
+                        {m.invested > 0 && <p className={`text-[11px] font-bold ${aUp ? 'text-pos' : 'text-neg'}`}>{aUp ? '+' : '−'}{Math.abs(pl).toFixed(1)}%</p>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </Card>
+            </div>
+          );
+        })}
       </div>
 
       {sheet && (

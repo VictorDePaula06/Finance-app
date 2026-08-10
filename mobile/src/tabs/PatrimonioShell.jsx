@@ -26,7 +26,7 @@ export default function PatrimonioShell({ module, onModule, onOpenSettings }) {
   return (
     <>
       <PatHeader module={module} onModule={onModule} onOpenSettings={onOpenSettings} />
-      <main className="flex-1 overflow-y-auto no-scrollbar pb-24">
+      <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar pb-24">
         {patTab === 'geral' && <PatGeral livePrices={livePrices} onNavigate={setPatTab} />}
         {patTab === 'monitor' && <PatMonitor livePrices={livePrices} />}
         {patTab === 'reserva' && <PatReserva />}

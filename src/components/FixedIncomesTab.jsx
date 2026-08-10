@@ -34,7 +34,7 @@ const groupOf = (cat) => (INCOME_GROUPS.find(g => g.match.includes(cat)) || INCO
 /**
  * Entradas recorrentes (salário, aluguel...). O componente tem DOIS modos, para
  * respeitar a separação do módulo:
- *   mode="cadastro"   → Cadastros › Recebimentos Fixos. Só cadastra/edita/exclui.
+ *   mode="cadastro"   → Recorrentes › Recebimentos Fixos. Só cadastra/edita/exclui.
  *   mode="lancamento" → Lançamentos › Recebimentos. Só CONFIRMA o recebimento do mês
  *                       (lança a entrada). Não permite cadastrar nada.
  */
@@ -222,7 +222,7 @@ export default function FixedIncomesTab({ transactions = [], mode = 'cadastro' }
           <p className={`text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             {isCadastro
               ? 'Cadastre seu salário e outras entradas recorrentes — depois é só confirmar em Lançamentos'
-              : 'Confirme as entradas recorrentes que já caíram. Para cadastrar, vá em Cadastros › Recebimentos Fixos'}
+              : 'Confirme as entradas recorrentes que já caíram. Para cadastrar, vá em Recorrentes › Recebimentos Fixos'}
           </p>
         </div>
         {isCadastro ? (

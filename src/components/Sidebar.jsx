@@ -73,7 +73,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, activeModule, set
       { type: 'item', id: 'visao', label: 'Visão Geral', icon: LayoutDashboard },
       {
         // CADASTROS: você cadastra uma vez (salário, contas, cofrinhos, cartão, metas).
-        type: 'group', id: 'grp_cadastros', label: 'Cadastros', icon: Briefcase,
+        type: 'group', id: 'grp_cadastros', label: 'Recorrentes', icon: Briefcase,
         children: [
           { id: 'cad_recebimentos', label: 'Recebimentos Fixos', icon: ArrowUpCircle },
           { id: 'fixas', label: 'Contas Fixas', icon: Home },

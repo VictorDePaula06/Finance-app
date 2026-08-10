@@ -11,6 +11,7 @@ const pmk = M === 0 ? `${Y - 1}-12` : `${Y}-${pad(M)}`;
 
 export const DEMO = {
   user: { uid: 'demo', displayName: 'Felipe (Demo)', email: 'demo@alivia.app', photoURL: null },
+  plan: 'free', // demonstração no Plano Gratuito (mostra o bloqueio das features Premium)
   prefs: { manualConfig: { income: 6500, fixedExpenses: 2600 }, expenseBasis: 'competencia' },
   transactions: [
     { id: 't0', type: 'income', category: 'initial_balance', description: 'Saldo inicial', amount: 4000, date: prevISO(20), month: pmk },
@@ -41,5 +42,14 @@ export const DEMO = {
   goals: [
     { id: 'g1', title: 'Viagem de fim de ano', current: 1800, target: 6000, deadline: `${Y}-12-20`, status: 'active' },
     { id: 'g2', title: 'Troca de notebook', current: 2400, target: 6000, status: 'active' },
+  ],
+  fixed_incomes: [
+    { id: 'fi1', name: 'Salário', value: 5200, day: 5, category: 'salary', createdAt: prevISO(1) },
+    { id: 'fi2', name: 'Aluguel recebido', value: 900, day: 10, category: 'other', createdAt: prevISO(1) },
+  ],
+  fixed_expenses: [
+    { id: 'fe1', name: 'Aluguel', value: 1880, day: 1, category: 'housing', priority: 'essential', isVariable: false, createdAt: prevISO(1) },
+    { id: 'fe2', name: 'Internet', value: 120, day: 8, category: 'subscriptions', priority: 'essential', isVariable: false, createdAt: prevISO(1) },
+    { id: 'fe3', name: 'Luz', value: 210, day: 12, category: 'housing', priority: 'essential', isVariable: true, createdAt: prevISO(1) },
   ],
 };

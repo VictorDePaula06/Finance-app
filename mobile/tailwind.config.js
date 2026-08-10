@@ -4,7 +4,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Quicksand', 'system-ui', '-apple-system', 'sans-serif'],
+        quicksand: ['Quicksand', 'sans-serif'],
       },
       colors: {
         // Tokens temáticos (claro/escuro) via variáveis CSS.
@@ -18,6 +19,10 @@ export default {
         neg: 'rgb(var(--neg) / <alpha-value>)',
         warn: 'rgb(var(--warn) / <alpha-value>)',
         info: 'rgb(var(--info) / <alpha-value>)',
+        // Paleta da marca Alívia (igual ao web).
+        'verde-respira': 'rgb(var(--verde-respira) / <alpha-value>)',
+        'azul-ceu': 'rgb(var(--azul-ceu) / <alpha-value>)',
+        'crema-paz': 'rgb(var(--crema-paz) / <alpha-value>)',
       },
     },
   },

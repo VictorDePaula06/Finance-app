@@ -1,24 +1,24 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Settings, Mic, Send, ArrowUpRight, ArrowDownRight,
+  Settings, MessageCircle, ArrowUpRight, ArrowDownRight,
   CreditCard, ChevronRight, Activity,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { useFinance } from '../hooks/useFinance.js';
 import { fmt, fmtDay } from '../lib/finance.js';
-import ChatSheet from '../components/ChatSheet.jsx';
 import ModuleToggle from '../components/ModuleToggle.jsx';
 import logo from '../assets/logo.png';
 import aliviaFinal from '../assets/alivia-final.png';
 
-const SUGGESTIONS = ['Como estão meus gastos?', 'Quanto posso gastar hoje?', 'Registrar mercado R$ 120', 'Minha reserva está boa?'];
+// WhatsApp da Alívia (só dígitos, formato internacional, ex.: '5521999998888').
+// Preencha quando o número de produção estiver ativo. Vazio → abre o WhatsApp
+// deixando o usuário escolher o contato.
+const ALIVIA_WA = '';
+const ALIVIA_WA_LINK = `https://wa.me/${ALIVIA_WA}?text=${encodeURIComponent('Oi, Alívia! Quero registrar um gasto 💸')}`;
 
-export default function GeralTab({ onOpenSettings, module = 'gastos', onModule }) {
+export default function GeralTab({ onOpenSettings, module = 'gastos', onModule, onGoToCard }) {
   const { user } = useStore();
   const { balance, income, expense, invoice, health } = useFinance();
-  const [draft, setDraft] = useState('');
-  const [chat, setChat] = useState(null); // null | { seed?, autoRecord? }
-  const openChat = (opts) => { setChat(opts || {}); setDraft(''); };
 
   const firstName = user?.displayName ? user.displayName.split(' ')[0] : 'Você';
   const initial = (user?.displayName || user?.email || 'U').charAt(0).toUpperCase();
@@ -48,42 +48,23 @@ export default function GeralTab({ onOpenSettings, module = 'gastos', onModule }
         <button onClick={onOpenSettings} aria-label="Ajustes" className="w-9 h-9 rounded-full bg-fg/[0.06] flex items-center justify-center active:scale-95 transition shrink-0"><Settings className="w-[18px] h-[18px] text-fg/70" /></button>
       </div>
 
-      {/* Falar com a Alívia (chat rápido + áudio) */}
-      <div className="mt-5 rounded-3xl p-4 bg-gradient-to-br from-emerald-500/15 via-card to-card border border-emerald-500/15">
-        <div className="flex items-center gap-2.5 mb-3">
-          <div className="relative shrink-0">
-            <img src={aliviaFinal} alt="Alívia" className="w-10 h-10 rounded-full object-cover border border-pos/30" />
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-pos border-2 border-card" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <p className="text-[13px] font-bold leading-none">Fale com a Alívia</p>
-              <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-pos">IA</span>
-            </div>
-            <p className="text-[10px] text-pos/80 mt-1 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-pos" /> Consultora financeira · Online
-            </p>
-          </div>
+      {/* Consulta Alívia pelo WhatsApp — registrar gastos e tirar dúvidas por lá */}
+      <a
+        href={ALIVIA_WA_LINK}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-5 flex items-center gap-3 rounded-3xl p-4 bg-gradient-to-br from-emerald-500/15 via-card to-card border border-emerald-500/20 active:scale-[0.99] transition"
+      >
+        <div className="relative shrink-0">
+          <img src={aliviaFinal} alt="Alívia" className="w-11 h-11 rounded-full object-cover border border-pos/30" />
+          <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-pos border-2 border-card" />
         </div>
-        <div className="flex items-center gap-2 bg-fg/[0.06] rounded-2xl p-1.5 pl-4">
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && draft.trim()) openChat({ seed: draft.trim() }); }}
-            placeholder="Pergunte ou registre um gasto…"
-            className="flex-1 min-w-0 bg-transparent outline-none text-[13px] placeholder:text-fg/30"
-          />
-          <button onClick={() => openChat({ autoRecord: true })} className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition bg-fg/[0.06]" aria-label="Enviar áudio">
-            <Mic className="w-5 h-5 text-pos" />
-          </button>
-          <button onClick={() => openChat(draft.trim() ? { seed: draft.trim() } : {})} className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 active:scale-95 transition" aria-label="Enviar"><Send className="w-[18px] h-[18px] text-black" /></button>
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-bold leading-none">Consulta Alívia no WhatsApp</p>
+          <p className="text-[11px] text-fg/50 mt-1.5 leading-snug">Registre seus gastos e tire dúvidas direto no WhatsApp.</p>
         </div>
-        <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">
-          {SUGGESTIONS.map(s => <button key={s} onClick={() => openChat({ seed: s })} className="shrink-0 text-[11px] px-3 py-1.5 rounded-full bg-fg/[0.06] text-fg/60 whitespace-nowrap active:scale-95 transition">{s}</button>)}
-        </div>
-      </div>
-
-      {chat && <ChatSheet seedMessage={chat.seed} autoRecord={chat.autoRecord} onClose={() => setChat(null)} />}
+        <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0"><MessageCircle className="w-5 h-5 text-black" /></div>
+      </a>
 
       {/* Saldo em carteira */}
       <div className="mt-6">
@@ -107,8 +88,8 @@ export default function GeralTab({ onOpenSettings, module = 'gastos', onModule }
         </div>
       </div>
 
-      {/* Fatura do cartão */}
-      <button className="mt-3 w-full rounded-2xl bg-card border border-fg/[0.05] p-4 flex items-center gap-3 text-left active:scale-[0.99] transition">
+      {/* Fatura do cartão → leva para a aba Cartão */}
+      <button onClick={onGoToCard} className="mt-3 w-full rounded-2xl bg-card border border-fg/[0.05] p-4 flex items-center gap-3 text-left active:scale-[0.99] transition">
         <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center shrink-0"><CreditCard className="w-5 h-5 text-info" /></div>
         <div className="flex-1 min-w-0">
           <p className="text-[10px] uppercase tracking-widest text-fg/40 font-bold">Fatura do cartão</p>

@@ -12,7 +12,7 @@ import ConfirmSaveDialog from './ConfirmSaveDialog';
 import { goalProgress, currentMonthExpenses } from '../utils/goalsProgress';
 
 /**
- * Cadastros › Objetivos e Metas.
+ * Recorrentes › Objetivos e Metas.
  *
  * É um CADASTRO (não relatório): a pessoa registra metas de tipos diferentes e o
  * app acompanha o progresso. Tipos com progresso AUTOMÁTICO leem as transações do
@@ -511,7 +511,7 @@ export default function GoalsTab({ transactions = [], manualConfig = {}, onUpdat
               <div>
                 <label className={labelCls}>Cartão</label>
                 {cards.length === 0 ? (
-                  <p className="text-[11px] text-amber-500">Cadastre um cartão primeiro em Cadastros › Cartão.</p>
+                  <p className="text-[11px] text-amber-500">Cadastre um cartão primeiro em Recorrentes › Cartão.</p>
                 ) : (
                   <select value={form.cardId} onChange={e => setForm({ ...form, cardId: e.target.value })} className={inputCls}>
                     {cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}

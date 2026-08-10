@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Scale, ArrowUpRight, ArrowDownRight, CheckCircle2, SlidersHorizontal } from 'lucide-react';
 import { TabHeader, Card } from '../../components/ui.jsx';
 import Sheet from '../../components/Sheet.jsx';
+import PremiumGate from '../../components/PremiumGate.jsx';
 import RebalanceForm from '../../components/forms/RebalanceForm.jsx';
 import { useStore } from '../../store.jsx';
 import { fmt } from '../../lib/finance.js';
@@ -12,9 +13,19 @@ const ConfigBtn = ({ onClick }) => (
 );
 
 export default function PatRebalanceamento({ livePrices = {} }) {
-  const { investments = [], prefs = {}, savePref } = useStore();
+  const { investments = [], prefs = {}, savePref, isPremium } = useStore();
   const targets = prefs?.rebalanceTargets || {};
   const [config, setConfig] = useState(false);
+
+  // Rebalanceamento é exclusivo Premium (mesma régua do site).
+  if (!isPremium) {
+    return (
+      <div className="pb-6">
+        <TabHeader title="Rebalanceamento" subtitle="Sua carteira x a alocação-alvo" />
+        <PremiumGate feature="Rebalanceamento" plan="Premium" />
+      </div>
+    );
+  }
 
   const summary = useMemo(() => summarizeInvestments(investments, { livePrices }), [investments, livePrices]);
   const plan = useMemo(() => buildRebalancePlan(summary.byClass, targets), [summary, targets]);

@@ -81,7 +81,8 @@ service cloud.firestore {
     // ─────────────────────────────────────────────────────────
     function isFinancialCollection(name) {
       return name in [
-        'transactions', 'goals', 'cards', 'subscriptions', 'fixed_expenses',
+        'transactions', 'goals', 'cards', 'subscriptions',
+        'fixed_expenses', 'fixed_incomes',
         'savings_jars', 'investments', 'tangible_assets', 'debts',
         'insurances', 'watchlist'
       ];

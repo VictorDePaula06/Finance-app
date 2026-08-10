@@ -64,6 +64,41 @@ export const monthKeyNow = () => {
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
 };
 
+// "Já recebido/pago no mês?" — igual ao site: marcado no template
+// (lastReceivedMonth/lastPaidMonth) OU existe transação fixa de mesmo nome no mês.
+export const isFixedDoneInMonth = (item, transactions, monthKey, type) => {
+  if (!item) return false;
+  const marked = type === 'income' ? item.lastReceivedMonth : item.lastPaidMonth;
+  if (marked === monthKey) return true;
+  const name = String(item.name || '').trim().toLowerCase();
+  if (!name) return false;
+  return (transactions || []).some(t => t.isFixed
+    && (type !== 'income' || t.type === 'income')
+    && (t.month || String(t.date || '').slice(0, 7)) === monthKey
+    && String(t.description || '').trim().toLowerCase() === name);
+};
+
+// ISO no dia `day` do mês `monthKey` (meio-dia local), limitando ao último dia.
+export const isoForMonthDay = (monthKey, day) => {
+  const [y, m] = String(monthKey).split('-').map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  const d = Math.min(Math.max(1, parseInt(day) || 1), lastDay);
+  return new Date(y, m - 1, d, 12, 0, 0).toISOString();
+};
+
+// Navegação de mês (igual ao site: setas ‹ ›). delta em meses (−1 anterior, +1 próximo).
+export const shiftMonth = (monthKey, delta) => {
+  const [y, m] = String(monthKey || monthKeyNow()).split('-').map(Number);
+  const d = new Date(y, (m - 1) + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+
+// Rótulo "agosto de 2026" (mesmo formato do site).
+export const monthLabel = (monthKey) => {
+  const [y, m] = String(monthKey || monthKeyNow()).split('-').map(Number);
+  return new Date(y, m - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+};
+
 // Recebimentos do mês (ignora saldo inicial/sobra/resgate de cofre).
 export const monthIncome = (transactions, monthKey) =>
   transactions.filter(t => t.type === 'income'
@@ -102,6 +137,25 @@ const isSubInInvoice = (subDay, invoiceMonth, closingDay) => {
     || getInvoiceMonth(prev.toISOString(), closingDay) === invoiceMonth;
 };
 
+// Fatura em aberto de UM cartão — mesma janela (dia de fechamento) que o site.
+// Retorna o total (compras não pagas + assinaturas da fatura corrente) e as
+// listas separadas, para a aba Cartão exibir e somar de forma consistente com a
+// Visão Geral / web. `subs` já vem filtrada pela janela (não lista à toa).
+export const computeCardInvoice = (card, subscriptions = [], transactions = []) => {
+  if (!card) return { total: 0, unpaid: [], subs: [], currInv: '' };
+  const now = new Date();
+  const closingDay = card.closingDay || ((card.dueDay - 7 > 0) ? card.dueDay - 7 : 25);
+  const currInv = getInvoiceMonth(now.toISOString(), closingDay);
+  const unpaid = transactions.filter(t => t.selectedCardId === card.id && t.invoiceStatus === 'unpaid');
+  const subs = (subscriptions || []).filter(s => s.cardId === card.id).filter(s => {
+    if (s.lastPaidMonth === currInv) return false;
+    return isSubInInvoice(parseInt(s.day) || 1, currInv, closingDay);
+  });
+  const total = unpaid.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0)
+    + subs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+  return { total, unpaid, subs, currInv, closingDay };
+};
+
 export const computeInvoice = (cards = [], subscriptions = [], transactions = []) => {
   const now = new Date();
   let openTotal = 0; const allDues = [];
@@ -128,19 +182,32 @@ export const computeInvoice = (cards = [], subscriptions = [], transactions = []
   return { openTotal, openDue: allDues[0] || null, hasCards: (cards || []).length > 0 };
 };
 
-// ── Saúde Financeira (versão alinhada à régua do site: 3 pilares, 100 pts) ──
-export const computeHealth = ({ income, expense, reserve, fixedExpenses }) => {
+// Metas padrão do Índice (mesmos defaults do site — DEFAULT_HEALTH_CONFIG).
+export const DEFAULT_HEALTH_CONFIG = {
+  surplusUnit: 'percent', surplusTargetPct: 20, surplusTargetAmount: 0,
+  reserveUnit: 'months', reserveTargetMonths: 6, reserveTargetAmount: 0,
+  superfluousUnit: 'percent', superfluousCap: 30, superfluousCapAmount: 0,
+  includeInvoice: false,
+};
+
+// ── Saúde Financeira (3 pilares, 100 pts) — metas configuráveis (healthConfig). ──
+export const computeHealth = ({ income, expense, reserve, fixedExpenses, config }) => {
+  const hc = { ...DEFAULT_HEALTH_CONFIG, ...(config || {}) };
   const monthlyRef = fixedExpenses > 0 ? fixedExpenses : (expense > 0 ? expense : income * 0.7);
   const surplus = income - expense;
-  // Pilar 1: sobra (30) — meta 20% da renda
-  const surplusTarget = income * 0.20;
+  // Pilar 1: sobra (30) — meta em % da renda OU em R$.
+  const surplusTarget = hc.surplusUnit === 'amount' ? (hc.surplusTargetAmount || 0) : income * ((hc.surplusTargetPct || 20) / 100);
   let surplusScore = surplus <= 0 ? 0 : (surplusTarget <= 0 ? 30 : Math.min(1, surplus / surplusTarget) * 30);
-  // Pilar 2: reserva (40) — meta 6 meses
+  // Pilar 2: reserva (40) — meta em meses de despesa OU em R$.
   const reserveMonths = monthlyRef > 0 ? reserve / monthlyRef : 0;
-  const reserveScore = Math.min(1, reserveMonths / 6) * 40;
-  // Pilar 3: supérfluos (30) — sem detalhe de prioridade aqui, usa proporção gasto/renda
+  const reserveScore = hc.reserveUnit === 'amount'
+    ? Math.min(1, (hc.reserveTargetAmount || 0) > 0 ? reserve / hc.reserveTargetAmount : 0) * 40
+    : Math.min(1, reserveMonths / (hc.reserveTargetMonths || 6)) * 40;
+  // Pilar 3: supérfluos (30) — teto em % da renda (aproxima via proporção gasto/renda).
+  const capPct = (hc.superfluousUnit === 'amount' && income > 0) ? ((hc.superfluousCapAmount || 0) / income) * 100 : (hc.superfluousCap || 30);
+  const tol = Math.max(0.05, capPct / 60); // tolerância proporcional ao teto
   const spentRatio = income > 0 ? expense / income : 1;
-  const superfluousScore = Math.max(0, Math.min(1, (1 - spentRatio) / 0.5)) * 30;
+  const superfluousScore = Math.max(0, Math.min(1, (1 - spentRatio) / tol)) * 30;
   const score = Math.min(100, Math.round(surplusScore + reserveScore + superfluousScore));
   const statusLabel = score >= 80 ? 'Excelente' : score >= 60 ? 'Bom' : score >= 40 ? 'Atenção' : 'Crítico';
   const color = score >= 80 ? '#10b981' : score >= 60 ? '#eab308' : score >= 40 ? '#f97316' : '#f43f5e';

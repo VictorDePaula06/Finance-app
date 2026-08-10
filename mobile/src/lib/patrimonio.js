@@ -33,11 +33,21 @@ export function investmentMetrics(inv, { usdRate = 5, livePrices = {} } = {}) {
   return { invested: safe(invested), current: safe(qty * price * usdM), unitPrice: price };
 }
 
-// Resumo da carteira: valor atual, custo, lucro, por classe.
+// Um ativo é "ativo" (não vendido) quando ainda tem quantidade/aplicação/valor.
+// Ativos totalmente vendidos ficam no banco com quantidade 0 → aqui são ocultados,
+// igual ao site (que só lista ativos com valor > 0).
+export function isActiveInvestment(inv, opts = {}) {
+  const qty = parseFloat(inv?.quantity) || 0;
+  const applied = parseFloat(inv?.totalApplied) || 0;
+  const cur = investmentMetrics(inv, opts).current;
+  return cur > 0.005 || qty > 0 || applied > 0;
+}
+
+// Resumo da carteira: valor atual, custo, lucro, por classe. Ignora vendidos.
 export function summarizeInvestments(investments = [], opts = {}) {
   let current = 0, cost = 0;
   const byClass = {};
-  investments.forEach((inv) => {
+  investments.filter((inv) => isActiveInvestment(inv, opts)).forEach((inv) => {
     const { invested, current: cur } = investmentMetrics(inv, opts);
     current += cur;
     cost += invested;

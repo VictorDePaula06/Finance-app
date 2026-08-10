@@ -3,22 +3,28 @@
 @tailwind utilities;
 
 /* Tokens (R G B). "fg" = primeiro plano. pos/neg/warn/info = acentos que mudam
-   de tom por tema (mais claros no escuro, mais escuros no claro, p/ contraste). */
+   de tom por tema (mais claros no escuro, mais escuros no claro, p/ contraste).
+   Paleta alinhada ao web (Alívia): escuro slate-950/900, claro branco + texto slate. */
 :root {
-  --bg: 9 9 11;          /* fundo */
-  --card: 26 26 30;      /* card (elevado em relação ao fundo) */
-  --card2: 34 34 39;
-  --fg: 255 255 255;
-  --pos: 52 211 153;     /* pos */
-  --neg: 251 113 133;    /* neg */
-  --warn: 251 191 36;    /* warn */
-  --info: 192 132 252;   /* info */
+  --bg: 2 6 23;          /* slate-950 (#020617) — igual ao web escuro */
+  --card: 15 23 42;      /* slate-900 (#0f172a) */
+  --card2: 30 41 59;     /* slate-800 (#1e293b) */
+  --fg: 248 250 252;     /* #f8fafc */
+  --pos: 52 211 153;     /* emerald-400 */
+  --neg: 251 113 133;    /* rose-400 */
+  --warn: 251 191 36;    /* amber-400 */
+  --info: 192 132 252;   /* violet-400 */
+
+  /* Marca Alívia (mesmos hexes do web) */
+  --verde-respira: 105 200 185; /* #69C8B9 */
+  --azul-ceu: 92 206 234;       /* #5CCEEA */
+  --crema-paz: 255 240 140;     /* #FFF08C */
 }
 .theme-light {
-  --bg: 237 239 242;
-  --card: 255 255 255;
-  --card2: 247 249 251;
-  --fg: 17 24 39;
+  --bg: 248 250 252;     /* #f8fafc — fundo claro do web */
+  --card: 255 255 255;   /* #ffffff */
+  --card2: 240 253 250;  /* teal-50 (#f0fdfa) — leve tom da marca, como o web */
+  --fg: 15 23 42;        /* #0f172a — texto principal do web */
   --pos: 5 150 105;      /* emerald-600 */
   --neg: 225 29 72;      /* rose-600 */
   --warn: 217 119 6;     /* amber-600 */
@@ -31,7 +37,8 @@ body {
   margin: 0;
   background: rgb(var(--bg));
   color: rgb(var(--fg));
-  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-family: 'Quicksand', system-ui, -apple-system, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
 }
