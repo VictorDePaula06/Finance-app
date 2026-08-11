@@ -1,144 +1,259 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Sparkles, ArrowRight, ArrowLeft, ShieldCheck, Heart } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../services/firebase';
+import {
+    Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft,
+    ShieldCheck, Heart, Sun, Moon, Loader2, CheckCircle2,
+} from 'lucide-react';
 import logo from '../assets/logo.png';
-import aliviaFinal from '../assets/alivia/alivia-final.png';
+
+// Traduz os códigos de erro do Firebase Auth para mensagens amigáveis.
+function friendlyError(code) {
+    switch (code) {
+        case 'auth/invalid-email': return 'E-mail inválido.';
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential': return 'E-mail ou senha incorretos.';
+        case 'auth/email-already-in-use': return 'Este e-mail já está cadastrado. Tente entrar.';
+        case 'auth/weak-password': return 'A senha precisa ter ao menos 6 caracteres.';
+        case 'auth/too-many-requests': return 'Muitas tentativas. Aguarde um pouco e tente de novo.';
+        case 'auth/network-request-failed': return 'Sem conexão. Verifique sua internet.';
+        case 'auth/popup-closed-by-user': return '';
+        default: return 'Não foi possível continuar. Tente novamente.';
+    }
+}
 
 export default function Login({ onBack }) {
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
-    const { loginWithGoogle } = useAuth();
+    const { login, signup, loginWithGoogle } = useAuth();
+    const { theme, toggleTheme } = useTheme();
+    const isDark = theme === 'dark';
 
-    async function handleGoogleLogin() {
+    const [mode, setMode] = useState('login'); // 'login' | 'signup'
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirm, setConfirm] = useState('');
+    const [showPass, setShowPass] = useState(false);
+    const [error, setError] = useState('');
+    const [info, setInfo] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [googleLoading, setGoogleLoading] = useState(false);
+
+    const resetMsgs = () => { setError(''); setInfo(''); };
+
+    async function handleGoogle() {
+        resetMsgs();
+        setGoogleLoading(true);
+        try { await loginWithGoogle(); }
+        catch (e) { const m = friendlyError(e?.code); if (m) setError(m); }
+        setGoogleLoading(false);
+    }
+
+    async function handleSubmit(e) {
+        e.preventDefault();
+        resetMsgs();
+        const mail = email.trim();
+        if (!mail || !password) { setError('Preencha e-mail e senha.'); return; }
+        if (mode === 'signup') {
+            if (password.length < 6) { setError('A senha precisa ter ao menos 6 caracteres.'); return; }
+            if (password !== confirm) { setError('As senhas não conferem.'); return; }
+        }
+        setLoading(true);
         try {
-            setError('');
-            setLoading(true);
-            await loginWithGoogle();
-        } catch (e) {
-            console.error(e);
-            setError('Falha no login com Google.');
+            if (mode === 'signup') await signup(mail, password);
+            else await login(mail, password);
+        } catch (err) {
+            setError(friendlyError(err?.code));
         }
         setLoading(false);
     }
 
-    return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-slate-50 font-sans">
-            {/* Background Orbs */}
-            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-emerald-400/10 rounded-full blur-[120px] -z-10" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/10 rounded-full blur-[120px] -z-10" />
+    async function handleReset() {
+        resetMsgs();
+        const mail = email.trim();
+        if (!mail) { setError('Digite seu e-mail acima para redefinir a senha.'); return; }
+        setLoading(true);
+        try {
+            await sendPasswordResetEmail(auth, mail);
+            setInfo('Enviamos um link de redefinição para o seu e-mail. ✉️');
+        } catch (err) {
+            setError(friendlyError(err?.code));
+        }
+        setLoading(false);
+    }
 
-            <div className="w-full max-w-lg relative z-10 animate-in fade-in zoom-in duration-700">
-                {/* Header/Brand */}
-                <div className="flex flex-col items-center mb-12">
-                    <img 
-                        src={logo} 
-                        alt="Alívia Logo" 
-                        className="w-48 h-auto object-contain mb-8 drop-shadow-sm" 
-                    />
-                    
-                    <div className="relative group">
-                        <div className="absolute inset-0 bg-emerald-400/20 rounded-full blur-2xl animate-pulse"></div>
-                        <div className="p-1 rounded-[3rem] bg-gradient-to-br from-white to-emerald-50 shadow-2xl relative overflow-hidden">
-                            <img 
-                                src={aliviaFinal} 
-                                alt="Alívia" 
-                                className="w-48 h-48 md:w-56 md:h-56 object-cover rounded-[2.8rem] transition-transform duration-700 group-hover:scale-105"
+    const inputCls = `w-full pl-11 pr-4 py-3.5 rounded-2xl border text-sm font-semibold outline-none transition-colors ${
+        isDark
+            ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500'
+            : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'
+    }`;
+
+    return (
+        <div className={`min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans transition-colors duration-300 ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>
+            {/* Orbs de fundo */}
+            <div className="absolute top-[-10%] left-[-10%] w-[45%] h-[45%] bg-emerald-400/10 rounded-full blur-[120px] -z-10" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] bg-blue-500/10 rounded-full blur-[120px] -z-10" />
+
+            {/* Botão de tema (canto superior direito) */}
+            <button
+                onClick={toggleTheme}
+                aria-label="Alternar tema"
+                className={`absolute top-5 right-5 w-11 h-11 rounded-2xl flex items-center justify-center transition-all active:scale-90 border ${
+                    isDark ? 'bg-white/5 border-white/10 text-amber-300 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm'
+                }`}
+            >
+                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+
+            <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in duration-500">
+                {/* Marca */}
+                <div className="flex flex-col items-center mb-8">
+                    <img src={logo} alt="Alívia" className="w-40 h-auto object-contain mb-3 drop-shadow-sm" />
+                    <h1 className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                        {mode === 'signup' ? 'Crie sua conta' : 'Acesse sua conta'}
+                    </h1>
+                    <p className={`text-[13px] mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Suas finanças, com clareza e segurança.
+                    </p>
+                </div>
+
+                {/* Card */}
+                <div className={`rounded-[1.75rem] p-6 sm:p-7 border shadow-xl ${isDark ? 'bg-slate-900/80 border-white/10 backdrop-blur' : 'bg-white/90 border-slate-100 backdrop-blur'}`}>
+                    {/* Alternador Entrar / Criar conta */}
+                    <div className={`grid grid-cols-2 gap-1 p-1 rounded-2xl mb-5 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                        {[{ id: 'login', label: 'Entrar' }, { id: 'signup', label: 'Criar conta' }].map(t => (
+                            <button
+                                key={t.id}
+                                onClick={() => { setMode(t.id); resetMsgs(); }}
+                                className={`py-2.5 rounded-xl text-[13px] font-bold transition-all ${
+                                    mode === t.id
+                                        ? (isDark ? 'bg-slate-800 text-white shadow' : 'bg-white text-slate-800 shadow')
+                                        : (isDark ? 'text-slate-400' : 'text-slate-500')
+                                }`}
+                            >
+                                {t.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {error && (
+                        <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-4 py-3 rounded-2xl mb-4 text-[13px] text-center font-bold animate-shake">
+                            {error}
+                        </div>
+                    )}
+                    {info && (
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 px-4 py-3 rounded-2xl mb-4 text-[13px] text-center font-bold flex items-center justify-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 shrink-0" /> {info}
+                        </div>
+                    )}
+
+                    {/* Formulário e-mail/senha */}
+                    <form onSubmit={handleSubmit} className="space-y-3.5">
+                        <div className="relative">
+                            <Mail className={`w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
+                            <input
+                                type="email" inputMode="email" autoComplete="email"
+                                value={email} onChange={(e) => setEmail(e.target.value)}
+                                placeholder="seu@email.com" className={inputCls}
                             />
                         </div>
-                        <div className="absolute -bottom-2 -right-2 p-3 bg-white rounded-full shadow-xl border-2 border-emerald-50 animate-bounce-subtle">
-                            <Sparkles className="w-6 h-6 text-emerald-500" />
+
+                        <div className="relative">
+                            <Lock className={`w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
+                            <input
+                                type={showPass ? 'text' : 'password'}
+                                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                                value={password} onChange={(e) => setPassword(e.target.value)}
+                                placeholder="Senha" className={`${inputCls} pr-11`}
+                            />
+                            <button type="button" onClick={() => setShowPass(v => !v)} aria-label="Mostrar senha"
+                                className={`absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}>
+                                {showPass ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
                         </div>
+
+                        {mode === 'signup' && (
+                            <div className="relative">
+                                <Lock className={`w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
+                                <input
+                                    type={showPass ? 'text' : 'password'} autoComplete="new-password"
+                                    value={confirm} onChange={(e) => setConfirm(e.target.value)}
+                                    placeholder="Confirmar senha" className={inputCls}
+                                />
+                            </div>
+                        )}
+
+                        {mode === 'login' && (
+                            <div className="flex justify-end">
+                                <button type="button" onClick={handleReset} disabled={loading}
+                                    className="text-[12px] font-bold text-emerald-500 hover:text-emerald-400 transition-colors disabled:opacity-50">
+                                    Esqueci a senha
+                                </button>
+                            </div>
+                        )}
+
+                        <button type="submit" disabled={loading}
+                            className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-[14px] flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-emerald-500/25 disabled:opacity-70">
+                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                                <>{mode === 'signup' ? 'Criar conta' : 'Entrar'} <ArrowRight className="w-4 h-4" /></>
+                            )}
+                        </button>
+                    </form>
+
+                    {/* Divisor */}
+                    <div className="flex items-center gap-3 my-5">
+                        <div className={`h-px flex-1 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
+                        <span className={`text-[11px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>ou</span>
+                        <div className={`h-px flex-1 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
                     </div>
-                </div>
 
-                <div className="text-center mb-10">
-                    <h1 className="text-2xl font-black text-slate-800 tracking-tight">
-                        Acesse sua conta
-                    </h1>
-                </div>
-
-                {error && (
-                    <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-4 py-4 rounded-2xl relative mb-8 text-sm text-center font-bold animate-shake" role="alert">
-                        {error}
-                    </div>
-                )}
-
-                <div className="space-y-6">
+                    {/* Google */}
                     <button
-                        onClick={handleGoogleLogin}
-                        disabled={loading}
-                        className="group w-full bg-white hover:bg-slate-50 text-slate-900 font-bold py-5 px-8 rounded-[1.5rem] transition-all flex items-center justify-center gap-4 shadow-xl border border-slate-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+                        onClick={handleGoogle} disabled={googleLoading}
+                        className={`w-full py-3.5 rounded-2xl font-bold text-[14px] flex items-center justify-center gap-3 transition-all active:scale-[0.98] border ${
+                            isDark ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
+                        } disabled:opacity-70`}
                     >
-                        {loading ? (
-                            <div className="h-6 w-6 border-4 border-slate-100 border-t-emerald-500 rounded-full animate-spin" />
-                        ) : (
+                        {googleLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                             <>
-                                <svg className="w-6 h-6" viewBox="0 0 24 24">
-                                    <path
-                                        fill="#4285F4"
-                                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                                    />
-                                    <path
-                                        fill="#34A853"
-                                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                                    />
-                                    <path
-                                        fill="#FBBC05"
-                                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
-                                    />
-                                    <path
-                                        fill="#EA4335"
-                                        d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                                    />
+                                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
+                                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                                 </svg>
-                                <span className="tracking-tight text-lg text-slate-700">Acessar com Google</span>
-                                <ArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all text-slate-400" />
+                                Acessar com Google
                             </>
                         )}
                     </button>
 
                     {onBack && (
-                        <button
-                            type="button"
-                            onClick={onBack}
-                            className="group w-full mt-3 py-3.5 rounded-2xl border border-slate-200 bg-white/60 hover:bg-white text-slate-500 hover:text-slate-700 font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
-                        >
-                            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-                            Voltar para o início
+                        <button type="button" onClick={onBack}
+                            className={`w-full mt-3 py-3 rounded-2xl font-bold text-[13px] flex items-center justify-center gap-2 transition-all active:scale-[0.99] ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+                            <ArrowLeft className="w-4 h-4" /> Voltar para o início
                         </button>
                     )}
+                </div>
 
-                    <div className="flex items-center justify-center gap-8 pt-4">
-                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                            <ShieldCheck className="w-3.5 h-3.5" /> Seguro
-                        </div>
-                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                            <Heart className="w-3.5 h-3.5" /> Privado
-                        </div>
+                {/* Selos */}
+                <div className="flex items-center justify-center gap-8 pt-6">
+                    <div className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        <ShieldCheck className="w-3.5 h-3.5" /> Seguro
+                    </div>
+                    <div className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        <Heart className="w-3.5 h-3.5" /> Privado
                     </div>
                 </div>
             </div>
 
-            <footer className="absolute bottom-10 text-slate-400 text-xs font-bold uppercase tracking-widest pointer-events-none opacity-50">
+            <footer className={`absolute bottom-6 text-xs font-bold uppercase tracking-widest pointer-events-none opacity-50 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>
                 © {new Date().getFullYear()} ALÍVIA
             </footer>
 
             <style dangerouslySetInnerHTML={{ __html: `
-                @keyframes bounce-subtle {
-                    0%, 100% { transform: translateY(0); }
-                    50% { transform: translateY(-8px); }
-                }
-                .animate-bounce-subtle {
-                    animation: bounce-subtle 3s ease-in-out infinite;
-                }
-                @keyframes shake {
-                    0%, 100% { transform: translateX(0); }
-                    25% { transform: translateX(-4px); }
-                    75% { transform: translateX(4px); }
-                }
-                .animate-shake {
-                    animation: shake 0.2s ease-in-out 0s 2;
-                }
+                @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+                .animate-shake { animation: shake 0.2s ease-in-out 0s 2; }
             `}} />
         </div>
     );
