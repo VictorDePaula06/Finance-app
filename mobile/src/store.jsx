@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, updateProfile } from 'firebase/auth';
+import { onAuthStateChanged, updateProfile, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { collection, query, where, onSnapshot, doc, getDoc, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db, firebaseReady } from './services/firebase.js';
 import { signInWithGoogle, signOutAll } from './services/auth.js';
@@ -93,6 +93,12 @@ export function StoreProvider({ children }) {
       setAuthBusy(false);
     }
   };
+  // Login/cadastro/reset por e-mail e senha (Firebase Auth). Lançam o erro para
+  // a tela de login mostrar a mensagem amigável (mapeada por código).
+  const loginEmail = (email, password) => signInWithEmailAndPassword(auth, String(email).trim(), password);
+  const signupEmail = (email, password) => createUserWithEmailAndPassword(auth, String(email).trim(), password);
+  const resetPassword = (email) => sendPasswordResetEmail(auth, String(email).trim());
+
   const enterDemo = () => {
     setDemoData({
       transactions: [...(DEMO.transactions || [])],
@@ -399,7 +405,7 @@ export function StoreProvider({ children }) {
     }
   };
 
-  const actions = { login, enterDemo, logout, savePref, updateName, acceptTerms, addTransaction, addCard, deleteTransaction, deleteCard, addInvestment, deleteInvestment, addJar, adjustJar, deleteJar, addFixedIncome, deleteFixedIncome, addFixedExpense, deleteFixedExpense, confirmFixedIncome, confirmFixedExpense, addSubscription, deleteSubscription, updateSubscription, payCardInvoice, authError, authBusy };
+  const actions = { login, loginEmail, signupEmail, resetPassword, enterDemo, logout, savePref, updateName, acceptTerms, addTransaction, addCard, deleteTransaction, deleteCard, addInvestment, deleteInvestment, addJar, adjustJar, deleteJar, addFixedIncome, deleteFixedIncome, addFixedExpense, deleteFixedExpense, confirmFixedIncome, confirmFixedExpense, addSubscription, deleteSubscription, updateSubscription, payCardInvoice, authError, authBusy };
 
   // Plano do usuário (free/standard/premium/lifetime) — mesma régua do site.
   const plan = demo ? (DEMO.plan || 'free') : computePlanLevel({ email: user?.email, userDoc, stripeSubs });

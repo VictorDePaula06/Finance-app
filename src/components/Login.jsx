@@ -142,12 +142,14 @@ export default function Login({ onBack }) {
                         </>}
                     </button>
 
-                    {/* Criar conta → abre modal */}
-                    <button type="button" onClick={() => { resetMsgs(); setSignupOpen(true); }}
-                        className={`w-full mt-3 py-3.5 rounded-2xl font-bold text-[14px] flex items-center justify-center gap-2 transition-all active:scale-[0.98] border-2 border-dashed ${
-                            isDark ? 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10' : 'border-emerald-500/40 text-emerald-600 hover:bg-emerald-50'}`}>
-                        <UserPlus className="w-4 h-4" /> Criar uma conta
-                    </button>
+                    {/* Criar conta → link discreto que abre o modal */}
+                    <p className={`text-center text-[13px] mt-5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Ainda não tem uma conta?{' '}
+                        <button type="button" onClick={() => { resetMsgs(); setSignupOpen(true); }}
+                            className="font-extrabold text-emerald-500 hover:text-emerald-400 transition-colors">
+                            Criar conta
+                        </button>
+                    </p>
 
                     {onBack && (
                         <button type="button" onClick={onBack} className={`w-full mt-3 py-3 rounded-2xl font-bold text-[13px] flex items-center justify-center gap-2 transition-all active:scale-[0.99] ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
