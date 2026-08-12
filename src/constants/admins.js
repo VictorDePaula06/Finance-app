@@ -21,6 +21,7 @@ export const ADMIN_EMAILS = [
 export const LIFETIME_EMAILS = [
     'financealivia@gmail.com',
     'j.17jvictor@gmail.com',
+    'lopes.felipe365@outlook.com', // conta de revisão (Google Play) — acesso Premium full
 ];
 
 export const isAdminEmail = (email) => {

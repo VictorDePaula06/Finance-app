@@ -8,7 +8,7 @@ export const ADMIN_EMAILS = [
   'matheusphelipe7@gmail.com',
   'felipedb.clopes@gmail.com',
 ];
-export const LIFETIME_EMAILS = ['financealivia@gmail.com', 'j.17jvictor@gmail.com'];
+export const LIFETIME_EMAILS = ['financealivia@gmail.com', 'j.17jvictor@gmail.com', 'lopes.felipe365@outlook.com'];
 
 const env = import.meta.env;
 export const STANDARD_PRICES = [

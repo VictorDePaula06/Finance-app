@@ -4,6 +4,7 @@ import { StoreProvider, useStore } from './store.jsx';
 import Login from './Login.jsx';
 import VerifyEmail from './VerifyEmail.jsx';
 import TermsGate from './TermsGate.jsx';
+import { isLifetimeEmail, isAdminEmail } from './lib/plan.js';
 import { CURRENT_TERMS_VERSION } from './lib/terms.js';
 import BottomNav from './components/BottomNav.jsx';
 import GeralTab from './tabs/GeralTab.jsx';
@@ -34,8 +35,10 @@ function Shell() {
 
   // Verificação de e-mail (link): segura contas de e-mail/senha não verificadas.
   // Google já vem verificado; modo demo não exige.
+  const trustedEmail = isAdminEmail(user.email) || isLifetimeEmail(user.email);
   const needsEmailVerification = !demo && user.emailVerified === false
-    && (user.providerData || []).some(p => p.providerId === 'password');
+    && (user.providerData || []).some(p => p.providerId === 'password')
+    && !trustedEmail;
   if (needsEmailVerification) return <VerifyEmail />;
 
   // Aceite dos Termos (LGPD) — igual ao site: exige aceitar se nunca aceitou ou
