@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, updateProfile, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { onAuthStateChanged, updateProfile, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, reauthenticateWithCredential, EmailAuthProvider, updatePassword } from 'firebase/auth';
 import { collection, query, where, onSnapshot, doc, getDoc, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db, firebaseReady } from './services/firebase.js';
 import { signInWithGoogle, signOutAll } from './services/auth.js';
@@ -96,8 +96,21 @@ export function StoreProvider({ children }) {
   // Login/cadastro/reset por e-mail e senha (Firebase Auth). Lançam o erro para
   // a tela de login mostrar a mensagem amigável (mapeada por código).
   const loginEmail = (email, password) => signInWithEmailAndPassword(auth, String(email).trim(), password);
-  const signupEmail = (email, password) => createUserWithEmailAndPassword(auth, String(email).trim(), password);
+  const signupEmail = async (email, password) => {
+    const cred = await createUserWithEmailAndPassword(auth, String(email).trim(), password);
+    try { await sendEmailVerification(cred.user); } catch (e) { console.warn('sendEmailVerification', e); }
+    return cred;
+  };
   const resetPassword = (email) => sendPasswordResetEmail(auth, String(email).trim());
+  // Alterar a senha do usuário logado (reautentica com a senha atual antes).
+  const changePassword = async (currentPassword, newPassword) => {
+    const u = auth?.currentUser;
+    if (!u?.email) throw new Error('sem usuário');
+    await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, currentPassword));
+    await updatePassword(u, newPassword);
+  };
+  const resendVerification = () => (auth?.currentUser ? sendEmailVerification(auth.currentUser) : Promise.reject(new Error('sem usuário')));
+  const reloadUser = async () => { if (auth?.currentUser) { await auth.currentUser.reload(); setUser({ ...auth.currentUser }); } return auth?.currentUser?.emailVerified; };
 
   const enterDemo = () => {
     setDemoData({
@@ -405,7 +418,7 @@ export function StoreProvider({ children }) {
     }
   };
 
-  const actions = { login, loginEmail, signupEmail, resetPassword, enterDemo, logout, savePref, updateName, acceptTerms, addTransaction, addCard, deleteTransaction, deleteCard, addInvestment, deleteInvestment, addJar, adjustJar, deleteJar, addFixedIncome, deleteFixedIncome, addFixedExpense, deleteFixedExpense, confirmFixedIncome, confirmFixedExpense, addSubscription, deleteSubscription, updateSubscription, payCardInvoice, authError, authBusy };
+  const actions = { login, loginEmail, signupEmail, resetPassword, resendVerification, reloadUser, changePassword, enterDemo, logout, savePref, updateName, acceptTerms, addTransaction, addCard, deleteTransaction, deleteCard, addInvestment, deleteInvestment, addJar, adjustJar, deleteJar, addFixedIncome, deleteFixedIncome, addFixedExpense, deleteFixedExpense, confirmFixedIncome, confirmFixedExpense, addSubscription, deleteSubscription, updateSubscription, payCardInvoice, authError, authBusy };
 
   // Plano do usuário (free/standard/premium/lifetime) — mesma régua do site.
   const plan = demo ? (DEMO.plan || 'free') : computePlanLevel({ email: user?.email, userDoc, stripeSubs });

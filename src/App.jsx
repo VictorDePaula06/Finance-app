@@ -3,6 +3,7 @@ import TransactionSection from './components/TransactionSection';
 import GoalTracker from './components/GoalTracker';
 import DebtManagementTab from './components/DebtManagementTab';
 import Login from './components/Login';
+import VerifyEmail from './components/VerifyEmail';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2, ShieldCheck, Sparkles, Activity, Home, Briefcase, AlertTriangle, Umbrella, Gauge, Target } from 'lucide-react';
 import InstallPrompt from './components/InstallPrompt';
@@ -1258,6 +1259,16 @@ function AppRoutes() {
   const isNewAccount = currentUser?.metadata?.creationTime &&
                        (new Date() - new Date(currentUser.metadata.creationTime)) < 10000;
   const hasAppAccess = isPremium || isAdmin || isNewAccount;
+
+  // Verificação de e-mail (fluxo por link): só bloqueia contas de e-mail/senha
+  // ainda não verificadas. Contas Google já vêm verificadas; admins passam.
+  const needsEmailVerification = !!currentUser
+    && currentUser.emailVerified === false
+    && (currentUser.providerData || []).some(p => p.providerId === 'password')
+    && !isAdmin;
+  if (needsEmailVerification) {
+    return <VerifyEmail email={currentUser.email} />;
+  }
 
   return (
     <Routes>

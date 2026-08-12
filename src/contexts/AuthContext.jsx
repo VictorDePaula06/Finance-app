@@ -4,6 +4,10 @@ import {
     signInWithPopup,
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
+    sendEmailVerification,
+    reauthenticateWithCredential,
+    EmailAuthProvider,
+    updatePassword,
     signOut,
     onAuthStateChanged,
     deleteUser,
@@ -59,12 +63,23 @@ export function AuthProvider({ children }) {
         && import.meta.env.DEV === true
         && IS_LOCALHOST;
 
-    function signup(email, password) {
-        return createUserWithEmailAndPassword(auth, email, password);
+    async function signup(email, password) {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        // Envia o e-mail de verificação (link) logo após criar a conta.
+        try { await sendEmailVerification(cred.user); } catch (e) { console.warn('sendEmailVerification', e); }
+        return cred;
     }
 
     function login(email, password) {
         return signInWithEmailAndPassword(auth, email, password);
+    }
+
+    // Altera a senha do usuário logado (reautentica com a senha atual antes).
+    async function changePassword(currentPassword, newPassword) {
+        const u = auth.currentUser;
+        if (!u?.email) throw new Error('sem usuário');
+        await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, currentPassword));
+        await updatePassword(u, newPassword);
     }
 
     function loginWithGoogle() {
@@ -700,6 +715,7 @@ export function AuthProvider({ children }) {
         login,
         signup,
         loginWithGoogle,
+        changePassword,
         logout,
         deleteAccount,
         resetUserData,

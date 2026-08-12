@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import {
   Settings, Shield, Moon, Sun, Key, Check, Loader2, Video,
   HelpCircle, Sparkles, Bookmark, X, CreditCard,
-  Trash2, AlertTriangle, RefreshCw, Pencil, Download, FileText, Mail, Wallet
+  Trash2, AlertTriangle, RefreshCw, Pencil, Download, FileText, Mail, Wallet,
+  Lock, Eye, EyeOff, CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -13,6 +14,91 @@ import { downloadUserData } from '../utils/dataExport';
 import Manual from './Manual';
 import UpgradeModal from './UpgradeModal';
 import { Sparkles as SparklesIcon } from 'lucide-react';
+
+function pwErrorMsg(code) {
+  switch (code) {
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential': return 'Senha atual incorreta.';
+    case 'auth/weak-password': return 'A nova senha precisa ter ao menos 6 caracteres.';
+    case 'auth/requires-recent-login': return 'Por segurança, saia e entre de novo para trocar a senha.';
+    case 'auth/too-many-requests': return 'Muitas tentativas. Aguarde um pouco e tente de novo.';
+    default: return 'Não foi possível alterar a senha. Tente novamente.';
+  }
+}
+
+// Card de alteração de senha — só aparece para contas de e-mail/senha.
+function ChangePasswordCard({ isDark }) {
+  const { currentUser, changePassword } = useAuth();
+  const hasPassword = (currentUser?.providerData || []).some(p => p.providerId === 'password');
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState('');
+  const [ok, setOk] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  if (!hasPassword) return null;
+
+  const reset = () => { setCurrent(''); setNext(''); setConfirm(''); setError(''); setOk(false); };
+  const inputCls = `w-full pl-11 pr-11 py-3 rounded-xl border text-sm font-semibold outline-none transition-colors ${
+    isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500'
+           : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!current || !next) { setError('Preencha a senha atual e a nova.'); return; }
+    if (next.length < 6) { setError('A nova senha precisa ter ao menos 6 caracteres.'); return; }
+    if (next !== confirm) { setError('As senhas não conferem.'); return; }
+    if (next === current) { setError('A nova senha precisa ser diferente da atual.'); return; }
+    setLoading(true);
+    try {
+      await changePassword(current, next);
+      setOk(true); reset(); setOk(true);
+      setTimeout(() => { setOpen(false); setOk(false); }, 1800);
+    } catch (err) { console.error('[changePassword]', err?.code, err); setError(pwErrorMsg(err?.code)); }
+    setLoading(false);
+  };
+
+  const eye = (
+    <button type="button" onClick={() => setShow(v => !v)} aria-label="Mostrar senha" className={`absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}>
+      {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+    </button>
+  );
+
+  return (
+    <div className={`p-4 rounded-xl border ${isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+      <button onClick={() => { setOpen(o => !o); reset(); }} className="w-full flex items-center gap-3 text-left">
+        <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0"><Lock className="w-4 h-4 text-emerald-500" /></div>
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Alterar senha</p>
+          <p className="text-[11px] text-slate-500">Trocar a senha da sua conta</p>
+        </div>
+        <span className={`text-[11px] font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{open ? 'Fechar' : 'Abrir'}</span>
+      </button>
+
+      {open && (
+        ok ? (
+          <div className="mt-4 flex items-center justify-center gap-2 text-emerald-500 font-bold text-sm py-3">
+            <CheckCircle2 className="w-5 h-5" /> Senha alterada com sucesso!
+          </div>
+        ) : (
+          <form onSubmit={submit} className="mt-4 space-y-3">
+            {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
+            <div className="relative"><Lock className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} /><input type={show ? 'text' : 'password'} autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} placeholder="Senha atual" className={inputCls} />{eye}</div>
+            <div className="relative"><Lock className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} /><input type={show ? 'text' : 'password'} autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} placeholder="Nova senha (mín. 6)" className={inputCls} />{eye}</div>
+            <div className="relative"><Lock className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} /><input type={show ? 'text' : 'password'} autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirmar nova senha" className={inputCls} />{eye}</div>
+            <button type="submit" disabled={loading} className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-70">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> Salvar nova senha</>}
+            </button>
+          </form>
+        )
+      )}
+    </div>
+  );
+}
 
 const SettingsTab = ({ manualConfig, updateManualConfig, walletStats, onSetInitialBalance }) => {
   const { theme, toggleTheme } = useTheme();
@@ -187,6 +273,9 @@ const SettingsTab = ({ manualConfig, updateManualConfig, walletStats, onSetIniti
           </p>
         </div>
       </div>
+
+      {/* Alterar senha (só contas de e-mail/senha) */}
+      <ChangePasswordCard isDark={isDark} />
 
       {/* Seção LGPD — Direitos do Titular */}
       <div className={`p-4 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/10' : 'bg-blue-50/50 border-blue-100'}`}>

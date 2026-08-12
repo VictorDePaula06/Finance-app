@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Star, Bell, Moon, Sparkles, Key, Shield, Download, HelpCircle, LogOut, Trash2, Check, ChevronLeft } from 'lucide-react';
+import { User, Star, Bell, Moon, Sparkles, Key, Shield, Download, HelpCircle, LogOut, Trash2, Check, ChevronLeft, Lock, Eye, EyeOff, Loader2, CheckCircle2 } from 'lucide-react';
 import { TabHeader, Card, Row, SettingRow, Segment, Switch } from '../components/ui.jsx';
 import Sheet from '../components/Sheet.jsx';
 import AliviaConfigForm from '../components/forms/AliviaConfigForm.jsx';
@@ -11,12 +11,14 @@ import logo from '../assets/logo.png';
 const SITE = 'https://soualivia.com.br';
 
 export default function AjustesTab({ onBack }) {
-  const { user, logout, prefs, savePref, updateName, demo, plan, transactions, savings_jars, cards, subscriptions } = useStore();
+  const { user, logout, prefs, savePref, updateName, changePassword, demo, plan, transactions, savings_jars, cards, subscriptions } = useStore();
   const { theme, setTheme } = useTheme();
 
   const name = user?.displayName || 'Usuário';
   const email = user?.email || '';
   const initial = (user?.displayName || user?.email || 'U').charAt(0).toUpperCase();
+  // Só contas de e-mail/senha podem trocar senha (Google gerencia na conta Google).
+  const hasPassword = (user?.providerData || []).some(p => p.providerId === 'password');
 
   const [sheet, setSheet] = useState(null); // 'alivia' | 'gemini'
   const [keyInput, setKeyInput] = useState('');
@@ -80,6 +82,9 @@ export default function AjustesTab({ onBack }) {
       <div className="px-5 mt-4">
         <Card>
           <Row icon={User} iconColor="#60a5fa" iconBg="rgba(96,165,250,0.12)" title="Editar nome" subtitle={name} chevron onClick={editName} />
+          {hasPassword && (
+            <Row icon={Key} iconColor="#10b981" iconBg="rgba(16,185,129,0.12)" title="Alterar senha" subtitle="Trocar a senha da conta" chevron onClick={() => setSheet('senha')} />
+          )}
           <Row icon={Star} iconColor="#f59e0b" iconBg="rgba(245,158,11,0.12)" title="Meu plano" subtitle={`${PLAN_LABEL[plan] || 'Gratuito'} · gerenciar no site`} chevron onClick={() => open(SITE)} last />
         </Card>
       </div>
@@ -130,6 +135,12 @@ export default function AjustesTab({ onBack }) {
         </Sheet>
       )}
 
+      {sheet === 'senha' && (
+        <Sheet title="Alterar senha" subtitle="Confirme a senha atual e defina a nova" onClose={() => setSheet(null)}>
+          <ChangePasswordForm changePassword={changePassword} onDone={() => setSheet(null)} />
+        </Sheet>
+      )}
+
       {sheet === 'gemini' && (
         <Sheet title="Inteligência Artificial" subtitle="Sua chave Gemini (BYOK)" onClose={() => setSheet(null)}>
           <div className="space-y-4">
@@ -154,5 +165,84 @@ export default function AjustesTab({ onBack }) {
         </Sheet>
       )}
     </div>
+  );
+}
+
+// Erros amigáveis para a troca de senha.
+function pwError(code) {
+  switch (code) {
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential': return 'Senha atual incorreta.';
+    case 'auth/weak-password': return 'A nova senha precisa ter ao menos 6 caracteres.';
+    case 'auth/requires-recent-login': return 'Por segurança, saia e entre de novo para trocar a senha.';
+    case 'auth/too-many-requests': return 'Muitas tentativas. Aguarde um pouco e tente de novo.';
+    default: return 'Não foi possível alterar a senha. Tente novamente.';
+  }
+}
+
+// Formulário de alteração de senha (dentro do bottom-sheet).
+function ChangePasswordForm({ changePassword, onDone }) {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState('');
+  const [ok, setOk] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const cls = 'w-full pl-11 pr-11 py-3.5 rounded-2xl bg-fg/[0.05] border border-fg/[0.08] text-[14px] font-semibold text-fg placeholder:text-fg/30 outline-none focus:border-fg/25 transition';
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!current || !next) { setError('Preencha a senha atual e a nova.'); return; }
+    if (next.length < 6) { setError('A nova senha precisa ter ao menos 6 caracteres.'); return; }
+    if (next !== confirm) { setError('As senhas não conferem.'); return; }
+    if (next === current) { setError('A nova senha precisa ser diferente da atual.'); return; }
+    setLoading(true);
+    try {
+      await changePassword(current, next);
+      setOk(true);
+      setTimeout(onDone, 1200);
+    } catch (err) { console.error('[changePassword]', err?.code, err); setError(pwError(err?.code)); setLoading(false); }
+  };
+
+  if (ok) {
+    return (
+      <div className="py-8 flex flex-col items-center text-center">
+        <div className="w-14 h-14 rounded-2xl bg-emerald-500/12 flex items-center justify-center mb-3"><CheckCircle2 className="w-7 h-7 text-pos" /></div>
+        <p className="text-[15px] font-bold">Senha alterada com sucesso!</p>
+      </div>
+    );
+  }
+
+  const eye = (
+    <button type="button" onClick={() => setShow(v => !v)} aria-label="Mostrar senha" className="absolute right-3 top-1/2 -translate-y-1/2 text-fg/35 active:text-fg/70">
+      {show ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+    </button>
+  );
+
+  return (
+    <form onSubmit={submit} className="space-y-3.5">
+      {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-4 py-3 rounded-2xl text-[12px] text-center font-bold">{error}</div>}
+      <div className="relative">
+        <Lock className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-fg/35" />
+        <input type={show ? 'text' : 'password'} autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} placeholder="Senha atual" className={cls} />
+        {eye}
+      </div>
+      <div className="relative">
+        <Lock className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-fg/35" />
+        <input type={show ? 'text' : 'password'} autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} placeholder="Nova senha (mín. 6)" className={cls} />
+        {eye}
+      </div>
+      <div className="relative">
+        <Lock className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-fg/35" />
+        <input type={show ? 'text' : 'password'} autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirmar nova senha" className={cls} />
+        {eye}
+      </div>
+      <button type="submit" disabled={loading} className="w-full py-3.5 rounded-2xl bg-emerald-500 text-white font-extrabold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition shadow-lg shadow-emerald-500/25 disabled:opacity-70">
+        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Check className="w-4 h-4" /> Alterar senha</>}
+      </button>
+    </form>
   );
 }

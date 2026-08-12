@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ThemeProvider } from './theme.jsx';
 import { StoreProvider, useStore } from './store.jsx';
 import Login from './Login.jsx';
+import VerifyEmail from './VerifyEmail.jsx';
 import TermsGate from './TermsGate.jsx';
 import { CURRENT_TERMS_VERSION } from './lib/terms.js';
 import BottomNav from './components/BottomNav.jsx';
@@ -30,6 +31,12 @@ function Shell() {
 
   // Sem login (ou sem config) → tela de entrada
   if (!user) return <Login />;
+
+  // Verificação de e-mail (link): segura contas de e-mail/senha não verificadas.
+  // Google já vem verificado; modo demo não exige.
+  const needsEmailVerification = !demo && user.emailVerified === false
+    && (user.providerData || []).some(p => p.providerId === 'password');
+  if (needsEmailVerification) return <VerifyEmail />;
 
   // Aceite dos Termos (LGPD) — igual ao site: exige aceitar se nunca aceitou ou
   // se a versão mudou. Só depois que as prefs carregaram (evita piscar a tela).
