@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import AliviaFormHint from '../components/AliviaFormHint';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -386,7 +387,7 @@ function DeleteBtn({ isDark, disabled, onDelete }) {
 }
 
 // Modal de criar/editar recorrente (entrada ou despesa).
-export function RecorrenteForm({ isDark, uid, kind, editing, onClose }) {
+export function RecorrenteForm({ isDark, uid, kind, editing, onClose, hint }) {
     const cfg = KIND[kind];
     const income = kind === 'income';
     const [name, setName] = useState(editing?.name || '');
@@ -441,6 +442,7 @@ export function RecorrenteForm({ isDark, uid, kind, editing, onClose }) {
             iconCls={income ? 'bg-emerald-500/12 text-emerald-500' : 'bg-rose-500/12 text-rose-500'}
             onClose={onClose}>
             <form onSubmit={submit} className="space-y-3.5">
+                <AliviaFormHint isDark={isDark} text={hint} />
                 {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
                 <Field label="Descrição"><input value={name} onChange={e => setName(e.target.value)} placeholder={income ? 'Ex.: Salário, Aluguel recebido' : 'Ex.: Aluguel, Netflix, Internet'} className={inputCls} maxLength={50} autoFocus /></Field>
                 <div className="grid grid-cols-2 gap-3">

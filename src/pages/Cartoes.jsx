@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import AliviaFormHint from '../components/AliviaFormHint';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -381,7 +382,7 @@ function DeleteBtn({ isDark, onDelete }) {
 }
 
 // ── Form: novo/editar cartão ────────────────────────────────────────
-export function CardForm({ isDark, uid, editing, onClose, onSaved }) {
+export function CardForm({ isDark, uid, editing, onClose, onSaved, hint }) {
     const [name, setName] = useState(editing?.name || '');
     const [bank, setBank] = useState(editing?.bank || '');
     const [brand, setBrand] = useState(editing?.brand || 'Visa');
@@ -419,6 +420,7 @@ export function CardForm({ isDark, uid, editing, onClose, onSaved }) {
     return (
         <Modal isDark={isDark} title={editing ? 'Editar cartão' : 'Novo cartão'} icon={CreditCard} iconCls="bg-emerald-500/12 text-emerald-500" onClose={onClose}>
             <form onSubmit={submit} className="space-y-3.5">
+                <AliviaFormHint isDark={isDark} text={hint} />
                 {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
                 <Field label="Nome do cartão"><input value={name} onChange={e => setName(e.target.value)} placeholder="Ex.: Nubank Roxinho" className={inputCls} maxLength={30} autoFocus /></Field>
                 <div className="grid grid-cols-2 gap-3">
@@ -455,7 +457,7 @@ export function CardForm({ isDark, uid, editing, onClose, onSaved }) {
 }
 
 // ── Form: nova/editar compra no cartão (avulsa / assinatura / parcelamento) ─
-export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lockTipo = false }) {
+export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lockTipo = false, hint }) {
     const isEdit = !!editing;
     const kindToTipo = { despesa: 'avulsa', assinatura: 'assinatura', parcelamento: 'parcelamento' };
     const ref = editing?.ref || {};
@@ -531,6 +533,7 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
     return (
         <Modal isDark={isDark} title={isEdit ? `Editar ${tipoLabel}` : 'Nova compra no cartão'} icon={ShoppingBag} iconCls="bg-rose-500/12 text-rose-500" onClose={onClose}>
             <form onSubmit={submit} className="space-y-3.5">
+                <AliviaFormHint isDark={isDark} text={hint} />
                 {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
                 <p className={`text-[12px] font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>No cartão <span className="text-emerald-500 font-bold">{card.name || 'cartão'}</span>.</p>
 

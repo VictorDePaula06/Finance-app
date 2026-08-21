@@ -158,20 +158,27 @@ export default function OnboardingAlivia({ onDone }) {
                 </div>
             </div>
 
-            {/* Formulários REAIS (abrem por cima do chat) */}
+            {/* Formulários REAIS (abrem por cima do chat) — com o toque da Alívia */}
             {activeForm === 'renda' && <RecorrenteForm isDark={isDark} uid={uid} kind="income"
+                hint="Preparei o cadastro da sua renda — é só preencher que eu registro pra você. 💚"
                 onClose={() => closeForm(() => advance('Renda cadastrada ✅', 'Anotado! Agora as **despesas que se repetem todo mês** (aluguel, luz, internet…).', 'despesasIntro'))} />}
             {activeForm === 'despesa' && <RecorrenteForm isDark={isDark} uid={uid} kind="expense"
+                hint="Preparei o cadastro da sua despesa fixa. Preencha e eu deixo tudo organizado."
                 onClose={() => closeForm(() => advance('Despesa cadastrada ✅', 'Quer adicionar outra despesa fixa?', 'despesaMore'))} />}
             {activeForm === 'cartao' && <CardForm isDark={isDark} uid={uid} onSaved={(id) => setCardId(id)}
+                hint="Vamos cadastrar seu cartão. Preencha os dados que eu cuido do resto. 💳"
                 onClose={() => closeForm(() => advance('Cartão cadastrado ✅', 'Cartão salvo! Você tem **parcelamentos** em aberto nesse cartão?', 'parcelasIntro'))} />}
             {activeForm === 'parcelamento' && createdCard && <BuyForm isDark={isDark} uid={uid} card={createdCard} initialTipo="parcelamento" lockTipo
+                hint="Preparei pra você lançar um parcelamento no seu cartão."
                 onClose={() => closeForm(() => advance('Parcelamento cadastrado ✅', 'Quer adicionar outro parcelamento?', 'parcelaMore'))} />}
             {activeForm === 'assinatura' && createdCard && <BuyForm isDark={isDark} uid={uid} card={createdCard} initialTipo="assinatura" lockTipo
+                hint="Preparei pra você adicionar uma assinatura do seu cartão."
                 onClose={() => closeForm(() => advance('Assinatura cadastrada ✅', 'Quer adicionar outra assinatura?', 'assinaturaMore'))} />}
             {activeForm === 'reserva' && <ReservaForm isDark={isDark} uid={uid} cdi={null} skipLedger
+                hint="Informe o quanto você já tem guardado — registro como reserva já existente, sem descontar da sua conta. 🐷"
                 onClose={() => closeForm(() => advance('Reserva cadastrada ✅', 'Perfeito, registrei sua reserva. Por último, o **patrimônio**: você tem **investimentos** (Tesouro, CDB, ações, cripto…)?', 'patrimonio'))} />}
             {activeForm === 'ativo' && <AtivoForm isDark={isDark} uid={uid}
+                hint="Preparei o cadastro do seu investimento — informe o que você já tem que eu incluo no seu patrimônio."
                 onClose={() => closeForm(() => advance('Investimento cadastrado ✅', 'Quer adicionar outro investimento?', 'ativoMore'))} />}
         </div>
     );

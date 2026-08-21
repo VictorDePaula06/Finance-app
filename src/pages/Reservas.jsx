@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import AliviaFormHint from '../components/AliviaFormHint';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -227,7 +228,7 @@ function DeleteBtn({ isDark, onDelete }) {
 }
 
 // ── Form: nova/editar reserva (com CDI) ─────────────────────────────
-export function ReservaForm({ isDark, uid, cdi, editing, onClose, skipLedger = false }) {
+export function ReservaForm({ isDark, uid, cdi, editing, onClose, skipLedger = false, hint }) {
     const [name, setName] = useState(editing?.name || 'Reserva de emergência');
     const [target, setTarget] = useState(editing?.target != null ? String(editing.target).replace('.', ',') : '');
     const [cdiPercent, setCdiPercent] = useState(String(editing?.cdiPercent || 100));
@@ -270,6 +271,7 @@ export function ReservaForm({ isDark, uid, cdi, editing, onClose, skipLedger = f
     return (
         <Modal isDark={isDark} title={editing ? 'Editar reserva' : 'Nova reserva'} icon={PiggyBank} iconCls="bg-pink-500/12 text-pink-400" onClose={onClose}>
             <form onSubmit={submit} className="space-y-3.5">
+                <AliviaFormHint isDark={isDark} text={hint} />
                 {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
                 <Field label="Nome"><input value={name} onChange={e => setName(e.target.value)} placeholder="Ex.: Reserva de emergência" className={inputCls} maxLength={40} autoFocus /></Field>
                 <div className="grid grid-cols-2 gap-3">

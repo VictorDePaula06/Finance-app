@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import AliviaFormHint from '../components/AliviaFormHint';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -369,7 +370,7 @@ async function fetchTickerPrice(type, ticker, isUSD) {
 }
 
 // ── Form: novo/editar ativo (com busca de cotação por ticker) ───────
-export function AtivoForm({ isDark, uid, editing, onClose }) {
+export function AtivoForm({ isDark, uid, editing, onClose, hint }) {
     const [name, setName] = useState(editing?.name || '');
     const [type, setType] = useState(editing?.type || 'renda_fixa');
     const [symbol, setSymbol] = useState(editing?.symbol || '');
@@ -438,6 +439,7 @@ export function AtivoForm({ isDark, uid, editing, onClose }) {
     return (
         <Modal isDark={isDark} title={editing ? 'Editar ativo' : 'Novo ativo'} icon={Landmark} iconCls="bg-blue-500/12 text-blue-400" onClose={onClose}>
             <form onSubmit={submit} className="space-y-3.5">
+                <AliviaFormHint isDark={isDark} text={hint} />
                 {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
 
                 <Field label="Classe">
