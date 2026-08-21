@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Menu } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import OnboardingAlivia from './OnboardingAlivia';
 import AppSidebar, { NAV_ITEMS } from './AppSidebar';
 import Recorrentes from '../pages/Recorrentes';
 import Lancamentos from '../pages/Lancamentos';
@@ -18,10 +19,16 @@ import Manual from '../pages/Manual';
 // Acesse em /preview-layout. Não faz parte do app final.
 export default function PreviewLayout() {
     const { theme } = useTheme();
-    const { logout } = useAuth();
+    const { logout, userPrefs, isDataLoaded } = useAuth();
     const isDark = theme !== 'light';
     const [active, setActive] = useState('dashboard');
     const [drawer, setDrawer] = useState(false);
+    const [obDismissed, setObDismissed] = useState(false);
+
+    // Onboarding de boas-vindas na PRIMEIRA entrada (conta nova):
+    // ainda não completou o onboarding novo e nunca viu a apresentação.
+    const showOnboarding = !obDismissed && isDataLoaded
+        && !(userPrefs?.onboardingDone) && !(userPrefs?.hasSeenWelcome);
 
     const label = active === 'configuracoes' ? 'Configurações' : (NAV_ITEMS.find(i => i.id === active)?.label || active);
     const sidebarProps = {
@@ -33,6 +40,8 @@ export default function PreviewLayout() {
 
     return (
         <div className={`min-h-screen flex ${isDark ? 'bg-[#0e0f12]' : 'bg-slate-50'}`}>
+            {showOnboarding && <OnboardingAlivia onDone={() => setObDismissed(true)} />}
+
             {/* Sidebar desktop (some no mobile) */}
             <AppSidebar {...sidebarProps} />
 

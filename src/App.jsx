@@ -1216,16 +1216,10 @@ function AppRoutes() {
     }
   }, [currentUser?.uid]);
 
-  // Marca o primeiro acesso bem-vindo quando logado e entra no app
-  useEffect(() => {
-    if (currentUser && location.pathname.startsWith('/inicio')) {
-      getUserPreferences().then(prefs => {
-        if (!prefs || !prefs.hasSeenWelcome) {
-          saveUserPreferences({ hasSeenWelcome: true });
-        }
-      });
-    }
-  }, [currentUser, location.pathname]);
+  // (O onboarding de boas-vindas agora é controlado pelo novo layout —
+  //  PreviewLayout mostra o chat da Alívia na primeira entrada e marca
+  //  `onboardingDone`. Não marcamos mais hasSeenWelcome automaticamente aqui,
+  //  para não pular a apresentação inicial de contas novas.)
 
   // Listener legacy de `change-view` — agora redireciona pra navigate
   // (mantém compatibilidade com componentes que ainda disparam o evento).
