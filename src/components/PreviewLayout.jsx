@@ -25,10 +25,15 @@ export default function PreviewLayout() {
     const [drawer, setDrawer] = useState(false);
     const [obDismissed, setObDismissed] = useState(false);
 
+    // Atalho de teste: abrir com ?onboarding=1 força a tela de boas-vindas
+    // (sem precisar apagar a conta). Útil no localhost para validar o fluxo.
+    const forceOnboarding = typeof window !== 'undefined'
+        && new URLSearchParams(window.location.search).has('onboarding');
+
     // Onboarding de boas-vindas na PRIMEIRA entrada (conta nova):
     // ainda não completou o onboarding novo e nunca viu a apresentação.
-    const showOnboarding = !obDismissed && isDataLoaded
-        && !(userPrefs?.onboardingDone) && !(userPrefs?.hasSeenWelcome);
+    const showOnboarding = !obDismissed && (forceOnboarding
+        || (isDataLoaded && !(userPrefs?.onboardingDone) && !(userPrefs?.hasSeenWelcome)));
 
     const label = active === 'configuracoes' ? 'Configurações' : (NAV_ITEMS.find(i => i.id === active)?.label || active);
     const sidebarProps = {
