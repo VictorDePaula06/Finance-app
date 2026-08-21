@@ -4,6 +4,7 @@ import GoalTracker from './components/GoalTracker';
 import DebtManagementTab from './components/DebtManagementTab';
 import Login from './components/Login';
 import VerifyEmail from './components/VerifyEmail';
+import PreviewLayout from './components/PreviewLayout';
 import { isLifetimeEmail, isAdminEmail } from './constants/admins';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { TrendingUp, History, ArrowRight, Wallet, X, Bell, Clock, HelpCircle, CreditCard, BookOpen, Landmark, ChevronDown, Pencil, Trash2, ShieldCheck, Sparkles, Activity, Home, Briefcase, AlertTriangle, Umbrella, Gauge, Target } from 'lucide-react';
@@ -1276,6 +1277,9 @@ function AppRoutes() {
 
   return (
     <Routes>
+      {/* ─── NOVO LAYOUT (app principal) — alias direto ─── */}
+      <Route path="/preview-layout" element={<PreviewLayout />} />
+
       {/* ─── ROTAS PÚBLICAS ─── */}
       <Route
         path="/"
@@ -1319,17 +1323,16 @@ function AppRoutes() {
             : <SubscriptionBlock onAdminAccess={() => isAdmin && navigate('/admin')} />
         }
       />
-      {/* Todas as rotas do Dashboard passam pelo mesmo guard.
-          Se o usuário não pode entrar, é redirecionado para /login ou /planos. */}
-      <Route path="/inicio"            element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <Dashboard />} />
-      <Route path="/gastos"            element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <Navigate to="/gastos/visao-geral" replace />} />
-      <Route path="/gastos/:tab"       element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <Dashboard />} />
-      <Route path="/patrimonio"        element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <Navigate to="/patrimonio/visao" replace />} />
-      <Route path="/patrimonio/:tab"   element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <Dashboard />} />
-      <Route path="/ajustes"           element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <Dashboard />} />
+      {/* App principal (novo layout). Mesmo guard de login/plano de antes;
+          quando o acesso é liberado, renderiza o PreviewLayout. */}
+      <Route path="/inicio"            element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <PreviewLayout />} />
 
-      {/* Compatibilidade: /dashboard → /inicio */}
-      <Route path="/dashboard/*" element={<Navigate to="/inicio" replace />} />
+      {/* Compatibilidade com links antigos — tudo cai no novo app (/inicio).
+          A navegação entre abas agora é interna ao layout, não por URL. */}
+      <Route path="/gastos/*"          element={<Navigate to="/inicio" replace />} />
+      <Route path="/patrimonio/*"      element={<Navigate to="/inicio" replace />} />
+      <Route path="/ajustes"           element={<Navigate to="/inicio" replace />} />
+      <Route path="/dashboard/*"       element={<Navigate to="/inicio" replace />} />
 
       {/* ─── ROTAS ADMIN ─── */}
       <Route path="/admin"           element={!currentUser ? <Navigate to="/login" replace /> : !isAdmin ? <Navigate to="/inicio" replace /> : <AdminPanel onBack={() => navigate('/inicio')} />} />

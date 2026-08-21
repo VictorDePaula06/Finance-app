@@ -486,6 +486,49 @@ Instruções Prioritárias:
 `;
 };
 
+// Extrai lançamentos de um documento (PDF ou imagem) usando o Gemini multimodal.
+// Retorna { docType: 'extrato'|'fatura', items: [{ description, amount, date }] }.
+// amount NEGATIVO = saída (gasto/débito/compra); POSITIVO = entrada (recebimento/estorno).
+export const extractTransactionsFromFile = async ({ base64Data, mimeType }) => {
+    const apiKey = sessionApiKey;
+    if (!apiKey) throw new Error("API Key não configurada");
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const prompt = `Você é um extrator de lançamentos financeiros. Analise o documento (extrato bancário ou fatura de cartão de crédito) e devolva SOMENTE um JSON válido, sem nenhum texto antes ou depois, exatamente neste formato:
+{"docType":"extrato"|"fatura","items":[{"date":"YYYY-MM-DD","description":"texto curto","amount":-123.45}]}
+
+REGRAS:
+- amount NEGATIVO = saiu dinheiro (gasto, débito, compra, pagamento efetuado). POSITIVO = entrou (recebimento, estorno, crédito).
+- Numa fatura de cartão, cada compra é um gasto: use amount NEGATIVO. docType = "fatura".
+- Num extrato de conta, respeite o sinal real de cada lançamento. docType = "extrato".
+- date no formato YYYY-MM-DD. Se a linha não tiver data, use null.
+- description: nome do estabelecimento/lançamento, curto e limpo (sem códigos, sem números de cartão).
+- IGNORE linhas de saldo, saldo anterior, subtotais, limites, cabeçalhos e totais — só lançamentos reais.
+- Não invente nada. Se não encontrar lançamentos, retorne items:[].
+- Use ponto como separador decimal (ex.: -123.45), sem separador de milhar.`;
+
+    const result = await withRetry(() => model.generateContent([
+        { inlineData: { data: base64Data, mimeType } },
+        { text: prompt },
+    ]));
+    const text = (await result.response).text();
+    const m = text.match(/\{[\s\S]*\}/);
+    if (!m) return { docType: 'extrato', items: [] };
+
+    let obj;
+    try { obj = JSON.parse(m[0]); } catch { return { docType: 'extrato', items: [] }; }
+    const items = (obj.items || [])
+        .map(it => ({
+            description: String(it.description || 'Lançamento').slice(0, 120),
+            amount: Number(String(it.amount).replace(',', '.')) || 0,
+            date: it.date ? new Date(it.date + 'T12:00:00').toISOString() : null,
+        }))
+        .filter(it => it.amount !== 0);
+    return { docType: obj.docType === 'fatura' ? 'fatura' : 'extrato', items };
+};
+
 export const sendMessageToGemini = async (history, message, context) => {
     const apiKey = sessionApiKey;
     if (!apiKey) throw new Error("API Key não configurada");

@@ -120,6 +120,13 @@ service cloud.firestore {
         // Imutável — não pode editar nem deletar log de aceite
         allow update, delete: if false;
       }
+      // Baixas de recorrentes — ID determinístico {recorrenteId}_{aaaa-mm}.
+      // create-once (impede dupla baixa) e IMUTÁVEL (integridade do histórico).
+      match /recorrentes_baixas/{docId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() && request.auth.uid == userId;
+        allow update, delete: if false;
+      }
     }
 
     // ─────────────────────────────────────────────────────────
@@ -154,6 +161,25 @@ service cloud.firestore {
     // ─────────────────────────────────────────────────────────
     match /settings/{uid} {
       allow read, write: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // INTEGRAÇÃO WHATSAPP (vínculo do número via código)
+    //
+    // O app gera um código de uso único em wa_links/{code} com o próprio uid.
+    // O webhook (Admin SDK, ignora estas regras) consome o código, cria
+    // wa_users/{telefone} e apaga o link. O usuário só enxerga/desfaz o que
+    // é dele. wa_sessions é gravado apenas pelo servidor.
+    // ─────────────────────────────────────────────────────────
+    match /wa_links/{code} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+    match /wa_users/{phone} {
+      // Leitura só do vínculo do próprio usuário (consultas devem filtrar por uid).
+      allow read:   if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
     }
   }
 }

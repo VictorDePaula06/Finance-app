@@ -25,6 +25,32 @@
 
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import crypto from 'crypto';
+
+// Precisamos do corpo CRU (bytes) para validar a assinatura da Meta (HMAC).
+export const config = { api: { bodyParser: false } };
+
+// Lê o corpo cru da requisição como Buffer.
+async function readRawBody(req) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  return Buffer.concat(chunks);
+}
+
+// Valida a assinatura X-Hub-Signature-256 (HMAC-SHA256 com o App Secret da Meta).
+// Só EXIGE quando WHATSAPP_APP_SECRET está configurado — assim não quebra o fluxo
+// atual; ao definir o segredo, o webhook passa a rejeitar POSTs forjados.
+function verifySignature(req, rawBody) {
+  const secret = process.env.WHATSAPP_APP_SECRET;
+  if (!secret) return true; // não configurado ainda → não bloqueia (só recomendado)
+  const header = req.headers['x-hub-signature-256'] || '';
+  const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+  try {
+    const a = Buffer.from(header);
+    const b = Buffer.from(expected);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch { return false; }
+}
 
 const GRAPH = 'https://graph.facebook.com/v20.0';
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
@@ -158,10 +184,18 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // Corpo cru + validação de assinatura (rejeita POSTs forjados quando o
+  // WHATSAPP_APP_SECRET estiver configurado na Vercel).
+  const rawBody = await readRawBody(req);
+  if (!verifySignature(req, rawBody)) {
+    console.warn('WA webhook: assinatura inválida — POST rejeitado');
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+
   // IMPORTANTE (Vercel): processa TUDO antes de responder 200 — se responder
   // antes, a função é congelada e a resposta da Alívia não chega a ser enviada.
   try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    const body = JSON.parse(rawBody.toString('utf8') || '{}');
     const value = body?.entry?.[0]?.changes?.[0]?.value;
     const msg = value?.messages?.[0];
     if (!msg || msg.type !== 'text') return res.status(200).json({ ok: true }); // ignora status/entregas e não-texto
