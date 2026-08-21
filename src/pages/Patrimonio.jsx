@@ -369,7 +369,7 @@ async function fetchTickerPrice(type, ticker, isUSD) {
 }
 
 // ── Form: novo/editar ativo (com busca de cotação por ticker) ───────
-function AtivoForm({ isDark, uid, editing, onClose }) {
+export function AtivoForm({ isDark, uid, editing, onClose }) {
     const [name, setName] = useState(editing?.name || '');
     const [type, setType] = useState(editing?.type || 'renda_fixa');
     const [symbol, setSymbol] = useState(editing?.symbol || '');

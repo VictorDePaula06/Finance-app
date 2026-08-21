@@ -227,7 +227,7 @@ function DeleteBtn({ isDark, onDelete }) {
 }
 
 // ── Form: nova/editar reserva (com CDI) ─────────────────────────────
-function ReservaForm({ isDark, uid, cdi, editing, onClose }) {
+export function ReservaForm({ isDark, uid, cdi, editing, onClose, skipLedger = false }) {
     const [name, setName] = useState(editing?.name || 'Reserva de emergência');
     const [target, setTarget] = useState(editing?.target != null ? String(editing.target).replace('.', ',') : '');
     const [cdiPercent, setCdiPercent] = useState(String(editing?.cdiPercent || 100));
@@ -254,7 +254,8 @@ function ReservaForm({ isDark, uid, cdi, editing, onClose }) {
                     name: normalizeName(name), target: numBR(target) || null, cdiPercent: pct || 100,
                     balance: init, invested: init, lastYieldAt: now, type: 'reserva', userId: uid, createdAt: now,
                 });
-                if (init > 0) {
+                // No onboarding (skipLedger) a reserva JÁ EXISTE — não debita a conta.
+                if (init > 0 && !skipLedger) {
                     const iso = new Date(now).toISOString();
                     await addDoc(collection(db, 'transactions'), {
                         description: `Reserva: ${normalizeName(name)}`, amount: init, type: 'expense', category: 'vault',

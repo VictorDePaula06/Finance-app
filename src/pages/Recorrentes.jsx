@@ -386,7 +386,7 @@ function DeleteBtn({ isDark, disabled, onDelete }) {
 }
 
 // Modal de criar/editar recorrente (entrada ou despesa).
-function RecorrenteForm({ isDark, uid, kind, editing, onClose }) {
+export function RecorrenteForm({ isDark, uid, kind, editing, onClose }) {
     const cfg = KIND[kind];
     const income = kind === 'income';
     const [name, setName] = useState(editing?.name || '');

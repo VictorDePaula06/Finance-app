@@ -381,7 +381,7 @@ function DeleteBtn({ isDark, onDelete }) {
 }
 
 // ── Form: novo/editar cartão ────────────────────────────────────────
-function CardForm({ isDark, uid, editing, onClose, onSaved }) {
+export function CardForm({ isDark, uid, editing, onClose, onSaved }) {
     const [name, setName] = useState(editing?.name || '');
     const [bank, setBank] = useState(editing?.bank || '');
     const [brand, setBrand] = useState(editing?.brand || 'Visa');
@@ -455,11 +455,11 @@ function CardForm({ isDark, uid, editing, onClose, onSaved }) {
 }
 
 // ── Form: nova/editar compra no cartão (avulsa / assinatura / parcelamento) ─
-function BuyForm({ isDark, uid, card, editing, onClose }) {
+export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lockTipo = false }) {
     const isEdit = !!editing;
     const kindToTipo = { despesa: 'avulsa', assinatura: 'assinatura', parcelamento: 'parcelamento' };
     const ref = editing?.ref || {};
-    const [tipo, setTipo] = useState(editing ? kindToTipo[editing.kind] : 'avulsa');
+    const [tipo, setTipo] = useState(editing ? kindToTipo[editing.kind] : (initialTipo || 'avulsa'));
     const [description, setDescription] = useState(editing ? (ref.description || ref.name || '') : '');
     const [amount, setAmount] = useState(editing ? String(ref.amount ?? ref.value ?? '').replace('.', ',') : '');
     const [category, setCategory] = useState(editing ? (ref.category || 'shopping') : 'shopping');
@@ -536,8 +536,8 @@ function BuyForm({ isDark, uid, card, editing, onClose }) {
 
                 <Field label="Descrição"><input value={description} onChange={e => setDescription(e.target.value)} placeholder="Ex.: Mercado, Netflix, Geladeira" className={inputCls} maxLength={50} autoFocus /></Field>
 
-                {/* Tipo de compra (travado ao editar) */}
-                {!isEdit && (
+                {/* Tipo de compra (travado ao editar ou quando lockTipo) */}
+                {!isEdit && !lockTipo && (
                     <div>
                         <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Tipo de compra</span>
                         <div className="grid grid-cols-3 gap-2">
