@@ -687,11 +687,35 @@ function DadosTab({ isDark }) {
 
 // ── Conta (zona de perigo) ──────────────────────────────────────────
 function ContaTab({ isDark }) {
-    const { deleteAccount } = useAuth();
+    const { currentUser, deleteAccount } = useAuth();
+    const isPasswordUser = (currentUser?.providerData || []).some(p => p.providerId === 'password');
     const [confirm, setConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [error, setError] = useState('');
+    const [needsPw, setNeedsPw] = useState(false);
+    const [pw, setPw] = useState('');
+    const [showPw, setShowPw] = useState(false);
     const cell = isDark ? 'text-slate-300' : 'text-slate-700';
+    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+    const inputCls = `w-full pl-10 pr-10 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-rose-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-rose-500'}`;
+
+    const doDelete = async (password) => {
+        setDeleting(true); setError('');
+        try {
+            await deleteAccount(password);
+            // Sucesso: o usuário é deslogado e o app redireciona para /login.
+        } catch (err) {
+            setDeleting(false);
+            if (err?.code === 'NEEDS_PASSWORD') { setNeedsPw(true); return; }
+            if (err?.code === 'WRONG_PASSWORD') { setNeedsPw(true); setError('Senha incorreta. Tente de novo.'); return; }
+            if (err?.code === 'auth/too-many-requests') { setError('Muitas tentativas. Aguarde um pouco e tente de novo.'); return; }
+            if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') { setError('Você fechou a janela de confirmação. Tente de novo.'); return; }
+            console.error('[deleteAccount]', err);
+            setError('Não foi possível apagar agora. Tente novamente.');
+        }
+    };
+
+    const reset = () => { setConfirm(false); setError(''); setNeedsPw(false); setPw(''); };
 
     return (
         <Card isDark={isDark} className={isDark ? '!border-rose-500/20' : '!border-rose-200'}>
@@ -705,17 +729,33 @@ function ContaTab({ isDark }) {
                 </button>
             ) : (
                 <div className={`rounded-xl border p-4 ${isDark ? 'bg-rose-500/10 border-rose-500/30' : 'bg-rose-50 border-rose-200'}`}>
-                    <p className="text-[13px] font-bold text-rose-500 mb-3">Tem certeza absoluta? Isso apaga tudo e não pode ser desfeito.</p>
-                    {error && <p className="text-[12px] text-rose-400 mb-3">{error}</p>}
+                    <p className="text-[13px] font-bold text-rose-500 mb-1">Tem certeza absoluta? Isso apaga tudo e não pode ser desfeito.</p>
+                    <p className={`text-[12px] mb-3 ${muted}`}>
+                        {isPasswordUser ? 'Confirme sua senha para excluir a conta.' : 'Você confirmará pela janela do Google.'}
+                    </p>
+
+                    {needsPw && isPasswordUser && (
+                        <div className="relative mb-3">
+                            <Lock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} />
+                            <input type={showPw ? 'text' : 'password'} value={pw} onChange={e => setPw(e.target.value)} autoComplete="current-password"
+                                onKeyDown={e => { if (e.key === 'Enter' && pw) doDelete(pw); }}
+                                placeholder="Sua senha" className={inputCls} autoFocus />
+                            <button type="button" onClick={() => setShowPw(s => !s)} className={`absolute right-3 top-1/2 -translate-y-1/2 ${muted}`}>
+                                {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                        </div>
+                    )}
+
+                    {error && <p className="text-[12px] font-bold text-rose-400 mb-3">{error}</p>}
+
                     <div className="flex gap-2">
-                        <button onClick={async () => {
-                            setDeleting(true); setError('');
-                            try { await deleteAccount(); }
-                            catch { setError('Erro ao apagar. Saia e entre de novo, depois tente outra vez.'); setDeleting(false); }
-                        }} disabled={deleting} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500 text-white text-[13px] font-bold hover:bg-rose-600 transition disabled:opacity-60">
-                            {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} {deleting ? 'Apagando…' : 'Sim, apagar tudo'}
+                        <button
+                            onClick={() => (needsPw && isPasswordUser) ? doDelete(pw) : doDelete()}
+                            disabled={deleting || (needsPw && isPasswordUser && !pw)}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500 text-white text-[13px] font-bold hover:bg-rose-600 transition disabled:opacity-60">
+                            {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} {deleting ? 'Apagando…' : (needsPw ? 'Confirmar exclusão' : 'Sim, apagar tudo')}
                         </button>
-                        <button onClick={() => { setConfirm(false); setError(''); }} className={`px-4 py-2.5 rounded-xl text-[13px] font-bold border transition ${isDark ? 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Cancelar</button>
+                        <button onClick={reset} disabled={deleting} className={`px-4 py-2.5 rounded-xl text-[13px] font-bold border transition ${isDark ? 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Cancelar</button>
                     </div>
                 </div>
             )}

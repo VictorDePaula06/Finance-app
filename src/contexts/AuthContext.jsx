@@ -537,54 +537,49 @@ export function AuthProvider({ children }) {
         return docSnap.exists() ? docSnap.data().messages : [];
     }
 
-    async function deleteAccount() {
-        if (!currentUser) return;
+    // Apaga a conta. Para e-mail/senha, exige a `password` (login recente);
+    // se não vier, lança { code: 'NEEDS_PASSWORD' } para a UI pedir a senha.
+    // Para Google, reautentica por popup.
+    async function deleteAccount(password) {
+        const user = auth.currentUser;
+        if (!currentUser || !user) return;
         const uid = currentUser.uid;
+        const isPasswordUser = (user.providerData || []).some(p => p.providerId === 'password');
 
+        // 1. Reautenticação (login recente) ANTES de apagar qualquer dado.
         try {
-            // 1. Transactions
-            const qT = query(collection(db, 'transactions'), where('userId', '==', uid));
-            const snapT = await getDocs(qT);
-            const deleteT = snapT.docs.map(d => deleteDoc(d.ref));
-            await Promise.all(deleteT);
-
-            // 2. Goals
-            const qG = query(collection(db, 'goals'), where('userId', '==', uid));
-            const snapG = await getDocs(qG);
-            const deleteG = snapG.docs.map(d => deleteDoc(d.ref));
-            await Promise.all(deleteG);
-
-            // 3. Settings & Chat
-            await deleteDoc(doc(db, 'users', uid, 'settings', 'general'));
-            await deleteDoc(doc(db, 'users', uid, 'chat', 'history'));
-            // Em vez de deletar o documento base, marcamos como excluído para o admin ver
-            await updateDoc(doc(db, 'users', uid), { 
-                status: 'deleted', 
-                deletedAt: new Date(),
-                email: currentUser.email // Guardamos o e-mail no doc base para o admin identificar quem saiu
-            });
-
-            // 4. Auth User
-            const user = auth.currentUser;
-            if (user) {
-                try {
-                    await deleteUser(user);
-                } catch (err) {
-                    if (err.code === 'auth/requires-recent-login') {
-                        // Se for Google, tenta re-autenticar por popup
-                        const provider = new GoogleAuthProvider();
-                        await signInWithPopup(auth, provider);
-                        await deleteUser(auth.currentUser);
-                    } else {
-                        throw err;
-                    }
-                }
+            if (isPasswordUser) {
+                if (!password) { const e = new Error('NEEDS_PASSWORD'); e.code = 'NEEDS_PASSWORD'; throw e; }
+                await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+            } else {
+                await signInWithPopup(auth, googleProvider);
             }
-            return { success: true };
-        } catch (error) {
-            console.error("Erro ao deletar conta:", error);
-            throw error;
+        } catch (err) {
+            if (err.code === 'NEEDS_PASSWORD') throw err;
+            if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+                const e = new Error('WRONG_PASSWORD'); e.code = 'WRONG_PASSWORD'; throw e;
+            }
+            console.error('Erro na reautenticação:', err);
+            throw err;
         }
+
+        // 2. Apaga os dados do usuário em todas as coleções (por userId).
+        //    Cada coleção é isolada — se uma falhar (ex.: regra), as demais seguem.
+        const cols = ['transactions', 'goals', 'cards', 'subscriptions', 'fixed_incomes', 'fixed_expenses', 'savings_jars', 'investments', 'expense_goals'];
+        for (const c of cols) {
+            try {
+                const snap = await getDocs(query(collection(db, c), where('userId', '==', uid)));
+                await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+            } catch (e) { console.warn(`[deleteAccount] coleção ${c}:`, e?.code || e?.message); }
+        }
+        try { await deleteDoc(doc(db, 'users', uid, 'settings', 'general')); } catch { }
+        try { await deleteDoc(doc(db, 'users', uid, 'chat', 'history')); } catch { }
+        // Marca o doc base como excluído (o admin identifica quem saiu).
+        try { await updateDoc(doc(db, 'users', uid), { status: 'deleted', deletedAt: new Date(), email: currentUser.email }); } catch { }
+
+        // 3. Apaga o usuário de autenticação.
+        await deleteUser(auth.currentUser);
+        return { success: true };
     }
 
     async function resetUserData(uid) {
