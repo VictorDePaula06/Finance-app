@@ -3,7 +3,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
     LayoutDashboard, Repeat, ArrowLeftRight, CreditCard, Landmark,
-    BarChart3, Receipt, BookOpen, Settings, LogOut, Sun, Moon, X, PiggyBank,
+    BarChart3, Receipt, BookOpen, Settings, LogOut, Sun, Moon, X, PiggyBank, Sparkles,
 } from 'lucide-react';
 import logo from '../assets/logo.png';
 import aliviaAvatar from '../assets/alivia/alivia-final.png';
@@ -90,19 +90,25 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
 
             </nav>
 
-            {/* Consultoria Alívia — aba no rodapé, acima do usuário (com respiro) */}
+            {/* Consultoria Alívia — aba em destaque (efeito de brilho pra chamar atenção) */}
             {(() => {
                 const on = active === 'consultoria';
                 return (
                     <button onClick={() => withClose(onNavigate)('consultoria')}
-                        className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-[14px] font-bold transition-all active:scale-[0.98] mt-2 mb-4 ${
+                        className={`group relative w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-[14px] font-bold transition-all active:scale-[0.98] mt-2 mb-4 overflow-hidden ${
                             on
-                                ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 shadow-sm'
-                                : (isDark ? 'text-slate-400 border border-transparent hover:bg-white/5 hover:text-slate-200'
-                                          : 'text-slate-500 border border-transparent hover:bg-slate-50 hover:text-slate-800')
+                                ? 'text-white border border-emerald-400/40 shadow-lg shadow-emerald-500/20 bg-gradient-to-r from-emerald-500 to-teal-500'
+                                : (isDark ? 'text-emerald-300 border border-emerald-500/30 bg-emerald-500/[0.07] hover:bg-emerald-500/15'
+                                          : 'text-emerald-700 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100')
                         }`}>
-                        <img src={aliviaAvatar} alt="" className={`w-[22px] h-[22px] rounded-full object-cover shrink-0 -ml-0.5 ${on ? 'ring-2 ring-emerald-500/50' : ''}`} />
-                        <span className="truncate">Consultoria Alívia</span>
+                        {/* brilho deslizante */}
+                        {!on && <span className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-emerald-400/25 to-transparent" />}
+                        <span className="relative shrink-0 -ml-0.5">
+                            {!on && <span className="absolute inset-0 rounded-full bg-emerald-400/40 animate-ping" />}
+                            <img src={aliviaAvatar} alt="" className={`relative w-[24px] h-[24px] rounded-full object-cover ring-2 ${on ? 'ring-white/60' : 'ring-emerald-400/60'}`} />
+                        </span>
+                        <span className="truncate flex items-center gap-1.5">Consultoria Alívia</span>
+                        <Sparkles className={`w-3.5 h-3.5 ml-auto shrink-0 ${on ? 'text-white' : 'text-emerald-400'} animate-pulse`} />
                     </button>
                 );
             })()}

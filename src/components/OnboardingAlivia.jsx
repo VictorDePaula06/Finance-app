@@ -159,6 +159,11 @@ export default function OnboardingAlivia({ onDone }) {
                     )}
                     <div ref={endRef} />
                 </div>
+
+                {/* Reforço: nada é obrigatório aqui. */}
+                <div className={`px-5 py-2.5 border-t text-[11px] text-center ${isDark ? 'border-white/10 text-slate-500' : 'border-slate-100 text-slate-400'}`}>
+                    Não precisa fazer tudo agora — você pode <b>pular</b> e cadastrar depois, manualmente, nas abas do app.
+                </div>
             </div>
 
             {/* Formulários REAIS (abrem por cima do chat) — com o toque da Alívia */}

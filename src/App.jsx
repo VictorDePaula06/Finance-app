@@ -1203,6 +1203,12 @@ import PatrimonioTab from './components/PatrimonioTab';
 //   /*                      → catch-all (redireciona conforme estado)
 // ─────────────────────────────────────────────────────────────────
 
+// Renderiza a aba do novo layout a partir da URL (/app/:tab).
+function AppTabRoute() {
+  const { tab } = useParams();
+  return <PreviewLayout tab={tab} />;
+}
+
 // Componente interno que tem acesso ao navigate via hook
 function AppRoutes() {
   const { currentUser, isPremium, getUserPreferences, saveUserPreferences, isDataLoaded, needsPlanSelection, isAdmin, resetUserData } = useAuth();
@@ -1317,15 +1323,16 @@ function AppRoutes() {
             : <SubscriptionBlock onAdminAccess={() => isAdmin && navigate('/admin')} />
         }
       />
-      {/* App principal (novo layout). Mesmo guard de login/plano de antes;
-          quando o acesso é liberado, renderiza o PreviewLayout. */}
-      <Route path="/inicio"            element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <PreviewLayout />} />
+      {/* App principal (novo layout) com PAGINAÇÃO por URL:
+          /inicio = dashboard; /app/<aba> = cada aba (lancamentos, cartoes, etc.).
+          Mesmo guard de login/plano. */}
+      <Route path="/inicio"            element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <PreviewLayout tab="dashboard" />} />
+      <Route path="/app/:tab"          element={!currentUser ? <Navigate to="/login" replace /> : (needsPlanSelection && !isAdmin) ? <Navigate to="/planos" replace /> : !hasAppAccess ? <Navigate to="/planos" replace /> : <AppTabRoute />} />
 
-      {/* Compatibilidade com links antigos — tudo cai no novo app (/inicio).
-          A navegação entre abas agora é interna ao layout, não por URL. */}
+      {/* Compatibilidade com links antigos. */}
       <Route path="/gastos/*"          element={<Navigate to="/inicio" replace />} />
-      <Route path="/patrimonio/*"      element={<Navigate to="/inicio" replace />} />
-      <Route path="/ajustes"           element={<Navigate to="/inicio" replace />} />
+      <Route path="/patrimonio/*"      element={<Navigate to="/app/patrimonio" replace />} />
+      <Route path="/ajustes"           element={<Navigate to="/app/configuracoes" replace />} />
       <Route path="/dashboard/*"       element={<Navigate to="/inicio" replace />} />
 
       {/* ─── ROTAS ADMIN ─── */}

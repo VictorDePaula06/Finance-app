@@ -43,6 +43,7 @@ export default function Dashboard({ onNavigate }) {
     const [cards, setCards] = useState([]);
     const [jars, setJars] = useState([]);
     const [invs, setInvs] = useState([]);
+    const [fixExp, setFixExp] = useState([]);
     const [cfg, setCfg] = useState(() => { try { return { ...DEFAULT_CFG, ...JSON.parse(localStorage.getItem(CFG_KEY) || '{}') }; } catch { return DEFAULT_CFG; } });
     const [configOpen, setConfigOpen] = useState(false);
     const [hideSaldo, setHideSaldo] = useState(cfg.ocultarSaldo);
@@ -62,6 +63,7 @@ export default function Dashboard({ onNavigate }) {
             onSnapshot(q('cards'), s => setCards(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { }),
             onSnapshot(q('savings_jars'), s => setJars(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { }),
             onSnapshot(q('investments'), s => setInvs(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { }),
+            onSnapshot(q('fixed_expenses'), s => setFixExp(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { }),
         ];
         return () => list.forEach(u => u());
     }, [uid]);
@@ -109,17 +111,28 @@ export default function Dashboard({ onNavigate }) {
     const patrAtualDisp = patrAtual / curDiv;
     const patrLiquidoDisp = patrimonioLiquido / curDiv;
 
-    // Índice de saúde (pesos normalizados)
-    const temDados = ganhos > 0;
+    // Dívidas mensais: contas recorrentes marcadas como "dívida" + parcelamentos.
+    const dividaMensal = useMemo(() => {
+        const rec = fixExp.filter(f => f.category === 'divida').reduce((a, f) => a + (parseFloat(f.value) || 0), 0);
+        const parc = subs.filter(s => s.type === 'installment' || s.isInstallment).reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+        return rec + parc;
+    }, [fixExp, subs]);
+    const temDivida = dividaMensal > 0.005;
+    const dividaRatio = ganhos > 0 ? dividaMensal / ganhos : (temDivida ? 1 : 0);
+    const dividaPct = temDivida ? clamp((1 - clamp(dividaRatio / 0.30, 0, 1)) * 100, 0, 100) : 100;
+
+    // Índice de saúde (pesos normalizados). Dívida é o 1º pilar — quem deve não
+    // tem saúde financeira plena, então ela pesa e derruba o score.
+    const temDados = ganhos > 0 || temDivida;
     const score = useMemo(() => {
         if (!temDados) return 0;
-        const wR = 40, wS = 35, wSup = cfg.considerarSuperfluo ? 25 : 0;
-        const totalW = wR + wS + wSup;
+        const wD = 40, wR = 35, wSup = cfg.considerarSuperfluo ? 25 : 0;
+        const totalW = wD + wR + wSup;
+        const pD = (temDivida ? clamp(1 - clamp(dividaRatio / 0.30, 0, 1), 0, 1) : 1) * wD;
         const pR = clamp(mesesCobertura / metaMeses, 0, 1) * wR;
-        const pS = clamp(ganhos > 0 ? sobra / ganhos : 0, 0, 0.3) / 0.3 * wS;
         const pSup = cfg.considerarSuperfluo ? (1 - clamp(superfluoPct / 100 / 0.2, 0, 1)) * wSup : 0;
-        return Math.round((pR + pS + pSup) / totalW * 100);
-    }, [temDados, mesesCobertura, metaMeses, sobra, ganhos, superfluoPct, cfg.considerarSuperfluo]);
+        return Math.round((pD + pR + pSup) / totalW * 100);
+    }, [temDados, temDivida, dividaRatio, mesesCobertura, metaMeses, superfluoPct, cfg.considerarSuperfluo]);
 
     const scoreInfo = score >= 80 ? { label: 'Excelente', color: '#10b981' }
         : score >= 60 ? { label: 'Bom', color: '#3b82f6' }
@@ -248,7 +261,7 @@ export default function Dashboard({ onNavigate }) {
                     </div>
 
                     <div className={`grid ${cfg.considerarSuperfluo ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} border-t ${isDark ? 'border-white/10' : 'border-slate-100'}`}>
-                        <Pilar isDark={isDark} border label="Sobra no mês" value={`R$ ${money(sobra)}`} meta="Meta: sobrar todo mês" pct={ganhos > 0 ? clamp(sobra / ganhos * 100, 0, 100) : 0} ok={sobra >= 0} />
+                        <Pilar isDark={isDark} border label="Dívidas" value={temDivida ? `R$ ${money(dividaMensal)}/mês` : 'Sem dívidas 🎉'} meta="Meta: zerar dívidas" pct={dividaPct} ok={!temDivida} />
                         <Pilar isDark={isDark} border={cfg.considerarSuperfluo} label="Reserva de emergência" value={`R$ ${money(reservaTotal)}`} meta={`${mesesCobertura >= 99 ? '—' : mesesCobertura.toFixed(1).replace('.', ',')} meses · Meta: ${metaMeses}`} pct={reservaPct} ok={mesesCobertura >= metaMeses} />
                         {cfg.considerarSuperfluo && <Pilar isDark={isDark} label="Gastos supérfluos" value={`${superfluoPct.toFixed(0)}% supérfluo`} meta="Meta: controlar supérfluos" pct={clamp(100 - superfluoPct, 0, 100)} ok={superfluoPct <= 20} />}
                     </div>

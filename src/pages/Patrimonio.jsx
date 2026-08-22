@@ -373,6 +373,8 @@ async function fetchTickerPrice(type, ticker, isUSD) {
 export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother = false }) {
     const againRef = useRef(false);
     const [added, setAdded] = useState(0);
+    // Por padrão NÃO desconta do saldo (o ativo já existe / já foi aportado).
+    const [naoDescontar, setNaoDescontar] = useState(true);
     const [name, setName] = useState(editing?.name || '');
     const [type, setType] = useState(editing?.type || 'renda_fixa');
     const [symbol, setSymbol] = useState(editing?.symbol || '');
@@ -434,6 +436,18 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
         try {
             if (editing) { await updateDoc(doc(db, 'investments', editing.id), data); onClose(); return; }
             await addDoc(collection(db, 'investments'), { ...data, userId: uid, createdAt: Date.now() });
+            // Se o usuário DESMARCAR "não descontar", registra o aporte como saída da conta.
+            if (!naoDescontar) {
+                const cur = isUSD ? usdRate : 1;
+                const brlInvested = market ? (qty * numBR(buyPrice) * cur) : (numBR(invested) * cur);
+                if (brlInvested > 0) {
+                    const iso = new Date().toISOString();
+                    await addDoc(collection(db, 'transactions'), {
+                        description: `Aporte: ${normalizeName(name)}`, amount: brlInvested, type: 'expense', category: 'investment',
+                        date: iso, month: iso.slice(0, 7), userId: uid, createdAt: Date.now(), paymentMethod: 'pix', source: 'patrimonio',
+                    });
+                }
+            }
             if (againRef.current) {
                 againRef.current = false;
                 setName(''); setSymbol(''); setQuantity(''); setBuyPrice(''); setCurPrice(''); setInvested(''); setCurrent('');
@@ -505,6 +519,15 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                     </>
                 )}
 
+                {!editing && (
+                    <label className={`flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl border cursor-pointer transition ${naoDescontar ? 'border-emerald-500/40 bg-emerald-500/10' : (isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50')}`}>
+                        <input type="checkbox" checked={naoDescontar} onChange={e => setNaoDescontar(e.target.checked)} className="w-4 h-4 accent-emerald-500 mt-0.5" />
+                        <div>
+                            <p className={`text-[13px] font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Não descontar do meu saldo em conta</p>
+                            <p className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Marque se você <b>já tem</b> esse ativo. Desmarque só se estiver aportando agora com dinheiro da conta.</p>
+                        </div>
+                    </label>
+                )}
                 {allowAddAnother && !editing ? (
                     <div className="space-y-2">
                         {added > 0 && <p className="text-[12px] text-emerald-500 font-bold text-center">{added} cadastrado(s) ✓ — adicione mais ou conclua.</p>}

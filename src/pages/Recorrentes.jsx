@@ -445,8 +445,8 @@ export function RecorrenteForm({ isDark, uid, kind, editing, onClose, hint, init
     };
 
     const title = editing
-        ? (income ? 'Editar entrada' : 'Editar despesa')
-        : (income ? 'Nova entrada' : 'Nova despesa');
+        ? (income ? 'Editar entrada recorrente' : 'Editar despesa recorrente')
+        : (income ? 'Nova entrada recorrente' : 'Nova despesa recorrente');
 
     return (
         <Modal isDark={isDark} title={title} icon={cfg.icon}

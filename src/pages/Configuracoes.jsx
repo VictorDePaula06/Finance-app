@@ -12,7 +12,7 @@ import {
     Settings, User, MessageCircle, Sparkles, Palette, ShieldCheck,
     KeyRound, ExternalLink, Check, Eye, EyeOff, Trash2, Loader2, Copy,
     Lock, Sun, Moon, Download, FileText, Mail, Link2, Unlink, AlertTriangle,
-    CheckCircle2, RefreshCw, Camera, Upload, Bell, Zap, CalendarClock, FileBarChart,
+    CheckCircle2, RefreshCw, Camera, Upload, Bell, Zap, CalendarClock, FileBarChart, Wallet,
 } from 'lucide-react';
 
 const KEY_STORE = 'aliviaGeminiKey';
@@ -31,18 +31,18 @@ const maskPhone = (p) => {
     return `${d.slice(0, 2)} ••• ${d.slice(-4)}`;
 };
 
-// Lê um arquivo de imagem e devolve um data URL quadrado (crop central) e leve.
-const fileToSquareDataUrl = (file, size = 256) => new Promise((resolve, reject) => {
+// Lê um arquivo de imagem e devolve um data URL redimensionado (preserva o
+// enquadramento — a posição/zoom é escolhida depois pelo usuário) e leve.
+const fileToDataUrl = (file, max = 512) => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
         const img = new Image();
         img.onload = () => {
+            const scale = Math.min(1, max / Math.max(img.width, img.height));
+            const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
             const canvas = document.createElement('canvas');
-            canvas.width = size; canvas.height = size;
-            const ctx = canvas.getContext('2d');
-            const min = Math.min(img.width, img.height);
-            const sx = (img.width - min) / 2, sy = (img.height - min) / 2;
-            ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
             resolve(canvas.toDataURL('image/jpeg', 0.85));
         };
         img.onerror = reject;
@@ -53,12 +53,12 @@ const fileToSquareDataUrl = (file, size = 256) => new Promise((resolve, reject) 
 });
 
 const TABS = [
-    { id: 'perfil', label: 'Perfil', icon: User },
-    { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
-    { id: 'ia', label: 'Inteligência Artificial', icon: Sparkles },
+    { id: 'perfil', label: 'Meu Perfil', icon: User },
+    { id: 'conta', label: 'Conta', icon: ShieldCheck },
     { id: 'aparencia', label: 'Aparência', icon: Palette },
-    { id: 'dados', label: 'Dados & Privacidade', icon: ShieldCheck },
-    { id: 'conta', label: 'Conta', icon: AlertTriangle },
+    { id: 'ia', label: 'Chave API', icon: Sparkles },
+    { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
+    { id: 'dados', label: 'Dados & Privacidade', icon: FileText },
 ];
 
 export default function Configuracoes() {
@@ -127,9 +127,12 @@ const planBadge = (planLevel) => ({
     standard: { label: 'Standard', cls: 'bg-blue-500/15 text-blue-400' },
 }[planLevel] || { label: 'Gratuito', cls: 'bg-slate-500/15 text-slate-400' });
 
+// Estilo do avatar aplicando posição/zoom escolhidos pelo usuário.
+const avatarStyle = (pos) => ({ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${pos?.x ?? 50}% ${pos?.y ?? 50}%`, transform: `scale(${pos?.zoom ?? 1})`, transformOrigin: 'center' });
+
 // ── Perfil ──────────────────────────────────────────────────────────
 function PerfilTab({ isDark }) {
-    const { currentUser, planLevel, userPrefs, saveUserPreferences } = useAuth();
+    const { currentUser, planLevel, userPrefs, saveUserPreferences, refreshUser } = useAuth();
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const badge = planBadge(planLevel);
     const initial = (currentUser?.displayName || currentUser?.email || 'U').charAt(0).toUpperCase();
@@ -139,34 +142,33 @@ function PerfilTab({ isDark }) {
     const [nameFlash, setNameFlash] = useState('');
     const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
 
-    // Foto: preferimos a enviada pelo usuário (salva nas preferências); senão a do provedor.
-    const fileRef = React.useRef(null);
-    const [avatar, setAvatar] = useState(userPrefs?.avatarDataUrl || currentUser?.photoURL || '');
-    const [photoBusy, setPhotoBusy] = useState(false);
-    const [photoErr, setPhotoErr] = useState('');
+    useEffect(() => { setName(currentUser?.displayName || ''); }, [currentUser?.displayName]);
 
-    useEffect(() => { setAvatar(userPrefs?.avatarDataUrl || currentUser?.photoURL || ''); }, [userPrefs?.avatarDataUrl, currentUser?.photoURL]);
+    const fileRef = React.useRef(null);
+    const [photoErr, setPhotoErr] = useState('');
+    const [editor, setEditor] = useState(null); // { src } quando editando o enquadramento
+
+    const avatar = userPrefs?.avatarDataUrl || currentUser?.photoURL || '';
+    const avatarPos = userPrefs?.avatarPos || { x: 50, y: 50, zoom: 1 };
+    const hasCustomPhoto = !!(userPrefs?.avatarDataUrl);
 
     const onPickFile = async (e) => {
         const file = e.target.files?.[0];
-        e.target.value = ''; // permite reenviar o mesmo arquivo
+        e.target.value = '';
         if (!file) return;
         setPhotoErr('');
         if (!file.type.startsWith('image/')) { setPhotoErr('Escolha um arquivo de imagem.'); return; }
         if (file.size > 8 * 1024 * 1024) { setPhotoErr('Imagem muito grande (máx. 8 MB).'); return; }
-        setPhotoBusy(true);
         try {
-            const dataUrl = await fileToSquareDataUrl(file, 256);
-            setAvatar(dataUrl);
-            await saveUserPreferences({ avatarDataUrl: dataUrl });
+            const dataUrl = await fileToDataUrl(file, 512);
+            setEditor({ src: dataUrl }); // abre o editor de enquadramento
         } catch (err) { console.error(err); setPhotoErr('Não foi possível processar a imagem.'); }
-        setPhotoBusy(false);
     };
-    const removePhoto = async () => {
-        setPhotoErr('');
-        setAvatar(currentUser?.photoURL || '');
-        try { await saveUserPreferences({ avatarDataUrl: '' }); } catch (e) { console.error(e); }
+    const savePhoto = async (src, pos) => {
+        try { await saveUserPreferences({ avatarDataUrl: src, avatarPos: pos }); } catch (e) { console.error(e); }
+        setEditor(null);
     };
+    const removePhoto = async () => { setPhotoErr(''); try { await saveUserPreferences({ avatarDataUrl: '', avatarPos: null }); } catch (e) { console.error(e); } };
 
     const saveName = async () => {
         const n = name.trim();
@@ -174,26 +176,29 @@ function PerfilTab({ isDark }) {
         setSavingName(true); setNameFlash('');
         try {
             await updateProfile(auth.currentUser, { displayName: n });
+            await refreshUser?.(); // atualiza o nome na sidebar/telas na hora
             setNameFlash('Nome atualizado!');
         } catch (e) { console.error(e); setNameFlash('Não foi possível salvar o nome.'); }
         setSavingName(false);
         setTimeout(() => setNameFlash(''), 2500);
     };
 
-    const hasCustomPhoto = !!(userPrefs?.avatarDataUrl);
-
     return (
         <div className="space-y-4">
+            {editor && <PhotoEditor isDark={isDark} src={editor.src} initial={avatarPos} onCancel={() => setEditor(null)} onSave={(pos) => savePhoto(editor.src, pos)} />}
+
             {/* Identidade + foto */}
             <Card isDark={isDark}>
                 <div className="flex items-center gap-4">
                     <div className="relative shrink-0">
-                        {avatar
-                            ? <img src={avatar} alt="" className="w-16 h-16 rounded-2xl object-cover" />
-                            : <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-2xl font-black text-white">{initial}</div>}
-                        <button onClick={() => fileRef.current?.click()} disabled={photoBusy} title="Alterar foto"
-                            className={`absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-xl flex items-center justify-center shadow-md transition active:scale-95 ${isDark ? 'bg-emerald-500 text-white' : 'bg-emerald-500 text-white'} disabled:opacity-60`}>
-                            {photoBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+                        <div className="w-16 h-16 rounded-2xl overflow-hidden">
+                            {avatar
+                                ? <img src={avatar} alt="" style={avatarStyle(avatarPos)} />
+                                : <div className="w-full h-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-2xl font-black text-white">{initial}</div>}
+                        </div>
+                        <button onClick={() => fileRef.current?.click()} title="Alterar foto"
+                            className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-xl flex items-center justify-center shadow-md transition active:scale-95 bg-emerald-500 text-white">
+                            <Camera className="w-3.5 h-3.5" />
                         </button>
                         <input ref={fileRef} type="file" accept="image/*" onChange={onPickFile} className="hidden" />
                     </div>
@@ -204,18 +209,23 @@ function PerfilTab({ isDark }) {
                     </div>
                 </div>
                 <div className="flex items-center gap-2 mt-4 flex-wrap">
-                    <button onClick={() => fileRef.current?.click()} disabled={photoBusy}
-                        className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'} disabled:opacity-60`}>
+                    <button onClick={() => fileRef.current?.click()}
+                        className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
                         <Upload className="w-4 h-4" /> {hasCustomPhoto ? 'Trocar foto' : 'Enviar foto'}
                     </button>
                     {hasCustomPhoto && (
-                        <button onClick={removePhoto} className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold transition ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}>
-                            <Trash2 className="w-4 h-4" /> Remover
-                        </button>
+                        <>
+                            <button onClick={() => setEditor({ src: avatar })} className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                                <Camera className="w-4 h-4" /> Ajustar posição
+                            </button>
+                            <button onClick={removePhoto} className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold transition ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}>
+                                <Trash2 className="w-4 h-4" /> Remover
+                            </button>
+                        </>
                     )}
                 </div>
                 {photoErr && <p className="text-[12px] font-bold text-rose-500 mt-2">{photoErr}</p>}
-                <p className={`text-[11px] mt-2 ${muted}`}>JPG ou PNG, quadrada fica melhor. A imagem é reduzida para carregar rápido.</p>
+                <p className={`text-[11px] mt-2 ${muted}`}>Ao enviar, você escolhe o enquadramento (arraste e use o zoom) pra não cortar errado.</p>
             </Card>
 
             {/* Nome de exibição */}
@@ -233,6 +243,51 @@ function PerfilTab({ isDark }) {
 
             {/* Senha */}
             <ChangePasswordCard isDark={isDark} />
+        </div>
+    );
+}
+
+// Editor de enquadramento da foto: arrastar para posicionar + zoom.
+function PhotoEditor({ isDark, src, initial, onCancel, onSave }) {
+    const [x, setX] = useState(initial?.x ?? 50);
+    const [y, setY] = useState(initial?.y ?? 50);
+    const [zoom, setZoom] = useState(initial?.zoom ?? 1);
+    const drag = React.useRef(null);
+    const SIZE = 240;
+
+    const onDown = (e) => { drag.current = { px: e.clientX, py: e.clientY }; e.currentTarget.setPointerCapture?.(e.pointerId); };
+    const onMove = (e) => {
+        if (!drag.current) return;
+        const dx = e.clientX - drag.current.px, dy = e.clientY - drag.current.py;
+        drag.current = { px: e.clientX, py: e.clientY };
+        const k = 100 / (SIZE * zoom);
+        setX(v => Math.max(0, Math.min(100, v - dx * k)));
+        setY(v => Math.max(0, Math.min(100, v - dy * k)));
+    };
+    const onUp = () => { drag.current = null; };
+
+    return (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onCancel} />
+            <div className={`relative w-full max-w-sm rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+                <h2 className={`text-lg font-black mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>Ajustar foto</h2>
+                <p className={`text-[12px] mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Arraste a imagem e use o zoom para escolher o que aparece.</p>
+                <div className="flex justify-center">
+                    <div className="rounded-full overflow-hidden border-2 border-emerald-400 touch-none cursor-grab active:cursor-grabbing"
+                        style={{ width: SIZE, height: SIZE }}
+                        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}>
+                        <img src={src} alt="" draggable={false} style={avatarStyle({ x, y, zoom })} />
+                    </div>
+                </div>
+                <div className="mt-4">
+                    <span className={`text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Zoom</span>
+                    <input type="range" min="1" max="3" step="0.05" value={zoom} onChange={e => setZoom(parseFloat(e.target.value))} className="w-full accent-emerald-500 mt-1" />
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                    <button onClick={onCancel} className={`py-2.5 rounded-xl text-[13px] font-bold border transition ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Cancelar</button>
+                    <button onClick={() => onSave({ x, y, zoom })} className="py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold flex items-center justify-center gap-1.5 transition"><Check className="w-4 h-4" /> Salvar foto</button>
+                </div>
+            </div>
         </div>
     );
 }
@@ -686,8 +741,86 @@ function DadosTab({ isDark }) {
 }
 
 // ── Conta (zona de perigo) ──────────────────────────────────────────
+const parseMoney = (v) => parseFloat(String(v ?? '').replace(/\./g, '').replace(',', '.')) || 0;
+
+// Ação sensível reutilizável: expande, pede senha (contas e-mail) e executa.
+function SensitiveAction({ isDark, isPasswordUser, icon: Icon, title, desc, tone = 'amber', triggerLabel, confirmLabel, withValue, valueLabel, action }) {
+    const [open, setOpen] = useState(false);
+    const [val, setVal] = useState('');
+    const [pw, setPw] = useState('');
+    const [showPw, setShowPw] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [err, setErr] = useState('');
+    const [ok, setOk] = useState('');
+    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+    const tones = {
+        amber: { br: 'border-amber-500/30', bg: isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-200', btn: 'bg-amber-500 hover:bg-amber-600', txt: 'text-amber-500' },
+        rose: { br: 'border-rose-500/30', bg: isDark ? 'bg-rose-500/10 border-rose-500/30' : 'bg-rose-50 border-rose-200', btn: 'bg-rose-500 hover:bg-rose-600', txt: 'text-rose-500' },
+        blue: { br: 'border-blue-500/30', bg: isDark ? 'bg-blue-500/10 border-blue-500/30' : 'bg-blue-50 border-blue-200', btn: 'bg-blue-500 hover:bg-blue-600', txt: 'text-blue-500' },
+    }[tone];
+    const inputCls = `w-full pl-10 pr-10 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
+
+    const canRun = (!withValue || val.trim()) && (!isPasswordUser || pw);
+    const run = async () => {
+        setBusy(true); setErr('');
+        try {
+            await action({ password: pw, value: val });
+            setOk('Feito!'); setOpen(false); setVal(''); setPw(''); setTimeout(() => setOk(''), 2500);
+        } catch (e) {
+            if (e?.code === 'WRONG_PASSWORD') setErr('Senha incorreta.');
+            else if (e?.code === 'NEEDS_PASSWORD') setErr('Informe sua senha.');
+            else if (e?.code === 'auth/popup-closed-by-user' || e?.code === 'auth/cancelled-popup-request') setErr('Confirmação cancelada.');
+            else if (e?.code === 'auth/too-many-requests') setErr('Muitas tentativas. Aguarde um pouco.');
+            else { console.error(e); setErr('Não foi possível concluir.'); }
+            setBusy(false); return;
+        }
+        setBusy(false);
+    };
+
+    return (
+        <div className={`rounded-xl border p-4 ${isDark ? 'bg-white/[0.02] border-white/10' : 'bg-white border-slate-200'}`}>
+            <div className="flex items-start gap-3">
+                <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-white/5' : 'bg-slate-100'} ${tones.txt}`}><Icon className="w-4 h-4" /></span>
+                <div className="min-w-0 flex-1">
+                    <p className={`text-[14px] font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{title}</p>
+                    <p className={`text-[12px] mt-0.5 ${muted}`}>{desc}</p>
+                </div>
+                {!open && <button onClick={() => { setOpen(true); setErr(''); }} className={`shrink-0 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>{triggerLabel}</button>}
+                {ok && <span className={`shrink-0 text-[12px] font-bold ${tones.txt}`}>{ok}</span>}
+            </div>
+
+            {open && (
+                <div className={`mt-3 rounded-xl border p-3.5 ${tones.bg}`}>
+                    {withValue && (
+                        <div className="relative mb-2.5">
+                            <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold ${muted}`}>R$</span>
+                            <input inputMode="decimal" value={val} onChange={e => setVal(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder={valueLabel || '0,00'}
+                                className={`w-full pl-9 pr-3 py-3 rounded-xl border text-sm font-bold outline-none ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`} autoFocus />
+                        </div>
+                    )}
+                    {isPasswordUser ? (
+                        <div className="relative mb-2.5">
+                            <Lock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} />
+                            <input type={showPw ? 'text' : 'password'} value={pw} onChange={e => setPw(e.target.value)} autoComplete="current-password"
+                                onKeyDown={e => { if (e.key === 'Enter' && canRun) run(); }} placeholder="Confirme sua senha" className={inputCls} autoFocus={!withValue} />
+                            <button type="button" onClick={() => setShowPw(s => !s)} className={`absolute right-3 top-1/2 -translate-y-1/2 ${muted}`}>{showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
+                        </div>
+                    ) : <p className={`text-[12px] mb-2.5 ${muted}`}>Você confirmará pela janela do Google.</p>}
+                    {err && <p className="text-[12px] font-bold text-rose-500 mb-2.5">{err}</p>}
+                    <div className="flex gap-2">
+                        <button onClick={run} disabled={busy || !canRun} className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-[13px] font-bold transition disabled:opacity-60 ${tones.btn}`}>
+                            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} {confirmLabel}
+                        </button>
+                        <button onClick={() => { setOpen(false); setErr(''); setPw(''); }} disabled={busy} className={`px-4 py-2.5 rounded-xl text-[13px] font-bold border transition ${isDark ? 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Cancelar</button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function ContaTab({ isDark }) {
-    const { currentUser, deleteAccount } = useAuth();
+    const { currentUser, deleteAccount, reauthenticate, setAccountBalance, resetUserData } = useAuth();
     const isPasswordUser = (currentUser?.providerData || []).some(p => p.providerId === 'password');
     const [confirm, setConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -703,7 +836,6 @@ function ContaTab({ isDark }) {
         setDeleting(true); setError('');
         try {
             await deleteAccount(password);
-            // Sucesso: o usuário é deslogado e o app redireciona para /login.
         } catch (err) {
             setDeleting(false);
             if (err?.code === 'NEEDS_PASSWORD') { setNeedsPw(true); return; }
@@ -718,47 +850,56 @@ function ContaTab({ isDark }) {
     const reset = () => { setConfirm(false); setError(''); setNeedsPw(false); setPw(''); };
 
     return (
-        <Card isDark={isDark} className={isDark ? '!border-rose-500/20' : '!border-rose-200'}>
-            <SectionTitle isDark={isDark} icon={AlertTriangle}>Zona de perigo</SectionTitle>
-            <p className={`text-[13px] mb-4 ${cell}`}>
-                Apagar a conta é <b>irreversível</b>. Todas as suas transações, cartões, metas e dados serão removidos permanentemente.
-            </p>
-            {!confirm ? (
-                <button onClick={() => setConfirm(true)} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-rose-500/30 text-rose-500 text-[13px] font-bold hover:bg-rose-500 hover:text-white hover:border-rose-500 transition active:scale-95">
-                    <Trash2 className="w-4 h-4" /> Apagar minha conta
-                </button>
-            ) : (
-                <div className={`rounded-xl border p-4 ${isDark ? 'bg-rose-500/10 border-rose-500/30' : 'bg-rose-50 border-rose-200'}`}>
-                    <p className="text-[13px] font-bold text-rose-500 mb-1">Tem certeza absoluta? Isso apaga tudo e não pode ser desfeito.</p>
-                    <p className={`text-[12px] mb-3 ${muted}`}>
-                        {isPasswordUser ? 'Confirme sua senha para excluir a conta.' : 'Você confirmará pela janela do Google.'}
-                    </p>
+        <div className="space-y-4">
+            {/* Ajustar saldo em conta */}
+            <SensitiveAction isDark={isDark} isPasswordUser={isPasswordUser} icon={Wallet} tone="blue"
+                title="Ajustar saldo em conta" desc="Define o saldo atual da sua conta para o valor exato que você quiser."
+                triggerLabel="Ajustar" confirmLabel="Salvar saldo" withValue valueLabel="Novo saldo (R$)"
+                action={async ({ password, value }) => { await reauthenticate(password); await setAccountBalance(parseMoney(value)); }} />
 
-                    {needsPw && isPasswordUser && (
-                        <div className="relative mb-3">
-                            <Lock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} />
-                            <input type={showPw ? 'text' : 'password'} value={pw} onChange={e => setPw(e.target.value)} autoComplete="current-password"
-                                onKeyDown={e => { if (e.key === 'Enter' && pw) doDelete(pw); }}
-                                placeholder="Sua senha" className={inputCls} autoFocus />
-                            <button type="button" onClick={() => setShowPw(s => !s)} className={`absolute right-3 top-1/2 -translate-y-1/2 ${muted}`}>
-                                {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {/* Zerar dados (sem apagar a conta) */}
+            <SensitiveAction isDark={isDark} isPasswordUser={isPasswordUser} icon={RefreshCw} tone="amber"
+                title="Zerar dados da conta" desc="Apaga transações, cartões, recorrentes, reservas, metas e investimentos — mas mantém sua conta e login."
+                triggerLabel="Zerar" confirmLabel="Zerar meus dados"
+                action={async ({ password }) => { await reauthenticate(password); await resetUserData(currentUser.uid); setTimeout(() => window.location.reload(), 400); }} />
+
+            {/* Zona de perigo — apagar conta */}
+            <Card isDark={isDark} className={isDark ? '!border-rose-500/20' : '!border-rose-200'}>
+                <SectionTitle isDark={isDark} icon={AlertTriangle}>Zona de perigo</SectionTitle>
+                <p className={`text-[13px] mb-4 ${cell}`}>
+                    Apagar a conta é <b>irreversível</b>. Todas as suas transações, cartões, metas e dados serão removidos permanentemente.
+                </p>
+                {!confirm ? (
+                    <button onClick={() => setConfirm(true)} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-rose-500/30 text-rose-500 text-[13px] font-bold hover:bg-rose-500 hover:text-white hover:border-rose-500 transition active:scale-95">
+                        <Trash2 className="w-4 h-4" /> Apagar minha conta
+                    </button>
+                ) : (
+                    <div className={`rounded-xl border p-4 ${isDark ? 'bg-rose-500/10 border-rose-500/30' : 'bg-rose-50 border-rose-200'}`}>
+                        <p className="text-[13px] font-bold text-rose-500 mb-1">Tem certeza absoluta? Isso apaga tudo e não pode ser desfeito.</p>
+                        <p className={`text-[12px] mb-3 ${muted}`}>
+                            {isPasswordUser ? 'Confirme sua senha para excluir a conta.' : 'Você confirmará pela janela do Google.'}
+                        </p>
+                        {needsPw && isPasswordUser && (
+                            <div className="relative mb-3">
+                                <Lock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} />
+                                <input type={showPw ? 'text' : 'password'} value={pw} onChange={e => setPw(e.target.value)} autoComplete="current-password"
+                                    onKeyDown={e => { if (e.key === 'Enter' && pw) doDelete(pw); }} placeholder="Sua senha" className={inputCls} autoFocus />
+                                <button type="button" onClick={() => setShowPw(s => !s)} className={`absolute right-3 top-1/2 -translate-y-1/2 ${muted}`}>
+                                    {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        )}
+                        {error && <p className="text-[12px] font-bold text-rose-400 mb-3">{error}</p>}
+                        <div className="flex gap-2">
+                            <button onClick={() => (needsPw && isPasswordUser) ? doDelete(pw) : doDelete()} disabled={deleting || (needsPw && isPasswordUser && !pw)}
+                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500 text-white text-[13px] font-bold hover:bg-rose-600 transition disabled:opacity-60">
+                                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} {deleting ? 'Apagando…' : (needsPw ? 'Confirmar exclusão' : 'Sim, apagar tudo')}
                             </button>
+                            <button onClick={reset} disabled={deleting} className={`px-4 py-2.5 rounded-xl text-[13px] font-bold border transition ${isDark ? 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Cancelar</button>
                         </div>
-                    )}
-
-                    {error && <p className="text-[12px] font-bold text-rose-400 mb-3">{error}</p>}
-
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => (needsPw && isPasswordUser) ? doDelete(pw) : doDelete()}
-                            disabled={deleting || (needsPw && isPasswordUser && !pw)}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500 text-white text-[13px] font-bold hover:bg-rose-600 transition disabled:opacity-60">
-                            {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} {deleting ? 'Apagando…' : (needsPw ? 'Confirmar exclusão' : 'Sim, apagar tudo')}
-                        </button>
-                        <button onClick={reset} disabled={deleting} className={`px-4 py-2.5 rounded-xl text-[13px] font-bold border transition ${isDark ? 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Cancelar</button>
                     </div>
-                </div>
-            )}
-        </Card>
+                )}
+            </Card>
+        </div>
     );
 }

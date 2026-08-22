@@ -13,7 +13,7 @@ import {
     deleteUser,
     GoogleAuthProvider
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs, deleteDoc, updateDoc, addDoc } from 'firebase/firestore';
 import { log, maskEmail, maskUid } from '../utils/logger';
 import { isAdminEmail, isLifetimeEmail } from '../constants/admins';
 import { setGeminiKey, clearGeminiKey } from '../services/gemini';
@@ -46,6 +46,7 @@ export function AuthProvider({ children }) {
     const [planLevel, setPlanLevel] = useState('free'); // 'free' | 'standard' | 'premium'
     const [stripeSubId, setStripeSubId] = useState(null); // ID da assinatura Stripe ativa (p/ portal/cancelamento)
     const [userPrefs, setUserPrefs] = useState(null);
+    const [userVersion, setUserVersion] = useState(0); // força re-render após refreshUser
     const [isAdmin, setIsAdmin] = useState(false);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     // Usuário precisa escolher um plano antes de acessar o app
@@ -84,6 +85,45 @@ export function AuthProvider({ children }) {
 
     function loginWithGoogle() {
         return signInWithPopup(auth, googleProvider);
+    }
+
+    // Recarrega o usuário e força re-render dos consumidores (ex.: nome/foto
+    // atualizam na hora, sem precisar dar F5).
+    async function refreshUser() {
+        try { await auth.currentUser?.reload(); } catch { }
+        setUserVersion(v => v + 1);
+    }
+
+    // Reautentica (login recente) para ações sensíveis. Email/senha exige a
+    // senha; se faltar, lança { code: 'NEEDS_PASSWORD' }. Google usa popup.
+    async function reauthenticate(password) {
+        const u = auth.currentUser;
+        if (!u) throw new Error('sem usuário');
+        const isPw = (u.providerData || []).some(p => p.providerId === 'password');
+        if (isPw) {
+            if (!password) { const e = new Error('NEEDS_PASSWORD'); e.code = 'NEEDS_PASSWORD'; throw e; }
+            try { await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, password)); }
+            catch (err) {
+                if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') { const e = new Error('WRONG_PASSWORD'); e.code = 'WRONG_PASSWORD'; throw e; }
+                throw err;
+            }
+        } else {
+            await signInWithPopup(auth, googleProvider);
+        }
+    }
+
+    // Define o saldo em conta (substitui o "ajuste de saldo" — não acumula).
+    async function setAccountBalance(target) {
+        const uid = auth.currentUser?.uid;
+        if (!uid) return;
+        const snap = await getDocs(query(collection(db, 'transactions'), where('userId', '==', uid)));
+        const olds = snap.docs.filter(d => d.data().category === 'initial_balance');
+        await Promise.all(olds.map(d => deleteDoc(d.ref)));
+        const now = new Date();
+        await addDoc(collection(db, 'transactions'), {
+            description: 'Ajuste de saldo', amount: Number(target) || 0, type: 'income', category: 'initial_balance',
+            date: now.toISOString(), month: now.toISOString().slice(0, 7), userId: uid, createdAt: Date.now(),
+        });
     }
 
     function logout() {
@@ -711,6 +751,10 @@ export function AuthProvider({ children }) {
         signup,
         loginWithGoogle,
         changePassword,
+        refreshUser,
+        reauthenticate,
+        setAccountBalance,
+        userVersion,
         logout,
         deleteAccount,
         resetUserData,

@@ -9,7 +9,7 @@ import {
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import {
     Plus, Pencil, Trash2, X, Loader2, Check, Info,
-    CreditCard, Calendar, CalendarCheck, Landmark, Wallet, ShoppingBag,
+    CreditCard, Calendar, CalendarCheck, Landmark, Wallet, ShoppingBag, ChevronRight, Layers,
 } from 'lucide-react';
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -51,6 +51,7 @@ export default function Cartoes() {
     const [cardForm, setCardForm] = useState(null);   // { editing }
     const [buyForm, setBuyForm] = useState(null);     // { editing } | null
     const [pagarOpen, setPagarOpen] = useState(false);
+    const [detalhes, setDetalhes] = useState(null);   // 'assinaturas' | 'parcelas' | null
 
     useEffect(() => {
         if (!uid) return;
@@ -184,8 +185,10 @@ export default function Cartoes() {
 
                             {/* Métricas */}
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                <StatCard isDark={isDark} label="Assinaturas" value={`R$ ${money(assinaturasTotal)}`} sub={`${subsOnCard.length} no mês`} tone="purple" />
-                                <StatCard isDark={isDark} label="Parcelamento" value={`R$ ${money(parcelamentoTotal)}`} sub={`${installmentsOnCard.length} ativo${installmentsOnCard.length === 1 ? '' : 's'}`} tone="blue" />
+                                <StatCard isDark={isDark} label="Assinaturas" value={`R$ ${money(assinaturasTotal)}`} sub={`${subsOnCard.length} no mês`} tone="purple"
+                                    onDetails={subsOnCard.length ? () => setDetalhes('assinaturas') : null} />
+                                <StatCard isDark={isDark} label="Parcelamento" value={`R$ ${money(parcelamentoTotal)}`} sub={`${installmentsOnCard.length} ativo${installmentsOnCard.length === 1 ? '' : 's'}`} tone="blue"
+                                    onDetails={installmentsOnCard.length ? () => setDetalhes('parcelas') : null} />
                                 <StatCard isDark={isDark} label="Melhor dia" value={selected ? `Dia ${bestBuyDay(selected)}` : '—'} sub={selected ? `fecha dia ${closingOf(selected)}` : 'sem cartão'} tone="emerald" />
                                 <StatCard isDark={isDark} label="Uso do limite" value={selected && limite ? `${Math.round(usoPct)}%` : '—'} sub={selected ? (limite ? `livre R$ ${money(disponivel)}` : 'sem limite') : 'sem cartão'} tone="amber" />
                             </div>
@@ -257,6 +260,7 @@ export default function Cartoes() {
             {cardForm && <CardForm isDark={isDark} uid={uid} editing={cardForm.editing} onClose={() => setCardForm(null)} onSaved={(id) => setSelectedId(id)} />}
             {buyForm && selected && <BuyForm isDark={isDark} uid={uid} card={selected} editing={buyForm.editing} onClose={() => setBuyForm(null)} />}
             {pagarOpen && selected && <PagarFaturaModal isDark={isDark} uid={uid} card={selected} items={invoiceItems} total={faturaTotal} onClose={() => setPagarOpen(false)} />}
+            {detalhes && <DetalhesModal isDark={isDark} tipo={detalhes} subs={subsOnCard} installments={installmentsOnCard} onClose={() => setDetalhes(null)} />}
         </div>
     );
 }
@@ -327,17 +331,61 @@ function CardDeleteBtn({ onDelete }) {
 }
 
 // ── Card de métrica (estilo do mockup) ──────────────────────────────
-function StatCard({ isDark, label, value, sub, tone }) {
+function StatCard({ isDark, label, value, sub, tone, onDetails }) {
     const toneColor = {
         purple: 'text-purple-400', blue: 'text-blue-400', emerald: 'text-emerald-500',
         amber: 'text-amber-500', rose: 'text-rose-500', slate: isDark ? 'text-slate-200' : 'text-slate-700',
     }[tone];
     return (
-        <div className={`rounded-2xl border p-4 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
+        <div className={`rounded-2xl border p-4 flex flex-col ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
             <p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{label}</p>
             <p className={`text-lg font-black tabular-nums mt-1 ${toneColor}`}>{value}</p>
             {sub && <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{sub}</p>}
+            {onDetails && (
+                <button onClick={onDetails} className={`mt-2 self-start inline-flex items-center gap-1 text-[11px] font-bold transition ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+                    Ver detalhes <ChevronRight className="w-3 h-3" />
+                </button>
+            )}
         </div>
+    );
+}
+
+// ── Modal: detalhes de assinaturas ou parcelamentos do cartão ───────
+function DetalhesModal({ isDark, tipo, subs, installments, onClose, onEdit }) {
+    const isAss = tipo === 'assinaturas';
+    const list = isAss ? subs : installments;
+    const total = list.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+    const Icon = isAss ? Calendar : Layers;
+    return (
+        <Modal isDark={isDark} title={isAss ? 'Assinaturas do cartão' : 'Parcelamentos do cartão'} icon={Icon}
+            iconCls={isAss ? 'bg-purple-500/12 text-purple-400' : 'bg-blue-500/12 text-blue-400'} onClose={onClose}>
+            <div className={`rounded-xl border px-3.5 py-3 mb-3 flex items-center justify-between ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'}`}>
+                <span className={`text-[11px] font-black uppercase tracking-widest ${muted}`}>{isAss ? 'Total mensal' : 'Nesta fatura'}</span>
+                <span className={`font-black tabular-nums ${isAss ? 'text-purple-400' : 'text-blue-400'}`}>R$ {money(total)}</span>
+            </div>
+            {list.length === 0 ? (
+                <p className={`text-center text-sm py-6 ${muted}`}>{isAss ? 'Nenhuma assinatura neste cartão.' : 'Nenhum parcelamento ativo.'}</p>
+            ) : (
+                <div className={`rounded-xl border divide-y overflow-hidden ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
+                    {list.map(s => {
+                        const c = catMetaExp(s.category);
+                        const hex = categoryHex(c);
+                        const parc = !isAss ? `${s.currentInstallment || 1}/${s.totalInstallments || 1}` : null;
+                        return (
+                            <div key={s.id} className="flex items-center gap-3 px-3.5 py-3">
+                                <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>{c.icon && <c.icon className="w-4 h-4" />}</span>
+                                <div className="min-w-0 flex-1">
+                                    <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{s.name || c.label}</p>
+                                    <p className={`text-[11px] ${muted}`}>{isAss ? 'Mensal' : `Parcela ${parc}`} · {c.label}</p>
+                                </div>
+                                <span className={`font-black tabular-nums text-rose-500 whitespace-nowrap`}>R$ {money(parseFloat(s.value) || 0)}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </Modal>
     );
 }
 

@@ -9,7 +9,7 @@ import { CATEGORIES, categoryHex } from '../constants/categories';
 import { buildWalletLedger } from '../utils/financialLogic';
 import {
     Plus, Pencil, Trash2, X, Loader2, Check, ChevronDown, Info,
-    Wallet, TrendingUp, TrendingDown, ArrowLeftRight, Calendar,
+    Wallet, TrendingUp, TrendingDown, ArrowLeftRight, Calendar, SlidersHorizontal,
 } from 'lucide-react';
 
 const monthKeyNow = () => new Date().toISOString().slice(0, 7);
@@ -57,6 +57,8 @@ export default function Lancamentos() {
     const [filter, setFilter] = useState('all'); // all | income | expense
     const [origem, setOrigem] = useState('all'); // all | avulso | recorrente
     const [prio, setPrio] = useState('all');     // all | essential | comfort | superfluous
+    const [showFilters, setShowFilters] = useState(false); // painel de filtros
+    const [incluirCredito, setIncluirCredito] = useState(false); // mostrar fatura em aberto do cartão
 
     useEffect(() => {
         if (!uid) return;
@@ -76,7 +78,17 @@ export default function Lancamentos() {
     const entradasMes = monthTx.filter(t => t.type === 'income').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
     const despesasMes = monthTx.filter(t => t.type === 'expense').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
 
-    const filteredTx = useMemo(() => monthTx.filter(t => {
+    // Compras no crédito ainda na fatura em aberto (opcional na listagem).
+    const creditoAberto = useMemo(() =>
+        transactions.filter(t => txMonthKey(t) === mk && t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid'),
+        [transactions, mk]);
+    // Base da listagem: conta + (opcional) fatura em aberto.
+    const listBase = useMemo(() => {
+        const base = incluirCredito ? [...monthTx, ...creditoAberto] : monthTx;
+        return [...base].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0) || (b.createdAt || 0) - (a.createdAt || 0));
+    }, [monthTx, creditoAberto, incluirCredito]);
+
+    const filteredTx = useMemo(() => listBase.filter(t => {
         if (filter !== 'all' && t.type !== filter) return false;
         if (origem !== 'all') {
             const isRec = t.source === 'recorrente_baixa';
@@ -88,7 +100,7 @@ export default function Lancamentos() {
             if ((t.priority || 'comfort') !== prio) return false;
         }
         return true;
-    }), [monthTx, filter, origem, prio]);
+    }), [listBase, filter, origem, prio]);
 
     // Agrupa o extrato por dia.
     const groups = useMemo(() => {
@@ -136,32 +148,51 @@ export default function Lancamentos() {
                 <h2 className={`text-[15px] font-black tracking-tight flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
                     <ArrowLeftRight className="w-4 h-4 text-emerald-500" /> Extrato do mês
                 </h2>
-                <div className={`flex items-center gap-1 p-1 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
-                    {[
-                        { id: 'all', label: 'Tudo', on: isDark ? 'bg-white/10 text-white' : 'bg-white text-slate-800 shadow-sm' },
-                        { id: 'income', label: 'Entradas', on: 'bg-emerald-500/15 text-emerald-500' },
-                        { id: 'expense', label: 'Saídas', on: 'bg-rose-500/15 text-rose-500' },
-                    ].map(f => (
-                        <button key={f.id} onClick={() => setFilter(f.id)}
-                            className={`px-3 py-1.5 rounded-lg text-[12px] font-bold transition ${filter === f.id ? f.on : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700')}`}>
-                            {f.label}
-                        </button>
-                    ))}
+                <div className="flex items-center gap-2">
+                    <div className={`flex items-center gap-1 p-1 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                        {[
+                            { id: 'all', label: 'Tudo', on: isDark ? 'bg-white/10 text-white' : 'bg-white text-slate-800 shadow-sm' },
+                            { id: 'income', label: 'Entradas', on: 'bg-emerald-500/15 text-emerald-500' },
+                            { id: 'expense', label: 'Saídas', on: 'bg-rose-500/15 text-rose-500' },
+                        ].map(f => (
+                            <button key={f.id} onClick={() => setFilter(f.id)}
+                                className={`px-3 py-1.5 rounded-lg text-[12px] font-bold transition ${filter === f.id ? f.on : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700')}`}>
+                                {f.label}
+                            </button>
+                        ))}
+                    </div>
+                    {/* Botão discreto de filtros */}
+                    <button onClick={() => setShowFilters(v => !v)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold border transition ${(showFilters || origem !== 'all' || prio !== 'all' || incluirCredito) ? 'border-emerald-500/40 text-emerald-500' : (isDark ? 'border-white/10 text-slate-400 hover:text-slate-200' : 'border-slate-200 text-slate-500 hover:text-slate-700')}`}>
+                        <SlidersHorizontal className="w-3.5 h-3.5" /> Filtros
+                        {(origem !== 'all' || prio !== 'all' || incluirCredito) && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+                    </button>
                 </div>
             </div>
 
-            {/* Filtros: origem + tipo de gasto */}
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-3">
-                <FilterGroup isDark={isDark} label="Origem" value={origem} onChange={setOrigem}
-                    options={[{ id: 'all', label: 'Todas' }, { id: 'avulso', label: 'Avulso' }, { id: 'recorrente', label: 'Recorrente' }]} />
-                <FilterGroup isDark={isDark} label="Tipo de gasto" value={prio} onChange={setPrio}
-                    options={[
-                        { id: 'all', label: 'Todos' },
-                        { id: 'essential', label: 'Essencial', on: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' },
-                        { id: 'comfort', label: 'Conforto', on: 'bg-amber-500/15 text-amber-500 border-amber-500/30' },
-                        { id: 'superfluous', label: 'Supérfluo', on: 'bg-rose-500/15 text-rose-500 border-rose-500/30' },
-                    ]} />
-            </div>
+            {/* Painel de filtros (colapsável) */}
+            {showFilters && (
+                <div className={`rounded-2xl border p-4 mb-3 space-y-3 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                        <FilterGroup isDark={isDark} label="Origem" value={origem} onChange={setOrigem}
+                            options={[{ id: 'all', label: 'Todas' }, { id: 'avulso', label: 'Avulso' }, { id: 'recorrente', label: 'Recorrente' }]} />
+                        <FilterGroup isDark={isDark} label="Tipo de gasto" value={prio} onChange={setPrio}
+                            options={[
+                                { id: 'all', label: 'Todos' },
+                                { id: 'essential', label: 'Essencial', on: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' },
+                                { id: 'comfort', label: 'Conforto', on: 'bg-amber-500/15 text-amber-500 border-amber-500/30' },
+                                { id: 'superfluous', label: 'Supérfluo', on: 'bg-rose-500/15 text-rose-500 border-rose-500/30' },
+                            ]} />
+                    </div>
+                    <label className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border cursor-pointer transition ${incluirCredito ? 'border-purple-500/40 bg-purple-500/10' : (isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50')}`}>
+                        <input type="checkbox" checked={incluirCredito} onChange={e => setIncluirCredito(e.target.checked)} className="w-4 h-4 accent-purple-500" />
+                        <div>
+                            <p className={`text-[13px] font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Incluir fatura em aberto do cartão</p>
+                            <p className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Mostra também as compras no crédito que ainda não foram pagas.</p>
+                        </div>
+                    </label>
+                </div>
+            )}
 
             <div className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
                 {groups.length === 0 ? (

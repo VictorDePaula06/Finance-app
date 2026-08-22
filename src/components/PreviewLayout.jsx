@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,11 +18,16 @@ import Manual from '../pages/Manual';
 
 // Preview TEMPORÁRIO do novo layout (só pra validar o visual da sidebar).
 // Acesse em /preview-layout. Não faz parte do app final.
-export default function PreviewLayout() {
+// Caminho de URL de cada aba (paginação). O dashboard vive em /inicio.
+export const tabPath = (id) => (id === 'dashboard' ? '/inicio' : `/app/${id}`);
+
+export default function PreviewLayout({ tab = 'dashboard' }) {
     const { theme } = useTheme();
     const { logout, userPrefs, isDataLoaded } = useAuth();
+    const navigate = useNavigate();
     const isDark = theme !== 'light';
-    const [active, setActive] = useState('dashboard');
+    const active = tab || 'dashboard';
+    const go = (id) => navigate(tabPath(id));
     const [drawer, setDrawer] = useState(false);
     const [obDismissed, setObDismissed] = useState(false);
 
@@ -38,8 +44,8 @@ export default function PreviewLayout() {
     const label = active === 'configuracoes' ? 'Configurações' : (NAV_ITEMS.find(i => i.id === active)?.label || active);
     const sidebarProps = {
         active,
-        onNavigate: setActive,
-        onSettings: () => setActive('configuracoes'),
+        onNavigate: (id) => { go(id); setDrawer(false); },
+        onSettings: () => { go('configuracoes'); setDrawer(false); },
         onLogout: async () => { try { await logout?.(); } catch (e) { console.error(e); } },
     };
 
@@ -74,7 +80,7 @@ export default function PreviewLayout() {
 
             {/* Área de conteúdo */}
             <main className="flex-1 p-4 sm:p-6 lg:p-10 overflow-y-auto">
-                {active === 'consultoria' ? <ConsultoriaAlivia onNavigate={setActive} /> : active === 'configuracoes' ? <Configuracoes /> : active === 'dashboard' ? <Dashboard onNavigate={setActive} onSettings={() => setActive('configuracoes')} /> :active === 'recorrentes' ? <Recorrentes /> : active === 'lancamentos' ? <Lancamentos /> : active === 'cartoes' ? <Cartoes /> : active === 'patrimonio' ? <Patrimonio /> : active === 'reservas' ? <Reservas /> : active === 'analises' ? <Analises /> : active === 'manual' ? <Manual /> : (
+                {active === 'consultoria' ? <ConsultoriaAlivia onNavigate={go} /> : active === 'configuracoes' ? <Configuracoes /> : active === 'dashboard' ? <Dashboard onNavigate={go} onSettings={() => go('configuracoes')} /> :active === 'recorrentes' ? <Recorrentes /> : active === 'lancamentos' ? <Lancamentos /> : active === 'cartoes' ? <Cartoes /> : active === 'patrimonio' ? <Patrimonio /> : active === 'reservas' ? <Reservas /> : active === 'analises' ? <Analises /> : active === 'manual' ? <Manual /> : (
                 <div className="max-w-4xl">
                     <span className={`text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Preview do novo layout</span>
                     <h1 className={`text-3xl font-black tracking-tight mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{label}</h1>

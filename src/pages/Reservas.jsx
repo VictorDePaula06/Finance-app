@@ -233,6 +233,8 @@ export function ReservaForm({ isDark, uid, cdi, editing, onClose, skipLedger = f
     const [target, setTarget] = useState(editing?.target != null ? String(editing.target).replace('.', ',') : '');
     const [cdiPercent, setCdiPercent] = useState(String(editing?.cdiPercent || 100));
     const [balance, setBalance] = useState('');
+    // Por padrão NÃO desconta do saldo (a pessoa já tem esse valor guardado).
+    const [naoDescontar, setNaoDescontar] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
 
@@ -255,8 +257,9 @@ export function ReservaForm({ isDark, uid, cdi, editing, onClose, skipLedger = f
                     name: normalizeName(name), target: numBR(target) || null, cdiPercent: pct || 100,
                     balance: init, invested: init, lastYieldAt: now, type: 'reserva', userId: uid, createdAt: now,
                 });
-                // No onboarding (skipLedger) a reserva JÁ EXISTE — não debita a conta.
-                if (init > 0 && !skipLedger) {
+                // Só debita a conta se o usuário DESMARCAR "não descontar"
+                // (onboarding força skipLedger). Padrão: reserva já existente.
+                if (init > 0 && !skipLedger && !naoDescontar) {
                     const iso = new Date(now).toISOString();
                     await addDoc(collection(db, 'transactions'), {
                         description: `Reserva: ${normalizeName(name)}`, amount: init, type: 'expense', category: 'vault',
@@ -284,6 +287,15 @@ export function ReservaForm({ isDark, uid, cdi, editing, onClose, skipLedger = f
                 </div>
                 {!editing && (
                     <Field label="Valor inicial (R$) — opcional"><input inputMode="decimal" value={balance} onChange={e => setBalance(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
+                )}
+                {!editing && !skipLedger && (
+                    <label className={`flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl border cursor-pointer transition ${naoDescontar ? 'border-emerald-500/40 bg-emerald-500/10' : (isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50')}`}>
+                        <input type="checkbox" checked={naoDescontar} onChange={e => setNaoDescontar(e.target.checked)} className="w-4 h-4 accent-emerald-500 mt-0.5" />
+                        <div>
+                            <p className={`text-[13px] font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Não descontar do meu saldo em conta</p>
+                            <p className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Marque se você <b>já tem</b> esse valor guardado. Desmarque só se estiver tirando agora da conta.</p>
+                        </div>
+                    </label>
                 )}
                 <button type="submit" disabled={saving} className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-70">
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {editing ? 'Salvar' : 'Criar reserva'}</>}
