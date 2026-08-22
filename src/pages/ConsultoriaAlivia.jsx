@@ -37,11 +37,14 @@ const parseDate = (s) => {
 };
 
 const CAT_KW = [
-    { cat: 'food', kw: /mercado|super|padaria|acougue|hortifr|feira|alimenta|comida|almo[cç]o|janta|carrefour|assai|atacad/i },
+    // Contas de moradia vêm ANTES (para "conta de água/luz" não cair em alimentação).
+    { cat: 'housing', kw: /conta\s*d[e'’]?\s*[aá]gua|conta\s*de\s*(luz|energia|g[aá]s)|aluguel|condom[ií]nio|iptu|sanep|enel|cemig|copel/i },
+    { cat: 'divida', kw: /d[ií]vida|empr[eé]stimo|financ|credi[aá]rio|presta[cç][aã]o|parcela\s+atrasad|nome\s+sujo/i },
+    { cat: 'food', kw: /mercado|super|padaria|acougue|hortifr|feira|alimenta|comida|almo[cç]o|janta|carrefour|assai|atacad|[aá]gua|garrafa|refri|refrigerante|suco|caf[eé]|cerveja|bebida/i },
     { cat: 'fast_food', kw: /lanche|mc\s?donald|burger|ifood|pizza|fast|hamburg|subway|bobs/i },
-    { cat: 'transport', kw: /uber|99|t[aá]xi|[oô]nibus|metr[oô]|gasolina|combust|posto|estacion|bilhete|shell|ipiranga/i },
+    { cat: 'transport', kw: /uber|99|t[aá]xi|[oô]nibus|metr[oô]|gasolina|combust|posto|estacion|bilhete|ped[aá]gio|shell|ipiranga/i },
     { cat: 'health', kw: /farm[aá]cia|drogaria|rem[eé]dio|m[eé]dico|hospital|sa[uú]de|dentista|consulta|raia|pacheco/i },
-    { cat: 'housing', kw: /aluguel|condom[ií]nio|luz|energia|el[eé]tr|[aá]gua|sanep|g[aá]s|internet|vivo|claro|tim|oi|iptu|enel|cemig|copel/i },
+    { cat: 'housing', kw: /luz|energia|el[eé]tr|g[aá]s|internet|vivo|claro|tim\b|oi\b/i },
     { cat: 'subscriptions', kw: /netflix|spotify|assinatura|prime|disney|hbo|max|youtube|apple\.com|google/i },
     { cat: 'leisure', kw: /cinema|bar\b|balada|lazer|show|viagem|jogo|game|steam|ingress/i },
     { cat: 'shopping', kw: /roupa|loja|shopping|amazon|mercado\s?livre|magalu|americanas|shopee|aliexpress|renner|riachuelo/i },
