@@ -1,4 +1,4 @@
-import { Home, Utensils, Car, Heart, Gamepad2, ShoppingBag, Briefcase, Laptop, Circle, Wallet, TrendingUp, BookOpen, Cat, Smile, CreditCard, Landmark, Lock } from 'lucide-react';
+import { Home, Utensils, Car, Heart, Gamepad2, ShoppingBag, Briefcase, Laptop, Circle, Wallet, TrendingUp, BookOpen, Cat, Smile, CreditCard, Landmark, Lock, AlertTriangle } from 'lucide-react';
 
 // Mapa das classes Tailwind de cor usadas nas categorias para o hex correspondente,
 // para podermos pintar fundos/anéis coloridos (ícones em quadradinhos).
@@ -27,6 +27,7 @@ export const CATEGORIES = {
         { id: 'other', label: 'Outro', icon: Circle, color: 'text-slate-400' }
     ],
     expense: [
+        { id: 'divida', label: 'Dívida', icon: AlertTriangle, color: 'text-rose-400', defaultPriority: 'essential' },
         { id: 'housing', label: 'Casa', icon: Home, color: 'text-rose-400', defaultPriority: 'essential' },
         { id: 'food', label: 'Alimentação', icon: Utensils, color: 'text-orange-400', defaultPriority: 'essential' },
         { id: 'fast_food', label: 'Fast Food', icon: Utensils, color: 'text-amber-500', defaultPriority: 'superfluous' },

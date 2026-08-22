@@ -254,6 +254,11 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, wra
                                                         {Icon && <Icon className="w-4 h-4" />}
                                                     </span>
                                                     <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{r.name}</span>
+                                                    {!income && r.category === 'divida' && (
+                                                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-400 flex items-center gap-1">
+                                                            <AlertTriangle className="w-2.5 h-2.5" /> Dívida
+                                                        </span>
+                                                    )}
                                                     <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
                                                         {r.isVariable ? 'Variável' : 'Fixo'}
                                                     </span>
@@ -387,12 +392,12 @@ function DeleteBtn({ isDark, disabled, onDelete }) {
 }
 
 // Modal de criar/editar recorrente (entrada ou despesa).
-export function RecorrenteForm({ isDark, uid, kind, editing, onClose, hint }) {
+export function RecorrenteForm({ isDark, uid, kind, editing, onClose, hint, initialCategory }) {
     const cfg = KIND[kind];
     const income = kind === 'income';
     const [name, setName] = useState(editing?.name || '');
     const [value, setValue] = useState(editing?.value != null ? String(editing.value).replace('.', ',') : '');
-    const [category, setCategory] = useState(editing?.category || cfg.defaultCat);
+    const [category, setCategory] = useState(editing?.category || initialCategory || cfg.defaultCat);
     const [day, setDay] = useState(String(editing?.day || 5));
     const [isVariable, setIsVariable] = useState(!!editing?.isVariable);
     const [payMethod, setPayMethod] = useState(editing?.paymentMethod || 'pix');
