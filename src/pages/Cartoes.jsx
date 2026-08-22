@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import AliviaFormHint from '../components/AliviaFormHint';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -457,8 +457,10 @@ export function CardForm({ isDark, uid, editing, onClose, onSaved, hint }) {
 }
 
 // ── Form: nova/editar compra no cartão (avulsa / assinatura / parcelamento) ─
-export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lockTipo = false, hint }) {
+export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lockTipo = false, hint, allowAddAnother = false }) {
     const isEdit = !!editing;
+    const againRef = useRef(false);
+    const [added, setAdded] = useState(0);
     const kindToTipo = { despesa: 'avulsa', assinatura: 'assinatura', parcelamento: 'parcelamento' };
     const ref = editing?.ref || {};
     const [tipo, setTipo] = useState(editing ? kindToTipo[editing.kind] : (initialTipo || 'avulsa'));
@@ -519,7 +521,11 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
                     currentInstallment: 1, installmentMode: valueMode, type: 'installment', userId: uid, createdAt: Date.now(),
                 });
             }
-            onClose();
+            if (!isEdit && againRef.current) {
+                // "Salvar e adicionar outra": limpa descrição/valor e mantém aberto.
+                againRef.current = false;
+                setDescription(''); setAmount(''); setAdded(n => n + 1); setSaving(false);
+            } else onClose();
         } catch (err) { console.error(err); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
     };
 
@@ -612,9 +618,25 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
                         })}
                     </div>
                 </div>
-                <button type="submit" disabled={saving} className="w-full py-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-70">
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {isEdit ? 'Salvar' : tipo === 'avulsa' ? 'Lançar compra' : tipo === 'assinatura' ? 'Criar assinatura' : 'Criar parcelamento'}</>}
-                </button>
+                {allowAddAnother && !isEdit ? (
+                    <div className="space-y-2">
+                        {added > 0 && <p className="text-[12px] text-emerald-500 font-bold text-center">{added} cadastrado(s) ✓ — adicione mais ou conclua.</p>}
+                        <div className="grid grid-cols-2 gap-2">
+                            <button type="submit" onClick={() => { againRef.current = true; }} disabled={saving}
+                                className={`py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 transition disabled:opacity-70 border ${isDark ? 'bg-white/5 border-white/10 text-slate-200 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                                <Plus className="w-4 h-4" /> Adicionar outra
+                            </button>
+                            <button type="submit" onClick={() => { againRef.current = false; }} disabled={saving}
+                                className="py-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm flex items-center justify-center gap-1.5 transition disabled:opacity-70">
+                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> Concluir</>}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <button type="submit" disabled={saving} className="w-full py-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-70">
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {isEdit ? 'Salvar' : tipo === 'avulsa' ? 'Lançar compra' : tipo === 'assinatura' ? 'Criar assinatura' : 'Criar parcelamento'}</>}
+                    </button>
+                )}
             </form>
         </Modal>
     );

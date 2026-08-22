@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import AliviaFormHint from '../components/AliviaFormHint';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -57,13 +57,13 @@ const currentUnit = (a, prices = {}) => {
 };
 // Valor atual em BRL = quantidade × preço unitário × câmbio.
 const valueOf = (a, prices = {}) => {
-    if (a.type === 'renda_fixa') return parseFloat(a.manualCurrentPrice || a.totalApplied || a.purchasePrice || 0) || 0;
+    if (a.type === 'renda_fixa') return (parseFloat(a.manualCurrentPrice || a.totalApplied || a.purchasePrice || 0) || 0) * usdMult(a, prices);
     const q = parseFloat(a.quantity || 1) || 1;
     return q * currentUnit(a, prices) * usdMult(a, prices);
 };
 // Valor investido em BRL = quantidade × preço de compra × câmbio.
 const investedOf = (a, prices = {}) => {
-    if (a.type === 'renda_fixa') return parseFloat(a.totalApplied || a.purchasePrice || 0) || 0;
+    if (a.type === 'renda_fixa') return (parseFloat(a.totalApplied || a.purchasePrice || 0) || 0) * usdMult(a, prices);
     const q = parseFloat(a.quantity || 1) || 1;
     return q * (parseFloat(a.purchasePrice || 0) || 0) * usdMult(a, prices);
 };
@@ -370,7 +370,9 @@ async function fetchTickerPrice(type, ticker, isUSD) {
 }
 
 // ── Form: novo/editar ativo (com busca de cotação por ticker) ───────
-export function AtivoForm({ isDark, uid, editing, onClose, hint }) {
+export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother = false }) {
+    const againRef = useRef(false);
+    const [added, setAdded] = useState(0);
     const [name, setName] = useState(editing?.name || '');
     const [type, setType] = useState(editing?.type || 'renda_fixa');
     const [symbol, setSymbol] = useState(editing?.symbol || '');
@@ -379,9 +381,9 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint }) {
     const [curPrice, setCurPrice] = useState(editing?.manualCurrentPrice != null ? String(editing.manualCurrentPrice).replace('.', ',') : '');
     const [isUSD, setIsUSD] = useState(!!editing?.isUSD);
     const [usdRate, setUsdRate] = useState(5.4);
-    // renda fixa / imóveis (manual)
-    const [invested, setInvested] = useState(editing && !isMarket(editing?.type) ? String(investedOf(editing)).replace('.', ',') : '');
-    const [current, setCurrent] = useState(editing && !isMarket(editing?.type) ? String(valueOf(editing)).replace('.', ',') : '');
+    // renda fixa / imóveis (manual) — inicia pelos valores BRUTOS (na moeda do ativo).
+    const [invested, setInvested] = useState(editing && !isMarket(editing?.type) ? String(editing.totalApplied ?? editing.purchasePrice ?? '').replace('.', ',') : '');
+    const [current, setCurrent] = useState(editing && !isMarket(editing?.type) ? String(editing.manualCurrentPrice ?? '').replace('.', ',') : '');
     const [fetching, setFetching] = useState(false);
     const [fetchMsg, setFetchMsg] = useState('');
     const [saving, setSaving] = useState(false);
@@ -427,12 +429,16 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint }) {
             const inv = numBR(invested);
             if (inv <= 0) { setError('Informe o valor investido.'); setSaving(false); return; }
             const val = numBR(current) > 0 ? numBR(current) : inv;
-            data = { name: normalizeName(name), type, symbol: '', quantity: 1, purchasePrice: inv, manualCurrentPrice: val, ...(type === 'renda_fixa' ? { totalApplied: inv } : {}) };
+            data = { name: normalizeName(name), type, symbol: '', quantity: 1, purchasePrice: inv, manualCurrentPrice: val, isUSD, ...(type === 'renda_fixa' ? { totalApplied: inv } : {}) };
         }
         try {
-            if (editing) await updateDoc(doc(db, 'investments', editing.id), data);
-            else await addDoc(collection(db, 'investments'), { ...data, userId: uid, createdAt: Date.now() });
-            onClose();
+            if (editing) { await updateDoc(doc(db, 'investments', editing.id), data); onClose(); return; }
+            await addDoc(collection(db, 'investments'), { ...data, userId: uid, createdAt: Date.now() });
+            if (againRef.current) {
+                againRef.current = false;
+                setName(''); setSymbol(''); setQuantity(''); setBuyPrice(''); setCurPrice(''); setInvested(''); setCurrent('');
+                setAdded(n => n + 1); setSaving(false);
+            } else onClose();
         } catch (err) { console.error(err); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
     };
 
@@ -449,6 +455,15 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint }) {
                 </Field>
                 <Field label="Nome do ativo"><input value={name} onChange={e => setName(e.target.value)} placeholder={market ? 'Ex.: Petrobras, Bitcoin' : 'Ex.: Tesouro Selic 2029'} className={inputCls} maxLength={40} autoFocus /></Field>
 
+                {/* Moeda do ativo — vale para qualquer classe (dólar ou real) */}
+                <label className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border cursor-pointer transition ${isUSD ? 'border-emerald-500/40 bg-emerald-500/10' : (isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50')}`}>
+                    <input type="checkbox" checked={isUSD} onChange={e => { setIsUSD(e.target.checked); setFetchMsg(''); }} className="w-4 h-4 accent-emerald-500" />
+                    <div>
+                        <p className={`text-[13px] font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Valores em dólar (US$)</p>
+                        <p className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Converte pelo câmbio atual · US$ 1 = R$ {money(usdRate)}</p>
+                    </div>
+                </label>
+
                 {market ? (
                     <>
                         <Field label={type === 'crypto' ? 'Ticker (ex.: BTC, ETH)' : 'Ticker (ex.: PETR4, IVVB11)'}>
@@ -462,13 +477,6 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint }) {
                             {fetchMsg && fetchMsg !== 'ok' && <p className="text-[11px] text-rose-400 mt-1 font-semibold">{fetchMsg}</p>}
                             {fetchMsg === 'ok' && <p className="text-[11px] text-emerald-400 mt-1 font-semibold">Cotação atualizada ✓</p>}
                         </Field>
-                        <label className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border cursor-pointer transition ${isUSD ? 'border-emerald-500/40 bg-emerald-500/10' : (isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50')}`}>
-                            <input type="checkbox" checked={isUSD} onChange={e => { setIsUSD(e.target.checked); setFetchMsg(''); }} className="w-4 h-4 accent-emerald-500" />
-                            <div>
-                                <p className={`text-[13px] font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Preço em dólar (US$)</p>
-                                <p className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Converte pelo câmbio atual · US$ 1 = R$ {money(usdRate)}</p>
-                            </div>
-                        </label>
                         <div className="grid grid-cols-3 gap-2">
                             <Field label="Quantidade"><input inputMode="decimal" value={quantity} onChange={e => setQuantity(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0" className={inputCls} /></Field>
                             <Field label={`Compra (${isUSD ? 'US$' : 'R$'})`}><input inputMode="decimal" value={buyPrice} onChange={e => setBuyPrice(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
@@ -486,15 +494,36 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint }) {
                         </div>
                     </>
                 ) : (
-                    <div className="grid grid-cols-2 gap-3">
-                        <Field label="Valor investido (R$)"><input inputMode="decimal" value={invested} onChange={e => setInvested(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
-                        <Field label="Valor atual (R$)"><input inputMode="decimal" value={current} onChange={e => setCurrent(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="= investido" className={inputCls} /></Field>
-                    </div>
+                    <>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Field label={`Valor investido (${isUSD ? 'US$' : 'R$'})`}><input inputMode="decimal" value={invested} onChange={e => setInvested(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
+                            <Field label={`Valor atual (${isUSD ? 'US$' : 'R$'})`}><input inputMode="decimal" value={current} onChange={e => setCurrent(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="= investido" className={inputCls} /></Field>
+                        </div>
+                        {isUSD && numBR(current || invested) > 0 && (
+                            <p className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>≈ R$ {money(numBR(current || invested) * usdRate)} pelo câmbio atual</p>
+                        )}
+                    </>
                 )}
 
-                <button type="submit" disabled={saving} className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-70">
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {editing ? 'Salvar' : 'Cadastrar'}</>}
-                </button>
+                {allowAddAnother && !editing ? (
+                    <div className="space-y-2">
+                        {added > 0 && <p className="text-[12px] text-emerald-500 font-bold text-center">{added} cadastrado(s) ✓ — adicione mais ou conclua.</p>}
+                        <div className="grid grid-cols-2 gap-2">
+                            <button type="submit" onClick={() => { againRef.current = true; }} disabled={saving}
+                                className={`py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 transition disabled:opacity-70 border ${isDark ? 'bg-white/5 border-white/10 text-slate-200 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                                <Plus className="w-4 h-4" /> Adicionar outro
+                            </button>
+                            <button type="submit" onClick={() => { againRef.current = false; }} disabled={saving}
+                                className="py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-sm flex items-center justify-center gap-1.5 transition disabled:opacity-70">
+                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> Concluir</>}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <button type="submit" disabled={saving} className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-70">
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {editing ? 'Salvar' : 'Cadastrar'}</>}
+                    </button>
+                )}
             </form>
         </Modal>
     );

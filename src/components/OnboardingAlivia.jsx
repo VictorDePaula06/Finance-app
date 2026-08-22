@@ -19,6 +19,7 @@ const normalizeName = (s) => { const t = String(s || '').trim().replace(/\s+/g, 
 
 // Última pergunta: saldo em conta — deixamos claro que é SEPARADO da reserva/investimentos.
 const SALDO_MSG = 'Por último: **fora o que você já tem guardado na reserva e investido**, quanto tem **hoje na sua conta** — o dinheiro do dia a dia, disponível pra usar? (deixe 0 se estiver zerado)';
+const DIVIDAS_MSG = 'Uma pergunta importante: você tem alguma **dívida**? (empréstimo, financiamento, cartão atrasado, crediário…) Elas contam muito no seu planejamento.';
 
 export default function OnboardingAlivia({ onDone }) {
     const { currentUser, saveUserPreferences, userPrefs } = useAuth();
@@ -121,29 +122,21 @@ export default function OnboardingAlivia({ onDone }) {
 
                             {phase === 'rendaIntro' && <OpenFormBtn isDark={isDark} label="Preencher renda" icon={FileText} onClick={() => setActiveForm('renda')} />}
 
-                            {phase === 'despesasIntro' && <OpenFormBtn isDark={isDark} label="Cadastrar despesa fixa" icon={FileText}
-                                onClick={() => setActiveForm('despesa')} secondary={{ label: 'Não tenho despesas fixas', onClick: () => advance('Sem despesas fixas', 'Uma pergunta importante: você tem alguma **dívida**? (empréstimo, financiamento, cartão atrasado, crediário…) Elas contam muito no seu planejamento.', 'dividasIntro') }} />}
-                            {phase === 'despesaMore' && <ChoiceRow isDark={isDark} options={[{ label: 'Adicionar outra', value: true }, { label: 'Concluir despesas', value: false }]}
-                                onPick={(sim) => sim ? setActiveForm('despesa') : advance('Concluí as despesas', 'Uma pergunta importante: você tem alguma **dívida**? (empréstimo, financiamento, cartão atrasado, crediário…) Elas contam muito no seu planejamento.', 'dividasIntro')} />}
+                            {phase === 'despesasIntro' && <OpenFormBtn isDark={isDark} label="Cadastrar despesas fixas" icon={FileText}
+                                onClick={() => setActiveForm('despesa')} secondary={{ label: 'Não tenho despesas fixas', onClick: () => advance('Sem despesas fixas', DIVIDAS_MSG, 'dividasIntro') }} />}
 
                             {phase === 'dividasIntro' && <ChoiceRow isDark={isDark} options={[{ label: 'Tenho dívidas', icon: AlertTriangle, value: true }, { label: 'Não tenho', value: false }]}
-                                onPick={(sim) => sim ? advance('Tenho dívidas', '**Preparei o cadastro da sua dívida** — ela entra como uma despesa recorrente pra gente acompanhar de perto 👇', 'dividaIntro') : advance('Não tenho dívidas', 'Que ótimo! 🙌 Você usa **cartão de crédito**?', 'usaCartao')} />}
-                            {phase === 'dividaIntro' && <OpenFormBtn isDark={isDark} label="Cadastrar dívida" icon={FileText} onClick={() => setActiveForm('divida')} />}
-                            {phase === 'dividaMore' && <ChoiceRow isDark={isDark} options={[{ label: 'Adicionar outra', value: true }, { label: 'Concluir', value: false }]}
-                                onPick={(sim) => sim ? setActiveForm('divida') : advance('Dívidas ok', 'Vamos seguir. Você usa **cartão de crédito**?', 'usaCartao')} />}
+                                onPick={(sim) => sim ? advance('Tenho dívidas', '**Preparei o cadastro das suas dívidas** — entram como despesa recorrente pra gente acompanhar de perto 👇', 'dividaIntro') : advance('Não tenho dívidas', 'Que ótimo! 🙌 Você usa **cartão de crédito**?', 'usaCartao')} />}
+                            {phase === 'dividaIntro' && <OpenFormBtn isDark={isDark} label="Cadastrar dívidas" icon={FileText} onClick={() => setActiveForm('divida')} />}
 
                             {phase === 'usaCartao' && <ChoiceRow isDark={isDark} options={[{ label: 'Uso sim', icon: CreditCard, value: true }, { label: 'Não uso', value: false }]} onPick={onUsaCartao} />}
                             {phase === 'cartaoIntro' && <OpenFormBtn isDark={isDark} label="Cadastrar cartão" icon={FileText} onClick={() => setActiveForm('cartao')} />}
 
                             {phase === 'parcelasIntro' && <ChoiceRow isDark={isDark} options={[{ label: 'Tenho parcelas', value: true }, { label: 'Não tenho', value: false }]}
                                 onPick={(sim) => sim ? setActiveForm('parcelamento') : advance('Sem parcelamentos', 'E **assinaturas** nesse cartão (Netflix, Spotify, academia…)?', 'assinaturasIntro')} />}
-                            {phase === 'parcelaMore' && <ChoiceRow isDark={isDark} options={[{ label: 'Adicionar outro', value: true }, { label: 'Concluir', value: false }]}
-                                onPick={(sim) => sim ? setActiveForm('parcelamento') : advance('Parcelamentos ok', 'E **assinaturas** nesse cartão (Netflix, Spotify, academia…)?', 'assinaturasIntro')} />}
 
                             {phase === 'assinaturasIntro' && <ChoiceRow isDark={isDark} options={[{ label: 'Tenho assinaturas', value: true }, { label: 'Não tenho', value: false }]}
                                 onPick={(sim) => sim ? setActiveForm('assinatura') : advance('Sem assinaturas', 'Agora as **reservas**. Você já tem uma **reserva de emergência** guardada?', 'reserva')} />}
-                            {phase === 'assinaturaMore' && <ChoiceRow isDark={isDark} options={[{ label: 'Adicionar outra', value: true }, { label: 'Concluir', value: false }]}
-                                onPick={(sim) => sim ? setActiveForm('assinatura') : advance('Assinaturas ok', 'Agora as **reservas**. Você já tem uma **reserva de emergência** guardada?', 'reserva')} />}
 
                             {phase === 'reserva' && <ChoiceRow isDark={isDark} options={[{ label: 'Tenho sim', icon: PiggyBank, value: true }, { label: 'Ainda não', value: false }]}
                                 onPick={(sim) => sim ? advance('Tenho reserva', 'Ótimo! **Preparei o cadastro da reserva** — informe o valor que já tem guardado (registro como já existente, sem descontar da conta) 👇', 'reservaIntro')
@@ -172,27 +165,27 @@ export default function OnboardingAlivia({ onDone }) {
             {activeForm === 'renda' && <RecorrenteForm isDark={isDark} uid={uid} kind="income"
                 hint="Preparei o cadastro da sua renda — é só preencher que eu registro pra você. 💚"
                 onClose={() => closeForm(() => advance('Renda cadastrada ✅', 'Anotado! Agora as **despesas que se repetem todo mês** (aluguel, luz, internet…).', 'despesasIntro'))} />}
-            {activeForm === 'despesa' && <RecorrenteForm isDark={isDark} uid={uid} kind="expense"
-                hint="Preparei o cadastro da sua despesa fixa. Preencha e eu deixo tudo organizado."
-                onClose={() => closeForm(() => advance('Despesa cadastrada ✅', 'Quer adicionar outra despesa fixa?', 'despesaMore'))} />}
-            {activeForm === 'divida' && <RecorrenteForm isDark={isDark} uid={uid} kind="expense" initialCategory="divida"
-                hint="Preparei o cadastro da sua dívida. Coloque o valor da parcela mensal e o dia — eu marco como Dívida pra acompanharmos de perto. 💪"
-                onClose={() => closeForm(() => advance('Dívida cadastrada ✅', 'Quer adicionar outra dívida?', 'dividaMore'))} />}
+            {activeForm === 'despesa' && <RecorrenteForm isDark={isDark} uid={uid} kind="expense" allowAddAnother
+                hint="Preparei o cadastro das suas despesas fixas. Use 'Adicionar outra' para incluir várias de uma vez."
+                onClose={() => closeForm(() => advance('Despesas ok ✅', DIVIDAS_MSG, 'dividasIntro'))} />}
+            {activeForm === 'divida' && <RecorrenteForm isDark={isDark} uid={uid} kind="expense" initialCategory="divida" allowAddAnother
+                hint="Preparei o cadastro das suas dívidas. Coloque o valor da parcela mensal e o dia — eu marco como Dívida pra acompanharmos de perto. 💪"
+                onClose={() => closeForm(() => advance('Dívidas ok ✅', 'Vamos seguir. Você usa **cartão de crédito**?', 'usaCartao'))} />}
             {activeForm === 'cartao' && <CardForm isDark={isDark} uid={uid} onSaved={(id) => setCardId(id)}
                 hint="Vamos cadastrar seu cartão. Preencha os dados que eu cuido do resto. 💳"
                 onClose={() => closeForm(() => advance('Cartão cadastrado ✅', 'Cartão salvo! Você tem **parcelamentos** em aberto nesse cartão?', 'parcelasIntro'))} />}
-            {activeForm === 'parcelamento' && createdCard && <BuyForm isDark={isDark} uid={uid} card={createdCard} initialTipo="parcelamento" lockTipo
-                hint="Preparei pra você lançar um parcelamento no seu cartão."
-                onClose={() => closeForm(() => advance('Parcelamento cadastrado ✅', 'Quer adicionar outro parcelamento?', 'parcelaMore'))} />}
-            {activeForm === 'assinatura' && createdCard && <BuyForm isDark={isDark} uid={uid} card={createdCard} initialTipo="assinatura" lockTipo
-                hint="Preparei pra você adicionar uma assinatura do seu cartão."
-                onClose={() => closeForm(() => advance('Assinatura cadastrada ✅', 'Quer adicionar outra assinatura?', 'assinaturaMore'))} />}
+            {activeForm === 'parcelamento' && createdCard && <BuyForm isDark={isDark} uid={uid} card={createdCard} initialTipo="parcelamento" lockTipo allowAddAnother
+                hint="Preparei pra você lançar seus parcelamentos no cartão. Use 'Adicionar outra' pra incluir vários."
+                onClose={() => closeForm(() => advance('Parcelamentos ok ✅', 'E **assinaturas** nesse cartão (Netflix, Spotify, academia…)?', 'assinaturasIntro'))} />}
+            {activeForm === 'assinatura' && createdCard && <BuyForm isDark={isDark} uid={uid} card={createdCard} initialTipo="assinatura" lockTipo allowAddAnother
+                hint="Preparei pra você adicionar suas assinaturas do cartão. Use 'Adicionar outra' pra incluir várias."
+                onClose={() => closeForm(() => advance('Assinaturas ok ✅', 'Agora as **reservas**. Você já tem uma **reserva de emergência** guardada?', 'reserva'))} />}
             {activeForm === 'reserva' && <ReservaForm isDark={isDark} uid={uid} cdi={null} skipLedger
                 hint="Informe o quanto você já tem guardado — registro como reserva já existente, sem descontar da sua conta. 🐷"
                 onClose={() => closeForm(() => advance('Reserva cadastrada ✅', 'Perfeito, registrei sua reserva. Por último, o **patrimônio**: você tem **investimentos** (Tesouro, CDB, ações, cripto…)?', 'patrimonio'))} />}
-            {activeForm === 'ativo' && <AtivoForm isDark={isDark} uid={uid}
-                hint="Preparei o cadastro do seu investimento — informe o que você já tem que eu incluo no seu patrimônio."
-                onClose={() => closeForm(() => advance('Investimento cadastrado ✅', 'Quer adicionar outro investimento?', 'ativoMore'))} />}
+            {activeForm === 'ativo' && <AtivoForm isDark={isDark} uid={uid} allowAddAnother
+                hint="Preparei o cadastro dos seus investimentos. Use 'Adicionar outro' pra incluir vários (e marque US$ se for em dólar)."
+                onClose={() => closeForm(() => advance('Investimentos ok ✅', SALDO_MSG, 'saldo'))} />}
         </div>
     );
 

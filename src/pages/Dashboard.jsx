@@ -5,6 +5,7 @@ import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import { buildWalletLedger } from '../utils/financialLogic';
+import { getUsdRate } from '../utils/marketRates';
 import {
     LayoutDashboard, Settings, TrendingUp, TrendingDown, Wallet, Eye, EyeOff,
     PieChart as PieIcon, PiggyBank, Landmark, HeartPulse, ChevronRight, X, Check,
@@ -14,13 +15,16 @@ const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionD
 const monthKeyNow = () => new Date().toISOString().slice(0, 7);
 const txMonthKey = (t) => t.month || (t.date ? String(t.date).slice(0, 7) : '');
 const catMeta = (id) => CATEGORIES.expense.find(c => c.id === id) || { label: 'Outro', color: 'text-slate-400', icon: null };
-const invValue = (a) => {
-    if (a.type === 'renda_fixa') return parseFloat(a.manualCurrentPrice || a.totalApplied || a.purchasePrice || 0) || 0;
-    const q = parseFloat(a.quantity || 1) || 1; return q * (parseFloat(a.manualCurrentPrice || a.purchasePrice || 0) || 0);
+// Valores em BRL. Ativos dolarizados (isUSD) são convertidos pelo câmbio `rate`.
+const invValue = (a, rate = 1) => {
+    const m = a.isUSD ? (rate || 5.4) : 1;
+    if (a.type === 'renda_fixa') return (parseFloat(a.manualCurrentPrice || a.totalApplied || a.purchasePrice || 0) || 0) * m;
+    const q = parseFloat(a.quantity || 1) || 1; return q * (parseFloat(a.manualCurrentPrice || a.purchasePrice || 0) || 0) * m;
 };
-const invCost = (a) => {
-    if (a.type === 'renda_fixa') return parseFloat(a.totalApplied || a.purchasePrice || 0) || 0;
-    const q = parseFloat(a.quantity || 1) || 1; return q * (parseFloat(a.purchasePrice || 0) || 0);
+const invCost = (a, rate = 1) => {
+    const m = a.isUSD ? (rate || 5.4) : 1;
+    if (a.type === 'renda_fixa') return (parseFloat(a.totalApplied || a.purchasePrice || 0) || 0) * m;
+    const q = parseFloat(a.quantity || 1) || 1; return q * (parseFloat(a.purchasePrice || 0) || 0) * m;
 };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -42,6 +46,10 @@ export default function Dashboard({ onNavigate }) {
     const [cfg, setCfg] = useState(() => { try { return { ...DEFAULT_CFG, ...JSON.parse(localStorage.getItem(CFG_KEY) || '{}') }; } catch { return DEFAULT_CFG; } });
     const [configOpen, setConfigOpen] = useState(false);
     const [hideSaldo, setHideSaldo] = useState(cfg.ocultarSaldo);
+    const [usdRate, setUsdRate] = useState(5.4);
+    const [patCur, setPatCur] = useState(() => { try { return localStorage.getItem('aliviaDashPatCur') || 'BRL'; } catch { return 'BRL'; } });
+    useEffect(() => { getUsdRate().then(r => { if (r) setUsdRate(r); }).catch(() => { }); }, []);
+    const togglePatCur = () => { const n = patCur === 'BRL' ? 'USD' : 'BRL'; setPatCur(n); try { localStorage.setItem('aliviaDashPatCur', n); } catch { } };
 
     const saveCfg = (next) => { setCfg(next); try { localStorage.setItem(CFG_KEY, JSON.stringify(next)); } catch { } };
 
@@ -90,10 +98,16 @@ export default function Dashboard({ onNavigate }) {
     const metaMeses = Math.max(1, cfg.metaReservaMeses || 6);
     const reservaPct = clamp(mesesCobertura / metaMeses * 100, 0, 100);
 
-    const patrAtual = invs.reduce((a, x) => a + invValue(x), 0);
-    const patrCusto = invs.reduce((a, x) => a + invCost(x), 0);
+    const patrAtual = invs.reduce((a, x) => a + invValue(x, usdRate), 0);
+    const patrCusto = invs.reduce((a, x) => a + invCost(x, usdRate), 0);
     const patrRentab = patrCusto > 0 ? (patrAtual - patrCusto) / patrCusto * 100 : 0;
     const patrimonioLiquido = saldo + (cfg.somarReservas ? reservaTotal : 0) + (cfg.somarInvest ? patrAtual : 0);
+
+    // Exibição do patrimônio na moeda escolhida (R$ ou US$).
+    const curDiv = patCur === 'USD' ? (usdRate || 5.4) : 1;
+    const curSym = patCur === 'USD' ? 'US$' : 'R$';
+    const patrAtualDisp = patrAtual / curDiv;
+    const patrLiquidoDisp = patrimonioLiquido / curDiv;
 
     // Índice de saúde (pesos normalizados)
     const temDados = ganhos > 0;
@@ -179,9 +193,20 @@ export default function Dashboard({ onNavigate }) {
 
                 {/* Patrimônio */}
                 <div className={cardCls}>
-                    <h2 className={`text-[13px] font-black uppercase tracking-widest flex items-center gap-1.5 mb-3 ${muted}`}><Landmark className="w-3.5 h-3.5 text-emerald-500" /> Patrimônio</h2>
-                    <p className="text-3xl font-black tabular-nums text-emerald-500">R$ {money(patrAtual)}</p>
-                    <p className={`text-[12px] mt-0.5 ${muted}`}>investido em ativos</p>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                        <h2 className={`text-[13px] font-black uppercase tracking-widest flex items-center gap-1.5 ${muted}`}><Landmark className="w-3.5 h-3.5 text-emerald-500" /> Patrimônio</h2>
+                        {/* Filtro de moeda R$ / US$ */}
+                        <div className={`flex items-center gap-0.5 p-0.5 rounded-lg ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                            {['BRL', 'USD'].map(c => (
+                                <button key={c} onClick={() => patCur !== c && togglePatCur()}
+                                    className={`px-2 py-0.5 rounded-md text-[11px] font-black transition ${patCur === c ? 'bg-emerald-500 text-white' : (isDark ? 'text-slate-400' : 'text-slate-500')}`}>
+                                    {c === 'BRL' ? 'R$' : 'US$'}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <p className="text-3xl font-black tabular-nums text-emerald-500">{curSym} {money(patrAtualDisp)}</p>
+                    <p className={`text-[12px] mt-0.5 ${muted}`}>investido em ativos{patCur === 'USD' ? ` · câmbio R$ ${money(usdRate)}` : ''}</p>
                     <div className="grid grid-cols-2 gap-2 mt-3">
                         <div className={`rounded-xl px-3 py-2 ${isDark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>
                             <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>Rentab.</p>
@@ -189,7 +214,7 @@ export default function Dashboard({ onNavigate }) {
                         </div>
                         <div className={`rounded-xl px-3 py-2 ${isDark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>
                             <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>Líquido</p>
-                            <p className={`text-[15px] font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {money(patrimonioLiquido)}</p>
+                            <p className={`text-[15px] font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>{curSym} {money(patrLiquidoDisp)}</p>
                         </div>
                     </div>
                     <Action isDark={isDark} onClick={() => onNavigate?.('patrimonio')}>Ver patrimônio</Action>

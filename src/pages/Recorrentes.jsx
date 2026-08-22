@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import AliviaFormHint from '../components/AliviaFormHint';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -392,9 +392,11 @@ function DeleteBtn({ isDark, disabled, onDelete }) {
 }
 
 // Modal de criar/editar recorrente (entrada ou despesa).
-export function RecorrenteForm({ isDark, uid, kind, editing, onClose, hint, initialCategory }) {
+export function RecorrenteForm({ isDark, uid, kind, editing, onClose, hint, initialCategory, allowAddAnother = false }) {
     const cfg = KIND[kind];
     const income = kind === 'income';
+    const againRef = useRef(false);
+    const [added, setAdded] = useState(0);
     const [name, setName] = useState(editing?.name || '');
     const [value, setValue] = useState(editing?.value != null ? String(editing.value).replace('.', ',') : '');
     const [category, setCategory] = useState(editing?.category || initialCategory || cfg.defaultCat);
@@ -432,9 +434,13 @@ export function RecorrenteForm({ isDark, uid, kind, editing, onClose, hint, init
             data.cardId = payMethod === 'credito' ? cardId : '';
         }
         try {
-            if (editing) await updateDoc(doc(db, cfg.collection, editing.id), data);
-            else await addDoc(collection(db, cfg.collection), { ...data, userId: uid, createdAt: Date.now() });
-            onClose();
+            if (editing) { await updateDoc(doc(db, cfg.collection, editing.id), data); onClose(); return; }
+            await addDoc(collection(db, cfg.collection), { ...data, userId: uid, createdAt: Date.now() });
+            if (againRef.current) {
+                // "Salvar e adicionar outra": limpa e mantém o formulário aberto.
+                againRef.current = false;
+                setName(''); setValue(''); setAdded(n => n + 1); setSaving(false);
+            } else onClose();
         } catch (err) { console.error(err); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
     };
 
@@ -494,9 +500,25 @@ export function RecorrenteForm({ isDark, uid, kind, editing, onClose, hint, init
                     <input type="checkbox" checked={isVariable} onChange={e => setIsVariable(e.target.checked)} className="w-4 h-4 accent-emerald-500" />
                     Valor variável (muda todo mês{income ? ', ex.: comissão' : ', ex.: luz'})
                 </label>
-                <button type="submit" disabled={saving} className={`w-full py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-70 ${cfg.submitBtn}`}>
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {editing ? 'Salvar' : 'Cadastrar'}</>}
-                </button>
+                {allowAddAnother && !editing ? (
+                    <div className="space-y-2">
+                        {added > 0 && <p className="text-[12px] text-emerald-500 font-bold text-center">{added} cadastrado(s) ✓ — adicione mais ou conclua.</p>}
+                        <div className="grid grid-cols-2 gap-2">
+                            <button type="submit" onClick={() => { againRef.current = true; }} disabled={saving}
+                                className={`py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 transition disabled:opacity-70 border ${isDark ? 'bg-white/5 border-white/10 text-slate-200 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                                <Plus className="w-4 h-4" /> Adicionar outra
+                            </button>
+                            <button type="submit" onClick={() => { againRef.current = false; }} disabled={saving}
+                                className={`py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-1.5 transition disabled:opacity-70 ${cfg.submitBtn}`}>
+                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> Concluir</>}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <button type="submit" disabled={saving} className={`w-full py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-70 ${cfg.submitBtn}`}>
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {editing ? 'Salvar' : 'Cadastrar'}</>}
+                    </button>
+                )}
             </form>
         </Modal>
     );
