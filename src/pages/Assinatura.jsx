@@ -17,9 +17,10 @@ const PRICE_IDS = {
 // mensal 25% mais caro = R$ 12,49/mês.
 const PRICING = {
     annual: { perMes: '9,99', total: '119,88', label: 'por ano' },
-    monthly: { perMes: '12,49', total: '12,49', label: 'por mês' },
+    monthly: { perMes: '14,99', total: '14,99', label: 'por mês' },
 };
-const ECONOMIA_ANO = '30,00'; // 149,88 - 119,88
+const ECONOMIA_ANO = '60,00';   // 179,88 (mensal/ano) - 119,88 (anual)
+const ECONOMIA_PCT = '33';      // (14,99 - 9,99) / 14,99 ≈ 33%
 const FREE_LIMIT = 15;        // lançamentos/mês no plano gratuito
 
 const PRO_FEATURES = [
@@ -105,7 +106,7 @@ export default function Assinatura() {
                         <button onClick={() => setBilling('annual')}
                             className={`px-5 py-2 rounded-xl text-[13px] font-black transition flex items-center gap-2 ${billing === 'annual' ? (isDark ? 'bg-white/10 text-white' : 'bg-white text-slate-800 shadow-sm') : muted}`}>
                             Anual
-                            <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500 text-white">-20%</span>
+                            <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500 text-white">-{ECONOMIA_PCT}%</span>
                         </button>
                     </div>
                 </div>
@@ -161,8 +162,8 @@ export default function Assinatura() {
                     </div>
                     <p className={`text-[12px] mt-1 ${muted}`}>
                         {billing === 'annual'
-                            ? <>Cobrado <b className={isDark ? 'text-slate-300' : 'text-slate-700'}>R$ {p.total}/ano</b> · economize R$ {ECONOMIA_ANO}</>
-                            : <>No plano mensal · <button onClick={() => setBilling('annual')} className="text-emerald-500 font-bold underline">no anual sai R$ 9,99</button></>}
+                            ? <>Cobrado <b className={isDark ? 'text-slate-300' : 'text-slate-700'}>R$ {p.total}/ano</b> · economize R$ {ECONOMIA_ANO} ({ECONOMIA_PCT}%)</>
+                            : <>No plano mensal · <button onClick={() => setBilling('annual')} className="text-emerald-500 font-bold underline">no anual sai R$ 9,99 (-{ECONOMIA_PCT}%)</button></>}
                     </p>
 
                     <div className="space-y-2.5 mt-5">
