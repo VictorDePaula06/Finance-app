@@ -6,6 +6,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import { buildWalletLedger } from '../utils/financialLogic';
 import { getUsdRate } from '../utils/marketRates';
+import UserAvatar from '../components/UserAvatar';
 import {
     LayoutDashboard, Settings, TrendingUp, TrendingDown, Wallet, Eye, EyeOff,
     PieChart as PieIcon, PiggyBank, Landmark, HeartPulse, ChevronRight, X, Check,
@@ -150,9 +151,12 @@ export default function Dashboard({ onNavigate }) {
             {/* Cabeçalho */}
             <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
                 <div className="flex items-center gap-4">
-                    <span className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/25 to-teal-600/15 ring-1 ring-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]">
-                        <LayoutDashboard className="w-7 h-7" strokeWidth={2.2} />
-                    </span>
+                    <UserAvatar className="w-14 h-14 rounded-2xl shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]"
+                        fallback={
+                            <span className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/25 to-teal-600/15 ring-1 ring-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]">
+                                <LayoutDashboard className="w-7 h-7" strokeWidth={2.2} />
+                            </span>
+                        } />
                     <div>
                         <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Olá, {nome} 👋</h1>
                         <p className={`text-sm mt-0.5 ${muted}`}>Seu controle financeiro do mês.</p>

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import logo from '../assets/logo.png';
 import aliviaAvatar from '../assets/alivia/alivia-final.png';
+import UserAvatar from './UserAvatar';
 
 // Versão do app (exibida discretamente na sidebar).
 export const APP_VERSION = '0.1';
@@ -116,9 +117,8 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
             {/* Bloco do usuário + configurações */}
             <div className="mt-3 pt-3 space-y-1">
                 <div className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
-                    {currentUser?.photoURL
-                        ? <img src={currentUser.photoURL} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
-                        : <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center font-black text-white text-sm shrink-0">{initial}</div>}
+                    <UserAvatar className="w-9 h-9 rounded-full shrink-0"
+                        fallbackClassName="rounded-full bg-gradient-to-br from-emerald-500 to-teal-600" textClassName="font-black text-white text-sm" />
                     <div className="min-w-0">
                         <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{name}</p>
                         <span className={`inline-block text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${
