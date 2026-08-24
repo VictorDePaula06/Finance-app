@@ -41,6 +41,30 @@ const ASSET_TYPES = [
 const typeMeta = (id) => ASSET_TYPES.find(t => t.id === id) || { label: 'Outro', market: false };
 const isMarket = (type) => !!typeMeta(type).market;
 
+// Sugestões de ativos populares por classe (para o autocomplete com ícone).
+const ASSET_SUGGESTIONS = {
+    crypto: [['BTC', 'Bitcoin'], ['ETH', 'Ethereum'], ['USDT', 'Tether'], ['BNB', 'BNB'], ['SOL', 'Solana'], ['XRP', 'XRP'], ['ADA', 'Cardano'], ['DOGE', 'Dogecoin'], ['AVAX', 'Avalanche'], ['MATIC', 'Polygon'], ['DOT', 'Polkadot'], ['LINK', 'Chainlink'], ['LTC', 'Litecoin'], ['SHIB', 'Shiba Inu'], ['TRX', 'TRON'], ['UNI', 'Uniswap']],
+    acoes: [['PETR4', 'Petrobras'], ['VALE3', 'Vale'], ['ITUB4', 'Itaú'], ['BBDC4', 'Bradesco'], ['BBAS3', 'Banco do Brasil'], ['ABEV3', 'Ambev'], ['B3SA3', 'B3'], ['WEGE3', 'WEG'], ['MGLU3', 'Magazine Luiza'], ['ITSA4', 'Itaúsa'], ['RENT3', 'Localiza'], ['SUZB3', 'Suzano'], ['RADL3', 'Raia Drogasil'], ['PRIO3', 'PetroRio']],
+    etfs: [['IVVB11', 'S&P 500'], ['BOVA11', 'Ibovespa'], ['SMAL11', 'Small Caps'], ['HASH11', 'Cripto (Hashdex)'], ['NASD11', 'Nasdaq 100'], ['GOLD11', 'Ouro']],
+    fiis: [['MXRF11', 'Maxi Renda'], ['HGLG11', 'CSHG Logística'], ['KNRI11', 'Kinea'], ['XPML11', 'XP Malls'], ['HGRU11', 'CSHG Renda Urbana'], ['VISC11', 'Vinci Shopping'], ['KNCR11', 'Kinea CRI'], ['BTLG11', 'BTG Logística']],
+};
+
+// Ícone do ativo: cripto usa CDN de ícones; senão, inicial colorida pela classe.
+function AssetIcon({ symbol, type, name, size = 40 }) {
+    const [err, setErr] = useState(false);
+    const cryptoSym = String(symbol || '').toLowerCase();
+    const url = type === 'crypto' && cryptoSym ? `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${cryptoSym}.png` : null;
+    const g = GROUP_META[getGroup(type)] || GROUP_META.renda_fixa;
+    if (url && !err) {
+        return <img src={url} alt="" onError={() => setErr(true)} className="rounded-full object-cover shrink-0" style={{ width: size, height: size }} />;
+    }
+    return (
+        <span className="rounded-full flex items-center justify-center font-black shrink-0" style={{ width: size, height: size, background: `${g.color}1f`, color: g.color, fontSize: Math.round(size * 0.36) }}>
+            {(symbol || name || '?').charAt(0).toUpperCase()}
+        </span>
+    );
+}
+
 // Multiplicador de câmbio: se o ativo é dolarizado, converte USD → BRL pela cotação atual.
 const usdMult = (a, prices) => (a.isUSD ? (prices.USD || 5.4) : 1);
 // Preço unitário atual, na MOEDA do ativo (USD se isUSD, senão BRL). Mesma lógica do app oficial.
@@ -80,6 +104,7 @@ export default function Patrimonio() {
     const [saved, setSaved] = useState(false);
     const [tab, setTab] = useState('renda_fixa');
     const [search, setSearch] = useState('');
+    const [monitorOpen, setMonitorOpen] = useState(false);
 
     useEffect(() => {
         if (!uid) return;
@@ -132,6 +157,10 @@ export default function Patrimonio() {
                     <h1 className={`text-2xl font-black tracking-tight mt-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Patrimônio</h1>
                     <p className={`text-[11px] uppercase tracking-widest font-black mt-3 ${muted}`}>Total investido</p>
                     <p className="text-3xl font-black tabular-nums text-emerald-500 mt-0.5">{fmt(total)}</p>
+                    <button onClick={() => setMonitorOpen(true)}
+                        className={`mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                        <Activity className="w-3.5 h-3.5 text-emerald-500" /> Monitor de ativos
+                    </button>
                 </div>
 
                 <div className={`rounded-2xl border p-5 flex flex-col ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
@@ -258,9 +287,7 @@ export default function Patrimonio() {
                                     <div key={a.id} className={`group flex items-center gap-4 px-4 py-3 min-w-[680px] ${i ? `border-t ${isDark ? 'border-white/5' : 'border-slate-100'}` : ''}`}>
                                         {/* Ticker + nome */}
                                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                            <span className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black text-[14px]" style={{ background: `${color}1f`, color }}>
-                                                {(a.symbol || a.name || '?').charAt(0).toUpperCase()}
-                                            </span>
+                                            <AssetIcon symbol={a.symbol} type={a.type} name={a.name} size={40} />
                                             <div className="min-w-0">
                                                 <p className={`font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{a.symbol ? a.symbol.toUpperCase() : (a.name || 'Ativo')}</p>
                                                 <p className="text-[11px] truncate" style={{ color }}>{a.symbol ? (a.name || typeMeta(a.type).label) : typeMeta(a.type).label}</p>
@@ -285,6 +312,7 @@ export default function Patrimonio() {
             </div>
 
             {form && <AtivoForm isDark={isDark} uid={uid} editing={form.editing} onClose={() => setForm(null)} />}
+            {monitorOpen && <MonitorModal isDark={isDark} investments={investments} prices={livePrices} onClose={() => setMonitorOpen(false)} />}
         </div>
     );
 }
@@ -390,10 +418,16 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
     const [fetchMsg, setFetchMsg] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [showSug, setShowSug] = useState(false);
 
     useEffect(() => { getUsdRate().then(r => { if (r) setUsdRate(r); }).catch(() => { }); }, []);
 
     const market = isMarket(type);
+    const sugList = (ASSET_SUGGESTIONS[type] || []).filter(([s, n]) => {
+        const q = symbol.trim().toUpperCase();
+        if (!q) return true;
+        return s.startsWith(q) || s.includes(q) || n.toUpperCase().includes(q);
+    }).slice(0, 8);
     const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
     const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
 
@@ -482,7 +516,25 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                     <>
                         <Field label={type === 'crypto' ? 'Ticker (ex.: BTC, ETH)' : 'Ticker (ex.: PETR4, IVVB11)'}>
                             <div className="flex gap-2">
-                                <input value={symbol} onChange={e => { setSymbol(e.target.value.toUpperCase()); setFetchMsg(''); }} placeholder="TICKER" className={inputCls} maxLength={10} />
+                                <div className="relative flex-1">
+                                    {symbol.trim() && <span className="absolute left-2 top-1/2 -translate-y-1/2"><AssetIcon symbol={symbol} type={type} size={22} /></span>}
+                                    <input value={symbol}
+                                        onChange={e => { setSymbol(e.target.value.toUpperCase().replace(/\s/g, '')); setFetchMsg(''); setShowSug(true); }}
+                                        onFocus={() => setShowSug(true)} onBlur={() => setTimeout(() => setShowSug(false), 150)}
+                                        placeholder="Digite o ticker (ex.: BTC)" className={`${inputCls} ${symbol.trim() ? 'pl-9' : ''}`} maxLength={10} />
+                                    {showSug && sugList.length > 0 && (
+                                        <div className={`absolute z-20 left-0 right-0 mt-1 rounded-xl border shadow-2xl overflow-hidden max-h-56 overflow-y-auto ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-200'}`}>
+                                            {sugList.map(([s, n]) => (
+                                                <button key={s} type="button" onMouseDown={(e) => { e.preventDefault(); setSymbol(s); if (!name.trim()) setName(n); setShowSug(false); setFetchMsg(''); }}
+                                                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
+                                                    <AssetIcon symbol={s} type={type} name={n} size={26} />
+                                                    <span className={`text-[13px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{s}</span>
+                                                    <span className={`text-[12px] truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{n}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                                 <button type="button" onClick={buscar} disabled={fetching || !symbol.trim()}
                                     className="shrink-0 px-3 rounded-xl bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 font-bold text-sm flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50">
                                     {fetching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Buscar
@@ -554,6 +606,64 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
 
 function Field({ label, children }) {
     return <label className="block"><span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">{label}</span>{children}</label>;
+}
+
+// ── Monitor de ativos: preços ao vivo dos ativos de mercado ─────────
+function MonitorModal({ isDark, investments, prices, onClose }) {
+    const rate = prices.USD || 5.4;
+    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+    const rows = investments
+        .filter(a => isMarket(a.type) && a.symbol)
+        .map(a => {
+            const unitBRL = currentUnit(a, prices) * (a.isUSD ? rate : 1);
+            const buyBRL = (parseFloat(a.purchasePrice) || 0) * (a.isUSD ? rate : 1);
+            const chg = buyBRL > 0 ? (unitBRL - buyBRL) / buyBRL * 100 : 0;
+            return { a, unitBRL, chg, val: valueOf(a, prices) };
+        })
+        .sort((x, y) => y.val - x.val);
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className={`relative w-full max-w-lg max-h-[88vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+                <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2.5">
+                        <span className="w-9 h-9 rounded-xl bg-emerald-500/12 text-emerald-500 flex items-center justify-center shrink-0"><Activity className="w-5 h-5" strokeWidth={2.4} /></span>
+                        <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Monitor de ativos</h2>
+                    </div>
+                    <button onClick={onClose} className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}><X className="w-4 h-4" /></button>
+                </div>
+                <p className={`text-[12px] mb-4 flex items-center gap-1.5 ${muted}`}>
+                    <span className="relative flex w-2 h-2"><span className="absolute inline-flex w-full h-full rounded-full bg-emerald-400 opacity-75 animate-ping" /><span className="relative inline-flex rounded-full w-2 h-2 bg-emerald-500" /></span>
+                    Ao vivo · cotações atualizam a cada ~2 min · US$ 1 = R$ {money(rate)}
+                </p>
+
+                {rows.length === 0 ? (
+                    <p className={`text-center text-sm py-10 ${muted}`}>Nenhum ativo de mercado cadastrado.<br />Cadastre ações, ETFs, FIIs ou cripto para acompanhar aqui.</p>
+                ) : (
+                    <div className={`rounded-2xl border divide-y overflow-hidden ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
+                        {rows.map(({ a, unitBRL, chg, val }) => {
+                            const up = chg >= 0;
+                            return (
+                                <div key={a.id} className="flex items-center gap-3 px-3.5 py-3">
+                                    <AssetIcon symbol={a.symbol} type={a.type} name={a.name} size={38} />
+                                    <div className="min-w-0 flex-1">
+                                        <p className={`font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{(a.symbol || '').toUpperCase()}</p>
+                                        <p className={`text-[11px] truncate ${muted}`}>{a.name || typeMeta(a.type).label}</p>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <p className={`font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>{unitBRL > 0 ? `R$ ${money(unitBRL)}` : '—'}</p>
+                                        <p className={`text-[11px] font-bold tabular-nums ${up ? 'text-emerald-500' : 'text-rose-500'}`}>{unitBRL > 0 ? `${up ? '+' : ''}${chg.toFixed(2)}%` : 'sem cotação'}</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+                <p className={`text-[11px] mt-3 ${muted}`}>A variação % é em relação ao seu preço de compra. Cripto via Binance; ações/ETFs/FIIs via brapi.</p>
+            </div>
+        </div>
+    );
 }
 
 function Modal({ isDark, title, icon: Icon, iconCls = '', onClose, children }) {

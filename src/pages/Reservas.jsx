@@ -6,7 +6,7 @@ import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { getCdiRate } from '../utils/marketRates';
 import {
-    Plus, Pencil, Trash2, X, Loader2, Check, Info,
+    Plus, Pencil, Trash2, X, Loader2, Check, Info, ChevronDown,
     PiggyBank, Target, Wallet, ArrowDownToLine, ArrowUpFromLine, TrendingUp,
 } from 'lucide-react';
 
@@ -34,6 +34,7 @@ export default function Reservas() {
     const uid = currentUser?.uid;
 
     const [reserves, setReserves] = useState([]);
+    const [txs, setTxs] = useState([]);
     const [form, setForm] = useState(null);
     const [move, setMove] = useState(null);
     const [cdi, setCdi] = useState(14.9); // CDI anual real (%)
@@ -41,8 +42,11 @@ export default function Reservas() {
 
     useEffect(() => {
         if (!uid) return;
-        return onSnapshot(query(collection(db, 'savings_jars'), where('userId', '==', uid)),
-            (s) => setReserves(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
+        const u1 = onSnapshot(query(collection(db, 'savings_jars'), where('userId', '==', uid)),
+            (s) => setReserves(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { });
+        const u2 = onSnapshot(query(collection(db, 'transactions'), where('userId', '==', uid)),
+            (s) => setTxs(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { });
+        return () => { u1(); u2(); };
     }, [uid]);
 
     useEffect(() => {
@@ -189,6 +193,10 @@ export default function Reservas() {
                                         </button>
                                     </div>
                                 </div>
+
+                                {/* Aportes / movimentos desta reserva */}
+                                <Movimentos isDark={isDark} reserve={r} cdi={cdi}
+                                    movimentos={txs.filter(t => t.jarId === r.id).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))} />
                             </div>
                         );
                     })}
@@ -387,6 +395,112 @@ function MoveForm({ isDark, uid, cdi, reserve, kind, onClose }) {
             </div>
         </Modal>
     );
+}
+
+// ── Aportes / movimentos de uma reserva (ver, editar valor, excluir) ─
+function Movimentos({ isDark, reserve, cdi, movimentos }) {
+    const [open, setOpen] = useState(false);
+    const [editId, setEditId] = useState(null);
+    const [editVal, setEditVal] = useState('');
+    const [busy, setBusy] = useState(false);
+    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+
+    if (!movimentos.length) return null;
+
+    // Consolida o rendimento atual e aplica um delta no principal da reserva.
+    const adjustJar = async (delta) => {
+        const now = Date.now();
+        const cur = currentValueOf(reserve, cdi, now);
+        const inv = investedOfRes(reserve);
+        await updateDoc(doc(db, 'savings_jars', reserve.id), {
+            balance: Math.max(0, cur + delta), invested: Math.max(0, inv + delta),
+            lastYieldAt: now, cdiPercent: reserve.cdiPercent || 100,
+        });
+    };
+    const del = async (t) => {
+        setBusy(true);
+        try {
+            const amt = parseFloat(t.amount) || 0;
+            await adjustJar(t.type === 'expense' ? -amt : amt); // aporte sai, resgate volta
+            await deleteDoc(doc(db, 'transactions', t.id));
+        } catch (e) { console.error(e); }
+        setBusy(false);
+    };
+    const saveEdit = async (t) => {
+        const newVal = numBR(editVal);
+        if (newVal <= 0) { setEditId(null); return; }
+        setBusy(true);
+        try {
+            const delta = newVal - (parseFloat(t.amount) || 0);
+            await adjustJar(t.type === 'expense' ? delta : -delta);
+            const iso = t.date || new Date().toISOString();
+            await updateDoc(doc(db, 'transactions', t.id), { amount: newVal, month: iso.slice(0, 7) });
+        } catch (e) { console.error(e); }
+        setBusy(false); setEditId(null);
+    };
+
+    return (
+        <div className={`mt-4 pt-3 border-t ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+            <button onClick={() => setOpen(o => !o)}
+                className={`flex items-center gap-1.5 text-[12px] font-bold transition ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+                {open ? 'Ocultar' : 'Ver'} aportes ({movimentos.length})
+            </button>
+
+            {open && (
+                <div className={`mt-2 rounded-xl border divide-y overflow-hidden ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
+                    {movimentos.map(t => {
+                        const isAporte = t.type === 'expense';
+                        const amt = parseFloat(t.amount) || 0;
+                        const editing = editId === t.id;
+                        const dateStr = t.date ? new Date(t.date).toLocaleDateString('pt-BR') : '';
+                        return (
+                            <div key={t.id} className={`flex items-center gap-3 px-3.5 py-2.5 text-[13px] ${isDark ? 'bg-white/[0.01]' : 'bg-white'}`}>
+                                <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isAporte ? 'bg-emerald-500/15 text-emerald-500' : 'bg-amber-500/15 text-amber-500'}`}>
+                                    {isAporte ? <ArrowDownToLine className="w-3.5 h-3.5" /> : <ArrowUpFromLine className="w-3.5 h-3.5" />}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <p className={`font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{isAporte ? 'Aporte' : 'Resgate'}</p>
+                                    <p className={`text-[11px] ${muted}`}>{dateStr}</p>
+                                </div>
+                                {editing ? (
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="relative">
+                                            <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-[11px] font-bold ${muted}`}>R$</span>
+                                            <input inputMode="decimal" value={editVal} onChange={e => setEditVal(e.target.value.replace(/[^0-9.,]/g, ''))}
+                                                onKeyDown={e => e.key === 'Enter' && saveEdit(t)} autoFocus
+                                                className={`w-28 pl-7 pr-2 py-1.5 rounded-lg border text-[13px] font-bold outline-none ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`} />
+                                        </div>
+                                        <button onClick={() => saveEdit(t)} disabled={busy} className="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center disabled:opacity-50"><Check className="w-3.5 h-3.5" /></button>
+                                        <button onClick={() => setEditId(null)} className={`w-7 h-7 rounded-lg flex items-center justify-center ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}><X className="w-3.5 h-3.5" /></button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <span className={`font-black tabular-nums whitespace-nowrap ${isAporte ? 'text-emerald-500' : 'text-amber-500'}`}>{isAporte ? '+' : '−'} R$ {money(amt)}</span>
+                                        <div className="flex items-center gap-0.5">
+                                            <button onClick={() => { setEditId(t.id); setEditVal(String(amt).replace('.', ',')); }} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                                            <MovDeleteBtn isDark={isDark} onDelete={() => del(t)} />
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function MovDeleteBtn({ isDark, onDelete }) {
+    const [confirm, setConfirm] = useState(false);
+    if (confirm) return (
+        <span className="flex items-center gap-1">
+            <button onClick={() => setConfirm(false)} className={`px-1.5 py-1 rounded text-[10px] font-bold ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Não</button>
+            <button onClick={onDelete} className="px-1.5 py-1 rounded text-[10px] font-bold bg-rose-500 text-white">Excluir</button>
+        </span>
+    );
+    return <button onClick={() => setConfirm(true)} title="Excluir" className={`p-1.5 rounded-lg text-slate-400 hover:text-rose-500 ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Trash2 className="w-3.5 h-3.5" /></button>;
 }
 
 function Field({ label, children }) {
