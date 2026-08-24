@@ -667,7 +667,7 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, defaultCur 
         setBusy(false);
     };
 
-    const inputCls = `w-full px-3 py-2.5 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
+    const inputCls = `px-3 py-2.5 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
     const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
 
     const PriceRow = ({ icon, sym: s, name, unitBRL, right }) => (
@@ -687,7 +687,7 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, defaultCur 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
                 <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2.5">
                         <span className="w-9 h-9 rounded-xl bg-emerald-500/12 text-emerald-500 flex items-center justify-center shrink-0"><Activity className="w-5 h-5" strokeWidth={2.4} /></span>
@@ -710,34 +710,36 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, defaultCur 
                 {/* Adicionar ativo pra acompanhar */}
                 <div className={`rounded-2xl border p-3 mb-4 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'}`}>
                     <p className={`text-[11px] font-black uppercase tracking-widest mb-2 ${muted}`}>Acompanhar novo ativo</p>
-                    <div className="flex gap-2">
-                        <select value={addType} onChange={e => { setAddType(e.target.value); setAddSym(''); }} className={`${inputCls} w-32 shrink-0`} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <select value={addType} onChange={e => { setAddType(e.target.value); setAddSym(''); }} className={`${inputCls} w-full sm:w-36 shrink-0`} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
                             <option value="crypto" style={optStyle}>Cripto</option>
                             <option value="acoes" style={optStyle}>Ações</option>
                             <option value="etfs" style={optStyle}>ETFs</option>
                             <option value="fiis" style={optStyle}>FIIs</option>
                         </select>
-                        <div className="relative flex-1">
-                            {addSym.trim() && <span className="absolute left-2 top-1/2 -translate-y-1/2 z-10"><AssetIcon symbol={addSym} type={addType} size={20} /></span>}
-                            <input value={addSym} onChange={e => { setAddSym(e.target.value.toUpperCase().replace(/\s/g, '')); setShowSug(true); }}
-                                onFocus={() => setShowSug(true)} onBlur={() => setTimeout(() => setShowSug(false), 150)}
-                                onKeyDown={e => e.key === 'Enter' && add()} placeholder="Ticker (ex.: BTC)" className={`${inputCls} ${addSym.trim() ? 'pl-8' : ''}`} maxLength={10} />
-                            {showSug && sugList.length > 0 && (
-                                <div className={`absolute z-20 left-0 right-0 mt-1 rounded-xl border shadow-2xl overflow-hidden max-h-48 overflow-y-auto ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-200'}`}>
-                                    {sugList.map(([s, n]) => (
-                                        <button key={s} type="button" onMouseDown={ev => { ev.preventDefault(); setAddSym(s); setShowSug(false); }}
-                                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-left ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
-                                            <AssetIcon symbol={s} type={addType} name={n} size={24} />
-                                            <span className={`text-[13px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{s}</span>
-                                            <span className={`text-[12px] truncate ${muted}`}>{n}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+                        <div className="flex gap-2 flex-1 min-w-0">
+                            <div className="relative flex-1 min-w-0">
+                                {addSym.trim() && <span className="absolute left-2 top-1/2 -translate-y-1/2 z-10"><AssetIcon symbol={addSym} type={addType} size={20} /></span>}
+                                <input value={addSym} onChange={e => { setAddSym(e.target.value.toUpperCase().replace(/\s/g, '')); setShowSug(true); }}
+                                    onFocus={() => setShowSug(true)} onBlur={() => setTimeout(() => setShowSug(false), 150)}
+                                    onKeyDown={e => e.key === 'Enter' && add()} placeholder="Ticker (ex.: BTC)" className={`${inputCls} w-full ${addSym.trim() ? 'pl-8' : ''}`} maxLength={10} />
+                                {showSug && sugList.length > 0 && (
+                                    <div className={`absolute z-20 left-0 right-0 mt-1 rounded-xl border shadow-2xl overflow-hidden max-h-48 overflow-y-auto ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-200'}`}>
+                                        {sugList.map(([s, n]) => (
+                                            <button key={s} type="button" onMouseDown={ev => { ev.preventDefault(); setAddSym(s); setShowSug(false); }}
+                                                className={`w-full flex items-center gap-2.5 px-3 py-2 text-left ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
+                                                <AssetIcon symbol={s} type={addType} name={n} size={24} />
+                                                <span className={`text-[13px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{s}</span>
+                                                <span className={`text-[12px] truncate ${muted}`}>{n}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <button onClick={add} disabled={busy || !addSym.trim()} className="shrink-0 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-1.5 transition disabled:opacity-50">
+                                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4" strokeWidth={2.6} /> Adicionar</>}
+                            </button>
                         </div>
-                        <button onClick={add} disabled={busy || !addSym.trim()} className="shrink-0 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-1 transition disabled:opacity-50">
-                            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" strokeWidth={2.6} />}
-                        </button>
                     </div>
                 </div>
 
