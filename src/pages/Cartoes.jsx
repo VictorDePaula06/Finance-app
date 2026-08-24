@@ -53,7 +53,7 @@ export default function Cartoes() {
     const [pagarOpen, setPagarOpen] = useState(false);
     const [detalhes, setDetalhes] = useState(null);   // 'assinaturas' | 'parcelas' | null
     const [historicoOpen, setHistoricoOpen] = useState(false); // faturas anteriores
-    const [openGroup, setOpenGroup] = useState('essential');    // accordion da fatura por tipo
+    const [openGroup, setOpenGroup] = useState(null);           // accordion da fatura (começa tudo fechado)
 
     useEffect(() => {
         if (!uid) return;
@@ -200,7 +200,7 @@ export default function Cartoes() {
                                             Vence em <span className="font-black text-rose-400">{dueInfo.days} {dueInfo.days === 1 ? 'dia' : 'dias'}</span> · {selected.dueDay} de {MESES[dueInfo.due.getMonth()].toLowerCase()}
                                         </p>
                                     ) : <span />}
-                                    {faturasPagas.length > 0 && (
+                                    {selected && (
                                         <button onClick={() => setHistoricoOpen(true)}
                                             className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                                             <History className="w-3.5 h-3.5" /> Faturas anteriores
