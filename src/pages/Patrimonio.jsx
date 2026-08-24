@@ -51,13 +51,19 @@ const guessUSD = (type, symbol) => {
 };
 
 // Sugestões de ativos populares por classe (para o autocomplete com ícone).
+const ACOES_BR = [['PETR4', 'Petrobras'], ['VALE3', 'Vale'], ['ITUB4', 'Itaú'], ['BBDC4', 'Bradesco'], ['BBAS3', 'Banco do Brasil'], ['ABEV3', 'Ambev'], ['B3SA3', 'B3'], ['WEGE3', 'WEG'], ['MGLU3', 'Magazine Luiza'], ['ITSA4', 'Itaúsa'], ['RENT3', 'Localiza'], ['SUZB3', 'Suzano'], ['RADL3', 'Raia Drogasil'], ['PRIO3', 'PetroRio']];
+const ACOES_US = [['NVDA', 'NVIDIA'], ['AAPL', 'Apple'], ['TSLA', 'Tesla'], ['AMZN', 'Amazon'], ['MSFT', 'Microsoft'], ['GOOGL', 'Alphabet'], ['GOOG', 'Alphabet C'], ['META', 'Meta'], ['AMD', 'AMD'], ['KO', 'Coca-Cola'], ['DIS', 'Disney'], ['NU', 'Nubank'], ['PLTR', 'Palantir'], ['BABA', 'Alibaba'], ['NFLX', 'Netflix'], ['ORCL', 'Oracle'], ['INTC', 'Intel'], ['PYPL', 'PayPal'], ['UBER', 'Uber']];
 const ASSET_SUGGESTIONS = {
     crypto: [['BTC', 'Bitcoin'], ['ETH', 'Ethereum'], ['USDT', 'Tether'], ['BNB', 'BNB'], ['SOL', 'Solana'], ['XRP', 'XRP'], ['ADA', 'Cardano'], ['DOGE', 'Dogecoin'], ['AVAX', 'Avalanche'], ['MATIC', 'Polygon'], ['DOT', 'Polkadot'], ['LINK', 'Chainlink'], ['LTC', 'Litecoin'], ['SHIB', 'Shiba Inu'], ['TRX', 'TRON'], ['UNI', 'Uniswap']],
-    acoes: [['PETR4', 'Petrobras'], ['VALE3', 'Vale'], ['ITUB4', 'Itaú'], ['BBDC4', 'Bradesco'], ['BBAS3', 'Banco do Brasil'], ['ABEV3', 'Ambev'], ['B3SA3', 'B3'], ['WEGE3', 'WEG'], ['MGLU3', 'Magazine Luiza'], ['ITSA4', 'Itaúsa'], ['RENT3', 'Localiza'], ['SUZB3', 'Suzano'], ['RADL3', 'Raia Drogasil'], ['PRIO3', 'PetroRio'],
-        ['NVDA', 'NVIDIA (EUA)'], ['AAPL', 'Apple (EUA)'], ['TSLA', 'Tesla (EUA)'], ['AMZN', 'Amazon (EUA)'], ['MSFT', 'Microsoft (EUA)'], ['GOOGL', 'Alphabet (EUA)'], ['META', 'Meta (EUA)'], ['AMD', 'AMD (EUA)'], ['KO', 'Coca-Cola (EUA)'], ['DIS', 'Disney (EUA)']],
+    acoes: [...ACOES_BR, ...ACOES_US],
+    acoes_br: ACOES_BR,
+    acoes_us: ACOES_US,
     etfs: [['IVVB11', 'S&P 500'], ['BOVA11', 'Ibovespa'], ['SMAL11', 'Small Caps'], ['HASH11', 'Cripto (Hashdex)'], ['NASD11', 'Nasdaq 100'], ['GOLD11', 'Ouro']],
     fiis: [['MXRF11', 'Maxi Renda'], ['HGLG11', 'CSHG Logística'], ['KNRI11', 'Kinea'], ['XPML11', 'XP Malls'], ['HGRU11', 'CSHG Renda Urbana'], ['VISC11', 'Vinci Shopping'], ['KNCR11', 'Kinea CRI'], ['BTLG11', 'BTG Logística']],
 };
+// "Ações Globais" (acoes_us) → salva como 'acoes' em dólar; "Ações BR" (acoes_br) → 'acoes' em real.
+const MONITOR_TYPE = { acoes_br: { type: 'acoes', isUSD: false }, acoes_us: { type: 'acoes', isUSD: true } };
+const resolveMonitorType = (t) => MONITOR_TYPE[t] || { type: t, isUSD: undefined };
 
 // Ícone do ativo: cripto usa CDN de ícones; senão, inicial colorida pela classe.
 function AssetIcon({ symbol, type, name, size = 40 }) {
@@ -136,15 +142,15 @@ export default function Patrimonio() {
     // Cotações ao vivo dos ativos DA CARTEIRA + da watchlist (só acompanhar).
     const priceAssets = useMemo(() => [
         ...investments,
-        ...watchlist.map(w => ({ type: w.type, symbol: w.symbol, isUSD: guessUSD(w.type, w.symbol), quantity: 1 })),
+        ...watchlist.map(w => ({ type: w.type, symbol: w.symbol, isUSD: w.isUSD != null ? w.isUSD : guessUSD(w.type, w.symbol), quantity: 1 })),
     ], [investments, watchlist]);
     const { livePrices, priceChanges } = useLivePrices(priceAssets, true);
 
     // Watchlist: incluir / editar / excluir ativos só para acompanhar.
-    const addWatch = async ({ symbol, type, name }) => {
+    const addWatch = async ({ symbol, type, name, isUSD }) => {
         const s = String(symbol || '').trim().toUpperCase();
         if (!s) return;
-        await addDoc(collection(db, 'watchlist'), { symbol: s, type, name: name || '', isUSD: guessUSD(type, s), userId: uid, createdAt: Date.now() });
+        await addDoc(collection(db, 'watchlist'), { symbol: s, type, name: name || '', isUSD: isUSD != null ? isUSD : guessUSD(type, s), userId: uid, createdAt: Date.now() });
     };
     const updWatch = (id, data) => updateDoc(doc(db, 'watchlist', id), data);
     const delWatch = (id) => deleteDoc(doc(db, 'watchlist', id));
@@ -654,6 +660,7 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, changes = {
     const [busy, setBusy] = useState(false);
     const disp = (brl) => cur === 'USD' ? brl / rate : brl;
     const sym = cur === 'USD' ? 'US$' : 'R$';
+    const realAddType = resolveMonitorType(addType).type; // p/ ícone/cor da classe
 
     const sugList = (ASSET_SUGGESTIONS[addType] || []).filter(([s, n]) => {
         const q = addSym.trim().toUpperCase();
@@ -663,8 +670,8 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, changes = {
     const sugName = (ASSET_SUGGESTIONS[addType] || []).find(([s]) => s === addSym.trim().toUpperCase())?.[1] || '';
 
     // Monta uma linha da tabela (preço + variação DIÁRIA na moeda de exibição).
-    const buildRow = (type, symbol, name, id, removable) => {
-        const isUSD = guessUSD(type, symbol);
+    const buildRow = (type, symbol, name, id, removable, isUSDOverride) => {
+        const isUSD = isUSDOverride != null ? isUSDOverride : guessUSD(type, symbol);
         const pseudo = { type, symbol, isUSD, quantity: 1 };
         const unitBRL = currentUnit(pseudo, prices) * (isUSD ? rate : 1);
         const ch = changeOf(pseudo, changes);
@@ -673,17 +680,17 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, changes = {
     };
 
     const watch = watchlist
-        .map(w => buildRow(w.type, w.symbol, w.name || typeMeta(w.type).label, w.id, true))
+        .map(w => buildRow(w.type, w.symbol, w.name || typeMeta(w.type).label, w.id, true, w.isUSD))
         .sort((a, b) => b.unitBRL - a.unitBRL);
     const owned = investments
         .filter(a => isMarket(a.type) && a.symbol)
-        .map(a => buildRow(a.type, a.symbol, a.name || typeMeta(a.type).label, a.id, false))
+        .map(a => buildRow(a.type, a.symbol, a.name || typeMeta(a.type).label, a.id, false, a.isUSD))
         .sort((a, b) => b.unitBRL - a.unitBRL);
 
     const add = async () => {
         if (!addSym.trim()) return;
         setBusy(true);
-        try { await onAdd({ symbol: addSym, type: addType, name: sugName }); setAddSym(''); } catch (e) { console.error(e); }
+        try { const { type, isUSD } = resolveMonitorType(addType); await onAdd({ symbol: addSym, type, name: sugName, isUSD }); setAddSym(''); } catch (e) { console.error(e); }
         setBusy(false);
     };
 
@@ -756,13 +763,14 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, changes = {
                     <div className="flex flex-col sm:flex-row gap-2">
                         <select value={addType} onChange={e => { setAddType(e.target.value); setAddSym(''); }} className={`${inputCls} w-full sm:w-36 shrink-0`} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
                             <option value="crypto" style={optStyle}>Cripto</option>
-                            <option value="acoes" style={optStyle}>Ações</option>
+                            <option value="acoes_br" style={optStyle}>Ações BR</option>
+                            <option value="acoes_us" style={optStyle}>Ações Globais</option>
                             <option value="etfs" style={optStyle}>ETFs</option>
                             <option value="fiis" style={optStyle}>FIIs</option>
                         </select>
                         <div className="flex gap-2 flex-1 min-w-0">
                             <div className="relative flex-1 min-w-0">
-                                {addSym.trim() && <span className="absolute left-2 top-1/2 -translate-y-1/2 z-10"><AssetIcon symbol={addSym} type={addType} size={20} /></span>}
+                                {addSym.trim() && <span className="absolute left-2 top-1/2 -translate-y-1/2 z-10"><AssetIcon symbol={addSym} type={realAddType} size={20} /></span>}
                                 <input value={addSym} onChange={e => { setAddSym(e.target.value.toUpperCase().replace(/\s/g, '')); setShowSug(true); }}
                                     onFocus={() => setShowSug(true)} onBlur={() => setTimeout(() => setShowSug(false), 150)}
                                     onKeyDown={e => e.key === 'Enter' && add()} placeholder="Ticker (ex.: BTC)" className={`${inputCls} w-full ${addSym.trim() ? 'pl-8' : ''}`} maxLength={10} />
@@ -771,7 +779,7 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, changes = {
                                         {sugList.map(([s, n]) => (
                                             <button key={s} type="button" onMouseDown={ev => { ev.preventDefault(); setAddSym(s); setShowSug(false); }}
                                                 className={`w-full flex items-center gap-2.5 px-3 py-2 text-left ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
-                                                <AssetIcon symbol={s} type={addType} name={n} size={24} />
+                                                <AssetIcon symbol={s} type={realAddType} name={n} size={24} />
                                                 <span className={`text-[13px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{s}</span>
                                                 <span className={`text-[12px] truncate ${muted}`}>{n}</span>
                                             </button>

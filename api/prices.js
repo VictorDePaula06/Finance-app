@@ -56,33 +56,19 @@ export default async function handler(req, res) {
             return;
         }
 
-        // For stocks/ETFs/FIIs: try Brapi first, then Yahoo Finance
-        const isProbablyBR = /\d/.test(ticker) || (ticker.length >= 5 && ticker.length <= 6 && !ticker.includes('.'));
-        
-        // 1. Brapi (best for BR assets)
-        try {
-            const brapiRes = await fetch(`https://brapi.dev/api/quote/${ticker}?token=guest`, {
-                headers: { 'User-Agent': 'Mozilla/5.0' }
-            });
-            if (brapiRes.ok) {
-                const data = await brapiRes.json();
-                const r = data?.results?.[0];
-                const price = r?.regularMarketPrice;
-                if (price) {
-                    prices[ticker] = parseFloat(price);
-                    if (r.regularMarketChangePercent != null) changes[ticker] = { pct: parseFloat(r.regularMarketChangePercent), abs: parseFloat(r.regularMarketChange) || 0 };
-                    return;
-                }
-            }
-        } catch (e) {}
-
-        // 2. Yahoo Finance (server-side, no CORS)
+        // Ações/ETFs/FIIs. Yahoo é PRIMÁRIO (inclui pré/pós-mercado): dá o preço
+        // atual e a variação do dia mesmo com o mercado fechado. Regra de variação:
+        //   var = último preço negociado (regular/pré/pós) − fechamento do dia anterior
+        // Isso cobre os 3 casos pedidos: mercado aberto → variação do dia; fechado com
+        // pré-mercado → variação do pré-mercado; sem pré-mercado → variação do último dia.
+        const isProbablyBR = /\d/.test(ticker) || assetType === 'fiis';
         const yahooTicker = isProbablyBR ? `${ticker}.SA` : ticker;
         const yahooUrls = [
-            `https://query1.finance.yahoo.com/v8/finance/chart/${yahooTicker}?interval=1d&range=1d`,
-            `https://query2.finance.yahoo.com/v8/finance/chart/${yahooTicker}?interval=1d&range=1d`,
+            `https://query1.finance.yahoo.com/v8/finance/chart/${yahooTicker}?interval=5m&range=1d&includePrePost=true`,
+            `https://query2.finance.yahoo.com/v8/finance/chart/${yahooTicker}?interval=5m&range=1d&includePrePost=true`,
         ];
 
+        let done = false;
         for (const url of yahooUrls) {
             try {
                 const yahooRes = await fetch(url, {
@@ -94,17 +80,41 @@ export default async function handler(req, res) {
                 });
                 if (yahooRes.ok) {
                     const data = await yahooRes.json();
-                    const meta = data?.chart?.result?.[0]?.meta;
-                    const price = meta?.regularMarketPrice || meta?.previousClose || meta?.chartPreviousClose;
-                    const prev = meta?.chartPreviousClose || meta?.previousClose;
-                    if (price) {
-                        prices[ticker] = parseFloat(price);
-                        if (prev > 0) changes[ticker] = { pct: (price - prev) / prev * 100, abs: price - prev };
-                        return;
+                    const result = data?.chart?.result?.[0];
+                    const meta = result?.meta;
+                    if (meta) {
+                        const prevClose = meta.chartPreviousClose ?? meta.previousClose;
+                        let price = meta.regularMarketPrice;
+                        // Último preço negociado da série (inclui pré/pós-mercado).
+                        const closes = result?.indicators?.quote?.[0]?.close || [];
+                        for (let i = closes.length - 1; i >= 0; i--) { if (closes[i] != null) { price = closes[i]; break; } }
+                        if (price) {
+                            prices[ticker] = parseFloat(price);
+                            if (prevClose > 0) changes[ticker] = { pct: (price - prevClose) / prevClose * 100, abs: price - prevClose };
+                            done = true;
+                            break;
+                        }
                     }
                 }
             } catch (e) {}
         }
+        if (done) return;
+
+        // Fallback: brapi (preço; variação se vier).
+        try {
+            const brapiRes = await fetch(`https://brapi.dev/api/quote/${ticker}?token=guest`, {
+                headers: { 'User-Agent': 'Mozilla/5.0' }
+            });
+            if (brapiRes.ok) {
+                const data = await brapiRes.json();
+                const r = data?.results?.[0];
+                const price = r?.regularMarketPrice;
+                if (price) {
+                    prices[ticker] = parseFloat(price);
+                    if (r.regularMarketChangePercent != null) changes[ticker] = { pct: parseFloat(r.regularMarketChangePercent), abs: parseFloat(r.regularMarketChange) || 0 };
+                }
+            }
+        } catch (e) {}
     }));
 
     // Also fetch USD/BRL rate

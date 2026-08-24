@@ -71,6 +71,30 @@ export function useLivePrices(investments = [], enabled = true) {
                         } catch (e) { console.warn('Serverless fetch failed', e); }
                     } else {
                         await Promise.all(stockTickers.map(async (ticker) => {
+                            // Yahoo primário (inclui pré/pós-mercado) — mesma regra do serverless.
+                            try {
+                                const isProbablyBR = /\d/.test(ticker) || (ticker.length >= 5 && !ticker.includes('.'));
+                                const yahooTicker = isProbablyBR ? `${ticker}.SA` : ticker;
+                                const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooTicker}?interval=5m&range=1d&includePrePost=true`;
+                                const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    const result = data?.chart?.result?.[0];
+                                    const meta = result?.meta;
+                                    if (meta) {
+                                        const prevClose = meta.chartPreviousClose ?? meta.previousClose;
+                                        let price = meta.regularMarketPrice;
+                                        const closes = result?.indicators?.quote?.[0]?.close || [];
+                                        for (let i = closes.length - 1; i >= 0; i--) { if (closes[i] != null) { price = closes[i]; break; } }
+                                        if (price) {
+                                            newPrices[ticker] = parseFloat(price);
+                                            if (prevClose > 0) newChanges[ticker] = { pct: (price - prevClose) / prevClose * 100, abs: price - prevClose };
+                                            return;
+                                        }
+                                    }
+                                }
+                            } catch (e) { /* tenta fallback */ }
+                            // Fallback: brapi (preço; variação se vier).
                             try {
                                 const brapiRes = await fetch(`https://brapi.dev/api/quote/${ticker}`);
                                 if (brapiRes.ok) {
@@ -80,24 +104,6 @@ export function useLivePrices(investments = [], enabled = true) {
                                     if (price) {
                                         newPrices[ticker] = parseFloat(price);
                                         if (r.regularMarketChangePercent != null) newChanges[ticker] = { pct: parseFloat(r.regularMarketChangePercent), abs: parseFloat(r.regularMarketChange) || 0 };
-                                        return;
-                                    }
-                                }
-                            } catch (e) { /* tenta fallback */ }
-                            try {
-                                const isProbablyBR = /\d/.test(ticker) || (ticker.length >= 5 && !ticker.includes('.'));
-                                const yahooTicker = isProbablyBR ? `${ticker}.SA` : ticker;
-                                const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooTicker}`;
-                                const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    const meta = data?.chart?.result?.[0]?.meta;
-                                    const price = meta?.regularMarketPrice || meta?.previousClose;
-                                    const prev = meta?.chartPreviousClose || meta?.previousClose;
-                                    if (price) {
-                                        newPrices[ticker] = parseFloat(price);
-                                        if (prev > 0) newChanges[ticker] = { pct: (price - prev) / prev * 100, abs: price - prev };
-                                        return;
                                     }
                                 }
                             } catch (e) { /* ignora */ }
