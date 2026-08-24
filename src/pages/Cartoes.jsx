@@ -53,6 +53,7 @@ export default function Cartoes() {
     const [pagarOpen, setPagarOpen] = useState(false);
     const [detalhes, setDetalhes] = useState(null);   // 'assinaturas' | 'parcelas' | null
     const [historicoOpen, setHistoricoOpen] = useState(false); // faturas anteriores
+    const [openGroup, setOpenGroup] = useState('essential');    // accordion da fatura por tipo
 
     useEffect(() => {
         if (!uid) return;
@@ -92,6 +93,14 @@ export default function Cartoes() {
     ], [avulsas, subsOnCard, installmentsOnCard]);
 
     const faturaTotal = invoiceItems.reduce((a, it) => a + it.amount, 0);
+
+    // Fatura agrupada por tipo de gasto (Essencial / Conforto / Supérfluo).
+    const invoiceGroups = useMemo(() => ['essential', 'comfort', 'superfluous']
+        .map(pid => {
+            const list = invoiceItems.filter(it => (it.priority || 'comfort') === pid);
+            return { pid, meta: priorityMeta(pid), list, total: list.reduce((a, it) => a + it.amount, 0) };
+        })
+        .filter(g => g.list.length > 0), [invoiceItems]);
 
     // Faturas já pagas deste cartão (pra ver a fatura do mês anterior).
     const faturasPagas = useMemo(() => {
@@ -185,11 +194,19 @@ export default function Cartoes() {
                                         </button>
                                     )}
                                 </div>
-                                {dueInfo && (
-                                    <p className={`text-[13px] mt-0.5 ${muted}`}>
-                                        Vence em <span className="font-black text-rose-400">{dueInfo.days} {dueInfo.days === 1 ? 'dia' : 'dias'}</span> · {selected.dueDay} de {MESES[dueInfo.due.getMonth()].toLowerCase()}
-                                    </p>
-                                )}
+                                <div className="flex items-end justify-between gap-3 mt-0.5 flex-wrap">
+                                    {dueInfo ? (
+                                        <p className={`text-[13px] ${muted}`}>
+                                            Vence em <span className="font-black text-rose-400">{dueInfo.days} {dueInfo.days === 1 ? 'dia' : 'dias'}</span> · {selected.dueDay} de {MESES[dueInfo.due.getMonth()].toLowerCase()}
+                                        </p>
+                                    ) : <span />}
+                                    {faturasPagas.length > 0 && (
+                                        <button onClick={() => setHistoricoOpen(true)}
+                                            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                                            <History className="w-3.5 h-3.5" /> Faturas anteriores
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Métricas */}
@@ -210,63 +227,73 @@ export default function Cartoes() {
                             <CreditCard className="w-4 h-4 text-emerald-500" /> Fatura atual
                             <span className={`text-[11px] font-bold ${muted}`}>· {invoiceItems.length} lançamento{invoiceItems.length === 1 ? '' : 's'}</span>
                         </h2>
-                        <div className="flex items-center gap-2">
-                            {faturasPagas.length > 0 && (
-                                <button onClick={() => setHistoricoOpen(true)}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                                    <History className="w-3.5 h-3.5" /> Faturas anteriores
-                                </button>
-                            )}
-                            {selected && (
-                                <PillButton onClick={() => setBuyForm({ editing: null })} size="xs" color="rose">Lançar despesa</PillButton>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
-                        {invoiceItems.length === 0 ? (
-                            <div className="py-12 text-center">
-                                <ShoppingBag className={`w-7 h-7 mx-auto mb-2.5 ${muted}`} />
-                                <p className={`text-sm font-bold ${cell}`}>{selected ? 'Nenhum lançamento nesta fatura' : 'Nenhum cartão cadastrado'}</p>
-                                <p className={`text-xs mt-1 ${muted}`}>{selected ? 'Use “Nova compra” para lançar uma despesa, assinatura ou parcelamento.' : 'Cadastre um cartão para ver a fatura aqui.'}</p>
-                            </div>
-                        ) : (
-                            <>
-                                {invoiceItems.map((it, i) => {
-                                    const c = catMetaExp(it.category);
-                                    const hex = categoryHex(c);
-                                    const Icon = c.icon;
-                                    const pr = priorityMeta(it.priority);
-                                    const kb = KIND_BADGE(isDark)[it.kind];
-                                    const dateStr = it.date ? new Date(it.date).toLocaleDateString('pt-BR') : null;
-                                    const extra = it.kind === 'parcelamento' ? `Parcela ${it.parcela}` : it.kind === 'assinatura' ? 'Mensal' : null;
-                                    const sub = [dateStr, extra, c.label].filter(Boolean).join(' · ');
-                                    return (
-                                        <div key={it.kind + it.id} className={`group flex items-center gap-3 px-4 py-3 ${i ? `border-t ${isDark ? 'border-white/5' : 'border-slate-100'}` : ''}`}>
-                                            <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>
-                                                {Icon && <Icon className="w-4 h-4" />}
-                                            </span>
-                                            <div className="min-w-0 flex-1">
-                                                <div className="flex items-center gap-1.5">
-                                                    <p className={`font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{it.name || c.label}</p>
-                                                    <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${kb.cls}`}>{kb.label}</span>
-                                                </div>
-                                                <p className="text-[11px] mt-0.5">
-                                                    <span className={muted}>{sub} · </span>
-                                                    <span className={`font-bold ${pr.text}`}>{pr.label}</span>
-                                                </p>
-                                            </div>
-                                            <span className="font-black tabular-nums whitespace-nowrap text-rose-500">− R$ {money(it.amount)}</span>
-                                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
-                                                <button onClick={() => setBuyForm({ editing: it })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
-                                                <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, it.kind === 'despesa' ? 'transactions' : 'subscriptions', it.id))} />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </>
+                        {selected && (
+                            <PillButton onClick={() => setBuyForm({ editing: null })} size="xs" color="rose">Lançar despesa</PillButton>
                         )}
                     </div>
+
+                    {invoiceItems.length === 0 ? (
+                        <div className={`rounded-2xl border py-12 text-center ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
+                            <ShoppingBag className={`w-7 h-7 mx-auto mb-2.5 ${muted}`} />
+                            <p className={`text-sm font-bold ${cell}`}>{selected ? 'Nenhum lançamento nesta fatura' : 'Nenhum cartão cadastrado'}</p>
+                            <p className={`text-xs mt-1 ${muted}`}>{selected ? 'Use “Nova compra” para lançar uma despesa, assinatura ou parcelamento.' : 'Cadastre um cartão para ver a fatura aqui.'}</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {invoiceGroups.map(g => {
+                                const open = openGroup === g.pid;
+                                return (
+                                    <div key={g.pid} className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
+                                        {/* Cabeçalho do tipo (clicável — abre 1 por vez) */}
+                                        <button onClick={() => setOpenGroup(open ? null : g.pid)}
+                                            className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition ${isDark ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-50'}`}>
+                                            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${g.pid === 'essential' ? 'bg-emerald-500' : g.pid === 'comfort' ? 'bg-amber-500' : 'bg-rose-500'}`} />
+                                            <span className={`font-black ${g.meta.text}`}>{g.meta.label}</span>
+                                            <span className={`text-[11px] font-bold ${muted}`}>· {g.list.length} {g.list.length === 1 ? 'lançamento' : 'lançamentos'}</span>
+                                            <span className="ml-auto flex items-center gap-2.5">
+                                                <span className="font-black tabular-nums whitespace-nowrap text-rose-500">− R$ {money(g.total)}</span>
+                                                <ChevronDown className={`w-4 h-4 shrink-0 ${muted} transition-transform ${open ? 'rotate-180' : ''}`} />
+                                            </span>
+                                        </button>
+
+                                        {/* Itens do tipo */}
+                                        {open && (
+                                            <div className={`border-t ${isDark ? 'border-white/10' : 'border-slate-100'}`}>
+                                                {g.list.map((it, i) => {
+                                                    const c = catMetaExp(it.category);
+                                                    const hex = categoryHex(c);
+                                                    const Icon = c.icon;
+                                                    const kb = KIND_BADGE(isDark)[it.kind];
+                                                    const dateStr = it.date ? new Date(it.date).toLocaleDateString('pt-BR') : null;
+                                                    const extra = it.kind === 'parcelamento' ? `Parcela ${it.parcela}` : it.kind === 'assinatura' ? 'Mensal' : null;
+                                                    const sub = [dateStr, extra, c.label].filter(Boolean).join(' · ');
+                                                    return (
+                                                        <div key={it.kind + it.id} className={`group flex items-center gap-3 px-4 py-3 ${i ? `border-t ${isDark ? 'border-white/5' : 'border-slate-100'}` : ''}`}>
+                                                            <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>
+                                                                {Icon && <Icon className="w-4 h-4" />}
+                                                            </span>
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <p className={`font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{it.name || c.label}</p>
+                                                                    <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${kb.cls}`}>{kb.label}</span>
+                                                                </div>
+                                                                <p className={`text-[11px] mt-0.5 ${muted}`}>{sub}</p>
+                                                            </div>
+                                                            <span className="font-black tabular-nums whitespace-nowrap text-rose-500">− R$ {money(it.amount)}</span>
+                                                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
+                                                                <button onClick={() => setBuyForm({ editing: it })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                                                                <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, it.kind === 'despesa' ? 'transactions' : 'subscriptions', it.id))} />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
 
                     <div className={`mt-6 rounded-2xl border px-4 py-3.5 flex items-center gap-3 text-[13px] ${isDark ? 'border-white/10 bg-white/[0.02] text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
                         <Info className="w-4 h-4 shrink-0 text-emerald-500" />
