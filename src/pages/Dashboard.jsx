@@ -71,7 +71,9 @@ export default function Dashboard({ onNavigate }) {
 
     const saldo = useMemo(() => buildWalletLedger(tx, mk).finalBalance, [tx, mk]);
     const monthTx = useMemo(() => tx.filter(t => txMonthKey(t) === mk && t.paymentMethod !== 'credito'), [tx, mk]);
-    const ganhos = monthTx.filter(t => t.type === 'income').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+    // Transferências de reserva (cofre) e ajustes não são ganho/gasto reais.
+    const isTransferOrAdj = (t) => t.isTransfer || ['vault', 'vault_redemption', 'initial_balance', 'carryover'].includes(t.category);
+    const ganhos = monthTx.filter(t => t.type === 'income' && !isTransferOrAdj(t)).reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
 
     // Fatura do cartão em aberto (avulsas crédito + assinaturas/parcelas)
     const faturaAvulsa = tx.filter(t => t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
@@ -80,7 +82,7 @@ export default function Dashboard({ onNavigate }) {
 
     // Despesas consideradas (com ou sem a fatura, conforme config)
     const expenseTx = useMemo(() => {
-        const acct = monthTx.filter(t => t.type === 'expense');
+        const acct = monthTx.filter(t => t.type === 'expense' && !isTransferOrAdj(t));
         if (!cfg.incluirFatura) return acct;
         const credito = tx.filter(t => t.type === 'expense' && t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid');
         return [...acct, ...credito];

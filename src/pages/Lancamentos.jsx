@@ -75,8 +75,10 @@ export default function Lancamentos() {
             .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0) || (b.createdAt || 0) - (a.createdAt || 0)),
         [transactions, mk]);
 
-    const entradasMes = monthTx.filter(t => t.type === 'income').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
-    const despesasMes = monthTx.filter(t => t.type === 'expense').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+    // Transferências de reserva (cofre) não são entrada/despesa de verdade.
+    const isTransferTx = (t) => t.isTransfer || t.category === 'vault' || t.category === 'vault_redemption';
+    const entradasMes = monthTx.filter(t => t.type === 'income' && !isTransferTx(t)).reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+    const despesasMes = monthTx.filter(t => t.type === 'expense' && !isTransferTx(t)).reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
 
     // Compras no crédito ainda na fatura em aberto (opcional na listagem).
     const creditoAberto = useMemo(() =>
@@ -209,6 +211,8 @@ export default function Lancamentos() {
                             </div>
                             {items.map(t => {
                                 const income = t.type === 'income';
+                                // Transferência de reserva (cofre) — não é gasto/renda; mostra azul.
+                                const isTransfer = t.isTransfer || t.category === 'vault' || t.category === 'vault_redemption';
                                 const c = catMetaOf(income ? 'income' : 'expense', t.category);
                                 const hex = categoryHex(c);
                                 const Icon = c.icon;
@@ -225,7 +229,9 @@ export default function Lancamentos() {
                                                 <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${t.source === 'recorrente_baixa' ? 'bg-indigo-500/15 text-indigo-400' : (isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
                                                     {t.source === 'recorrente_baixa' ? 'Recorrente' : 'Avulso'}
                                                 </span>
-                                                {!income && (
+                                                {isTransfer ? (
+                                                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">Reserva · transferência</span>
+                                                ) : !income && (
                                                     <>
                                                         <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${pr.badge}`}>{pr.label}</span>
                                                         <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>{paymentLabel(t.paymentMethod)}</span>
@@ -233,7 +239,7 @@ export default function Lancamentos() {
                                                 )}
                                             </div>
                                         </div>
-                                        <span className={`font-black tabular-nums whitespace-nowrap ${income ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                        <span className={`font-black tabular-nums whitespace-nowrap ${isTransfer ? 'text-blue-400' : income ? 'text-emerald-500' : 'text-rose-500'}`}>
                                             {income ? '+' : '−'} R$ {money(t.amount)}
                                         </span>
                                         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">

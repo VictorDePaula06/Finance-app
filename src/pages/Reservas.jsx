@@ -312,6 +312,8 @@ function MoveForm({ isDark, uid, cdi, reserve, kind, onClose }) {
     const [amount, setAmount] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    // No aporte, por padrão NÃO desconta do saldo (dinheiro que já estava guardado).
+    const [naoDescontar, setNaoDescontar] = useState(true);
     const val = numBR(amount);
     const insufficient = !isDep && val > curVal + 0.005;
 
@@ -330,12 +332,19 @@ function MoveForm({ isDark, uid, cdi, reserve, kind, onClose }) {
             const newBalance = isDep ? curVal + val : curVal - val;
             const newInvested = isDep ? inv + val : Math.max(0, inv - val);
             await updateDoc(doc(db, 'savings_jars', reserve.id), { balance: newBalance, invested: newInvested, lastYieldAt: now, cdiPercent: reserve.cdiPercent || 100 });
-            await addDoc(collection(db, 'transactions'), {
-                description: `${isDep ? 'Aporte' : 'Resgate'} reserva: ${reserve.name || 'Reserva'}`,
-                amount: val, type: isDep ? 'expense' : 'income',
-                category: isDep ? 'vault' : 'vault_redemption',
-                date: iso, month: iso.slice(0, 7), userId: uid, createdAt: now, paymentMethod: 'pix', source: 'reserva', jarId: reserve.id,
-            });
+            // Aporte "não descontar" = dinheiro já guardado → só cresce a reserva,
+            // sem lançar nada na conta. Caso contrário, registra a TRANSFERÊNCIA
+            // (não é despesa; sai do saldo, aparece azul no extrato). Resgate sempre
+            // volta pro saldo.
+            const registrar = !isDep || !naoDescontar;
+            if (registrar) {
+                await addDoc(collection(db, 'transactions'), {
+                    description: `${isDep ? 'Aporte' : 'Resgate'} reserva: ${reserve.name || 'Reserva'}`,
+                    amount: val, type: isDep ? 'expense' : 'income',
+                    category: isDep ? 'vault' : 'vault_redemption',
+                    date: iso, month: iso.slice(0, 7), userId: uid, createdAt: now, paymentMethod: 'pix', source: 'reserva', jarId: reserve.id, isTransfer: true,
+                });
+            }
             onClose();
         } catch (err) { console.error(err); setError('Não foi possível concluir. Tente de novo.'); setSaving(false); }
     };
@@ -344,7 +353,9 @@ function MoveForm({ isDark, uid, cdi, reserve, kind, onClose }) {
         <Modal isDark={isDark} title={isDep ? 'Depositar na reserva' : 'Resgatar da reserva'} icon={isDep ? ArrowDownToLine : ArrowUpFromLine} iconCls={isDep ? 'bg-emerald-500/12 text-emerald-500' : 'bg-amber-500/12 text-amber-500'} onClose={onClose}>
             <div className="space-y-4">
                 <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                    {isDep ? <>Guardar em <span className="font-black">{reserve.name}</span> — sai do seu saldo em conta.</> : <>Resgatar de <span className="font-black">{reserve.name}</span> — volta pro seu saldo em conta.</>}
+                    {isDep
+                        ? <>Guardar em <span className="font-black">{reserve.name}</span>{naoDescontar ? ' — não mexe no seu saldo em conta.' : ' — sai do seu saldo em conta (como transferência).'}</>
+                        : <>Resgatar de <span className="font-black">{reserve.name}</span> — volta pro seu saldo em conta.</>}
                 </p>
                 <div>
                     <span className={`text-[11px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Valor</span>
@@ -357,6 +368,15 @@ function MoveForm({ isDark, uid, cdi, reserve, kind, onClose }) {
                     <div><p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Reserva agora</p><p className="font-black tabular-nums text-emerald-500">R$ {money(curVal)}</p></div>
                     <div className="text-right"><p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Depois</p><p className={`font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {money(isDep ? curVal + val : curVal - val)}</p></div>
                 </div>
+                {isDep && (
+                    <label className={`flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl border cursor-pointer transition ${naoDescontar ? 'border-emerald-500/40 bg-emerald-500/10' : (isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50')}`}>
+                        <input type="checkbox" checked={naoDescontar} onChange={e => setNaoDescontar(e.target.checked)} className="w-4 h-4 accent-emerald-500 mt-0.5" />
+                        <div>
+                            <p className={`text-[13px] font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Não descontar do meu saldo em conta</p>
+                            <p className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Marque se esse dinheiro <b>já estava guardado</b>. Desmarque só se estiver transferindo agora da conta (não é despesa; aparece azul no extrato).</p>
+                        </div>
+                    </label>
+                )}
                 {(error || insufficient) && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] font-bold text-center">{error || 'Valor maior que o saldo da reserva.'}</div>}
                 <div className="grid grid-cols-2 gap-2.5">
                     <button onClick={onClose} className={`py-3 rounded-xl font-bold text-sm ${isDark ? 'bg-white/5 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>Cancelar</button>
