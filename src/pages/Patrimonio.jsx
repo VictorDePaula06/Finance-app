@@ -99,6 +99,7 @@ export default function Patrimonio() {
     const uid = currentUser?.uid;
 
     const [investments, setInvestments] = useState([]);
+    const [watchlist, setWatchlist] = useState([]);
     const [form, setForm] = useState(null);
     const [cur, setCur] = useState(() => (typeof localStorage !== 'undefined' && localStorage.getItem(CUR_KEY)) || 'BRL');
     const [saved, setSaved] = useState(false);
@@ -108,12 +109,28 @@ export default function Patrimonio() {
 
     useEffect(() => {
         if (!uid) return;
-        return onSnapshot(query(collection(db, 'investments'), where('userId', '==', uid)),
-            (s) => setInvestments(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
+        const u1 = onSnapshot(query(collection(db, 'investments'), where('userId', '==', uid)),
+            (s) => setInvestments(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { });
+        const u2 = onSnapshot(query(collection(db, 'watchlist'), where('userId', '==', uid)),
+            (s) => setWatchlist(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { });
+        return () => { u1(); u2(); };
     }, [uid]);
 
-    // Cotações ao vivo (cripto/ações/ETFs/FIIs + câmbio USD).
-    const { livePrices } = useLivePrices(investments, true);
+    // Cotações ao vivo dos ativos DA CARTEIRA + da watchlist (só acompanhar).
+    const priceAssets = useMemo(() => [
+        ...investments,
+        ...watchlist.map(w => ({ type: w.type, symbol: w.symbol, isUSD: w.isUSD ?? (w.type === 'crypto'), quantity: 1 })),
+    ], [investments, watchlist]);
+    const { livePrices } = useLivePrices(priceAssets, true);
+
+    // Watchlist: incluir / editar / excluir ativos só para acompanhar.
+    const addWatch = async ({ symbol, type, name }) => {
+        const s = String(symbol || '').trim().toUpperCase();
+        if (!s) return;
+        await addDoc(collection(db, 'watchlist'), { symbol: s, type, name: name || '', isUSD: type === 'crypto', userId: uid, createdAt: Date.now() });
+    };
+    const updWatch = (id, data) => updateDoc(doc(db, 'watchlist', id), data);
+    const delWatch = (id) => deleteDoc(doc(db, 'watchlist', id));
 
     const total = useMemo(() => investments.reduce((a, x) => a + valueOf(x, livePrices), 0), [investments, livePrices]);
     const totalInvestido = useMemo(() => investments.reduce((a, x) => a + investedOf(x, livePrices), 0), [investments, livePrices]);
@@ -312,7 +329,8 @@ export default function Patrimonio() {
             </div>
 
             {form && <AtivoForm isDark={isDark} uid={uid} editing={form.editing} onClose={() => setForm(null)} />}
-            {monitorOpen && <MonitorModal isDark={isDark} investments={investments} prices={livePrices} onClose={() => setMonitorOpen(false)} />}
+            {monitorOpen && <MonitorModal isDark={isDark} investments={investments} watchlist={watchlist} prices={livePrices}
+                defaultCur={cur} onAdd={addWatch} onUpdate={updWatch} onDelete={delWatch} onClose={() => setMonitorOpen(false)} />}
         </div>
     );
 }
@@ -608,59 +626,157 @@ function Field({ label, children }) {
     return <label className="block"><span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">{label}</span>{children}</label>;
 }
 
-// ── Monitor de ativos: preços ao vivo dos ativos de mercado ─────────
-function MonitorModal({ isDark, investments, prices, onClose }) {
+// ── Monitor de ativos: preços ao vivo — carteira + watchlist ────────
+function MonitorModal({ isDark, investments, watchlist = [], prices, defaultCur = 'BRL', onAdd, onUpdate, onDelete, onClose }) {
     const rate = prices.USD || 5.4;
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
-    const rows = investments
+    const [cur, setCur] = useState(defaultCur);
+    const [addSym, setAddSym] = useState('');
+    const [addType, setAddType] = useState('crypto');
+    const [showSug, setShowSug] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const disp = (brl) => cur === 'USD' ? brl / rate : brl;
+    const sym = cur === 'USD' ? 'US$' : 'R$';
+
+    const sugList = (ASSET_SUGGESTIONS[addType] || []).filter(([s, n]) => {
+        const q = addSym.trim().toUpperCase();
+        if (!q) return true;
+        return s.startsWith(q) || s.includes(q) || n.toUpperCase().includes(q);
+    }).slice(0, 6);
+    const sugName = (ASSET_SUGGESTIONS[addType] || []).find(([s]) => s === addSym.trim().toUpperCase())?.[1] || '';
+
+    const owned = investments
         .filter(a => isMarket(a.type) && a.symbol)
         .map(a => {
             const unitBRL = currentUnit(a, prices) * (a.isUSD ? rate : 1);
             const buyBRL = (parseFloat(a.purchasePrice) || 0) * (a.isUSD ? rate : 1);
             const chg = buyBRL > 0 ? (unitBRL - buyBRL) / buyBRL * 100 : 0;
             return { a, unitBRL, chg, val: valueOf(a, prices) };
-        })
-        .sort((x, y) => y.val - x.val);
+        }).sort((x, y) => y.val - x.val);
+
+    const watch = watchlist.map(w => {
+        const pseudo = { type: w.type, symbol: w.symbol, isUSD: w.isUSD ?? (w.type === 'crypto'), quantity: 1 };
+        const unitBRL = currentUnit(pseudo, prices) * (pseudo.isUSD ? rate : 1);
+        return { w, unitBRL };
+    });
+
+    const add = async () => {
+        if (!addSym.trim()) return;
+        setBusy(true);
+        try { await onAdd({ symbol: addSym, type: addType, name: sugName }); setAddSym(''); } catch (e) { console.error(e); }
+        setBusy(false);
+    };
+
+    const inputCls = `w-full px-3 py-2.5 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
+    const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+
+    const PriceRow = ({ icon, sym: s, name, unitBRL, right }) => (
+        <div className="flex items-center gap-3 px-3.5 py-3">
+            {icon}
+            <div className="min-w-0 flex-1">
+                <p className={`font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{(s || '').toUpperCase()}</p>
+                <p className={`text-[11px] truncate ${muted}`}>{name}</p>
+            </div>
+            <div className="text-right shrink-0">
+                <p className={`font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>{unitBRL > 0 ? `${sym} ${money(disp(unitBRL))}` : '—'}</p>
+            </div>
+            {right}
+        </div>
+    );
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-lg max-h-[88vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
                 <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2.5">
                         <span className="w-9 h-9 rounded-xl bg-emerald-500/12 text-emerald-500 flex items-center justify-center shrink-0"><Activity className="w-5 h-5" strokeWidth={2.4} /></span>
                         <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Monitor de ativos</h2>
                     </div>
-                    <button onClick={onClose} className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}><X className="w-4 h-4" /></button>
+                    <div className="flex items-center gap-2">
+                        <div className={`flex items-center gap-0.5 p-0.5 rounded-lg ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                            {['BRL', 'USD'].map(c => (
+                                <button key={c} onClick={() => setCur(c)} className={`px-2 py-0.5 rounded-md text-[11px] font-black transition ${cur === c ? 'bg-emerald-500 text-white' : muted}`}>{c === 'BRL' ? 'R$' : 'US$'}</button>
+                            ))}
+                        </div>
+                        <button onClick={onClose} className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}><X className="w-4 h-4" /></button>
+                    </div>
                 </div>
                 <p className={`text-[12px] mb-4 flex items-center gap-1.5 ${muted}`}>
                     <span className="relative flex w-2 h-2"><span className="absolute inline-flex w-full h-full rounded-full bg-emerald-400 opacity-75 animate-ping" /><span className="relative inline-flex rounded-full w-2 h-2 bg-emerald-500" /></span>
-                    Ao vivo · cotações atualizam a cada ~2 min · US$ 1 = R$ {money(rate)}
+                    Ao vivo · atualiza a cada ~2 min · US$ 1 = R$ {money(rate)}
                 </p>
 
-                {rows.length === 0 ? (
-                    <p className={`text-center text-sm py-10 ${muted}`}>Nenhum ativo de mercado cadastrado.<br />Cadastre ações, ETFs, FIIs ou cripto para acompanhar aqui.</p>
-                ) : (
-                    <div className={`rounded-2xl border divide-y overflow-hidden ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
-                        {rows.map(({ a, unitBRL, chg, val }) => {
-                            const up = chg >= 0;
-                            return (
-                                <div key={a.id} className="flex items-center gap-3 px-3.5 py-3">
-                                    <AssetIcon symbol={a.symbol} type={a.type} name={a.name} size={38} />
-                                    <div className="min-w-0 flex-1">
-                                        <p className={`font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{(a.symbol || '').toUpperCase()}</p>
-                                        <p className={`text-[11px] truncate ${muted}`}>{a.name || typeMeta(a.type).label}</p>
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                        <p className={`font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>{unitBRL > 0 ? `R$ ${money(unitBRL)}` : '—'}</p>
-                                        <p className={`text-[11px] font-bold tabular-nums ${up ? 'text-emerald-500' : 'text-rose-500'}`}>{unitBRL > 0 ? `${up ? '+' : ''}${chg.toFixed(2)}%` : 'sem cotação'}</p>
-                                    </div>
+                {/* Adicionar ativo pra acompanhar */}
+                <div className={`rounded-2xl border p-3 mb-4 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'}`}>
+                    <p className={`text-[11px] font-black uppercase tracking-widest mb-2 ${muted}`}>Acompanhar novo ativo</p>
+                    <div className="flex gap-2">
+                        <select value={addType} onChange={e => { setAddType(e.target.value); setAddSym(''); }} className={`${inputCls} w-32 shrink-0`} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
+                            <option value="crypto" style={optStyle}>Cripto</option>
+                            <option value="acoes" style={optStyle}>Ações</option>
+                            <option value="etfs" style={optStyle}>ETFs</option>
+                            <option value="fiis" style={optStyle}>FIIs</option>
+                        </select>
+                        <div className="relative flex-1">
+                            {addSym.trim() && <span className="absolute left-2 top-1/2 -translate-y-1/2 z-10"><AssetIcon symbol={addSym} type={addType} size={20} /></span>}
+                            <input value={addSym} onChange={e => { setAddSym(e.target.value.toUpperCase().replace(/\s/g, '')); setShowSug(true); }}
+                                onFocus={() => setShowSug(true)} onBlur={() => setTimeout(() => setShowSug(false), 150)}
+                                onKeyDown={e => e.key === 'Enter' && add()} placeholder="Ticker (ex.: BTC)" className={`${inputCls} ${addSym.trim() ? 'pl-8' : ''}`} maxLength={10} />
+                            {showSug && sugList.length > 0 && (
+                                <div className={`absolute z-20 left-0 right-0 mt-1 rounded-xl border shadow-2xl overflow-hidden max-h-48 overflow-y-auto ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-200'}`}>
+                                    {sugList.map(([s, n]) => (
+                                        <button key={s} type="button" onMouseDown={ev => { ev.preventDefault(); setAddSym(s); setShowSug(false); }}
+                                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-left ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
+                                            <AssetIcon symbol={s} type={addType} name={n} size={24} />
+                                            <span className={`text-[13px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{s}</span>
+                                            <span className={`text-[12px] truncate ${muted}`}>{n}</span>
+                                        </button>
+                                    ))}
                                 </div>
-                            );
-                        })}
+                            )}
+                        </div>
+                        <button onClick={add} disabled={busy || !addSym.trim()} className="shrink-0 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-1 transition disabled:opacity-50">
+                            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" strokeWidth={2.6} />}
+                        </button>
                     </div>
+                </div>
+
+                {/* Watchlist */}
+                {watch.length > 0 && (
+                    <>
+                        <p className={`text-[11px] font-black uppercase tracking-widest mb-1.5 ${muted}`}>Acompanhando</p>
+                        <div className={`rounded-2xl border divide-y overflow-hidden mb-4 ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
+                            {watch.map(({ w, unitBRL }) => (
+                                <PriceRow key={w.id} icon={<AssetIcon symbol={w.symbol} type={w.type} name={w.name} size={38} />}
+                                    sym={w.symbol} name={w.name || typeMeta(w.type).label} unitBRL={unitBRL}
+                                    right={<button onClick={() => onDelete(w.id)} title="Remover" className={`p-1.5 rounded-lg text-slate-400 hover:text-rose-500 ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Trash2 className="w-4 h-4" /></button>} />
+                            ))}
+                        </div>
+                    </>
                 )}
-                <p className={`text-[11px] mt-3 ${muted}`}>A variação % é em relação ao seu preço de compra. Cripto via Binance; ações/ETFs/FIIs via brapi.</p>
+
+                {/* Meus ativos (carteira) */}
+                {owned.length > 0 && (
+                    <>
+                        <p className={`text-[11px] font-black uppercase tracking-widest mb-1.5 ${muted}`}>Meus ativos</p>
+                        <div className={`rounded-2xl border divide-y overflow-hidden ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
+                            {owned.map(({ a, unitBRL, chg }) => {
+                                const up = chg >= 0;
+                                return (
+                                    <PriceRow key={a.id} icon={<AssetIcon symbol={a.symbol} type={a.type} name={a.name} size={38} />}
+                                        sym={a.symbol} name={a.name || typeMeta(a.type).label} unitBRL={unitBRL}
+                                        right={<span className={`text-[11px] font-bold tabular-nums w-16 text-right ${up ? 'text-emerald-500' : 'text-rose-500'}`}>{unitBRL > 0 ? `${up ? '+' : ''}${chg.toFixed(2)}%` : '—'}</span>} />
+                                );
+                            })}
+                        </div>
+                    </>
+                )}
+
+                {watch.length === 0 && owned.length === 0 && (
+                    <p className={`text-center text-sm py-8 ${muted}`}>Adicione ativos acima para acompanhar os preços ao vivo — mesmo sem tê-los na carteira.</p>
+                )}
+
+                <p className={`text-[11px] mt-3 ${muted}`}>Cripto via Binance; ações/ETFs/FIIs via brapi. A variação % dos seus ativos é vs. o preço de compra.</p>
             </div>
         </div>
     );
