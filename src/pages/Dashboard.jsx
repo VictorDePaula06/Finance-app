@@ -9,7 +9,7 @@ import { getUsdRate } from '../utils/marketRates';
 import UserAvatar from '../components/UserAvatar';
 import {
     LayoutDashboard, Settings, TrendingUp, TrendingDown, Wallet, Eye, EyeOff,
-    PieChart as PieIcon, PiggyBank, Landmark, HeartPulse, ChevronRight, X, Check,
+    PieChart as PieIcon, PiggyBank, Landmark, HeartPulse, ChevronRight, X, Check, ListChecks, CreditCard,
 } from 'lucide-react';
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -47,6 +47,7 @@ export default function Dashboard({ onNavigate }) {
     const [fixExp, setFixExp] = useState([]);
     const [cfg, setCfg] = useState(() => { try { return { ...DEFAULT_CFG, ...JSON.parse(localStorage.getItem(CFG_KEY) || '{}') }; } catch { return DEFAULT_CFG; } });
     const [configOpen, setConfigOpen] = useState(false);
+    const [gastosOpen, setGastosOpen] = useState(false); // lista de gastos do mês
     const [hideSaldo, setHideSaldo] = useState(cfg.ocultarSaldo);
     const [usdRate, setUsdRate] = useState(5.4);
     const [patCur, setPatCur] = useState(() => { try { return localStorage.getItem('aliviaDashPatCur') || 'BRL'; } catch { return 'BRL'; } });
@@ -126,7 +127,9 @@ export default function Dashboard({ onNavigate }) {
 
     // Índice de saúde (pesos normalizados). Dívida é o 1º pilar — quem deve não
     // tem saúde financeira plena, então ela pesa e derruba o score.
-    const temDados = ganhos > 0 || temDivida;
+    // Calcula quando há QUALQUER dado relevante (renda, dívida, gastos ou reserva) —
+    // sem renda, os pilares de reserva/supérfluo ainda fazem sentido.
+    const temDados = ganhos > 0 || temDivida || gastos > 0 || reservaTotal > 0;
     const score = useMemo(() => {
         if (!temDados) return 0;
         const wD = 40, wR = 35, wSup = cfg.considerarSuperfluo ? 25 : 0;
@@ -172,7 +175,9 @@ export default function Dashboard({ onNavigate }) {
             {/* KPIs */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Kpi isDark={isDark} icon={TrendingUp} label="Ganhos no mês" value={`R$ ${money(ganhos)}`} sub="este mês" tone="emerald" />
-                <Kpi isDark={isDark} icon={TrendingDown} label="Gastos no mês" value={`R$ ${money(gastos)}`} sub={cfg.incluirFatura ? 'inclui fatura em aberto' : 'este mês'} tone="rose" />
+                <Kpi isDark={isDark} icon={TrendingDown} label="Gastos no mês" value={`R$ ${money(gastos)}`} sub={cfg.incluirFatura ? 'inclui fatura em aberto' : 'este mês'} tone="rose"
+                    action={<button onClick={() => setGastosOpen(true)} title="Ver lista de gastos" className={`p-1 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}><ListChecks className="w-4 h-4" /></button>} />
+
                 <Kpi isDark={isDark} icon={Wallet} label="Saldo disponível" value={hideSaldo ? 'R$ ••••' : `R$ ${money(saldo)}`} sub="disponível em conta" tone="blue"
                     action={<button onClick={() => setHideSaldo(h => !h)} className={muted}>{hideSaldo ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>} />
             </div>
@@ -287,6 +292,84 @@ export default function Dashboard({ onNavigate }) {
             </div>
 
             {configOpen && <ConfigModal isDark={isDark} cfg={cfg} onChange={saveCfg} onClose={() => setConfigOpen(false)} faturaTotal={faturaTotal} />}
+            {gastosOpen && <GastosModal isDark={isDark} itens={expenseTx} total={gastos} incluiFatura={cfg.incluirFatura} onClose={() => setGastosOpen(false)} />}
+        </div>
+    );
+}
+
+// Modal: lista dos gastos que compõem o "Gastos no mês" (conta + fatura em aberto).
+function GastosModal({ isDark, itens, total, incluiFatura, onClose }) {
+    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+    const conta = itens.filter(t => t.paymentMethod !== 'credito');
+    const fatura = itens.filter(t => t.paymentMethod === 'credito');
+    const sum = (arr) => arr.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+    const ordena = (arr) => [...arr].sort((a, b) => (parseFloat(b.amount) || 0) - (parseFloat(a.amount) || 0));
+
+    const Linha = ({ t }) => {
+        const c = catMeta(t.category);
+        const hex = categoryHex(c);
+        const Icon = c.icon;
+        const dateStr = t.date ? new Date(t.date).toLocaleDateString('pt-BR') : '';
+        return (
+            <div className="flex items-center gap-3 px-3.5 py-2.5">
+                <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>{Icon && <Icon className="w-4 h-4" />}</span>
+                <div className="min-w-0 flex-1">
+                    <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.description || c.label}</p>
+                    <p className={`text-[11px] ${muted}`}>{[dateStr, c.label].filter(Boolean).join(' · ')}</p>
+                </div>
+                <span className="text-[13px] font-black tabular-nums text-rose-500 whitespace-nowrap">− R$ {money(parseFloat(t.amount) || 0)}</span>
+            </div>
+        );
+    };
+
+    const Bloco = ({ titulo, lista, icone: Ic, cor }) => lista.length === 0 ? null : (
+        <div>
+            <div className="flex items-center justify-between mb-1.5">
+                <span className={`text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 ${cor}`}><Ic className="w-3.5 h-3.5" /> {titulo}</span>
+                <span className={`text-[12px] font-black tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>R$ {money(sum(lista))}</span>
+            </div>
+            <div className={`rounded-xl border divide-y overflow-hidden ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
+                {ordena(lista).map((t, i) => <Linha key={t.id || i} t={t} />)}
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className={`relative w-full max-w-lg max-h-[88vh] flex flex-col rounded-3xl border shadow-2xl ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+                <div className="flex items-center justify-between p-6 pb-4">
+                    <div className="flex items-center gap-2.5">
+                        <span className="w-9 h-9 rounded-xl bg-rose-500/12 text-rose-500 flex items-center justify-center shrink-0"><TrendingDown className="w-5 h-5" strokeWidth={2.4} /></span>
+                        <div>
+                            <h2 className={`text-lg font-black leading-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Gastos no mês</h2>
+                            <p className={`text-[12px] ${muted}`}>{itens.length} lançamento{itens.length === 1 ? '' : 's'} · total R$ {money(total)}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}><X className="w-4 h-4" /></button>
+                </div>
+                <div className="px-6 overflow-y-auto space-y-4 pb-2">
+                    {itens.length === 0 ? (
+                        <p className={`text-center text-sm py-8 ${muted}`}>Sem gastos neste mês. 🎉</p>
+                    ) : (
+                        <>
+                            <Bloco titulo="Pagos pela conta" lista={conta} icone={Wallet} cor="text-blue-400" />
+                            {incluiFatura && <Bloco titulo="Fatura do cartão (em aberto)" lista={fatura} icone={CreditCard} cor="text-amber-400" />}
+                        </>
+                    )}
+                </div>
+                <div className={`p-6 pt-4 mt-1 border-t ${isDark ? 'border-white/10' : 'border-slate-100'}`}>
+                    <div className="flex items-center justify-between">
+                        <span className={`text-[12px] font-black uppercase tracking-widest ${muted}`}>Total dos gastos</span>
+                        <span className="text-xl font-black tabular-nums text-rose-500">R$ {money(total)}</span>
+                    </div>
+                    <p className={`text-[11px] mt-2 ${muted}`}>
+                        {incluiFatura
+                            ? 'Soma o que saiu da conta + as compras avulsas na fatura do cartão em aberto. Assinaturas e parcelas do cartão não entram aqui (aparecem na fatura, em Meu cartão).'
+                            : 'Soma só o que saiu da conta neste mês. A fatura do cartão não está incluída (ajuste em Configurar).'}
+                    </p>
+                </div>
+            </div>
         </div>
     );
 }
