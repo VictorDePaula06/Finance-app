@@ -598,7 +598,14 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
     const ref = editing?.ref || {};
     const [tipo, setTipo] = useState(editing ? kindToTipo[editing.kind] : (initialTipo || 'avulsa'));
     const [description, setDescription] = useState(editing ? (ref.description || ref.name || '') : '');
-    const [amount, setAmount] = useState(editing ? String(ref.amount ?? ref.value ?? '').replace('.', ',') : '');
+    // Editando uma despesa avulsa, o valor vira "parcela somável" (campo de input
+    // fica vazio); nos demais tipos o valor fica no input normalmente.
+    const [amount, setAmount] = useState(editing ? (editing.kind === 'despesa' ? '' : String(ref.amount ?? ref.value ?? '').replace('.', ',')) : '');
+    const [parts, setParts] = useState(
+        editing?.kind === 'despesa'
+            ? (Array.isArray(ref.amountParts) && ref.amountParts.length > 1 ? ref.amountParts.map(Number) : [Number(ref.amount) || 0].filter(v => v > 0))
+            : []
+    );
     const [category, setCategory] = useState(editing ? (ref.category || 'shopping') : 'shopping');
     const [priority, setPriority] = useState(editing ? (ref.priority || 'comfort') : 'comfort');
     const [date, setDate] = useState(editing?.ref?.date ? String(editing.ref.date).slice(0, 10) : todayISO());
@@ -615,18 +622,31 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
     const rawVal = numBR(amount);
     const totalCompra = valueMode === 'total' ? rawVal : rawVal * nParc;
     const perParcela = valueMode === 'total' ? (nParc ? rawVal / nParc : 0) : rawVal;
+    // Avulsa: total = soma das parcelas guardadas + o valor ainda no input.
+    const avulsaTotal = parts.reduce((a, v) => a + (Number(v) || 0), 0) + rawVal;
+    const primaryVal = tipo === 'avulsa' ? avulsaTotal : rawVal;
+
+    const addPart = () => {
+        const v = numBR(amount);
+        if (v <= 0) return;
+        setParts(p => [...p, v]);
+        setAmount('');
+    };
+    const removePart = (i) => setParts(p => p.filter((_, idx) => idx !== i));
 
     const submit = async (e) => {
         e.preventDefault();
         setError('');
-        if (!description.trim() || rawVal <= 0) { setError('Preencha descrição e valor.'); return; }
+        if (!description.trim() || primaryVal <= 0) { setError('Preencha descrição e valor.'); return; }
         setSaving(true);
         try {
             if (isEdit) {
                 if (editing.kind === 'despesa') {
                     const iso = new Date(date + 'T12:00:00').toISOString();
+                    const allParts = [...parts, ...(rawVal > 0 ? [rawVal] : [])];
                     await updateDoc(doc(db, 'transactions', editing.id), {
-                        description: normalizeName(description), amount: rawVal, category, priority, date: iso, month: iso.slice(0, 7),
+                        description: normalizeName(description), amount: avulsaTotal, category, priority, date: iso, month: iso.slice(0, 7),
+                        amountParts: allParts.length > 1 ? allParts : null,
                     });
                 } else if (editing.kind === 'assinatura') {
                     await updateDoc(doc(db, 'subscriptions', editing.id), { name: normalizeName(description), value: rawVal, category, priority });
@@ -637,10 +657,12 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
                 }
             } else if (tipo === 'avulsa') {
                 const iso = new Date(date + 'T12:00:00').toISOString();
+                const allParts = [...parts, ...(rawVal > 0 ? [rawVal] : [])];
                 await addDoc(collection(db, 'transactions'), {
-                    description: normalizeName(description), amount: rawVal, type: 'expense',
+                    description: normalizeName(description), amount: avulsaTotal, type: 'expense',
                     category, priority, date: iso, month: iso.slice(0, 7), userId: uid, createdAt: Date.now(),
                     paymentMethod: 'credito', selectedCardId: card.id, invoiceStatus: 'unpaid',
+                    ...(allParts.length > 1 ? { amountParts: allParts } : {}),
                 });
             } else if (tipo === 'assinatura') {
                 await addDoc(collection(db, 'subscriptions'), {
@@ -659,7 +681,7 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
                 // descrição (vários parcelamentos com o mesmo nome, ex.: mesma loja);
                 // nos demais, limpa o nome pra a próxima compra.
                 againRef.current = false;
-                setAmount('');
+                setAmount(''); setParts([]);
                 if (tipo !== 'parcelamento') setDescription('');
                 setAdded(n => n + 1); setSaving(false);
             } else onClose();
@@ -702,10 +724,37 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
 
                 {/* Valores por tipo */}
                 {tipo === 'avulsa' && (
-                    <div className="grid grid-cols-2 gap-3">
-                        <Field label="Valor (R$)"><input inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
+                    <>
+                        <div>
+                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Valor{parts.length > 0 ? 'es' : ''} (R$)</span>
+                            <div className="flex gap-2">
+                                <input inputMode="decimal" value={amount}
+                                    onChange={e => setAmount(e.target.value.replace(/[^0-9.,]/g, ''))}
+                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addPart(); } }}
+                                    placeholder="0,00" className={inputCls} />
+                                <button type="button" onClick={addPart}
+                                    className="shrink-0 px-3 rounded-xl bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/25 font-bold text-sm flex items-center gap-1 transition active:scale-95">
+                                    <Plus className="w-4 h-4" strokeWidth={2.6} /> Somar
+                                </button>
+                            </div>
+                            <p className={`text-[11px] mt-1.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Some vários gastos numa compra só (ex.: 3 idas à padaria) que o total soma sozinho.</p>
+                            {parts.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                    {parts.map((v, i) => (
+                                        <span key={i} className={`inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-lg text-[12px] font-bold ${isDark ? 'bg-white/5 text-slate-200' : 'bg-slate-100 text-slate-700'}`}>
+                                            R$ {money(v)}
+                                            <button type="button" onClick={() => removePart(i)} className="w-4 h-4 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500"><X className="w-3 h-3" /></button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            <div className={`mt-2 flex items-center justify-between rounded-xl px-3.5 py-2.5 border ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-100'}`}>
+                                <span className={`text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total</span>
+                                <span className="font-black tabular-nums text-rose-500">− R$ {money(avulsaTotal)}</span>
+                            </div>
+                        </div>
                         <Field label="Data"><input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} style={{ colorScheme: isDark ? 'dark' : 'light' }} /></Field>
-                    </div>
+                    </>
                 )}
                 {tipo === 'assinatura' && (
                     <Field label="Valor mensal (R$)"><input inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
