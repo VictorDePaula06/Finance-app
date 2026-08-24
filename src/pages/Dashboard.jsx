@@ -85,9 +85,18 @@ export default function Dashboard({ onNavigate }) {
     const expenseTx = useMemo(() => {
         const acct = monthTx.filter(t => t.type === 'expense' && !isTransferOrAdj(t));
         if (!cfg.incluirFatura) return acct;
+        // Fatura em aberto = compras avulsas no crédito (coleção transactions)…
         const credito = tx.filter(t => t.type === 'expense' && t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid');
-        return [...acct, ...credito];
-    }, [monthTx, tx, cfg.incluirFatura]);
+        // …+ assinaturas e parcelamentos do cartão (coleção subscriptions), que
+        // também compõem a fatura mas não são "transactions". Sem isso, o total
+        // ficava bem menor que a fatura real do cartão.
+        const cardSubs = subs.filter(s => s.cardId).map(s => ({
+            id: `sub_${s.id}`, description: s.name || 'Cartão', amount: parseFloat(s.value) || 0,
+            category: s.category || 'other', priority: s.priority || 'comfort',
+            paymentMethod: 'credito', type: 'expense', date: null,
+        }));
+        return [...acct, ...credito, ...cardSubs];
+    }, [monthTx, tx, subs, cfg.incluirFatura]);
     const gastos = expenseTx.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
     const sobra = ganhos - gastos;
     const superfluo = expenseTx.filter(t => t.priority === 'superfluous').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
@@ -365,7 +374,7 @@ function GastosModal({ isDark, itens, total, incluiFatura, onClose }) {
                     </div>
                     <p className={`text-[11px] mt-2 ${muted}`}>
                         {incluiFatura
-                            ? 'Soma o que saiu da conta + as compras avulsas na fatura do cartão em aberto. Assinaturas e parcelas do cartão não entram aqui (aparecem na fatura, em Meu cartão).'
+                            ? 'Soma o que saiu da conta + toda a fatura do cartão em aberto: compras avulsas, assinaturas e a parcela do mês de cada parcelamento.'
                             : 'Soma só o que saiu da conta neste mês. A fatura do cartão não está incluída (ajuste em Configurar).'}
                     </p>
                 </div>
