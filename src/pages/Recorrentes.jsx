@@ -88,6 +88,7 @@ export default function Recorrentes() {
     const [incomes, setIncomes] = useState([]);
     const [expenses, setExpenses] = useState([]);
     const [transactions, setTransactions] = useState([]);
+    const [cardSubs, setCardSubs] = useState([]); // assinaturas/parcelamentos no cartão
     const [form, setForm] = useState(null);   // { kind, editing }
     const [baixa, setBaixa] = useState(null);  // { kind, rec }
     const [chooser, setChooser] = useState(false); // janela de escolha entrada/despesa
@@ -100,7 +101,9 @@ export default function Recorrentes() {
             (s) => setExpenses(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
         const unsubT = onSnapshot(query(collection(db, 'transactions'), where('userId', '==', uid)),
             (s) => setTransactions(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
-        return () => { unsubI(); unsubE(); unsubT(); };
+        const unsubS = onSnapshot(query(collection(db, 'subscriptions'), where('userId', '==', uid)),
+            (s) => setCardSubs(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
+        return () => { unsubI(); unsubE(); unsubT(); unsubS(); };
     }, [uid]);
 
     // Saldo em conta (derivado — soma das transações).
@@ -111,11 +114,32 @@ export default function Recorrentes() {
         .sort((a, b) => (a.day || 0) - (b.day || 0));
 
     const incomeRows = useMemo(() => withStatus(incomes), [incomes, transactions, mk]);
-    const expenseRows = useMemo(() => withStatus(expenses), [expenses, transactions, mk]);
+    const expenseRowsFix = useMemo(() => withStatus(expenses), [expenses, transactions, mk]);
+
+    // Assinaturas e parcelamentos lançados no CARTÃO. Aparecem aqui como despesas
+    // recorrentes (só pra visualizar e somar) — a baixa é na fatura do cartão, então
+    // não têm ação de "dar baixa"/editar/excluir aqui (status "no cartão").
+    const cardRecurringRows = useMemo(() => cardSubs
+        .filter(s => s.cardId)
+        .map(s => {
+            const isInst = s.type === 'installment' || s.isInstallment;
+            return {
+                id: `card_${s.id}`, name: s.name || (isInst ? 'Parcelamento' : 'Assinatura'),
+                value: parseFloat(s.value) || 0, category: s.category || 'conta_fixa',
+                day: s.day || 1, isVariable: false, onCard: true, status: 'cartao',
+                cardKind: isInst ? 'parcelamento' : 'assinatura',
+                parcela: isInst ? `${s.currentInstallment || 1}/${s.totalInstallments || 1}` : null,
+            };
+        })
+        .sort((a, b) => (a.day || 0) - (b.day || 0)),
+        [cardSubs]);
+
+    // Fixos primeiro, depois os do cartão (read-only).
+    const expenseRows = useMemo(() => [...expenseRowsFix, ...cardRecurringRows], [expenseRowsFix, cardRecurringRows]);
 
     const totalEntradas = incomeRows.reduce((a, r) => a + (parseFloat(r.value) || 0), 0);
     const totalDespesas = expenseRows.reduce((a, r) => a + (parseFloat(r.value) || 0), 0);
-    const pendenteDespesas = expenseRows.filter(r => r.status !== 'pago').reduce((a, r) => a + (parseFloat(r.value) || 0), 0);
+    const pendenteDespesas = expenseRowsFix.filter(r => r.status !== 'pago').reduce((a, r) => a + (parseFloat(r.value) || 0), 0);
 
     const history = useMemo(() =>
         transactions
@@ -254,14 +278,20 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, wra
                                                         {Icon && <Icon className="w-4 h-4" />}
                                                     </span>
                                                     <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{r.name}</span>
-                                                    {!income && r.category === 'divida' && (
+                                                    {!income && r.category === 'divida' && !r.onCard && (
                                                         <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-400 flex items-center gap-1">
                                                             <AlertTriangle className="w-2.5 h-2.5" /> Dívida
                                                         </span>
                                                     )}
-                                                    <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
-                                                        {r.isVariable ? 'Variável' : 'Fixo'}
-                                                    </span>
+                                                    {r.onCard ? (
+                                                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">
+                                                            {r.cardKind === 'parcelamento' ? `Parcela ${r.parcela}` : 'Assinatura'} · cartão
+                                                        </span>
+                                                    ) : (
+                                                        <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                                            {r.isVariable ? 'Variável' : 'Fixo'}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className={`px-4 py-3.5 hidden sm:table-cell ${cell}`}>{c.label}</td>
@@ -272,7 +302,11 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, wra
                                             <td className="px-4 py-3.5 text-center"><StatusBadge status={r.status} isDark={isDark} doneLabel={cfg.doneLabel} /></td>
                                             <td className="px-4 py-3.5">
                                                 <div className="flex items-center justify-end gap-1.5">
-                                                    {r.status !== 'pago' ? (
+                                                    {r.onCard ? (
+                                                        <span className={`text-[11px] font-bold flex items-center gap-1 mr-1 ${muted}`} title="Baixa é feita ao pagar a fatura do cartão">
+                                                            <Info className="w-3.5 h-3.5" /> Na fatura do cartão
+                                                        </span>
+                                                    ) : r.status !== 'pago' ? (
                                                         <button onClick={() => onBaixa(r)}
                                                             className={`px-3 py-1.5 rounded-lg text-[12px] font-bold border transition active:scale-95 ${income
                                                                 ? (isDark ? 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10' : 'border-emerald-500/40 text-emerald-600 hover:bg-emerald-50')
@@ -282,8 +316,8 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, wra
                                                     ) : (
                                                         <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-1 mr-1"><CheckCircle2 className="w-3.5 h-3.5" /> {cfg.doneLabel}</span>
                                                     )}
-                                                    <button onClick={() => onEdit(r)} title="Editar" className={`p-2 rounded-lg ${muted} hover:${cell} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-4 h-4" /></button>
-                                                    <DeleteBtn isDark={isDark} disabled={r.status === 'pago'} onDelete={() => onDelete(r)} />
+                                                    {!r.onCard && <button onClick={() => onEdit(r)} title="Editar" className={`p-2 rounded-lg ${muted} hover:${cell} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-4 h-4" /></button>}
+                                                    {!r.onCard && <DeleteBtn isDark={isDark} disabled={r.status === 'pago'} onDelete={() => onDelete(r)} />}
                                                 </div>
                                             </td>
                                         </tr>
@@ -375,6 +409,7 @@ function StatusBadge({ status, isDark, doneLabel = 'Pago' }) {
         pago: { label: doneLabel, cls: 'bg-emerald-500/12 text-emerald-500 border-emerald-500/20' },
         pendente: { label: 'Pendente', cls: isDark ? 'bg-white/5 text-slate-400 border-white/10' : 'bg-slate-100 text-slate-500 border-slate-200' },
         atrasado: { label: 'Atrasado', cls: 'bg-rose-500/12 text-rose-500 border-rose-500/20' },
+        cartao: { label: 'Na fatura', cls: 'bg-blue-500/12 text-blue-400 border-blue-500/20' },
     }[status];
     return <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full border ${map.cls}`}>{map.label}</span>;
 }

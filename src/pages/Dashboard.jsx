@@ -114,12 +114,12 @@ export default function Dashboard({ onNavigate }) {
     const patrAtualDisp = patrAtual / curDiv;
     const patrLiquidoDisp = patrimonioLiquido / curDiv;
 
-    // Dívidas mensais: contas recorrentes marcadas como "dívida" + parcelamentos.
-    const dividaMensal = useMemo(() => {
-        const rec = fixExp.filter(f => f.category === 'divida').reduce((a, f) => a + (parseFloat(f.value) || 0), 0);
-        const parc = subs.filter(s => s.type === 'installment' || s.isInstallment).reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
-        return rec + parc;
-    }, [fixExp, subs]);
+    // Dívidas mensais: SÓ contas recorrentes marcadas explicitamente como "dívida".
+    // Parcelas de cartão NÃO são dívida — são itens da fatura futura (ainda não venceu),
+    // então não entram aqui nem derrubam o índice de saúde.
+    const dividaMensal = useMemo(() =>
+        fixExp.filter(f => f.category === 'divida').reduce((a, f) => a + (parseFloat(f.value) || 0), 0),
+        [fixExp]);
     const temDivida = dividaMensal > 0.005;
     const dividaRatio = ganhos > 0 ? dividaMensal / ganhos : (temDivida ? 1 : 0);
     const dividaPct = temDivida ? clamp((1 - clamp(dividaRatio / 0.30, 0, 1)) * 100, 0, 100) : 100;

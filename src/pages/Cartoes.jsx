@@ -9,7 +9,7 @@ import {
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import {
     Plus, Pencil, Trash2, X, Loader2, Check, Info,
-    CreditCard, Calendar, CalendarCheck, Landmark, Wallet, ShoppingBag, ChevronRight, Layers,
+    CreditCard, Calendar, CalendarCheck, Landmark, Wallet, ShoppingBag, ChevronRight, ChevronDown, Layers, History,
 } from 'lucide-react';
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -52,6 +52,7 @@ export default function Cartoes() {
     const [buyForm, setBuyForm] = useState(null);     // { editing } | null
     const [pagarOpen, setPagarOpen] = useState(false);
     const [detalhes, setDetalhes] = useState(null);   // 'assinaturas' | 'parcelas' | null
+    const [historicoOpen, setHistoricoOpen] = useState(false); // faturas anteriores
 
     useEffect(() => {
         if (!uid) return;
@@ -91,6 +92,14 @@ export default function Cartoes() {
     ], [avulsas, subsOnCard, installmentsOnCard]);
 
     const faturaTotal = invoiceItems.reduce((a, it) => a + it.amount, 0);
+
+    // Faturas já pagas deste cartão (pra ver a fatura do mês anterior).
+    const faturasPagas = useMemo(() => {
+        if (!selected) return [];
+        return transactions
+            .filter(t => t.category === 'credit_card_bill' && t.selectedCardId === selected.id)
+            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    }, [transactions, selected]);
     const limite = Number(selected?.limit) || 0;
     const disponivel = limite ? Math.max(0, limite - faturaTotal) : 0;
     const usoPct = limite ? Math.min(100, (faturaTotal / limite) * 100) : 0;
@@ -201,9 +210,17 @@ export default function Cartoes() {
                             <CreditCard className="w-4 h-4 text-emerald-500" /> Fatura atual
                             <span className={`text-[11px] font-bold ${muted}`}>· {invoiceItems.length} lançamento{invoiceItems.length === 1 ? '' : 's'}</span>
                         </h2>
-                        {selected && (
-                            <PillButton onClick={() => setBuyForm({ editing: null })} size="xs" color="rose">Lançar despesa</PillButton>
-                        )}
+                        <div className="flex items-center gap-2">
+                            {faturasPagas.length > 0 && (
+                                <button onClick={() => setHistoricoOpen(true)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                                    <History className="w-3.5 h-3.5" /> Faturas anteriores
+                                </button>
+                            )}
+                            {selected && (
+                                <PillButton onClick={() => setBuyForm({ editing: null })} size="xs" color="rose">Lançar despesa</PillButton>
+                            )}
+                        </div>
                     </div>
 
                     <div className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
@@ -258,9 +275,10 @@ export default function Cartoes() {
             </div>
 
             {cardForm && <CardForm isDark={isDark} uid={uid} editing={cardForm.editing} onClose={() => setCardForm(null)} onSaved={(id) => setSelectedId(id)} />}
-            {buyForm && selected && <BuyForm isDark={isDark} uid={uid} card={selected} editing={buyForm.editing} onClose={() => setBuyForm(null)} />}
+            {buyForm && selected && <BuyForm isDark={isDark} uid={uid} card={selected} editing={buyForm.editing} onClose={() => setBuyForm(null)} allowAddAnother />}
             {pagarOpen && selected && <PagarFaturaModal isDark={isDark} uid={uid} card={selected} items={invoiceItems} total={faturaTotal} onClose={() => setPagarOpen(false)} />}
             {detalhes && <DetalhesModal isDark={isDark} tipo={detalhes} subs={subsOnCard} installments={installmentsOnCard} onClose={() => setDetalhes(null)} />}
+            {historicoOpen && <FaturasAnterioresModal isDark={isDark} card={selected} faturas={faturasPagas} onClose={() => setHistoricoOpen(false)} />}
         </div>
     );
 }
@@ -380,6 +398,73 @@ function DetalhesModal({ isDark, tipo, subs, installments, onClose, onEdit }) {
                                     <p className={`text-[11px] ${muted}`}>{isAss ? 'Mensal' : `Parcela ${parc}`} · {c.label}</p>
                                 </div>
                                 <span className={`font-black tabular-nums text-rose-500 whitespace-nowrap`}>R$ {money(parseFloat(s.value) || 0)}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </Modal>
+    );
+}
+
+// ── Modal: faturas anteriores (histórico de pagamentos com itens) ───
+const MESES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const faturaMesLabel = (t) => {
+    const mk = t.invoiceMonthPaid || (t.month) || (t.date ? String(t.date).slice(0, 7) : '');
+    const [y, m] = String(mk).split('-').map(Number);
+    if (!y || !m) return 'Fatura';
+    return `${MESES_ABREV[m - 1]}/${y}`;
+};
+const KIND_BADGE_S = { despesa: { label: 'Despesa', cls: 'bg-slate-500/15 text-slate-400' }, assinatura: { label: 'Assinatura', cls: 'bg-purple-500/15 text-purple-400' }, parcelamento: { label: 'Parcelamento', cls: 'bg-blue-500/15 text-blue-400' } };
+
+function FaturasAnterioresModal({ isDark, card, faturas, onClose }) {
+    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+    const [openId, setOpenId] = useState(faturas[0]?.id || null);
+    return (
+        <Modal isDark={isDark} title="Faturas anteriores" icon={History} iconCls="bg-emerald-500/12 text-emerald-500" onClose={onClose}>
+            <p className={`text-[12px] mb-3 ${muted}`}>Faturas já pagas do cartão <span className="text-emerald-500 font-bold">{card?.name || 'cartão'}</span>.</p>
+            {faturas.length === 0 ? (
+                <p className={`text-center text-sm py-6 ${muted}`}>Nenhuma fatura paga ainda.</p>
+            ) : (
+                <div className="space-y-2">
+                    {faturas.map(f => {
+                        const open = openId === f.id;
+                        const snap = Array.isArray(f.invoiceSnapshot) ? f.invoiceSnapshot : [];
+                        const paidStr = f.date ? new Date(f.date).toLocaleDateString('pt-BR') : '';
+                        return (
+                            <div key={f.id} className={`rounded-xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
+                                <button onClick={() => setOpenId(open ? null : f.id)} className="w-full flex items-center gap-3 px-3.5 py-3 text-left">
+                                    <span className="w-9 h-9 rounded-xl bg-amber-500/12 text-amber-500 flex items-center justify-center shrink-0"><CreditCard className="w-4 h-4" /></span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className={`font-black capitalize ${isDark ? 'text-white' : 'text-slate-800'}`}>Fatura {faturaMesLabel(f)}</p>
+                                        <p className={`text-[11px] ${muted}`}>Paga em {paidStr} · {snap.length || f.invoiceItemCount || 0} itens</p>
+                                    </div>
+                                    <span className="font-black tabular-nums text-rose-500 whitespace-nowrap">R$ {money(parseFloat(f.amount) || 0)}</span>
+                                    <ChevronDown className={`w-4 h-4 shrink-0 ${muted} transition-transform ${open ? 'rotate-180' : ''}`} />
+                                </button>
+                                {open && snap.length > 0 && (
+                                    <div className={`divide-y border-t ${isDark ? 'divide-white/5 border-white/10' : 'divide-slate-100 border-slate-100'}`}>
+                                        {snap.map((it, i) => {
+                                            const c = catMetaExp(it.category);
+                                            const kb = KIND_BADGE_S[it.kind] || KIND_BADGE_S.despesa;
+                                            return (
+                                                <div key={i} className="flex items-center gap-2.5 px-3.5 py-2.5">
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{it.name || c.label}</p>
+                                                            <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${kb.cls}`}>{kb.label}</span>
+                                                        </div>
+                                                        <p className={`text-[11px] ${muted}`}>{[it.parcela ? `Parcela ${it.parcela}` : null, c.label].filter(Boolean).join(' · ')}</p>
+                                                    </div>
+                                                    <span className="text-[13px] font-black tabular-nums text-rose-500 whitespace-nowrap">R$ {money(it.amount)}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                                {open && snap.length === 0 && (
+                                    <p className={`px-3.5 py-3 text-[12px] border-t ${isDark ? 'text-slate-500 border-white/10' : 'text-slate-400 border-slate-100'}`}>Sem detalhamento de itens para esta fatura.</p>
+                                )}
                             </div>
                         );
                     })}
@@ -570,9 +655,13 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
                 });
             }
             if (!isEdit && againRef.current) {
-                // "Salvar e adicionar outra": limpa descrição/valor e mantém aberto.
+                // "Adicionar outra": mantém o form aberto. No parcelamento, PRESERVA a
+                // descrição (vários parcelamentos com o mesmo nome, ex.: mesma loja);
+                // nos demais, limpa o nome pra a próxima compra.
                 againRef.current = false;
-                setDescription(''); setAmount(''); setAdded(n => n + 1); setSaving(false);
+                setAmount('');
+                if (tipo !== 'parcelamento') setDescription('');
+                setAdded(n => n + 1); setSaving(false);
             } else onClose();
         } catch (err) { console.error(err); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
     };
@@ -711,13 +800,19 @@ function PagarFaturaModal({ isDark, uid, card, items, total, onClose }) {
             const now = new Date();
             const iso = now.toISOString();
             const mk = iso.slice(0, 7);
+            // Snapshot itemizado da fatura paga (pra consultar em "Faturas anteriores").
+            const snapshot = items.map(it => ({
+                kind: it.kind, name: it.name || '', amount: it.amount || 0,
+                category: it.category || null, parcela: it.parcela || null,
+            }));
             // Pagamento debita o saldo (pix / não-crédito).
             await addDoc(collection(db, 'transactions'), {
                 description: `Pagamento de fatura · ${card.name || 'cartão'}`, amount: total, type: 'expense',
                 category: 'credit_card_bill', date: iso, month: mk, userId: uid, createdAt: Date.now(),
                 paymentMethod: 'pix', selectedCardId: card.id, invoiceMonthPaid: mk, priority: 'essential',
+                invoiceSnapshot: snapshot, invoiceItemCount: snapshot.length,
             });
-            for (const it of despesas) await updateDoc(doc(db, 'transactions', it.id), { invoiceStatus: 'paid' });
+            for (const it of despesas) await updateDoc(doc(db, 'transactions', it.id), { invoiceStatus: 'paid', invoiceMonthPaid: mk });
             for (const it of parcelas) {
                 const cur = (it.ref.currentInstallment || 1);
                 const tot = (it.ref.totalInstallments || 1);
