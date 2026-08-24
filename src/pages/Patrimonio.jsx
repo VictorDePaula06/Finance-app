@@ -41,10 +41,20 @@ const ASSET_TYPES = [
 const typeMeta = (id) => ASSET_TYPES.find(t => t.id === id) || { label: 'Outro', market: false };
 const isMarket = (type) => !!typeMeta(type).market;
 
+// Moeda do ativo acompanhado: cripto (Binance USDT) e ações AMERICANAS são em
+// dólar. Ticker da B3 termina em dígito (PETR4, VALE3, IVVB11); ticker dos EUA
+// é só letras (NVDA, AAPL, TSLA) → cotação em USD.
+const guessUSD = (type, symbol) => {
+    if (type === 'crypto') return true;
+    if (type === 'acoes') return !/\d$/.test(String(symbol || '').trim());
+    return false; // ETFs/FIIs da B3 são em reais
+};
+
 // Sugestões de ativos populares por classe (para o autocomplete com ícone).
 const ASSET_SUGGESTIONS = {
     crypto: [['BTC', 'Bitcoin'], ['ETH', 'Ethereum'], ['USDT', 'Tether'], ['BNB', 'BNB'], ['SOL', 'Solana'], ['XRP', 'XRP'], ['ADA', 'Cardano'], ['DOGE', 'Dogecoin'], ['AVAX', 'Avalanche'], ['MATIC', 'Polygon'], ['DOT', 'Polkadot'], ['LINK', 'Chainlink'], ['LTC', 'Litecoin'], ['SHIB', 'Shiba Inu'], ['TRX', 'TRON'], ['UNI', 'Uniswap']],
-    acoes: [['PETR4', 'Petrobras'], ['VALE3', 'Vale'], ['ITUB4', 'Itaú'], ['BBDC4', 'Bradesco'], ['BBAS3', 'Banco do Brasil'], ['ABEV3', 'Ambev'], ['B3SA3', 'B3'], ['WEGE3', 'WEG'], ['MGLU3', 'Magazine Luiza'], ['ITSA4', 'Itaúsa'], ['RENT3', 'Localiza'], ['SUZB3', 'Suzano'], ['RADL3', 'Raia Drogasil'], ['PRIO3', 'PetroRio']],
+    acoes: [['PETR4', 'Petrobras'], ['VALE3', 'Vale'], ['ITUB4', 'Itaú'], ['BBDC4', 'Bradesco'], ['BBAS3', 'Banco do Brasil'], ['ABEV3', 'Ambev'], ['B3SA3', 'B3'], ['WEGE3', 'WEG'], ['MGLU3', 'Magazine Luiza'], ['ITSA4', 'Itaúsa'], ['RENT3', 'Localiza'], ['SUZB3', 'Suzano'], ['RADL3', 'Raia Drogasil'], ['PRIO3', 'PetroRio'],
+        ['NVDA', 'NVIDIA (EUA)'], ['AAPL', 'Apple (EUA)'], ['TSLA', 'Tesla (EUA)'], ['AMZN', 'Amazon (EUA)'], ['MSFT', 'Microsoft (EUA)'], ['GOOGL', 'Alphabet (EUA)'], ['META', 'Meta (EUA)'], ['AMD', 'AMD (EUA)'], ['KO', 'Coca-Cola (EUA)'], ['DIS', 'Disney (EUA)']],
     etfs: [['IVVB11', 'S&P 500'], ['BOVA11', 'Ibovespa'], ['SMAL11', 'Small Caps'], ['HASH11', 'Cripto (Hashdex)'], ['NASD11', 'Nasdaq 100'], ['GOLD11', 'Ouro']],
     fiis: [['MXRF11', 'Maxi Renda'], ['HGLG11', 'CSHG Logística'], ['KNRI11', 'Kinea'], ['XPML11', 'XP Malls'], ['HGRU11', 'CSHG Renda Urbana'], ['VISC11', 'Vinci Shopping'], ['KNCR11', 'Kinea CRI'], ['BTLG11', 'BTG Logística']],
 };
@@ -119,7 +129,7 @@ export default function Patrimonio() {
     // Cotações ao vivo dos ativos DA CARTEIRA + da watchlist (só acompanhar).
     const priceAssets = useMemo(() => [
         ...investments,
-        ...watchlist.map(w => ({ type: w.type, symbol: w.symbol, isUSD: w.isUSD ?? (w.type === 'crypto'), quantity: 1 })),
+        ...watchlist.map(w => ({ type: w.type, symbol: w.symbol, isUSD: guessUSD(w.type, w.symbol), quantity: 1 })),
     ], [investments, watchlist]);
     const { livePrices } = useLivePrices(priceAssets, true);
 
@@ -127,7 +137,7 @@ export default function Patrimonio() {
     const addWatch = async ({ symbol, type, name }) => {
         const s = String(symbol || '').trim().toUpperCase();
         if (!s) return;
-        await addDoc(collection(db, 'watchlist'), { symbol: s, type, name: name || '', isUSD: type === 'crypto', userId: uid, createdAt: Date.now() });
+        await addDoc(collection(db, 'watchlist'), { symbol: s, type, name: name || '', isUSD: guessUSD(type, s), userId: uid, createdAt: Date.now() });
     };
     const updWatch = (id, data) => updateDoc(doc(db, 'watchlist', id), data);
     const delWatch = (id) => deleteDoc(doc(db, 'watchlist', id));
@@ -655,8 +665,9 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, defaultCur 
         }).sort((x, y) => y.val - x.val);
 
     const watch = watchlist.map(w => {
-        const pseudo = { type: w.type, symbol: w.symbol, isUSD: w.isUSD ?? (w.type === 'crypto'), quantity: 1 };
-        const unitBRL = currentUnit(pseudo, prices) * (pseudo.isUSD ? rate : 1);
+        const isUSD = guessUSD(w.type, w.symbol);
+        const pseudo = { type: w.type, symbol: w.symbol, isUSD, quantity: 1 };
+        const unitBRL = currentUnit(pseudo, prices) * (isUSD ? rate : 1);
         return { w, unitBRL };
     });
 
