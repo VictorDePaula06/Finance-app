@@ -265,13 +265,17 @@ export function ReservaForm({ isDark, uid, cdi, editing, onClose, skipLedger = f
                     name: normalizeName(name), target: numBR(target) || null, cdiPercent: pct || 100,
                     balance: init, invested: init, lastYieldAt: now, type: 'reserva', userId: uid, createdAt: now,
                 });
-                // Só debita a conta se o usuário DESMARCAR "não descontar"
-                // (onboarding força skipLedger). Padrão: reserva já existente.
-                if (init > 0 && !skipLedger && !naoDescontar) {
+                // Registra o valor inicial como o 1º APORTE (aparece na lista de
+                // aportes da reserva). Só debita a conta se o usuário DESMARCAR
+                // "não descontar" (onboarding força skipLedger, que nunca desconta).
+                // "não descontar" → aporte interno: não mexe no saldo nem no extrato.
+                if (init > 0) {
                     const iso = new Date(now).toISOString();
+                    const desconta = !skipLedger && !naoDescontar;
                     await addDoc(collection(db, 'transactions'), {
-                        description: `Reserva: ${normalizeName(name)}`, amount: init, type: 'expense', category: 'vault',
-                        date: iso, month: iso.slice(0, 7), userId: uid, createdAt: now, paymentMethod: 'pix', source: 'reserva', jarId: ref.id,
+                        description: `Aporte reserva: ${normalizeName(name)}`, amount: init, type: 'expense', category: 'vault',
+                        date: iso, month: iso.slice(0, 7), userId: uid, createdAt: now, paymentMethod: 'pix',
+                        source: desconta ? 'reserva' : 'patrimonio', jarId: ref.id, isTransfer: true, reserveInternal: !desconta,
                     });
                 }
             }
@@ -340,19 +344,19 @@ function MoveForm({ isDark, uid, cdi, reserve, kind, onClose }) {
             const newBalance = isDep ? curVal + val : curVal - val;
             const newInvested = isDep ? inv + val : Math.max(0, inv - val);
             await updateDoc(doc(db, 'savings_jars', reserve.id), { balance: newBalance, invested: newInvested, lastYieldAt: now, cdiPercent: reserve.cdiPercent || 100 });
-            // Aporte "não descontar" = dinheiro já guardado → só cresce a reserva,
-            // sem lançar nada na conta. Caso contrário, registra a TRANSFERÊNCIA
-            // (não é despesa; sai do saldo, aparece azul no extrato). Resgate sempre
-            // volta pro saldo.
-            const registrar = !isDep || !naoDescontar;
-            if (registrar) {
-                await addDoc(collection(db, 'transactions'), {
-                    description: `${isDep ? 'Aporte' : 'Resgate'} reserva: ${reserve.name || 'Reserva'}`,
-                    amount: val, type: isDep ? 'expense' : 'income',
-                    category: isDep ? 'vault' : 'vault_redemption',
-                    date: iso, month: iso.slice(0, 7), userId: uid, createdAt: now, paymentMethod: 'pix', source: 'reserva', jarId: reserve.id, isTransfer: true,
-                });
-            }
+            // Registra SEMPRE o movimento (aparece na lista de aportes da reserva).
+            // • Aporte "não descontar" = dinheiro já guardado → aporte interno:
+            //   não mexe no saldo em conta nem aparece no extrato.
+            // • Aporte "descontar" = TRANSFERÊNCIA (sai do saldo, azul no extrato).
+            // • Resgate sempre volta pro saldo.
+            const interno = isDep && naoDescontar;
+            await addDoc(collection(db, 'transactions'), {
+                description: `${isDep ? 'Aporte' : 'Resgate'} reserva: ${reserve.name || 'Reserva'}`,
+                amount: val, type: isDep ? 'expense' : 'income',
+                category: isDep ? 'vault' : 'vault_redemption',
+                date: iso, month: iso.slice(0, 7), userId: uid, createdAt: now, paymentMethod: 'pix',
+                source: interno ? 'patrimonio' : 'reserva', jarId: reserve.id, isTransfer: true, reserveInternal: interno,
+            });
             onClose();
         } catch (err) { console.error(err); setError('Não foi possível concluir. Tente de novo.'); setSaving(false); }
     };

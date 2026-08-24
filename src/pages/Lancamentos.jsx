@@ -71,7 +71,7 @@ export default function Lancamentos() {
     // Extrato = movimentos da CONTA. Compras no crédito não entram aqui
     // (ficam na fatura do cartão); só o pagamento da fatura movimenta a conta.
     const monthTx = useMemo(() =>
-        transactions.filter(t => txMonthKey(t) === mk && t.paymentMethod !== 'credito')
+        transactions.filter(t => txMonthKey(t) === mk && t.paymentMethod !== 'credito' && !t.reserveInternal)
             .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0) || (b.createdAt || 0) - (a.createdAt || 0)),
         [transactions, mk]);
 
