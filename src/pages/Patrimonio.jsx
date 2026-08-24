@@ -89,6 +89,13 @@ const currentUnit = (a, prices = {}) => {
     if (['acoes', 'etfs', 'fiis'].includes(a.type) && sym && prices[sym]) return prices[sym];
     return parseFloat(a.manualCurrentPrice || a.purchasePrice || 0) || 0;
 };
+// Variação diária do ativo, na MOEDA nativa dele → { pct, abs } | null.
+const changeOf = (a, changes = {}) => {
+    const sym = (a.symbol || '').toUpperCase();
+    if (!sym) return null;
+    if (a.type === 'crypto') return changes[`${sym}_${a.isUSD ? 'USD' : 'BRL'}`] || changes[`${sym}_USD`] || changes[`${sym}_BRL`] || null;
+    return changes[sym] || null;
+};
 // Valor atual em BRL = quantidade × preço unitário × câmbio.
 const valueOf = (a, prices = {}) => {
     if (a.type === 'renda_fixa') return (parseFloat(a.manualCurrentPrice || a.totalApplied || a.purchasePrice || 0) || 0) * usdMult(a, prices);
@@ -131,7 +138,7 @@ export default function Patrimonio() {
         ...investments,
         ...watchlist.map(w => ({ type: w.type, symbol: w.symbol, isUSD: guessUSD(w.type, w.symbol), quantity: 1 })),
     ], [investments, watchlist]);
-    const { livePrices } = useLivePrices(priceAssets, true);
+    const { livePrices, priceChanges } = useLivePrices(priceAssets, true);
 
     // Watchlist: incluir / editar / excluir ativos só para acompanhar.
     const addWatch = async ({ symbol, type, name }) => {
@@ -339,7 +346,7 @@ export default function Patrimonio() {
             </div>
 
             {form && <AtivoForm isDark={isDark} uid={uid} editing={form.editing} onClose={() => setForm(null)} />}
-            {monitorOpen && <MonitorModal isDark={isDark} investments={investments} watchlist={watchlist} prices={livePrices}
+            {monitorOpen && <MonitorModal isDark={isDark} investments={investments} watchlist={watchlist} prices={livePrices} changes={priceChanges}
                 defaultCur={cur} onAdd={addWatch} onUpdate={updWatch} onDelete={delWatch} onClose={() => setMonitorOpen(false)} />}
         </div>
     );
@@ -637,7 +644,7 @@ function Field({ label, children }) {
 }
 
 // ── Monitor de ativos: preços ao vivo — carteira + watchlist ────────
-function MonitorModal({ isDark, investments, watchlist = [], prices, defaultCur = 'BRL', onAdd, onUpdate, onDelete, onClose }) {
+function MonitorModal({ isDark, investments, watchlist = [], prices, changes = {}, defaultCur = 'BRL', onAdd, onUpdate, onDelete, onClose }) {
     const rate = prices.USD || 5.4;
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const [cur, setCur] = useState(defaultCur);
@@ -655,21 +662,23 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, defaultCur 
     }).slice(0, 6);
     const sugName = (ASSET_SUGGESTIONS[addType] || []).find(([s]) => s === addSym.trim().toUpperCase())?.[1] || '';
 
+    // Monta uma linha da tabela (preço + variação DIÁRIA na moeda de exibição).
+    const buildRow = (type, symbol, name, id, removable) => {
+        const isUSD = guessUSD(type, symbol);
+        const pseudo = { type, symbol, isUSD, quantity: 1 };
+        const unitBRL = currentUnit(pseudo, prices) * (isUSD ? rate : 1);
+        const ch = changeOf(pseudo, changes);
+        const varBRL = ch ? ch.abs * (isUSD ? rate : 1) : null; // Var absoluta em BRL
+        return { id, type, symbol, name, unitBRL, pct: ch ? ch.pct : null, varBRL, removable };
+    };
+
+    const watch = watchlist
+        .map(w => buildRow(w.type, w.symbol, w.name || typeMeta(w.type).label, w.id, true))
+        .sort((a, b) => b.unitBRL - a.unitBRL);
     const owned = investments
         .filter(a => isMarket(a.type) && a.symbol)
-        .map(a => {
-            const unitBRL = currentUnit(a, prices) * (a.isUSD ? rate : 1);
-            const buyBRL = (parseFloat(a.purchasePrice) || 0) * (a.isUSD ? rate : 1);
-            const chg = buyBRL > 0 ? (unitBRL - buyBRL) / buyBRL * 100 : 0;
-            return { a, unitBRL, chg, val: valueOf(a, prices) };
-        }).sort((x, y) => y.val - x.val);
-
-    const watch = watchlist.map(w => {
-        const isUSD = guessUSD(w.type, w.symbol);
-        const pseudo = { type: w.type, symbol: w.symbol, isUSD, quantity: 1 };
-        const unitBRL = currentUnit(pseudo, prices) * (isUSD ? rate : 1);
-        return { w, unitBRL };
-    });
+        .map(a => buildRow(a.type, a.symbol, a.name || typeMeta(a.type).label, a.id, false))
+        .sort((a, b) => b.unitBRL - a.unitBRL);
 
     const add = async () => {
         if (!addSym.trim()) return;
@@ -681,19 +690,42 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, defaultCur 
     const inputCls = `px-3 py-2.5 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
     const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
 
-    const PriceRow = ({ icon, sym: s, name, unitBRL, right }) => (
-        <div className="flex items-center gap-3 px-3.5 py-3">
-            {icon}
-            <div className="min-w-0 flex-1">
-                <p className={`font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{(s || '').toUpperCase()}</p>
-                <p className={`text-[11px] truncate ${muted}`}>{name}</p>
-            </div>
-            <div className="text-right shrink-0">
-                <p className={`font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>{unitBRL > 0 ? `${sym} ${money(disp(unitBRL))}` : '—'}</p>
-            </div>
-            {right}
-        </div>
-    );
+    // Linha da tabela: Símbolo | Preço | Var | Var% | (remover).
+    const Row = ({ r }) => {
+        const has = r.pct != null;
+        const up = (r.pct ?? 0) >= 0;
+        const col = !has ? muted : up ? 'text-emerald-500' : 'text-rose-500';
+        const arrow = up ? '+' : '−';
+        return (
+            <tr className={`group ${isDark ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-50'}`}>
+                <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <AssetIcon symbol={r.symbol} type={r.type} name={r.name} size={32} />
+                        <div className="min-w-0">
+                            <p className={`font-black leading-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{(r.symbol || '').toUpperCase()}</p>
+                            <p className={`text-[11px] leading-tight truncate ${muted}`}>{r.name}</p>
+                        </div>
+                    </div>
+                </td>
+                <td className={`px-3 py-2.5 text-right font-black tabular-nums whitespace-nowrap ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                    {r.unitBRL > 0 ? `${sym} ${money(disp(r.unitBRL))}` : '—'}
+                </td>
+                <td className={`px-3 py-2.5 text-right font-bold tabular-nums whitespace-nowrap text-[13px] ${col}`}>
+                    {r.varBRL == null ? '—' : `${arrow} ${sym} ${money(Math.abs(disp(r.varBRL)))}`}
+                </td>
+                <td className={`px-2 py-2.5 text-right whitespace-nowrap ${col}`}>
+                    <span className="inline-block font-black tabular-nums text-[13px] px-1.5 py-0.5 rounded-md" style={has ? { backgroundColor: up ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)' } : undefined}>
+                        {has ? `${up ? '+' : ''}${r.pct.toFixed(2)}%` : '—'}
+                    </span>
+                </td>
+                <td className="pr-2 pl-0 w-8">
+                    {r.removable && (
+                        <button onClick={() => onDelete(r.id)} title="Remover" className={`p-1.5 rounded-lg text-slate-400 hover:text-rose-500 opacity-60 group-hover:opacity-100 transition ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Trash2 className="w-4 h-4" /></button>
+                    )}
+                </td>
+            </tr>
+        );
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -754,42 +786,42 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, defaultCur 
                     </div>
                 </div>
 
-                {/* Watchlist */}
-                {watch.length > 0 && (
-                    <>
-                        <p className={`text-[11px] font-black uppercase tracking-widest mb-1.5 ${muted}`}>Acompanhando</p>
-                        <div className={`rounded-2xl border divide-y overflow-hidden mb-4 ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
-                            {watch.map(({ w, unitBRL }) => (
-                                <PriceRow key={w.id} icon={<AssetIcon symbol={w.symbol} type={w.type} name={w.name} size={38} />}
-                                    sym={w.symbol} name={w.name || typeMeta(w.type).label} unitBRL={unitBRL}
-                                    right={<button onClick={() => onDelete(w.id)} title="Remover" className={`p-1.5 rounded-lg text-slate-400 hover:text-rose-500 ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Trash2 className="w-4 h-4" /></button>} />
-                            ))}
+                {/* Tabela (Símbolo · Preço · Var · Var%) — estilo watchlist */}
+                {(watch.length > 0 || owned.length > 0) ? (
+                    <div className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm border-collapse">
+                                <thead>
+                                    <tr className={`text-[10px] font-black uppercase tracking-wider ${muted} ${isDark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>
+                                        <th className="text-left font-black px-3 py-2">Símbolo</th>
+                                        <th className="text-right font-black px-3 py-2">Preço</th>
+                                        <th className="text-right font-black px-3 py-2">Var</th>
+                                        <th className="text-right font-black px-2 py-2">Var%</th>
+                                        <th className="w-8" />
+                                    </tr>
+                                </thead>
+                                <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-slate-100'}`}>
+                                    {watch.length > 0 && (
+                                        <tr className={isDark ? 'bg-white/[0.015]' : 'bg-slate-50/60'}>
+                                            <td colSpan={5} className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest ${muted}`}>Acompanhando</td>
+                                        </tr>
+                                    )}
+                                    {watch.map(r => <Row key={`w-${r.id}`} r={r} />)}
+                                    {owned.length > 0 && (
+                                        <tr className={isDark ? 'bg-white/[0.015]' : 'bg-slate-50/60'}>
+                                            <td colSpan={5} className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest ${muted}`}>Meus ativos</td>
+                                        </tr>
+                                    )}
+                                    {owned.map(r => <Row key={`o-${r.id}`} r={r} />)}
+                                </tbody>
+                            </table>
                         </div>
-                    </>
-                )}
-
-                {/* Meus ativos (carteira) */}
-                {owned.length > 0 && (
-                    <>
-                        <p className={`text-[11px] font-black uppercase tracking-widest mb-1.5 ${muted}`}>Meus ativos</p>
-                        <div className={`rounded-2xl border divide-y overflow-hidden ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
-                            {owned.map(({ a, unitBRL, chg }) => {
-                                const up = chg >= 0;
-                                return (
-                                    <PriceRow key={a.id} icon={<AssetIcon symbol={a.symbol} type={a.type} name={a.name} size={38} />}
-                                        sym={a.symbol} name={a.name || typeMeta(a.type).label} unitBRL={unitBRL}
-                                        right={<span className={`text-[11px] font-bold tabular-nums w-16 text-right ${up ? 'text-emerald-500' : 'text-rose-500'}`}>{unitBRL > 0 ? `${up ? '+' : ''}${chg.toFixed(2)}%` : '—'}</span>} />
-                                );
-                            })}
-                        </div>
-                    </>
-                )}
-
-                {watch.length === 0 && owned.length === 0 && (
+                    </div>
+                ) : (
                     <p className={`text-center text-sm py-8 ${muted}`}>Adicione ativos acima para acompanhar os preços ao vivo — mesmo sem tê-los na carteira.</p>
                 )}
 
-                <p className={`text-[11px] mt-3 ${muted}`}>Cripto via Binance; ações/ETFs/FIIs via brapi. A variação % dos seus ativos é vs. o preço de compra.</p>
+                <p className={`text-[11px] mt-3 ${muted}`}>Cripto via Binance; ações/ETFs/FIIs via brapi. <b>Var</b> e <b>Var%</b> são a variação do dia (24h).</p>
             </div>
         </div>
     );

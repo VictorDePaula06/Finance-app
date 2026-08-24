@@ -27,23 +27,30 @@ export default async function handler(req, res) {
     if (pairs.length === 0) return res.status(400).json({ error: 'No valid tickers provided' });
 
     const prices = {};
+    const changes = {}; // variação diária { pct, abs } por chave (mesma chave de prices)
 
     await Promise.all(pairs.map(async ({ sym: ticker, meta: assetType }) => {
 
         if (assetType === 'crypto') {
-            // Binance for crypto
+            // Binance /ticker/24hr → preço (lastPrice) + variação do dia
             try {
                 const [usdRes, brlRes] = await Promise.allSettled([
-                    fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${ticker}USDT`),
-                    fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${ticker}BRL`),
+                    fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${ticker}USDT`),
+                    fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${ticker}BRL`),
                 ]);
                 if (usdRes.status === 'fulfilled' && usdRes.value.ok) {
                     const d = await usdRes.value.json();
-                    if (d.price) prices[`${ticker}_USD`] = parseFloat(d.price);
+                    if (d.lastPrice) {
+                        prices[`${ticker}_USD`] = parseFloat(d.lastPrice);
+                        changes[`${ticker}_USD`] = { pct: parseFloat(d.priceChangePercent), abs: parseFloat(d.priceChange) };
+                    }
                 }
                 if (brlRes.status === 'fulfilled' && brlRes.value.ok) {
                     const d = await brlRes.value.json();
-                    if (d.price) prices[`${ticker}_BRL`] = parseFloat(d.price);
+                    if (d.lastPrice) {
+                        prices[`${ticker}_BRL`] = parseFloat(d.lastPrice);
+                        changes[`${ticker}_BRL`] = { pct: parseFloat(d.priceChangePercent), abs: parseFloat(d.priceChange) };
+                    }
                 }
             } catch (e) {}
             return;
@@ -59,9 +66,11 @@ export default async function handler(req, res) {
             });
             if (brapiRes.ok) {
                 const data = await brapiRes.json();
-                const price = data?.results?.[0]?.regularMarketPrice;
+                const r = data?.results?.[0];
+                const price = r?.regularMarketPrice;
                 if (price) {
                     prices[ticker] = parseFloat(price);
+                    if (r.regularMarketChangePercent != null) changes[ticker] = { pct: parseFloat(r.regularMarketChangePercent), abs: parseFloat(r.regularMarketChange) || 0 };
                     return;
                 }
             }
@@ -87,8 +96,10 @@ export default async function handler(req, res) {
                     const data = await yahooRes.json();
                     const meta = data?.chart?.result?.[0]?.meta;
                     const price = meta?.regularMarketPrice || meta?.previousClose || meta?.chartPreviousClose;
+                    const prev = meta?.chartPreviousClose || meta?.previousClose;
                     if (price) {
                         prices[ticker] = parseFloat(price);
+                        if (prev > 0) changes[ticker] = { pct: (price - prev) / prev * 100, abs: price - prev };
                         return;
                     }
                 }
@@ -118,5 +129,5 @@ export default async function handler(req, res) {
         }
     }
 
-    return res.status(200).json({ prices, fetchedAt: new Date().toISOString() });
+    return res.status(200).json({ prices, changes, fetchedAt: new Date().toISOString() });
 }

@@ -10,6 +10,9 @@ import { getUsdRate } from '../utils/marketRates';
 // @param {boolean} enabled    só busca quando necessário (ex.: módulo Patrimônio ativo)
 export function useLivePrices(investments = [], enabled = true) {
     const [livePrices, setLivePrices] = useState({ USD: 5.0 });
+    // Variação diária por ticker, na MOEDA do ativo. Chaves iguais às de livePrices
+    // (`${SYM}_USD`, `${SYM}_BRL` p/ cripto; `${SYM}` p/ ações). Valor: { pct, abs }.
+    const [priceChanges, setPriceChanges] = useState({});
     const [tesouroData, setTesouroData] = useState([]);
 
     const getTesouroRate = useCallback((bondName) => {
@@ -29,19 +32,26 @@ export function useLivePrices(investments = [], enabled = true) {
         const fetchLivePrices = async () => {
             try {
                 const newPrices = {};
+                const newChanges = {};
                 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-                // Cripto (Binance)
+                // Cripto (Binance /ticker/24hr → preço + variação do dia)
                 const cryptoTickers = [...new Set(investments.filter(a => a.type === 'crypto' && a.symbol).map(a => a.symbol.toUpperCase()))];
                 if (cryptoTickers.length > 0) {
                     try {
-                        const binanceRes = await fetch('https://api.binance.com/api/v3/ticker/price');
+                        const binanceRes = await fetch('https://api.binance.com/api/v3/ticker/24hr');
                         const binanceData = await binanceRes.json();
                         cryptoTickers.forEach(ticker => {
                             const usdtPair = binanceData.find(p => p.symbol === `${ticker}USDT`);
                             const brlPair = binanceData.find(p => p.symbol === `${ticker}BRL`);
-                            if (usdtPair) newPrices[`${ticker}_USD`] = parseFloat(usdtPair.price);
-                            if (brlPair) newPrices[`${ticker}_BRL`] = parseFloat(brlPair.price);
+                            if (usdtPair) {
+                                newPrices[`${ticker}_USD`] = parseFloat(usdtPair.lastPrice);
+                                newChanges[`${ticker}_USD`] = { pct: parseFloat(usdtPair.priceChangePercent), abs: parseFloat(usdtPair.priceChange) };
+                            }
+                            if (brlPair) {
+                                newPrices[`${ticker}_BRL`] = parseFloat(brlPair.lastPrice);
+                                newChanges[`${ticker}_BRL`] = { pct: parseFloat(brlPair.priceChangePercent), abs: parseFloat(brlPair.priceChange) };
+                            }
                         });
                     } catch (e) { console.warn('Binance fetch failed', e); }
                 }
@@ -57,7 +67,7 @@ export function useLivePrices(investments = [], enabled = true) {
                         try {
                             const apiUrl = `/api/prices?tickers=${stockTickers.join(',')}&types=${stockTypes.join(',')}`;
                             const res = await fetch(apiUrl);
-                            if (res.ok) { const data = await res.json(); Object.assign(newPrices, data.prices); }
+                            if (res.ok) { const data = await res.json(); Object.assign(newPrices, data.prices); if (data.changes) Object.assign(newChanges, data.changes); }
                         } catch (e) { console.warn('Serverless fetch failed', e); }
                     } else {
                         await Promise.all(stockTickers.map(async (ticker) => {
@@ -65,8 +75,13 @@ export function useLivePrices(investments = [], enabled = true) {
                                 const brapiRes = await fetch(`https://brapi.dev/api/quote/${ticker}`);
                                 if (brapiRes.ok) {
                                     const brapiData = await brapiRes.json();
-                                    const price = brapiData?.results?.[0]?.regularMarketPrice;
-                                    if (price) { newPrices[ticker] = parseFloat(price); return; }
+                                    const r = brapiData?.results?.[0];
+                                    const price = r?.regularMarketPrice;
+                                    if (price) {
+                                        newPrices[ticker] = parseFloat(price);
+                                        if (r.regularMarketChangePercent != null) newChanges[ticker] = { pct: parseFloat(r.regularMarketChangePercent), abs: parseFloat(r.regularMarketChange) || 0 };
+                                        return;
+                                    }
                                 }
                             } catch (e) { /* tenta fallback */ }
                             try {
@@ -78,7 +93,12 @@ export function useLivePrices(investments = [], enabled = true) {
                                     const data = await res.json();
                                     const meta = data?.chart?.result?.[0]?.meta;
                                     const price = meta?.regularMarketPrice || meta?.previousClose;
-                                    if (price) { newPrices[ticker] = parseFloat(price); return; }
+                                    const prev = meta?.chartPreviousClose || meta?.previousClose;
+                                    if (price) {
+                                        newPrices[ticker] = parseFloat(price);
+                                        if (prev > 0) newChanges[ticker] = { pct: (price - prev) / prev * 100, abs: price - prev };
+                                        return;
+                                    }
                                 }
                             } catch (e) { /* ignora */ }
                         }));
@@ -87,7 +107,10 @@ export function useLivePrices(investments = [], enabled = true) {
 
                 const usd = await getUsdRate();
                 if (usd) newPrices.USD = usd;
-                if (!cancelled) setLivePrices(prev => ({ ...prev, ...newPrices }));
+                if (!cancelled) {
+                    setLivePrices(prev => ({ ...prev, ...newPrices }));
+                    setPriceChanges(prev => ({ ...prev, ...newChanges }));
+                }
             } catch (error) {
                 console.error('Price fetch failed:', error);
             }
@@ -127,5 +150,5 @@ export function useLivePrices(investments = [], enabled = true) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [enabled, investments.length]);
 
-    return { livePrices, tesouroData, getTesouroRate };
+    return { livePrices, priceChanges, tesouroData, getTesouroRate };
 }
