@@ -10,19 +10,13 @@
  */
 
 export const ADMIN_EMAILS = [
-    'felipe.lopestecnologia11@gmail.com', // Felipe Lopes — dono/admin principal
-    'financealivia@gmail.com',
-    'j.17jvictor@gmail.com',
-    'matheusphelipe7@gmail.com',
-    'felipedb.clopes@gmail.com',
+    'felipe.lopestecnologia11@gmail.com', // Felipe Lopes — único admin
 ];
 
 // E-mails com acesso vitalício (subconjunto/sobreposto com ADMIN_EMAILS).
 // Mantido separado pra permitir lifetime sem ser admin no futuro, se preciso.
 export const LIFETIME_EMAILS = [
     'felipe.lopestecnologia11@gmail.com', // Felipe Lopes — acesso vitalício
-    'financealivia@gmail.com',
-    'j.17jvictor@gmail.com',
     'lopes.felipe365@outlook.com', // conta de revisão (Google Play) — acesso Premium full
 ];
 
