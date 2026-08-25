@@ -67,6 +67,8 @@ const confirmMsg = (action, d = {}) => {
     switch (action) {
         case 'add_transaction': return `Pronto, lancei${v}${em}. ✅`;
         case 'add_fixed_expense': return `Cadastrei a conta fixa${v}${em}. ✅`;
+        case 'add_fixed_income': return `Cadastrei a entrada recorrente${v}${em}. ✅`;
+        case 'update_manual_config': return `Atualizei sua configuração. ✅`;
         case 'add_subscription': return `Cadastrei a assinatura${v}${em}. ✅`;
         case 'add_installment': return `Registrei o parcelamento${em}. ✅`;
         case 'add_to_reserve': return `Guardei${v} na sua reserva. ✅`;
@@ -83,7 +85,7 @@ const fileToBase64 = (file) => new Promise((res, rej) => {
 });
 
 export default function ConsultoriaAlivia({ onNavigate }) {
-    const { currentUser, userPrefs, planLevel } = useAuth();
+    const { currentUser, userPrefs, planLevel, saveUserPreferences } = useAuth();
     const { theme } = useTheme();
     const isDark = theme !== 'light';
     const uid = currentUser?.uid;
@@ -152,11 +154,17 @@ export default function ConsultoriaAlivia({ onNavigate }) {
     const say = (text, role = 'alivia', options = null) => setMsgs(m => [...m, { role, text, ...(options && options.length ? { options } : {}) }]);
 
     // Executa uma ação retornada pela IA (bloco JSON).
+    // Executa a ação e SÓ retorna sucesso se realmente gravou. Lança/retorna false
+    // em erro, valor inválido ou ação não suportada — pra nunca confirmar em falso.
     const executeAction = async (action, data = {}) => {
         const now = new Date();
         const iso = data.date ? new Date(data.date + 'T12:00:00').toISOString() : now.toISOString();
         const amt = Math.abs(parseFloat(String(data.amount ?? data.value ?? 0).replace(',', '.')) || 0);
         const findCard = (n) => cards.find(c => (c.name || c.bank || '').toLowerCase().includes(String(n || '').toLowerCase()));
+        // Ações de valor exigem valor > 0.
+        const needsAmount = ['add_transaction', 'add_fixed_expense', 'add_subscription', 'add_installment', 'add_to_reserve'];
+        if (needsAmount.includes(action) && amt <= 0) return { ok: false, reason: 'no_amount' };
+
         if (action === 'add_transaction') {
             const credito = data.paymentMethod === 'credito';
             const card = credito ? findCard(data.cardName) : null;
@@ -167,14 +175,21 @@ export default function ConsultoriaAlivia({ onNavigate }) {
                 ...(credito && card ? { selectedCardId: card.id, invoiceStatus: 'unpaid' } : {}),
                 ...(data.type !== 'income' ? { priority: data.priority || 'comfort' } : {}),
             });
+            return { ok: true };
         } else if (action === 'add_fixed_expense') {
             await addDoc(collection(db, 'fixed_expenses'), { name: normalizeName(data.name || 'Conta'), value: amt, day: parseInt(data.day) || 5, category: data.category || 'conta_fixa', isVariable: !!data.isVariable, priority: 'essential', paymentMethod: 'pix', userId: uid, createdAt: Date.now() });
+            return { ok: true };
+        } else if (action === 'add_fixed_income') {
+            await addDoc(collection(db, 'fixed_incomes'), { name: normalizeName(data.name || 'Entrada'), value: amt, day: parseInt(data.day) || 5, category: data.category || 'salary', isVariable: !!data.isVariable, userId: uid, createdAt: Date.now() });
+            return { ok: true };
         } else if (action === 'add_subscription') {
             const card = findCard(data.cardName);
             await addDoc(collection(db, 'subscriptions'), { name: normalizeName(data.name || 'Assinatura'), value: amt, day: card ? card.dueDay : (parseInt(data.day) || 1), cardId: card ? card.id : '', category: data.category || 'subscriptions', priority: 'comfort', type: 'recurring', userId: uid, createdAt: Date.now() });
+            return { ok: true };
         } else if (action === 'add_installment') {
             const card = findCard(data.cardName);
             await addDoc(collection(db, 'subscriptions'), { name: normalizeName(data.name || 'Parcelamento'), value: amt, day: card ? card.dueDay : 1, cardId: card ? card.id : '', category: data.category || 'shopping', priority: 'comfort', isInstallment: true, totalInstallments: parseInt(data.installments) || 1, currentInstallment: 1, installmentMode: 'per', type: 'installment', userId: uid, createdAt: Date.now() });
+            return { ok: true };
         } else if (action === 'add_to_reserve') {
             const jar = jars[0];
             let jarId, jarName;
@@ -193,7 +208,20 @@ export default function ConsultoriaAlivia({ onNavigate }) {
                 date: iso, month: iso.slice(0, 7), userId: uid, createdAt: Date.now(), paymentMethod: 'pix',
                 source: 'patrimonio', jarId, isTransfer: true, reserveInternal: true,
             });
+            return { ok: true };
+        } else if (action === 'update_manual_config') {
+            // Atualiza a configuração (renda base, gastos fixos etc.) de fato.
+            const patch = {};
+            if (data.income != null) patch.income = Math.abs(parseFloat(String(data.income).replace(',', '.')) || 0);
+            if (data.fixedExpenses != null) patch.fixedExpenses = Math.abs(parseFloat(String(data.fixedExpenses).replace(',', '.')) || 0);
+            if (data.variableEstimate != null) patch.variableEstimate = Math.abs(parseFloat(String(data.variableEstimate).replace(',', '.')) || 0);
+            if (data.invested != null) patch.invested = Math.abs(parseFloat(String(data.invested).replace(',', '.')) || 0);
+            if (Object.keys(patch).length === 0) return { ok: false, reason: 'nothing' };
+            await saveUserPreferences({ manualConfig: { ...(userPrefs?.manualConfig || {}), ...patch } });
+            return { ok: true };
         }
+        // Ação desconhecida / não suportada pelo chat → não confirma como sucesso.
+        return { ok: false, reason: 'unsupported' };
     };
 
     // Conversa com o Gemini (IA generativa) + executa ações.
@@ -219,32 +247,47 @@ export default function ConsultoriaAlivia({ onNavigate }) {
             .replace(/\n{3,}/g, '\n\n')
             .trim();
         setThinking('');
-        if (display) say(display);
-        if (jsonMatch) {
-            try {
-                const obj = JSON.parse(jsonMatch[1].trim());
-                // "ask": a Alívia precisa de mais dados → mostra a pergunta com opções
-                // clicáveis e NÃO executa nada até o usuário responder.
-                if (obj.action === 'ask') {
-                    const d0 = obj.data || {};
-                    const opts = Array.isArray(obj.options) ? obj.options : (Array.isArray(d0.options) ? d0.options : []);
-                    const q = obj.question || d0.question;
-                    if (q && !display) say(q, 'alivia', opts);
-                    else if (opts.length) setMsgs(m => m.length ? [...m.slice(0, -1), { ...m[m.length - 1], options: opts }] : m);
-                    setThinking('');
-                    return;
-                }
-                if (obj.action) {
-                    const d = obj.data || {};
-                    const val = parseFloat(String(d.amount ?? d.value ?? '').replace(',', '.')) || 0;
-                    const nome = d.description || d.name || 'lançamento';
-                    setThinking(val ? `Registrando R$ ${money(val)} em ${normalizeName(nome)}…` : 'Registrando no app…');
-                    await executeAction(obj.action, d);
-                    setThinking('');
-                    // Se a IA não escreveu confirmação, garantimos um retorno claro.
-                    if (!display) say(confirmMsg(obj.action, d));
-                }
-            } catch (e) { console.warn('[ia action]', e); setThinking(''); }
+
+        // Parse a ação (se houver) ANTES de exibir qualquer confirmação — assim só
+        // confirmamos "lançado" DEPOIS que a gravação der certo de verdade.
+        let obj = null;
+        if (jsonMatch) { try { obj = JSON.parse(jsonMatch[1].trim()); } catch { obj = null; } }
+
+        // "ask": a Alívia precisa de mais dados → mostra a pergunta com opções
+        // clicáveis e NÃO executa nada até o usuário responder.
+        if (obj && obj.action === 'ask') {
+            const d0 = obj.data || {};
+            const opts = Array.isArray(obj.options) ? obj.options : (Array.isArray(d0.options) ? d0.options : []);
+            const q = obj.question || d0.question || display;
+            if (q) say(q, 'alivia', opts);
+            return;
+        }
+
+        const isWrite = !!(obj && obj.action);
+        if (isWrite) {
+            const d = obj.data || {};
+            const val = parseFloat(String(d.amount ?? d.value ?? '').replace(',', '.')) || 0;
+            const nome = d.description || d.name || 'lançamento';
+            setThinking(val ? `Registrando R$ ${money(val)} em ${normalizeName(nome)}…` : 'Registrando no app…');
+            let res;
+            try { res = await executeAction(obj.action, d); }
+            catch (e) { console.error('[ia action] erro', e); res = { ok: false, reason: 'error' }; }
+            setThinking('');
+            if (res && res.ok) {
+                // SÓ confirma depois de gravar de fato.
+                say(display || confirmMsg(obj.action, d));
+            } else {
+                // NÃO mostra a confirmação da IA (seria falsa). Explica o que faltou.
+                const reason = res && res.reason;
+                say(reason === 'no_amount'
+                    ? 'Não consegui lançar: faltou o **valor**. Me diz quanto foi que eu registro. 🙏'
+                    : reason === 'unsupported'
+                        ? 'Isso eu ainda não lanço direto pelo chat — mas te mostro onde fazer no app, é rapidinho. Quer?'
+                        : 'Não consegui concluir o lançamento agora. Confere a conexão e tenta de novo. 🙏');
+            }
+        } else if (display) {
+            // Sem ação de escrita: resposta/análise normal.
+            say(display);
         }
     };
 

@@ -396,6 +396,7 @@ A coisa MAIS importante é mandar cada lançamento para o LUGAR CORRETO do app.
 NÃO use "add_transaction" para tudo. Analise o que o usuário pediu:
 
   • "conta fixa", "conta de internet/luz/água/aluguel/mensalidade", "todo mês" → use **add_fixed_expense**
+  • entrada que se repete TODO MÊS (salário, aposentadoria, aluguel recebido, pensão) → use **add_fixed_income** (só depois de confirmar que é recorrente)
   • "assinatura", "Netflix/Spotify/plano recorrente", "assinatura no cartão" → use **add_subscription**
   • "parcelei", "comprei em Nx", "X vezes no cartão", "parcelamento" → use **add_installment**
   • "guardar na reserva", "reserva de emergência", "guardar/poupar pra emergência" → use **add_to_reserve**
@@ -445,6 +446,18 @@ Regras do ask: "question" curta e direta; "options" com 2 a 5 rótulos curtos e 
 } }
 \`\`\`
 (use "isVariable": true para luz, gás, água — contas que mudam de valor todo mês)
+
+2b. **add_fixed_income** — ENTRADA recorrente (salário/renda que entra todo mês; vai para a aba Recorrentes → Entradas recorrentes):
+\`\`\`json
+{ "action": "add_fixed_income", "data": {
+    "name": "Ex: Salário",
+    "value": "3000.00",
+    "day": "dia que recebe (1-31, opcional)",
+    "category": "salary",
+    "isVariable": false
+} }
+\`\`\`
+(Use isto quando o usuário confirmar que a renda/salário é RECORRENTE — todo mês. Se for um recebimento avulso deste mês, use add_transaction com type "income".)
 
 3. **add_subscription** — assinatura recorrente (vai para a aba Meu cartão):
 \`\`\`json
