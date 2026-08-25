@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 /**
  * Cria o checkout do plano ANUAL como PAGAMENTO ÚNICO (mode: 'payment'), com
@@ -12,9 +12,29 @@ import { getAuth } from 'firebase-admin/auth';
  * é gravado pela extensão em customers/{uid}/payments (via webhook), e o app libera
  * o Pro por 365 dias a partir da compra (ver AuthContext).
  *
+ * IMPORTANTE: NÃO usamos firebase-admin/auth (verifyIdToken) porque ele puxa
+ * jwks-rsa → jose via require(), que quebra fora do Node 22.12+ (ERR_REQUIRE_ESM).
+ * Verificamos o ID token direto com jose (import ESM), usando as chaves públicas
+ * do Firebase — sem depender da versão do Node.
+ *
  * Env vars (Vercel): STRIPE_SECRET_KEY, FIREBASE_SERVICE_ACCOUNT_KEY,
  *   (opcional) VITE_STRIPE_PRICE_ID_ANNUAL_ONETIME.
  */
+
+// JWKS público do Firebase (formato JWK) — usado p/ validar o ID token.
+const FIREBASE_JWKS = createRemoteJWKSet(
+    new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com')
+);
+
+async function verifyFirebaseToken(idToken, projectId) {
+    const { payload } = await jwtVerify(idToken, FIREBASE_JWKS, {
+        issuer: `https://securetoken.google.com/${projectId}`,
+        audience: projectId,
+    });
+    if (!payload.sub) throw new Error('Token sem sub');
+    return payload; // uid = payload.sub, email = payload.email
+}
+
 export default async function handler(req, res) {
     res.setHeader('Content-Type', 'application/json');
     if (req.method !== 'POST') {
@@ -31,19 +51,21 @@ export default async function handler(req, res) {
             return res.status(500).json({ success: false, error: 'STRIPE_SECRET_KEY inválida: deve começar com sk_ ou rk_.' });
         }
 
-        if (!getApps().length) initializeApp({ credential: cert(JSON.parse(saKey)) });
+        const saParsed = JSON.parse(saKey);
+        if (!getApps().length) initializeApp({ credential: cert(saParsed) });
         const stripe = new Stripe(stripeSecret, { maxNetworkRetries: 2, timeout: 20000 });
         const db = getFirestore();
-        const auth = getAuth();
+        const projectId = saParsed.project_id;
 
-        // 1. Autenticação (ID token do Firebase).
+        // 1. Autenticação — valida o ID token do Firebase (via jose, sem jwks-rsa).
         const authHeader = req.headers.authorization || '';
         const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
         if (!idToken) return res.status(401).json({ success: false, error: 'Não autenticado.' });
         let decoded;
-        try { decoded = await auth.verifyIdToken(idToken); }
-        catch { return res.status(401).json({ success: false, error: 'Sessão inválida. Faça login novamente.' }); }
-        const uid = decoded.uid;
+        try { decoded = await verifyFirebaseToken(idToken, projectId); }
+        catch (e) { console.error('token verify falhou:', e?.message); return res.status(401).json({ success: false, error: 'Sessão inválida. Faça login novamente.' }); }
+        const uid = decoded.sub;
+        const email = decoded.email;
 
         const ANNUAL_PRICE = (process.env.VITE_STRIPE_PRICE_ID_ANNUAL_ONETIME || 'price_1U8IWWKAwb86obAGMUt1Jn4Q').trim();
 
@@ -54,7 +76,7 @@ export default async function handler(req, res) {
         let customerId = custDoc.exists ? (custDoc.data().stripeId || null) : null;
         if (!customerId) {
             const customer = await stripe.customers.create({
-                email: decoded.email || undefined,
+                email: email || undefined,
                 metadata: { firebaseUID: uid },
             });
             customerId = customer.id;
