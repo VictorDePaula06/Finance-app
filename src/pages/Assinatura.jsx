@@ -76,7 +76,7 @@ export default function Assinatura() {
             } else {
                 await createCheckoutSession(currentUser.uid, priceId, () => setLoading(false));
             }
-        } catch (e) { console.error(e); setError('Não foi possível iniciar o pagamento. Tente de novo.'); setLoading(false); }
+        } catch (e) { console.error(e); setError(e?.message || 'Não foi possível iniciar o pagamento. Tente de novo.'); setLoading(false); }
     };
     const gerenciar = async () => {
         if (portalLoading) return;
