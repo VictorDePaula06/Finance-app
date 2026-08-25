@@ -9,6 +9,20 @@ import aliviaAvatar from '../assets/alivia/alivia-final.png';
 import { Send, Paperclip, Sparkles, Check, Loader2, FileText, ChevronRight, CreditCard, Landmark, RotateCcw } from 'lucide-react';
 
 const WELCOME = { role: 'alivia', text: 'Olá, sou a Alívia, sua consultora financeira. Posso lançar gastos e ganhos (ex.: *"gastei 50 no mercado"*), analisar seu saldo e seus gastos, e **importar seu extrato ou fatura** — em PDF, imagem, CSV ou OFX. Como posso ajudar?' };
+
+// Store GLOBAL do chat (fora do componente) — sobrevive à troca de aba. A requisição
+// em andamento escreve aqui; a instância montada é notificada por listeners. Assim,
+// se o usuário sai e volta durante o "pensando", a resposta ainda aparece.
+const chatStore = {
+    msgs: {}, thinking: {}, listeners: {},
+    _emit(key) { (this.listeners[key] || new Set()).forEach(fn => { try { fn(); } catch { } }); },
+    subscribe(key, fn) { (this.listeners[key] = this.listeners[key] || new Set()).add(fn); return () => this.listeners[key]?.delete(fn); },
+    getMsgs(key) { return this.msgs[key]; },
+    setMsgs(key, arr) { this.msgs[key] = arr; try { localStorage.setItem(key, JSON.stringify(arr.slice(-200))); } catch { } this._emit(key); },
+    push(key, msg) { this.setMsgs(key, [...(this.msgs[key] || []), msg]); },
+    getThinking(key) { return this.thinking[key] || ''; },
+    setThinking(key, t) { this.thinking[key] = t; this._emit(key); },
+};
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const monthKeyNow = () => new Date().toISOString().slice(0, 7);
 const normalizeName = (s) => { const t = String(s || '').trim().replace(/\s+/g, ' '); return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : t; };
@@ -100,15 +114,20 @@ export default function ConsultoriaAlivia({ onNavigate }) {
     const [invs, setInvs] = useState([]);
     const [fixExp, setFixExp] = useState([]);
     const [goals, setGoals] = useState([]);
-    const [msgs, setMsgs] = useState([WELCOME]);
+    const [msgs, setMsgsState] = useState([WELCOME]);
     const [loaded, setLoaded] = useState(false);
     const [input, setInput] = useState('');
     const [busy, setBusy] = useState(false);
     const [pending, setPending] = useState(null); // { items, fileName, docType, cardId, tratarCofrinho }
     const [hasKey, setHasKey] = useState(false);
-    const [thinking, setThinking] = useState('');
+    const [thinking, setThinkingState] = useState('');
 
     const chatKey = uid ? `aliviaChat_${uid}` : 'aliviaChat';
+
+    // Escreve através do store global (persiste + notifica). `setThinking` mantém o
+    // mesmo nome pra não mexer nas dezenas de chamadas existentes.
+    const say = (text, role = 'alivia', options = null) => chatStore.push(chatKey, { role, text, ...(options && options.length ? { options } : {}) });
+    const setThinking = (t) => chatStore.setThinking(chatKey, t);
 
     // Ativa a chave da IA (se configurada) e detecta se está disponível.
     useEffect(() => {
@@ -130,19 +149,23 @@ export default function ConsultoriaAlivia({ onNavigate }) {
         return () => subsList.forEach(u => u());
     }, [uid]);
 
-    // Carrega o histórico salvo do usuário.
+    // Conecta ao store global: inicializa (do localStorage) e escuta mudanças —
+    // inclusive as vindas de uma requisição que continuou rodando enquanto a aba
+    // estava fechada. Persistência fica por conta do store.
     useEffect(() => {
-        try {
-            const raw = localStorage.getItem(chatKey);
-            if (raw) { const arr = JSON.parse(raw); if (Array.isArray(arr) && arr.length) setMsgs(arr); }
-        } catch { }
+        if (chatStore.getMsgs(chatKey) === undefined) {
+            let arr = [WELCOME];
+            try { const raw = localStorage.getItem(chatKey); if (raw) { const p = JSON.parse(raw); if (Array.isArray(p) && p.length) arr = p; } } catch { }
+            chatStore.msgs[chatKey] = arr;
+        }
+        const sync = () => { setMsgsState(chatStore.getMsgs(chatKey) || [WELCOME]); setThinkingState(chatStore.getThinking(chatKey)); };
+        sync();
+        const unsub = chatStore.subscribe(chatKey, sync);
         setLoaded(true);
+        return unsub;
     }, [chatKey]);
 
-    // Salva o histórico a cada mensagem (últimas 200).
-    useEffect(() => { if (loaded) { try { localStorage.setItem(chatKey, JSON.stringify(msgs.slice(-200))); } catch { } } }, [msgs, loaded, chatKey]);
-
-    const clearChat = () => { setMsgs([WELCOME]); try { localStorage.removeItem(chatKey); } catch { } };
+    const clearChat = () => { chatStore.setMsgs(chatKey, [WELCOME]); chatStore.setThinking(chatKey, ''); };
 
     useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, pending]);
 
@@ -150,8 +173,6 @@ export default function ConsultoriaAlivia({ onNavigate }) {
     const monthTx = useMemo(() => tx.filter(t => (t.month || String(t.date || '').slice(0, 7)) === mk && t.paymentMethod !== 'credito'), [tx, mk]);
     const gastosMes = monthTx.filter(t => t.type === 'expense').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
     const ganhosMes = monthTx.filter(t => t.type === 'income').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
-
-    const say = (text, role = 'alivia', options = null) => setMsgs(m => [...m, { role, text, ...(options && options.length ? { options } : {}) }]);
 
     // Executa uma ação retornada pela IA (bloco JSON).
     // Executa a ação e SÓ retorna sucesso se realmente gravou. Lança/retorna false
@@ -268,7 +289,16 @@ export default function ConsultoriaAlivia({ onNavigate }) {
             const d = obj.data || {};
             const val = parseFloat(String(d.amount ?? d.value ?? '').replace(',', '.')) || 0;
             const nome = d.description || d.name || 'lançamento';
-            setThinking(val ? `Registrando R$ ${money(val)} em ${normalizeName(nome)}…` : 'Registrando no app…');
+            const vtxt = val ? ` R$ ${money(val)}` : '';
+            const thinkMap = {
+                add_to_reserve: `Guardando${vtxt} na sua reserva…`,
+                add_fixed_expense: `Cadastrando conta fixa${vtxt}…`,
+                add_fixed_income: `Cadastrando entrada recorrente${vtxt}…`,
+                add_subscription: `Cadastrando assinatura no cartão…`,
+                add_installment: `Cadastrando parcelamento…`,
+                update_manual_config: `Atualizando sua configuração…`,
+            };
+            setThinking(thinkMap[obj.action] || (val ? `Lançando${vtxt} em ${normalizeName(nome)}…` : 'Registrando no app…'));
             let res;
             try { res = await executeAction(obj.action, d); }
             catch (e) { console.error('[ia action] erro', e); res = { ok: false, reason: 'error' }; }
