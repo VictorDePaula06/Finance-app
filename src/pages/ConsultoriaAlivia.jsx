@@ -177,9 +177,22 @@ export default function ConsultoriaAlivia({ onNavigate }) {
             await addDoc(collection(db, 'subscriptions'), { name: normalizeName(data.name || 'Parcelamento'), value: amt, day: card ? card.dueDay : 1, cardId: card ? card.id : '', category: data.category || 'shopping', priority: 'comfort', isInstallment: true, totalInstallments: parseInt(data.installments) || 1, currentInstallment: 1, installmentMode: 'per', type: 'installment', userId: uid, createdAt: Date.now() });
         } else if (action === 'add_to_reserve') {
             const jar = jars[0];
-            if (jar) await updateDoc(doc(db, 'savings_jars', jar.id), { balance: (parseFloat(jar.balance) || 0) + amt, invested: (parseFloat(jar.invested ?? jar.balance) || 0) + amt, lastYieldAt: Date.now() });
-            else await addDoc(collection(db, 'savings_jars'), { name: 'Reserva de emergência', balance: amt, invested: amt, cdiPercent: 100, lastYieldAt: Date.now(), type: 'reserva', userId: uid, createdAt: Date.now() });
-            await addDoc(collection(db, 'transactions'), { description: 'Reserva de emergência', amount: amt, type: 'expense', category: 'vault', date: iso, month: iso.slice(0, 7), userId: uid, createdAt: Date.now(), paymentMethod: 'pix', source: 'alivia_ia' });
+            let jarId, jarName;
+            if (jar) {
+                jarId = jar.id; jarName = jar.name || 'Reserva de emergência';
+                await updateDoc(doc(db, 'savings_jars', jar.id), { balance: (parseFloat(jar.balance) || 0) + amt, invested: (parseFloat(jar.invested ?? jar.balance) || 0) + amt, lastYieldAt: Date.now() });
+            } else {
+                jarName = 'Reserva de emergência';
+                const ref = await addDoc(collection(db, 'savings_jars'), { name: jarName, balance: amt, invested: amt, cdiPercent: 100, lastYieldAt: Date.now(), type: 'reserva', userId: uid, createdAt: Date.now() });
+                jarId = ref.id;
+            }
+            // Registra o APORTE ligado à reserva (jarId) — aparece na lista de aportes.
+            // Aporte interno (dinheiro já guardado): não mexe no saldo nem no extrato.
+            await addDoc(collection(db, 'transactions'), {
+                description: `Aporte reserva: ${jarName}`, amount: amt, type: 'expense', category: 'vault',
+                date: iso, month: iso.slice(0, 7), userId: uid, createdAt: Date.now(), paymentMethod: 'pix',
+                source: 'patrimonio', jarId, isTransfer: true, reserveInternal: true,
+            });
         }
     };
 
