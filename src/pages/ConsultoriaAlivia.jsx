@@ -258,7 +258,18 @@ export default function ConsultoriaAlivia({ onNavigate }) {
         } catch (e) { console.warn('[ctx]', e); }
         let reply;
         try { reply = await sendMessageToGemini(msgs, text, context); }
-        catch (e) { console.error(e); setThinking(''); say('Não consegui falar com a IA agora. Verifique a **chave** em Configurações (ou pode estar sem internet / no limite gratuito). 🙏'); return; }
+        catch (e) {
+            console.error(e); setThinking('');
+            const msg = String(e?.message || e || '');
+            const isLimit = /429|quota|RESOURCE_EXHAUSTED|rate limit|high demand|exhausted/i.test(msg);
+            const isKey = /API key|API_KEY|invalid|permission|401|403|PERMISSION_DENIED|unauthenticated/i.test(msg) && !isLimit;
+            say(isLimit
+                ? '⏳ O **limite gratuito do Gemini** foi atingido agora (cota por minuto/dia). Espera ~1 minuto e tenta de novo. Se acontece direto, use uma **chave com faturamento ativo** no Google AI Studio pra ter limite maior.'
+                : isKey
+                    ? '🔑 Sua **chave da IA** parece inválida ou sem permissão. Confira/gere outra em **Configurações → Chave API** (Google AI Studio).'
+                    : 'Não consegui falar com a IA agora. Pode ser **internet** instável ou o Gemini fora do ar no momento. Tenta de novo em instantes. 🙏');
+            return;
+        }
         // Extrai o bloco de ação (JSON) e o remove por completo do texto exibido,
         // para o chat nunca mostrar nada técnico ao usuário.
         const jsonMatch = reply.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/i) || reply.match(/(\{[\s\S]*?"action"[\s\S]*?\})/);
