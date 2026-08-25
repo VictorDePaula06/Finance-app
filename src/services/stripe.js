@@ -79,9 +79,10 @@ export async function createAnnualCheckout() {
         body: JSON.stringify({ origin: window.location.origin }),
     });
     let data = {};
-    try { data = await resp.json(); } catch { /* ignore */ }
+    let raw = '';
+    try { raw = await resp.text(); data = JSON.parse(raw); } catch { /* resposta não-JSON */ }
     if (!resp.ok || !data.url) {
-        throw new Error(data.error || 'Não foi possível iniciar o pagamento anual. Tente de novo.');
+        throw new Error(data.error || `Falha no checkout anual (HTTP ${resp.status}). ${(raw || '').slice(0, 140)}`.trim());
     }
     window.location.assign(data.url);
 }
