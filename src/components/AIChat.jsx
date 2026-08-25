@@ -56,37 +56,32 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
         if (!currentUser || val <= 0) return false;
         try {
             const nowIso = new Date().toISOString();
-            // 1) Transação que debita a carteira (aparece em Aportes).
-            await addDoc(collection(db, 'transactions'), {
-                description: 'Investimento: Reserva de Emergência',
-                amount: val,
-                type: 'expense',
-                category: 'investment',
-                date: nowIso,
-                month: nowIso.slice(0, 7),
-                userId: currentUser.uid,
-                createdAt: Date.now(),
-            });
-            // 2) Credita o cofrinho da reserva (cria se não existir).
+            // 1) Credita o cofrinho da reserva (cria se não existir) e pega o jarId.
             const jarsSnap = await getDocs(query(collection(db, 'savings_jars'), where('userId', '==', currentUser.uid)));
             const jars = jarsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             const target = jars.find(j => /emerg/i.test(j.name || ''))
                 || jars.find(j => /reserva/i.test(j.name || ''));
+            let jarId, jarName;
             if (target) {
+                jarId = target.id; jarName = target.name || 'Reserva de emergência';
                 const currentBalance = parseFloat(target.balance) || 0;
-                await updateDoc(doc(db, 'savings_jars', target.id), { balance: currentBalance + val, updatedAt: nowIso });
+                await updateDoc(doc(db, 'savings_jars', target.id), { balance: currentBalance + val, invested: (parseFloat(target.invested ?? target.balance) || 0) + val, lastYieldAt: Date.now(), updatedAt: nowIso });
             } else {
-                await addDoc(collection(db, 'savings_jars'), {
-                    name: 'Reserva de Emergência',
-                    balance: val,
-                    cdiPercent: 100,
-                    type: 'cofrinho',
-                    color: 'emerald',
-                    userId: currentUser.uid,
-                    createdAt: nowIso,
-                    updatedAt: nowIso,
+                jarName = 'Reserva de emergência';
+                const ref = await addDoc(collection(db, 'savings_jars'), {
+                    name: jarName, balance: val, invested: val, cdiPercent: 100,
+                    type: 'reserva', lastYieldAt: Date.now(), userId: currentUser.uid, createdAt: Date.now(), updatedAt: nowIso,
                 });
+                jarId = ref.id;
             }
+            // 2) Registra o APORTE ligado ao jarId (aparece na lista de aportes da reserva).
+            await addDoc(collection(db, 'transactions'), {
+                description: `Aporte reserva: ${jarName}`,
+                amount: val, type: 'expense', category: 'vault',
+                date: nowIso, month: nowIso.slice(0, 7),
+                userId: currentUser.uid, createdAt: Date.now(), paymentMethod: 'pix',
+                source: 'patrimonio', jarId, isTransfer: true, reserveInternal: true,
+            });
             return true;
         } catch (e) {
             console.error('Erro ao creditar reserva de emergência:', e);
