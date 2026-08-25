@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { createCheckoutSession, upgradeSubscription, createPortalSession } from '../services/stripe';
+import { createCheckoutSession, createAnnualCheckout, upgradeSubscription, createPortalSession } from '../services/stripe';
 import {
     Sparkles, Check, X, Loader2, Crown, Zap, ShieldCheck, Infinity as InfinityIcon,
     CreditCard, MessageCircle, BarChart3, Landmark, FileText, Star, Lock,
@@ -68,12 +68,13 @@ export default function Assinatura() {
             // Anual = compra ÚNICA (12x): sempre um checkout novo — não é assinatura,
             // então não dá pra "trocar preço" (upgradeSubscription). Só o mensal
             // recorrente aproveita o upgrade quando já existe assinatura ativa.
-            if (billing === 'monthly' && stripeSubId) {
+            if (billing === 'annual') {
+                // Compra única parcelável em 12x — endpoint próprio (redireciona).
+                await createAnnualCheckout();
+            } else if (stripeSubId) {
                 await upgradeSubscription(priceId); setLoading(false);
             } else {
-                // Anual = compra única → modo 'payment' (parcelável em 12x). Mensal = assinatura.
-                const opts = billing === 'annual' ? { mode: 'payment' } : {};
-                await createCheckoutSession(currentUser.uid, priceId, () => setLoading(false), opts);
+                await createCheckoutSession(currentUser.uid, priceId, () => setLoading(false));
             }
         } catch (e) { console.error(e); setError('Não foi possível iniciar o pagamento. Tente de novo.'); setLoading(false); }
     };

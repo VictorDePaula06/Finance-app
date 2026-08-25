@@ -64,6 +64,29 @@ export async function createCheckoutSession(uid, priceId, onFinish, opts = {}) {
 }
 
 /**
+ * Checkout do plano ANUAL como pagamento ÚNICO, parcelável em até 12x — via
+ * função serverless (a extensão não repassa a opção de parcelamento).
+ * Redireciona pro Stripe Checkout em caso de sucesso.
+ */
+export async function createAnnualCheckout() {
+    const user = auth.currentUser;
+    if (!user) throw new Error('Você precisa estar logado.');
+    const idToken = await user.getIdToken();
+
+    const resp = await fetch('/api/create-annual-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ origin: window.location.origin }),
+    });
+    let data = {};
+    try { data = await resp.json(); } catch { /* ignore */ }
+    if (!resp.ok || !data.url) {
+        throw new Error(data.error || 'Não foi possível iniciar o pagamento anual. Tente de novo.');
+    }
+    window.location.assign(data.url);
+}
+
+/**
  * Faz upgrade/downgrade da assinatura EXISTENTE (troca o preço com proração),
  * via função serverless segura — sem criar uma segunda assinatura. Funciona mesmo
  * que Standard e Premium sejam preços do mesmo produto no Stripe.
