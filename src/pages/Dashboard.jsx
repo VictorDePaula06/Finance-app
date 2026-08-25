@@ -123,6 +123,7 @@ export default function Dashboard({ onNavigate }) {
     const curSym = patCur === 'USD' ? 'US$' : 'R$';
     const patrAtualDisp = patrAtual / curDiv;
     const patrLiquidoDisp = patrimonioLiquido / curDiv;
+    const patrLucroDisp = (patrAtual - patrCusto) / curDiv; // lucro/prejuízo dos investimentos
 
     // Dívidas mensais: SÓ contas recorrentes marcadas explicitamente como "dívida".
     // Parcelas de cartão NÃO são dívida — são itens da fatura futura (ainda não venceu),
@@ -246,8 +247,8 @@ export default function Dashboard({ onNavigate }) {
                             <p className={`text-[15px] font-black tabular-nums ${patrRentab >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{patrRentab >= 0 ? '+' : ''}{patrRentab.toFixed(2)}%</p>
                         </div>
                         <div className={`rounded-xl px-3 py-2 ${isDark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>
-                            <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>Líquido</p>
-                            <p className={`text-[15px] font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>{curSym} {money(patrLiquidoDisp)}</p>
+                            <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>Lucro</p>
+                            <p className={`text-[15px] font-black tabular-nums ${patrLucroDisp >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{patrLucroDisp >= 0 ? '+' : ''}{curSym} {money(patrLucroDisp)}</p>
                         </div>
                     </div>
                     <Action isDark={isDark} onClick={() => onNavigate?.('patrimonio')}>Ver patrimônio</Action>
