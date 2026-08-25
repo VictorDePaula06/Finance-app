@@ -85,7 +85,7 @@ const confirmMsg = (action, d = {}) => {
         case 'update_manual_config': return `Atualizei sua configuração. ✅`;
         case 'add_subscription': return `Cadastrei a assinatura${v}${em}. ✅`;
         case 'add_installment': return `Registrei o parcelamento${em}. ✅`;
-        case 'add_to_reserve': return `Guardei${v} na sua reserva. ✅`;
+        case 'add_to_reserve': return `Adicionei${v} na sua reserva. ✅`;
         default: return 'Pronto, registrei. ✅';
     }
 };
@@ -291,7 +291,7 @@ export default function ConsultoriaAlivia({ onNavigate }) {
             const nome = d.description || d.name || 'lançamento';
             const vtxt = val ? ` R$ ${money(val)}` : '';
             const thinkMap = {
-                add_to_reserve: `Guardando${vtxt} na sua reserva…`,
+                add_to_reserve: `Adicionando${vtxt} à sua reserva…`,
                 add_fixed_expense: `Cadastrando conta fixa${vtxt}…`,
                 add_fixed_income: `Cadastrando entrada recorrente${vtxt}…`,
                 add_subscription: `Cadastrando assinatura no cartão…`,
@@ -304,8 +304,10 @@ export default function ConsultoriaAlivia({ onNavigate }) {
             catch (e) { console.error('[ia action] erro', e); res = { ok: false, reason: 'error' }; }
             setThinking('');
             if (res && res.ok) {
-                // SÓ confirma depois de gravar de fato.
-                say(display || confirmMsg(obj.action, d));
+                // Confirma SEMPRE no passado (concluído). Usamos nossa mensagem em vez
+                // da narração da IA, que vem em gerúndio ("Adicionando…") e daria a
+                // impressão de que ainda está fazendo, mesmo já tendo feito.
+                say(confirmMsg(obj.action, d));
             } else {
                 // NÃO mostra a confirmação da IA (seria falsa). Explica o que faltou.
                 const reason = res && res.reason;
