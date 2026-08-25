@@ -27,12 +27,21 @@ export const NAV_ITEMS = [
     { id: 'manual',      label: 'Manual',      icon: BookOpen },
 ];
 
-const PLAN_LABEL = { lifetime: 'Vitalício', premium: 'Premium', standard: 'Standard', free: 'Gratuito' };
+const PLAN_LABEL = { lifetime: 'Vitalício', premium: 'Pro', standard: 'Pro', free: 'Gratuito' };
 
 export default function AppSidebar({ active, onNavigate, onSettings, onLogout, mobile = false, onClose }) {
     const { theme, toggleTheme } = useTheme();
-    const { currentUser, planLevel } = useAuth();
+    const { currentUser, planLevel, isAdmin } = useAuth();
     const isDark = theme !== 'light';
+    // Grupo REAL (mesma prioridade do gerenciador): Dev > Vitalício > Pro > Gratuito.
+    const roleKey = isAdmin ? 'dev' : (planLevel === 'lifetime' ? 'lifetime' : (planLevel === 'premium' || planLevel === 'standard') ? 'pro' : 'free');
+    const roleLabel = { dev: 'Dev', lifetime: 'Vitalício', pro: 'Pro', free: 'Gratuito' }[roleKey];
+    const roleBadgeCls = {
+        dev: 'bg-amber-500/15 text-amber-400',
+        lifetime: 'bg-purple-500/15 text-purple-400',
+        pro: 'bg-emerald-500/15 text-emerald-500',
+        free: 'bg-slate-500/15 text-slate-400',
+    }[roleKey];
 
     const name = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Usuário';
     const initial = (currentUser?.displayName || currentUser?.email || 'U').charAt(0).toUpperCase();
@@ -123,12 +132,8 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
                         fallbackClassName="rounded-full bg-gradient-to-br from-emerald-500 to-teal-600" textClassName="font-black text-white text-sm" />
                     <div className="min-w-0 flex-1">
                         <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{name}</p>
-                        <span className={`inline-block text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                            planLevel === 'lifetime' ? 'bg-purple-500/15 text-purple-400'
-                            : planLevel === 'premium' ? 'bg-emerald-500/15 text-emerald-500'
-                            : planLevel === 'standard' ? 'bg-blue-500/15 text-blue-400'
-                            : 'bg-slate-500/15 text-slate-400'}`}>
-                            {PLAN_LABEL[planLevel] || 'Gratuito'}
+                        <span className={`inline-block text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${roleBadgeCls}`}>
+                            {roleLabel}
                         </span>
                     </div>
                     {isAdminEmail(currentUser?.email) && (

@@ -1,13 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { db } from '../services/firebase';
+import { db, auth } from '../services/firebase';
 import { collection, getDocs, getDoc, doc, writeBatch } from 'firebase/firestore';
 import { isAdminEmail } from '../constants/admins';
 import {
     Users, Search, ShieldCheck, Crown, Gift, Sparkles, Loader2, X, Check,
-    RefreshCw, Save, Lock,
+    RefreshCw, Save, Lock, Clock, Bell, Send,
 } from 'lucide-react';
+
+// Timestamp Firestore/segundos/ms/ISO → ms.
+const toMs = (d) => {
+    if (!d) return null;
+    if (typeof d === 'number') return d < 1e11 ? d * 1000 : d;
+    if (d.seconds != null) return d.seconds * 1000;
+    if (typeof d.toMillis === 'function') return d.toMillis();
+    const t = new Date(d).getTime();
+    return Number.isFinite(t) ? t : null;
+};
 
 // Os 4 grupos do app.
 const GROUPS = [
@@ -32,7 +42,11 @@ export default function GerenciarUsuarios() {
     const [editing, setEditing] = useState(null); // user sendo editado
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState('');
+    const [notif, setNotif] = useState({ title: '', body: '' });
+    const [sending, setSending] = useState(false);
     const mounted = useRef(true);
+
+    const flash = (msg) => { setToast(msg); setTimeout(() => mounted.current && setToast(''), 2800); };
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const card = isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white';
@@ -43,6 +57,16 @@ export default function GerenciarUsuarios() {
         if (u.manualStatus === 'lifetime') return 'lifetime';
         if (u.stripeActive || u.manualStatus === 'pro') return 'pro';
         return 'free';
+    };
+
+    // Validade do Pro: Stripe → dias até current_period_end; Pro manual → sem prazo.
+    const expiryInfo = (u) => {
+        if (u.stripeActive && u.periodEnd) {
+            const days = Math.max(0, Math.ceil((u.periodEnd - Date.now()) / 86400000));
+            const d = new Date(u.periodEnd).toLocaleDateString('pt-BR');
+            return { text: `${u.cancelAtEnd ? 'cancela' : 'expira'} em ${days}d · ${d}`, warn: days <= 5 };
+        }
+        return { text: 'sem prazo (manual)', warn: false };
     };
 
     const fetchUsers = async () => {
@@ -58,6 +82,7 @@ export default function GerenciarUsuarios() {
                 ]);
                 const settings = settingsSnap.exists() ? settingsSnap.data() : {};
                 const activeSub = subsSnap.docs.find(s => ['active', 'trialing'].includes(s.data().status));
+                const subData = activeSub?.data();
                 const email = (settings.email || userData.email || '').toLowerCase();
                 return {
                     uid,
@@ -65,6 +90,9 @@ export default function GerenciarUsuarios() {
                     isAdmin: userData.isAdmin === true || isAdminEmail(email),
                     manualStatus: settings.subscription?.status || userData.subscription?.status || null,
                     stripeActive: !!activeSub,
+                    periodEnd: toMs(subData?.current_period_end),
+                    cancelAtEnd: subData?.cancel_at_period_end === true,
+                    pushSubscriptions: Array.isArray(userData.pushSubscriptions) ? userData.pushSubscriptions : [],
                     createdAt: userData.createdAt || null,
                     isDeleted: userData.status === 'deleted',
                 };
@@ -126,6 +154,32 @@ export default function GerenciarUsuarios() {
             setTimeout(() => mounted.current && setToast(''), 3000);
         } finally {
             if (mounted.current) setSaving(false);
+        }
+    };
+
+    // Total de dispositivos (push subscriptions) entre todos os usuários.
+    const totalDevices = useMemo(() => users.reduce((a, u) => a + (u.pushSubscriptions?.length || 0), 0), [users]);
+
+    // Envia uma notificação push para TODOS os dispositivos cadastrados.
+    const sendGlobal = async () => {
+        if (!notif.title.trim() || !notif.body.trim()) { flash('Preencha título e mensagem.'); return; }
+        const subs = users.flatMap(u => u.pushSubscriptions || []);
+        if (subs.length === 0) { flash('Nenhum dispositivo cadastrado para receber.'); return; }
+        setSending(true);
+        try {
+            const idToken = await auth.currentUser?.getIdToken();
+            if (!idToken) { flash('Sessão expirada. Faça login de novo.'); return; }
+            const res = await fetch('/api/send-push', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+                body: JSON.stringify({ subscriptions: subs, title: notif.title.trim(), body: notif.body.trim() }),
+            });
+            if (res.ok) { flash(`Notificação enviada para ${subs.length} dispositivo(s).`); setNotif({ title: '', body: '' }); }
+            else { const d = await res.json().catch(() => ({})); flash(d.error || 'Erro no servidor de push.'); }
+        } catch (e) {
+            console.error(e); flash('Erro ao enviar a notificação.');
+        } finally {
+            if (mounted.current) setSending(false);
         }
     };
 
@@ -222,6 +276,14 @@ export default function GerenciarUsuarios() {
                                             {u.stripeActive ? 'Assinatura ativa no Stripe' : u.manualStatus === 'pro' ? 'Pro concedido manualmente' : u.manualStatus === 'lifetime' ? 'Vitalício' : u.isAdmin ? 'Administrador' : 'Gratuito'}
                                         </p>
                                     </div>
+                                    {u.group === 'pro' && (() => {
+                                        const exp = expiryInfo(u);
+                                        return (
+                                            <span className={`hidden sm:flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-md shrink-0 ${exp.warn ? 'bg-rose-500/12 text-rose-400' : (isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
+                                                <Clock className="w-3 h-3" /> {exp.text}
+                                            </span>
+                                        );
+                                    })()}
                                     <span className="text-[11px] font-black uppercase tracking-wider px-2 py-1 rounded-md shrink-0" style={{ background: `${g.color}1f`, color: g.color }}>{g.label}</span>
                                     <button onClick={() => setEditing(u)} className={`text-[12px] font-bold px-3 py-1.5 rounded-lg border transition shrink-0 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Alterar</button>
                                 </div>
@@ -235,6 +297,33 @@ export default function GerenciarUsuarios() {
                 <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
                 Alterar aqui não cancela cobrança no Stripe. Se o usuário tem assinatura paga ativa e você rebaixa, a sincronização do Stripe pode reverter — cancele no painel do Stripe primeiro.
             </p>
+
+            {/* ── Notificação global ── */}
+            <div className={`mt-8 rounded-2xl border p-5 ${card}`}>
+                <div className="flex items-center gap-2.5 mb-1">
+                    <span className="w-9 h-9 rounded-xl bg-blue-500/12 text-blue-400 flex items-center justify-center shrink-0"><Bell className="w-5 h-5" /></span>
+                    <div>
+                        <h2 className={`text-[15px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Notificação global</h2>
+                        <p className={`text-[12px] ${muted}`}>Envia um push para todos os dispositivos cadastrados · {totalDevices} dispositivo{totalDevices === 1 ? '' : 's'}</p>
+                    </div>
+                </div>
+                <div className="grid gap-2.5 mt-4">
+                    <input value={notif.title} onChange={e => setNotif(n => ({ ...n, title: e.target.value }))} maxLength={60}
+                        placeholder="Título (ex.: Novidade no Alívia!)"
+                        className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-blue-400' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-blue-400'}`} />
+                    <textarea value={notif.body} onChange={e => setNotif(n => ({ ...n, body: e.target.value }))} maxLength={160} rows={3}
+                        placeholder="Mensagem…"
+                        className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold outline-none transition resize-none ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-blue-400' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-blue-400'}`} />
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <span className={`text-[11px] ${muted}`}>Chega como notificação no dispositivo (push).</span>
+                        <button onClick={sendGlobal} disabled={sending || !notif.title.trim() || !notif.body.trim()}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold transition active:scale-95 disabled:opacity-50">
+                            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                            {sending ? 'Enviando…' : 'Enviar para todos'}
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             {/* Modal de alteração de grupo */}
             {editing && (
