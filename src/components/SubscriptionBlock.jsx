@@ -103,11 +103,11 @@ export default function SubscriptionBlock({ onAdminAccess }) {
             let priceId;
             if (planKey === 'standard') {
                 priceId = billing === 'monthly'
-                    ? (import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_MONTHLY || 'price_1U8HVlKAwb86obAGxGJ2CiKH')
+                    ? (import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_MONTHLY || 'price_1U8JiDKAwb86obAGNbe9Env1')
                     : (import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_YEARLY || 'price_1U8HYuKAwb86obAGQkpx8QVy');
             } else {
                 priceId = billing === 'monthly'
-                    ? (import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY || 'price_1U8HVlKAwb86obAGxGJ2CiKH')
+                    ? (import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY || 'price_1U8JiDKAwb86obAGNbe9Env1')
                     : (import.meta.env.VITE_STRIPE_PRICE_ID_YEARLY || 'price_1U8HYuKAwb86obAGQkpx8QVy');
             }
 

@@ -12,7 +12,7 @@ import {
 //  • anual  = compra ÚNICA R$ 119,88 (parcelável em até 12x). NÃO usamos aqui o
 //    VITE_STRIPE_PRICE_ID_YEARLY (esse é o recorrente) — o anual é o preço avulso.
 const PRICE_IDS = {
-    monthly: import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY || 'price_1U8HVlKAwb86obAGxGJ2CiKH',
+    monthly: import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY || 'price_1U8JiDKAwb86obAGNbe9Env1',
     annual: import.meta.env.VITE_STRIPE_PRICE_ID_ANNUAL_ONETIME || 'price_1U8IWWKAwb86obAGMUt1Jn4Q',
 };
 
