@@ -13,6 +13,17 @@ export const ADMIN_EMAILS = [
     'felipe.lopestecnologia11@gmail.com', // Felipe Lopes — único admin
 ];
 
+// Normaliza e-mail p/ comparação: minúsculo e, no Gmail, remove os pontos do
+// local-part (Gmail trata "a.b@gmail" == "ab@gmail"). Assim a checagem não
+// depende da grafia exata (com/sem pontos) usada no cadastro.
+export const normalizeEmail = (email) => {
+    if (!email || typeof email !== 'string') return '';
+    const [local, domain] = email.trim().toLowerCase().split('@');
+    if (!domain) return email.trim().toLowerCase();
+    const isGmail = domain === 'gmail.com' || domain === 'googlemail.com';
+    return `${isGmail ? local.replace(/\./g, '') : local}@${domain}`;
+};
+
 // E-mails com acesso vitalício (subconjunto/sobreposto com ADMIN_EMAILS).
 // Mantido separado pra permitir lifetime sem ser admin no futuro, se preciso.
 export const LIFETIME_EMAILS = [
@@ -20,12 +31,15 @@ export const LIFETIME_EMAILS = [
     'lopes.felipe365@outlook.com', // conta de revisão (Google Play) — acesso Premium full
 ];
 
+const ADMIN_SET = ADMIN_EMAILS.map(normalizeEmail);
+const LIFETIME_SET = LIFETIME_EMAILS.map(normalizeEmail);
+
 export const isAdminEmail = (email) => {
     if (!email || typeof email !== 'string') return false;
-    return ADMIN_EMAILS.includes(email.toLowerCase());
+    return ADMIN_SET.includes(normalizeEmail(email));
 };
 
 export const isLifetimeEmail = (email) => {
     if (!email || typeof email !== 'string') return false;
-    return LIFETIME_EMAILS.includes(email.toLowerCase());
+    return LIFETIME_SET.includes(normalizeEmail(email));
 };

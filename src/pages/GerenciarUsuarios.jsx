@@ -9,9 +9,6 @@ import {
     RefreshCw, Save, Lock,
 } from 'lucide-react';
 
-// Só este e-mail vê e usa a tela (além do gate no botão).
-const OWNER_EMAIL = 'felipe.lopestecnologia11@gmail.com';
-
 // Os 4 grupos do app.
 const GROUPS = [
     { id: 'free', label: 'Gratuito', icon: Gift, color: '#94a3b8', desc: 'Plano gratuito (com limites)' },
@@ -25,7 +22,7 @@ export default function GerenciarUsuarios() {
     const { currentUser } = useAuth();
     const { theme } = useTheme();
     const isDark = theme !== 'light';
-    const allowed = (currentUser?.email || '').toLowerCase() === OWNER_EMAIL;
+    const allowed = isAdminEmail(currentUser?.email);
 
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);

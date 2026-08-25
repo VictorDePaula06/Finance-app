@@ -6,11 +6,10 @@ import {
     BarChart3, Receipt, BookOpen, Settings, LogOut, Sun, Moon, X, PiggyBank, Sparkles, Users,
 } from 'lucide-react';
 
-// Só este e-mail vê o botão de gerenciar usuários.
-const OWNER_EMAIL = 'felipe.lopestecnologia11@gmail.com';
 import logo from '../assets/logo.png';
 import aliviaAvatar from '../assets/alivia/alivia-final.png';
 import UserAvatar from './UserAvatar';
+import { isAdminEmail } from '../constants/admins';
 
 // Versão do app (exibida discretamente na sidebar).
 export const APP_VERSION = '0.1';
@@ -132,7 +131,7 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
                             {PLAN_LABEL[planLevel] || 'Gratuito'}
                         </span>
                     </div>
-                    {(currentUser?.email || '').toLowerCase() === OWNER_EMAIL && (
+                    {isAdminEmail(currentUser?.email) && (
                         <button onClick={() => withClose(onNavigate)('gerenciar-usuarios')} title="Gerenciar usuários"
                             className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition active:scale-95 ${
                                 active === 'gerenciar-usuarios'
