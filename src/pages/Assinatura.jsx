@@ -7,10 +7,10 @@ import {
     CreditCard, MessageCircle, BarChart3, Landmark, FileText, Star, Lock,
 } from 'lucide-react';
 
-// Preço "Pro" = plano premium já configurado no Stripe.
+// Preço "Pro" (Live): mensal R$ 14,99 / anual R$ 119,88.
 const PRICE_IDS = {
-    monthly: import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY || 'price_1TdDwDKAwb86obAGnRhLwlIa',
-    annual: import.meta.env.VITE_STRIPE_PRICE_ID_YEARLY || 'price_1TdE1VKAwb86obAGh2h7m4o6',
+    monthly: import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY || 'price_1U8HVlKAwb86obAGxGJ2CiKH',
+    annual: import.meta.env.VITE_STRIPE_PRICE_ID_YEARLY || 'price_1U8HYuKAwb86obAGQkpx8QVy',
 };
 
 // Preços (definidos pelo produto): anual R$ 9,99/mês (R$ 119,88/ano);

@@ -291,6 +291,10 @@ export function AuthProvider({ children }) {
             const PREMIUM_PRICES = [
                 import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY,
                 import.meta.env.VITE_STRIPE_PRICE_ID_YEARLY,
+                // Preços "Pro" atuais (Live) — mensal R$ 14,99 / anual R$ 119,88.
+                'price_1U8HVlKAwb86obAGxGJ2CiKH',
+                'price_1U8HYuKAwb86obAGQkpx8QVy',
+                // Preços antigos (mantidos p/ não derrubar assinantes já existentes).
                 'price_1TdDwDKAwb86obAGnRhLwlIa',
                 'price_1TdE1VKAwb86obAGh2h7m4o6'
             ];
