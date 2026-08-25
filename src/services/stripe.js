@@ -5,15 +5,19 @@ import { loadStripe } from '@stripe/stripe-js';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
-export async function createCheckoutSession(uid, priceId, onFinish) {
+export async function createCheckoutSession(uid, priceId, onFinish, opts = {}) {
     // IMPORTANTE: A extensão oficial do Stripe geralmente olha para a coleção 'customers'
     const checkoutSessionsRef = collection(db, 'customers', uid, 'checkout_sessions');
 
     try {
+        // `opts` permite, por ex., { mode: 'payment' } para preços AVULSOS (compra
+        // única parcelável em 12x). Sem isso a extensão assume 'subscription' e um
+        // preço avulso quebra ("must provide at least one recurring price").
         const docRef = await addDoc(checkoutSessionsRef, {
             price: priceId,
             success_url: window.location.origin,
             cancel_url: window.location.origin,
+            ...opts,
         });
 
         console.log("Sessão de checkout criada no Firestore, aguardando extensão...");

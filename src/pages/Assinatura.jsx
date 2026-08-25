@@ -71,7 +71,9 @@ export default function Assinatura() {
             if (billing === 'monthly' && stripeSubId) {
                 await upgradeSubscription(priceId); setLoading(false);
             } else {
-                await createCheckoutSession(currentUser.uid, priceId, () => setLoading(false));
+                // Anual = compra única → modo 'payment' (parcelável em 12x). Mensal = assinatura.
+                const opts = billing === 'annual' ? { mode: 'payment' } : {};
+                await createCheckoutSession(currentUser.uid, priceId, () => setLoading(false), opts);
             }
         } catch (e) { console.error(e); setError('Não foi possível iniciar o pagamento. Tente de novo.'); setLoading(false); }
     };
