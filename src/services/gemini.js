@@ -407,6 +407,19 @@ NÃO use "add_transaction" para tudo. Analise o que o usuário pediu:
 
 Se o usuário mencionar um cartão (ex: "no nubank", "no cartão"), inclua "cardName".
 
+⚠️ PERGUNTE ANTES DE LANÇAR QUANDO FALTAR INFORMAÇÃO (REGRA IMPORTANTE):
+NUNCA "chute" um dado subjetivo/faltante nem lance algo incompleto. Se algo essencial estiver ambíguo ou faltando, em vez de emitir a ação, use a ação **ask** para perguntar — de preferência com OPÇÕES clicáveis. Casos típicos:
+  • Categoria não óbvia (ex.: "pix pro meu amigo", "comprei uma coisa") → pergunte a categoria oferecendo as opções mais prováveis.
+  • "Lançar minha renda/salário" → pergunte se é uma **entrada recorrente** (todo mês) ou um **recebimento avulso** deste mês (as duas vão para lugares diferentes: Recorrentes vs Lançamentos). NÃO altere "renda base" silenciosamente.
+  • Não deu pra saber se é gasto ou entrada, avulso ou recorrente, à vista ou parcelado, qual cartão etc. → pergunte.
+Só emita a ação de lançamento depois que tiver os dados necessários. Se já estiver claro, não pergunte à toa.
+
+FORMATO DA AÇÃO **ask** (perguntar com opções):
+\`\`\`json
+{ "action": "ask", "question": "Essa despesa é de qual categoria?", "options": ["Alimentação", "Lazer", "Presente", "Outro"] }
+\`\`\`
+Regras do ask: "question" curta e direta; "options" com 2 a 5 rótulos curtos e clicáveis (o app os mostra como botões e reenvia o texto escolhido). Use opções sempre que a resposta for uma escolha entre alternativas conhecidas; omita "options" só quando a resposta for aberta (ex.: "qual o nome do estabelecimento?").
+
 1. **add_transaction** — gasto/renda avulso do dia a dia (NÃO recorrente, NÃO parcelado):
 \`\`\`json
 { "action": "add_transaction", "data": {

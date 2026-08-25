@@ -149,7 +149,7 @@ export default function ConsultoriaAlivia({ onNavigate }) {
     const gastosMes = monthTx.filter(t => t.type === 'expense').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
     const ganhosMes = monthTx.filter(t => t.type === 'income').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
 
-    const say = (text, role = 'alivia') => setMsgs(m => [...m, { role, text }]);
+    const say = (text, role = 'alivia', options = null) => setMsgs(m => [...m, { role, text, ...(options && options.length ? { options } : {}) }]);
 
     // Executa uma ação retornada pela IA (bloco JSON).
     const executeAction = async (action, data = {}) => {
@@ -223,6 +223,17 @@ export default function ConsultoriaAlivia({ onNavigate }) {
         if (jsonMatch) {
             try {
                 const obj = JSON.parse(jsonMatch[1].trim());
+                // "ask": a Alívia precisa de mais dados → mostra a pergunta com opções
+                // clicáveis e NÃO executa nada até o usuário responder.
+                if (obj.action === 'ask') {
+                    const d0 = obj.data || {};
+                    const opts = Array.isArray(obj.options) ? obj.options : (Array.isArray(d0.options) ? d0.options : []);
+                    const q = obj.question || d0.question;
+                    if (q && !display) say(q, 'alivia', opts);
+                    else if (opts.length) setMsgs(m => m.length ? [...m.slice(0, -1), { ...m[m.length - 1], options: opts }] : m);
+                    setThinking('');
+                    return;
+                }
                 if (obj.action) {
                     const d = obj.data || {};
                     const val = parseFloat(String(d.amount ?? d.value ?? '').replace(',', '.')) || 0;
@@ -400,7 +411,21 @@ export default function ConsultoriaAlivia({ onNavigate }) {
 
             {/* Mensagens */}
             <div className="flex-1 overflow-y-auto py-4 space-y-3 no-scrollbar">
-                {msgs.map((m, i) => <Bubble key={i} isDark={isDark} role={m.role} text={m.text} />)}
+                {msgs.map((m, i) => (
+                    <div key={i} className="space-y-2">
+                        <Bubble isDark={isDark} role={m.role} text={m.text} />
+                        {m.options && m.options.length > 0 && (
+                            <div className="flex flex-wrap gap-2 ml-9">
+                                {m.options.map((opt, j) => (
+                                    <button key={j} type="button" onClick={() => handleText(opt)} disabled={busy}
+                                        className={`px-3.5 py-1.5 rounded-full text-[12px] font-bold border transition active:scale-95 disabled:opacity-50 ${isDark ? 'border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10' : 'border-emerald-500/40 text-emerald-600 hover:bg-emerald-50'}`}>
+                                        {opt}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                ))}
 
                 {thinking && (
                     <div className="flex gap-2.5 max-w-[85%]">
