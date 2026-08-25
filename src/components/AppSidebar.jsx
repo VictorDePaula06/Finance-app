@@ -3,8 +3,11 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
     LayoutDashboard, Repeat, ArrowLeftRight, CreditCard, Landmark,
-    BarChart3, Receipt, BookOpen, Settings, LogOut, Sun, Moon, X, PiggyBank, Sparkles,
+    BarChart3, Receipt, BookOpen, Settings, LogOut, Sun, Moon, X, PiggyBank, Sparkles, Users,
 } from 'lucide-react';
+
+// Só este e-mail vê o botão de gerenciar usuários.
+const OWNER_EMAIL = 'felipe.lopestecnologia11@gmail.com';
 import logo from '../assets/logo.png';
 import aliviaAvatar from '../assets/alivia/alivia-final.png';
 import UserAvatar from './UserAvatar';
@@ -119,7 +122,7 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
                 <div className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
                     <UserAvatar className="w-9 h-9 rounded-full shrink-0"
                         fallbackClassName="rounded-full bg-gradient-to-br from-emerald-500 to-teal-600" textClassName="font-black text-white text-sm" />
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                         <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{name}</p>
                         <span className={`inline-block text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${
                             planLevel === 'lifetime' ? 'bg-purple-500/15 text-purple-400'
@@ -129,6 +132,15 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
                             {PLAN_LABEL[planLevel] || 'Gratuito'}
                         </span>
                     </div>
+                    {(currentUser?.email || '').toLowerCase() === OWNER_EMAIL && (
+                        <button onClick={() => withClose(onNavigate)('gerenciar-usuarios')} title="Gerenciar usuários"
+                            className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition active:scale-95 ${
+                                active === 'gerenciar-usuarios'
+                                    ? 'bg-amber-500/15 text-amber-400'
+                                    : (isDark ? 'bg-white/5 text-slate-400 hover:text-amber-300 hover:bg-amber-500/10' : 'bg-slate-100 text-slate-500 hover:text-amber-600 hover:bg-amber-50')}`}>
+                            <Users className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
 
                 <button onClick={withClose(onSettings)}

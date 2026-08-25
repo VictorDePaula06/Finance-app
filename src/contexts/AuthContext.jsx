@@ -339,6 +339,12 @@ export function AuthProvider({ children }) {
             } else if (hasAnnualPass) {
                 // Compra única anual (12x) válida → Pro por 1 ano.
                 currentPlanLevel = 'premium';
+            } else if (dataRef.current.prefs.subscription?.status === 'pro'
+                || dataRef.current.user.subscription?.status === 'pro') {
+                // Pro concedido MANUALMENTE por um admin (tela de gerenciamento).
+                // Só um admin consegue gravar 'pro' (firestore.rules protege o doc do
+                // próprio usuário via subStatusSafe), então isto não é bypass.
+                currentPlanLevel = 'premium';
             }
             // Qualquer outro caso permanece 'free'.
 
@@ -349,8 +355,9 @@ export function AuthProvider({ children }) {
             const toleranceDays = 0;
 
             // Flags de compatibilidade para o restante da função:
-            const subStatus = isManualLifetime ? 'lifetime' : ((hasActiveStripe || hasAnnualPass) ? 'active' : (isBlocked ? 'blocked' : 'free'));
-            const isManualActive = hasActiveStripe || hasAnnualPass;   // "ativo" = Stripe pago (assinatura ou compra anual)
+            const isManualPro = currentPlanLevel === 'premium' && !hasActiveStripe && !hasAnnualPass;
+            const subStatus = isManualLifetime ? 'lifetime' : ((hasActiveStripe || hasAnnualPass || isManualPro) ? 'active' : (isBlocked ? 'blocked' : 'free'));
+            const isManualActive = hasActiveStripe || hasAnnualPass || isManualPro;   // "ativo" = pago (Stripe/compra anual) ou Pro manual
             const isWithinTrial = false;              // trial sem pagamento desativado
 
             // Acesso: todos têm ao menos o Gratuito; bloqueio administrativo tranca tudo.
