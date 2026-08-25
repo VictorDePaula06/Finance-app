@@ -299,6 +299,27 @@ export function AuthProvider({ children }) {
                 'price_1TdE1VKAwb86obAGh2h7m4o6'
             ];
 
+            // Pagamento ÚNICO anual (parcelável em 12x) — libera Pro por 365 dias a
+            // partir da compra. Usa a coleção `payments` da extensão do Stripe (grava
+            // pagamentos avulsos bem-sucedidos). Não renova sozinho: expira em 1 ano.
+            const ONE_TIME_ANNUAL_PRICES = [
+                import.meta.env.VITE_STRIPE_PRICE_ID_ANNUAL_ONETIME,
+                'price_1U8IWWKAwb86obAGMUt1Jn4Q',
+            ];
+            const ANNUAL_ONETIME_CENTS = 11988; // R$ 119,88
+            const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+            const annualPass = (dataRef.current.payments || []).find(p => {
+                if (p.status !== 'succeeded') return false;
+                const priceId = p.items?.[0]?.price?.id || p.price?.id || p.price || null;
+                const amt = Number(p.amount) || Number(p.amount_total) || 0;
+                if (!(ONE_TIME_ANNUAL_PRICES.includes(priceId) || amt === ANNUAL_ONETIME_CENTS)) return false;
+                const c = p.created;
+                const createdMs = typeof c === 'number' ? c * 1000
+                    : (c?.seconds ? c.seconds * 1000 : (typeof c?.toMillis === 'function' ? c.toMillis() : 0));
+                return createdMs > 0 && (Date.now() - createdMs) < ONE_YEAR_MS;
+            });
+            const hasAnnualPass = !!annualPass;
+
             const stripePriceId = stripeSub?.items?.[0]?.plan?.id;
             let currentPlanLevel = 'free';
 
@@ -315,18 +336,21 @@ export function AuthProvider({ children }) {
                     currentPlanLevel = 'free';
                     console.warn('[Auth] Assinatura ativa com preço fora da allowlist — mantendo plano free.');
                 }
+            } else if (hasAnnualPass) {
+                // Compra única anual (12x) válida → Pro por 1 ano.
+                currentPlanLevel = 'premium';
             }
             // Qualquer outro caso permanece 'free'.
 
             // Tipo de assinatura e data (apenas exibição / portal). Sem Stripe = mensal.
-            const resolvedSubType = (stripeSub?.items?.[0]?.plan?.interval === 'year') ? 'annual' : 'monthly';
+            const resolvedSubType = (hasAnnualPass || stripeSub?.items?.[0]?.plan?.interval === 'year') ? 'annual' : 'monthly';
             const subDate = stripeSub?.current_period_start ? new Date(stripeSub.current_period_start.seconds * 1000) : null;
             const msInDay = 1000 * 60 * 60 * 24;
             const toleranceDays = 0;
 
             // Flags de compatibilidade para o restante da função:
-            const subStatus = isManualLifetime ? 'lifetime' : (hasActiveStripe ? 'active' : (isBlocked ? 'blocked' : 'free'));
-            const isManualActive = hasActiveStripe;   // "ativo" agora significa Stripe pago
+            const subStatus = isManualLifetime ? 'lifetime' : ((hasActiveStripe || hasAnnualPass) ? 'active' : (isBlocked ? 'blocked' : 'free'));
+            const isManualActive = hasActiveStripe || hasAnnualPass;   // "ativo" = Stripe pago (assinatura ou compra anual)
             const isWithinTrial = false;              // trial sem pagamento desativado
 
             // Acesso: todos têm ao menos o Gratuito; bloqueio administrativo tranca tudo.
@@ -412,6 +436,7 @@ export function AuthProvider({ children }) {
         const userRef = doc(db, 'users', currentUser.uid);
         const subsRef = collection(db, 'customers', currentUser.uid, 'subscriptions');
         const subsQuery = query(subsRef); // Traz todas as assinaturas para investigar o status real
+        const paymentsRef = collection(db, 'customers', currentUser.uid, 'payments'); // pagamentos avulsos (compra anual 12x)
 
         let prefsDone = false;
         let userDone = false;
@@ -495,6 +520,12 @@ export function AuthProvider({ children }) {
             syncLoading();
         });
 
+        // Pagamentos avulsos (compra anual 12x) — libera Pro por 1 ano.
+        const unsubPayments = onSnapshot(query(paymentsRef), (snap) => {
+            dataRef.current.payments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            checkStatus();
+        }, () => { /* ignora erro/coleção inexistente */ });
+
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
                 console.log("[Auth] App em foco - Re-validando assinatura...");
@@ -513,6 +544,7 @@ export function AuthProvider({ children }) {
             unsubPrefs();
             unsubUser();
             unsubSubs();
+            unsubPayments();
             if (expiryTimeoutRef.current) clearTimeout(expiryTimeoutRef.current);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             clearInterval(interval);

@@ -7,10 +7,13 @@ import {
     CreditCard, MessageCircle, BarChart3, Landmark, FileText, Star, Lock,
 } from 'lucide-react';
 
-// Preço "Pro" (Live): mensal R$ 14,99 / anual R$ 119,88.
+// Preço "Pro" (Live):
+//  • mensal = assinatura recorrente R$ 14,99/mês
+//  • anual  = compra ÚNICA R$ 119,88 (parcelável em até 12x). NÃO usamos aqui o
+//    VITE_STRIPE_PRICE_ID_YEARLY (esse é o recorrente) — o anual é o preço avulso.
 const PRICE_IDS = {
     monthly: import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY || 'price_1U8HVlKAwb86obAGxGJ2CiKH',
-    annual: import.meta.env.VITE_STRIPE_PRICE_ID_YEARLY || 'price_1U8HYuKAwb86obAGQkpx8QVy',
+    annual: import.meta.env.VITE_STRIPE_PRICE_ID_ANNUAL_ONETIME || 'price_1U8IWWKAwb86obAGMUt1Jn4Q',
 };
 
 // Preços (definidos pelo produto): anual R$ 9,99/mês (R$ 119,88/ano);
@@ -62,8 +65,14 @@ export default function Assinatura() {
         setLoading(true); setError('');
         const priceId = PRICE_IDS[billing];
         try {
-            if (stripeSubId) { await upgradeSubscription(priceId); setLoading(false); }
-            else { await createCheckoutSession(currentUser.uid, priceId, () => setLoading(false)); }
+            // Anual = compra ÚNICA (12x): sempre um checkout novo — não é assinatura,
+            // então não dá pra "trocar preço" (upgradeSubscription). Só o mensal
+            // recorrente aproveita o upgrade quando já existe assinatura ativa.
+            if (billing === 'monthly' && stripeSubId) {
+                await upgradeSubscription(priceId); setLoading(false);
+            } else {
+                await createCheckoutSession(currentUser.uid, priceId, () => setLoading(false));
+            }
         } catch (e) { console.error(e); setError('Não foi possível iniciar o pagamento. Tente de novo.'); setLoading(false); }
     };
     const gerenciar = async () => {
@@ -162,7 +171,7 @@ export default function Assinatura() {
                     </div>
                     <p className={`text-[12px] mt-1 ${muted}`}>
                         {billing === 'annual'
-                            ? <>Cobrado <b className={isDark ? 'text-slate-300' : 'text-slate-700'}>R$ {p.total}/ano</b> · economize R$ {ECONOMIA_ANO} ({ECONOMIA_PCT}%)</>
+                            ? <>Cobrado <b className={isDark ? 'text-slate-300' : 'text-slate-700'}>R$ {p.total}/ano</b> · até <b className="text-emerald-500">12x no cartão</b> · economize R$ {ECONOMIA_ANO} ({ECONOMIA_PCT}%)</>
                             : <>No plano mensal · <button onClick={() => setBilling('annual')} className="text-emerald-500 font-bold underline">no anual sai R$ 9,99 (-{ECONOMIA_PCT}%)</button></>}
                     </p>
 
