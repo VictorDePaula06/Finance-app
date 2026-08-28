@@ -140,6 +140,19 @@ const changeOf = (a, changes = {}) => {
 };
 // Taxa diária efetiva equivalente a render X% do CDI ao ano (dia-calendário).
 const dailyCalRate = (cdiAnnualPct, cdiPct) => Math.pow(1 + (cdiAnnualPct / 100) * ((cdiPct || 100) / 100), 1 / 365) - 1;
+
+// Interpreta a taxa de um título do Tesouro. O campo anulRentPrcnt da API é:
+//  • Tesouro Selic → SPREAD sobre a Selic (ex.: +0,04%). Total ≈ Selic/CDI + spread.
+//  • Tesouro IPCA+ / Renda+ / Educa+ → taxa REAL (ex.: 6,5%). Total = IPCA + real.
+//  • Tesouro Prefixado → a própria taxa fixa ao ano.
+const tesouroRateInfo = (bondNameOrObj, anul, cdiAnnual = 0) => {
+    const nm = String(typeof bondNameOrObj === 'string' ? bondNameOrObj : (bondNameOrObj?.nm || '')).toLowerCase();
+    const v = parseFloat(anul != null ? anul : bondNameOrObj?.anulRentPrcnt) || 0;
+    const f = (x) => x.toFixed(2).replace('.', ',');
+    if (nm.includes('selic')) return { pct: cdiAnnual + v, label: `Selic + ${f(v)}%`, chip: `${f(cdiAnnual + v)}% a.a.` };
+    if (nm.includes('ipca') || nm.includes('renda') || nm.includes('educa')) return { pct: v, label: `IPCA + ${f(v)}%`, chip: `IPCA + ${f(v)}%` };
+    return { pct: v, label: `${f(v)}% a.a. (prefixado)`, chip: `${f(v)}% a.a.` };
+};
 // Valor ATUAL (na moeda do ativo) de uma renda fixa. CDB/pós-fixado (cdiPercent)
 // rende dia a dia pelo CDI desde a data do aporte. Senão, usa o valor manual.
 const rfCurrent = (a, cdiAnnual = 0) => {
@@ -477,7 +490,7 @@ export default function Patrimonio() {
                                                         <div className="flex items-center gap-2">
                                                             <p className={`font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{a.symbol ? a.symbol.toUpperCase() : (a.name || 'Ativo')}</p>
                                                             {market && <span className="text-[11px] font-black tabular-nums px-1.5 py-0.5 rounded-md whitespace-nowrap text-sky-400 bg-sky-500/12">{fmt(precoBRL)}</span>}
-                                                            {tRate && <span className="text-[11px] font-black tabular-nums px-1.5 py-0.5 rounded-md whitespace-nowrap text-emerald-400 bg-emerald-500/12">{tRate.rate.toFixed(2).replace('.', ',')}% a.a.</span>}
+                                                            {tRate && <span className="text-[11px] font-black tabular-nums px-1.5 py-0.5 rounded-md whitespace-nowrap text-emerald-400 bg-emerald-500/12">{tesouroRateInfo(a.tesouroName, tRate.rate, cdi).chip}</span>}
                                                             {cdbPct != null && <span className="text-[11px] font-black tabular-nums px-1.5 py-0.5 rounded-md whitespace-nowrap text-emerald-400 bg-emerald-500/12">{cdbPct}% do CDI</span>}
                                                         </div>
                                                         <div className="flex items-center gap-2 min-w-0">
@@ -909,25 +922,28 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                                             <button key={b.nm} type="button" onMouseDown={(e) => { e.preventDefault(); setTesouroName(b.nm); setName(b.nm); setShowTList(false); }}
                                                 className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left transition ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
                                                 <span className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{b.nm}</span>
-                                                <span className="text-[12px] font-black text-emerald-500 tabular-nums shrink-0">{parseFloat(b.anulRentPrcnt).toFixed(2).replace('.', ',')}%</span>
+                                                <span className="text-[12px] font-black text-emerald-500 tabular-nums shrink-0 whitespace-nowrap">{tesouroRateInfo(b, null, cdi).label}</span>
                                             </button>
                                         ))}
                                     </div>
                                 )}
                             </div>
                         )}
-                        {selBond && (
-                            <div className={`mt-2 rounded-xl border px-3.5 py-3 flex items-center justify-between ${isDark ? 'bg-emerald-500/[0.06] border-emerald-500/20' : 'bg-emerald-50 border-emerald-200'}`}>
-                                <div className="min-w-0">
-                                    <p className={`text-[13px] font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{tesouroName}</p>
-                                    <p className={`text-[11px] ${muted}`}>Preço unitário R$ {money(selUnit)} · <span className="text-emerald-500 font-bold">taxa ao vivo</span></p>
+                        {selBond && (() => {
+                            const ti = tesouroRateInfo(selBond, null, cdi);
+                            return (
+                                <div className={`mt-2 rounded-xl border px-3.5 py-3 flex items-center justify-between ${isDark ? 'bg-emerald-500/[0.06] border-emerald-500/20' : 'bg-emerald-50 border-emerald-200'}`}>
+                                    <div className="min-w-0">
+                                        <p className={`text-[13px] font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{tesouroName}</p>
+                                        <p className={`text-[11px] ${muted}`}>Preço unit. R$ {money(selUnit)} · <span className="text-emerald-500 font-bold">{ti.label}</span> · <span className="text-emerald-500 font-bold">ao vivo</span></p>
+                                    </div>
+                                    <div className="text-right shrink-0 ml-3">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Taxa atual</p>
+                                        <p className="text-lg font-black tabular-nums text-emerald-500">{ti.chip}</p>
+                                    </div>
                                 </div>
-                                <div className="text-right shrink-0 ml-3">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Taxa atual</p>
-                                    <p className="text-lg font-black tabular-nums text-emerald-500">{selRate?.toFixed(2).replace('.', ',')}% <span className="text-[11px]">a.a.</span></p>
-                                </div>
-                            </div>
-                        )}
+                            );
+                        })()}
                     </div>
                 ) : (
                     <Field label="Nome do ativo"><input value={name} onChange={e => setName(e.target.value)} placeholder={market ? 'Ex.: Petrobras, Bitcoin' : 'Ex.: CDB Banco X, Tesouro Selic 2029'} className={inputCls} maxLength={40} autoFocus /></Field>
