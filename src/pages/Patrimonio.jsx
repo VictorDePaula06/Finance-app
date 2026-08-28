@@ -419,6 +419,9 @@ export default function Patrimonio() {
                                 const q = parseFloat(a.quantity || 1) || 1;
                                 const precoBRL = market && q > 0 ? val / q : val;
                                 const custoUnit = market ? (parseFloat(a.purchasePrice || 0) || 0) * (a.isUSD ? rate : 1) : 0;
+                                const dayCh = market ? changeOf({ type: a.type, symbol: a.symbol, isUSD: a.isUSD }, priceChanges) : null;
+                                const dayPct = dayCh ? dayCh.pct : null;
+                                const dayUp = (dayPct ?? 0) >= 0;
                                 const r = inv > 0 ? (val - inv) / inv * 100 : 0;
                                 const lucro = val - inv;
                                 const up = r >= 0;
@@ -430,17 +433,26 @@ export default function Patrimonio() {
                                     <div key={a.id} className={i ? `border-t ${isDark ? 'border-white/5' : 'border-slate-100'}` : ''}>
                                         <div className="overflow-x-auto">
                                             <div className="group flex items-center gap-4 px-4 py-3 min-w-[760px]">
-                                                {/* Ticker + nome */}
+                                                {/* Ticker + nome + preço atual + variação do dia */}
                                                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                                     <AssetIcon symbol={a.symbol} type={a.type} name={a.name} size={40} isUSD={a.isUSD} />
                                                     <div className="min-w-0">
-                                                        <p className={`font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{a.symbol ? a.symbol.toUpperCase() : (a.name || 'Ativo')}</p>
-                                                        <p className="text-[11px] truncate" style={{ color }}>{a.symbol ? (a.name || typeMeta(a.type).label) : typeMeta(a.type).label}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className={`font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{a.symbol ? a.symbol.toUpperCase() : (a.name || 'Ativo')}</p>
+                                                            {market && <span className="text-[11px] font-black tabular-nums px-1.5 py-0.5 rounded-md whitespace-nowrap text-sky-400 bg-sky-500/12">{fmt(precoBRL)}</span>}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <p className="text-[11px] truncate" style={{ color }}>{a.symbol ? (a.name || typeMeta(a.type).label) : typeMeta(a.type).label}</p>
+                                                            {market && dayPct != null && (
+                                                                <span className={`text-[11px] font-bold tabular-nums whitespace-nowrap shrink-0 ${dayUp ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                                    {dayUp ? '+' : ''}{dayPct.toFixed(2)}% <span className={muted}>no dia</span>
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 {market && <Col isDark={isDark} label="Qtd" value={String(a.quantity ?? 1)} cls={isDark ? 'text-slate-200' : 'text-slate-700'} w="w-16" />}
                                                 {market && <Col isDark={isDark} label="Custo médio" value={fmt(custoUnit)} cls={isDark ? 'text-slate-200' : 'text-slate-700'} w="w-24" />}
-                                                {market && <Col isDark={isDark} label="Preço" value={fmt(precoBRL)} cls={isDark ? 'text-slate-200' : 'text-slate-700'} w="w-24" />}
                                                 <Col isDark={isDark} label="Valor atual" value={fmt(val)} cls={isDark ? 'text-white' : 'text-slate-800'} w="w-28" />
                                                 <Col isDark={isDark} label="Rent." w="w-24" value={<span className={`inline-flex items-center gap-0.5 ${posCls}`}><Arrow className="w-3 h-3" />{up ? '+' : ''}{r.toFixed(2)}%</span>} />
                                                 <Col isDark={isDark} label="Lucro/Perda" w="w-28" value={<span className={`inline-flex items-center gap-0.5 ${lucro >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}><Arrow className="w-3 h-3" />{lucro >= 0 ? '+ ' : '− '}{fmt(Math.abs(lucro))}</span>} />
