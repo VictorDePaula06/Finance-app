@@ -5,7 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { useLivePrices } from '../hooks/useLivePrices';
-import { getUsdRate } from '../utils/marketRates';
+import { getUsdRate, getCdiRate } from '../utils/marketRates';
 import {
     Plus, Minus, Pencil, Trash2, X, Loader2, Check, Search, Save, ChevronDown,
     Landmark, PieChart as PieIcon, Activity, Bitcoin, TrendingUp, TrendingDown,
@@ -138,9 +138,23 @@ const changeOf = (a, changes = {}) => {
     if (a.type === 'crypto') return changes[`${sym}_${a.isUSD ? 'USD' : 'BRL'}`] || changes[`${sym}_USD`] || changes[`${sym}_BRL`] || null;
     return changes[sym] || null;
 };
-// Valor atual em BRL = quantidade × preço unitário × câmbio.
-const valueOf = (a, prices = {}) => {
-    if (a.type === 'renda_fixa') return (parseFloat(a.manualCurrentPrice || a.totalApplied || a.purchasePrice || 0) || 0) * usdMult(a, prices);
+// Taxa diária efetiva equivalente a render X% do CDI ao ano (dia-calendário).
+const dailyCalRate = (cdiAnnualPct, cdiPct) => Math.pow(1 + (cdiAnnualPct / 100) * ((cdiPct || 100) / 100), 1 / 365) - 1;
+// Valor ATUAL (na moeda do ativo) de uma renda fixa. CDB/pós-fixado (cdiPercent)
+// rende dia a dia pelo CDI desde a data do aporte. Senão, usa o valor manual.
+const rfCurrent = (a, cdiAnnual = 0) => {
+    const base = parseFloat(a.totalApplied ?? a.purchasePrice ?? 0) || 0;
+    if (base <= 0) return 0;
+    if (a.cdiPercent != null && cdiAnnual > 0) {
+        const since = a.investedAt || a.createdAt || Date.now();
+        const days = Math.max(0, (Date.now() - since) / 86400000);
+        return base * Math.pow(1 + dailyCalRate(cdiAnnual, a.cdiPercent), days);
+    }
+    return parseFloat(a.manualCurrentPrice ?? base) || base;
+};
+// Valor atual em BRL = quantidade × preço unitário × câmbio (renda fixa: valor acumulado).
+const valueOf = (a, prices = {}, cdi = 0) => {
+    if (a.type === 'renda_fixa') return rfCurrent(a, cdi) * usdMult(a, prices);
     const q = parseFloat(a.quantity || 1) || 1;
     return q * currentUnit(a, prices) * usdMult(a, prices);
 };
@@ -182,7 +196,20 @@ export default function Patrimonio() {
     const [invTxs, setInvTxs] = useState([]);      // aportes/vendas dos ativos
     const [trade, setTrade] = useState(null);      // { asset, kind: 'buy'|'sell' }
     const [openAsset, setOpenAsset] = useState(null); // id do ativo com aportes abertos
+    const [cdi, setCdi] = useState(14.9);          // CDI anual (%) — taxa base do Brasil
+    const [, setTick] = useState(0);                // re-render pro rendimento "andar"
     const [form, setForm] = useState(null);
+
+    useEffect(() => {
+        getCdiRate().then(raw => {
+            if (!raw) return;
+            const daily = raw / 365;
+            const annual = (Math.pow(1 + daily / 100, 252) - 1) * 100;
+            if (isFinite(annual) && annual > 0) setCdi(annual);
+        }).catch(() => { });
+        const t = setInterval(() => setTick(x => x + 1), 30000);
+        return () => clearInterval(t);
+    }, []);
     const [cur, setCur] = useState(() => (typeof localStorage !== 'undefined' && localStorage.getItem(CUR_KEY)) || 'BRL');
     const [saved, setSaved] = useState(false);
     const [tab, setTab] = useState('renda_fixa');
@@ -263,16 +290,16 @@ export default function Patrimonio() {
         await updateDoc(doc(db, 'investments', asset.id), { quantity: q, purchasePrice: avgCost });
     };
 
-    const total = useMemo(() => investments.reduce((a, x) => a + valueOf(x, livePrices), 0), [investments, livePrices]);
+    const total = useMemo(() => investments.reduce((a, x) => a + valueOf(x, livePrices, cdi), 0), [investments, livePrices, cdi]);
     const totalInvestido = useMemo(() => investments.reduce((a, x) => a + investedOf(x, livePrices), 0), [investments, livePrices]);
     const lucro = total - totalInvestido;
     const rentabilidade = totalInvestido > 0 ? (lucro / totalInvestido) * 100 : 0;
 
     const byGroup = useMemo(() => {
         const m = {}; GROUP_IDS.forEach(g => m[g] = 0);
-        investments.forEach(a => { m[getGroup(a.type)] += valueOf(a, livePrices); });
+        investments.forEach(a => { m[getGroup(a.type)] += valueOf(a, livePrices, cdi); });
         return m;
-    }, [investments, livePrices]);
+    }, [investments, livePrices, cdi]);
 
     const classes = useMemo(() => GROUP_IDS
         .map(gid => ({ id: gid, ...GROUP_META[gid], value: byGroup[gid], pct: total ? byGroup[gid] / total * 100 : 0 }))
@@ -282,8 +309,8 @@ export default function Patrimonio() {
     const assetsInTab = useMemo(() => investments
         .filter(a => getGroup(a.type) === tab)
         .filter(a => (a.name || '').toLowerCase().includes(search.trim().toLowerCase()) || (a.symbol || '').toLowerCase().includes(search.trim().toLowerCase()))
-        .sort((a, b) => valueOf(b, livePrices) - valueOf(a, livePrices)),
-        [investments, tab, search, livePrices]);
+        .sort((a, b) => valueOf(b, livePrices, cdi) - valueOf(a, livePrices, cdi)),
+        [investments, tab, search, livePrices, cdi]);
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const cell = isDark ? 'text-slate-300' : 'text-slate-700';
@@ -423,7 +450,7 @@ export default function Patrimonio() {
                             {assetsInTab.map((a, i) => {
                                 const color = GROUP_META[getGroup(a.type)].color;
                                 const market = isMarket(a.type);
-                                const inv = investedOf(a, livePrices), val = valueOf(a, livePrices);
+                                const inv = investedOf(a, livePrices), val = valueOf(a, livePrices, cdi);
                                 const q = parseFloat(a.quantity || 1) || 1;
                                 const precoBRL = market && q > 0 ? val / q : val;
                                 const custoUnit = market ? (parseFloat(a.purchasePrice || 0) || 0) * (a.isUSD ? rate : 1) : 0;
@@ -431,6 +458,7 @@ export default function Patrimonio() {
                                 const dayPct = dayCh ? dayCh.pct : null;
                                 const dayUp = (dayPct ?? 0) >= 0;
                                 const tRate = (!market && a.tesouroName) ? getTesouroRate(a.tesouroName) : null;
+                                const cdbPct = (!market && a.cdiPercent != null) ? Number(a.cdiPercent) : null;
                                 const r = inv > 0 ? (val - inv) / inv * 100 : 0;
                                 const lucro = val - inv;
                                 const up = r >= 0;
@@ -450,6 +478,7 @@ export default function Patrimonio() {
                                                             <p className={`font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{a.symbol ? a.symbol.toUpperCase() : (a.name || 'Ativo')}</p>
                                                             {market && <span className="text-[11px] font-black tabular-nums px-1.5 py-0.5 rounded-md whitespace-nowrap text-sky-400 bg-sky-500/12">{fmt(precoBRL)}</span>}
                                                             {tRate && <span className="text-[11px] font-black tabular-nums px-1.5 py-0.5 rounded-md whitespace-nowrap text-emerald-400 bg-emerald-500/12">{tRate.rate.toFixed(2).replace('.', ',')}% a.a.</span>}
+                                                            {cdbPct != null && <span className="text-[11px] font-black tabular-nums px-1.5 py-0.5 rounded-md whitespace-nowrap text-emerald-400 bg-emerald-500/12">{cdbPct}% do CDI</span>}
                                                         </div>
                                                         <div className="flex items-center gap-2 min-w-0">
                                                             <p className="text-[11px] truncate" style={{ color }}>{a.symbol ? (a.name || typeMeta(a.type).label) : typeMeta(a.type).label}</p>
@@ -459,6 +488,7 @@ export default function Patrimonio() {
                                                                 </span>
                                                             )}
                                                             {tRate && <span className="text-[11px] font-bold text-emerald-500/80 whitespace-nowrap shrink-0">taxa ao vivo</span>}
+                                                            {cdbPct != null && <span className="text-[11px] font-bold text-emerald-500/80 whitespace-nowrap shrink-0">CDI {cdi.toFixed(2).replace('.', ',')}%/ano · rende sozinho</span>}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -505,7 +535,7 @@ export default function Patrimonio() {
             {trade && <TradeModal isDark={isDark} asset={trade.asset} kind={trade.kind} rate={rate}
                 onConfirm={async (data) => { await applyTrade(trade.asset, { kind: trade.kind, ...data }); setTrade(null); setOpenAsset(trade.asset.id); }}
                 onClose={() => setTrade(null)} />}
-            {form && <AtivoForm isDark={isDark} uid={uid} editing={form.editing} tesouroData={tesouroData} onClose={() => setForm(null)} />}
+            {form && <AtivoForm isDark={isDark} uid={uid} editing={form.editing} tesouroData={tesouroData} cdi={cdi} onClose={() => setForm(null)} />}
             {monitorOpen && <MonitorModal isDark={isDark} investments={investments} watchlist={watchlist} prices={livePrices} changes={priceChanges}
                 defaultCur={cur} onAdd={addWatch} onUpdate={updWatch} onDelete={delWatch} onClose={() => setMonitorOpen(false)} />}
         </div>
@@ -709,7 +739,7 @@ async function fetchTickerPrice(type, ticker, isUSD) {
 }
 
 // ── Form: novo/editar ativo (com busca de cotação por ticker) ───────
-export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother = false, tesouroData = [] }) {
+export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother = false, tesouroData = [], cdi = 14.9 }) {
     const againRef = useRef(false);
     const [added, setAdded] = useState(0);
     // Por padrão NÃO desconta do saldo (o ativo já existe / já foi aportado).
@@ -730,17 +760,27 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [showSug, setShowSug] = useState(false);
-    // Renda fixa: subtipo + título do Tesouro selecionado (para taxa ao vivo).
-    const [rfKind, setRfKind] = useState(editing?.rfKind || (editing?.tesouroName ? 'tesouro' : 'tesouro'));
+    // Renda fixa: subtipo + parâmetros (CDB/pós = % do CDI; Tesouro = título).
+    const [rfKind, setRfKind] = useState(editing?.rfKind || (editing?.tesouroName ? 'tesouro' : 'cdb'));
     const [tesouroName, setTesouroName] = useState(editing?.tesouroName || '');
     const [tSearch, setTSearch] = useState('');
     const [showTList, setShowTList] = useState(false);
+    const [cdiPercent, setCdiPercent] = useState(editing?.cdiPercent != null ? String(editing.cdiPercent) : '100');
+    const [investedDate, setInvestedDate] = useState(editing?.investedAt ? new Date(editing.investedAt).toISOString().slice(0, 10) : todayISO());
 
     useEffect(() => { getUsdRate().then(r => { if (r) setUsdRate(r); }).catch(() => { }); }, []);
 
     const market = isMarket(type);
-    const RF_KINDS = [{ id: 'tesouro', label: 'Tesouro Direto' }, { id: 'cdb', label: 'CDB' }, { id: 'lci_lca', label: 'LCI/LCA' }, { id: 'outro', label: 'Outro' }];
+    const RF_KINDS = [{ id: 'cdb', label: 'CDB' }, { id: 'lci_lca', label: 'LCI/LCA' }, { id: 'tesouro', label: 'Tesouro' }, { id: 'outro', label: 'Outro' }];
     const isTesouro = type === 'renda_fixa' && rfKind === 'tesouro';
+    const isCdiBased = type === 'renda_fixa' && (rfKind === 'cdb' || rfKind === 'lci_lca'); // rende % do CDI
+    // Preview do rendimento (CDB): valor hoje acumulado pelo CDI desde a data.
+    const cdiP = Math.max(0, parseFloat(cdiPercent) || 0);
+    const rfInvested = numBR(invested);
+    const rfDays = Math.max(0, (Date.now() - new Date(investedDate + 'T12:00:00').getTime()) / 86400000);
+    const rfHoje = rfInvested > 0 ? rfInvested * Math.pow(1 + dailyCalRate(cdi, cdiP), rfDays) : 0;
+    const rfRend = rfHoje - rfInvested;
+    const rfMes = (Math.pow(1 + dailyCalRate(cdi, cdiP), 30) - 1) * 100;
     const tList = (tesouroData || []).filter(b => { const q = tSearch.trim().toLowerCase(); return !q || String(b.nm || '').toLowerCase().includes(q); }).slice(0, 40);
     const selBond = (tesouroData || []).find(b => b.nm === tesouroName);
     const selRate = selBond ? parseFloat(selBond.anulRentPrcnt) : null;
@@ -790,9 +830,13 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
             if (inv <= 0) { setError('Informe o valor investido.'); setSaving(false); return; }
             const val = numBR(current) > 0 ? numBR(current) : inv;
             const finalName = isTesouro ? tesouroName : normalizeName(name);
+            const rfExtra = type === 'renda_fixa' ? {
+                totalApplied: inv, rfKind, tesouroName: isTesouro ? tesouroName : '',
+                ...(isCdiBased ? { cdiPercent: cdiP || 100, investedAt: new Date(investedDate + 'T12:00:00').getTime() } : { cdiPercent: null }),
+            } : {};
             data = {
                 name: finalName, type, symbol: '', quantity: 1, purchasePrice: inv, manualCurrentPrice: val, isUSD,
-                ...(type === 'renda_fixa' ? { totalApplied: inv, rfKind, tesouroName: isTesouro ? tesouroName : '' } : {}),
+                ...rfExtra,
             };
         }
         try {
@@ -943,6 +987,25 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                                 <p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Rentab.</p>
                                 <p className={`font-black tabular-nums ${rentMkt >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{rentMkt >= 0 ? '+' : ''}{rentMkt.toFixed(2)}%</p>
                             </div>
+                        </div>
+                    </>
+                ) : isCdiBased ? (
+                    <>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Field label={`Valor investido (${isUSD ? 'US$' : 'R$'})`}><input inputMode="decimal" value={invested} onChange={e => setInvested(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
+                            <Field label="Rende (% do CDI)"><input inputMode="numeric" value={cdiPercent} onChange={e => setCdiPercent(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))} placeholder="100" className={inputCls} /></Field>
+                        </div>
+                        <Field label="Data do aporte"><input type="date" value={investedDate} onChange={e => setInvestedDate(e.target.value)} max={todayISO()} className={inputCls} style={{ colorScheme: isDark ? 'dark' : 'light' }} /></Field>
+                        <div className={`rounded-xl border p-3.5 ${isDark ? 'bg-emerald-500/[0.06] border-emerald-500/20' : 'bg-emerald-50 border-emerald-200'}`}>
+                            <p className={`text-[11px] ${muted}`}>
+                                Rende <span className="font-bold text-emerald-500">{cdiP}% do CDI</span> de <span className="font-bold text-emerald-500">{money(cdi)}%</span> a.a. (ao vivo) · ~<span className="font-bold text-emerald-500">{rfMes.toFixed(2)}% ao mês</span>
+                            </p>
+                            {rfInvested > 0 && (
+                                <div className="flex items-center justify-between mt-2">
+                                    <div><p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>Valor hoje ({Math.floor(rfDays)} dias)</p><p className="font-black tabular-nums text-emerald-500">{isUSD ? 'US$' : 'R$'} {money(rfHoje)}</p></div>
+                                    <div className="text-right"><p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>Rendimento</p><p className="font-black tabular-nums text-emerald-500">+ {isUSD ? 'US$' : 'R$'} {money(rfRend)}</p></div>
+                                </div>
+                            )}
                         </div>
                     </>
                 ) : (
