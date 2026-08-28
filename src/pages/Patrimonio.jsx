@@ -247,6 +247,14 @@ export default function Patrimonio() {
         await updateDoc(doc(db, 'investments', asset.id), { quantity: q, purchasePrice: avgCost });
     };
 
+    // Edita um movimento (qtd/preço) e recalcula a posição do ativo.
+    const editMov = async (asset, movId, patch) => {
+        await updateDoc(doc(db, 'investment_txs', movId), patch);
+        const updated = movsOf(asset.id).map(m => m.id === movId ? { ...m, ...patch } : m);
+        const { quantity: q, avgCost } = recomputeFromMovs(updated);
+        await updateDoc(doc(db, 'investments', asset.id), { quantity: q, purchasePrice: avgCost });
+    };
+
     // Exclui um movimento e recalcula a posição do ativo.
     const deleteMov = async (asset, movId) => {
         await deleteDoc(doc(db, 'investment_txs', movId));
@@ -460,7 +468,8 @@ export default function Patrimonio() {
                                                 <div className="flex items-center gap-1 shrink-0">
                                                     {market && <button onClick={() => setTrade({ asset: a, kind: 'buy' })} title="Aportar" className={`px-2.5 py-1.5 rounded-lg text-[12px] font-bold ${isDark ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>Aportar</button>}
                                                     {market && <button onClick={() => setTrade({ asset: a, kind: 'sell' })} title="Vender" className={`px-2.5 py-1.5 rounded-lg text-[12px] font-bold ${isDark ? 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}>Vender</button>}
-                                                    <button onClick={() => setForm({ editing: a })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                                                    {/* Renda fixa não tem aportes → mantém edição direta. Ativos de mercado editam pelos aportes. */}
+                                                    {!market && <button onClick={() => setForm({ editing: a })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>}
                                                     <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, 'investments', a.id))} />
                                                 </div>
                                             </div>
@@ -469,13 +478,14 @@ export default function Patrimonio() {
                                         {/* Ver aportes */}
                                         {market && (
                                             <div className="px-4 pb-3 -mt-1">
-                                                <button onClick={() => setOpenAsset(open ? null : a.id)}
+                                                <button onClick={() => { const willOpen = !open; setOpenAsset(willOpen ? a.id : null); if (willOpen && movs.length === 0) ensureInitialMov(a); }}
                                                     className={`flex items-center gap-1.5 text-[12px] font-bold transition ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
                                                     <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
                                                     {open ? 'Ocultar' : 'Ver'} aportes{movs.length ? ` (${movs.length})` : ''}
                                                 </button>
                                                 {open && (
                                                     <AportesList isDark={isDark} asset={a} movs={movs} fmt={fmt} rate={rate}
+                                                        onEdit={(movId, patch) => editMov(a, movId, patch)}
                                                         onDelete={(movId) => deleteMov(a, movId)} />
                                                 )}
                                             </div>
@@ -499,12 +509,21 @@ export default function Patrimonio() {
     );
 }
 
-// ── Lista de aportes/vendas de um ativo (ver, excluir) ──────────────
-function AportesList({ isDark, asset, movs, fmt, rate, onDelete }) {
+// ── Lista de aportes/vendas de um ativo (ver, editar, excluir) ──────
+function AportesList({ isDark, asset, movs, fmt, rate, onEdit, onDelete }) {
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+    const cur = asset.isUSD ? 'US$' : 'R$';
+    const [editId, setEditId] = useState(null);
+    const [eQty, setEQty] = useState('');
+    const [ePrice, setEPrice] = useState('');
     const list = movs.length
         ? [...movs].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || (b.createdAt || 0) - (a.createdAt || 0))
         : [{ id: '__init', kind: 'buy', quantity: asset.quantity, price: asset.purchasePrice, date: asset.createdAt ? new Date(asset.createdAt).toISOString() : null, _synthetic: true }];
+
+    const startEdit = (m) => { setEditId(m.id); setEQty(String(Math.abs(parseFloat(m.quantity) || 0)).replace('.', ',')); setEPrice(String(Math.abs(parseFloat(m.price) || 0)).replace('.', ',')); };
+    const saveEdit = (m) => { const nq = numQty(eQty), np = numBR(ePrice); if (nq <= 0 || np <= 0) { setEditId(null); return; } onEdit(m.id, { quantity: nq, price: np }); setEditId(null); };
+    const inCls = `px-2 py-1.5 rounded-lg border text-[13px] font-bold outline-none w-20 ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`;
+
     return (
         <div className={`mt-2 rounded-xl border divide-y overflow-hidden ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
             {list.map(m => {
@@ -513,17 +532,37 @@ function AportesList({ isDark, asset, movs, fmt, rate, onDelete }) {
                 const mpBRL = (Math.abs(parseFloat(m.price) || 0)) * (asset.isUSD ? rate : 1);
                 const totalBRL = mq * mpBRL;
                 const dateStr = m.date ? new Date(m.date).toLocaleDateString('pt-BR') : '';
+                const editing = editId === m.id;
                 return (
                     <div key={m.id} className={`flex items-center gap-3 px-3.5 py-2.5 text-[13px] ${isDark ? 'bg-white/[0.01]' : 'bg-white'}`}>
                         <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isBuy ? 'bg-emerald-500/15 text-emerald-500' : 'bg-amber-500/15 text-amber-500'}`}>
                             {isBuy ? <Plus className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
                         </span>
-                        <div className="min-w-0 flex-1">
-                            <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{isBuy ? 'Aporte' : 'Venda'} · {mq} un</p>
-                            <p className={`text-[11px] ${muted}`}>{[dateStr, `a ${fmt(mpBRL)}`].filter(Boolean).join(' · ')}</p>
-                        </div>
-                        <span className={`font-black tabular-nums whitespace-nowrap ${isBuy ? 'text-emerald-500' : 'text-amber-500'}`}>{isBuy ? '+' : '−'} {fmt(totalBRL)}</span>
-                        {!m._synthetic && <DeleteBtn isDark={isDark} onDelete={() => onDelete(m.id)} />}
+                        {editing ? (
+                            <div className="flex items-center gap-1.5 flex-1 flex-wrap">
+                                <span className={`text-[11px] font-bold ${muted}`}>{isBuy ? 'Aporte' : 'Venda'}</span>
+                                <input inputMode="decimal" value={eQty} onChange={e => setEQty(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="Qtd" className={inCls} autoFocus />
+                                <span className={`text-[11px] ${muted}`}>un ×</span>
+                                <input inputMode="decimal" value={ePrice} onChange={e => setEPrice(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder={cur} className={inCls} />
+                                <span className={`text-[11px] ${muted}`}>{cur}</span>
+                                <button onClick={() => saveEdit(m)} className="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center"><Check className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => setEditId(null)} className={`w-7 h-7 rounded-lg flex items-center justify-center ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}><X className="w-3.5 h-3.5" /></button>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="min-w-0 flex-1">
+                                    <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{isBuy ? 'Aporte' : 'Venda'} · {mq} un</p>
+                                    <p className={`text-[11px] ${muted}`}>{[dateStr, `a ${fmt(mpBRL)}`].filter(Boolean).join(' · ')}</p>
+                                </div>
+                                <span className={`font-black tabular-nums whitespace-nowrap ${isBuy ? 'text-emerald-500' : 'text-amber-500'}`}>{isBuy ? '+' : '−'} {fmt(totalBRL)}</span>
+                                {!m._synthetic && (
+                                    <div className="flex items-center gap-0.5">
+                                        <button onClick={() => startEdit(m)} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                                        <DeleteBtn isDark={isDark} onDelete={() => onDelete(m.id)} />
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 );
             })}
