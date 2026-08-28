@@ -501,10 +501,10 @@ export default function ConsultoriaAlivia({ onNavigate }) {
                     <div key={i} className="space-y-2">
                         <Bubble isDark={isDark} role={m.role} text={m.text} />
                         {m.options && m.options.length > 0 && (
-                            <div className="flex flex-wrap gap-2 ml-9">
+                            <div className="flex flex-col gap-1.5 ml-9 max-w-[85%] sm:max-w-[70%]">
                                 {m.options.map((opt, j) => (
                                     <button key={j} type="button" onClick={() => handleText(opt)} disabled={busy}
-                                        className={`px-3.5 py-1.5 rounded-full text-[12px] font-bold border transition active:scale-95 disabled:opacity-50 ${isDark ? 'border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10' : 'border-emerald-500/40 text-emerald-600 hover:bg-emerald-50'}`}>
+                                        className={`w-full py-3 rounded-2xl text-center text-[13px] font-bold border transition active:scale-[0.99] disabled:opacity-50 ${isDark ? 'bg-white/[0.04] border-white/10 text-emerald-300 hover:bg-emerald-500/10 hover:border-emerald-500/30' : 'bg-slate-50 border-slate-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-500/30'}`}>
                                         {opt}
                                     </button>
                                 ))}
