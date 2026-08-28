@@ -205,7 +205,7 @@ export default function Patrimonio() {
         ...investments,
         ...watchlist.map(w => ({ type: w.type, symbol: w.symbol, isUSD: w.isUSD != null ? w.isUSD : guessUSD(w.type, w.symbol), quantity: 1 })),
     ], [investments, watchlist]);
-    const { livePrices, priceChanges } = useLivePrices(priceAssets, true);
+    const { livePrices, priceChanges, tesouroData, getTesouroRate } = useLivePrices(priceAssets, true);
 
     // Watchlist: incluir / editar / excluir ativos só para acompanhar.
     const addWatch = async ({ symbol, type, name, isUSD }) => {
@@ -430,6 +430,7 @@ export default function Patrimonio() {
                                 const dayCh = market ? changeOf({ type: a.type, symbol: a.symbol, isUSD: a.isUSD }, priceChanges) : null;
                                 const dayPct = dayCh ? dayCh.pct : null;
                                 const dayUp = (dayPct ?? 0) >= 0;
+                                const tRate = (!market && a.tesouroName) ? getTesouroRate(a.tesouroName) : null;
                                 const r = inv > 0 ? (val - inv) / inv * 100 : 0;
                                 const lucro = val - inv;
                                 const up = r >= 0;
@@ -448,6 +449,7 @@ export default function Patrimonio() {
                                                         <div className="flex items-center gap-2">
                                                             <p className={`font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{a.symbol ? a.symbol.toUpperCase() : (a.name || 'Ativo')}</p>
                                                             {market && <span className="text-[11px] font-black tabular-nums px-1.5 py-0.5 rounded-md whitespace-nowrap text-sky-400 bg-sky-500/12">{fmt(precoBRL)}</span>}
+                                                            {tRate && <span className="text-[11px] font-black tabular-nums px-1.5 py-0.5 rounded-md whitespace-nowrap text-emerald-400 bg-emerald-500/12">{tRate.rate.toFixed(2).replace('.', ',')}% a.a.</span>}
                                                         </div>
                                                         <div className="flex items-center gap-2 min-w-0">
                                                             <p className="text-[11px] truncate" style={{ color }}>{a.symbol ? (a.name || typeMeta(a.type).label) : typeMeta(a.type).label}</p>
@@ -456,6 +458,7 @@ export default function Patrimonio() {
                                                                     {dayUp ? '+' : ''}{dayPct.toFixed(2)}% <span className={muted}>no dia</span>
                                                                 </span>
                                                             )}
+                                                            {tRate && <span className="text-[11px] font-bold text-emerald-500/80 whitespace-nowrap shrink-0">taxa ao vivo</span>}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -502,7 +505,7 @@ export default function Patrimonio() {
             {trade && <TradeModal isDark={isDark} asset={trade.asset} kind={trade.kind} rate={rate}
                 onConfirm={async (data) => { await applyTrade(trade.asset, { kind: trade.kind, ...data }); setTrade(null); setOpenAsset(trade.asset.id); }}
                 onClose={() => setTrade(null)} />}
-            {form && <AtivoForm isDark={isDark} uid={uid} editing={form.editing} onClose={() => setForm(null)} />}
+            {form && <AtivoForm isDark={isDark} uid={uid} editing={form.editing} tesouroData={tesouroData} onClose={() => setForm(null)} />}
             {monitorOpen && <MonitorModal isDark={isDark} investments={investments} watchlist={watchlist} prices={livePrices} changes={priceChanges}
                 defaultCur={cur} onAdd={addWatch} onUpdate={updWatch} onDelete={delWatch} onClose={() => setMonitorOpen(false)} />}
         </div>
@@ -706,7 +709,7 @@ async function fetchTickerPrice(type, ticker, isUSD) {
 }
 
 // ── Form: novo/editar ativo (com busca de cotação por ticker) ───────
-export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother = false }) {
+export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother = false, tesouroData = [] }) {
     const againRef = useRef(false);
     const [added, setAdded] = useState(0);
     // Por padrão NÃO desconta do saldo (o ativo já existe / já foi aportado).
@@ -727,10 +730,21 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [showSug, setShowSug] = useState(false);
+    // Renda fixa: subtipo + título do Tesouro selecionado (para taxa ao vivo).
+    const [rfKind, setRfKind] = useState(editing?.rfKind || (editing?.tesouroName ? 'tesouro' : 'tesouro'));
+    const [tesouroName, setTesouroName] = useState(editing?.tesouroName || '');
+    const [tSearch, setTSearch] = useState('');
+    const [showTList, setShowTList] = useState(false);
 
     useEffect(() => { getUsdRate().then(r => { if (r) setUsdRate(r); }).catch(() => { }); }, []);
 
     const market = isMarket(type);
+    const RF_KINDS = [{ id: 'tesouro', label: 'Tesouro Direto' }, { id: 'cdb', label: 'CDB' }, { id: 'lci_lca', label: 'LCI/LCA' }, { id: 'outro', label: 'Outro' }];
+    const isTesouro = type === 'renda_fixa' && rfKind === 'tesouro';
+    const tList = (tesouroData || []).filter(b => { const q = tSearch.trim().toLowerCase(); return !q || String(b.nm || '').toLowerCase().includes(q); }).slice(0, 40);
+    const selBond = (tesouroData || []).find(b => b.nm === tesouroName);
+    const selRate = selBond ? parseFloat(selBond.anulRentPrcnt) : null;
+    const selUnit = selBond ? parseFloat(selBond.untrPric) : null;
     const sugList = (ASSET_SUGGESTIONS[type] || []).filter(([s, n]) => {
         const q = symbol.trim().toUpperCase();
         if (!q) return true;
@@ -738,6 +752,7 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
     }).slice(0, 8);
     const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
     const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
 
     const qty = numQty(quantity) || 0;
     const mult = isUSD ? usdRate : 1;
@@ -758,7 +773,8 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
     const submit = async (e) => {
         e.preventDefault();
         setError('');
-        if (!name.trim()) { setError('Informe o nome do ativo.'); return; }
+        if (isTesouro && !tesouroName) { setError('Selecione o título do Tesouro.'); return; }
+        if (!isTesouro && !name.trim()) { setError('Informe o nome do ativo.'); return; }
         setSaving(true);
         let data;
         if (market) {
@@ -773,7 +789,11 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
             const inv = numBR(invested);
             if (inv <= 0) { setError('Informe o valor investido.'); setSaving(false); return; }
             const val = numBR(current) > 0 ? numBR(current) : inv;
-            data = { name: normalizeName(name), type, symbol: '', quantity: 1, purchasePrice: inv, manualCurrentPrice: val, isUSD, ...(type === 'renda_fixa' ? { totalApplied: inv } : {}) };
+            const finalName = isTesouro ? tesouroName : normalizeName(name);
+            data = {
+                name: finalName, type, symbol: '', quantity: 1, purchasePrice: inv, manualCurrentPrice: val, isUSD,
+                ...(type === 'renda_fixa' ? { totalApplied: inv, rfKind, tesouroName: isTesouro ? tesouroName : '' } : {}),
+            };
         }
         try {
             if (editing) { await updateDoc(doc(db, 'investments', editing.id), data); onClose(); return; }
@@ -809,7 +829,65 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                         {ASSET_TYPES.map(t => <option key={t.id} value={t.id} style={optStyle}>{t.label}</option>)}
                     </select>
                 </Field>
-                <Field label="Nome do ativo"><input value={name} onChange={e => setName(e.target.value)} placeholder={market ? 'Ex.: Petrobras, Bitcoin' : 'Ex.: Tesouro Selic 2029'} className={inputCls} maxLength={40} autoFocus /></Field>
+
+                {/* Renda fixa: subtipo (inclui Tesouro Direto) */}
+                {type === 'renda_fixa' && (
+                    <div>
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Tipo de renda fixa</span>
+                        <div className="grid grid-cols-4 gap-2">
+                            {RF_KINDS.map(k => {
+                                const on = rfKind === k.id;
+                                return (
+                                    <button key={k.id} type="button" onClick={() => { setRfKind(k.id); if (k.id !== 'tesouro') { setTesouroName(''); } }}
+                                        className={`py-2 rounded-xl text-[12px] font-bold border transition active:scale-95 ${on ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' : (isDark ? 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800')}`}>
+                                        {k.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Tesouro Direto: escolher o título (taxa ao vivo) */}
+                {isTesouro ? (
+                    <div>
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Título do Tesouro</span>
+                        {(tesouroData || []).length === 0 ? (
+                            <p className={`text-[12px] px-3.5 py-3 rounded-xl border ${isDark ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>Carregando títulos do Tesouro… se demorar, os títulos aparecem ao vivo na tela de Patrimônio.</p>
+                        ) : (
+                            <div className="relative">
+                                <input value={showTList ? tSearch : (tesouroName || tSearch)} onChange={e => { setTSearch(e.target.value); setShowTList(true); }}
+                                    onFocus={() => { setShowTList(true); setTSearch(''); }} onBlur={() => setTimeout(() => setShowTList(false), 150)}
+                                    placeholder="Buscar (ex.: Renda+, Selic 2029, IPCA+)" className={inputCls} />
+                                {showTList && (
+                                    <div className={`absolute z-20 left-0 right-0 mt-1 rounded-xl border shadow-2xl overflow-hidden max-h-60 overflow-y-auto ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-200'}`}>
+                                        {tList.length === 0 ? <p className={`px-3 py-2.5 text-[12px] ${muted}`}>Nenhum título encontrado.</p> : tList.map((b) => (
+                                            <button key={b.nm} type="button" onMouseDown={(e) => { e.preventDefault(); setTesouroName(b.nm); setName(b.nm); setShowTList(false); }}
+                                                className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left transition ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
+                                                <span className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{b.nm}</span>
+                                                <span className="text-[12px] font-black text-emerald-500 tabular-nums shrink-0">{parseFloat(b.anulRentPrcnt).toFixed(2).replace('.', ',')}%</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {selBond && (
+                            <div className={`mt-2 rounded-xl border px-3.5 py-3 flex items-center justify-between ${isDark ? 'bg-emerald-500/[0.06] border-emerald-500/20' : 'bg-emerald-50 border-emerald-200'}`}>
+                                <div className="min-w-0">
+                                    <p className={`text-[13px] font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{tesouroName}</p>
+                                    <p className={`text-[11px] ${muted}`}>Preço unitário R$ {money(selUnit)} · <span className="text-emerald-500 font-bold">taxa ao vivo</span></p>
+                                </div>
+                                <div className="text-right shrink-0 ml-3">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Taxa atual</p>
+                                    <p className="text-lg font-black tabular-nums text-emerald-500">{selRate?.toFixed(2).replace('.', ',')}% <span className="text-[11px]">a.a.</span></p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <Field label="Nome do ativo"><input value={name} onChange={e => setName(e.target.value)} placeholder={market ? 'Ex.: Petrobras, Bitcoin' : 'Ex.: CDB Banco X, Tesouro Selic 2029'} className={inputCls} maxLength={40} autoFocus /></Field>
+                )}
 
                 {/* Moeda do ativo — vale para qualquer classe (dólar ou real) */}
                 <label className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border cursor-pointer transition ${isUSD ? 'border-emerald-500/40 bg-emerald-500/10' : (isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50')}`}>
