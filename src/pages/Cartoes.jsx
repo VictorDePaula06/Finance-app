@@ -94,12 +94,14 @@ export default function Cartoes() {
 
     const faturaTotal = invoiceItems.reduce((a, it) => a + it.amount, 0);
 
-    // Fatura agrupada por tipo de gasto (Essencial / Conforto / Supérfluo).
-    const invoiceGroups = useMemo(() => ['essential', 'comfort', 'superfluous']
-        .map(pid => {
-            const list = invoiceItems.filter(it => (it.priority || 'comfort') === pid);
-            return { pid, meta: priorityMeta(pid), list, total: list.reduce((a, it) => a + it.amount, 0) };
-        })
+    // Fatura agrupada por TIPO de lançamento: Avulsos, Parcelamentos, Assinaturas.
+    // Cores iguais às dos selos/cards (avulso rosa, parcelamento azul, assinatura roxo).
+    const invoiceGroups = useMemo(() => [
+        { id: 'despesa', label: 'Avulsos', color: '#f43f5e' },
+        { id: 'parcelamento', label: 'Parcelamentos', color: '#3b82f6' },
+        { id: 'assinatura', label: 'Assinaturas', color: '#a855f7' },
+    ]
+        .map(g => { const list = invoiceItems.filter(it => it.kind === g.id); return { ...g, list, total: list.reduce((a, it) => a + it.amount, 0) }; })
         .filter(g => g.list.length > 0), [invoiceItems]);
 
     // Faturas já pagas deste cartão (pra ver a fatura do mês anterior).
@@ -241,14 +243,14 @@ export default function Cartoes() {
                     ) : (
                         <div className="space-y-3">
                             {invoiceGroups.map(g => {
-                                const open = openGroup === g.pid;
+                                const open = openGroup === g.id;
                                 return (
-                                    <div key={g.pid} className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
+                                    <div key={g.id} className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
                                         {/* Cabeçalho do tipo (clicável — abre 1 por vez) */}
-                                        <button onClick={() => setOpenGroup(open ? null : g.pid)}
+                                        <button onClick={() => setOpenGroup(open ? null : g.id)}
                                             className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition ${isDark ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-50'}`}>
-                                            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${g.pid === 'essential' ? 'bg-emerald-500' : g.pid === 'comfort' ? 'bg-amber-500' : 'bg-rose-500'}`} />
-                                            <span className={`font-black ${g.meta.text}`}>{g.meta.label}</span>
+                                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: g.color }} />
+                                            <span className="font-black" style={{ color: g.color }}>{g.label}</span>
                                             <span className={`text-[11px] font-bold ${muted}`}>· {g.list.length} {g.list.length === 1 ? 'lançamento' : 'lançamentos'}</span>
                                             <span className="ml-auto flex items-center gap-2.5">
                                                 <span className="font-black tabular-nums whitespace-nowrap text-rose-500">− R$ {money(g.total)}</span>
