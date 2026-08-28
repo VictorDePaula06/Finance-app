@@ -15,6 +15,15 @@ import {
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const numBR = (v) => parseFloat(String(v ?? '').replace(/\./g, '').replace(',', '.')) || 0;
+// Quantidade: aceita "0,7" E "0.7" como 0,7. Se tem vírgula → pt-BR (ponto = milhar);
+// se só tem ponto → ponto é decimal (evita "0.7" virar 7).
+const numQty = (v) => {
+    const s = String(v ?? '').trim();
+    if (!s) return 0;
+    return s.includes(',')
+        ? (parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0)
+        : (parseFloat(s) || 0);
+};
 const normalizeName = (s) => { const t = String(s || '').trim().replace(/\s+/g, ' '); return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : t; };
 const CUR_KEY = 'aliviaPatrimonioCur';
 
@@ -522,7 +531,7 @@ function TradeModal({ isDark, asset, kind, rate, onConfirm, onClose }) {
     const [error, setError] = useState('');
     const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
 
-    const q = numBR(quantity), p = numBR(price);
+    const q = numQty(quantity), p = numBR(price);
     const totalNativo = q * p;
     const totalBRL = totalNativo * (usd ? rate : 1);
     const posAtual = parseFloat(asset.quantity || 0) || 0;
@@ -679,7 +688,7 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
     const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
     const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
 
-    const qty = numBR(quantity) || 0;
+    const qty = numQty(quantity) || 0;
     const mult = isUSD ? usdRate : 1;
     const investedMkt = qty * numBR(buyPrice) * mult;
     const currentMkt = qty * numBR(curPrice) * mult;
