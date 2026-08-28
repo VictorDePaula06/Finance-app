@@ -7,12 +7,13 @@ import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc
 import { useLivePrices } from '../hooks/useLivePrices';
 import { getUsdRate } from '../utils/marketRates';
 import {
-    Plus, Pencil, Trash2, X, Loader2, Check, Search, Save,
+    Plus, Minus, Pencil, Trash2, X, Loader2, Check, Search, Save, ChevronDown,
     Landmark, PieChart as PieIcon, Activity, Bitcoin, TrendingUp, TrendingDown,
     ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const todayISO = () => new Date().toISOString().slice(0, 10);
 const numBR = (v) => parseFloat(String(v ?? '').replace(/\./g, '').replace(',', '.')) || 0;
 const normalizeName = (s) => { const t = String(s || '').trim().replace(/\s+/g, ' '); return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : t; };
 const CUR_KEY = 'aliviaPatrimonioCur';
@@ -141,6 +142,26 @@ const investedOf = (a, prices = {}) => {
     return q * (parseFloat(a.purchasePrice || 0) || 0) * usdMult(a, prices);
 };
 
+// Recalcula quantidade e PREÇO DE CUSTO MÉDIO a partir dos movimentos (aportes/vendas),
+// método do custo médio ponderado. Ordena por data e replica os lançamentos.
+const recomputeFromMovs = (movs = []) => {
+    let qty = 0, cost = 0; // cost = base de custo total
+    [...movs]
+        .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || (a.createdAt || 0) - (b.createdAt || 0))
+        .forEach(m => {
+            const mq = Math.abs(parseFloat(m.quantity) || 0);
+            const mp = Math.abs(parseFloat(m.price) || 0);
+            if (m.kind === 'sell') {
+                const avg = qty > 0 ? cost / qty : 0;
+                cost -= Math.min(mq, qty) * avg;
+                qty = Math.max(0, qty - mq);
+            } else {
+                qty += mq; cost += mq * mp;
+            }
+        });
+    return { quantity: qty, avgCost: qty > 0 ? cost / qty : 0 };
+};
+
 export default function Patrimonio() {
     const { currentUser } = useAuth();
     const { theme } = useTheme();
@@ -149,6 +170,9 @@ export default function Patrimonio() {
 
     const [investments, setInvestments] = useState([]);
     const [watchlist, setWatchlist] = useState([]);
+    const [invTxs, setInvTxs] = useState([]);      // aportes/vendas dos ativos
+    const [trade, setTrade] = useState(null);      // { asset, kind: 'buy'|'sell' }
+    const [openAsset, setOpenAsset] = useState(null); // id do ativo com aportes abertos
     const [form, setForm] = useState(null);
     const [cur, setCur] = useState(() => (typeof localStorage !== 'undefined' && localStorage.getItem(CUR_KEY)) || 'BRL');
     const [saved, setSaved] = useState(false);
@@ -162,7 +186,9 @@ export default function Patrimonio() {
             (s) => setInvestments(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { });
         const u2 = onSnapshot(query(collection(db, 'watchlist'), where('userId', '==', uid)),
             (s) => setWatchlist(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { });
-        return () => { u1(); u2(); };
+        const u3 = onSnapshot(query(collection(db, 'investment_txs'), where('userId', '==', uid)),
+            (s) => setInvTxs(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { });
+        return () => { u1(); u2(); u3(); };
     }, [uid]);
 
     // Cotações ao vivo dos ativos DA CARTEIRA + da watchlist (só acompanhar).
@@ -180,6 +206,45 @@ export default function Patrimonio() {
     };
     const updWatch = (id, data) => updateDoc(doc(db, 'watchlist', id), data);
     const delWatch = (id) => deleteDoc(doc(db, 'watchlist', id));
+
+    // ── Aportes / vendas de um ativo (mercado) ──────────────────────
+    const movsOf = (assetId) => invTxs.filter(t => t.investmentId === assetId);
+
+    // Cria o movimento inicial (1º aporte) a partir da posição atual do ativo,
+    // caso ele ainda não tenha nenhum movimento (ativos criados antes desta feature).
+    const ensureInitialMov = async (asset) => {
+        if (movsOf(asset.id).length > 0) return movsOf(asset.id);
+        const q0 = parseFloat(asset.quantity) || 0;
+        const p0 = parseFloat(asset.purchasePrice) || 0;
+        if (q0 <= 0) return [];
+        const iso0 = asset.createdAt ? new Date(asset.createdAt).toISOString() : new Date().toISOString();
+        const ref0 = await addDoc(collection(db, 'investment_txs'), {
+            investmentId: asset.id, userId: uid, kind: 'buy', quantity: q0, price: p0, date: iso0,
+            isUSD: !!asset.isUSD, createdAt: asset.createdAt || Date.now(),
+        });
+        return [{ id: ref0.id, investmentId: asset.id, kind: 'buy', quantity: q0, price: p0, date: iso0 }];
+    };
+
+    // Registra um aporte (buy) ou venda (sell), recalcula qtd + custo médio e salva.
+    const applyTrade = async (asset, { kind, quantity, price, date }) => {
+        const base = await ensureInitialMov(asset);
+        const iso = new Date((date || todayISO()) + 'T12:00:00').toISOString();
+        const mov = { investmentId: asset.id, userId: uid, kind, quantity: Math.abs(quantity) || 0, price: Math.abs(price) || 0, date: iso, isUSD: !!asset.isUSD, createdAt: Date.now() };
+        const ref = await addDoc(collection(db, 'investment_txs'), mov);
+        const merged = [...movsOf(asset.id)];
+        base.forEach(b => { if (!merged.some(m => m.id === b.id)) merged.push(b); });
+        merged.push({ ...mov, id: ref.id });
+        const { quantity: q, avgCost } = recomputeFromMovs(merged);
+        await updateDoc(doc(db, 'investments', asset.id), { quantity: q, purchasePrice: avgCost });
+    };
+
+    // Exclui um movimento e recalcula a posição do ativo.
+    const deleteMov = async (asset, movId) => {
+        await deleteDoc(doc(db, 'investment_txs', movId));
+        const remaining = movsOf(asset.id).filter(m => m.id !== movId);
+        const { quantity: q, avgCost } = recomputeFromMovs(remaining);
+        await updateDoc(doc(db, 'investments', asset.id), { quantity: q, purchasePrice: avgCost });
+    };
 
     const total = useMemo(() => investments.reduce((a, x) => a + valueOf(x, livePrices), 0), [investments, livePrices]);
     const totalInvestido = useMemo(() => investments.reduce((a, x) => a + investedOf(x, livePrices), 0), [investments, livePrices]);
@@ -337,37 +402,63 @@ export default function Patrimonio() {
                     {assetsInTab.length === 0 ? (
                         <p className={`text-center text-sm py-12 ${muted}`}>Nenhum ativo encontrado nesta categoria.</p>
                     ) : (
-                        <div className="overflow-x-auto">
+                        <div className="divide-y divide-transparent">
                             {assetsInTab.map((a, i) => {
                                 const color = GROUP_META[getGroup(a.type)].color;
                                 const market = isMarket(a.type);
                                 const inv = investedOf(a, livePrices), val = valueOf(a, livePrices);
                                 const q = parseFloat(a.quantity || 1) || 1;
                                 const precoBRL = market && q > 0 ? val / q : val;
+                                const custoUnit = market ? (parseFloat(a.purchasePrice || 0) || 0) * (a.isUSD ? rate : 1) : 0;
                                 const r = inv > 0 ? (val - inv) / inv * 100 : 0;
                                 const lucro = val - inv;
                                 const up = r >= 0;
                                 const Arrow = up ? ArrowUpRight : ArrowDownRight;
                                 const posCls = up ? 'text-emerald-500' : 'text-rose-500';
+                                const movs = movsOf(a.id);
+                                const open = openAsset === a.id;
                                 return (
-                                    <div key={a.id} className={`group flex items-center gap-4 px-4 py-3 min-w-[680px] ${i ? `border-t ${isDark ? 'border-white/5' : 'border-slate-100'}` : ''}`}>
-                                        {/* Ticker + nome */}
-                                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                            <AssetIcon symbol={a.symbol} type={a.type} name={a.name} size={40} />
-                                            <div className="min-w-0">
-                                                <p className={`font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{a.symbol ? a.symbol.toUpperCase() : (a.name || 'Ativo')}</p>
-                                                <p className="text-[11px] truncate" style={{ color }}>{a.symbol ? (a.name || typeMeta(a.type).label) : typeMeta(a.type).label}</p>
+                                    <div key={a.id} className={i ? `border-t ${isDark ? 'border-white/5' : 'border-slate-100'}` : ''}>
+                                        <div className="overflow-x-auto">
+                                            <div className="group flex items-center gap-4 px-4 py-3 min-w-[760px]">
+                                                {/* Ticker + nome */}
+                                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                                    <AssetIcon symbol={a.symbol} type={a.type} name={a.name} size={40} isUSD={a.isUSD} />
+                                                    <div className="min-w-0">
+                                                        <p className={`font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{a.symbol ? a.symbol.toUpperCase() : (a.name || 'Ativo')}</p>
+                                                        <p className="text-[11px] truncate" style={{ color }}>{a.symbol ? (a.name || typeMeta(a.type).label) : typeMeta(a.type).label}</p>
+                                                    </div>
+                                                </div>
+                                                {market && <Col isDark={isDark} label="Qtd" value={String(a.quantity ?? 1)} cls={isDark ? 'text-slate-200' : 'text-slate-700'} w="w-16" />}
+                                                {market && <Col isDark={isDark} label="Custo médio" value={fmt(custoUnit)} cls={isDark ? 'text-slate-200' : 'text-slate-700'} w="w-24" />}
+                                                {market && <Col isDark={isDark} label="Preço" value={fmt(precoBRL)} cls={isDark ? 'text-slate-200' : 'text-slate-700'} w="w-24" />}
+                                                <Col isDark={isDark} label="Valor atual" value={fmt(val)} cls={isDark ? 'text-white' : 'text-slate-800'} w="w-28" />
+                                                <Col isDark={isDark} label="Rent." w="w-24" value={<span className={`inline-flex items-center gap-0.5 ${posCls}`}><Arrow className="w-3 h-3" />{up ? '+' : ''}{r.toFixed(2)}%</span>} />
+                                                <Col isDark={isDark} label="Lucro/Perda" w="w-28" value={<span className={`inline-flex items-center gap-0.5 ${lucro >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}><Arrow className="w-3 h-3" />{lucro >= 0 ? '+ ' : '− '}{fmt(Math.abs(lucro))}</span>} />
+                                                {/* Ações */}
+                                                <div className="flex items-center gap-1 shrink-0">
+                                                    {market && <button onClick={() => setTrade({ asset: a, kind: 'buy' })} title="Aportar" className={`px-2.5 py-1.5 rounded-lg text-[12px] font-bold ${isDark ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>Aportar</button>}
+                                                    {market && <button onClick={() => setTrade({ asset: a, kind: 'sell' })} title="Vender" className={`px-2.5 py-1.5 rounded-lg text-[12px] font-bold ${isDark ? 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}>Vender</button>}
+                                                    <button onClick={() => setForm({ editing: a })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                                                    <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, 'investments', a.id))} />
+                                                </div>
                                             </div>
                                         </div>
-                                        {market && <Col isDark={isDark} label="Preço" value={fmt(precoBRL)} cls={isDark ? 'text-slate-200' : 'text-slate-700'} w="w-24" />}
-                                        {market && <Col isDark={isDark} label="Qtd" value={String(a.quantity ?? 1)} cls={isDark ? 'text-slate-200' : 'text-slate-700'} w="w-14" />}
-                                        <Col isDark={isDark} label="Valor atual" value={fmt(val)} cls={isDark ? 'text-white' : 'text-slate-800'} w="w-28" />
-                                        <Col isDark={isDark} label="Rent." w="w-24" value={<span className={`inline-flex items-center gap-0.5 ${posCls}`}><Arrow className="w-3 h-3" />{up ? '+' : ''}{r.toFixed(2)}%</span>} />
-                                        <Col isDark={isDark} label="Lucro/Perda" w="w-28" value={<span className={`inline-flex items-center gap-0.5 ${lucro >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}><Arrow className="w-3 h-3" />{lucro >= 0 ? '+ ' : '− '}{fmt(Math.abs(lucro))}</span>} />
-                                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition shrink-0">
-                                            <button onClick={() => setForm({ editing: a })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
-                                            <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, 'investments', a.id))} />
-                                        </div>
+
+                                        {/* Ver aportes */}
+                                        {market && (
+                                            <div className="px-4 pb-3 -mt-1">
+                                                <button onClick={() => setOpenAsset(open ? null : a.id)}
+                                                    className={`flex items-center gap-1.5 text-[12px] font-bold transition ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+                                                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+                                                    {open ? 'Ocultar' : 'Ver'} aportes{movs.length ? ` (${movs.length})` : ''}
+                                                </button>
+                                                {open && (
+                                                    <AportesList isDark={isDark} asset={a} movs={movs} fmt={fmt} rate={rate}
+                                                        onDelete={(movId) => deleteMov(a, movId)} />
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -377,10 +468,100 @@ export default function Patrimonio() {
                 {(livePrices.USD) && <p className={`text-[11px] mt-2 text-right ${muted}`}>Cotações ao vivo · dólar R$ {money(rate)}</p>}
             </div>
 
+            {trade && <TradeModal isDark={isDark} asset={trade.asset} kind={trade.kind} rate={rate}
+                onConfirm={async (data) => { await applyTrade(trade.asset, { kind: trade.kind, ...data }); setTrade(null); setOpenAsset(trade.asset.id); }}
+                onClose={() => setTrade(null)} />}
             {form && <AtivoForm isDark={isDark} uid={uid} editing={form.editing} onClose={() => setForm(null)} />}
             {monitorOpen && <MonitorModal isDark={isDark} investments={investments} watchlist={watchlist} prices={livePrices} changes={priceChanges}
                 defaultCur={cur} onAdd={addWatch} onUpdate={updWatch} onDelete={delWatch} onClose={() => setMonitorOpen(false)} />}
         </div>
+    );
+}
+
+// ── Lista de aportes/vendas de um ativo (ver, excluir) ──────────────
+function AportesList({ isDark, asset, movs, fmt, rate, onDelete }) {
+    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+    const list = movs.length
+        ? [...movs].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || (b.createdAt || 0) - (a.createdAt || 0))
+        : [{ id: '__init', kind: 'buy', quantity: asset.quantity, price: asset.purchasePrice, date: asset.createdAt ? new Date(asset.createdAt).toISOString() : null, _synthetic: true }];
+    return (
+        <div className={`mt-2 rounded-xl border divide-y overflow-hidden ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
+            {list.map(m => {
+                const isBuy = m.kind !== 'sell';
+                const mq = Math.abs(parseFloat(m.quantity) || 0);
+                const mpBRL = (Math.abs(parseFloat(m.price) || 0)) * (asset.isUSD ? rate : 1);
+                const totalBRL = mq * mpBRL;
+                const dateStr = m.date ? new Date(m.date).toLocaleDateString('pt-BR') : '';
+                return (
+                    <div key={m.id} className={`flex items-center gap-3 px-3.5 py-2.5 text-[13px] ${isDark ? 'bg-white/[0.01]' : 'bg-white'}`}>
+                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isBuy ? 'bg-emerald-500/15 text-emerald-500' : 'bg-amber-500/15 text-amber-500'}`}>
+                            {isBuy ? <Plus className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                            <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{isBuy ? 'Aporte' : 'Venda'} · {mq} un</p>
+                            <p className={`text-[11px] ${muted}`}>{[dateStr, `a ${fmt(mpBRL)}`].filter(Boolean).join(' · ')}</p>
+                        </div>
+                        <span className={`font-black tabular-nums whitespace-nowrap ${isBuy ? 'text-emerald-500' : 'text-amber-500'}`}>{isBuy ? '+' : '−'} {fmt(totalBRL)}</span>
+                        {!m._synthetic && <DeleteBtn isDark={isDark} onDelete={() => onDelete(m.id)} />}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+// ── Modal: aportar (comprar mais) ou vender ─────────────────────────
+function TradeModal({ isDark, asset, kind, rate, onConfirm, onClose }) {
+    const isBuy = kind === 'buy';
+    const usd = !!asset.isUSD;
+    const cur = usd ? 'US$' : 'R$';
+    const [quantity, setQuantity] = useState('');
+    const [price, setPrice] = useState('');
+    const [date, setDate] = useState(todayISO());
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+    const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
+
+    const q = numBR(quantity), p = numBR(price);
+    const totalNativo = q * p;
+    const totalBRL = totalNativo * (usd ? rate : 1);
+    const posAtual = parseFloat(asset.quantity || 0) || 0;
+    const insufficient = !isBuy && q > posAtual + 1e-9;
+
+    const confirmar = async () => {
+        setError('');
+        if (q <= 0 || p <= 0) { setError('Informe quantidade e preço.'); return; }
+        if (insufficient) { setError(`Você só tem ${posAtual} unidade(s).`); return; }
+        setSaving(true);
+        try { await onConfirm({ quantity: q, price: p, date }); }
+        catch (e) { console.error(e); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
+    };
+
+    return (
+        <Modal isDark={isDark} title={isBuy ? 'Aportar (comprar mais)' : 'Vender'} icon={isBuy ? Plus : Minus}
+            iconCls={isBuy ? 'bg-emerald-500/12 text-emerald-500' : 'bg-amber-500/12 text-amber-500'} onClose={onClose}>
+            <div className="space-y-3.5">
+                <p className={`text-[12px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {asset.symbol ? asset.symbol.toUpperCase() : (asset.name || 'Ativo')} · você tem <span className="font-bold">{posAtual}</span> un
+                </p>
+                {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
+                <div className="grid grid-cols-2 gap-3">
+                    <Field label="Quantidade"><input inputMode="decimal" value={quantity} onChange={e => setQuantity(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0" className={inputCls} autoFocus /></Field>
+                    <Field label={`Preço unitário (${cur})`}><input inputMode="decimal" value={price} onChange={e => setPrice(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
+                </div>
+                <Field label="Data"><input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} style={{ colorScheme: isDark ? 'dark' : 'light' }} /></Field>
+                <div className={`rounded-xl border px-3.5 py-3 flex items-center justify-between ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-100'}`}>
+                    <span className={`text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total {isBuy ? 'do aporte' : 'da venda'}</span>
+                    <span className={`font-black tabular-nums ${isBuy ? 'text-emerald-500' : 'text-amber-500'}`}>{cur} {money(totalNativo)}{usd ? ` · R$ ${money(totalBRL)}` : ''}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                    <button onClick={onClose} className={`py-3 rounded-xl font-bold text-sm ${isDark ? 'bg-white/5 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>Cancelar</button>
+                    <button onClick={confirmar} disabled={saving || insufficient} className={`py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-50 ${isBuy ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-amber-500 hover:bg-amber-600'}`}>
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {isBuy ? 'Aportar' : 'Vender'}</>}
+                    </button>
+                </div>
+            </div>
+        </Modal>
     );
 }
 
