@@ -81,7 +81,7 @@ service cloud.firestore {
       return name in [
         'transactions', 'goals', 'cards', 'subscriptions',
         'fixed_expenses', 'fixed_incomes',
-        'savings_jars', 'investments', 'tangible_assets', 'debts',
+        'savings_jars', 'investments', 'investment_txs', 'tangible_assets', 'debts',
         'insurances', 'watchlist'
       ];
     }
