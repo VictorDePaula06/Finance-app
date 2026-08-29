@@ -59,6 +59,17 @@ const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemi
 const EXPENSE_CATS = ['housing', 'food', 'fast_food', 'transport', 'health', 'education', 'pets', 'personal_care', 'subscriptions', 'credit_card', 'church', 'taxes', 'leisure', 'shopping', 'conta_fixa', 'other'];
 const PRIORITIES = ['essential', 'comfort', 'superfluous'];
 
+// Rótulos pt-BR (espelha src/constants/categories.js) p/ a lista interativa do WhatsApp.
+const CAT_LABELS = {
+  housing: 'Casa', food: 'Alimentação', fast_food: 'Fast Food', transport: 'Transporte',
+  health: 'Saúde', education: 'Educação', pets: 'Pets', personal_care: 'Cuidados',
+  subscriptions: 'Assinaturas', credit_card: 'Cartão', church: 'Igreja', taxes: 'Taxas',
+  leisure: 'Lazer', shopping: 'Compras', conta_fixa: 'Conta Fixa', other: 'Outro',
+};
+// Ordem preferida na lista (WhatsApp permite no máx. 10 linhas por lista).
+const CAT_ORDER = ['food', 'fast_food', 'transport', 'health', 'shopping', 'leisure', 'subscriptions', 'housing', 'personal_care', 'education', 'pets', 'conta_fixa', 'church', 'taxes', 'other'];
+const PRIO_LABELS = { essential: 'Essencial', comfort: 'Conforto', superfluous: 'Supérfluo' };
+
 function initAdmin() {
   if (!getApps().length) {
     const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
@@ -82,6 +93,74 @@ async function sendText(to, body) {
   } catch (e) {
     console.error('Erro ao enviar WhatsApp:', e?.message || e);
   }
+}
+
+// Envia uma mensagem INTERATIVA (lista ou botões) pelo WhatsApp.
+async function sendInteractive(to, interactive) {
+  const pid = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = process.env.WHATSAPP_TOKEN;
+  try {
+    const resp = await fetch(`${GRAPH}/${pid}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'interactive', interactive }),
+    });
+    const t = await resp.text().catch(() => '');
+    console.log(`WA interactive -> to=${to} status=${resp.status} resp=${t.slice(0, 200)}`);
+  } catch (e) { console.error('Erro interactive WA:', e?.message || e); }
+}
+
+// Monta até 10 linhas de categoria, começando pela sugerida pela IA.
+function catRows(suggested) {
+  const ids = [];
+  if (suggested && CAT_LABELS[suggested]) ids.push(suggested);
+  for (const id of CAT_ORDER) { if (ids.length >= 10) break; if (!ids.includes(id)) ids.push(id); }
+  if (!ids.includes('other')) ids[ids.length - 1] = 'other'; // garante "Outro"
+  return ids.slice(0, 10).map(id => ({ id: `cat_${id}`, title: CAT_LABELS[id].slice(0, 24) }));
+}
+
+// Lista de categorias pra tocar.
+async function sendCatList(to, bodyText, suggested) {
+  await sendInteractive(to, {
+    type: 'list',
+    body: { text: bodyText.slice(0, 1024) },
+    action: { button: 'Escolher categoria', sections: [{ title: 'Categorias', rows: catRows(suggested) }] },
+  });
+}
+
+// Botões de prioridade (máx. 3 — cabe certinho).
+async function sendPrioButtons(to, bodyText) {
+  await sendInteractive(to, {
+    type: 'button',
+    body: { text: bodyText.slice(0, 1024) },
+    action: { buttons: [
+      { type: 'reply', reply: { id: 'prio_essential', title: 'Essencial' } },
+      { type: 'reply', reply: { id: 'prio_comfort', title: 'Conforto' } },
+      { type: 'reply', reply: { id: 'prio_superfluous', title: 'Supérfluo' } },
+    ] },
+  });
+}
+
+// Interpreta a categoria escolhida (id do toque OU texto digitado).
+function pickCat(selId, text) {
+  if (selId && selId.startsWith('cat_')) { const id = selId.slice(4); return CAT_LABELS[id] ? id : null; }
+  const q = String(text || '').toLowerCase().trim();
+  if (!q) return null;
+  for (const [id, label] of Object.entries(CAT_LABELS)) {
+    const l = label.toLowerCase();
+    if (l === q || l.includes(q) || q.includes(l)) return id;
+  }
+  return null;
+}
+
+// Interpreta a prioridade escolhida (id do toque OU texto digitado).
+function pickPrio(selId, text) {
+  if (selId && selId.startsWith('prio_')) { const id = selId.slice(5); return PRIO_LABELS[id] ? id : null; }
+  const q = String(text || '').toLowerCase();
+  if (/essenc/.test(q)) return 'essential';
+  if (/confort/.test(q)) return 'comfort';
+  if (/sup[eé]rfl|superfl/.test(q)) return 'superfluous';
+  return null;
 }
 
 // Monta um contexto QUALITATIVO do usuário (sem valores) para a Alívia.
@@ -421,11 +500,20 @@ export default async function handler(req, res) {
     }
 
     const msg = value?.messages?.[0];
-    if (!msg || msg.type !== 'text') return res.status(200).json({ ok: true }); // ignora não-texto
+    if (!msg || (msg.type !== 'text' && msg.type !== 'interactive')) return res.status(200).json({ ok: true }); // ignora outros tipos
 
     const from = msg.from; // telefone E.164 só dígitos
-    const text = msg.text?.body || '';
-    console.log(`WA in <- from=${from} text="${text.slice(0, 80)}"`);
+    // Entrada pode ser texto OU um toque em lista/botão (interactive).
+    let text = '';
+    let selId = null;
+    if (msg.type === 'text') {
+      text = msg.text?.body || '';
+    } else {
+      const it = msg.interactive || {};
+      selId = it.list_reply?.id || it.button_reply?.id || null;
+      text = it.list_reply?.title || it.button_reply?.title || '';
+    }
+    console.log(`WA in <- from=${from} type=${msg.type} text="${text.slice(0, 60)}" sel=${selId || '-'}`);
     const db = initAdmin();
 
     // 1. Vínculo do número
@@ -449,34 +537,37 @@ export default async function handler(req, res) {
     const sess = (await sessRef.get()).data() || {};
     const history = sess.history || [];
 
-    // 2. Confirmação de gasto pendente (avulso em conta OU no cartão)
-    if (sess.pending?.type === 'expense' || sess.pending?.type === 'card') {
-      const isCard = sess.pending.type === 'card';
-      if (yes(text)) {
-        const p = sess.pending.data;
-        const now = new Date();
-        const txData = {
-          description: p.description, amount: p.amount, type: 'expense',
-          category: p.category, priority: p.priority,
-          date: now.toISOString(), month: now.toISOString().slice(0, 7),
-          userId: uid, createdAt: Date.now(), isFixed: false, source: 'whatsapp',
-        };
-        if (isCard) { txData.paymentMethod = 'credito'; txData.selectedCardId = p.cardId; txData.invoiceStatus = 'unpaid'; }
-        else { txData.paymentMethod = 'pix'; }
-        await db.collection('transactions').add(txData);
-        await sessRef.set({ uid, history, pending: null }, { merge: true });
-        await sendText(from, isCard
-          ? `Lançado! ✅ *${p.description}* entrou na fatura do *${p.cardName}*.`
-          : `Lançado! ✅ *${p.description}* foi registrado nas suas despesas.`);
-        return res.status(200).json({ ok: true });
-      }
-      if (no(text)) {
-        await sessRef.set({ uid, history, pending: null }, { merge: true });
-        await sendText(from, 'Sem problema, cancelei. 👍');
-        return res.status(200).json({ ok: true });
-      }
-      // Se não confirmou nem cancelou, segue como conversa normal (limpa pendência).
-      await sessRef.set({ uid, pending: null }, { merge: true });
+    // 2. Fluxo interativo do gasto — PASSO 1: escolher a CATEGORIA (lista tocável).
+    if (sess.pending?.type === 'exp_cat') {
+      if (no(text)) { await sessRef.set({ uid, history, pending: null }, { merge: true }); await sendText(from, 'Beleza, cancelei o lançamento. 👍'); return res.status(200).json({ ok: true }); }
+      const catId = pickCat(selId, text);
+      if (!catId) { await sendCatList(from, 'Toque pra escolher a *categoria* do gasto 👇 (ou "cancelar")', sess.pending.data.suggested); return res.status(200).json({ ok: true }); }
+      const data = { ...sess.pending.data, category: catId };
+      await sessRef.set({ uid, history, pending: { type: 'exp_prio', data } }, { merge: true });
+      await sendPrioButtons(from, `Categoria: *${CAT_LABELS[catId]}* ✅\n\nEsse gasto foi *essencial*, de *conforto* ou *supérfluo*?`);
+      return res.status(200).json({ ok: true });
+    }
+
+    // 2. Fluxo interativo do gasto — PASSO 2: escolher a PRIORIDADE (botões) e LANÇAR.
+    if (sess.pending?.type === 'exp_prio') {
+      if (no(text)) { await sessRef.set({ uid, history, pending: null }, { merge: true }); await sendText(from, 'Beleza, cancelei o lançamento. 👍'); return res.status(200).json({ ok: true }); }
+      const prio = pickPrio(selId, text);
+      if (!prio) { await sendPrioButtons(from, 'Toque pra escolher a *prioridade* 👇'); return res.status(200).json({ ok: true }); }
+      const p = sess.pending.data;
+      const now = new Date();
+      const txData = {
+        description: p.description, amount: p.amount, type: 'expense',
+        category: p.category, priority: prio,
+        date: now.toISOString(), month: now.toISOString().slice(0, 7),
+        userId: uid, createdAt: Date.now(), isFixed: false, source: 'whatsapp',
+      };
+      if (p.isCard) { txData.paymentMethod = 'credito'; txData.selectedCardId = p.cardId; txData.invoiceStatus = 'unpaid'; }
+      else { txData.paymentMethod = 'pix'; }
+      await db.collection('transactions').add(txData);
+      await sessRef.set({ uid, history, pending: null }, { merge: true });
+      const onde = p.isCard ? ` na fatura do *${p.cardName}*` : '';
+      await sendText(from, `Lançado! ✅ *${p.description}* — R$ ${money(p.amount)}${onde}\n_${CAT_LABELS[p.category]} · ${PRIO_LABELS[prio]}_`);
+      return res.status(200).json({ ok: true });
     }
 
     // 2b. Confirmação de EXCLUSÃO pendente.
@@ -577,20 +668,19 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // 3f. Gasto no CARTÃO — resolve o cartão e pede confirmação (SIM/NÃO).
+    // 3f. Gasto no CARTÃO — resolve o cartão e abre o fluxo (categoria → prioridade).
     if (action?.action === 'add_card_expense') {
       const amount = Math.abs(parseFloat(action.amount) || 0);
       if (amount <= 0 || !action.description) { await sendText(from, 'Não entendi a compra no cartão. Ex.: "passei 200 no cartão do Nubank". 🙏'); return res.status(200).json({ ok: true }); }
       const card = await resolveCard(db, uid, action.cardName);
       if (!card) { await sendText(from, 'Você ainda não tem cartão cadastrado. Cadastre em *Cartões* no app e tente de novo. 🙏'); return res.status(200).json({ ok: true }); }
       const data = {
-        description: String(action.description).slice(0, 120), amount,
-        category: EXPENSE_CATS.includes(action.category) ? action.category : 'shopping',
-        priority: PRIORITIES.includes(action.priority) ? action.priority : 'comfort',
-        cardId: card.id, cardName: card.name,
+        description: normName(String(action.description).slice(0, 120)), amount,
+        suggested: EXPENSE_CATS.includes(action.category) ? action.category : 'shopping',
+        isCard: true, cardId: card.id, cardName: card.name,
       };
-      await sessRef.set({ uid, history, pending: { type: 'card', data } }, { merge: true });
-      await sendText(from, `Quer que eu lance esta compra no cartão *${card.name}*?\n\n• *${normName(data.description)}*\n• Valor: R$ ${money(amount)}\n\nResponda *SIM* para confirmar ou *NÃO* para cancelar.`);
+      await sessRef.set({ uid, history, pending: { type: 'exp_cat', data } }, { merge: true });
+      await sendCatList(from, `Compra no cartão *${card.name}*: *${data.description}* — R$ ${money(amount)}.\nEm qual *categoria*? 👇`, data.suggested);
       return res.status(200).json({ ok: true });
     }
 
@@ -604,11 +694,12 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // 3h. Gasto avulso — pede confirmação (SIM/NÃO) antes de lançar.
+    // 3h. Gasto avulso — abre o fluxo interativo (escolher categoria → prioridade).
     const expense = parseExpense(reply);
     if (expense) {
-      await sessRef.set({ uid, history, pending: { type: 'expense', data: expense } }, { merge: true });
-      await sendText(from, `Quer que eu registre este gasto?\n\n• *${expense.description}*\n• Valor: R$ ${money(expense.amount)}\n\nResponda *SIM* para confirmar ou *NÃO* para cancelar.`);
+      const data = { description: normName(expense.description), amount: expense.amount, suggested: expense.category, isCard: false };
+      await sessRef.set({ uid, history, pending: { type: 'exp_cat', data } }, { merge: true });
+      await sendCatList(from, `Gasto: *${data.description}* — R$ ${money(expense.amount)}.\nEm qual *categoria*? 👇`, data.suggested);
     } else {
       const newHistory = [...history, { role: 'user', text }, { role: 'model', text: reply }].slice(-12);
       await sessRef.set({ uid, history: newHistory, pending: null }, { merge: true });
