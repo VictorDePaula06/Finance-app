@@ -197,8 +197,19 @@ export default async function handler(req, res) {
   try {
     const body = JSON.parse(rawBody.toString('utf8') || '{}');
     const value = body?.entry?.[0]?.changes?.[0]?.value;
+
+    // Avisos de ENTREGA da Meta (sent/delivered/read/failed) — logamos p/ diagnosticar
+    // por que uma resposta com status 200 pode não chegar (erro, janela 24h, etc.).
+    const statuses = value?.statuses;
+    if (Array.isArray(statuses) && statuses.length) {
+        for (const s of statuses) {
+            console.log(`WA status -> to=${s.recipient_id} status=${s.status}${s.errors ? ' errors=' + JSON.stringify(s.errors) : ''}`);
+        }
+        return res.status(200).json({ ok: true });
+    }
+
     const msg = value?.messages?.[0];
-    if (!msg || msg.type !== 'text') return res.status(200).json({ ok: true }); // ignora status/entregas e não-texto
+    if (!msg || msg.type !== 'text') return res.status(200).json({ ok: true }); // ignora não-texto
 
     const from = msg.from; // telefone E.164 só dígitos
     const text = msg.text?.body || '';
