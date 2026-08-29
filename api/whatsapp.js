@@ -146,8 +146,11 @@ Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (p
 8) Dar BAIXA numa recorrente (pagar despesa fixa OU confirmar recebimento do mês) —
    ex.: "paguei a Netflix", "dei baixa no aluguel", "recebi meu salário" (se já é recorrente):
    {"action":"baixa_recorrente","kind":"<expense|income>","name":"<nome da conta/entrada>"}
+9) EXCLUIR/estornar um lançamento — ex.: "exclui esse pix", "apaga o último gasto",
+   "remove a compra do mercado", "cancela aquele lançamento":
+   {"action":"delete_transaction","description":"<nome do lançamento, ou vazio p/ o último>"}
 
-⚠️ NUNCA diga em texto que cadastrou/guardou/criou/pagou/registrou algo. Para AGIR, responda SÓ com o JSON — o app grava e confirma de verdade.
+⚠️ NUNCA diga em texto que cadastrou/guardou/criou/pagou/registrou/excluiu algo. Para AGIR, responda SÓ com o JSON — o app grava e confirma de verdade.
 Se não for nenhuma ação, responda normalmente em texto (sem inventar que fez algo).`;
 
 async function askGemini(history, contextText, userMsg) {
@@ -304,6 +307,48 @@ async function doBaixaRecorrente(db, uid, kind, name) {
   }
 }
 
+// Acha o lançamento mais recente do usuário (opcional: que contenha `description`).
+// Ordena em memória p/ não exigir índice composto no Firestore.
+async function findRecentTx(db, uid, description) {
+  const snap = await db.collection('transactions').where('userId', '==', uid).get();
+  if (snap.empty) return null;
+  const docs = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const q = String(description || '').toLowerCase().trim();
+  const match = q ? docs.find(d => String(d.description || '').toLowerCase().includes(q)) : null;
+  return match || docs[0];
+}
+
+// Exclui um lançamento e DESFAZ efeitos colaterais:
+//  - reserva (reserveInternal): estorna o valor do cofrinho;
+//  - baixa de recorrente: apaga a ocorrência e libera nova baixa no mês.
+async function doDeleteTx(db, uid, tx) {
+  if (!tx || tx.userId !== uid) return false;
+  const amt = parseFloat(tx.amount) || 0;
+  // Estorno de aporte na reserva.
+  if (tx.reserveInternal && tx.jarId) {
+    const jarRef = db.collection('savings_jars').doc(tx.jarId);
+    const jarSnap = await jarRef.get();
+    if (jarSnap.exists) {
+      const j = jarSnap.data();
+      await jarRef.set({
+        balance: Math.max(0, (parseFloat(j.balance) || 0) - amt),
+        invested: Math.max(0, (parseFloat(j.invested ?? j.balance) || 0) - amt),
+      }, { merge: true });
+    }
+  }
+  // Reverte baixa de recorrente (remove ocorrência única + reabre o mês).
+  if (tx.source === 'recorrente_baixa' && tx.recorrenteId) {
+    const income = tx.type === 'income';
+    const coll = income ? 'fixed_incomes' : 'fixed_expenses';
+    const prefix = income ? 'inc_' : '';
+    const mk = tx.month || mkNow();
+    await db.collection('users').doc(uid).collection('recorrentes_baixas').doc(`${prefix}${tx.recorrenteId}_${mk}`).delete().catch(() => {});
+    await db.collection(coll).doc(tx.recorrenteId).set({ lastPaidMonth: null }, { merge: true }).catch(() => {});
+  }
+  await db.collection('transactions').doc(tx.id).delete();
+  return true;
+}
+
 // Resolve qual cartão usar (por nome citado, senão o 1º). Retorna null se não houver.
 async function resolveCard(db, uid, cardName) {
   const snap = await db.collection('cards').where('userId', '==', uid).get();
@@ -434,6 +479,26 @@ export default async function handler(req, res) {
       await sessRef.set({ uid, pending: null }, { merge: true });
     }
 
+    // 2b. Confirmação de EXCLUSÃO pendente.
+    if (sess.pending?.type === 'delete') {
+      if (yes(text)) {
+        const p = sess.pending.data;
+        try {
+          const snap = await db.collection('transactions').doc(p.id).get();
+          const ok = snap.exists && await doDeleteTx(db, uid, { id: p.id, ...snap.data() });
+          await sessRef.set({ uid, history, pending: null }, { merge: true });
+          await sendText(from, ok ? `Excluído! ✅ *${p.description}* (R$ ${money(p.amount)}) foi removido.` : 'Esse lançamento não está mais disponível. 🤔');
+        } catch (e) { console.error('WA delete:', e); await sendText(from, 'Não consegui excluir agora. Tenta de novo. 🙏'); }
+        return res.status(200).json({ ok: true });
+      }
+      if (no(text)) {
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, 'Ok, mantive o lançamento. 👍');
+        return res.status(200).json({ ok: true });
+      }
+      await sessRef.set({ uid, pending: null }, { merge: true });
+    }
+
     // 3. Conversa com a Alívia
     const ctx = await buildUserContext(db, uid);
     const reply = await askGemini(history, ctx, text);
@@ -529,7 +594,17 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // 3g. Gasto avulso — pede confirmação (SIM/NÃO) antes de lançar.
+    // 3g. Excluir lançamento — acha o alvo e pede confirmação (SIM/NÃO).
+    if (action?.action === 'delete_transaction') {
+      const tx = await findRecentTx(db, uid, action.description);
+      if (!tx) { await sendText(from, 'Não encontrei nenhum lançamento pra excluir. 🤔'); return res.status(200).json({ ok: true }); }
+      await sessRef.set({ uid, history, pending: { type: 'delete', data: { id: tx.id, description: normName(tx.description || 'Lançamento'), amount: parseFloat(tx.amount) || 0 } } }, { merge: true });
+      const tipo = tx.type === 'income' ? 'entrada' : 'despesa';
+      await sendText(from, `Quer que eu exclua este lançamento?\n\n• *${normName(tx.description || 'Lançamento')}* (${tipo})\n• Valor: R$ ${money(tx.amount)}\n\nResponda *SIM* para excluir ou *NÃO* para manter.`);
+      return res.status(200).json({ ok: true });
+    }
+
+    // 3h. Gasto avulso — pede confirmação (SIM/NÃO) antes de lançar.
     const expense = parseExpense(reply);
     if (expense) {
       await sessRef.set({ uid, history, pending: { type: 'expense', data: expense } }, { merge: true });
