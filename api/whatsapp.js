@@ -134,6 +134,7 @@ REGRAS:
 
 async function askGemini(history, contextText, userMsg) {
   const key = process.env.GEMINI_API_KEY;
+  if (!key) { console.error('WA Gemini: GEMINI_API_KEY AUSENTE na Vercel.'); return 'Desculpe, não consegui responder agora. 😅'; }
   const contents = [
     ...(history || []).slice(-6).map(h => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.text }] })),
     { role: 'user', parts: [{ text: userMsg }] },
@@ -143,11 +144,21 @@ async function askGemini(history, contextText, userMsg) {
     contents,
     generationConfig: { temperature: 0.7, maxOutputTokens: 600 },
   };
-  const r = await fetch(`${GEMINI_URL}?key=${key}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-  });
-  const j = await r.json();
-  return j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'Desculpe, não consegui responder agora. 😅';
+  try {
+    const r = await fetch(`${GEMINI_URL}?key=${key}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    const text = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!text) {
+      console.error(`WA Gemini falhou: HTTP ${r.status} resp=${JSON.stringify(j).slice(0, 500)}`);
+      return 'Desculpe, não consegui responder agora. 😅';
+    }
+    return text;
+  } catch (e) {
+    console.error('WA Gemini erro de rede:', e?.message || e);
+    return 'Desculpe, não consegui responder agora. 😅';
+  }
 }
 
 function parseExpense(text) {
