@@ -130,7 +130,13 @@ REGRAS:
   responda SOMENTE com um JSON, sem mais nada, no formato:
   {"action":"add_expense","description":"<texto>","amount":<número>,"category":"<id>","priority":"<id>"}
   category ∈ [${EXPENSE_CATS.join(', ')}]; priority ∈ [${PRIORITIES.join(', ')}].
-  Escolha a categoria/prioridade mais provável. Se não for um gasto, responda normalmente em texto.`;
+- Se quiser GUARDAR/APORTAR na RESERVA de emergência (ex.: "guarda 50 na reserva", "lance 5 como reserva", "poupar 100"),
+  responda SOMENTE com: {"action":"add_to_reserve","amount":<número>}
+- Se quiser definir uma META/OBJETIVO de valor para a reserva (ex.: "meta de 20000", "quero juntar 20 mil de reserva"),
+  responda SOMENTE com: {"action":"set_reserve_goal","target":<número>}
+  Escolha a categoria/prioridade mais provável quando for gasto.
+  ⚠️ NUNCA diga em texto que cadastrou/guardou/criou/registrou algo. Para AGIR, responda SÓ com o JSON — o app grava e confirma.
+  Se não for nenhuma dessas ações, responda normalmente em texto (sem inventar que fez algo).`;
 
 async function askGemini(history, contextText, userMsg) {
   const key = process.env.GEMINI_API_KEY;
@@ -159,6 +165,49 @@ async function askGemini(history, contextText, userMsg) {
     console.error('WA Gemini erro de rede:', e?.message || e);
     return 'Desculpe, não consegui responder agora. 😅';
   }
+}
+
+// Extrai QUALQUER bloco de ação JSON da resposta da IA.
+function parseAction(text) {
+  const m = text.match(/\{[\s\S]*?"action"[\s\S]*?\}/);
+  if (!m) return null;
+  try { return JSON.parse(m[0]); } catch { return null; }
+}
+
+// Acha a reserva do usuário (emergência) ou a 1ª; cria se não existir.
+async function findOrCreateReserve(db, uid, seed = {}) {
+  const snap = await db.collection('savings_jars').where('userId', '==', uid).get();
+  const doc = snap.docs.find(d => /emerg|reserva/i.test(d.data().name || '')) || snap.docs[0];
+  if (doc) return { ref: doc.ref, data: doc.data(), name: doc.data().name || 'Reserva de emergência' };
+  const now = Date.now();
+  const base = { name: 'Reserva de emergência', balance: 0, invested: 0, cdiPercent: 100, type: 'reserva', lastYieldAt: now, userId: uid, createdAt: now, ...seed };
+  const ref = await db.collection('savings_jars').add(base);
+  return { ref, data: base, name: base.name };
+}
+
+// Aporta um valor na reserva (grava de verdade). Retorna o nome da reserva.
+async function doAddToReserve(db, uid, amount) {
+  const { ref, data, name } = await findOrCreateReserve(db, uid);
+  const now = Date.now();
+  await ref.set({
+    balance: (parseFloat(data.balance) || 0) + amount,
+    invested: (parseFloat(data.invested ?? data.balance) || 0) + amount,
+    lastYieldAt: now,
+  }, { merge: true });
+  const iso = new Date().toISOString();
+  await db.collection('transactions').add({
+    description: `Aporte reserva: ${name}`, amount, type: 'expense', category: 'vault',
+    date: iso, month: iso.slice(0, 7), userId: uid, createdAt: now,
+    paymentMethod: 'pix', source: 'whatsapp', jarId: ref.id, isTransfer: true, reserveInternal: true,
+  });
+  return name;
+}
+
+// Define a meta (target) da reserva. Retorna o nome.
+async function doSetReserveGoal(db, uid, target) {
+  const { ref, name } = await findOrCreateReserve(db, uid);
+  await ref.set({ target }, { merge: true });
+  return name;
 }
 
 function parseExpense(text) {
@@ -275,8 +324,34 @@ export default async function handler(req, res) {
     // 3. Conversa com a Alívia
     const ctx = await buildUserContext(db, uid);
     const reply = await askGemini(history, ctx, text);
-    const expense = parseExpense(reply);
+    const action = parseAction(reply);
 
+    // 3a. Aporte na reserva — grava de verdade e confirma só se der certo.
+    if (action?.action === 'add_to_reserve') {
+      const amount = Math.abs(parseFloat(action.amount) || 0);
+      if (amount <= 0) { await sendText(from, 'Não entendi o valor para guardar na reserva. Ex.: "guarda 100 na reserva". 🙏'); return res.status(200).json({ ok: true }); }
+      try {
+        const nm = await doAddToReserve(db, uid, amount);
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, `Pronto! Guardei *R$ ${money(amount)}* na sua *${nm}*. ✅`);
+      } catch (e) { console.error('WA add_to_reserve:', e); await sendText(from, 'Não consegui guardar na reserva agora. Tenta de novo. 🙏'); }
+      return res.status(200).json({ ok: true });
+    }
+
+    // 3b. Meta da reserva — grava de verdade.
+    if (action?.action === 'set_reserve_goal') {
+      const target = Math.abs(parseFloat(action.target) || 0);
+      if (target <= 0) { await sendText(from, 'Não entendi o valor da meta. Ex.: "meta de 20 mil na reserva". 🙏'); return res.status(200).json({ ok: true }); }
+      try {
+        const nm = await doSetReserveGoal(db, uid, target);
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, `Feito! Defini a meta da sua *${nm}* em *R$ ${money(target)}*. 🎯`);
+      } catch (e) { console.error('WA set_reserve_goal:', e); await sendText(from, 'Não consegui definir a meta agora. Tenta de novo. 🙏'); }
+      return res.status(200).json({ ok: true });
+    }
+
+    // 3c. Gasto avulso — pede confirmação (SIM/NÃO) antes de lançar.
+    const expense = parseExpense(reply);
     if (expense) {
       await sessRef.set({ uid, history, pending: { type: 'expense', data: expense } }, { merge: true });
       await sendText(from, `Quer que eu registre este gasto?\n\n• *${expense.description}*\n• Valor: R$ ${money(expense.amount)}\n\nResponda *SIM* para confirmar ou *NÃO* para cancelar.`);
