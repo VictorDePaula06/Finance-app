@@ -252,6 +252,56 @@ async function buildReport(db, uid, type = 'overview', period = 'this_month') {
   ].join('\n');
 }
 
+// Mês da fatura de uma compra (igual ao app: o dia do fechamento ainda pertence à fatura).
+function invoiceMonthOf(dateStr, closingDay) {
+  const d = new Date(dateStr); const day = d.getDate();
+  let m = d.getMonth(), y = d.getFullYear();
+  if (day > closingDay) { m += 1; if (m > 11) { m = 0; y += 1; } }
+  return `${y}-${String(m + 1).padStart(2, '0')}`;
+}
+
+// Resposta DETERMINÍSTICA sobre dívidas. Dívida = (1) cadastrada em "debts" ou
+// nos recorrentes (categoria dívida), ou (2) fatura de cartão VENCIDA (meses
+// anteriores não pagos). Parcelamento em dia e fatura atual NÃO são dívida.
+async function buildDebtsAnswer(db, uid) {
+  const num = (v) => parseFloat(v) || 0;
+  const [debtSnap, fixSnap, txSnap, cardSnap] = await Promise.all([
+    db.collection('debts').where('userId', '==', uid).get(),
+    db.collection('fixed_expenses').where('userId', '==', uid).get(),
+    db.collection('transactions').where('userId', '==', uid).get(),
+    db.collection('cards').where('userId', '==', uid).get(),
+  ]);
+  // 1. Dívidas cadastradas (módulo Dívidas)
+  const debts = debtSnap.docs.map(d => d.data()).filter(d => !d.paidOff && num(d.remainingAmount) > 0.005);
+  const debtsTotal = debts.reduce((a, d) => a + num(d.remainingAmount), 0);
+  // 1b. Dívidas cadastradas como recorrente (categoria "divida")
+  const recDiv = fixSnap.docs.map(d => d.data()).filter(f => f.category === 'divida');
+  // 2. Faturas de cartão VENCIDAS (fatura de mês anterior ainda não paga)
+  const txUnpaid = txSnap.docs.map(d => d.data()).filter(t => t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid');
+  let overdueTotal = 0; const overdueCards = [];
+  cardSnap.docs.forEach(cd => {
+    const c = cd.data();
+    const closingDay = c.closingDay || ((c.dueDay - 7 > 0) ? c.dueDay - 7 : 25);
+    const cur = invoiceMonthOf(new Date().toISOString(), closingDay);
+    const over = txUnpaid.filter(t => t.selectedCardId === cd.id && invoiceMonthOf(t.date || new Date().toISOString(), closingDay) < cur);
+    const tot = over.reduce((a, t) => a + num(t.amount), 0);
+    if (tot > 0.005) { overdueTotal += tot; overdueCards.push({ name: c.name || c.bank || 'Cartão', total: tot }); }
+  });
+
+  const explicacao = 'O que conta como dívida:\n• O que você cadastrou como dívida (empréstimo, financiamento, etc.)\n• Fatura de cartão *vencida* (não paga no prazo)\n\n_Parcelamento em dia e a fatura atual do cartão (ainda no prazo) não são dívida — são compras que você ainda vai pagar normalmente._';
+
+  const has = debtsTotal > 0.005 || recDiv.length > 0 || overdueTotal > 0.005;
+  if (!has) {
+    return `Não, você *não tem dívidas* registradas. 🙌\n\n${explicacao}`;
+  }
+  const parts = ['Sim, você tem dívidas registradas:', ''];
+  if (debtsTotal > 0.005) { parts.push(`💳 Dívidas cadastradas: *R$ ${money(debtsTotal)}*`); debts.forEach(d => parts.push(`• ${d.name || 'Dívida'}: R$ ${money(d.remainingAmount)}`)); parts.push(''); }
+  if (recDiv.length) { parts.push('📌 Dívidas nos recorrentes:'); recDiv.forEach(f => parts.push(`• ${f.name || 'Dívida'}: R$ ${money(f.value)}/mês`)); parts.push(''); }
+  if (overdueTotal > 0.005) { parts.push(`⚠️ Fatura(s) de cartão *vencida(s)*: *R$ ${money(overdueTotal)}*`); overdueCards.forEach(c => parts.push(`• ${c.name}: R$ ${money(c.total)}`)); parts.push(''); }
+  parts.push('_Obs.: parcelamento em dia e a fatura atual (ainda no prazo) não entram como dívida._');
+  return parts.join('\n');
+}
+
 // Monta um RESUMO FINANCEIRO REAL (com valores) para a Alívia responder direto.
 async function buildUserContext(db, uid) {
   const mk = new Date().toISOString().slice(0, 7);
@@ -617,6 +667,11 @@ Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (p
    contas fixas", "minhas entradas recorrentes", "o que eu tenho de recorrente":
    {"action":"list_recurring","kind":"<expense|income>"}
    (kind=expense p/ despesas/contas fixas; kind=income p/ entradas/salário recorrente.)
+13) DÍVIDAS — ex.: "eu tenho dívidas?", "quanto eu devo?", "estou endividado?", "tenho fatura vencida?":
+   {"action":"debts_check"}
+   ⚠️ SEMPRE use esta ação para QUALQUER pergunta sobre dívida. NUNCA deduza dívida de saldo
+   negativo, de parcelamento ou de fatura em aberto — isso NÃO é dívida. Só é dívida o que está
+   cadastrado como dívida ou uma fatura de cartão VENCIDA.
 
 ⚠️ NUNCA diga em texto que cadastrou/guardou/criou/pagou/registrou/excluiu algo. Para AGIR, responda SÓ com o JSON — o app grava e confirma de verdade.
 Se não for nenhuma ação, responda normalmente em texto (sem inventar que fez algo).`;
@@ -1059,6 +1114,16 @@ export default async function handler(req, res) {
         await sessRef.set({ uid, history, pending: null }, { merge: true });
         await sendText(from, rep);
       } catch (e) { console.error('WA report:', e); await sendText(from, 'Não consegui montar o relatório agora. Tenta de novo. 🙏'); }
+      return res.status(200).json({ ok: true });
+    }
+
+    // 3w. Dívidas — resposta determinística (não deduz de saldo/parcelamento/fatura em aberto).
+    if (action?.action === 'debts_check') {
+      try {
+        const txt = await buildDebtsAnswer(db, uid);
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, txt);
+      } catch (e) { console.error('WA debts_check:', e); await sendText(from, 'Não consegui verificar suas dívidas agora. Tenta de novo. 🙏'); }
       return res.status(200).json({ ok: true });
     }
 
