@@ -733,6 +733,62 @@ async function transcribeAudio(mediaId) {
   } catch (e) { console.error('WA transcribeAudio erro:', e?.message || e); return ''; }
 }
 
+// Baixa um documento (PDF/CSV) do WhatsApp e extrai os lançamentos com o Gemini.
+async function extractStatement(docInfo) {
+  const token = process.env.WHATSAPP_TOKEN;
+  const key = process.env.GEMINI_API_KEY;
+  if (!docInfo?.id || !key) return [];
+  try {
+    const meta = await fetch(`${GRAPH}/${docInfo.id}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+    if (!meta?.url) { console.error('WA import: sem url', JSON.stringify(meta).slice(0, 200)); return []; }
+    const resp = await fetch(meta.url, { headers: { Authorization: `Bearer ${token}` } });
+    const buf = Buffer.from(await resp.arrayBuffer());
+    const mime = (docInfo.mime_type || meta.mime_type || '').split(';')[0].toLowerCase();
+    const instruction = `Este arquivo é um extrato bancário ou fatura de cartão de crédito. Extraia TODOS os lançamentos (transações).
+Responda APENAS com um JSON array puro, sem nenhum texto fora dele, no formato:
+[{"description":"<texto curto>","amount":<número positivo>,"date":"<AAAA-MM-DD ou string vazia>","type":"expense|income","category":"<um destes: ${EXPENSE_CATS.join(', ')}>"}]
+Regras: amount SEMPRE positivo. type=expense para gastos/compras/débitos/saídas; type=income para créditos/recebimentos/entradas. IGNORE linhas de saldo, subtotal, total da fatura, e "pagamento de fatura". Escolha a category mais provável. Se não houver lançamentos, responda [].`;
+    let parts;
+    if (mime.includes('pdf')) {
+      parts = [{ inline_data: { mime_type: 'application/pdf', data: buf.toString('base64') } }, { text: instruction }];
+    } else {
+      const textCsv = buf.toString('utf8').slice(0, 25000);
+      parts = [{ text: `${instruction}\n\nConteúdo do arquivo:\n${textCsv}` }];
+    }
+    const body = { contents: [{ role: 'user', parts }], generationConfig: { temperature: 0, maxOutputTokens: 6000 } };
+    const r = await fetch(`${GEMINI_URL}?key=${key}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json();
+    const t = j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const m = t.match(/\[[\s\S]*\]/);
+    if (!m) { console.error('WA import: sem JSON na resposta', JSON.stringify(j).slice(0, 300)); return []; }
+    const arr = JSON.parse(m[0]);
+    return arr.map(x => ({
+      description: String(x.description || 'Lançamento').slice(0, 80),
+      amount: Math.abs(parseFloat(x.amount) || 0),
+      date: /^\d{4}-\d{2}-\d{2}$/.test(x.date) ? x.date : '',
+      type: x.type === 'income' ? 'income' : 'expense',
+      category: EXPENSE_CATS.includes(x.category) ? x.category : 'other',
+    })).filter(x => x.amount > 0 && x.description);
+  } catch (e) { console.error('WA extractStatement erro:', e?.message || e); return []; }
+}
+
+// Recebe um documento, extrai os lançamentos e pede confirmação (SIM/NÃO).
+async function handleDocumentImport(db, from, uid, sessRef, docInfo) {
+  const mime = (docInfo?.mime_type || '').toLowerCase();
+  const ok = mime.includes('pdf') || mime.includes('csv') || mime.includes('text') || mime.includes('excel') || mime.includes('comma');
+  if (!ok) { await sendText(from, 'Consigo ler *PDF* ou *CSV* (extrato do banco ou fatura do cartão). Esse formato eu não leio 😅. Dá pra exportar em PDF ou CSV?'); return; }
+  await sendText(from, 'Recebi seu arquivo 📄 Estou lendo os lançamentos... um instante.');
+  const items = await extractStatement(docInfo);
+  if (!items.length) { await sendText(from, 'Não consegui identificar lançamentos nesse arquivo 😅. Confere se é um extrato de banco/cartão em PDF ou CSV legível (não pode ser imagem/foto escaneada sem texto).'); return; }
+  const capped = items.slice(0, 80);
+  const totalExp = capped.filter(i => i.type === 'expense').reduce((a, i) => a + i.amount, 0);
+  const totalInc = capped.filter(i => i.type === 'income').reduce((a, i) => a + i.amount, 0);
+  await sessRef.set({ uid, pending: { type: 'import', data: { items: capped } } }, { merge: true });
+  const preview = capped.slice(0, 8).map(i => `• ${i.type === 'income' ? '+' : '−'} R$ ${money(i.amount)} — ${i.description}`).join('\n');
+  const resto = capped.length > 8 ? `\n… e mais ${capped.length - 8} lançamento(s).` : '';
+  await sendText(from, `Encontrei *${capped.length} lançamento(s)*:\n\n${preview}${resto}\n\n💸 Saídas: *R$ ${money(totalExp)}*${totalInc ? `\n💚 Entradas: *R$ ${money(totalInc)}*` : ''}\n\nPosso lançar tudo de uma vez? Responda *SIM* pra confirmar ou *NÃO* pra cancelar.`);
+}
+
 // Extrai QUALQUER bloco de ação JSON da resposta da IA.
 function parseAction(text) {
   const m = text.match(/\{[\s\S]*?"action"[\s\S]*?\}/);
@@ -986,7 +1042,7 @@ export default async function handler(req, res) {
     }
 
     const msg = value?.messages?.[0];
-    if (!msg || !['text', 'interactive', 'audio'].includes(msg.type)) return res.status(200).json({ ok: true }); // ignora outros tipos
+    if (!msg || !['text', 'interactive', 'audio', 'document'].includes(msg.type)) return res.status(200).json({ ok: true }); // ignora outros tipos
 
     const from = msg.from; // telefone E.164 só dígitos
     // Entrada pode ser texto, um toque em lista/botão (interactive) OU áudio (voz).
@@ -1025,6 +1081,12 @@ export default async function handler(req, res) {
     const sessRef = db.collection('wa_sessions').doc(from);
     const sess = (await sessRef.get()).data() || {};
     const history = sess.history || [];
+
+    // 0. Documento (PDF/CSV) — extrai lançamentos e pede confirmação (importação em lote).
+    if (msg.type === 'document') {
+      await handleDocumentImport(db, from, uid, sessRef, msg.document);
+      return res.status(200).json({ ok: true });
+    }
 
     // Detecta um pedido NOVO (frase digitada) pra não ficar preso num fluxo pendente.
     const looksNewIntent = !selId && text.trim().split(/\s+/).length >= 3;
@@ -1068,6 +1130,40 @@ export default async function handler(req, res) {
         await sendText(from, `Lançado! ✅ *${p.description}* — R$ ${money(p.amount)}${onde}\n_${CAT_LABELS[p.category]} · ${PRIO_LABELS[prio]}_`);
         return res.status(200).json({ ok: true });
       }
+    }
+
+    // 2a. Confirmação de IMPORTAÇÃO (extrato PDF/CSV) — lança tudo em lote.
+    if (sess.pending?.type === 'import') {
+      if (yes(text)) {
+        const items = sess.pending.data?.items || [];
+        let ok = 0;
+        try {
+          const batch = db.batch();
+          const nowMs = Date.now();
+          for (const it of items) {
+            const iso = it.date ? new Date(it.date + 'T12:00:00').toISOString() : new Date().toISOString();
+            const ref = db.collection('transactions').doc();
+            const tx = {
+              description: normName(it.description), amount: it.amount, type: it.type,
+              category: it.category, date: iso, month: iso.slice(0, 7),
+              userId: uid, createdAt: nowMs, isFixed: false, source: 'whatsapp_import',
+            };
+            if (it.type === 'expense') { tx.priority = 'comfort'; tx.paymentMethod = 'pix'; }
+            batch.set(ref, tx); ok++;
+          }
+          await batch.commit();
+          await sessRef.set({ uid, history, pending: null }, { merge: true });
+          await sendText(from, `Pronto! ✅ Lancei *${ok}* lançamento(s) do seu extrato de uma vez. Já estão no app.`);
+        } catch (e) { console.error('WA import commit:', e); await sendText(from, 'Deu um erro ao lançar em lote. Tenta enviar o arquivo de novo. 🙏'); }
+        return res.status(200).json({ ok: true });
+      }
+      if (no(text)) {
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, 'Sem problema, não lancei nada. 👍');
+        return res.status(200).json({ ok: true });
+      }
+      await sendText(from, 'Responda *SIM* pra eu lançar tudo, ou *NÃO* pra cancelar. 🙏');
+      return res.status(200).json({ ok: true });
     }
 
     // 2b. Confirmação de EXCLUSÃO pendente.
