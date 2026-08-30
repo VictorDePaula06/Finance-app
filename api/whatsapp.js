@@ -25,6 +25,7 @@
 
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { jsPDF } from 'jspdf';
 import crypto from 'crypto';
 
 // Precisamos do corpo CRU (bytes) para validar a assinatura da Meta (HMAC).
@@ -262,6 +263,262 @@ async function buildUserContext(db, uid) {
   }
 }
 
+// ── RELATÓRIOS EM PDF (espelha a aba "Análises" do app) ───────────────────
+// Lista de relatórios visuais disponíveis (mesmos nomes/ordem da aba Análises).
+const ANALYSES = [
+  { id: 'categorias', label: 'Gastos por categoria', grupo: 'Análises' },
+  { id: 'evolucao', label: 'Evolução mensal', grupo: 'Análises' },
+  { id: 'custo_fixo', label: 'Custo fixo mensal', grupo: 'Análises' },
+  { id: 'prioridade', label: 'Essencial × Supérfluo', grupo: 'Análises' },
+  { id: 'pagamento', label: 'Formas de pagamento', grupo: 'Análises' },
+  { id: 'comparativo', label: 'Comparativo de meses', grupo: 'Análises' },
+  { id: 'cartao_categoria', label: 'Fatura por categoria', grupo: 'Cartão de crédito' },
+  { id: 'cartao_limite', label: 'Uso do limite', grupo: 'Cartão de crédito' },
+  { id: 'cartao_parcelas', label: 'Parcelas & comprometimento', grupo: 'Cartão de crédito' },
+];
+const ANALYSIS_LABEL = Object.fromEntries(ANALYSES.map(a => [a.id, a.label]));
+const PALETTE = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#ec4899', '#84cc16', '#a855f7', '#f97316', '#14b8a6', '#eab308'];
+const PRIO_HEX = { essential: '#10b981', comfort: '#f59e0b', superfluous: '#f43f5e' };
+const PAG_LABELS = { pix: 'PIX', debito: 'Débito', credito: 'Crédito', dinheiro: 'Dinheiro', boleto: 'Boleto' };
+const PAG_HEX = { pix: '#10b981', debito: '#3b82f6', credito: '#8b5cf6', dinheiro: '#f59e0b', boleto: '#06b6d4' };
+const MESES_ABREV = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const hexRgb = (h) => { const n = parseInt(String(h).replace('#', ''), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+
+// Puxa de uma vez tudo que os relatórios precisam.
+async function fetchAll(db, uid) {
+  const [txS, cardS, subS, fixS] = await Promise.all([
+    db.collection('transactions').where('userId', '==', uid).get(),
+    db.collection('cards').where('userId', '==', uid).get(),
+    db.collection('subscriptions').where('userId', '==', uid).get(),
+    db.collection('fixed_expenses').where('userId', '==', uid).get(),
+  ]);
+  return {
+    tx: txS.docs.map(d => ({ id: d.id, ...d.data() })),
+    cards: cardS.docs.map(d => ({ id: d.id, ...d.data() })),
+    subs: subS.docs.map(d => ({ id: d.id, ...d.data() })),
+    fix: fixS.docs.map(d => d.data()),
+  };
+}
+
+// Monta a "especificação" do relatório (título + itens de barra) a partir dos dados.
+function buildReportSpec(id, data) {
+  const num = (v) => parseFloat(v) || 0;
+  const now = new Date();
+  const mk = now.toISOString().slice(0, 7);
+  const txMk = (t) => t.month || String(t.date || '').slice(0, 7);
+  const consumo = (t) => t.type === 'expense' && !['credit_card_bill', 'vault', 'investment'].includes(t.category) && !t.reserveInternal;
+  const realInc = (t) => t.type === 'income' && !['vault_redemption', 'initial_balance', 'carryover'].includes(t.category);
+  const txM = data.tx.filter(t => txMk(t) === mk);
+  const base = { filename: `Alivia-${id}`, title: ANALYSIS_LABEL[id] || 'Relatório', subtitle: monthLabel(mk) };
+  const pctOf = (v, tot) => tot > 0 ? Math.round(v / tot * 100) : 0;
+
+  if (id === 'categorias') {
+    const g = {}; txM.filter(consumo).forEach(t => { g[t.category] = (g[t.category] || 0) + num(t.amount); });
+    const tot = Object.values(g).reduce((a, b) => a + b, 0);
+    if (!tot) return { empty: `📊 Ainda não há gastos em ${monthLabel(mk)} pra montar esse relatório. 🙂` };
+    const items = Object.entries(g).sort((a, b) => b[1] - a[1]).map(([c, v], i) => ({ label: CAT_LABELS[c] || c, value: v, color: PALETTE[i % PALETTE.length], pct: pctOf(v, tot) }));
+    return { ...base, items, total: tot };
+  }
+
+  if (id === 'prioridade') {
+    const P = { essential: 0, comfort: 0, superfluous: 0 }; txM.filter(consumo).forEach(t => { P[t.priority] = (P[t.priority] || 0) + num(t.amount); });
+    const tot = P.essential + P.comfort + P.superfluous;
+    if (!tot) return { empty: `📊 Ainda não há gastos em ${monthLabel(mk)} pra montar esse relatório. 🙂` };
+    const items = ['essential', 'comfort', 'superfluous'].map(k => ({ label: PRIO_LABELS[k], value: P[k], color: PRIO_HEX[k], pct: pctOf(P[k], tot) }));
+    return { ...base, items, total: tot };
+  }
+
+  if (id === 'pagamento') {
+    const m = {}; txM.filter(t => t.type === 'expense' && t.category !== 'credit_card_bill').forEach(t => { const p = t.paymentMethod || 'pix'; m[p] = (m[p] || 0) + num(t.amount); });
+    const tot = Object.values(m).reduce((a, b) => a + b, 0);
+    if (!tot) return { empty: `📊 Ainda não há gastos em ${monthLabel(mk)} pra montar esse relatório. 🙂` };
+    const items = Object.entries(m).sort((a, b) => b[1] - a[1]).map(([p, v]) => ({ label: PAG_LABELS[p] || p, value: v, color: PAG_HEX[p] || '#64748b', pct: pctOf(v, tot) }));
+    return { ...base, items, total: tot };
+  }
+
+  if (id === 'evolucao') {
+    const items = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = d.toISOString().slice(0, 7);
+      const inc = data.tx.filter(t => txMk(t) === key && realInc(t)).reduce((a, t) => a + num(t.amount), 0);
+      const exp = data.tx.filter(t => txMk(t) === key && consumo(t)).reduce((a, t) => a + num(t.amount), 0);
+      const ml = MESES_ABREV[d.getMonth()];
+      items.push({ label: `${ml} · Entradas`, value: inc, color: '#10b981' });
+      items.push({ label: `${ml} · Saídas`, value: exp, color: '#f43f5e' });
+    }
+    return { ...base, subtitle: 'Últimos 6 meses', items };
+  }
+
+  if (id === 'comparativo') {
+    const pd = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const pk = pd.toISOString().slice(0, 7);
+    const calc = (key) => ({
+      inc: data.tx.filter(t => txMk(t) === key && realInc(t)).reduce((a, t) => a + num(t.amount), 0),
+      exp: data.tx.filter(t => txMk(t) === key && consumo(t)).reduce((a, t) => a + num(t.amount), 0),
+    });
+    const cur = calc(mk), prev = calc(pk);
+    const items = [
+      { label: `${monthLabel(pk)} · Entradas`, value: prev.inc, color: '#10b981' },
+      { label: `${monthLabel(pk)} · Saídas`, value: prev.exp, color: '#f43f5e' },
+      { label: `${monthLabel(mk)} · Entradas`, value: cur.inc, color: '#10b981' },
+      { label: `${monthLabel(mk)} · Saídas`, value: cur.exp, color: '#f43f5e' },
+    ];
+    return { ...base, subtitle: `${monthLabel(mk)} vs ${monthLabel(pk)}`, items };
+  }
+
+  if (id === 'custo_fixo') {
+    const rec = data.fix.reduce((a, f) => a + num(f.value), 0);
+    const ass = data.subs.filter(s => !(s.isInstallment || s.type === 'installment')).reduce((a, s) => a + num(s.value), 0);
+    const parc = data.subs.filter(s => s.isInstallment || s.type === 'installment').reduce((a, s) => a + num(s.value), 0);
+    const tot = rec + ass + parc;
+    if (!tot) return { empty: '📊 Você ainda não tem contas fixas, assinaturas ou parcelas cadastradas. 🙂' };
+    const items = [
+      { label: 'Recorrentes', value: rec, color: '#f59e0b', pct: pctOf(rec, tot) },
+      { label: 'Assinaturas', value: ass, color: '#8b5cf6', pct: pctOf(ass, tot) },
+      { label: 'Parcelas', value: parc, color: '#3b82f6', pct: pctOf(parc, tot) },
+    ];
+    return { ...base, subtitle: 'Comprometimento mensal', items, total: tot };
+  }
+
+  // ── Cartão ──
+  const creditoAberto = data.tx.filter(t => t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid');
+  const subsCartao = data.subs.filter(s => s.cardId);
+
+  if (id === 'cartao_categoria') {
+    const m = {};
+    creditoAberto.forEach(t => { const c = t.category || 'other'; m[c] = (m[c] || 0) + num(t.amount); });
+    subsCartao.forEach(s => { const isInst = s.isInstallment || s.type === 'installment'; const c = s.category || (isInst ? 'shopping' : 'subscriptions'); m[c] = (m[c] || 0) + num(s.value); });
+    const tot = Object.values(m).reduce((a, b) => a + b, 0);
+    if (!tot) return { empty: '📊 Não há fatura de cartão em aberto pra montar esse relatório. 🙂' };
+    const items = Object.entries(m).sort((a, b) => b[1] - a[1]).map(([c, v], i) => ({ label: CAT_LABELS[c] || c, value: v, color: PALETTE[i % PALETTE.length], pct: pctOf(v, tot) }));
+    return { ...base, subtitle: 'Fatura em aberto', items, total: tot };
+  }
+
+  if (id === 'cartao_limite') {
+    if (!data.cards.length) return { empty: '📊 Você ainda não tem cartões cadastrados. 🙂' };
+    const items = data.cards.map(c => {
+      const usado = creditoAberto.filter(t => t.selectedCardId === c.id).reduce((a, t) => a + num(t.amount), 0)
+        + subsCartao.filter(s => s.cardId === c.id).reduce((a, s) => a + num(s.value), 0);
+      const limite = num(c.limit);
+      const pct = limite ? Math.min(100, Math.round(usado / limite * 100)) : 0;
+      const color = pct >= 80 ? '#f43f5e' : pct >= 50 ? '#f59e0b' : '#10b981';
+      return { label: c.name || c.bank || 'Cartão', value: pct, color, valueText: `R$ ${money(usado)} / ${money(limite)} (${pct}%)` };
+    }).sort((a, b) => b.value - a.value);
+    return { ...base, subtitle: 'Uso do limite por cartão', items, scaleMax: 100 };
+  }
+
+  if (id === 'cartao_parcelas') {
+    const list = data.subs.filter(s => (s.isInstallment || s.type === 'installment') && s.cardId).map(s => {
+      const total = s.totalInstallments || 1;
+      const paga = Math.max(0, (s.currentInstallment || 1) - 1);
+      const restam = Math.max(0, total - paga);
+      const parcela = num(s.value);
+      return { label: s.name || 'Parcelamento', value: parcela * restam, color: '#3b82f6', valueText: `R$ ${money(parcela)}/mês · restam ${restam}x` };
+    }).sort((a, b) => b.value - a.value);
+    if (!list.length) return { empty: '📊 Você não tem parcelamentos ativos no cartão. 🙂' };
+    const mensal = data.subs.filter(s => s.isInstallment || s.type === 'installment').reduce((a, s) => a + num(s.value), 0);
+    return { ...base, subtitle: `R$ ${money(mensal)}/mês em parcelas`, items: list };
+  }
+
+  return { empty: 'Relatório não reconhecido.' };
+}
+
+// Desenha o PDF (barras horizontais) e devolve um Buffer.
+function renderReportPdf(spec) {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const W = 595, M = 40;
+  doc.setFillColor(16, 185, 129); doc.rect(0, 0, W, 68, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.text('Alívia', M, 30);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(13); doc.text(spec.title, M, 50);
+  doc.setTextColor(130, 130, 130); doc.setFontSize(9);
+  doc.text(`${spec.subtitle || ''}   ·   Gerado em ${new Date().toLocaleString('pt-BR')}`, M, 86);
+
+  const labelW = 160, barX = M + labelW, barMaxW = W - M - barX - 130;
+  const scaleMax = spec.scaleMax || Math.max(...spec.items.map(i => i.value), 1);
+  let y = 110;
+  for (const it of spec.items) {
+    if (y > 800) { doc.addPage(); y = 50; }
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(50, 50, 50);
+    const lbl = it.label.length > 26 ? it.label.slice(0, 25) + '…' : it.label;
+    doc.text(lbl, M, y + 10);
+    const w = Math.max(2, (it.value / scaleMax) * barMaxW);
+    const [r, g, b] = hexRgb(it.color); doc.setFillColor(r, g, b); doc.roundedRect(barX, y, w, 13, 2, 2, 'F');
+    doc.setTextColor(90, 90, 90); doc.setFontSize(9);
+    const vt = it.valueText || (`R$ ${money(it.value)}` + (it.pct != null ? `  (${it.pct}%)` : ''));
+    doc.text(vt, barX + w + 6, y + 10);
+    y += 24;
+  }
+  if (spec.total != null) {
+    y += 6; doc.setDrawColor(220, 220, 220); doc.line(M, y, W - M, y); y += 18;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(30, 30, 30);
+    doc.text(`Total: R$ ${money(spec.total)}`, M, y);
+  }
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(170, 170, 170);
+  doc.text('Gerado pela Alívia · soualivia.com.br', M, 828);
+  return Buffer.from(doc.output('arraybuffer'));
+}
+
+// Faz upload do PDF pra Meta e envia como documento no WhatsApp.
+async function sendPdf(to, buffer, filename, caption) {
+  const pid = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = process.env.WHATSAPP_TOKEN;
+  try {
+    const form = new FormData();
+    form.append('messaging_product', 'whatsapp');
+    form.append('type', 'application/pdf');
+    form.append('file', new Blob([buffer], { type: 'application/pdf' }), filename);
+    const up = await fetch(`${GRAPH}/${pid}/media`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+    const uj = await up.json().catch(() => ({}));
+    if (!uj.id) { console.error('WA media upload falhou:', JSON.stringify(uj).slice(0, 300)); return false; }
+    const resp = await fetch(`${GRAPH}/${pid}/messages`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'document', document: { id: uj.id, filename, caption: (caption || '').slice(0, 900) } }),
+    });
+    const t = await resp.text().catch(() => '');
+    console.log(`WA pdf -> to=${to} status=${resp.status} resp=${t.slice(0, 200)}`);
+    return resp.ok;
+  } catch (e) { console.error('WA sendPdf erro:', e?.message || e); return false; }
+}
+
+// Lista tocável dos relatórios disponíveis (agrupada como na aba Análises).
+async function sendReportList(to) {
+  const grupos = [...new Set(ANALYSES.map(a => a.grupo))];
+  const sections = grupos.map(gr => ({
+    title: gr.slice(0, 24),
+    rows: ANALYSES.filter(a => a.grupo === gr).map(a => ({ id: `rep_${a.id}`, title: a.label.slice(0, 24) })),
+  }));
+  await sendInteractive(to, {
+    type: 'list',
+    body: { text: 'Relatórios em *gráfico/PDF* são os mesmos da aba *Análises* do app Alívia 📊\n\nToque pra escolher qual você quer que eu gere em PDF:' },
+    action: { button: 'Ver relatórios', sections },
+  });
+}
+
+// Interpreta a escolha do relatório (toque OU texto/número).
+function pickReport(selId, text) {
+  if (selId && selId.startsWith('rep_')) { const id = selId.slice(4); return ANALYSIS_LABEL[id] ? id : null; }
+  const q = String(text || '').toLowerCase().trim();
+  if (!q) return null;
+  const n = parseInt(q, 10);
+  if (!isNaN(n) && n >= 1 && n <= ANALYSES.length) return ANALYSES[n - 1].id;
+  const hit = ANALYSES.find(a => a.label.toLowerCase().includes(q) || q.includes(a.label.toLowerCase()));
+  return hit ? hit.id : null;
+}
+
+// Gera o relatório escolhido e envia (PDF, ou texto amigável se não houver dados).
+async function generateAndSendPdf(db, from, uid, id) {
+  try {
+    await sendText(from, `Gerando *${ANALYSIS_LABEL[id] || 'relatório'}* em PDF... 📄`);
+    const data = await fetchAll(db, uid);
+    const spec = buildReportSpec(id, data);
+    if (spec.empty) { await sendText(from, spec.empty); return; }
+    const buf = renderReportPdf(spec);
+    const ok = await sendPdf(from, buf, `${spec.filename}.pdf`, `📊 ${spec.title} — ${spec.subtitle}`);
+    if (!ok) await sendText(from, 'Consegui montar o relatório, mas falhou ao enviar o PDF. Tenta de novo em instantes. 🙏');
+  } catch (e) { console.error('WA generatePdf:', e); await sendText(from, 'Não consegui gerar o PDF agora. Tenta de novo. 🙏'); }
+}
+
 const SYSTEM = `Você é a **Alívia**, assistente financeira acolhedora, respondendo pelo WhatsApp.
 REGRAS:
 - NÃO cite valores monetários específicos (nada de "R$ X"). Faça análise geral e qualitativa.
@@ -290,11 +547,15 @@ Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (p
 9) EXCLUIR/estornar um lançamento — ex.: "exclui esse pix", "apaga o último gasto",
    "remove a compra do mercado", "cancela aquele lançamento":
    {"action":"delete_transaction","description":"<nome do lançamento, ou vazio p/ o último>"}
-10) RELATÓRIO/resumo com valores — ex.: "me gera um relatório dos gastos por categoria",
+10) RELATÓRIO/resumo com valores (em TEXTO) — ex.: "me gera um relatório dos gastos por categoria",
    "quanto gastei esse mês", "resumo do mês", "gastos por prioridade", "relatório do mês passado":
    {"action":"report","type":"<category|priority|overview>","period":"<this_month|last_month>"}
    Use type=category p/ "por categoria", type=priority p/ "essencial/conforto/supérfluo",
    type=overview p/ resumo geral (entradas/saídas/saldo). period=last_month só se pedir mês passado.
+11) RELATÓRIO em GRÁFICO / BARRAS / PDF / visual — ex.: "quero em pdf", "manda em gráfico",
+   "relatório de barras", "gera um gráfico dos meus gastos":
+   {"action":"report_pdf"}
+   (O app vai listar os relatórios da aba Análises pra pessoa escolher e mandar o PDF.)
 
 ⚠️ NUNCA diga em texto que cadastrou/guardou/criou/pagou/registrou/excluiu algo. Para AGIR, responda SÓ com o JSON — o app grava e confirma de verdade.
 Se não for nenhuma ação, responda normalmente em texto (sem inventar que fez algo).`;
@@ -657,6 +918,16 @@ export default async function handler(req, res) {
       await sessRef.set({ uid, pending: null }, { merge: true });
     }
 
+    // 2c. Escolha de RELATÓRIO em PDF (após a lista tocável).
+    if (sess.pending?.type === 'report_pick') {
+      if (no(text)) { await sessRef.set({ uid, history, pending: null }, { merge: true }); await sendText(from, 'Beleza, cancelei. 👍'); return res.status(200).json({ ok: true }); }
+      const id = pickReport(selId, text);
+      if (!id) { await sendReportList(from); return res.status(200).json({ ok: true }); }
+      await sessRef.set({ uid, history, pending: null }, { merge: true });
+      await generateAndSendPdf(db, from, uid, id);
+      return res.status(200).json({ ok: true });
+    }
+
     // 3. Conversa com a Alívia
     const ctx = await buildUserContext(db, uid);
     const reply = await askGemini(history, ctx, text);
@@ -671,6 +942,19 @@ export default async function handler(req, res) {
         await sessRef.set({ uid, history, pending: null }, { merge: true });
         await sendText(from, rep);
       } catch (e) { console.error('WA report:', e); await sendText(from, 'Não consegui montar o relatório agora. Tenta de novo. 🙏'); }
+      return res.status(200).json({ ok: true });
+    }
+
+    // 3y. Relatório em GRÁFICO/PDF — lista os relatórios da aba Análises pra escolher.
+    if (action?.action === 'report_pdf') {
+      const direct = pickReport(null, action.id || action.report || '');
+      if (direct) {
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await generateAndSendPdf(db, from, uid, direct);
+      } else {
+        await sessRef.set({ uid, history, pending: { type: 'report_pick', data: {} } }, { merge: true });
+        await sendReportList(from);
+      }
       return res.status(200).json({ ok: true });
     }
 
