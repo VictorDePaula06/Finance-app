@@ -163,6 +163,68 @@ function pickPrio(selId, text) {
   return null;
 }
 
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const monthLabel = (mk) => { const [y, m] = mk.split('-').map(Number); return `${MESES[m - 1]}/${y}`; };
+// Categorias que NÃO contam como gasto de consumo no relatório (espelha o app).
+const NON_CONSUMO = ['investment', 'vault', 'credit_card_bill'];
+
+// Gera um RELATÓRIO com valores REAIS (o app pode citar números aqui — é o pedido).
+// type: category | priority | overview ; period: this_month | last_month
+async function buildReport(db, uid, type = 'overview', period = 'this_month') {
+  const now = new Date();
+  const mk = period === 'last_month'
+    ? new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 7)
+    : now.toISOString().slice(0, 7);
+  const num = (v) => parseFloat(v) || 0;
+  const snap = await db.collection('transactions').where('userId', '==', uid).get();
+  const txs = snap.docs.map(d => d.data()).filter(t => (t.month || String(t.date || '').slice(0, 7)) === mk);
+
+  const gastos = txs.filter(t => t.type === 'expense' && !NON_CONSUMO.includes(t.category) && !t.reserveInternal);
+  const totalGasto = gastos.reduce((a, t) => a + num(t.amount), 0);
+  const pct = (v) => totalGasto > 0 ? Math.round((v / totalGasto) * 100) : 0;
+  const label = monthLabel(mk);
+
+  if (type === 'category') {
+    if (!gastos.length) return `📊 *Gastos por categoria — ${label}*\n\nAinda não há gastos registrados neste mês. 🙂`;
+    const byCat = {};
+    gastos.forEach(t => { byCat[t.category] = (byCat[t.category] || 0) + num(t.amount); });
+    const lines = Object.entries(byCat).sort((a, b) => b[1] - a[1])
+      .map(([c, v]) => `• ${CAT_LABELS[c] || c}: *R$ ${money(v)}* (${pct(v)}%)`);
+    return `📊 *Gastos por categoria — ${label}*\n\n${lines.join('\n')}\n——\nTotal: *R$ ${money(totalGasto)}*`;
+  }
+
+  if (type === 'priority') {
+    if (!gastos.length) return `📊 *Gastos por prioridade — ${label}*\n\nAinda não há gastos registrados neste mês. 🙂`;
+    const P = { essential: 0, comfort: 0, superfluous: 0 };
+    gastos.forEach(t => { P[t.priority] = (P[t.priority] || 0) + num(t.amount); });
+    const emoji = { essential: '🟢', comfort: '🟡', superfluous: '🔴' };
+    const lines = ['essential', 'comfort', 'superfluous']
+      .map(k => `${emoji[k]} ${PRIO_LABELS[k]}: *R$ ${money(P[k])}* (${pct(P[k])}%)`);
+    return `📊 *Gastos por prioridade — ${label}*\n\n${lines.join('\n')}\n——\nTotal: *R$ ${money(totalGasto)}*`;
+  }
+
+  // overview (resumo geral)
+  const entradas = txs.filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
+    .reduce((a, t) => a + num(t.amount), 0);
+  const saldo = entradas - totalGasto;
+  const byCat = {};
+  gastos.forEach(t => { byCat[t.category] = (byCat[t.category] || 0) + num(t.amount); });
+  const top = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 3)
+    .map(([c, v]) => `• ${CAT_LABELS[c] || c}: R$ ${money(v)}`);
+  let reserva = 0;
+  try { const js = await db.collection('savings_jars').where('userId', '==', uid).get(); reserva = js.docs.reduce((a, d) => a + num(d.data().balance), 0); } catch { /* ignore */ }
+  return [
+    `📊 *Resumo de ${label}*`,
+    ``,
+    `💚 Entradas: *R$ ${money(entradas)}*`,
+    `💸 Saídas: *R$ ${money(totalGasto)}*`,
+    `${saldo >= 0 ? '💰' : '⚠️'} Saldo do mês: *R$ ${money(saldo)}*`,
+    ...(top.length ? [``, `Maiores gastos:`, ...top] : []),
+    ``,
+    `🏦 Reserva: *R$ ${money(reserva)}*`,
+  ].join('\n');
+}
+
 // Monta um contexto QUALITATIVO do usuário (sem valores) para a Alívia.
 async function buildUserContext(db, uid) {
   const monthKey = new Date().toISOString().slice(0, 7);
@@ -228,6 +290,11 @@ Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (p
 9) EXCLUIR/estornar um lançamento — ex.: "exclui esse pix", "apaga o último gasto",
    "remove a compra do mercado", "cancela aquele lançamento":
    {"action":"delete_transaction","description":"<nome do lançamento, ou vazio p/ o último>"}
+10) RELATÓRIO/resumo com valores — ex.: "me gera um relatório dos gastos por categoria",
+   "quanto gastei esse mês", "resumo do mês", "gastos por prioridade", "relatório do mês passado":
+   {"action":"report","type":"<category|priority|overview>","period":"<this_month|last_month>"}
+   Use type=category p/ "por categoria", type=priority p/ "essencial/conforto/supérfluo",
+   type=overview p/ resumo geral (entradas/saídas/saldo). period=last_month só se pedir mês passado.
 
 ⚠️ NUNCA diga em texto que cadastrou/guardou/criou/pagou/registrou/excluiu algo. Para AGIR, responda SÓ com o JSON — o app grava e confirma de verdade.
 Se não for nenhuma ação, responda normalmente em texto (sem inventar que fez algo).`;
@@ -594,6 +661,18 @@ export default async function handler(req, res) {
     const ctx = await buildUserContext(db, uid);
     const reply = await askGemini(history, ctx, text);
     const action = parseAction(reply);
+
+    // 3z. Relatório com valores REAIS (calculado no servidor).
+    if (action?.action === 'report') {
+      const type = ['category', 'priority', 'overview'].includes(action.type) ? action.type : 'overview';
+      const period = action.period === 'last_month' ? 'last_month' : 'this_month';
+      try {
+        const rep = await buildReport(db, uid, type, period);
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, rep);
+      } catch (e) { console.error('WA report:', e); await sendText(from, 'Não consegui montar o relatório agora. Tenta de novo. 🙏'); }
+      return res.status(200).json({ ok: true });
+    }
 
     // 3a. Aporte na reserva — grava de verdade e confirma só se der certo.
     if (action?.action === 'add_to_reserve') {
