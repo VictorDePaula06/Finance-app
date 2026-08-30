@@ -672,6 +672,12 @@ Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (p
    ⚠️ SEMPRE use esta ação para QUALQUER pergunta sobre dívida. NUNCA deduza dívida de saldo
    negativo, de parcelamento ou de fatura em aberto — isso NÃO é dívida. Só é dívida o que está
    cadastrado como dívida ou uma fatura de cartão VENCIDA.
+14) DETALHAR/LISTAR os lançamentos um a um — ex.: "descreve cada uma", "quais foram esses gastos",
+   "detalha os gastos de alimentação", "me lista os lançamentos de transporte", "mostra cada gasto":
+   {"action":"list_transactions","category":"<categoria citada, ou vazio p/ todos>","period":"<this_month|last_month>","type":"<expense|income>"}
+   Use quando a pessoa quer VER cada lançamento (não o total). Preencha "category" com a categoria
+   do contexto — ex.: se acabou de perguntar dos gastos de "alimentação" e disse "descreve cada uma",
+   use category "alimentação". type=income só se forem entradas.
 
 ⚠️ NUNCA diga em texto que cadastrou/guardou/criou/pagou/registrou/excluiu algo. Para AGIR, responda SÓ com o JSON — o app grava e confirma de verdade.
 Se não for nenhuma ação, responda normalmente em texto (sem inventar que fez algo).`;
@@ -983,6 +989,43 @@ async function doListRecurring(db, uid, kind) {
   return `${titulo}\n\n${lines.join('\n')}\n——\nTotal: *R$ ${money(total)}*/mês`;
 }
 
+// Resolve uma categoria por id ("food") ou rótulo ("alimentação").
+function resolveCategory(raw) {
+  const q = String(raw || '').toLowerCase().trim();
+  if (!q) return null;
+  if (CAT_LABELS[q]) return q;
+  for (const [id, label] of Object.entries(CAT_LABELS)) {
+    const l = label.toLowerCase();
+    if (l === q || l.includes(q) || q.includes(l)) return id;
+  }
+  return null;
+}
+
+// Lista os LANÇAMENTOS individuais do mês (opcional: filtrando por categoria).
+async function doListTransactions(db, uid, categoryRaw, period = 'this_month', typeWanted = 'expense') {
+  const num = (v) => parseFloat(v) || 0;
+  const now = new Date();
+  const mk = period === 'last_month'
+    ? new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 7)
+    : now.toISOString().slice(0, 7);
+  const catId = resolveCategory(categoryRaw);
+  const snap = await db.collection('transactions').where('userId', '==', uid).get();
+  let txs = snap.docs.map(d => d.data()).filter(t => (t.month || String(t.date || '').slice(0, 7)) === mk);
+  txs = txs.filter(t => typeWanted === 'income'
+    ? (t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
+    : (t.type === 'expense' && !['credit_card_bill', 'vault', 'investment'].includes(t.category) && !t.reserveInternal));
+  if (catId) txs = txs.filter(t => (t.category || 'other') === catId);
+  if (!txs.length) return catId ? `Não encontrei lançamentos de *${CAT_LABELS[catId]}* em ${monthLabel(mk)}. 🙂` : `Não encontrei lançamentos em ${monthLabel(mk)}. 🙂`;
+  txs.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  const total = txs.reduce((a, t) => a + num(t.amount), 0);
+  const fmtDate = (d) => { const dt = new Date(d); return isNaN(dt) ? '' : `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}`; };
+  const capped = txs.slice(0, 40);
+  const lines = capped.map(t => `• ${fmtDate(t.date)} — ${t.description || '—'}: *R$ ${money(t.amount)}*`);
+  const resto = txs.length > 40 ? `\n… e mais ${txs.length - 40} lançamento(s).` : '';
+  const titulo = catId ? `🧾 *${CAT_LABELS[catId]}* — ${monthLabel(mk)}` : `🧾 Lançamentos — ${monthLabel(mk)}`;
+  return `${titulo}\n\n${lines.join('\n')}${resto}\n——\nTotal: *R$ ${money(total)}*`;
+}
+
 function parseExpense(text) {
   const m = text.match(/\{[\s\S]*"action"\s*:\s*"add_expense"[\s\S]*\}/);
   if (!m) return null;
@@ -1220,6 +1263,18 @@ export default async function handler(req, res) {
         await sessRef.set({ uid, history, pending: null }, { merge: true });
         await sendText(from, txt);
       } catch (e) { console.error('WA debts_check:', e); await sendText(from, 'Não consegui verificar suas dívidas agora. Tenta de novo. 🙏'); }
+      return res.status(200).json({ ok: true });
+    }
+
+    // 3v. Detalhar lançamentos um a um (opcional por categoria).
+    if (action?.action === 'list_transactions') {
+      const type = action.type === 'income' ? 'income' : 'expense';
+      const period = action.period === 'last_month' ? 'last_month' : 'this_month';
+      try {
+        const txt = await doListTransactions(db, uid, action.category, period, type);
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, txt);
+      } catch (e) { console.error('WA list_transactions:', e); await sendText(from, 'Não consegui detalhar agora. Tenta de novo. 🙏'); }
       return res.status(200).json({ ok: true });
     }
 
