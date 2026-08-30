@@ -226,40 +226,67 @@ async function buildReport(db, uid, type = 'overview', period = 'this_month') {
   ].join('\n');
 }
 
-// Monta um contexto QUALITATIVO do usuário (sem valores) para a Alívia.
+// Monta um RESUMO FINANCEIRO REAL (com valores) para a Alívia responder direto.
 async function buildUserContext(db, uid) {
-  const monthKey = new Date().toISOString().slice(0, 7);
+  const mk = new Date().toISOString().slice(0, 7);
   const num = (v) => parseFloat(v) || 0;
+  const R = (v) => `R$ ${money(v)}`;
   try {
-    const [txSnap, goalSnap, jarSnap] = await Promise.all([
+    const [txSnap, jarSnap, subSnap, fixSnap, goalSnap] = await Promise.all([
       db.collection('transactions').where('userId', '==', uid).get(),
-      db.collection('expense_goals').where('userId', '==', uid).get(),
       db.collection('savings_jars').where('userId', '==', uid).get(),
+      db.collection('subscriptions').where('userId', '==', uid).get(),
+      db.collection('fixed_expenses').where('userId', '==', uid).get(),
+      db.collection('expense_goals').where('userId', '==', uid).get(),
     ]);
-    let income = 0, expense = 0, essential = 0, superf = 0;
-    txSnap.forEach(d => {
-      const t = d.data();
-      const m = t.month || String(t.date || '').slice(0, 7);
-      if (m !== monthKey) return;
-      if (t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category)) income += num(t.amount);
-      if (t.type === 'expense' && !['investment', 'vault', 'credit_card_bill'].includes(t.category)) {
-        expense += num(t.amount);
-        if (t.priority === 'essential') essential += num(t.amount); else if (t.priority === 'superfluous') superf += num(t.amount);
-      }
-    });
-    const reserve = jarSnap.docs.reduce((a, d) => a + num(d.data().balance), 0);
-    const goals = goalSnap.docs.map(d => d.data()).map(g => `${g.name || 'meta'} (${g.type || 'meta'})`);
-    const supHigh = expense > 0 && (superf / expense) > 0.3;
+    const txAll = txSnap.docs.map(d => d.data());
+    const txMk = (t) => t.month || String(t.date || '').slice(0, 7);
+    const consumo = (t) => t.type === 'expense' && !['credit_card_bill', 'vault', 'investment'].includes(t.category) && !t.reserveInternal;
+    const realInc = (t) => t.type === 'income' && !['vault_redemption', 'initial_balance', 'carryover'].includes(t.category);
+
+    const txM = txAll.filter(t => txMk(t) === mk);
+    const entradas = txM.filter(realInc).reduce((a, t) => a + num(t.amount), 0);
+    const gastos = txM.filter(consumo);
+    const saidas = gastos.reduce((a, t) => a + num(t.amount), 0);
+    const essential = gastos.filter(t => t.priority === 'essential').reduce((a, t) => a + num(t.amount), 0);
+    const superf = gastos.filter(t => t.priority === 'superfluous').reduce((a, t) => a + num(t.amount), 0);
+
+    const byCat = {}; gastos.forEach(t => { byCat[t.category] = (byCat[t.category] || 0) + num(t.amount); });
+    const topCats = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([c, v]) => `${CAT_LABELS[c] || c} ${R(v)}`);
+
+    const reserva = jarSnap.docs.reduce((a, d) => a + num(d.data().balance), 0);
+
+    const subs = subSnap.docs.map(d => d.data());
+    const recorr = fixSnap.docs.reduce((a, d) => a + num(d.data().value), 0);
+    const assinaturas = subs.filter(s => !(s.isInstallment || s.type === 'installment')).reduce((a, s) => a + num(s.value), 0);
+    const parcelaMes = subs.filter(s => s.isInstallment || s.type === 'installment').reduce((a, s) => a + num(s.value), 0);
+    const custoFixo = recorr + assinaturas + parcelaMes;
+    // Total ainda a pagar em parcelamentos (parcela × parcelas restantes).
+    const parcelasRestante = subs.filter(s => s.isInstallment || s.type === 'installment').reduce((a, s) => {
+      const total = s.totalInstallments || 1; const paga = Math.max(0, (s.currentInstallment || 1) - 1);
+      return a + num(s.value) * Math.max(0, total - paga);
+    }, 0);
+    const faturaAberta = txAll.filter(t => t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid').reduce((a, t) => a + num(t.amount), 0)
+      + subs.filter(s => s.cardId).reduce((a, s) => a + num(s.value), 0);
+
+    const goals = goalSnap.docs.map(d => d.data()).map(g => g.name || 'meta');
+    const saldoMes = entradas - saidas;
+
     return [
-      `Situação do mês (use como base, NÃO cite números):`,
-      `- Saldo do mês: ${income - expense >= 0 ? 'positivo (ganhou mais do que gastou)' : 'negativo (gastou mais do que ganhou)'}.`,
-      `- Gastos supérfluos: ${supHigh ? 'ALTOS (acima do ideal)' : 'sob controle'}.`,
-      `- Reserva de emergência: ${reserve > 0 ? 'existe (comente se parece baixa ou boa)' : 'ainda NÃO tem'}.`,
-      `- Metas cadastradas: ${goals.length ? goals.join(', ') : 'nenhuma'}.`,
+      `RESUMO FINANCEIRO REAL — mês ${monthLabel(mk)} (use SOMENTE estes números; nunca invente outros):`,
+      `- Entradas do mês: ${R(entradas)}`,
+      `- Saídas (gastos) do mês: ${R(saidas)}  | essenciais ${R(essential)}, supérfluos ${R(superf)}`,
+      `- Saldo do mês: ${R(saldoMes)} (${saldoMes >= 0 ? 'positivo' : 'negativo'})`,
+      `- Maiores gastos: ${topCats.length ? topCats.join(', ') : 'nenhum ainda'}`,
+      `- Reserva de emergência: ${R(reserva)}`,
+      `- Custo fixo mensal: ${R(custoFixo)} (recorrentes ${R(recorr)}, assinaturas ${R(assinaturas)}, parcelas ${R(parcelaMes)}/mês)`,
+      `- Parcelamentos no cartão: ${R(parcelaMes)}/mês, total ainda a pagar (preso) ${R(parcelasRestante)}`,
+      `- Fatura do cartão em aberto: ${R(faturaAberta)}`,
+      `- Metas cadastradas: ${goals.length ? goals.join(', ') : 'nenhuma'}`,
     ].join('\n');
   } catch (e) {
     console.error('Erro no contexto:', e);
-    return 'Sem dados suficientes para análise detalhada.';
+    return 'Sem dados suficientes para análise detalhada no momento.';
   }
 }
 
@@ -521,9 +548,11 @@ async function generateAndSendPdf(db, from, uid, id) {
 
 const SYSTEM = `Você é a **Alívia**, assistente financeira acolhedora, respondendo pelo WhatsApp.
 REGRAS:
-- NÃO cite valores monetários específicos (nada de "R$ X"). Faça análise geral e qualitativa.
-- Comente também sobre as metas/objetivos do usuário quando fizer sentido.
-- Seja breve (WhatsApp), clara e simpática. Pode usar emojis com moderação.
+- RESPONDA A PERGUNTA DE FORMA DIRETA E CURTA (1 a 3 frases). Nada de textão.
+- Pode e DEVE citar os valores do "RESUMO FINANCEIRO REAL" abaixo quando a pergunta for sobre dados (ex.: "quanto tenho preso em parcelamento?" → responda com o valor de "total ainda a pagar").
+- NUNCA invente números que não estejam no resumo. Se o dado exato não estiver lá, diga em UMA frase que pode gerar um relatório detalhado (aba Análises) e ofereça — não enrole.
+- NÃO puxe assunto de reserva/metas a menos que a pessoa pergunte. Sem sermão, sem "vamos juntas nessa".
+- Simpática e objetiva. Emojis com muita moderação (no máximo 1).
 
 AÇÕES — quando o usuário quiser AGIR, responda SOMENTE com o JSON da ação (nada de texto junto).
 Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (priority) ∈ [${PRIORITIES.join(', ')}].
@@ -587,6 +616,34 @@ async function askGemini(history, contextText, userMsg) {
     console.error('WA Gemini erro de rede:', e?.message || e);
     return 'Desculpe, não consegui responder agora. 😅';
   }
+}
+
+// Baixa um áudio do WhatsApp e transcreve com o Gemini (que entende áudio).
+async function transcribeAudio(mediaId) {
+  const token = process.env.WHATSAPP_TOKEN;
+  const key = process.env.GEMINI_API_KEY;
+  if (!mediaId || !key) return '';
+  try {
+    const meta = await fetch(`${GRAPH}/${mediaId}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+    if (!meta?.url) { console.error('WA audio: sem url', JSON.stringify(meta).slice(0, 200)); return ''; }
+    const audioResp = await fetch(meta.url, { headers: { Authorization: `Bearer ${token}` } });
+    const b64 = Buffer.from(await audioResp.arrayBuffer()).toString('base64');
+    const mime = (meta.mime_type || 'audio/ogg').split(';')[0];
+    const body = {
+      contents: [{
+        role: 'user',
+        parts: [
+          { inline_data: { mime_type: mime, data: b64 } },
+          { text: 'Transcreva em português exatamente o que a pessoa disse neste áudio. Responda só com a transcrição, sem comentários.' },
+        ],
+      }],
+    };
+    const r = await fetch(`${GEMINI_URL}?key=${key}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json();
+    const t = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!t) console.error('WA audio transcrição vazia:', JSON.stringify(j).slice(0, 300));
+    return t || '';
+  } catch (e) { console.error('WA transcribeAudio erro:', e?.message || e); return ''; }
 }
 
 // Extrai QUALQUER bloco de ação JSON da resposta da IA.
@@ -828,18 +885,21 @@ export default async function handler(req, res) {
     }
 
     const msg = value?.messages?.[0];
-    if (!msg || (msg.type !== 'text' && msg.type !== 'interactive')) return res.status(200).json({ ok: true }); // ignora outros tipos
+    if (!msg || !['text', 'interactive', 'audio'].includes(msg.type)) return res.status(200).json({ ok: true }); // ignora outros tipos
 
     const from = msg.from; // telefone E.164 só dígitos
-    // Entrada pode ser texto OU um toque em lista/botão (interactive).
+    // Entrada pode ser texto, um toque em lista/botão (interactive) OU áudio (voz).
     let text = '';
     let selId = null;
     if (msg.type === 'text') {
       text = msg.text?.body || '';
-    } else {
+    } else if (msg.type === 'interactive') {
       const it = msg.interactive || {};
       selId = it.list_reply?.id || it.button_reply?.id || null;
       text = it.list_reply?.title || it.button_reply?.title || '';
+    } else if (msg.type === 'audio') {
+      text = await transcribeAudio(msg.audio?.id);
+      if (!text) { await sendText(from, 'Não consegui entender o áudio 😅. Pode repetir ou escrever?'); return res.status(200).json({ ok: true }); }
     }
     console.log(`WA in <- from=${from} type=${msg.type} text="${text.slice(0, 60)}" sel=${selId || '-'}`);
     const db = initAdmin();
