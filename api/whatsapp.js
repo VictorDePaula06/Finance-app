@@ -613,6 +613,10 @@ Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (p
    "relatório de barras", "gera um gráfico dos meus gastos":
    {"action":"report_pdf"}
    (O app vai listar os relatórios da aba Análises pra pessoa escolher e mandar o PDF.)
+12) LISTAR recorrentes cadastradas — ex.: "liste minhas despesas recorrentes", "quais minhas
+   contas fixas", "minhas entradas recorrentes", "o que eu tenho de recorrente":
+   {"action":"list_recurring","kind":"<expense|income>"}
+   (kind=expense p/ despesas/contas fixas; kind=income p/ entradas/salário recorrente.)
 
 ⚠️ NUNCA diga em texto que cadastrou/guardou/criou/pagou/registrou/excluiu algo. Para AGIR, responda SÓ com o JSON — o app grava e confirma de verdade.
 Se não for nenhuma ação, responda normalmente em texto (sem inventar que fez algo).`;
@@ -854,6 +858,20 @@ async function resolveCard(db, uid, cardName) {
   return { id: doc.id, name: doc.data().name || doc.data().bank || 'cartão' };
 }
 
+// Lista as recorrentes (despesas OU entradas) em texto, ordenadas por dia.
+async function doListRecurring(db, uid, kind) {
+  const income = kind === 'income';
+  const coll = income ? 'fixed_incomes' : 'fixed_expenses';
+  const snap = await db.collection(coll).where('userId', '==', uid).get();
+  const items = snap.docs.map(d => d.data());
+  if (!items.length) return income ? 'Você ainda não tem *entradas recorrentes* cadastradas. 🙂' : 'Você ainda não tem *despesas recorrentes* cadastradas. 🙂';
+  const sorted = items.sort((a, b) => (parseInt(a.day) || 99) - (parseInt(b.day) || 99));
+  const total = items.reduce((a, i) => a + (parseFloat(i.value) || 0), 0);
+  const lines = sorted.map(i => `• ${i.name || '—'} — *R$ ${money(i.value)}* (dia ${i.day || '?'})`);
+  const titulo = income ? '📥 *Entradas recorrentes*' : '📤 *Despesas recorrentes*';
+  return `${titulo}\n\n${lines.join('\n')}\n——\nTotal: *R$ ${money(total)}*/mês`;
+}
+
 function parseExpense(text) {
   const m = text.match(/\{[\s\S]*"action"\s*:\s*"add_expense"[\s\S]*\}/);
   if (!m) return null;
@@ -953,37 +971,48 @@ export default async function handler(req, res) {
     const sess = (await sessRef.get()).data() || {};
     const history = sess.history || [];
 
+    // Detecta um pedido NOVO (frase digitada) pra não ficar preso num fluxo pendente.
+    const looksNewIntent = !selId && text.trim().split(/\s+/).length >= 3;
+
     // 2. Fluxo interativo do gasto — PASSO 1: escolher a CATEGORIA (lista tocável).
     if (sess.pending?.type === 'exp_cat') {
       if (no(text)) { await sessRef.set({ uid, history, pending: null }, { merge: true }); await sendText(from, 'Beleza, cancelei o lançamento. 👍'); return res.status(200).json({ ok: true }); }
       const catId = pickCat(selId, text);
-      if (!catId) { await sendCatList(from, 'Toque pra escolher a *categoria* do gasto 👇 (ou "cancelar")', sess.pending.data.suggested); return res.status(200).json({ ok: true }); }
-      const data = { ...sess.pending.data, category: catId };
-      await sessRef.set({ uid, history, pending: { type: 'exp_prio', data } }, { merge: true });
-      await sendPrioButtons(from, `Categoria: *${CAT_LABELS[catId]}* ✅\n\nEsse gasto foi *essencial*, de *conforto* ou *supérfluo*?`);
-      return res.status(200).json({ ok: true });
+      if (catId) {
+        const data = { ...sess.pending.data, category: catId };
+        await sessRef.set({ uid, history, pending: { type: 'exp_prio', data } }, { merge: true });
+        await sendPrioButtons(from, `Categoria: *${CAT_LABELS[catId]}* ✅\n\nEsse gasto foi *essencial*, de *conforto* ou *supérfluo*?`);
+        return res.status(200).json({ ok: true });
+      }
+      if (looksNewIntent) { await sessRef.set({ uid, pending: null }, { merge: true }); sess.pending = null; } // abandona o gasto e trata o novo pedido
+      else { await sendCatList(from, 'Toque pra escolher a *categoria* do gasto 👇 (ou "cancelar")', sess.pending.data.suggested); return res.status(200).json({ ok: true }); }
     }
 
     // 2. Fluxo interativo do gasto — PASSO 2: escolher a PRIORIDADE (botões) e LANÇAR.
     if (sess.pending?.type === 'exp_prio') {
       if (no(text)) { await sessRef.set({ uid, history, pending: null }, { merge: true }); await sendText(from, 'Beleza, cancelei o lançamento. 👍'); return res.status(200).json({ ok: true }); }
       const prio = pickPrio(selId, text);
-      if (!prio) { await sendPrioButtons(from, 'Toque pra escolher a *prioridade* 👇'); return res.status(200).json({ ok: true }); }
-      const p = sess.pending.data;
-      const now = new Date();
-      const txData = {
-        description: p.description, amount: p.amount, type: 'expense',
-        category: p.category, priority: prio,
-        date: now.toISOString(), month: now.toISOString().slice(0, 7),
-        userId: uid, createdAt: Date.now(), isFixed: false, source: 'whatsapp',
-      };
-      if (p.isCard) { txData.paymentMethod = 'credito'; txData.selectedCardId = p.cardId; txData.invoiceStatus = 'unpaid'; }
-      else { txData.paymentMethod = 'pix'; }
-      await db.collection('transactions').add(txData);
-      await sessRef.set({ uid, history, pending: null }, { merge: true });
-      const onde = p.isCard ? ` na fatura do *${p.cardName}*` : '';
-      await sendText(from, `Lançado! ✅ *${p.description}* — R$ ${money(p.amount)}${onde}\n_${CAT_LABELS[p.category]} · ${PRIO_LABELS[prio]}_`);
-      return res.status(200).json({ ok: true });
+      if (!prio) {
+        if (looksNewIntent) { await sessRef.set({ uid, pending: null }, { merge: true }); sess.pending = null; } // novo pedido → sai do fluxo
+        else { await sendPrioButtons(from, 'Toque pra escolher a *prioridade* 👇'); return res.status(200).json({ ok: true }); }
+      }
+      if (prio) {
+        const p = sess.pending.data;
+        const now = new Date();
+        const txData = {
+          description: p.description, amount: p.amount, type: 'expense',
+          category: p.category, priority: prio,
+          date: now.toISOString(), month: now.toISOString().slice(0, 7),
+          userId: uid, createdAt: Date.now(), isFixed: false, source: 'whatsapp',
+        };
+        if (p.isCard) { txData.paymentMethod = 'credito'; txData.selectedCardId = p.cardId; txData.invoiceStatus = 'unpaid'; }
+        else { txData.paymentMethod = 'pix'; }
+        await db.collection('transactions').add(txData);
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        const onde = p.isCard ? ` na fatura do *${p.cardName}*` : '';
+        await sendText(from, `Lançado! ✅ *${p.description}* — R$ ${money(p.amount)}${onde}\n_${CAT_LABELS[p.category]} · ${PRIO_LABELS[prio]}_`);
+        return res.status(200).json({ ok: true });
+      }
     }
 
     // 2b. Confirmação de EXCLUSÃO pendente.
@@ -1030,6 +1059,17 @@ export default async function handler(req, res) {
         await sessRef.set({ uid, history, pending: null }, { merge: true });
         await sendText(from, rep);
       } catch (e) { console.error('WA report:', e); await sendText(from, 'Não consegui montar o relatório agora. Tenta de novo. 🙏'); }
+      return res.status(200).json({ ok: true });
+    }
+
+    // 3x. Listar recorrentes cadastradas (despesas ou entradas).
+    if (action?.action === 'list_recurring') {
+      const kind = action.kind === 'income' ? 'income' : 'expense';
+      try {
+        const txt = await doListRecurring(db, uid, kind);
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, txt);
+      } catch (e) { console.error('WA list_recurring:', e); await sendText(from, 'Não consegui listar agora. Tenta de novo. 🙏'); }
       return res.status(200).json({ ok: true });
     }
 
