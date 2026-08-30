@@ -204,6 +204,32 @@ async function buildReport(db, uid, type = 'overview', period = 'this_month') {
     return `📊 *Gastos por prioridade — ${label}*\n\n${lines.join('\n')}\n——\nTotal: *R$ ${money(totalGasto)}*`;
   }
 
+  if (type === 'installments') {
+    const subSnap = await db.collection('subscriptions').where('userId', '==', uid).get();
+    const inst = subSnap.docs.map(d => d.data())
+      .filter(s => s.isInstallment || s.type === 'installment')
+      .map(s => {
+        const parcela = num(s.value);
+        const total = s.totalInstallments || 1;
+        const paga = Math.max(0, (s.currentInstallment || 1) - 1);
+        const restam = Math.max(0, total - paga);
+        return { name: s.name || 'Parcelamento', parcela, total, paga, restam, restanteValor: parcela * restam };
+      })
+      .sort((a, b) => b.restanteValor - a.restanteValor);
+    if (!inst.length) return '💳 Você não tem parcelamentos ativos no cartão. 🙂';
+    const mensal = inst.reduce((a, p) => a + p.parcela, 0);
+    const restante = inst.reduce((a, p) => a + p.restanteValor, 0);
+    const lines = inst.map(p => `• ${p.name} (${p.paga}/${p.total}): R$ ${money(p.parcela)}/mês · faltam ${p.restam}x = R$ ${money(p.restanteValor)}`);
+    return [
+      `💳 *Parcelamentos no cartão*`,
+      ``,
+      `📅 Comprometido por mês: *R$ ${money(mensal)}*`,
+      `💰 Total ainda a pagar (tudo somado): *R$ ${money(restante)}*`,
+      ``,
+      ...lines,
+    ].join('\n');
+  }
+
   // overview (resumo geral)
   const entradas = txs.filter(t => t.type === 'income' && !['initial_balance', 'carryover', 'vault_redemption'].includes(t.category))
     .reduce((a, t) => a + num(t.amount), 0);
@@ -280,7 +306,7 @@ async function buildUserContext(db, uid) {
       `- Maiores gastos: ${topCats.length ? topCats.join(', ') : 'nenhum ainda'}`,
       `- Reserva de emergência: ${R(reserva)}`,
       `- Custo fixo mensal: ${R(custoFixo)} (recorrentes ${R(recorr)}, assinaturas ${R(assinaturas)}, parcelas ${R(parcelaMes)}/mês)`,
-      `- Parcelamentos no cartão: ${R(parcelaMes)}/mês, total ainda a pagar (preso) ${R(parcelasRestante)}`,
+      `- Parcelamentos no cartão: comprometido POR MÊS ${R(parcelaMes)}; TOTAL ainda a pagar somando todas as parcelas restantes ${R(parcelasRestante)} (são coisas DIFERENTES — informe os dois)`,
       `- Fatura do cartão em aberto: ${R(faturaAberta)}`,
       `- Metas cadastradas: ${goals.length ? goals.join(', ') : 'nenhuma'}`,
     ].join('\n');
@@ -578,9 +604,11 @@ Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (p
    {"action":"delete_transaction","description":"<nome do lançamento, ou vazio p/ o último>"}
 10) RELATÓRIO/resumo com valores (em TEXTO) — ex.: "me gera um relatório dos gastos por categoria",
    "quanto gastei esse mês", "resumo do mês", "gastos por prioridade", "relatório do mês passado":
-   {"action":"report","type":"<category|priority|overview>","period":"<this_month|last_month>"}
+   {"action":"report","type":"<category|priority|overview|installments>","period":"<this_month|last_month>"}
    Use type=category p/ "por categoria", type=priority p/ "essencial/conforto/supérfluo",
-   type=overview p/ resumo geral (entradas/saídas/saldo). period=last_month só se pedir mês passado.
+   type=overview p/ resumo geral (entradas/saídas/saldo), type=installments p/ QUALQUER pergunta
+   sobre PARCELAMENTO/PARCELAS do cartão (quanto por mês e o total ainda a pagar).
+   period=last_month só se pedir mês passado.
 11) RELATÓRIO em GRÁFICO / BARRAS / PDF / visual — ex.: "quero em pdf", "manda em gráfico",
    "relatório de barras", "gera um gráfico dos meus gastos":
    {"action":"report_pdf"}
@@ -995,7 +1023,7 @@ export default async function handler(req, res) {
 
     // 3z. Relatório com valores REAIS (calculado no servidor).
     if (action?.action === 'report') {
-      const type = ['category', 'priority', 'overview'].includes(action.type) ? action.type : 'overview';
+      const type = ['category', 'priority', 'overview', 'installments'].includes(action.type) ? action.type : 'overview';
       const period = action.period === 'last_month' ? 'last_month' : 'this_month';
       try {
         const rep = await buildReport(db, uid, type, period);
