@@ -260,6 +260,76 @@ function invoiceMonthOf(dateStr, closingDay) {
   return `${y}-${String(m + 1).padStart(2, '0')}`;
 }
 
+// ── SALDO EM CARTEIRA (espelha buildWalletLedger do app) ──────────────────
+const isResetTx = (t) => t?.category === 'initial_balance' || t?.category === 'carryover';
+const isPatrimonioReserveTx = (t) => t?.source === 'patrimonio' || /^(Criação de Reserva|Aporte Reserva|Resgate|Ajuste Reserva):/.test(t?.description || '');
+const isDebtPaymentTx = (t) => t?.source === 'debt' || /^Pagamento de dívida:/.test(t?.description || '');
+// Afeta o caixa real? Compra no crédito NÃO (só ao pagar a fatura); reserva de
+// Patrimônio e pagamento de dívida também NÃO descontam da carteira.
+const walletAffecting = (t) => {
+  if (!t) return false;
+  if (t.paymentMethod === 'credito') return false;
+  if (isPatrimonioReserveTx(t)) return false;
+  if (isDebtPaymentTx(t)) return false;
+  return t.type === 'income' || t.type === 'expense';
+};
+function walletBalance(transactions) {
+  const getMonth = (t) => t.month || (t.date ? String(t.date).slice(0, 7) : '');
+  const all = transactions.filter(t => getMonth(t) !== '').sort((a, b) => {
+    const dayA = (a.date || '').slice(0, 10), dayB = (b.date || '').slice(0, 10);
+    if (dayA !== dayB) return dayA < dayB ? -1 : 1;
+    const cA = a.createdAt || new Date(a.date).getTime() || 0;
+    const cB = b.createdAt || new Date(b.date).getTime() || 0;
+    return cA - cB;
+  });
+  let running = 0;
+  for (const t of all) {
+    const val = parseFloat(t.amount) || 0;
+    if (isResetTx(t)) { running = t.type === 'expense' ? -val : val; continue; }
+    if (walletAffecting(t)) running += (t.type === 'income' ? val : -val);
+  }
+  return running;
+}
+
+// Resposta: saldo em carteira + próximo compromisso (fatura de cartão a vencer).
+async function buildWalletAnswer(db, uid) {
+  const num = (v) => parseFloat(v) || 0;
+  const R = (v) => `R$ ${money(v)}`;
+  const [txSnap, cardSnap, subSnap] = await Promise.all([
+    db.collection('transactions').where('userId', '==', uid).get(),
+    db.collection('cards').where('userId', '==', uid).get(),
+    db.collection('subscriptions').where('userId', '==', uid).get(),
+  ]);
+  const txs = txSnap.docs.map(d => d.data());
+  const saldo = walletBalance(txs);
+  const cards = cardSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const subs = subSnap.docs.map(d => d.data());
+  const unpaid = txs.filter(t => t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid');
+  const now = new Date();
+  const hoje = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let next = null;
+  cards.forEach(c => {
+    if (!c.dueDay) return;
+    const closingDay = c.closingDay || ((c.dueDay - 7 > 0) ? c.dueDay - 7 : 25);
+    const cur = invoiceMonthOf(now.toISOString(), closingDay);
+    const atual = unpaid.filter(t => t.selectedCardId === c.id && invoiceMonthOf(t.date || now.toISOString(), closingDay) === cur).reduce((a, t) => a + num(t.amount), 0)
+      + subs.filter(s => s.cardId === c.id).reduce((a, s) => a + num(s.value), 0);
+    if (atual <= 0.005) return;
+    let due = new Date(now.getFullYear(), now.getMonth(), c.dueDay);
+    if (due < hoje) due = new Date(now.getFullYear(), now.getMonth() + 1, c.dueDay);
+    if (!next || due < next.due) next = { name: c.name || c.bank || 'Cartão', due, amount: atual };
+  });
+  const lines = [`💰 Seu saldo em carteira é *${R(saldo)}*${saldo < 0 ? ' (está negativo ⚠️)' : ''}.`];
+  if (next) {
+    const dd = `${String(next.due.getDate()).padStart(2, '0')}/${String(next.due.getMonth() + 1).padStart(2, '0')}`;
+    const dias = Math.round((next.due - hoje) / 86400000);
+    lines.push('', `📅 Próximo compromisso: fatura do *${next.name}*, vence em *${dd}*${dias >= 0 ? ` (em ${dias} dia${dias === 1 ? '' : 's'})` : ''} — *${R(next.amount)}*.`);
+  } else {
+    lines.push('', 'Você não tem fatura de cartão em aberto no momento. 👍');
+  }
+  return lines.join('\n');
+}
+
 // Resposta DETERMINÍSTICA sobre dívidas. Dívida = (1) cadastrada em "debts" ou
 // nos recorrentes (categoria dívida), ou (2) fatura de cartão VENCIDA (meses
 // anteriores não pagos). Parcelamento em dia e fatura atual NÃO são dívida.
@@ -347,9 +417,11 @@ async function buildUserContext(db, uid) {
 
     const goals = goalSnap.docs.map(d => d.data()).map(g => g.name || 'meta');
     const saldoMes = entradas - saidas;
+    const saldoCarteira = walletBalance(txAll);
 
     return [
       `RESUMO FINANCEIRO REAL — mês ${monthLabel(mk)} (use SOMENTE estes números; nunca invente outros):`,
+      `- Saldo em carteira (dinheiro disponível hoje, acumulado): ${R(saldoCarteira)}`,
       `- Entradas do mês: ${R(entradas)}`,
       `- Saídas (gastos) do mês: ${R(saidas)}  | essenciais ${R(essential)}, supérfluos ${R(superf)}`,
       `- Saldo do mês: ${R(saldoMes)} (${saldoMes >= 0 ? 'positivo' : 'negativo'})`,
@@ -678,6 +750,9 @@ Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (p
    Use quando a pessoa quer VER cada lançamento (não o total). Preencha "category" com a categoria
    do contexto — ex.: se acabou de perguntar dos gastos de "alimentação" e disse "descreve cada uma",
    use category "alimentação". type=income só se forem entradas.
+15) SALDO / CARTEIRA / próximo vencimento — ex.: "quanto tenho na carteira?", "qual meu saldo?",
+   "quanto tenho disponível?", "quando vence minha fatura?", "qual meu próximo compromisso?":
+   {"action":"wallet_check"}
 
 ⚠️ NUNCA diga em texto que cadastrou/guardou/criou/pagou/registrou/excluiu algo. Para AGIR, responda SÓ com o JSON — o app grava e confirma de verdade.
 Se não for nenhuma ação, responda normalmente em texto (sem inventar que fez algo).`;
@@ -1253,6 +1328,16 @@ export default async function handler(req, res) {
         await sessRef.set({ uid, history, pending: null }, { merge: true });
         await sendText(from, rep);
       } catch (e) { console.error('WA report:', e); await sendText(from, 'Não consegui montar o relatório agora. Tenta de novo. 🙏'); }
+      return res.status(200).json({ ok: true });
+    }
+
+    // 3w2. Saldo em carteira + próximo compromisso (fatura a vencer).
+    if (action?.action === 'wallet_check') {
+      try {
+        const txt = await buildWalletAnswer(db, uid);
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, txt);
+      } catch (e) { console.error('WA wallet_check:', e); await sendText(from, 'Não consegui ver seu saldo agora. Tenta de novo. 🙏'); }
       return res.status(200).json({ ok: true });
     }
 
