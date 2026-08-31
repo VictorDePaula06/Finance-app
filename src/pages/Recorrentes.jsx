@@ -14,6 +14,7 @@ import { buildWalletLedger } from '../utils/financialLogic';
 import {
     Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, X, Loader2,
     Wallet, Repeat, History, Check, TrendingUp, TrendingDown, ChevronDown, Info,
+    Scale, ArrowRight, CreditCard,
 } from 'lucide-react';
 
 const monthKeyNow = () => new Date().toISOString().slice(0, 7);
@@ -80,7 +81,7 @@ function statusOf(rec, transactions, mk) {
     return 'pendente';
 }
 
-export default function Recorrentes() {
+export default function Recorrentes({ onNavigate }) {
     const { currentUser } = useAuth();
     const { theme } = useTheme();
     const isDark = theme !== 'light';
@@ -94,6 +95,7 @@ export default function Recorrentes() {
     const [form, setForm] = useState(null);   // { kind, editing }
     const [baixa, setBaixa] = useState(null);  // { kind, rec }
     const [chooser, setChooser] = useState(false); // janela de escolha entrada/despesa
+    const [expTab, setExpTab] = useState('fixas'); // 'fixas' | 'cartao'
 
     useEffect(() => {
         if (!uid) return;
@@ -141,7 +143,7 @@ export default function Recorrentes() {
 
     const totalEntradas = incomeRows.reduce((a, r) => a + (parseFloat(r.value) || 0), 0);
     const totalDespesas = expenseRows.reduce((a, r) => a + (parseFloat(r.value) || 0), 0);
-    const pendenteDespesas = expenseRowsFix.filter(r => r.status !== 'pago').reduce((a, r) => a + (parseFloat(r.value) || 0), 0);
+    const balancoProjetado = totalEntradas - totalDespesas;
 
     const history = useMemo(() =>
         transactions
@@ -156,42 +158,47 @@ export default function Recorrentes() {
 
     return (
         <div className="max-w-6xl mx-auto w-full">
-            {/* Topo: painel do ícone (esquerda) + cards + Entradas (direita) */}
-            <div className="grid lg:grid-cols-[300px_1fr] gap-5 items-stretch">
-                {/* Painel do ícone grande */}
-                <div className={`rounded-2xl border p-6 flex flex-col items-center justify-center text-center ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
-                    <span className="w-28 h-28 rounded-[2rem] bg-gradient-to-br from-emerald-500/25 to-teal-600/15 ring-1 ring-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.2)]">
-                        <Repeat className="w-14 h-14" strokeWidth={2.2} />
-                    </span>
-                    <h1 className={`text-2xl font-black tracking-tight mt-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Recorrentes</h1>
-                    <p className={`text-xs mt-1 ${muted}`}>Entradas e despesas fixas do mês</p>
+            {/* Header compacto (largura toda pras tabelas) */}
+            <div className="flex items-center gap-4 mb-6">
+                <span className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/25 to-teal-600/15 ring-1 ring-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]">
+                    <Repeat className="w-7 h-7" strokeWidth={2.2} />
+                </span>
+                <div className="min-w-0">
+                    <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Recorrentes</h1>
+                    <p className={`text-sm mt-0.5 ${muted}`}>Entradas e despesas fixas do mês</p>
                 </div>
-
-                {/* Cards + Entradas recorrentes */}
-                <div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <SummaryCard isDark={isDark} icon={Wallet} label="Saldo em conta" value={<AnimatedNumber value={saldoConta} format={(v) => `R$ ${money(v)}`} />} tone={saldoConta >= 0 ? 'emerald' : 'rose'} />
-                        <SummaryCard isDark={isDark} icon={TrendingUp} label="Entradas recorrentes" value={<AnimatedNumber value={totalEntradas} format={(v) => `R$ ${money(v)}`} />} tone="emerald" />
-                        <SummaryCard isDark={isDark} icon={TrendingDown} label="Despesas recorrentes" value={<AnimatedNumber value={totalDespesas} format={(v) => `R$ ${money(v)}`} />} tone="rose" />
-                    </div>
-
-                    <RecorrentesSection
-                        kind="income" rows={incomeRows} isDark={isDark} wrapClass="mt-6"
-                        headerRight={<NovoRecorrenteButton onClick={() => setChooser(true)} />}
-                        onEdit={(r) => setForm({ kind: 'income', editing: r })}
-                        onDelete={(r) => deleteDoc(doc(db, collOf('income'), r.id))}
-                        onBaixa={(r) => setBaixa({ kind: 'income', rec: r })}
-                    />
-                </div>
+                <div className="ml-auto shrink-0"><NovoRecorrenteButton onClick={() => setChooser(true)} /></div>
             </div>
 
-            {/* Despesas recorrentes (largura toda, sem botão) */}
-            <RecorrentesSection
-                kind="expense" rows={expenseRows} isDark={isDark} wrapClass="mt-6"
+            {/* Métricas (com Balanço projetado) */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <SummaryCard isDark={isDark} icon={Wallet} label="Saldo em conta" value={<AnimatedNumber value={saldoConta} format={(v) => `R$ ${money(v)}`} />} tone={saldoConta >= 0 ? 'emerald' : 'rose'} />
+                <SummaryCard isDark={isDark} icon={TrendingUp} label="Entradas recorrentes" value={<AnimatedNumber value={totalEntradas} format={(v) => `R$ ${money(v)}`} />} tone="emerald" />
+                <SummaryCard isDark={isDark} icon={TrendingDown} label="Despesas recorrentes" value={<AnimatedNumber value={totalDespesas} format={(v) => `R$ ${money(v)}`} />} tone="rose" />
+                <SummaryCard isDark={isDark} icon={Scale} label="Balanço projetado" hint="Entradas − Despesas"
+                    value={<AnimatedNumber value={balancoProjetado} format={(v) => `${v < 0 ? '− ' : ''}R$ ${money(Math.abs(v))}`} />}
+                    tone={balancoProjetado >= 0 ? 'emerald' : 'rose'} />
+            </div>
+
+            {/* Entradas */}
+            <RecorrentesSection kind="income" rows={incomeRows} isDark={isDark} wrapClass="mt-6"
+                onEdit={(r) => setForm({ kind: 'income', editing: r })}
+                onDelete={(r) => deleteDoc(doc(db, collOf('income'), r.id))}
+                onBaixa={(r) => setBaixa({ kind: 'income', rec: r })} />
+
+            {/* Despesas — sub-abas: Fixas & mensais vs No cartão */}
+            <RecorrentesSection kind="expense" rows={expTab === 'fixas' ? expenseRowsFix : cardRecurringRows} isDark={isDark} wrapClass="mt-6"
                 onEdit={(r) => setForm({ kind: 'expense', editing: r })}
                 onDelete={(r) => deleteDoc(doc(db, collOf('expense'), r.id))}
                 onBaixa={(r) => setBaixa({ kind: 'expense', rec: r })}
-            />
+                onNavigate={onNavigate}
+                emptyOverride={expTab === 'cartao' ? 'Nenhuma parcela ou assinatura vinculada a cartão.' : null}
+                headerRight={
+                    <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-100/70'}`}>
+                        <SubTab active={expTab === 'fixas'} onClick={() => setExpTab('fixas')} isDark={isDark} label="Fixas & mensais" count={expenseRowsFix.length} />
+                        <SubTab active={expTab === 'cartao'} onClick={() => setExpTab('cartao')} isDark={isDark} label="No cartão" count={cardRecurringRows.length} />
+                    </div>
+                } />
 
             {/* Nota */}
             <div className={`mt-6 rounded-2xl border px-4 py-3.5 flex items-center gap-3 text-[13px] ${isDark ? 'border-white/10 bg-white/[0.02] text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
@@ -229,7 +236,7 @@ export default function Recorrentes() {
 }
 
 // ── Seção (entradas ou despesas) ────────────────────────────────────
-function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, wrapClass = 'mt-8', headerRight = null }) {
+function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, onNavigate, wrapClass = 'mt-8', headerRight = null, emptyOverride = null }) {
     const cfg = KIND[kind];
     const SectionIcon = cfg.icon;
     const income = kind === 'income';
@@ -239,7 +246,7 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, wra
 
     return (
         <div className={wrapClass}>
-            <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
                 <h2 className={`text-[15px] font-black tracking-tight flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
                     <SectionIcon className={`w-4 h-4 ${accent}`} /> {cfg.title}
                 </h2>
@@ -250,8 +257,8 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, wra
                 {rows.length === 0 ? (
                     <div className="py-12 text-center">
                         <SectionIcon className={`w-7 h-7 mx-auto mb-2.5 ${muted}`} />
-                        <p className={`text-sm font-bold ${cell}`}>Nada cadastrado ainda</p>
-                        <p className={`text-xs mt-1 ${muted}`}>{cfg.emptyHint}</p>
+                        <p className={`text-sm font-bold ${cell}`}>Nada por aqui</p>
+                        <p className={`text-xs mt-1 ${muted}`}>{emptyOverride || cfg.emptyHint}</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
@@ -260,7 +267,7 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, wra
                                 <tr className={`text-[11px] font-black uppercase tracking-widest whitespace-nowrap ${muted} border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
                                     <th className="px-4 py-3">{income ? 'Entrada' : 'Despesa'}</th>
                                     <th className="px-4 py-3 hidden sm:table-cell">Categoria</th>
-                                    <th className="px-4 py-3 hidden md:table-cell">{income ? 'Recebe dia' : 'Venc.'}</th>
+                                    <th className="px-4 py-3 hidden md:table-cell text-center">{income ? 'Recebe' : 'Venc.'}</th>
                                     <th className="px-4 py-3 text-right">Valor</th>
                                     <th className="px-4 py-3 text-center">Situação</th>
                                     <th className="px-4 py-3 text-right">Ações</th>
@@ -272,8 +279,10 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, wra
                                     const hex = categoryHex(c);
                                     const Icon = c.icon;
                                     const last = i === rows.length - 1;
+                                    // Evita redundância: nome idêntico ao rótulo da categoria.
+                                    const sameAsCat = String(r.name || '').trim().toLowerCase() === String(c.label || '').trim().toLowerCase();
                                     return (
-                                        <tr key={r.id} className={`text-sm ${last ? '' : `border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}`}>
+                                        <tr key={r.id} className={`group text-sm transition-colors ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/70'} ${last ? '' : `border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}`}>
                                             <td className="px-4 py-3.5">
                                                 <div className="flex items-center gap-2.5">
                                                     <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>
@@ -287,39 +296,44 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, wra
                                                     )}
                                                     {r.onCard ? (
                                                         <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">
-                                                            {r.cardKind === 'parcelamento' ? `Parcela ${r.parcela}` : 'Assinatura'} · cartão
+                                                            {r.cardKind === 'parcelamento' ? `Parcela ${r.parcela}` : 'Assinatura'}
                                                         </span>
-                                                    ) : (
-                                                        <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
-                                                            {r.isVariable ? 'Variável' : 'Fixo'}
-                                                        </span>
-                                                    )}
+                                                    ) : r.isVariable ? (
+                                                        <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Variável</span>
+                                                    ) : null}
                                                 </div>
                                             </td>
-                                            <td className={`px-4 py-3.5 hidden sm:table-cell ${cell}`}>{c.label}</td>
-                                            <td className={`px-4 py-3.5 hidden md:table-cell ${cell}`}>Dia {r.day || 1}</td>
+                                            <td className={`px-4 py-3.5 hidden sm:table-cell ${sameAsCat ? muted : cell}`}>{sameAsCat ? '—' : c.label}</td>
+                                            <td className={`px-4 py-3.5 hidden md:table-cell text-center tabular-nums ${cell}`}>Dia {r.day || 1}</td>
                                             <td className={`px-4 py-3.5 text-right font-black tabular-nums whitespace-nowrap ${income ? 'text-emerald-500' : 'text-rose-500'}`}>
                                                 {income ? '+' : '−'} R$ {money(r.value)}
                                             </td>
                                             <td className="px-4 py-3.5 text-center"><StatusBadge status={r.status} isDark={isDark} doneLabel={cfg.doneLabel} /></td>
                                             <td className="px-4 py-3.5">
-                                                <div className="flex items-center justify-end gap-1.5">
+                                                <div className="flex items-center justify-end gap-1">
                                                     {r.onCard ? (
-                                                        <span className={`text-[11px] font-bold flex items-center gap-1 mr-1 ${muted}`} title="Baixa é feita ao pagar a fatura do cartão">
-                                                            <Info className="w-3.5 h-3.5" /> Na fatura do cartão
-                                                        </span>
-                                                    ) : r.status !== 'pago' ? (
-                                                        <button onClick={() => onBaixa(r)}
-                                                            className={`px-3 py-1.5 rounded-lg text-[12px] font-bold border transition active:scale-95 ${income
-                                                                ? (isDark ? 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10' : 'border-emerald-500/40 text-emerald-600 hover:bg-emerald-50')
-                                                                : (isDark ? 'border-rose-500/30 text-rose-400 hover:bg-rose-500/10' : 'border-rose-500/40 text-rose-600 hover:bg-rose-50')}`}>
-                                                            {cfg.actionLabel}
+                                                        <button onClick={() => onNavigate?.('cartoes')} title="Ir para a fatura do cartão"
+                                                            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition active:scale-95 ${isDark ? 'text-blue-400 hover:bg-blue-500/10' : 'text-blue-600 hover:bg-blue-50'}`}>
+                                                            <CreditCard className="w-3.5 h-3.5" /> Ver fatura <ArrowRight className="w-3 h-3" />
                                                         </button>
                                                     ) : (
-                                                        <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-1 mr-1"><CheckCircle2 className="w-3.5 h-3.5" /> {cfg.doneLabel}</span>
+                                                        <>
+                                                            {r.status === 'pago' ? (
+                                                                <span title={cfg.doneLabel} className="w-8 h-8 rounded-lg flex items-center justify-center text-emerald-500 bg-emerald-500/12 shrink-0"><Check className="w-4 h-4" strokeWidth={3} /></span>
+                                                            ) : (
+                                                                <button onClick={() => onBaixa(r)} title={cfg.actionLabel}
+                                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center border-2 transition active:scale-90 shrink-0 ${income
+                                                                        ? 'border-emerald-500/40 text-emerald-500 hover:bg-emerald-500 hover:text-white hover:border-emerald-500'
+                                                                        : 'border-rose-500/40 text-rose-500 hover:bg-rose-500 hover:text-white hover:border-rose-500'}`}>
+                                                                    <Check className="w-4 h-4" strokeWidth={3} />
+                                                                </button>
+                                                            )}
+                                                            <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                                                <button onClick={() => onEdit(r)} title="Editar" className={`p-2 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-200' : 'hover:bg-slate-100 hover:text-slate-700'}`}><Pencil className="w-4 h-4" /></button>
+                                                                <DeleteBtn isDark={isDark} disabled={r.status === 'pago'} onDelete={() => onDelete(r)} />
+                                                            </div>
+                                                        </>
                                                     )}
-                                                    {!r.onCard && <button onClick={() => onEdit(r)} title="Editar" className={`p-2 rounded-lg ${muted} hover:${cell} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-4 h-4" /></button>}
-                                                    {!r.onCard && <DeleteBtn isDark={isDark} disabled={r.status === 'pago'} onDelete={() => onDelete(r)} />}
                                                 </div>
                                             </td>
                                         </tr>
@@ -334,15 +348,29 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, wra
     );
 }
 
-function SummaryCard({ isDark, icon: Icon, label, value, tone }) {
+function SummaryCard({ isDark, icon: Icon, label, value, tone, hint }) {
     const toneColor = { emerald: 'text-emerald-500', rose: 'text-rose-500', amber: 'text-amber-500', slate: isDark ? 'text-slate-200' : 'text-slate-700' }[tone];
     return (
-        <div className={`rounded-2xl border p-4 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
+        <div className={`rounded-2xl border p-4 transition-shadow duration-300 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]'}`}>
             <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                 <Icon className="w-3.5 h-3.5" /> {label}
             </div>
             <p className={`text-lg font-black tabular-nums mt-1.5 ${toneColor}`}>{value}</p>
+            {hint && <p className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{hint}</p>}
         </div>
+    );
+}
+
+// Sub-aba (segmented) usada nas Despesas: Fixas & mensais vs No cartão.
+function SubTab({ active, onClick, isDark, label, count }) {
+    return (
+        <button onClick={onClick} role="tab" aria-selected={active}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold whitespace-nowrap transition-all active:scale-[0.97] ${active
+                ? (isDark ? 'bg-white/10 text-white shadow-sm' : 'bg-white text-slate-800 shadow-[0_1px_4px_rgba(0,0,0,0.08)]')
+                : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700')}`}>
+            {label}
+            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${active ? 'bg-emerald-500/15 text-emerald-500' : (isDark ? 'bg-white/10 text-slate-400' : 'bg-slate-200 text-slate-500')}`}>{count}</span>
+        </button>
     );
 }
 
