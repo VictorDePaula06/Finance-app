@@ -678,8 +678,13 @@ function IATab({ isDark }) {
     // responder usando a chave DO PRÓPRIO usuário — não a chave do servidor.
     const persistToCloud = async (k) => {
         if (!uid) return;
-        try { await setDoc(doc(db, 'users', uid), { geminiKey: k || null }, { merge: true }); }
-        catch (e) { console.error('[geminiKey cloud]', e); }
+        const val = k || null;
+        // Grava em DOIS lugares (independentes) pra o webhook do WhatsApp achar
+        // a chave mesmo que uma das gravações falhe por regra/permissão.
+        try { await setDoc(doc(db, 'users', uid), { geminiKey: val }, { merge: true }); }
+        catch (e) { console.error('[geminiKey users]', e); }
+        try { await setDoc(doc(db, 'users', uid, 'settings', 'general'), { geminiKey: val }, { merge: true }); }
+        catch (e) { console.error('[geminiKey settings]', e); }
     };
 
     useEffect(() => {
@@ -687,10 +692,13 @@ function IATab({ isDark }) {
             const k = localStorage.getItem(KEY_STORE);
             if (k) { setGeminiKey(k); persistToCloud(k); } // migra quem já tinha só no dispositivo
             else if (uid) {
-                // Sem chave local: puxa a que já está salva na conta (ex.: outro dispositivo).
-                getDoc(doc(db, 'users', uid)).then(s => {
-                    const ck = s.data()?.geminiKey;
-                    if (ck) { try { localStorage.setItem(KEY_STORE, ck); } catch { } setGeminiKey(ck); setKey(ck); setSaved(true); }
+                // Sem chave local: puxa a que já está salva na conta (users OU settings).
+                Promise.all([
+                    getDoc(doc(db, 'users', uid)),
+                    getDoc(doc(db, 'users', uid, 'settings', 'general')),
+                ]).then(([u, s]) => {
+                    const ck = u.data()?.geminiKey || s.data()?.geminiKey;
+                    if (ck) { try { localStorage.setItem(KEY_STORE, ck); } catch { } setGeminiKey(ck); setKey(ck); setSaved(true); persistToCloud(ck); }
                 }).catch(() => { });
             }
         } catch { }

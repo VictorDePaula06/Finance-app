@@ -760,12 +760,20 @@ Se não for nenhuma ação, responda normalmente em texto (sem inventar que fez 
 // Mensagem quando o usuário ainda não configurou a própria chave do Gemini.
 const MSG_NO_KEY = '⚙️ Pra eu conversar, configure sua *chave do Gemini* no app: *Configurações › WhatsApp*. É grátis e leva 1 minuto. 🙏';
 
-// Lê a chave do Gemini DO PRÓPRIO usuário (users/{uid}.geminiKey).
+// Lê a chave do Gemini DO PRÓPRIO usuário. Procura em users/{uid}.geminiKey e,
+// como fallback, em users/{uid}/settings/general.geminiKey.
 async function getUserGeminiKey(db, uid) {
   try {
-    const s = await db.collection('users').doc(uid).get();
-    const k = s.data()?.geminiKey;
-    return (typeof k === 'string' && k.trim()) ? k.trim() : null;
+    const [uSnap, sSnap] = await Promise.all([
+      db.collection('users').doc(uid).get(),
+      db.collection('users').doc(uid).collection('settings').doc('general').get(),
+    ]);
+    const pick = (v) => (typeof v === 'string' && v.trim()) ? v.trim() : null;
+    const fromUser = pick(uSnap.data()?.geminiKey);
+    const fromSettings = pick(sSnap.data()?.geminiKey);
+    const k = fromUser || fromSettings;
+    console.log(`WA geminiKey uid=${uid} found=${!!k} (users=${!!fromUser} settings=${!!fromSettings})`);
+    return k;
   } catch (e) { console.error('WA getUserGeminiKey:', e); return null; }
 }
 
