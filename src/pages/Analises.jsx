@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import AnimatedNumber from '../components/ui/AnimatedNumber';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -327,7 +328,7 @@ export default function Analises() {
             {view === 'custo_fixo' && (
                 <div className="space-y-4">
                     <div className={`${cardCls} flex items-center justify-between`}>
-                        <div><p className={`text-[11px] font-black uppercase tracking-widest ${muted}`}>Custo fixo total / mês</p><p className="text-3xl font-black tabular-nums text-amber-500 mt-0.5">R$ {money(custoFixo.total)}</p></div>
+                        <div><p className={`text-[11px] font-black uppercase tracking-widest ${muted}`}>Custo fixo total / mês</p><p className="text-3xl font-black tabular-nums text-amber-500 mt-0.5"><AnimatedNumber value={custoFixo.total} format={(v) => `R$ ${money(v)}`} /></p></div>
                         <div className="text-right text-[12px] space-y-0.5">
                             <p className={muted}>Recorrentes <span className={`font-bold ${cell}`}>R$ {money(custoFixo.tRec)}</span></p>
                             <p className={muted}>Assinaturas <span className={`font-bold ${cell}`}>R$ {money(custoFixo.tAss)}</span></p>
@@ -403,8 +404,8 @@ export default function Analises() {
             {view === 'cartao_parcelas' && (
                 <div className="space-y-4">
                     <div className={`${cardCls} grid grid-cols-3 gap-3`}>
-                        <div><p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>Por mês</p><p className="text-xl font-black tabular-nums text-blue-400 mt-0.5">R$ {money(cartaoParcelas.mensal)}</p></div>
-                        <div><p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>Dívida restante</p><p className="text-xl font-black tabular-nums text-rose-500 mt-0.5">R$ {money(cartaoParcelas.dividaTotal)}</p></div>
+                        <div><p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>Por mês</p><p className="text-xl font-black tabular-nums text-blue-400 mt-0.5"><AnimatedNumber value={cartaoParcelas.mensal} format={(v) => `R$ ${money(v)}`} /></p></div>
+                        <div><p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>Dívida restante</p><p className="text-xl font-black tabular-nums text-rose-500 mt-0.5"><AnimatedNumber value={cartaoParcelas.dividaTotal} format={(v) => `R$ ${money(v)}`} /></p></div>
                         <div><p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>Ativos</p><p className={`text-xl font-black tabular-nums mt-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>{cartaoParcelas.list.length}</p></div>
                     </div>
                     {cartaoParcelas.list.length === 0 ? (

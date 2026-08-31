@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import AnimatedNumber from '../components/ui/AnimatedNumber';
 import AliviaFormHint from '../components/AliviaFormHint';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -344,7 +345,7 @@ export default function Patrimonio() {
                     </span>
                     <h1 className={`text-2xl font-black tracking-tight mt-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Patrimônio</h1>
                     <p className={`text-[11px] uppercase tracking-widest font-black mt-3 ${muted}`}>Total investido</p>
-                    <p className="text-3xl font-black tabular-nums text-emerald-500 mt-0.5">{fmt(total)}</p>
+                    <p className="text-3xl font-black tabular-nums text-emerald-500 mt-0.5"><AnimatedNumber value={total} format={fmt} /></p>
                     <button onClick={() => setMonitorOpen(true)}
                         className={`mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
                         <Activity className="w-3.5 h-3.5 text-emerald-500" /> Monitor de ativos
