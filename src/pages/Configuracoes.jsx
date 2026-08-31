@@ -32,6 +32,12 @@ const maskPhone = (p) => {
     if (d.length < 4) return p;
     return `${d.slice(0, 2)} ••• ${d.slice(-4)}`;
 };
+// Mostra só os últimos caracteres da chave (read-only).
+const maskKey = (k) => {
+    const s = String(k || '');
+    if (s.length <= 6) return '••••••';
+    return `${'•'.repeat(Math.min(20, s.length - 4))} ${s.slice(-4)}`;
+};
 
 // Lê um arquivo de imagem e devolve um data URL redimensionado (preserva o
 // enquadramento — a posição/zoom é escolhida depois pelo usuário) e leve.
@@ -477,22 +483,27 @@ function WhatsAppTab({ isDark, onGoTo }) {
                     right={<Badge tone={linked.length ? 'emerald' : 'slate'}>{linked.length ? 'Conectado' : 'Não conectado'}</Badge>}>
                     Conectar WhatsApp
                 </SectionTitle>
-                <p className={`text-[13px] ${cell}`}>
-                    Vincule seu número para conversar com a <b>Alívia</b> pelo WhatsApp e registrar gastos por mensagem (ex.: “mercado 120”).
-                    Gere um código, envie para a Alívia no WhatsApp e pronto.
-                </p>
+                {/* Tutorial + input de número: só quando NÃO conectado (some quando vinculado). */}
+                {!loading && linked.length === 0 && (
+                    <>
+                        <p className={`text-[13px] ${cell}`}>
+                            Vincule seu número para conversar com a <b>Alívia</b> pelo WhatsApp e registrar gastos por mensagem (ex.: “mercado 120”).
+                            Gere um código, envie para a Alívia no WhatsApp e pronto.
+                        </p>
 
-                {/* Seu número de WhatsApp */}
-                <div className="mt-4">
-                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Seu número de WhatsApp</span>
-                    <div className="relative">
-                        <MessageCircle className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} />
-                        <input inputMode="tel" value={cfg.number}
-                            onChange={e => setC({ number: e.target.value.replace(/[^\d\s()+-]/g, '') })}
-                            placeholder="Ex.: +55 21 99999-9999" className={inputCls} />
-                    </div>
-                    <p className={`text-[11px] mt-1.5 ${muted}`}>Com DDD (e país). Usamos para reconhecer você e enviar as notificações que escolher.</p>
-                </div>
+                        {/* Seu número de WhatsApp */}
+                        <div className="mt-4">
+                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Seu número de WhatsApp</span>
+                            <div className="relative">
+                                <MessageCircle className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} />
+                                <input inputMode="tel" value={cfg.number}
+                                    onChange={e => setC({ number: e.target.value.replace(/[^\d\s()+-]/g, '') })}
+                                    placeholder="Ex.: +55 21 99999-9999" className={inputCls} />
+                            </div>
+                            <p className={`text-[11px] mt-1.5 ${muted}`}>Com DDD (e país). Usamos para reconhecer você e enviar as notificações que escolher.</p>
+                        </div>
+                    </>
+                )}
 
                 {loading ? (
                     <div className={`flex items-center gap-3 mt-4 rounded-xl border px-3.5 py-3 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
@@ -621,6 +632,7 @@ function IATab({ isDark }) {
     const uid = currentUser?.uid;
     const [key, setKey] = useState(() => { try { return localStorage.getItem(KEY_STORE) || ''; } catch { return ''; } });
     const [saved, setSaved] = useState(() => { try { return !!localStorage.getItem(KEY_STORE); } catch { return false; } });
+    const [editing, setEditing] = useState(false);
     const [show, setShow] = useState(false);
     const [flash, setFlash] = useState('');
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
@@ -655,11 +667,13 @@ function IATab({ isDark }) {
         try { if (k) localStorage.setItem(KEY_STORE, k); else localStorage.removeItem(KEY_STORE); } catch { }
         setGeminiKey(k || null); setSaved(!!k);
         await persistToCloud(k);
+        setEditing(false); setShow(false);
         setFlash(k ? 'Chave salva! A Alívia já responde no WhatsApp e na Consultoria.' : 'Chave removida.');
         if (k) toast.success('Chave salva! A Alívia já responde no WhatsApp.'); else toast.info('Chave removida.');
         setTimeout(() => setFlash(''), 2800);
     };
-    const remove = async () => { setKey(''); try { localStorage.removeItem(KEY_STORE); } catch { } setGeminiKey(null); setSaved(false); await persistToCloud(null); setFlash('Chave removida.'); toast.info('Chave removida.'); setTimeout(() => setFlash(''), 2500); };
+    const remove = async () => { setKey(''); try { localStorage.removeItem(KEY_STORE); } catch { } setGeminiKey(null); setSaved(false); setEditing(false); await persistToCloud(null); setFlash('Chave removida.'); toast.info('Chave removida.'); setTimeout(() => setFlash(''), 2500); };
+    const cancelEdit = () => { setEditing(false); setShow(false); try { setKey(localStorage.getItem(KEY_STORE) || ''); } catch { } };
 
     return (
         <Card isDark={isDark}>
@@ -667,37 +681,69 @@ function IATab({ isDark }) {
                 right={<Badge tone={saved ? 'emerald' : 'amber'}>{saved ? 'Ativa' : 'Não configurada'}</Badge>}>
                 Inteligência Artificial (Gemini)
             </SectionTitle>
-            <p className={`text-[13px] ${cell}`}>
-                Com uma chave de API do Google Gemini, a <b>Alívia</b> entende e responde suas mensagens no <b>WhatsApp</b> (e na Consultoria do app) usando a <b>sua própria</b> chave. É <b>gratuita</b> e leva 1 minuto pra gerar.
-            </p>
-
-            <a href={AI_STUDIO_URL} target="_blank" rel="noopener noreferrer"
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white text-[13px] font-bold transition active:scale-95 shadow-md shadow-blue-500/30">
-                <KeyRound className="w-4 h-4" /> Gerar chave no Google AI Studio <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-            </a>
-
-            <div className="mt-4">
-                <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Sua chave de API</span>
-                <div className="relative">
-                    <KeyRound className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${muted}`} />
-                    <input type={show ? 'text' : 'password'} value={key} onChange={e => setKey(e.target.value)} placeholder="AIza…" className={inputCls} autoComplete="off" spellCheck={false} />
-                    <button type="button" onClick={() => setShow(s => !s)} className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}>
-                        {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+            {saved && !editing ? (
+                /* ── Estado SALVO (read-only, limpo) ── */
+                <div className="animate-in fade-in duration-200">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Sua chave de API</span>
+                    <div className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-3 ${isDark ? 'border-emerald-500/20 bg-emerald-500/[0.04]' : 'border-emerald-200 bg-emerald-50'}`}>
+                        <span className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0"><KeyRound className="w-4 h-4" /></span>
+                        <span className={`text-sm font-semibold tracking-wider flex-1 truncate ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{maskKey(key)}</span>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-500 shrink-0"><CheckCircle2 className="w-3.5 h-3.5" /> Salva</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
+                        <button onClick={() => { setShow(false); setEditing(true); }}
+                            className={`px-3.5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition active:scale-[0.97] border ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                            <RefreshCw className="w-4 h-4" /> Alterar chave
+                        </button>
+                        <button onClick={remove}
+                            className="px-3.5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition active:scale-[0.97] border border-rose-500/25 text-rose-500 hover:bg-rose-500/10">
+                            <Trash2 className="w-4 h-4" /> Remover
+                        </button>
+                        {flash && <span className="text-[12px] font-bold text-emerald-500 animate-in fade-in slide-in-from-left-1">{flash}</span>}
+                    </div>
                 </div>
-            </div>
-
-            <div className="flex items-center gap-2 mt-3 flex-wrap">
-                <button onClick={save} disabled={!key.trim()} className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-2 transition disabled:opacity-50">
-                    <Check className="w-4 h-4" /> Salvar chave
-                </button>
-                {saved && (
-                    <button onClick={remove} className="px-3 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition border border-rose-500/25 text-rose-500 hover:bg-rose-500/10 active:scale-[0.97]">
-                        <Trash2 className="w-4 h-4" /> Remover
-                    </button>
-                )}
-                {flash && <span className="text-[12px] font-bold text-emerald-500 animate-in fade-in slide-in-from-left-1">{flash}</span>}
-            </div>
+            ) : (
+                /* ── Estado CONFIGURAÇÃO / EDIÇÃO ── */
+                <div className="animate-in fade-in duration-200">
+                    {!saved && (
+                        <>
+                            <p className={`text-[13px] ${cell}`}>
+                                Com uma chave de API do Google Gemini, a <b>Alívia</b> entende e responde suas mensagens no <b>WhatsApp</b> usando a <b>sua própria</b> chave. É <b>gratuita</b> e leva 1 minuto pra gerar.
+                            </p>
+                            <a href={AI_STUDIO_URL} target="_blank" rel="noopener noreferrer"
+                                className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white text-[13px] font-bold transition active:scale-95 shadow-md shadow-blue-500/30">
+                                <KeyRound className="w-4 h-4" /> Gerar chave no Google AI Studio <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                            </a>
+                        </>
+                    )}
+                    <div className={saved ? '' : 'mt-4'}>
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">{editing ? 'Nova chave de API' : 'Sua chave de API'}</span>
+                        <div className="relative">
+                            <KeyRound className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${muted}`} />
+                            <input type={show ? 'text' : 'password'} value={key} onChange={e => setKey(e.target.value)} placeholder="AIza…" className={inputCls} autoComplete="off" spellCheck={false} autoFocus={editing} />
+                            <button type="button" onClick={() => setShow(s => !s)} className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}>
+                                {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
+                        <button onClick={save} disabled={!key.trim()} className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-2 transition disabled:opacity-50">
+                            <Check className="w-4 h-4" /> Salvar chave
+                        </button>
+                        {editing && (
+                            <button onClick={cancelEdit} className={`px-3.5 py-2.5 rounded-xl text-sm font-bold transition active:scale-[0.97] ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                                Cancelar
+                            </button>
+                        )}
+                        {editing && (
+                            <a href={AI_STUDIO_URL} target="_blank" rel="noopener noreferrer" className="text-[12px] font-bold text-blue-400 hover:text-blue-300 inline-flex items-center gap-1">
+                                Gerar nova <ExternalLink className="w-3 h-3" />
+                            </a>
+                        )}
+                        {flash && <span className="text-[12px] font-bold text-emerald-500 animate-in fade-in slide-in-from-left-1">{flash}</span>}
+                    </div>
+                </div>
+            )}
 
             <div className={`mt-4 rounded-xl border px-3.5 py-2.5 flex items-start gap-2.5 text-[12px] ${isDark ? 'border-white/10 bg-white/[0.02] text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
                 <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
