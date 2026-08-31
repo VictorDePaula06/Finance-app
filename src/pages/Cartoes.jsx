@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import AnimatedNumber from '../components/ui/AnimatedNumber';
+import { toast } from '../components/ui/Toaster';
 import AliviaFormHint from '../components/AliviaFormHint';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -575,8 +577,9 @@ export function CardForm({ isDark, uid, editing, onClose, onSaved, hint }) {
         try {
             if (editing) { await updateDoc(doc(db, 'cards', editing.id), data); onSaved?.(editing.id); }
             else { const ref = await addDoc(collection(db, 'cards'), { ...data, userId: uid, createdAt: Date.now() }); onSaved?.(ref.id); }
+            toast.success(editing ? 'Cartão atualizado!' : 'Cartão adicionado!');
             onClose();
-        } catch (err) { console.error(err); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
+        } catch (err) { console.error(err); toast.error('Não foi possível salvar. Tente de novo.'); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
     };
 
     return (
@@ -705,6 +708,7 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
                     currentInstallment: 1, installmentMode: valueMode, type: 'installment', userId: uid, createdAt: Date.now(),
                 });
             }
+            toast.success(isEdit ? 'Lançamento atualizado!' : 'Lançado na fatura!');
             if (!isEdit && againRef.current) {
                 // "Adicionar outra": mantém o form aberto. No parcelamento, PRESERVA a
                 // descrição (vários parcelamentos com o mesmo nome, ex.: mesma loja);
@@ -714,7 +718,7 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
                 if (tipo !== 'parcelamento') setDescription('');
                 setAdded(n => n + 1); setSaving(false);
             } else onClose();
-        } catch (err) { console.error(err); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
+        } catch (err) { console.error(err); toast.error('Não foi possível salvar. Tente de novo.'); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
     };
 
     const TIPOS = [
@@ -899,8 +903,9 @@ function PagarFaturaModal({ isDark, uid, card, items, total, onClose }) {
             }
             for (const it of assinaturas) await updateDoc(doc(db, 'subscriptions', it.id), { lastPaidMonth: mk });
             setOk(true);
+            toast.success('Fatura paga! 🎉');
             setTimeout(onClose, 1500);
-        } catch (err) { console.error(err); setError('Não foi possível pagar a fatura. Tente de novo.'); setLoading(false); }
+        } catch (err) { console.error(err); toast.error('Não foi possível pagar a fatura. Tente de novo.'); setError('Não foi possível pagar a fatura. Tente de novo.'); setLoading(false); }
     };
 
     const Section = ({ title, list, tone }) => {
@@ -963,7 +968,7 @@ function PagarFaturaModal({ isDark, uid, card, items, total, onClose }) {
                         <div className={`p-6 pt-4 mt-2 border-t ${isDark ? 'border-white/10' : 'border-slate-100'}`}>
                             <div className="flex items-center justify-between mb-3">
                                 <span className={`text-[12px] font-black uppercase tracking-widest ${muted}`}>Total da fatura</span>
-                                <span className="text-2xl font-black tabular-nums text-rose-500">R$ {money(total)}</span>
+                                <span className="text-2xl font-black tabular-nums text-rose-500"><AnimatedNumber value={total} format={(v) => `R$ ${money(v)}`} /></span>
                             </div>
                             <button onClick={pagar} disabled={loading || total <= 0}
                                 className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-50">

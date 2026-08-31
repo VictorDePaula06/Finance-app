@@ -7,6 +7,7 @@ import { CATEGORIES, categoryHex } from '../constants/categories';
 import { buildWalletLedger } from '../utils/financialLogic';
 import { getUsdRate } from '../utils/marketRates';
 import UserAvatar from '../components/UserAvatar';
+import AnimatedNumber from '../components/ui/AnimatedNumber';
 import {
     LayoutDashboard, Settings, TrendingUp, TrendingDown, Wallet, Eye, EyeOff,
     PieChart as PieIcon, PiggyBank, Landmark, HeartPulse, ChevronRight, X, Check, ListChecks, CreditCard,
@@ -184,11 +185,11 @@ export default function Dashboard({ onNavigate }) {
 
             {/* KPIs */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Kpi isDark={isDark} icon={TrendingUp} label="Ganhos no mês" value={`R$ ${money(ganhos)}`} sub="este mês" tone="emerald" />
-                <Kpi isDark={isDark} icon={TrendingDown} label="Gastos no mês" value={`R$ ${money(gastos)}`} sub={cfg.incluirFatura ? 'inclui fatura em aberto' : 'este mês'} tone="rose"
+                <Kpi isDark={isDark} icon={TrendingUp} label="Ganhos no mês" value={<AnimatedNumber value={ganhos} format={(v) => `R$ ${money(v)}`} />} sub="este mês" tone="emerald" />
+                <Kpi isDark={isDark} icon={TrendingDown} label="Gastos no mês" value={<AnimatedNumber value={gastos} format={(v) => `R$ ${money(v)}`} />} sub={cfg.incluirFatura ? 'inclui fatura em aberto' : 'este mês'} tone="rose"
                     action={<button onClick={() => setGastosOpen(true)} title="Ver lista de gastos" className={`p-1 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}><ListChecks className="w-4 h-4" /></button>} />
 
-                <Kpi isDark={isDark} icon={Wallet} label="Saldo disponível" value={hideSaldo ? 'R$ ••••' : `R$ ${money(saldo)}`} sub="disponível em conta" tone="blue"
+                <Kpi isDark={isDark} icon={Wallet} label="Saldo disponível" value={hideSaldo ? 'R$ ••••' : <AnimatedNumber value={saldo} format={(v) => `R$ ${money(v)}`} />} sub="disponível em conta" tone="blue"
                     action={<button onClick={() => setHideSaldo(h => !h)} className={muted}>{hideSaldo ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>} />
             </div>
 
@@ -217,7 +218,7 @@ export default function Dashboard({ onNavigate }) {
                 {/* Reserva de emergência (sem barra) */}
                 <div className={cardCls}>
                     <h2 className={`text-[13px] font-black uppercase tracking-widest flex items-center gap-1.5 mb-3 ${muted}`}><PiggyBank className="w-3.5 h-3.5 text-emerald-500" /> Reserva de emergência</h2>
-                    <p className="text-3xl font-black tabular-nums text-emerald-500">R$ {money(reservaTotal)}</p>
+                    <p className="text-3xl font-black tabular-nums text-emerald-500"><AnimatedNumber value={reservaTotal} format={(v) => `R$ ${money(v)}`} /></p>
                     <p className={`text-[12px] mt-0.5 ${muted}`}>{mesesCobertura >= 99 ? '—' : mesesCobertura.toFixed(1).replace('.', ',')} meses de cobertura</p>
                     <div className={`mt-3 flex items-center gap-1.5 text-[12px] ${mesesCobertura >= metaMeses ? 'text-emerald-500 font-bold' : muted}`}>
                         {mesesCobertura >= metaMeses ? <>Meta de {metaMeses} meses atingida 🎉</> : <>Meta: {metaMeses} meses de gastos</>}
@@ -239,7 +240,7 @@ export default function Dashboard({ onNavigate }) {
                             ))}
                         </div>
                     </div>
-                    <p className="text-3xl font-black tabular-nums text-emerald-500">{curSym} {money(patrAtualDisp)}</p>
+                    <p className="text-3xl font-black tabular-nums text-emerald-500"><AnimatedNumber value={patrAtualDisp} format={(v) => `${curSym} ${money(v)}`} /></p>
                     <p className={`text-[12px] mt-0.5 ${muted}`}>investido em ativos{patCur === 'USD' ? ` · câmbio R$ ${money(usdRate)}` : ''}</p>
                     <div className="grid grid-cols-2 gap-2 mt-3">
                         <div className={`rounded-xl px-3 py-2 ${isDark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { Toaster } from './ui/Toaster';
 import OnboardingAlivia from './OnboardingAlivia';
 import AppSidebar, { NAV_ITEMS } from './AppSidebar';
 import Recorrentes from '../pages/Recorrentes';
@@ -53,6 +54,7 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
 
     return (
         <div className={`min-h-screen flex ${isDark ? 'bg-[#0e0f12]' : 'bg-slate-50'}`}>
+            <Toaster />
             {showOnboarding && <OnboardingAlivia onDone={() => setObDismissed(true)} />}
 
             {/* Sidebar desktop (some no mobile) */}

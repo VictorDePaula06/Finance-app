@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import AnimatedNumber from '../components/ui/AnimatedNumber';
+import { toast } from '../components/ui/Toaster';
 import AliviaFormHint from '../components/AliviaFormHint';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -168,9 +170,9 @@ export default function Recorrentes() {
                 {/* Cards + Entradas recorrentes */}
                 <div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <SummaryCard isDark={isDark} icon={Wallet} label="Saldo em conta" value={`R$ ${money(saldoConta)}`} tone={saldoConta >= 0 ? 'emerald' : 'rose'} />
-                        <SummaryCard isDark={isDark} icon={TrendingUp} label="Entradas recorrentes" value={`R$ ${money(totalEntradas)}`} tone="emerald" />
-                        <SummaryCard isDark={isDark} icon={TrendingDown} label="Despesas recorrentes" value={`R$ ${money(totalDespesas)}`} tone="rose" />
+                        <SummaryCard isDark={isDark} icon={Wallet} label="Saldo em conta" value={<AnimatedNumber value={saldoConta} format={(v) => `R$ ${money(v)}`} />} tone={saldoConta >= 0 ? 'emerald' : 'rose'} />
+                        <SummaryCard isDark={isDark} icon={TrendingUp} label="Entradas recorrentes" value={<AnimatedNumber value={totalEntradas} format={(v) => `R$ ${money(v)}`} />} tone="emerald" />
+                        <SummaryCard isDark={isDark} icon={TrendingDown} label="Despesas recorrentes" value={<AnimatedNumber value={totalDespesas} format={(v) => `R$ ${money(v)}`} />} tone="rose" />
                     </div>
 
                     <RecorrentesSection
@@ -469,14 +471,15 @@ export function RecorrenteForm({ isDark, uid, kind, editing, onClose, hint, init
             data.cardId = payMethod === 'credito' ? cardId : '';
         }
         try {
-            if (editing) { await updateDoc(doc(db, cfg.collection, editing.id), data); onClose(); return; }
+            if (editing) { await updateDoc(doc(db, cfg.collection, editing.id), data); toast.success('Recorrente atualizado!'); onClose(); return; }
             await addDoc(collection(db, cfg.collection), { ...data, userId: uid, createdAt: Date.now() });
+            toast.success(income ? 'Entrada recorrente cadastrada!' : 'Despesa recorrente cadastrada!');
             if (againRef.current) {
                 // "Salvar e adicionar outra": limpa e mantém o formulário aberto.
                 againRef.current = false;
                 setName(''); setValue(''); setAdded(n => n + 1); setSaving(false);
             } else onClose();
-        } catch (err) { console.error(err); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
+        } catch (err) { console.error(err); toast.error('Não foi possível salvar. Tente de novo.'); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
     };
 
     const title = editing
@@ -598,12 +601,15 @@ function BaixaDialog({ isDark, uid, kind, rec, saldo, mk, onClose }) {
                 tx.update(doc(db, cfg.collection, rec.id), { lastPaidMonth: mk, ...(rec.isVariable ? { lastPaidValue: val } : {}) });
             });
             setOk(true);
+            toast.success(income ? 'Recebimento confirmado!' : 'Baixa registrada!');
             setTimeout(onClose, 1200);
         } catch (err) {
             console.error('[baixa]', err);
-            setError(err?.message === 'ALREADY_PAID'
+            const msg = err?.message === 'ALREADY_PAID'
                 ? (income ? 'Esta entrada já foi confirmada neste mês.' : 'Este recorrente já foi baixado neste mês.')
-                : 'Não foi possível concluir. Tente de novo.');
+                : 'Não foi possível concluir. Tente de novo.';
+            toast.error(msg);
+            setError(msg);
             setLoading(false);
         }
     };

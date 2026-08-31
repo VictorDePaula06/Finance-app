@@ -156,3 +156,95 @@ html, body {
   font-family: 'Plus Jakarta Sans', sans-serif;
   letter-spacing: -0.02em;
 }
+
+/* ============================================================================
+   ALÍVIA — UI/UX POLISH LAYER  (aditivo, reversível)
+   Só refinamento visual: hover/active/focus, microinterações, transições,
+   skeleton, scrollbar, acessibilidade. NÃO muda estrutura, layout, posição,
+   tamanho, rotas nem lógica. Baixa especificidade (:where) p/ não sobrescrever
+   nada. Para reverter, basta apagar deste bloco até o marcador END.
+   ========================================================================== */
+
+/* Rolagem suave e sem "flash" azul de toque no mobile. */
+html { scroll-behavior: smooth; }
+:where(a, button, [role="button"], summary) { -webkit-tap-highlight-color: transparent; }
+
+/* Transições sutis e consistentes em elementos interativos.
+   :where() = especificidade 0 → qualquer transição do componente ainda vence. */
+:where(button, [role="button"], a, input, select, textarea, summary, label[for]) {
+  transition:
+    background-color .18s ease, border-color .18s ease, color .18s ease,
+    box-shadow .2s ease, opacity .18s ease, transform .12s ease, filter .18s ease;
+}
+
+/* Feedback de clique nos botões (transitório — volta ao normal ao soltar). */
+:where(button, [role="button"]):active:not(:disabled):not([aria-disabled="true"]) {
+  transform: scale(.975);
+}
+:where(button, [role="button"]):disabled,
+:where(button, [role="button"])[aria-disabled="true"] { cursor: not-allowed; }
+
+/* Foco acessível e bonito (só no teclado — não aparece no clique de mouse). */
+:where(a, button, [role="button"], summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--verde-respira);
+  outline-offset: 2px;
+}
+:where(input, select, textarea):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(105, 200, 185, .25);
+}
+
+/* Cards um pouco mais "vivos" ao passar o mouse — só sombra/borda,
+   sem mexer em tamanho ou posição. */
+:where(.glass-card) {
+  transition: box-shadow .28s ease, border-color .28s ease,
+              background .5s ease, border .5s ease;
+}
+:where(.glass-card):hover {
+  box-shadow: 0 22px 55px -20px var(--card-shadow);
+  border-color: rgba(105, 200, 185, .35);
+}
+:where(.pat-card) { transition: box-shadow .28s ease, border-color .28s ease, background .4s ease; }
+:where(.pat-card):hover { box-shadow: 0 10px 30px -14px rgba(0, 0, 0, .12); }
+
+/* Entrada suave (só opacidade — nunca transform, p/ não quebrar modais
+   centralizados por transform) de modais, menus e dropdowns. */
+@keyframes alv-fade-in { from { opacity: 0; } to { opacity: 1; } }
+:where([role="dialog"], [role="menu"], [role="listbox"], [role="tooltip"]) {
+  animation: alv-fade-in .16s ease both;
+}
+
+/* Scrollbar refinada (mantém o fino já existente + estado hover e Firefox). */
+* { scrollbar-width: thin; scrollbar-color: rgba(105, 200, 185, .3) transparent; }
+::-webkit-scrollbar-thumb:hover { background: rgba(105, 200, 185, .45); }
+
+/* Seleção de texto na cor da marca. */
+::selection { background: rgba(105, 200, 185, .28); }
+
+/* Utilitário de skeleton loading (disponível p/ uso futuro; não afeta nada hoje). */
+@keyframes alv-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+.alv-skeleton {
+  background: linear-gradient(90deg,
+    var(--input-bg) 25%, rgba(105, 200, 185, .14) 37%, var(--input-bg) 63%);
+  background-size: 200% 100%;
+  animation: alv-shimmer 1.4s ease-in-out infinite;
+  border-radius: .75rem;
+}
+
+/* Utilitário opcional de fade-in de conteúdo. */
+.alv-fade-in { animation: alv-fade-in .24s ease both; }
+
+/* Imagens/ícones não "arrastáveis" acidentalmente (toque premium). */
+:where(button, [role="button"]) img,
+:where(button, [role="button"]) svg { pointer-events: none; }
+
+/* Respeita quem prefere menos movimento (acessibilidade). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* ===== END ALÍVIA UI/UX POLISH LAYER ===== */

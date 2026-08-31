@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import AnimatedNumber from '../components/ui/AnimatedNumber';
+import { toast } from '../components/ui/Toaster';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -140,9 +142,9 @@ export default function Lancamentos() {
 
             {/* Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-                <SummaryCard isDark={isDark} icon={Wallet} label="Saldo em conta" value={`R$ ${money(saldoConta)}`} tone={saldoConta >= 0 ? 'emerald' : 'rose'} />
-                <SummaryCard isDark={isDark} icon={TrendingUp} label="Entradas neste mês" value={`R$ ${money(entradasMes)}`} tone="emerald" />
-                <SummaryCard isDark={isDark} icon={TrendingDown} label="Despesas neste mês" value={`R$ ${money(despesasMes)}`} tone="rose" />
+                <SummaryCard isDark={isDark} icon={Wallet} label="Saldo em conta" value={<AnimatedNumber value={saldoConta} format={(v) => `R$ ${money(v)}`} />} tone={saldoConta >= 0 ? 'emerald' : 'rose'} />
+                <SummaryCard isDark={isDark} icon={TrendingUp} label="Entradas neste mês" value={<AnimatedNumber value={entradasMes} format={(v) => `R$ ${money(v)}`} />} tone="emerald" />
+                <SummaryCard isDark={isDark} icon={TrendingDown} label="Despesas neste mês" value={<AnimatedNumber value={despesasMes} format={(v) => `R$ ${money(v)}`} />} tone="rose" />
             </div>
 
             {/* Extrato */}
@@ -244,7 +246,7 @@ export default function Lancamentos() {
                                         </span>
                                         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
                                             <button onClick={() => setForm({ kind: income ? 'income' : 'expense', editing: t })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
-                                            <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, 'transactions', t.id))} />
+                                            <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, 'transactions', t.id)).then(() => toast.success('Lançamento excluído.')).catch(() => toast.error('Não foi possível excluir.'))} />
                                         </div>
                                     </div>
                                 );
@@ -436,8 +438,9 @@ function LancamentoForm({ isDark, uid, kind, editing, saldoConta = 0, onClose })
         try {
             if (editing) await updateDoc(doc(db, 'transactions', editing.id), data);
             else await addDoc(collection(db, 'transactions'), { ...data, createdAt: Date.now() });
+            toast.success(editing ? 'Lançamento atualizado!' : 'Lançamento salvo!');
             onClose();
-        } catch (err) { console.error(err); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
+        } catch (err) { console.error(err); toast.error('Não foi possível salvar. Tente de novo.'); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
     };
 
     return (

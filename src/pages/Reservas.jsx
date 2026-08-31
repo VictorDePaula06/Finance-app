@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import AnimatedNumber from '../components/ui/AnimatedNumber';
+import { toast } from '../components/ui/Toaster';
 import AliviaFormHint from '../components/AliviaFormHint';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -80,7 +82,7 @@ export default function Reservas() {
                     </span>
                     <h1 className={`text-2xl font-black tracking-tight mt-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Reservas</h1>
                     <p className={`text-[11px] uppercase tracking-widest font-black mt-3 ${muted}`}>Total guardado</p>
-                    <p className="text-3xl font-black tabular-nums text-emerald-500 mt-0.5">R$ {money(totalGuardado)}</p>
+                    <p className="text-3xl font-black tabular-nums text-emerald-500 mt-0.5"><AnimatedNumber value={totalGuardado} format={(v) => `R$ ${money(v)}`} /></p>
                     <p className={`text-[12px] mt-1 ${muted}`}>rendendo a <span className="font-bold text-emerald-500">{money(cdi)}%</span> CDI/ano</p>
                 </div>
 
@@ -118,7 +120,7 @@ export default function Reservas() {
 
                         {/* Métricas (rendimento) */}
                         <div className="grid grid-cols-3 gap-3">
-                            <Mini isDark={isDark} label="Investido" value={`R$ ${money(totalInvestido)}`} cls={cell} />
+                            <Mini isDark={isDark} label="Investido" value={<AnimatedNumber value={totalInvestido} format={(v) => `R$ ${money(v)}`} />} cls={cell} />
                             <Mini isDark={isDark} label="Rendimento" value={`+ R$ ${money(rendimentoTotal)}`} cls="text-emerald-500" />
                             <Mini isDark={isDark} label="Rentab." value={`+${rentab.toFixed(2)}%`} cls="text-emerald-500" />
                         </div>
@@ -279,8 +281,9 @@ export function ReservaForm({ isDark, uid, cdi, editing, onClose, skipLedger = f
                     });
                 }
             }
+            toast.success(editing ? 'Reserva atualizada!' : 'Reserva criada!');
             onClose();
-        } catch (err) { console.error(err); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
+        } catch (err) { console.error(err); toast.error('Não foi possível salvar. Tente de novo.'); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
     };
 
     return (
@@ -357,8 +360,9 @@ function MoveForm({ isDark, uid, cdi, reserve, kind, onClose }) {
                 date: iso, month: iso.slice(0, 7), userId: uid, createdAt: now, paymentMethod: 'pix',
                 source: interno ? 'patrimonio' : 'reserva', jarId: reserve.id, isTransfer: true, reserveInternal: interno,
             });
+            toast.success(isDep ? 'Aporte realizado!' : 'Resgate realizado!');
             onClose();
-        } catch (err) { console.error(err); setError('Não foi possível concluir. Tente de novo.'); setSaving(false); }
+        } catch (err) { console.error(err); toast.error('Não foi possível concluir. Tente de novo.'); setError('Não foi possível concluir. Tente de novo.'); setSaving(false); }
     };
 
     return (
