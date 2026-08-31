@@ -14,7 +14,7 @@ import {
     Settings, User, MessageCircle, Sparkles, Palette, ShieldCheck,
     KeyRound, ExternalLink, Check, Eye, EyeOff, Trash2, Loader2, Copy,
     Lock, Sun, Moon, Download, FileText, Mail, Link2, Unlink, AlertTriangle,
-    CheckCircle2, RefreshCw, Camera, Upload, Bell, Zap, CalendarClock, FileBarChart, Wallet,
+    CheckCircle2, RefreshCw, Camera, Upload, Bell, Zap, CalendarClock, FileBarChart, Wallet, Pencil,
 } from 'lucide-react';
 
 const KEY_STORE = 'aliviaGeminiKey';
@@ -165,6 +165,7 @@ function PerfilTab({ isDark }) {
     const [name, setName] = useState(currentUser?.displayName || '');
     const [savingName, setSavingName] = useState(false);
     const [nameFlash, setNameFlash] = useState('');
+    const [editingName, setEditingName] = useState(false);
     const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
 
     useEffect(() => { setName(currentUser?.displayName || ''); }, [currentUser?.displayName]);
@@ -202,11 +203,13 @@ function PerfilTab({ isDark }) {
         try {
             await updateProfile(auth.currentUser, { displayName: n });
             await refreshUser?.(); // atualiza o nome na sidebar/telas na hora
+            setEditingName(false);
             setNameFlash('Nome atualizado!'); toast.success('Nome atualizado!');
         } catch (e) { console.error(e); setNameFlash('Não foi possível salvar o nome.'); toast.error('Não foi possível salvar o nome.'); }
         setSavingName(false);
         setTimeout(() => setNameFlash(''), 2500);
     };
+    const cancelName = () => { setEditingName(false); setName(currentUser?.displayName || ''); };
 
     return (
         <div className="space-y-4">
@@ -255,15 +258,43 @@ function PerfilTab({ isDark }) {
 
             {/* Nome de exibição */}
             <Card isDark={isDark}>
-                <SectionTitle isDark={isDark} icon={User}>Nome de exibição</SectionTitle>
-                <div className="flex gap-2">
-                    <input value={name} onChange={e => setName(e.target.value)} placeholder="Como quer ser chamado(a)" className={inputCls} maxLength={40} />
-                    <button onClick={saveName} disabled={savingName || !name.trim() || name.trim() === currentUser?.displayName}
-                        className="shrink-0 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-2 transition disabled:opacity-50">
-                        {savingName ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Salvar
-                    </button>
-                </div>
-                {nameFlash && <p className="text-[12px] font-bold text-emerald-500 mt-2">{nameFlash}</p>}
+                <SectionTitle isDark={isDark} icon={User}
+                    right={currentUser?.displayName ? <Badge tone="emerald">Definido</Badge> : <Badge tone="amber">Pendente</Badge>}>
+                    Nome de exibição
+                </SectionTitle>
+
+                {currentUser?.displayName && !editingName ? (
+                    /* ── Estado DEFINIDO (read-only) ── */
+                    <div className={`animate-in fade-in duration-200 flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-50'}`}>
+                        <div className="min-w-0">
+                            <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Como te chamamos</p>
+                            <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{currentUser.displayName}</p>
+                        </div>
+                        <button onClick={() => setEditingName(true)}
+                            className={`shrink-0 px-3.5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition active:scale-[0.97] border ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                            <Pencil className="w-4 h-4" /> Editar
+                        </button>
+                    </div>
+                ) : (
+                    /* ── Estado EDIÇÃO ── */
+                    <div className="animate-in fade-in duration-200">
+                        <div className="flex gap-2">
+                            <input value={name} onChange={e => setName(e.target.value)} placeholder="Como quer ser chamado(a)" className={inputCls} maxLength={40} autoFocus={editingName} />
+                            <button onClick={saveName} disabled={savingName || !name.trim() || name.trim() === currentUser?.displayName}
+                                className="shrink-0 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-2 transition disabled:opacity-50">
+                                {savingName ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Salvar
+                            </button>
+                        </div>
+                        <div className="flex items-center gap-3 mt-2 flex-wrap">
+                            {currentUser?.displayName && (
+                                <button onClick={cancelName} className={`px-3.5 py-2 rounded-xl text-[13px] font-bold transition active:scale-[0.97] ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                                    Cancelar
+                                </button>
+                            )}
+                            {nameFlash && <span className="text-[12px] font-bold text-emerald-500 animate-in fade-in slide-in-from-left-1">{nameFlash}</span>}
+                        </div>
+                    </div>
+                )}
             </Card>
 
             {/* Senha */}
