@@ -8,6 +8,8 @@ import {
 } from 'firebase/firestore';
 import { setGeminiKey } from '../services/gemini';
 import { downloadUserData } from '../utils/dataExport';
+import { toast } from '../components/ui/Toaster';
+import Skeleton from '../components/ui/Skeleton';
 import {
     Settings, User, MessageCircle, Sparkles, Palette, ShieldCheck,
     KeyRound, ExternalLink, Check, Eye, EyeOff, Trash2, Loader2, Copy,
@@ -80,16 +82,17 @@ export default function Configuracoes() {
                 </div>
             </div>
 
-            {/* Abas */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 mb-6">
+            {/* Abas — segmented control */}
+            <div role="tablist" aria-label="Seções das configurações"
+                className={`flex items-center gap-1 overflow-x-auto no-scrollbar p-1 mb-6 rounded-2xl border ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-100/70'}`}>
                 {TABS.map(t => {
                     const Icon = t.icon;
                     const on = tab === t.id;
                     return (
-                        <button key={t.id} onClick={() => setTab(t.id)}
-                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold whitespace-nowrap border transition active:scale-95 ${on
-                                ? 'bg-emerald-500/12 text-emerald-500 border-emerald-500/30'
-                                : (isDark ? 'border-white/10 text-slate-400 hover:text-slate-200' : 'border-slate-200 text-slate-500 hover:text-slate-700')}`}>
+                        <button key={t.id} onClick={() => setTab(t.id)} role="tab" aria-selected={on}
+                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold whitespace-nowrap transition-all duration-200 active:scale-[0.97] ${on
+                                ? (isDark ? 'bg-emerald-500/15 text-emerald-400 shadow-sm ring-1 ring-emerald-500/25' : 'bg-white text-emerald-600 shadow-[0_2px_8px_-2px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/15')
+                                : (isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]' : 'text-slate-500 hover:text-slate-800 hover:bg-white/70')}`}>
                             <Icon className="w-4 h-4" /> {t.label}
                         </button>
                     );
@@ -107,23 +110,41 @@ export default function Configuracoes() {
 
 // ── Bloco padrão ────────────────────────────────────────────────────
 function Card({ isDark, children, className = '' }) {
-    return <div className={`rounded-2xl border p-5 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'} ${className}`}>{children}</div>;
+    return <div className={`rounded-2xl border p-5 sm:p-6 transition-shadow duration-300 ${isDark ? 'border-white/10 bg-white/[0.02] hover:border-white/[0.14]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_10px_34px_-16px_rgba(15,23,42,0.18)]'} ${className}`}>{children}</div>;
 }
 function SectionTitle({ isDark, icon: Icon, children, right }) {
     return (
-        <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-            <h2 className={`text-[15px] font-black tracking-tight flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                <Icon className="w-4 h-4 text-emerald-500" /> {children}
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+            <h2 className={`text-[15px] font-black tracking-tight flex items-center gap-2.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                <span className="w-7 h-7 rounded-lg bg-emerald-500/12 text-emerald-500 flex items-center justify-center shrink-0"><Icon className="w-4 h-4" /></span>
+                {children}
             </h2>
             {right}
         </div>
     );
 }
+// Selo de status reutilizável (com "dot") — visual profissional e consistente.
+const BADGE_TONES = {
+    emerald: { wrap: 'bg-emerald-500/12 text-emerald-500 ring-emerald-500/20', dot: 'bg-emerald-500' },
+    amber: { wrap: 'bg-amber-500/12 text-amber-600 ring-amber-500/25', dot: 'bg-amber-500' },
+    slate: { wrap: 'bg-slate-500/12 text-slate-400 ring-slate-500/20', dot: 'bg-slate-400' },
+    purple: { wrap: 'bg-purple-500/12 text-purple-400 ring-purple-500/20', dot: 'bg-purple-400' },
+    blue: { wrap: 'bg-blue-500/12 text-blue-400 ring-blue-500/20', dot: 'bg-blue-400' },
+    rose: { wrap: 'bg-rose-500/12 text-rose-500 ring-rose-500/20', dot: 'bg-rose-500' },
+};
+function Badge({ tone = 'slate', children, dot = true }) {
+    const t = BADGE_TONES[tone] || BADGE_TONES.slate;
+    return (
+        <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ring-1 ${t.wrap}`}>
+            {dot && <span className={`w-1.5 h-1.5 rounded-full ${t.dot}`} />}{children}
+        </span>
+    );
+}
 const planBadge = (planLevel) => ({
-    lifetime: { label: 'Vitalício', cls: 'bg-purple-500/15 text-purple-400' },
-    premium: { label: 'Premium', cls: 'bg-emerald-500/15 text-emerald-500' },
-    standard: { label: 'Standard', cls: 'bg-blue-500/15 text-blue-400' },
-}[planLevel] || { label: 'Gratuito', cls: 'bg-slate-500/15 text-slate-400' });
+    lifetime: { label: 'Vitalício', tone: 'purple' },
+    premium: { label: 'Premium', tone: 'emerald' },
+    standard: { label: 'Standard', tone: 'blue' },
+}[planLevel] || { label: 'Gratuito', tone: 'slate' });
 
 // Estilo do avatar aplicando posição/zoom escolhidos pelo usuário.
 const avatarStyle = (pos) => ({ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${pos?.x ?? 50}% ${pos?.y ?? 50}%`, transform: `scale(${pos?.zoom ?? 1})`, transformOrigin: 'center' });
@@ -175,8 +196,8 @@ function PerfilTab({ isDark }) {
         try {
             await updateProfile(auth.currentUser, { displayName: n });
             await refreshUser?.(); // atualiza o nome na sidebar/telas na hora
-            setNameFlash('Nome atualizado!');
-        } catch (e) { console.error(e); setNameFlash('Não foi possível salvar o nome.'); }
+            setNameFlash('Nome atualizado!'); toast.success('Nome atualizado!');
+        } catch (e) { console.error(e); setNameFlash('Não foi possível salvar o nome.'); toast.error('Não foi possível salvar o nome.'); }
         setSavingName(false);
         setTimeout(() => setNameFlash(''), 2500);
     };
@@ -203,7 +224,7 @@ function PerfilTab({ isDark }) {
                     <div className="min-w-0">
                         <p className={`text-lg font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{currentUser?.displayName || 'Usuário Alívia'}</p>
                         <p className={`text-[13px] truncate ${muted}`}>{currentUser?.email}</p>
-                        <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full mt-1.5 ${badge.cls}`}>{badge.label}</span>
+                        <span className="inline-block mt-1.5"><Badge tone={badge.tone} dot={false}>{badge.label}</Badge></span>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 mt-4 flex-wrap">
@@ -331,9 +352,9 @@ function ChangePasswordCard({ isDark }) {
         setLoading(true);
         try {
             await changePassword(current, next);
-            setOk(true); setCurrent(''); setNext(''); setConfirm('');
+            setOk(true); setCurrent(''); setNext(''); setConfirm(''); toast.success('Senha alterada com sucesso!');
             setTimeout(() => setOk(false), 2500);
-        } catch (err) { console.error('[changePassword]', err?.code, err); setError(pwErrorMsg(err?.code)); }
+        } catch (err) { console.error('[changePassword]', err?.code, err); const m = pwErrorMsg(err?.code); setError(m); toast.error(m); }
         setLoading(false);
     };
     const eye = (
@@ -411,8 +432,8 @@ function WhatsAppTab({ isDark, onGoTo }) {
         setSavingCfg(true); setCfgFlash('');
         try {
             await saveUserPreferences({ whatsapp: { ...cfg, number: String(cfg.number || '').replace(/\D/g, '') } });
-            setCfgFlash('Configurações salvas!');
-        } catch (e) { console.error(e); setCfgFlash('Não foi possível salvar.'); }
+            setCfgFlash('Configurações salvas!'); toast.success('Configurações salvas!');
+        } catch (e) { console.error(e); setCfgFlash('Não foi possível salvar.'); toast.error('Não foi possível salvar.'); }
         setSavingCfg(false);
         setTimeout(() => setCfgFlash(''), 2500);
     };
@@ -433,15 +454,15 @@ function WhatsAppTab({ isDark, onGoTo }) {
         try {
             const c = genCode();
             await setDoc(doc(db, 'wa_links', c), { uid, createdAt: Date.now() });
-            setCode(c);
-        } catch (e) { console.error(e); setError('Não foi possível gerar o código. Tente novamente.'); }
+            setCode(c); toast.success('Código gerado! Envie-o para a Alívia no WhatsApp.');
+        } catch (e) { console.error(e); setError('Não foi possível gerar o código. Tente novamente.'); toast.error('Não foi possível gerar o código.'); }
         setGenerating(false);
     };
     const copiar = () => { try { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { } };
     const desvincular = async (phone) => {
         setError('');
-        try { await deleteDoc(doc(db, 'wa_users', phone)); refresh(); }
-        catch (e) { console.error(e); setError('Não foi possível desvincular.'); }
+        try { await deleteDoc(doc(db, 'wa_users', phone)); refresh(); toast.success('WhatsApp desvinculado.'); }
+        catch (e) { console.error(e); setError('Não foi possível desvincular.'); toast.error('Não foi possível desvincular.'); }
     };
 
     const waLink = WA_NUMBER ? `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(code || '')}` : '';
@@ -453,7 +474,7 @@ function WhatsAppTab({ isDark, onGoTo }) {
 
             <Card isDark={isDark}>
                 <SectionTitle isDark={isDark} icon={MessageCircle}
-                    right={<span className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full ${linked.length ? 'bg-emerald-500/15 text-emerald-500' : (isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>{linked.length ? 'Conectado' : 'Não conectado'}</span>}>
+                    right={<Badge tone={linked.length ? 'emerald' : 'slate'}>{linked.length ? 'Conectado' : 'Não conectado'}</Badge>}>
                     Conectar WhatsApp
                 </SectionTitle>
                 <p className={`text-[13px] ${cell}`}>
@@ -474,7 +495,13 @@ function WhatsAppTab({ isDark, onGoTo }) {
                 </div>
 
                 {loading ? (
-                    <div className={`flex items-center gap-2 mt-4 text-[13px] ${muted}`}><Loader2 className="w-4 h-4 animate-spin" /> Verificando vínculo…</div>
+                    <div className={`flex items-center gap-3 mt-4 rounded-xl border px-3.5 py-3 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                        <Skeleton className="w-9 h-9" />
+                        <div className="flex-1 space-y-2">
+                            <Skeleton className="h-3 w-32" />
+                            <Skeleton className="h-2.5 w-24" />
+                        </div>
+                    </div>
                 ) : linked.length > 0 ? (
                     <div className="mt-4 space-y-2">
                         {linked.map(l => (
@@ -629,14 +656,15 @@ function IATab({ isDark }) {
         setGeminiKey(k || null); setSaved(!!k);
         await persistToCloud(k);
         setFlash(k ? 'Chave salva! A Alívia já responde no WhatsApp e na Consultoria.' : 'Chave removida.');
+        if (k) toast.success('Chave salva! A Alívia já responde no WhatsApp.'); else toast.info('Chave removida.');
         setTimeout(() => setFlash(''), 2800);
     };
-    const remove = async () => { setKey(''); try { localStorage.removeItem(KEY_STORE); } catch { } setGeminiKey(null); setSaved(false); await persistToCloud(null); setFlash('Chave removida.'); setTimeout(() => setFlash(''), 2500); };
+    const remove = async () => { setKey(''); try { localStorage.removeItem(KEY_STORE); } catch { } setGeminiKey(null); setSaved(false); await persistToCloud(null); setFlash('Chave removida.'); toast.info('Chave removida.'); setTimeout(() => setFlash(''), 2500); };
 
     return (
         <Card isDark={isDark}>
             <SectionTitle isDark={isDark} icon={Sparkles}
-                right={<span className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full ${saved ? 'bg-emerald-500/15 text-emerald-500' : (isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>{saved ? 'Ativa' : 'Não configurada'}</span>}>
+                right={<Badge tone={saved ? 'emerald' : 'amber'}>{saved ? 'Ativa' : 'Não configurada'}</Badge>}>
                 Inteligência Artificial (Gemini)
             </SectionTitle>
             <p className={`text-[13px] ${cell}`}>
@@ -664,11 +692,11 @@ function IATab({ isDark }) {
                     <Check className="w-4 h-4" /> Salvar chave
                 </button>
                 {saved && (
-                    <button onClick={remove} className={`px-3 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                    <button onClick={remove} className="px-3 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition border border-rose-500/25 text-rose-500 hover:bg-rose-500/10 active:scale-[0.97]">
                         <Trash2 className="w-4 h-4" /> Remover
                     </button>
                 )}
-                {flash && <span className="text-[12px] font-bold text-emerald-500">{flash}</span>}
+                {flash && <span className="text-[12px] font-bold text-emerald-500 animate-in fade-in slide-in-from-left-1">{flash}</span>}
             </div>
 
             <div className={`mt-4 rounded-xl border px-3.5 py-2.5 flex items-start gap-2.5 text-[12px] ${isDark ? 'border-white/10 bg-white/[0.02] text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
