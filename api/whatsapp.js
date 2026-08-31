@@ -757,9 +757,20 @@ Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (p
 ⚠️ NUNCA diga em texto que cadastrou/guardou/criou/pagou/registrou/excluiu algo. Para AGIR, responda SÓ com o JSON — o app grava e confirma de verdade.
 Se não for nenhuma ação, responda normalmente em texto (sem inventar que fez algo).`;
 
-async function askGemini(history, contextText, userMsg) {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) { console.error('WA Gemini: GEMINI_API_KEY AUSENTE na Vercel.'); return 'Desculpe, não consegui responder agora. 😅'; }
+// Mensagem quando o usuário ainda não configurou a própria chave do Gemini.
+const MSG_NO_KEY = '⚙️ Pra eu conversar, configure sua *chave do Gemini* no app: *Configurações › WhatsApp*. É grátis e leva 1 minuto. 🙏';
+
+// Lê a chave do Gemini DO PRÓPRIO usuário (users/{uid}.geminiKey).
+async function getUserGeminiKey(db, uid) {
+  try {
+    const s = await db.collection('users').doc(uid).get();
+    const k = s.data()?.geminiKey;
+    return (typeof k === 'string' && k.trim()) ? k.trim() : null;
+  } catch (e) { console.error('WA getUserGeminiKey:', e); return null; }
+}
+
+async function askGemini(history, contextText, userMsg, key) {
+  if (!key) return MSG_NO_KEY;
   const contents = [
     ...(history || []).slice(-6).map(h => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.text }] })),
     { role: 'user', parts: [{ text: userMsg }] },
@@ -787,9 +798,8 @@ async function askGemini(history, contextText, userMsg) {
 }
 
 // Baixa um áudio do WhatsApp e transcreve com o Gemini (que entende áudio).
-async function transcribeAudio(mediaId) {
+async function transcribeAudio(mediaId, key) {
   const token = process.env.WHATSAPP_TOKEN;
-  const key = process.env.GEMINI_API_KEY;
   if (!mediaId || !key) return '';
   try {
     const meta = await fetch(`${GRAPH}/${mediaId}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
@@ -815,9 +825,8 @@ async function transcribeAudio(mediaId) {
 }
 
 // Baixa um documento (PDF/CSV) do WhatsApp e extrai os lançamentos com o Gemini.
-async function extractStatement(docInfo) {
+async function extractStatement(docInfo, key) {
   const token = process.env.WHATSAPP_TOKEN;
-  const key = process.env.GEMINI_API_KEY;
   if (!docInfo?.id || !key) return [];
   try {
     const meta = await fetch(`${GRAPH}/${docInfo.id}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
@@ -854,12 +863,13 @@ Regras: amount SEMPRE positivo. type=expense para gastos/compras/débitos/saída
 }
 
 // Recebe um documento, extrai os lançamentos e pede confirmação (SIM/NÃO).
-async function handleDocumentImport(db, from, uid, sessRef, docInfo) {
+async function handleDocumentImport(db, from, uid, sessRef, docInfo, key) {
+  if (!key) { await sendText(from, MSG_NO_KEY); return; }
   const mime = (docInfo?.mime_type || '').toLowerCase();
   const ok = mime.includes('pdf') || mime.includes('csv') || mime.includes('text') || mime.includes('excel') || mime.includes('comma');
   if (!ok) { await sendText(from, 'Consigo ler *PDF* ou *CSV* (extrato do banco ou fatura do cartão). Esse formato eu não leio 😅. Dá pra exportar em PDF ou CSV?'); return; }
   await sendText(from, 'Recebi seu arquivo 📄 Estou lendo os lançamentos... um instante.');
-  const items = await extractStatement(docInfo);
+  const items = await extractStatement(docInfo, key);
   if (!items.length) { await sendText(from, 'Não consegui identificar lançamentos nesse arquivo 😅. Confere se é um extrato de banco/cartão em PDF ou CSV legível (não pode ser imagem/foto escaneada sem texto).'); return; }
   const capped = items.slice(0, 80);
   const totalExp = capped.filter(i => i.type === 'expense').reduce((a, i) => a + i.amount, 0);
@@ -1164,8 +1174,10 @@ export default async function handler(req, res) {
 
     const from = msg.from; // telefone E.164 só dígitos
     // Entrada pode ser texto, um toque em lista/botão (interactive) OU áudio (voz).
+    // O áudio é transcrito DEPOIS (com a chave do próprio usuário), após o vínculo.
     let text = '';
     let selId = null;
+    let audioId = null;
     if (msg.type === 'text') {
       text = msg.text?.body || '';
     } else if (msg.type === 'interactive') {
@@ -1173,8 +1185,7 @@ export default async function handler(req, res) {
       selId = it.list_reply?.id || it.button_reply?.id || null;
       text = it.list_reply?.title || it.button_reply?.title || '';
     } else if (msg.type === 'audio') {
-      text = await transcribeAudio(msg.audio?.id);
-      if (!text) { await sendText(from, 'Não consegui entender o áudio 😅. Pode repetir ou escrever?'); return res.status(200).json({ ok: true }); }
+      audioId = msg.audio?.id || null;
     }
     console.log(`WA in <- from=${from} type=${msg.type} text="${text.slice(0, 60)}" sel=${selId || '-'}`);
     const db = initAdmin();
@@ -1199,10 +1210,20 @@ export default async function handler(req, res) {
     const sessRef = db.collection('wa_sessions').doc(from);
     const sess = (await sessRef.get()).data() || {};
     const history = sess.history || [];
+    // Chave do Gemini DO PRÓPRIO usuário — a IA responde com a chave dele, não a do servidor.
+    const geminiKey = await getUserGeminiKey(db, uid);
+
+    // Áudio: transcreve agora, com a chave do usuário.
+    if (msg.type === 'audio') {
+      if (!geminiKey) { await sendText(from, MSG_NO_KEY); return res.status(200).json({ ok: true }); }
+      text = await transcribeAudio(audioId, geminiKey);
+      if (!text) { await sendText(from, 'Não consegui entender o áudio 😅. Pode repetir ou escrever?'); return res.status(200).json({ ok: true }); }
+      console.log(`WA audio transcrito: "${text.slice(0, 60)}"`);
+    }
 
     // 0. Documento (PDF/CSV) — extrai lançamentos e pede confirmação (importação em lote).
     if (msg.type === 'document') {
-      await handleDocumentImport(db, from, uid, sessRef, msg.document);
+      await handleDocumentImport(db, from, uid, sessRef, msg.document, geminiKey);
       return res.status(200).json({ ok: true });
     }
 
@@ -1316,7 +1337,7 @@ export default async function handler(req, res) {
 
     // 3. Conversa com a Alívia
     const ctx = await buildUserContext(db, uid);
-    const reply = await askGemini(history, ctx, text);
+    const reply = await askGemini(history, ctx, text, geminiKey);
     const action = parseAction(reply);
 
     // 3z. Relatório com valores REAIS (calculado no servidor).

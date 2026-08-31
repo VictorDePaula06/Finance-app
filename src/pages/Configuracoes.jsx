@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { auth, db } from '../services/firebase';
 import { updateProfile } from 'firebase/auth';
 import {
-    collection, query, where, getDocs, setDoc, deleteDoc, doc,
+    collection, query, where, getDocs, setDoc, deleteDoc, doc, getDoc,
 } from 'firebase/firestore';
 import { setGeminiKey } from '../services/gemini';
 import { downloadUserData } from '../utils/dataExport';
@@ -56,7 +56,6 @@ const TABS = [
     { id: 'perfil', label: 'Meu Perfil', icon: User },
     { id: 'conta', label: 'Conta', icon: ShieldCheck },
     { id: 'aparencia', label: 'Aparência', icon: Palette },
-    { id: 'ia', label: 'Chave API', icon: Sparkles },
     { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
     { id: 'dados', label: 'Dados & Privacidade', icon: FileText },
 ];
@@ -99,7 +98,6 @@ export default function Configuracoes() {
 
             {tab === 'perfil' && <PerfilTab isDark={isDark} />}
             {tab === 'whatsapp' && <WhatsAppTab isDark={isDark} onGoTo={setTab} />}
-            {tab === 'ia' && <IATab isDark={isDark} />}
             {tab === 'aparencia' && <AparenciaTab isDark={isDark} toggleTheme={toggleTheme} />}
             {tab === 'dados' && <DadosTab isDark={isDark} />}
             {tab === 'conta' && <ContaTab isDark={isDark} />}
@@ -409,9 +407,6 @@ function WhatsAppTab({ isDark, onGoTo }) {
     useEffect(() => { setCfg({ ...DEFAULT_WA_CONFIG, ...(userPrefs?.whatsapp || {}) }); }, [userPrefs?.whatsapp]);
     const setC = (patch) => setCfg(c => ({ ...c, ...patch }));
 
-    // A IA (Gemini) é o cérebro da Alívia no WhatsApp — avisamos se ainda não há chave.
-    const geminiConfigured = (() => { try { return !!localStorage.getItem(KEY_STORE); } catch { return false; } })();
-
     const saveCfg = async () => {
         setSavingCfg(true); setCfgFlash('');
         try {
@@ -453,30 +448,8 @@ function WhatsAppTab({ isDark, onGoTo }) {
 
     return (
         <div className="space-y-4">
-            {/* Passo 0: orientar a configurar a chave da IA */}
-            <div className={`rounded-2xl border p-4 ${geminiConfigured
-                ? (isDark ? 'border-emerald-500/20 bg-emerald-500/[0.05]' : 'border-emerald-200 bg-emerald-50')
-                : (isDark ? 'border-amber-500/25 bg-amber-500/[0.06]' : 'border-amber-300 bg-amber-50')}`}>
-                <div className="flex items-start gap-2.5">
-                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${geminiConfigured ? 'bg-emerald-500/15 text-emerald-500' : 'bg-amber-500/15 text-amber-500'}`}><Sparkles className="w-4 h-4" /></span>
-                    <div className="min-w-0 flex-1">
-                        <p className={`text-[13px] font-black ${geminiConfigured ? (isDark ? 'text-emerald-300' : 'text-emerald-700') : (isDark ? 'text-amber-300' : 'text-amber-700')}`}>
-                            {geminiConfigured ? 'Inteligência Artificial ativa' : 'Ative a Inteligência Artificial primeiro'}
-                        </p>
-                        <p className={`text-[12px] mt-1 leading-relaxed ${cell}`}>
-                            A Alívia entende suas mensagens no WhatsApp usando o <b>Google Gemini</b>. {geminiConfigured
-                                ? 'Sua chave já está configurada — é só conectar seu número abaixo.'
-                                : 'Sem a chave da IA, ela não consegue conversar nem registrar gastos por mensagem. Configure em Inteligência Artificial.'}
-                        </p>
-                        {!geminiConfigured && (
-                            <button onClick={() => onGoTo?.('ia')}
-                                className="mt-2.5 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[12px] font-bold transition active:scale-95">
-                                <KeyRound className="w-3.5 h-3.5" /> Configurar chave da IA
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
+            {/* Passo 1: chave da IA (Gemini) — agora dentro da própria aba WhatsApp. */}
+            <IATab isDark={isDark} />
 
             <Card isDark={isDark}>
                 <SectionTitle isDark={isDark} icon={MessageCircle}
@@ -617,6 +590,8 @@ function DisconnectBtn({ isDark, onConfirm }) {
 
 // ── Inteligência Artificial (Gemini) ────────────────────────────────
 function IATab({ isDark }) {
+    const { currentUser } = useAuth();
+    const uid = currentUser?.uid;
     const [key, setKey] = useState(() => { try { return localStorage.getItem(KEY_STORE) || ''; } catch { return ''; } });
     const [saved, setSaved] = useState(() => { try { return !!localStorage.getItem(KEY_STORE); } catch { return false; } });
     const [show, setShow] = useState(false);
@@ -625,16 +600,38 @@ function IATab({ isDark }) {
     const cell = isDark ? 'text-slate-300' : 'text-slate-700';
     const inputCls = `w-full pl-10 pr-12 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
 
-    useEffect(() => { try { const k = localStorage.getItem(KEY_STORE); if (k) setGeminiKey(k); } catch { } }, []);
+    // Persiste a chave também no Firestore (users/{uid}) para o webhook do WhatsApp
+    // responder usando a chave DO PRÓPRIO usuário — não a chave do servidor.
+    const persistToCloud = async (k) => {
+        if (!uid) return;
+        try { await setDoc(doc(db, 'users', uid), { geminiKey: k || null }, { merge: true }); }
+        catch (e) { console.error('[geminiKey cloud]', e); }
+    };
 
-    const save = () => {
+    useEffect(() => {
+        try {
+            const k = localStorage.getItem(KEY_STORE);
+            if (k) { setGeminiKey(k); persistToCloud(k); } // migra quem já tinha só no dispositivo
+            else if (uid) {
+                // Sem chave local: puxa a que já está salva na conta (ex.: outro dispositivo).
+                getDoc(doc(db, 'users', uid)).then(s => {
+                    const ck = s.data()?.geminiKey;
+                    if (ck) { try { localStorage.setItem(KEY_STORE, ck); } catch { } setGeminiKey(ck); setKey(ck); setSaved(true); }
+                }).catch(() => { });
+            }
+        } catch { }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [uid]);
+
+    const save = async () => {
         const k = key.trim();
         try { if (k) localStorage.setItem(KEY_STORE, k); else localStorage.removeItem(KEY_STORE); } catch { }
         setGeminiKey(k || null); setSaved(!!k);
-        setFlash(k ? 'Chave salva! A IA generativa está ativa na Consultoria Alívia.' : 'Chave removida.');
-        setTimeout(() => setFlash(''), 2500);
+        await persistToCloud(k);
+        setFlash(k ? 'Chave salva! A Alívia já responde no WhatsApp e na Consultoria.' : 'Chave removida.');
+        setTimeout(() => setFlash(''), 2800);
     };
-    const remove = () => { setKey(''); try { localStorage.removeItem(KEY_STORE); } catch { } setGeminiKey(null); setSaved(false); setFlash('Chave removida.'); setTimeout(() => setFlash(''), 2500); };
+    const remove = async () => { setKey(''); try { localStorage.removeItem(KEY_STORE); } catch { } setGeminiKey(null); setSaved(false); await persistToCloud(null); setFlash('Chave removida.'); setTimeout(() => setFlash(''), 2500); };
 
     return (
         <Card isDark={isDark}>
@@ -643,7 +640,7 @@ function IATab({ isDark }) {
                 Inteligência Artificial (Gemini)
             </SectionTitle>
             <p className={`text-[13px] ${cell}`}>
-                Com uma chave de API do Google Gemini, a <b>Consultoria Alívia</b> conversa de forma aberta (IA generativa) e ajuda a lançar seus dados. É <b>gratuita</b> e leva 1 minuto pra gerar.
+                Com uma chave de API do Google Gemini, a <b>Alívia</b> entende e responde suas mensagens no <b>WhatsApp</b> (e na Consultoria do app) usando a <b>sua própria</b> chave. É <b>gratuita</b> e leva 1 minuto pra gerar.
             </p>
 
             <a href={AI_STUDIO_URL} target="_blank" rel="noopener noreferrer"
@@ -676,7 +673,7 @@ function IATab({ isDark }) {
 
             <div className={`mt-4 rounded-xl border px-3.5 py-2.5 flex items-start gap-2.5 text-[12px] ${isDark ? 'border-white/10 bg-white/[0.02] text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
                 <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                Sua chave fica no seu dispositivo e é usada só para falar com o Gemini. Você pode remover quando quiser.
+                Sua chave fica salva na sua conta (e neste dispositivo), usada só para a Alívia falar com o Gemini — no WhatsApp e no app. Você pode remover quando quiser.
             </div>
         </Card>
     );
