@@ -3,11 +3,10 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
     LayoutDashboard, Repeat, ArrowLeftRight, CreditCard, Landmark,
-    BarChart3, Receipt, BookOpen, Settings, LogOut, Sun, Moon, X, PiggyBank, Sparkles, Users,
+    BarChart3, Receipt, BookOpen, Settings, LogOut, Sun, Moon, X, PiggyBank, Users,
 } from 'lucide-react';
 
 import logo from '../assets/logo.png';
-import aliviaAvatar from '../assets/alivia/alivia-final.png';
 import UserAvatar from './UserAvatar';
 import { isAdminEmail } from '../constants/admins';
 
@@ -102,28 +101,7 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
 
             </nav>
 
-            {/* Consultoria Alívia — aba em destaque (efeito de brilho pra chamar atenção) */}
-            {(() => {
-                const on = active === 'consultoria';
-                return (
-                    <button onClick={() => withClose(onNavigate)('consultoria')}
-                        className={`group relative w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-[14px] font-bold transition-all active:scale-[0.98] mt-2 mb-4 overflow-hidden ${
-                            on
-                                ? 'text-white border border-emerald-400/40 shadow-lg shadow-emerald-500/20 bg-gradient-to-r from-emerald-500 to-teal-500'
-                                : (isDark ? 'text-slate-400 border border-transparent hover:bg-white/5 hover:text-slate-200'
-                                          : 'text-slate-500 border border-transparent hover:bg-slate-50 hover:text-slate-800')
-                        }`}>
-                        {/* brilho deslizante */}
-                        {!on && <span className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-emerald-400/25 to-transparent" />}
-                        <span className="relative shrink-0 -ml-0.5">
-                            {!on && <span className="absolute inset-0 rounded-full bg-emerald-400/40 animate-ping" />}
-                            <img src={aliviaAvatar} alt="" className={`relative w-[24px] h-[24px] rounded-full object-cover ring-2 ${on ? 'ring-white/60' : 'ring-emerald-400/60'}`} />
-                        </span>
-                        <span className="truncate flex items-center gap-1.5">Consultoria Alívia</span>
-                        <Sparkles className={`w-3.5 h-3.5 ml-auto shrink-0 ${on ? 'text-white' : 'text-emerald-400'} animate-pulse`} />
-                    </button>
-                );
-            })()}
+            {/* Conversa com a Alívia agora acontece só no WhatsApp (aba removida). */}
 
             {/* Bloco do usuário + configurações */}
             <div className="mt-3 pt-3 space-y-1">
