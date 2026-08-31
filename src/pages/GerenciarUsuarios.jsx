@@ -22,7 +22,7 @@ const toMs = (d) => {
 // Os 4 grupos do app.
 const GROUPS = [
     { id: 'free', label: 'Gratuito', icon: Gift, color: '#94a3b8', desc: 'Plano gratuito (com limites)' },
-    { id: 'pro', label: 'Pro', icon: Sparkles, color: '#10b981', desc: 'Acesso completo (pago/concedido)' },
+    { id: 'pro', label: 'Pro', icon: Sparkles, color: '#10b981', desc: 'Acesso completo — automático via Stripe (não editável)' },
     { id: 'lifetime', label: 'Vitalício', icon: Crown, color: '#a855f7', desc: 'Pro permanente, sem cobrança' },
     { id: 'dev', label: 'Dev', icon: ShieldCheck, color: '#f59e0b', desc: 'Administrador — acesso total + painel' },
 ];
@@ -55,7 +55,7 @@ export default function GerenciarUsuarios() {
     const groupOf = (u) => {
         if (u.isAdmin) return 'dev';
         if (u.manualStatus === 'lifetime') return 'lifetime';
-        if (u.stripeActive || u.manualStatus === 'pro') return 'pro';
+        if (u.stripeActive) return 'pro';   // Pro = SOMENTE assinatura paga no Stripe
         return 'free';
     };
 
@@ -131,14 +131,19 @@ export default function GerenciarUsuarios() {
 
     // Aplica o grupo escolhido, gravando o que o AuthContext entende.
     const applyGroup = async (u, groupId) => {
+        // Pro NÃO é atribuível manualmente — só existe via pagamento no Stripe.
+        if (groupId === 'pro') {
+            setToast('O plano Pro é automático (pago no Stripe) — não pode ser atribuído manualmente.');
+            setTimeout(() => mounted.current && setToast(''), 3200);
+            return;
+        }
         setSaving(true);
         try {
             const userRef = doc(db, 'users', u.uid);
             const settingsRef = doc(db, 'users', u.uid, 'settings', 'general');
             const status = groupId === 'lifetime' ? 'lifetime'
-                : groupId === 'pro' ? 'pro'
-                    : groupId === 'dev' ? 'lifetime'   // dev = acesso total
-                        : 'free';
+                : groupId === 'dev' ? 'lifetime'   // dev = acesso total
+                    : 'free';
             const isAdmin = groupId === 'dev';
             const batch = writeBatch(db);
             batch.set(userRef, { isAdmin, subscription: { status, updatedAt: new Date() } }, { merge: true });
@@ -273,7 +278,7 @@ export default function GerenciarUsuarios() {
                                     <div className="min-w-0 flex-1">
                                         <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{u.email}</p>
                                         <p className={`text-[11px] ${muted}`}>
-                                            {u.stripeActive ? 'Assinatura ativa no Stripe' : u.manualStatus === 'pro' ? 'Pro concedido manualmente' : u.manualStatus === 'lifetime' ? 'Vitalício' : u.isAdmin ? 'Administrador' : 'Gratuito'}
+                                            {u.stripeActive ? 'Assinatura ativa no Stripe' : u.manualStatus === 'lifetime' ? 'Vitalício' : u.isAdmin ? 'Administrador' : 'Gratuito'}
                                         </p>
                                     </div>
                                     {u.group === 'pro' && (() => {
@@ -336,7 +341,8 @@ export default function GerenciarUsuarios() {
                         </div>
                         <p className={`text-[13px] mb-4 truncate ${muted}`}>{editing.email}</p>
                         <div className="space-y-2">
-                            {GROUPS.map(g => {
+                            {/* Selecionáveis: Gratuito, Vitalício, Dev. Pro NÃO entra aqui. */}
+                            {GROUPS.filter(g => g.id !== 'pro').map(g => {
                                 const Icon = g.icon;
                                 const on = groupOf(editing) === g.id;
                                 return (
@@ -352,6 +358,23 @@ export default function GerenciarUsuarios() {
                                     </button>
                                 );
                             })}
+
+                            {/* Pro é READ-ONLY: só existe com pagamento no Stripe. */}
+                            {(() => {
+                                const isPro = groupOf(editing) === 'pro';
+                                return (
+                                    <div className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl border-2 border-dashed ${isPro ? '' : (isDark ? 'border-white/10' : 'border-slate-200')}`}
+                                        style={isPro ? { borderColor: '#10b981', background: '#10b98112' } : undefined}
+                                        title="O Pro é automático via Stripe — não pode ser atribuído manualmente.">
+                                        <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#10b9811f', color: '#10b981' }}><Sparkles className="w-4 h-4" /></span>
+                                        <div className="min-w-0 flex-1">
+                                            <p className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Pro</p>
+                                            <p className={`text-[11px] ${muted}`}>Automático pelo Stripe — não editável aqui. {isPro ? 'Assinatura ativa.' : 'Ativa só com pagamento.'}</p>
+                                        </div>
+                                        {isPro ? <Check className="w-4 h-4 shrink-0" style={{ color: '#10b981' }} /> : <Lock className={`w-4 h-4 shrink-0 ${muted}`} />}
+                                    </div>
+                                );
+                            })()}
                         </div>
                         {saving && <p className="text-[12px] text-center mt-4 text-emerald-500 font-bold flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Salvando…</p>}
                     </div>

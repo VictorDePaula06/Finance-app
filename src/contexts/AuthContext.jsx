@@ -339,13 +339,10 @@ export function AuthProvider({ children }) {
             } else if (hasAnnualPass) {
                 // Compra única anual (12x) válida → Pro por 1 ano.
                 currentPlanLevel = 'premium';
-            } else if (dataRef.current.prefs.subscription?.status === 'pro'
-                || dataRef.current.user.subscription?.status === 'pro') {
-                // Pro concedido MANUALMENTE por um admin (tela de gerenciamento).
-                // Só um admin consegue gravar 'pro' (firestore.rules protege o doc do
-                // próprio usuário via subStatusSafe), então isto não é bypass.
-                currentPlanLevel = 'premium';
             }
+            // PRO é concedido SOMENTE por pagamento no Stripe (assinatura ativa/trialing
+            // OU compra anual). Um status 'pro' gravado manualmente NÃO concede Pro —
+            // fica apenas como registro. Vitalício/Dev usam status 'lifetime'.
             // Qualquer outro caso permanece 'free'.
 
             // Tipo de assinatura e data (apenas exibição / portal). Sem Stripe = mensal.
