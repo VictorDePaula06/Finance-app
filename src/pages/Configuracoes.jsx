@@ -19,8 +19,12 @@ import {
 
 const KEY_STORE = 'aliviaGeminiKey';
 const AI_STUDIO_URL = 'https://aistudio.google.com/app/apikey';
-// Número do bot no WhatsApp (opcional). Defina VITE_WHATSAPP_NUMBER (só dígitos, ex.: 5521999999999).
-const WA_NUMBER = import.meta.env?.VITE_WHATSAPP_NUMBER || '';
+// Número do bot no WhatsApp. Prioriza VITE_WHATSAPP_NUMBER; senão usa o número
+// oficial da Alívia (só dígitos, com país+DDD) — assim o "abrir WhatsApp" funciona.
+const WA_NUMBER = import.meta.env?.VITE_WHATSAPP_NUMBER || '5521973052618';
+// Mensagem padrão que a pessoa envia pra Alívia (contém o código de vínculo).
+const waLinkMessage = (code) => `Oi Alívia! 💚 Quero vincular meu WhatsApp à minha conta do Alívia. Meu código de vínculo é: ${code}`;
+const waLinkUrl = (code) => `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(waLinkMessage(code))}`;
 const genCode = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem I/O/0/1 ambíguos
     let s = '';
@@ -486,15 +490,6 @@ function WhatsAppTab({ isDark, onGoTo }) {
     };
     useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [uid]);
 
-    const gerar = async () => {
-        setGenerating(true); setError(''); setCopied(false);
-        try {
-            const c = genCode();
-            await setDoc(doc(db, 'wa_links', c), { uid, createdAt: Date.now() });
-            setCode(c); toast.success('Código gerado! Envie-o para a Alívia no WhatsApp.');
-        } catch (e) { console.error(e); setError('Não foi possível gerar o código. Tente novamente.'); toast.error('Não foi possível gerar o código.'); }
-        setGenerating(false);
-    };
     const copiar = () => { try { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { } };
     const desvincular = async (phone) => {
         setError('');
@@ -502,7 +497,28 @@ function WhatsAppTab({ isDark, onGoTo }) {
         catch (e) { console.error(e); setError('Não foi possível desvincular.'); toast.error('Não foi possível desvincular.'); }
     };
 
-    const waLink = WA_NUMBER ? `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(code || '')}` : '';
+    // Gera o código e JÁ abre a conversa com a Alívia no WhatsApp (web/celular)
+    // com a mensagem padrão preenchida — a pessoa só aperta enviar.
+    // A aba é aberta SÍNCRONA (no gesto do clique) pra não ser bloqueada por popup blocker.
+    const conectar = async () => {
+        setGenerating(true); setError(''); setCopied(false);
+        const c = genCode();
+        setCode(c);
+        const win = window.open(waLinkUrl(c), '_blank', 'noopener,noreferrer');
+        try {
+            await setDoc(doc(db, 'wa_links', c), { uid, createdAt: Date.now() });
+            const digits = String(cfg.number || '').replace(/\D/g, '');
+            if (digits) saveUserPreferences({ whatsapp: { ...cfg, number: digits } }).catch(() => { });
+            toast.success('Abrindo o WhatsApp… é só enviar a mensagem pra Alívia. 💬');
+        } catch (e) {
+            console.error(e);
+            try { win && win.close(); } catch { }
+            setError('Não foi possível iniciar. Tente novamente.'); toast.error('Não foi possível iniciar.');
+        }
+        setGenerating(false);
+    };
+
+    const waLink = code ? waLinkUrl(code) : '';
 
     return (
         <div className="space-y-4">
@@ -518,8 +534,7 @@ function WhatsAppTab({ isDark, onGoTo }) {
                 {!loading && linked.length === 0 && (
                     <>
                         <p className={`text-[13px] ${cell}`}>
-                            Vincule seu número para conversar com a <b>Alívia</b> pelo WhatsApp e registrar gastos por mensagem (ex.: “mercado 120”).
-                            Gere um código, envie para a Alívia no WhatsApp e pronto.
+                            Digite seu número e toque no botão — vamos <b>abrir o WhatsApp</b> já com uma mensagem pronta pra você enviar pra <b>Alívia</b>. É ela quem faz o vínculo na hora. 💬
                         </p>
 
                         {/* Seu número de WhatsApp */}
@@ -529,10 +544,16 @@ function WhatsAppTab({ isDark, onGoTo }) {
                                 <MessageCircle className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} />
                                 <input inputMode="tel" value={cfg.number}
                                     onChange={e => setC({ number: e.target.value.replace(/[^\d\s()+-]/g, '') })}
+                                    onKeyDown={e => { if (e.key === 'Enter') conectar(); }}
                                     placeholder="Ex.: +55 21 99999-9999" className={inputCls} />
                             </div>
                             <p className={`text-[11px] mt-1.5 ${muted}`}>Com DDD (e país). Usamos para reconhecer você e enviar as notificações que escolher.</p>
                         </div>
+
+                        <button onClick={conectar} disabled={generating}
+                            className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition active:scale-95 disabled:opacity-60 shadow-md shadow-emerald-500/25">
+                            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />} Conversar com a Alívia no WhatsApp
+                        </button>
                     </>
                 )}
 
@@ -559,47 +580,30 @@ function WhatsAppTab({ isDark, onGoTo }) {
                             </div>
                         ))}
                     </div>
-                ) : (
-                    <div className="mt-4">
-                        {!code ? (
-                            <button onClick={gerar} disabled={generating}
-                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold transition active:scale-95 disabled:opacity-60">
-                                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />} Gerar código de vínculo
+                ) : code ? (
+                    /* Fallback: já geramos o código e abrimos o WhatsApp — caso não abra. */
+                    <div className={`mt-4 rounded-2xl border p-4 ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-50'}`}>
+                        <p className={`text-[12px] ${cell}`}>Não abriu automaticamente? Abra a conversa da <b>Alívia</b> e envie este código (ou toque em "Abrir o WhatsApp"):</p>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            <span className="text-2xl font-black tracking-[0.3em] tabular-nums text-emerald-500">{code}</span>
+                            <button onClick={copiar} className={`p-2 rounded-lg text-[12px] font-bold flex items-center gap-1.5 transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+                                {copied ? <><Check className="w-3.5 h-3.5 text-emerald-500" /> Copiado</> : <><Copy className="w-3.5 h-3.5" /> Copiar</>}
                             </button>
-                        ) : (
-                            <div className={`rounded-2xl border p-4 ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-50'}`}>
-                                <p className={`text-[11px] font-black uppercase tracking-widest ${muted}`}>Seu código</p>
-                                <div className="flex items-center gap-2 mt-1.5">
-                                    <span className="text-2xl font-black tracking-[0.3em] tabular-nums text-emerald-500">{code}</span>
-                                    <button onClick={copiar} className={`ml-1 p-2 rounded-lg text-[12px] font-bold flex items-center gap-1.5 transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
-                                        {copied ? <><Check className="w-3.5 h-3.5 text-emerald-500" /> Copiado</> : <><Copy className="w-3.5 h-3.5" /> Copiar</>}
-                                    </button>
-                                </div>
-                                <ol className={`mt-3 space-y-1.5 text-[12px] ${cell}`}>
-                                    <li>1. Abra a conversa da Alívia no WhatsApp.</li>
-                                    <li>2. Envie o código <span className="font-black text-emerald-500">{code}</span> como mensagem.</li>
-                                    <li>3. Pronto — seu número fica vinculado à sua conta.</li>
-                                </ol>
-                                <div className="flex items-center gap-2 mt-3 flex-wrap">
-                                    {waLink && (
-                                        <a href={waLink} target="_blank" rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold transition active:scale-95">
-                                            <MessageCircle className="w-4 h-4" /> Abrir no WhatsApp <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-                                        </a>
-                                    )}
-                                    <button onClick={gerar} disabled={generating} className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] font-bold transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
-                                        <RefreshCw className="w-4 h-4" /> Gerar outro
-                                    </button>
-                                    <button onClick={refresh} className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] font-bold transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
-                                        <Check className="w-4 h-4" /> Já vinculei
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-3 flex-wrap">
+                            <a href={waLink} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold transition active:scale-95">
+                                <MessageCircle className="w-4 h-4" /> Abrir o WhatsApp <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                            </a>
+                            <button onClick={refresh} className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] font-bold transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+                                <Check className="w-4 h-4" /> Já vinculei
+                            </button>
+                        </div>
+                        {error && <p className="text-[12px] font-bold text-rose-500 mt-2">{error}</p>}
                     </div>
-                )}
-
-                {error && <p className="text-[12px] font-bold text-rose-500 mt-3">{error}</p>}
+                ) : error ? (
+                    <p className="text-[12px] font-bold text-rose-500 mt-3">{error}</p>
+                ) : null}
             </Card>
 
             {/* Notificações e o que enviar */}

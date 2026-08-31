@@ -1193,15 +1193,24 @@ export default async function handler(req, res) {
     // 1. Vínculo do número
     const userDoc = await db.collection('wa_users').doc(from).get();
     if (!userDoc.exists) {
-      const code = text.trim().toUpperCase().replace(/\s+/g, '');
-      const linkRef = db.collection('wa_links').doc(code);
-      const linkSnap = await linkRef.get();
-      if (linkSnap.exists) {
+      // O código pode vir sozinho OU dentro de uma mensagem pronta (ex.: "...meu
+      // código é: XZ28YK"). Extraímos os tokens de 6 chars do alfabeto de códigos
+      // (sem I/O/0/1) e também o texto inteiro sem espaços (compatibilidade).
+      const upper = String(text || '').toUpperCase();
+      const candidates = [...(upper.match(/[ABCDEFGHJKLMNPQRSTUVWXYZ2-9]{6}/g) || [])];
+      const whole = upper.replace(/\s+/g, '');
+      if (whole && !candidates.includes(whole)) candidates.push(whole);
+      let linkRef = null, linkSnap = null;
+      for (const cand of candidates) {
+        const snap = await db.collection('wa_links').doc(cand).get();
+        if (snap.exists) { linkRef = db.collection('wa_links').doc(cand); linkSnap = snap; break; }
+      }
+      if (linkSnap) {
         await db.collection('wa_users').doc(from).set({ uid: linkSnap.data().uid, linkedAt: Date.now() });
         await linkRef.delete();
         await sendText(from, 'Pronto, seu WhatsApp foi vinculado à sua conta Alívia! ✅\n\nPode me perguntar sobre suas finanças ou registrar um gasto (ex.: "mercado 120").');
       } else {
-        await sendText(from, 'Oi! Sou a Alívia 💚\nPara conectar, abra o app em *Ajustes › Conectar WhatsApp*, gere seu código e me envie ele aqui.');
+        await sendText(from, 'Oi! Sou a Alívia 💚\nPara conectar, abra o app em *Configurações › WhatsApp*, toque em *Conversar com a Alívia* e envie a mensagem que aparecer (ela já vem com seu código).');
       }
       return res.status(200).json({ ok: true });
     }
