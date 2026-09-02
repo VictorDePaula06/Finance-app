@@ -54,7 +54,32 @@ function verifySignature(req, rawBody) {
 }
 
 const GRAPH = 'https://graph.facebook.com/v20.0';
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+// Modelos tentados em ordem. Algumas chaves (mais novas / de outra região) não têm
+// acesso ao gemini-2.5-flash e devolvem 404 — nesse caso caímos pro próximo modelo.
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash'];
+const geminiUrl = (model) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+// Chama o Gemini tentando os modelos em ordem; só faz fallback quando o modelo
+// não existe pra aquela chave (404 / NOT_FOUND). Devolve { r, j } do 1º que responder.
+async function callGemini(body, key) {
+  let last = { r: { ok: false, status: 0 }, j: {} };
+  for (const model of GEMINI_MODELS) {
+    try {
+      const r = await fetch(`${geminiUrl(model)}?key=${key}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const j = await r.json().catch(() => ({}));
+      const notFound = r.status === 404 || String(j?.error?.status || '').toUpperCase() === 'NOT_FOUND';
+      if (notFound) { last = { r, j }; continue; } // tenta o próximo modelo
+      if (model !== GEMINI_MODELS[0]) console.log(`WA Gemini usando modelo alternativo: ${model}`);
+      return { r, j };
+    } catch (e) {
+      last = { r: { ok: false, status: 0 }, j: {}, netError: e };
+      throw e; // erro de rede: deixa o chamador tratar (mensagem de conexão)
+    }
+  }
+  return last; // todos os modelos deram 404
+}
 
 // Categorias de despesa válidas (espelha src/constants/categories.js).
 const EXPENSE_CATS = ['housing', 'food', 'fast_food', 'transport', 'health', 'education', 'pets', 'personal_care', 'subscriptions', 'credit_card', 'church', 'taxes', 'leisure', 'shopping', 'conta_fixa', 'other'];
@@ -864,6 +889,10 @@ function geminiErrorMessage(httpStatus, j) {
   if (code === 500 || gstatus === 'INTERNAL') {
     return '🛠️ *O serviço de IA do Google teve um erro interno agora.*\n\nÉ momentâneo. Tente de novo em instantes — se continuar, me avise para investigarmos.\n\n_(motivo: erro interno do provedor · cód. IA-500)_';
   }
+  // Modelo de IA indisponível para essa chave (chave nova / região diferente).
+  if (code === 404 || gstatus === 'NOT_FOUND' || msg.includes('not found') || msg.includes('is not supported')) {
+    return '🤖 *O modelo de IA ainda não está liberado para a sua chave do Gemini.*\n\nIsso costuma acontecer com chaves recém-criadas ou de outra região. Tente gerar a chave novamente em *aistudio.google.com* (mesma conta Google) e salvá-la em *Configurações › WhatsApp › Inteligência*. Se continuar, me avise.\n\n_(motivo: modelo indisponível · cód. IA-404)_';
+  }
   // Conteúdo bloqueado por política de segurança do provedor.
   const block = String(j?.promptFeedback?.blockReason || j?.candidates?.[0]?.finishReason || '').toUpperCase();
   if (block.includes('SAFETY') || block.includes('BLOCK')) {
@@ -885,10 +914,7 @@ async function askGemini(history, contextText, userMsg, key) {
     generationConfig: { temperature: 0.7, maxOutputTokens: 600 },
   };
   try {
-    const r = await fetch(`${GEMINI_URL}?key=${key}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-    });
-    const j = await r.json().catch(() => ({}));
+    const { r, j } = await callGemini(body, key);
     if (!r.ok || j?.error) {
       console.error(`WA Gemini falhou: HTTP ${r.status} resp=${JSON.stringify(j).slice(0, 500)}`);
       return geminiErrorMessage(r.status, j);
@@ -924,8 +950,7 @@ async function transcribeAudio(mediaId, key) {
         ],
       }],
     };
-    const r = await fetch(`${GEMINI_URL}?key=${key}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const j = await r.json().catch(() => ({}));
+    const { r, j } = await callGemini(body, key);
     if (!r.ok || j?.error) {
       console.error(`WA audio falhou: HTTP ${r.status} ${JSON.stringify(j).slice(0, 300)}`);
       return { errorMsg: geminiErrorMessage(r.status, j) };
@@ -961,8 +986,7 @@ Regras: amount SEMPRE positivo. type=expense para gastos/compras/débitos/saída
       parts = [{ text: `${instruction}\n\nConteúdo do arquivo:\n${textCsv}` }];
     }
     const body = { contents: [{ role: 'user', parts }], generationConfig: { temperature: 0, maxOutputTokens: 6000 } };
-    const r = await fetch(`${GEMINI_URL}?key=${key}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const j = await r.json().catch(() => ({}));
+    const { r, j } = await callGemini(body, key);
     if (!r.ok || j?.error) { console.error(`WA import falhou: HTTP ${r.status} ${JSON.stringify(j).slice(0, 300)}`); return { items: [], errorMsg: geminiErrorMessage(r.status, j) }; }
     const t = j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const m = t.match(/\[[\s\S]*\]/);
