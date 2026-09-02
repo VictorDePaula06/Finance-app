@@ -777,6 +777,62 @@ async function getUserGeminiKey(db, uid) {
   } catch (e) { console.error('WA getUserGeminiKey:', e); return null; }
 }
 
+// ── LIMITE DO PLANO GRATUITO NO WHATSAPP ──────────────────────────────────
+// No Gratuito a Alívia responde no WhatsApp, mas com um teto mensal de interações
+// (mensagens NOVAS; continuações de um fluxo em andamento não contam).
+const FREE_WA_MONTHLY_LIMIT = 10;
+
+// Plano do usuário (server-side): 'pro' (ilimitado) ou 'free' (limitado).
+// PRO = admin/vitalício OU assinatura ativa no Stripe OU compra anual válida.
+async function getUserPlan(db, uid) {
+  try {
+    const [uSnap, subsSnap, paySnap] = await Promise.all([
+      db.collection('users').doc(uid).get(),
+      db.collection('customers').doc(uid).collection('subscriptions').get().catch(() => ({ docs: [] })),
+      db.collection('customers').doc(uid).collection('payments').get().catch(() => ({ docs: [] })),
+    ]);
+    const u = uSnap.data() || {};
+    if (u.isAdmin === true) return 'pro';
+    if (u.subscription?.status === 'lifetime') return 'pro';
+    const hasActive = (subsSnap.docs || []).some(d => ['active', 'trialing'].includes(d.data()?.status));
+    if (hasActive) return 'pro';
+    const now = Date.now();
+    const hasAnnual = (paySnap.docs || []).some(d => {
+      const p = d.data() || {}; if (p.status !== 'succeeded') return false;
+      const created = (p.created || 0) * 1000;
+      return created > 0 && (now - created) < 366 * 86400000;
+    });
+    if (hasAnnual) return 'pro';
+    return 'free';
+  } catch (e) { console.error('WA getUserPlan:', e); return 'free'; }
+}
+
+// Conta +1 no uso mensal do Gratuito de forma atômica. Retorna se ainda pode usar.
+async function bumpFreeUsage(db, uid) {
+  const ref = db.collection('users').doc(uid);
+  const mk = new Date().toISOString().slice(0, 7);
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const wu = snap.data()?.waUsage || {};
+      let count = (wu.month === mk) ? (parseInt(wu.count) || 0) : 0;
+      if (count >= FREE_WA_MONTHLY_LIMIT) return { allowed: false, count, limit: FREE_WA_MONTHLY_LIMIT };
+      count += 1;
+      tx.set(ref, { waUsage: { month: mk, count } }, { merge: true });
+      return { allowed: true, count, limit: FREE_WA_MONTHLY_LIMIT };
+    });
+  } catch (e) { console.error('WA bumpFreeUsage:', e); return { allowed: true, count: 0, limit: FREE_WA_MONTHLY_LIMIT }; } // falha → não bloqueia
+}
+
+// Mensagem de upgrade (marketing) quando o Gratuito estoura o limite.
+const waUpgradeMessage = (limit) =>
+  `✨ *Você aproveitou bastante a Alívia este mês!*\n\n`
+  + `No plano *Gratuito* você tem ${limit} conversas por mês no WhatsApp — e elas acabaram por agora.\n\n`
+  + `Com o *Alívia PRO* isso vira *ilimitado*: registre gastos, dê baixa em contas, peça relatórios e até importe extratos pelo WhatsApp, sem parar. 🚀\n\n`
+  + `💚 Menos de *R$ 0,66 por dia* pra assumir o controle das suas finanças.\n`
+  + `👉 Assine em *soualivia.com.br* e desbloqueie tudo.\n\n`
+  + `_Seu limite renova no início do próximo mês._`;
+
 async function askGemini(history, contextText, userMsg, key) {
   if (!key) return MSG_NO_KEY;
   const contents = [
@@ -1229,6 +1285,18 @@ export default async function handler(req, res) {
     const history = sess.history || [];
     // Chave do Gemini DO PRÓPRIO usuário — a IA responde com a chave dele, não a do servidor.
     const geminiKey = await getUserGeminiKey(db, uid);
+
+    // Limite do plano GRATUITO: conta interações NOVAS (mensagem/áudio/documento
+    // sem fluxo pendente). Continuações (toques em botão, confirmações de um fluxo
+    // em andamento) NÃO contam nem bloqueiam. PRO/Vitalício/Dev = ilimitado.
+    if (!sess.pending && msg.type !== 'interactive') {
+      const plan = await getUserPlan(db, uid);
+      if (plan === 'free') {
+        const usage = await bumpFreeUsage(db, uid);
+        console.log(`WA free-usage uid=${uid} count=${usage.count}/${usage.limit} allowed=${usage.allowed}`);
+        if (!usage.allowed) { await sendText(from, waUpgradeMessage(usage.limit)); return res.status(200).json({ ok: true }); }
+      }
+    }
 
     // Áudio: transcreve agora, com a chave do usuário.
     if (msg.type === 'audio') {

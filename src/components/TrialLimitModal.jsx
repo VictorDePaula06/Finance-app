@@ -81,67 +81,35 @@ export default function TrialLimitModal({ isOpen, onClose, limitMessage }) {
                         </div>
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Escolha um plano e tenha acesso <span className="font-bold text-slate-200">ilimitado</span> a lançamentos, cartões, contas fixas e muito mais:
+                        Com o <span className="font-bold text-emerald-300">Alívia PRO</span> você tem acesso <span className="font-bold text-slate-200">ilimitado</span> — lançamentos, cartões, WhatsApp, análises e o módulo Patrimônio:
                     </p>
 
-                    {/* Plano Standard */}
-                    <button
-                        onClick={() => handleSubscribe('standard')}
-                        disabled={isRedirecting}
-                        className="w-full p-4 rounded-xl border-2 border-blue-500/30 bg-blue-500/5 hover:border-blue-500 hover:bg-blue-500/10 transition-all text-left active:scale-95 disabled:opacity-60"
-                    >
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <Zap className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                                    <span className="text-sm font-black text-white">Plano Standard</span>
-                                </div>
-                                <div className="space-y-1">
-                                    {['Lançamentos ilimitados', 'Cartões ilimitados', 'Contas fixas ilimitadas'].map(f => (
-                                        <div key={f} className="flex items-center gap-1.5">
-                                            <Check className="w-3 h-3 text-blue-400 shrink-0" />
-                                            <span className="text-[10px] text-slate-400">{f}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="text-right shrink-0">
-                                <p className="text-lg font-black text-blue-400">R$ 9,90</p>
-                                <p className="text-[10px] text-slate-500">/mês</p>
-                                <p className="text-[9px] font-bold text-blue-300/70 whitespace-nowrap">≈ R$ 0,33/dia</p>
-                                {redirectingPlan === 'standard' && (
-                                    <div className="mt-1 w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin mx-auto" />
-                                )}
-                            </div>
-                        </div>
-                    </button>
-
-                    {/* Plano Premium */}
+                    {/* Plano PRO — único, em destaque */}
                     <button
                         onClick={() => handleSubscribe('premium')}
                         disabled={isRedirecting}
-                        className="w-full p-4 rounded-xl border-2 border-emerald-500/30 bg-emerald-500/5 hover:border-emerald-500 hover:bg-emerald-500/10 transition-all text-left active:scale-95 disabled:opacity-60"
+                        className="w-full p-4 rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 to-teal-500/[0.06] hover:border-emerald-500 hover:from-emerald-500/15 transition-all text-left active:scale-[0.98] disabled:opacity-60"
                     >
                         <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <Star className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                                    <span className="text-sm font-black text-white">Plano Premium</span>
-                                    <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-black shrink-0">COMPLETO</span>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Star className="w-4 h-4 text-emerald-400 shrink-0 fill-current" />
+                                    <span className="text-sm font-black text-white">Assinar o PRO</span>
+                                    <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-black shrink-0">SEM LIMITES</span>
                                 </div>
                                 <div className="space-y-1">
-                                    {['Tudo do Standard', 'Módulo Patrimônio', 'Consultoria com IA'].map(f => (
+                                    {['Tudo ilimitado (lançamentos, cartões…)', 'WhatsApp sem limite + leitura de extratos', 'Patrimônio, análises e relatórios'].map(f => (
                                         <div key={f} className="flex items-center gap-1.5">
                                             <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                                            <span className="text-[10px] text-slate-400">{f}</span>
+                                            <span className="text-[10px] text-slate-300">{f}</span>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                             <div className="text-right shrink-0">
-                                <p className="text-lg font-black text-emerald-400">R$ 19,90</p>
+                                <p className="text-xl font-black text-emerald-400">R$ 14,99</p>
                                 <p className="text-[10px] text-slate-500">/mês</p>
-                                <p className="text-[9px] font-bold text-emerald-300/70 whitespace-nowrap">≈ R$ 0,66/dia</p>
+                                <p className="text-[9px] font-bold text-emerald-300/80 whitespace-nowrap mt-0.5">ou R$ 9,99/mês no anual</p>
                                 {redirectingPlan === 'premium' && (
                                     <div className="mt-1 w-4 h-4 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin mx-auto" />
                                 )}

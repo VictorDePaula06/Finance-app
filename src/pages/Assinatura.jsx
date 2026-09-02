@@ -25,6 +25,7 @@ const PRICING = {
 const ECONOMIA_ANO = '60,00';   // 179,88 (mensal/ano) - 119,88 (anual)
 const ECONOMIA_PCT = '33';      // (14,99 - 9,99) / 14,99 ≈ 33%
 const FREE_LIMIT = 15;        // lançamentos/mês no plano gratuito
+const FREE_WA_LIMIT = 10;     // conversas/mês com a Alívia no WhatsApp (Gratuito)
 
 const PRO_FEATURES = [
     { icon: InfinityIcon, title: 'Lançamentos ilimitados', desc: 'Registre quantas entradas e despesas quiser, sem trava.' },
@@ -32,7 +33,7 @@ const PRO_FEATURES = [
     { icon: Sparkles, title: 'Consultoria Alívia completa', desc: 'IA generativa, leitura de PDF/foto do extrato e lançamento por conversa.' },
     { icon: BarChart3, title: 'Análises e relatórios avançados', desc: 'Todos os relatórios, filtros e exportação em PDF.' },
     { icon: Landmark, title: 'Patrimônio, reservas e metas', desc: 'Investimentos com cotação, reserva de emergência e objetivos.' },
-    { icon: MessageCircle, title: 'Alívia no WhatsApp', desc: 'Converse e registre gastos direto pelo WhatsApp.' },
+    { icon: MessageCircle, title: 'Alívia no WhatsApp ilimitada', desc: 'Converse, registre gastos, dê baixa, peça relatórios e importe extratos — sem limite.' },
     { icon: ShieldCheck, title: 'Suporte prioritário', desc: 'Atendimento mais rápido quando você precisar.' },
 ];
 
@@ -40,10 +41,10 @@ const FREE_FEATURES = [
     { ok: true, text: `Até ${FREE_LIMIT} lançamentos por mês` },
     { ok: true, text: 'Dashboard e índice de saúde financeira' },
     { ok: true, text: '1 cartão de crédito' },
-    { ok: true, text: 'Consultoria Alívia (respostas básicas)' },
-    { ok: false, text: 'Lançamentos ilimitados' },
-    { ok: false, text: 'IA generativa + leitura de PDF' },
-    { ok: false, text: 'Relatórios avançados e WhatsApp' },
+    { ok: true, text: `Alívia no WhatsApp — ${FREE_WA_LIMIT} conversas/mês` },
+    { ok: false, text: 'Lançamentos e cartões ilimitados' },
+    { ok: false, text: 'WhatsApp ilimitado + leitura de extratos (PDF/CSV)' },
+    { ok: false, text: 'Patrimônio, análises e relatórios avançados' },
 ];
 
 export default function Assinatura() {
