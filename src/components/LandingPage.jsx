@@ -47,6 +47,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import logo from '../assets/logo.png';
 import aliviaFinal    from '../assets/alivia/alivia-final.png';
 import aliviaHero     from '../assets/alivia/alivia-consultora.png';
+import aliviaWppHero  from '../assets/alivia/alivia-whatsapp-hero.png';
 import aliviaAssist   from '../assets/alivia/alivia-assistant.png';
 import aliviaClean    from '../assets/alivia/alivia-clean.png';
 import aliviaGoal     from '../assets/alivia/alivia-goal.png';
@@ -219,24 +220,10 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                     <div className="absolute inset-0 rounded-full blur-3xl opacity-25 pointer-events-none"
                                          style={{ background: 'radial-gradient(circle, #69C8B9 0%, transparent 70%)', transform: 'scale(0.95)' }} />
                                     <img
-                                        src={aliviaHero}
-                                        alt="Alívia — sua consultora financeira"
-                                        className="alivia-float relative z-10 w-full max-w-[440px] lg:max-w-[500px] drop-shadow-2xl mx-auto rounded-[2.5rem]"
+                                        src={aliviaWppHero}
+                                        alt="Fale com a Alívia pelo WhatsApp — sua consultora financeira"
+                                        className="alivia-float relative z-10 w-full max-w-[460px] lg:max-w-[520px] drop-shadow-2xl mx-auto rounded-[2.5rem]"
                                     />
-
-                                    {/* floating badges */}
-                                    <div className={`absolute top-12 right-0 md:-right-6 z-20 flex items-center gap-2 px-4 py-3 rounded-2xl shadow-xl border text-sm font-black whitespace-nowrap ${isDark ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-slate-100 text-slate-800'}`}>
-                                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                                        Patrimônio +12%
-                                    </div>
-                                    <div className={`absolute bottom-28 right-0 md:-right-8 z-20 flex items-center gap-2 px-4 py-3 rounded-2xl shadow-xl border text-sm font-black whitespace-nowrap ${isDark ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-slate-100 text-slate-800'}`}>
-                                        <Shield className="w-4 h-4 text-[#69C8B9]" />
-                                        Reserva OK
-                                    </div>
-                                    <div className="absolute bottom-16 left-0 md:-left-6 z-20 flex items-center gap-2 px-4 py-3 rounded-2xl shadow-xl bg-[#25D366] text-white text-sm font-black whitespace-nowrap">
-                                        <MessageSquare className="w-4 h-4" />
-                                        No seu WhatsApp
-                                    </div>
                                 </div>
                             </div>
                         </div>
