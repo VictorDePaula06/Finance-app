@@ -29,10 +29,11 @@ const GROUPS = [
 const groupMeta = (id) => GROUPS.find(g => g.id === id) || GROUPS[0];
 
 export default function GerenciarUsuarios() {
-    const { currentUser } = useAuth();
+    const { currentUser, isAdmin } = useAuth();
     const { theme } = useTheme();
     const isDark = theme !== 'light';
-    const allowed = isAdminEmail(currentUser?.email);
+    // Libera para QUALQUER dev (e-mail admin OU flag users/{uid}.isAdmin === true).
+    const allowed = isAdmin;
 
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);

@@ -11,10 +11,19 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && request.auth.token.email in [
-        'felipe.lopestecnologia11@gmail.com',
-        'felipe.lopes.tecnologia11@gmail.com'
-      ];
+      return isSignedIn() && (
+        request.auth.token.email in [
+          'felipe.lopestecnologia11@gmail.com',
+          'felipe.lopes.tecnologia11@gmail.com'
+        ]
+        // Qualquer usuário marcado como DEV: users/{uid}.isAdmin == true.
+        // Seguro: adminFlagSafe() impede o próprio usuário de se conceder isAdmin;
+        // essa flag só pode ter sido gravada por um admin (via painel/catch-all).
+        || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true
+        )
+      );
     }
 
     // Verifica se o usuário é o dono do documento (campo userId === uid).

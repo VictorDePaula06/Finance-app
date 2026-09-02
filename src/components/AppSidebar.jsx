@@ -8,7 +8,6 @@ import {
 
 import logo from '../assets/logo.png';
 import UserAvatar from './UserAvatar';
-import { isAdminEmail } from '../constants/admins';
 
 // Versão do app (exibida discretamente na sidebar).
 export const APP_VERSION = '0.1';
@@ -114,7 +113,7 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
                             {roleLabel}
                         </span>
                     </div>
-                    {isAdminEmail(currentUser?.email) && (
+                    {isAdmin && (
                         <button onClick={() => withClose(onNavigate)('gerenciar-usuarios')} title="Gerenciar usuários"
                             className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition active:scale-95 ${
                                 active === 'gerenciar-usuarios'
