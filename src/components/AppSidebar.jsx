@@ -106,7 +106,7 @@ export default function AppSidebar({ active, onNavigate, onSettings, onOpenWhats
             {/* Bloco do usuário + configurações */}
             <div className="mt-3 pt-3 space-y-1">
                 {/* CTA contextual de WhatsApp (acima do nome) — pendência quando não configurado. */}
-                <WhatsAppStatusButton isDark={isDark} onOpen={withClose(onOpenWhatsApp)} />
+                <WhatsAppStatusButton isDark={isDark} active={active === 'whatsapp'} onOpen={withClose(onOpenWhatsApp)} />
 
                 <div className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
                     <UserAvatar className="w-9 h-9 rounded-full shrink-0"

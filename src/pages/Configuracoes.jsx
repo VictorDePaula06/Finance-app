@@ -67,11 +67,11 @@ const fileToDataUrl = (file, max = 512) => new Promise((resolve, reject) => {
     reader.readAsDataURL(file);
 });
 
+// WhatsApp tem tela PRÓPRIA (/app/whatsapp) — não fica dentro de Configurações.
 const TABS = [
     { id: 'perfil', label: 'Meu Perfil', icon: User },
     { id: 'conta', label: 'Conta', icon: ShieldCheck },
     { id: 'aparencia', label: 'Aparência', icon: Palette },
-    { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
     { id: 'dados', label: 'Dados & Privacidade', icon: FileText },
 ];
 
@@ -118,7 +118,6 @@ export default function Configuracoes() {
             </div>
 
             {tab === 'perfil' && <PerfilTab isDark={isDark} />}
-            {tab === 'whatsapp' && <WhatsAppTab isDark={isDark} onGoTo={setTab} />}
             {tab === 'aparencia' && <AparenciaTab isDark={isDark} toggleTheme={toggleTheme} />}
             {tab === 'dados' && <DadosTab isDark={isDark} />}
             {tab === 'conta' && <ContaTab isDark={isDark} />}
@@ -506,7 +505,7 @@ function WhatsAppHeader({ isDark, status }) {
     );
 }
 
-function WhatsAppTab({ isDark, onGoTo }) {
+export function WhatsAppTab({ isDark, onGoTo }) {
     const { currentUser, userPrefs, saveUserPreferences } = useAuth();
     const uid = currentUser?.uid;
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';

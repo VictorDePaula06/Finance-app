@@ -12,7 +12,7 @@ import { useWhatsAppStatus } from '../hooks/useWhatsAppStatus';
  * Reutiliza o status compartilhado (useWhatsAppStatus) — mesma fonte da tela
  * de configuração. Ao clicar, chama `onOpen` (abre a configuração de WhatsApp).
  */
-export default function WhatsAppStatusButton({ isDark, onOpen }) {
+export default function WhatsAppStatusButton({ isDark, onOpen, active = false }) {
     const { loading, connected } = useWhatsAppStatus();
     const ring = isDark ? 'ring-[#0a0a0a]' : 'ring-white';
 
@@ -26,7 +26,7 @@ export default function WhatsAppStatusButton({ isDark, onOpen }) {
                 type="button"
                 onClick={onOpen}
                 title="WhatsApp"
-                className={`${base} ${isDark ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-50'}`}
+                className={`${base} ${active ? 'bg-emerald-500/10 text-emerald-500' : (isDark ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-50')}`}
             >
                 <MessageCircle className="w-[18px] h-[18px] shrink-0" />
                 <span className="truncate flex-1 text-left">WhatsApp</span>
@@ -42,7 +42,7 @@ export default function WhatsAppStatusButton({ isDark, onOpen }) {
                 type="button"
                 onClick={onOpen}
                 title="WhatsApp conectado — toque para editar"
-                className={`${base} ${isDark ? 'text-slate-400 hover:bg-white/5 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}
+                className={`${base} ${active ? 'bg-emerald-500/10 text-emerald-500' : (isDark ? 'text-slate-400 hover:bg-white/5 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800')}`}
             >
                 <MessageCircle className="w-[18px] h-[18px] shrink-0" />
                 <span className="truncate flex-1 text-left">WhatsApp conectado</span>
