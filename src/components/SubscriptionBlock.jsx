@@ -5,7 +5,7 @@ import {
     FileText, Cloud, Globe, CreditCard, Gift, AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { createCheckoutSession } from '../services/stripe';
+import { createCheckoutSession, createAnnualCheckout } from '../services/stripe';
 import { db } from '../services/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import logo from '../assets/logo.png';
@@ -21,44 +21,27 @@ const PLAN_FEATURES = {
         priceAnnual: 'R$ 0,00',
         color: 'slate',
         items: [
-            { icon: Wallet,      text: 'Controle de Gastos completo' },
+            { icon: Wallet,      text: 'Controle de gastos e dashboard' },
+            { icon: FileText,    text: 'Até 15 lançamentos por mês' },
             { icon: CreditCard,  text: 'Até 1 cartão cadastrado' },
-            { icon: FileText,    text: 'Até 7 lançamentos de despesa/mês' },
-            { icon: Activity,    text: '2 recebimentos/mês · 2 contas fixas' },
-            { icon: Cloud,       text: 'Sincronização na nuvem' },
-            { icon: LockIcon,    text: 'Patrimônio limitado (1 reserva · 3 invest. · 2 bens)' },
-            { icon: Bot,         text: 'Chat com a Alívia: 4 lançamentos/mês' },
+            { icon: Bot,         text: 'Alívia no WhatsApp — 10 conversas/mês' },
+            { icon: Cloud,       text: 'Sincronização na nuvem (Web e Mobile)' },
+            { icon: LockIcon,    text: 'Sem WhatsApp ilimitado, extratos e Patrimônio' },
         ],
     },
-    standard: {
-        title: 'Plano Standard',
-        tagline: 'Controle financeiro completo',
-        priceMonthly: 'R$ 9,90',
-        priceAnnual: 'R$ 7,90',
-        color: 'blue',
-        items: [
-            { icon: Wallet,      text: 'Controle de Gastos sem limites' },
-            { icon: CreditCard,  text: 'Cartões e parcelamentos ilimitados' },
-            { icon: FileText,    text: 'Relatórios em PDF' },
-            { icon: Cloud,       text: 'Sincronização nuvem + Mobile' },
-            { icon: Globe,       text: 'Acesso Web & Mobile' },
-            { icon: Landmark,    text: 'Módulo de Patrimônio (com limites)' },
-            { icon: Bot,         text: 'Chat com a Alívia sem limites (gastos)' },
-        ],
-    },
-    premium: {
-        title: 'Plano Premium',
-        tagline: 'A experiência completa da Alívia',
-        priceMonthly: 'R$ 19,90',
-        priceAnnual: 'R$ 15,90',
+    pro: {
+        title: 'Plano PRO',
+        tagline: 'A Alívia sem nenhuma trava',
+        priceMonthly: 'R$ 14,99',
+        priceAnnual: 'R$ 9,99',
         color: 'emerald',
         items: [
-            { icon: CheckCircle2, text: 'Tudo do Standard incluso' },
-            { icon: Landmark,    text: 'Módulo Construção de Patrimônio' },
-            { icon: Bot,         text: 'IA Alívia ilimitada (gastos + patrimônio)' },
+            { icon: CheckCircle2, text: 'Lançamentos e cartões ilimitados' },
+            { icon: Bot,         text: 'Alívia no WhatsApp ilimitada' },
+            { icon: FileText,    text: 'Leitura de extratos (PDF/CSV) por conversa' },
+            { icon: Landmark,    text: 'Módulo Patrimônio, reservas e metas' },
+            { icon: BarChart3,   text: 'Análises e relatórios avançados' },
             { icon: Activity,    text: 'Health Score completo' },
-            { icon: BarChart3,   text: 'Evolução patrimonial + benchmarks' },
-            { icon: ShieldCheck, text: 'Modo Pânico + alertas avançados' },
             { icon: MessageSquare, text: 'Suporte prioritário' },
         ],
     },
@@ -95,33 +78,21 @@ export default function SubscriptionBlock({ onAdminAccess }) {
         }
     };
 
-    const handleSubscribePaid = async (planKey) => {
+    const handleSubscribePaid = async () => {
         if (!currentUser || isProcessing) return;
         setIsProcessing(true);
-        setProcessingPlan(planKey);
+        setProcessingPlan('pro');
         try {
-            let priceId;
-            if (planKey === 'standard') {
-                priceId = billing === 'monthly'
-                    ? (import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_MONTHLY || 'price_1U8JiDKAwb86obAGNbe9Env1')
-                    : (import.meta.env.VITE_STRIPE_PRICE_ID_STANDARD_YEARLY || 'price_1U8HYuKAwb86obAGQkpx8QVy');
+            if (billing === 'annual') {
+                // Anual = compra ÚNICA (R$ 119,88, parcelável) — mesmo fluxo da aba Assinatura.
+                await createAnnualCheckout();
             } else {
-                priceId = billing === 'monthly'
-                    ? (import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY || 'price_1U8JiDKAwb86obAGNbe9Env1')
-                    : (import.meta.env.VITE_STRIPE_PRICE_ID_YEARLY || 'price_1U8HYuKAwb86obAGQkpx8QVy');
+                await createCheckoutSession(
+                    currentUser.uid,
+                    import.meta.env.VITE_STRIPE_PRICE_ID_MONTHLY || 'price_1U8JiDKAwb86obAGNbe9Env1',
+                    () => { setIsProcessing(false); setProcessingPlan(null); }
+                );
             }
-
-            if (!priceId) {
-                alert('Configuração de pagamento incompleta.');
-                setIsProcessing(false);
-                setProcessingPlan(null);
-                return;
-            }
-
-            await createCheckoutSession(currentUser.uid, priceId, () => {
-                setIsProcessing(false);
-                setProcessingPlan(null);
-            });
         } catch (error) {
             console.error("Checkout Error:", error);
             alert("Erro ao iniciar pagamento.");
@@ -140,17 +111,17 @@ export default function SubscriptionBlock({ onAdminAccess }) {
     const renderPlanCard = (planKey) => {
         const plan = PLAN_FEATURES[planKey];
         const c = colorClasses[plan.color];
-        const isPremiumCard = planKey === 'premium';
+        const isProCard = planKey === 'pro';
         const isProcessingThis = isProcessing && processingPlan === planKey;
 
         return (
             <div
                 key={planKey}
                 className={`relative p-6 rounded-[2rem] border-2 bg-white transition-all flex flex-col ${
-                    isPremiumCard ? `${c.border} shadow-2xl ${c.ring} scale-[1.02] z-10` : 'border-slate-200 shadow-lg'
+                    isProCard ? `${c.border} shadow-2xl ${c.ring} scale-[1.02] z-10` : 'border-slate-200 shadow-lg'
                 }`}
             >
-                {isPremiumCard && (
+                {isProCard && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest shadow-lg">
                         Recomendado
                     </div>
@@ -173,7 +144,10 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                         )}
                     </div>
                     {planKey !== 'free' && billing === 'annual' && (
-                        <p className="text-[10px] font-bold text-emerald-600 mt-1">Cobrado anualmente · economia de 20%</p>
+                        <p className="text-[10px] font-bold text-emerald-600 mt-1">Cobrado R$ 119,88/ano · até 12x no cartão · economize 33%</p>
+                    )}
+                    {planKey !== 'free' && billing === 'monthly' && (
+                        <p className="text-[10px] font-bold text-slate-500 mt-1">No anual sai <span className="text-emerald-600">R$ 9,99/mês</span> (-33%)</p>
                     )}
                     {planKey === 'free' && (
                         <p className="text-[10px] font-bold text-slate-500 mt-1">Para sempre · sem cartão de crédito</p>
@@ -198,7 +172,7 @@ export default function SubscriptionBlock({ onAdminAccess }) {
 
                 {/* CTA */}
                 <button
-                    onClick={() => planKey === 'free' ? handleChooseFree() : handleSubscribePaid(planKey)}
+                    onClick={() => planKey === 'free' ? handleChooseFree() : handleSubscribePaid()}
                     disabled={isProcessing}
                     className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest text-white transition-all shadow-xl ${c.btn} ${c.ring} active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
                 >
@@ -206,7 +180,7 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
                         <>
-                            {planKey === 'free' ? 'Começar Gratuitamente' : 'Ativar Agora'}
+                            {planKey === 'free' ? 'Começar Gratuitamente' : 'Assinar o PRO'}
                             <ArrowRight className="w-4 h-4" />
                         </>
                     )}
@@ -261,16 +235,15 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                     >
                         Anual
                         <span className="absolute -top-2.5 -right-2.5 bg-emerald-500 text-[8px] text-white px-2 py-0.5 rounded-full ring-4 ring-white font-black tracking-widest shadow-lg">
-                            -20%
+                            -33%
                         </span>
                     </button>
                 </div>
 
                 {/* Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6 mb-10">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mb-10 max-w-3xl mx-auto">
                     {renderPlanCard('free')}
-                    {renderPlanCard('standard')}
-                    {renderPlanCard('premium')}
+                    {renderPlanCard('pro')}
                 </div>
 
                 {/* Disclaimer + extras */}
