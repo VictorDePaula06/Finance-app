@@ -8,6 +8,7 @@ import {
 
 import logo from '../assets/logo.png';
 import UserAvatar from './UserAvatar';
+import WhatsAppStatusButton from './WhatsAppStatusButton';
 
 // Versão do app (exibida discretamente na sidebar).
 export const APP_VERSION = '0.1';
@@ -27,7 +28,7 @@ export const NAV_ITEMS = [
 
 const PLAN_LABEL = { lifetime: 'Vitalício', premium: 'Pro', standard: 'Pro', free: 'Gratuito' };
 
-export default function AppSidebar({ active, onNavigate, onSettings, onLogout, mobile = false, onClose }) {
+export default function AppSidebar({ active, onNavigate, onSettings, onOpenWhatsApp, onLogout, mobile = false, onClose }) {
     const { theme, toggleTheme } = useTheme();
     const { currentUser, planLevel, isAdmin } = useAuth();
     const isDark = theme !== 'light';
@@ -104,6 +105,9 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
 
             {/* Bloco do usuário + configurações */}
             <div className="mt-3 pt-3 space-y-1">
+                {/* CTA contextual de WhatsApp (acima do nome) — pendência quando não configurado. */}
+                <WhatsAppStatusButton isDark={isDark} onOpen={withClose(onOpenWhatsApp)} />
+
                 <div className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
                     <UserAvatar className="w-9 h-9 rounded-full shrink-0"
                         fallbackClassName="rounded-full bg-gradient-to-br from-emerald-500 to-teal-600" textClassName="font-black text-white text-sm" />

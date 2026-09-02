@@ -49,6 +49,7 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
         active,
         onNavigate: (id) => { go(id); setDrawer(false); },
         onSettings: () => { go('configuracoes'); setDrawer(false); },
+        onOpenWhatsApp: () => { navigate(`${tabPath('configuracoes')}?tab=whatsapp`); setDrawer(false); },
         onLogout: async () => { try { await logout?.(); } catch (e) { console.error(e); } },
     };
 

@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, db } from '../services/firebase';
 import { updateProfile } from 'firebase/auth';
 import {
-    collection, query, where, getDocs, setDoc, deleteDoc, doc, getDoc,
+    setDoc, deleteDoc, doc, getDoc,
 } from 'firebase/firestore';
 import { setGeminiKey } from '../services/gemini';
 import { downloadUserData } from '../utils/dataExport';
 import { toast } from '../components/ui/Toaster';
 import Skeleton from '../components/ui/Skeleton';
+import { useWhatsAppStatus } from '../hooks/useWhatsAppStatus';
+import aliviaWppHero from '../assets/alivia/alivia-whatsapp-hero.png';
 import {
     Settings, User, MessageCircle, Sparkles, Palette, ShieldCheck,
     KeyRound, ExternalLink, Check, Eye, EyeOff, Trash2, Loader2, Copy,
@@ -75,7 +78,12 @@ const TABS = [
 export default function Configuracoes() {
     const { theme, toggleTheme } = useTheme();
     const isDark = theme !== 'light';
-    const [tab, setTab] = useState('perfil');
+    const [searchParams] = useSearchParams();
+    const paramTab = searchParams.get('tab');
+    const validTab = (id) => TABS.some(t => t.id === id);
+    const [tab, setTab] = useState(validTab(paramTab) ? paramTab : 'perfil');
+    // Deep-link: abrir direto numa aba (ex.: CTA de WhatsApp na sidebar → ?tab=whatsapp).
+    useEffect(() => { if (validTab(paramTab)) setTab(paramTab); }, [paramTab]);
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
 
@@ -448,6 +456,56 @@ const DEFAULT_WA_CONFIG = {
     spendingAlerts: true, billReminders: true, weeklyReport: true,
 };
 
+// Estado da integração de WhatsApp — feedback visual único e claro.
+function waIntegrationStatus({ loading, connecting, hasError, connected, hasKey }) {
+    if (loading)    return { key: 'loading',    label: 'Verificando…',  tone: 'slate', icon: Loader2,        spin: true, desc: 'Checando o status da sua integração…' };
+    if (connecting) return { key: 'connecting', label: 'Conectando…',   tone: 'blue',  icon: Loader2,        spin: true, desc: 'Abrindo o WhatsApp pra concluir o vínculo…' };
+    if (hasError)   return { key: 'error',      label: 'Erro',          tone: 'rose',  icon: AlertTriangle,  desc: 'Algo não saiu como esperado. Tente novamente.' };
+    if (connected && hasKey)  return { key: 'connected',  label: 'Conectado',              tone: 'emerald', icon: CheckCircle2,  desc: 'Seu WhatsApp está configurado e pronto para uso.' };
+    if (connected && !hasKey) return { key: 'incomplete', label: 'Configuração incompleta', tone: 'amber',   icon: AlertTriangle, desc: 'Falta ativar a chave da IA (Gemini) pra Alívia responder às suas mensagens.' };
+    if (!connected && hasKey) return { key: 'incomplete', label: 'Configuração incompleta', tone: 'amber',   icon: AlertTriangle, desc: 'Falta conectar o seu número do WhatsApp.' };
+    return { key: 'idle', label: 'Não conectado', tone: 'slate', icon: MessageCircle, desc: 'Conecte seu WhatsApp pra conversar com a Alívia e cuidar das finanças por mensagem.' };
+}
+
+// Cabeçalho da tela de WhatsApp: branding + benefício + status + arte de marketing.
+function WhatsAppHeader({ isDark, status }) {
+    const StatusIcon = status.icon;
+    const tone = BADGE_TONES[status.tone] || BADGE_TONES.slate;
+    return (
+        <div className={`relative rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]'}`}>
+            <div className="grid md:grid-cols-[1fr_auto]">
+                {/* Texto + status */}
+                <div className="p-5 sm:p-6">
+                    <div className="flex items-center gap-3">
+                        <span className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0 ring-1 ring-emerald-500/20 shadow-[0_0_24px_rgba(16,185,129,0.15)]">
+                            <MessageCircle className="w-6 h-6" />
+                        </span>
+                        <div className="min-w-0">
+                            <h2 className={`text-lg font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Configurar WhatsApp</h2>
+                            <p className={`text-[13px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Tenha sua vida financeira acompanhada pela Alívia — direto no seu WhatsApp.</p>
+                        </div>
+                    </div>
+
+                    {/* Banner de status da integração */}
+                    <div className={`mt-4 flex items-start gap-3 rounded-xl px-3.5 py-3 ring-1 ${tone.wrap}`}>
+                        <StatusIcon className={`w-4 h-4 shrink-0 mt-0.5 ${status.spin ? 'animate-spin' : ''}`} />
+                        <div className="min-w-0">
+                            <p className="text-[11px] font-black uppercase tracking-wider">{status.label}</p>
+                            <p className={`text-[12px] font-medium mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{status.desc}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Arte de marketing existente (apoio — some no mobile pra não competir com a config) */}
+                <div className="hidden md:block relative w-44 lg:w-52 shrink-0">
+                    <img src={aliviaWppHero} alt="Alívia no WhatsApp" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: '72% 22%' }} />
+                    <div className={`absolute inset-0 bg-gradient-to-l ${isDark ? 'from-transparent via-transparent to-[#0e0f12]' : 'from-transparent via-transparent to-white'}`} />
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function WhatsAppTab({ isDark, onGoTo }) {
     const { currentUser, userPrefs, saveUserPreferences } = useAuth();
     const uid = currentUser?.uid;
@@ -455,12 +513,15 @@ function WhatsAppTab({ isDark, onGoTo }) {
     const cell = isDark ? 'text-slate-300' : 'text-slate-700';
     const inputCls = `w-full pl-10 pr-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
 
-    const [loading, setLoading] = useState(true);
-    const [linked, setLinked] = useState([]);   // vínculos existentes (telefones)
+    // Status compartilhado (mesma fonte da sidebar): vínculos + loading + refresh.
+    const { loading, linked, connected, refresh } = useWhatsAppStatus();
+
     const [code, setCode] = useState('');
     const [generating, setGenerating] = useState(false);
     const [copied, setCopied] = useState(false);
     const [error, setError] = useState('');
+    // Chave da IA (reportada pelo IATab) — compõe o status da integração.
+    const [hasKey, setHasKey] = useState(() => { try { return !!localStorage.getItem(KEY_STORE); } catch { return false; } });
 
     // Configuração (número + notificações), persistida nas preferências.
     const [cfg, setCfg] = useState({ ...DEFAULT_WA_CONFIG, ...(userPrefs?.whatsapp || {}) });
@@ -478,17 +539,6 @@ function WhatsAppTab({ isDark, onGoTo }) {
         setSavingCfg(false);
         setTimeout(() => setCfgFlash(''), 2500);
     };
-
-    const refresh = async () => {
-        if (!uid) return;
-        setLoading(true); setError('');
-        try {
-            const snap = await getDocs(query(collection(db, 'wa_users'), where('uid', '==', uid)));
-            setLinked(snap.docs.map(d => ({ phone: d.id, ...d.data() })));
-        } catch (e) { console.error(e); setError('Não foi possível verificar o vínculo agora.'); }
-        setLoading(false);
-    };
-    useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [uid]);
 
     const copiar = () => { try { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { } };
     const desvincular = async (phone) => {
@@ -520,15 +570,18 @@ function WhatsAppTab({ isDark, onGoTo }) {
 
     const waLink = code ? waLinkUrl(code) : '';
 
+    const status = waIntegrationStatus({ loading, connecting: generating, hasError: !!error, connected, hasKey });
+
     return (
         <div className="space-y-4">
-            {/* Passo 1: chave da IA (Gemini) — agora dentro da própria aba WhatsApp. */}
-            <IATab isDark={isDark} />
+            {/* ── Header: branding + benefício + status + arte de marketing ── */}
+            <WhatsAppHeader isDark={isDark} status={status} />
 
+            {/* ── Conexão ── */}
             <Card isDark={isDark}>
                 <SectionTitle isDark={isDark} icon={MessageCircle}
-                    right={<Badge tone={linked.length ? 'emerald' : 'slate'}>{linked.length ? 'Conectado' : 'Não conectado'}</Badge>}>
-                    Conectar WhatsApp
+                    right={<Badge tone={status.tone}>{status.label}</Badge>}>
+                    Conexão
                 </SectionTitle>
                 {/* Tutorial + input de número: só quando NÃO conectado (some quando vinculado). */}
                 {!loading && linked.length === 0 && (
@@ -606,7 +659,10 @@ function WhatsAppTab({ isDark, onGoTo }) {
                 ) : null}
             </Card>
 
-            {/* Notificações e o que enviar */}
+            {/* ── Inteligência da Alívia (Gemini) — necessária pra ela responder ── */}
+            <IATab isDark={isDark} onSavedChange={setHasKey} />
+
+            {/* ── Preferências e notificações ── */}
             <Card isDark={isDark}>
                 <SectionTitle isDark={isDark} icon={Bell}>Notificações no WhatsApp</SectionTitle>
                 <div className="space-y-2.5">
@@ -662,11 +718,13 @@ function DisconnectBtn({ isDark, onConfirm }) {
 }
 
 // ── Inteligência Artificial (Gemini) ────────────────────────────────
-function IATab({ isDark }) {
+function IATab({ isDark, onSavedChange }) {
     const { currentUser } = useAuth();
     const uid = currentUser?.uid;
     const [key, setKey] = useState(() => { try { return localStorage.getItem(KEY_STORE) || ''; } catch { return ''; } });
     const [saved, setSaved] = useState(() => { try { return !!localStorage.getItem(KEY_STORE); } catch { return false; } });
+    // Reporta o estado da chave pra tela de WhatsApp (banner de status unificado).
+    useEffect(() => { onSavedChange?.(saved); }, [saved, onSavedChange]);
     const [editing, setEditing] = useState(false);
     const [show, setShow] = useState(false);
     const [flash, setFlash] = useState('');
