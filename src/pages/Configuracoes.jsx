@@ -12,7 +12,7 @@ import { downloadUserData } from '../utils/dataExport';
 import { toast } from '../components/ui/Toaster';
 import Skeleton from '../components/ui/Skeleton';
 import { useWhatsAppStatus } from '../hooks/useWhatsAppStatus';
-import aliviaWppHero from '../assets/alivia/alivia-whatsapp-hero.png';
+import aliviaFinal from '../assets/alivia/alivia-final.png';
 import {
     Settings, User, MessageCircle, Sparkles, Palette, ShieldCheck,
     KeyRound, ExternalLink, Check, Eye, EyeOff, Trash2, Loader2, Copy,
@@ -432,13 +432,13 @@ function ChangePasswordCard({ isDark }) {
 }
 
 // ── WhatsApp ────────────────────────────────────────────────────────
-// Interruptor (linha) reutilizável.
-function ToggleRow({ isDark, icon: Icon, title, desc, on, onClick, disabled }) {
+// Linha de switch nativa (lista com divisores) — ícone discreto + switch à direita.
+function SwitchRow({ isDark, icon: Icon, title, desc, on, onClick, disabled }) {
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     return (
         <button type="button" onClick={onClick} disabled={disabled}
-            className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border text-left transition ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${on && !disabled ? 'bg-emerald-500/[0.08] border-emerald-500/30' : (isDark ? 'bg-white/[0.02] border-white/10' : 'bg-white border-slate-200')}`}>
-            {Icon && <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${on && !disabled ? 'bg-emerald-500/15 text-emerald-500' : (isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}><Icon className="w-4 h-4" /></span>}
+            className={`w-full flex items-center gap-3 py-3.5 text-left transition ${disabled ? 'opacity-45 cursor-not-allowed' : ''}`}>
+            {Icon && <Icon className={`w-[18px] h-[18px] shrink-0 transition-colors ${on && !disabled ? 'text-emerald-500' : muted}`} />}
             <div className="min-w-0 flex-1">
                 <p className={`text-[13px] font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{title}</p>
                 {desc && <p className={`text-[11px] mt-0.5 ${muted}`}>{desc}</p>}
@@ -466,40 +466,16 @@ function waIntegrationStatus({ loading, connecting, hasError, connected, hasKey 
     return { key: 'idle', label: 'Não conectado', tone: 'slate', icon: MessageCircle, desc: 'Conecte seu WhatsApp pra conversar com a Alívia e cuidar das finanças por mensagem.' };
 }
 
-// Cabeçalho da tela de WhatsApp: branding + benefício + status + arte de marketing.
-function WhatsAppHeader({ isDark, status }) {
+// Linha de status inline (dentro do card de Conexão) — sem banner/aviso duplicado.
+function WhatsAppStatusLine({ isDark, status }) {
     const StatusIcon = status.icon;
     const tone = BADGE_TONES[status.tone] || BADGE_TONES.slate;
     return (
-        <div className={`relative rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]'}`}>
-            <div className="grid md:grid-cols-[1fr_auto]">
-                {/* Texto + status */}
-                <div className="p-5 sm:p-6">
-                    <div className="flex items-center gap-3">
-                        <span className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0 ring-1 ring-emerald-500/20 shadow-[0_0_24px_rgba(16,185,129,0.15)]">
-                            <MessageCircle className="w-6 h-6" />
-                        </span>
-                        <div className="min-w-0">
-                            <h2 className={`text-lg font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Configurar WhatsApp</h2>
-                            <p className={`text-[13px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Tenha sua vida financeira acompanhada pela Alívia — direto no seu WhatsApp.</p>
-                        </div>
-                    </div>
-
-                    {/* Banner de status da integração */}
-                    <div className={`mt-4 flex items-start gap-3 rounded-xl px-3.5 py-3 ring-1 ${tone.wrap}`}>
-                        <StatusIcon className={`w-4 h-4 shrink-0 mt-0.5 ${status.spin ? 'animate-spin' : ''}`} />
-                        <div className="min-w-0">
-                            <p className="text-[11px] font-black uppercase tracking-wider">{status.label}</p>
-                            <p className={`text-[12px] font-medium mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{status.desc}</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Arte de marketing existente (apoio — some no mobile pra não competir com a config) */}
-                <div className="hidden md:block relative w-44 lg:w-52 shrink-0">
-                    <img src={aliviaWppHero} alt="Alívia no WhatsApp" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: '72% 22%' }} />
-                    <div className={`absolute inset-0 bg-gradient-to-l ${isDark ? 'from-transparent via-transparent to-[#0e0f12]' : 'from-transparent via-transparent to-white'}`} />
-                </div>
+        <div className={`flex items-start gap-3 rounded-xl px-3.5 py-3 ring-1 ${tone.wrap}`}>
+            <StatusIcon className={`w-4 h-4 shrink-0 mt-0.5 ${status.spin ? 'animate-spin' : ''}`} />
+            <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-wider">{status.label}</p>
+                <p className={`text-[12px] font-medium mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{status.desc}</p>
             </div>
         </div>
     );
@@ -573,22 +549,29 @@ export function WhatsAppTab({ isDark, onGoTo }) {
 
     return (
         <div className="space-y-4">
-            {/* ── Header: branding + benefício + status + arte de marketing ── */}
-            <WhatsAppHeader isDark={isDark} status={status} />
+            {/* ── Header nativo da página (avatar discreto da Alívia + título) ── */}
+            <div className="flex items-center gap-3.5 mb-1">
+                <span className="w-12 h-12 rounded-full overflow-hidden shrink-0 ring-2 ring-emerald-500/25 bg-emerald-500/10">
+                    <img src={aliviaFinal} alt="Alívia" className="w-full h-full object-cover object-top" />
+                </span>
+                <div className="min-w-0">
+                    <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>WhatsApp</h1>
+                    <p className={`text-sm mt-0.5 ${muted}`}>Fale com a Alívia e cuide das finanças direto no seu WhatsApp.</p>
+                </div>
+            </div>
 
-            {/* ── Conexão ── */}
+            {/* ── Conexão (status unificado no mesmo card) ── */}
             <Card isDark={isDark}>
                 <SectionTitle isDark={isDark} icon={MessageCircle}
                     right={<Badge tone={status.tone}>{status.label}</Badge>}>
                     Conexão
                 </SectionTitle>
-                {/* Tutorial + input de número: só quando NÃO conectado (some quando vinculado). */}
+
+                <WhatsAppStatusLine isDark={isDark} status={status} />
+
+                {/* Input de número: só quando NÃO conectado (some quando vinculado). */}
                 {!loading && linked.length === 0 && (
                     <>
-                        <p className={`text-[13px] ${cell}`}>
-                            Digite seu número e toque no botão — vamos <b>abrir o WhatsApp</b> já com uma mensagem pronta pra você enviar pra <b>Alívia</b>. É ela quem faz o vínculo na hora. 💬
-                        </p>
-
                         {/* Seu número de WhatsApp */}
                         <div className="mt-4">
                             <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Seu número de WhatsApp</span>
@@ -661,34 +644,29 @@ export function WhatsAppTab({ isDark, onGoTo }) {
             {/* ── Inteligência da Alívia (Gemini) — necessária pra ela responder ── */}
             <IATab isDark={isDark} onSavedChange={setHasKey} />
 
-            {/* ── Preferências e notificações ── */}
+            {/* ── Preferências e notificações (lista nativa com divisores) ── */}
             <Card isDark={isDark}>
-                <SectionTitle isDark={isDark} icon={Bell}>Notificações no WhatsApp</SectionTitle>
-                <div className="space-y-2.5">
-                    <ToggleRow isDark={isDark} icon={Bell} title="Ativar notificações"
+                <SectionTitle isDark={isDark} icon={Bell}>Notificações</SectionTitle>
+                <div className={`divide-y ${isDark ? 'divide-white/[0.06]' : 'divide-slate-100'}`}>
+                    <SwitchRow isDark={isDark} icon={Bell} title="Ativar notificações"
                         desc="Receber mensagens da Alívia no seu WhatsApp."
                         on={cfg.enabled} onClick={() => setC({ enabled: !cfg.enabled })} />
-
-                    <div className="space-y-2.5 pl-1">
-                        <ToggleRow isDark={isDark} icon={Zap} title="Alertas de gasto"
-                            desc="Avisos de gasto alto ou saldo perto do negativo."
-                            on={cfg.spendingAlerts} disabled={!cfg.enabled} onClick={() => setC({ spendingAlerts: !cfg.spendingAlerts })} />
-                        <ToggleRow isDark={isDark} icon={CalendarClock} title="Lembretes de contas"
-                            desc="Aviso quando uma conta ou fatura está perto de vencer."
-                            on={cfg.billReminders} disabled={!cfg.enabled} onClick={() => setC({ billReminders: !cfg.billReminders })} />
-                        <ToggleRow isDark={isDark} icon={FileBarChart} title="Relatório semanal"
-                            desc="Um fechamento com o resumo da semana."
-                            on={cfg.weeklyReport} disabled={!cfg.enabled} onClick={() => setC({ weeklyReport: !cfg.weeklyReport })} />
-                    </div>
-
-                    <div className={`h-px my-1 ${isDark ? 'bg-white/10' : 'bg-slate-100'}`} />
-
-                    <ToggleRow isDark={isDark} icon={MessageCircle} title="Registrar gastos por mensagem"
+                    <SwitchRow isDark={isDark} icon={Zap} title="Alertas de gasto"
+                        desc="Avisos de gasto alto ou saldo perto do negativo."
+                        on={cfg.spendingAlerts} disabled={!cfg.enabled} onClick={() => setC({ spendingAlerts: !cfg.spendingAlerts })} />
+                    <SwitchRow isDark={isDark} icon={CalendarClock} title="Lembretes de contas"
+                        desc="Aviso quando uma conta ou fatura está perto de vencer."
+                        on={cfg.billReminders} disabled={!cfg.enabled} onClick={() => setC({ billReminders: !cfg.billReminders })} />
+                    <SwitchRow isDark={isDark} icon={FileBarChart} title="Relatório semanal"
+                        desc="Um fechamento com o resumo da semana."
+                        on={cfg.weeklyReport} disabled={!cfg.enabled} onClick={() => setC({ weeklyReport: !cfg.weeklyReport })} />
+                    <SwitchRow isDark={isDark} icon={MessageCircle} title="Registrar gastos por mensagem"
                         desc="Permitir lançar despesas escrevendo pra Alívia (ex.: “uber 23”). Ela sempre pede confirmação."
                         on={cfg.allowExpenseEntry} onClick={() => setC({ allowExpenseEntry: !cfg.allowExpenseEntry })} />
                 </div>
 
-                <div className="flex items-center gap-2 mt-4 flex-wrap">
+                {/* Rodapé do card: ação primária */}
+                <div className={`flex items-center gap-3 mt-3 pt-4 border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
                     <button onClick={saveCfg} disabled={savingCfg}
                         className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-2 transition disabled:opacity-60">
                         {savingCfg ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Salvar configurações
