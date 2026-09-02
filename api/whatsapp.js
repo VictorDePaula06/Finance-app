@@ -833,6 +833,46 @@ const waUpgradeMessage = (limit) =>
   + `👉 Assine em *soualivia.com.br* e desbloqueie tudo.\n\n`
   + `_Seu limite renova no início do próximo mês._`;
 
+// Traduz uma falha do Gemini num motivo específico e profissional pro usuário —
+// pra ele (e a gente) saber exatamente o que aconteceu, em vez de "não posso responder".
+function geminiErrorMessage(httpStatus, j) {
+  const err = j?.error || {};
+  const code = err.code || httpStatus || 0;
+  const gstatus = String(err.status || '').toUpperCase();
+  const msg = String(err.message || '').toLowerCase();
+
+  // Chave inválida / mal digitada / revogada.
+  if (msg.includes('api key not valid') || msg.includes('api_key_invalid') || (code === 400 && gstatus === 'INVALID_ARGUMENT' && msg.includes('api key'))) {
+    return '🔑 *A sua chave do Gemini não está válida.*\n\nEla pode ter sido revogada, apagada ou digitada errada. Gere uma nova (é grátis) e salve em *Configurações › WhatsApp › Inteligência*. Assim eu volto a responder na hora.\n\n_(motivo: chave inválida · cód. IA-400)_';
+  }
+  // Chave expirada.
+  if (msg.includes('api key expired') || msg.includes('expired')) {
+    return '🔑 *A sua chave do Gemini expirou.*\n\nGere uma nova chave em *Configurações › WhatsApp › Inteligência* e salve novamente para eu voltar a funcionar.\n\n_(motivo: chave expirada · cód. IA-400)_';
+  }
+  // Cota / limite de uso da chave (free tier do Google).
+  if (code === 429 || gstatus === 'RESOURCE_EXHAUSTED') {
+    return '⏳ *A cota da sua chave do Gemini foi atingida por enquanto.*\n\nO Google limita o uso gratuito por minuto e por dia. Aguarde alguns minutos e me chame de novo — ou ative o faturamento da chave no Google AI Studio para ampliar o limite.\n\n_(motivo: cota excedida · cód. IA-429)_';
+  }
+  // Sem permissão / API não habilitada / chave restrita.
+  if (code === 403 || gstatus === 'PERMISSION_DENIED') {
+    return '🚫 *A sua chave do Gemini está sem permissão para responder.*\n\nNo Google AI Studio, confirme se a *Generative Language API* está habilitada e se a chave não está restrita por site/IP. Depois salve a chave novamente.\n\n_(motivo: sem permissão · cód. IA-403)_';
+  }
+  // Serviço do Google sobrecarregado / instável (não é problema da conta).
+  if (code === 503 || gstatus === 'UNAVAILABLE' || msg.includes('overloaded')) {
+    return '🛠️ *O serviço de IA do Google está sobrecarregado neste momento.*\n\nIsso é temporário e não tem a ver com a sua conta. Me chame de novo em 1 ou 2 minutinhos, por favor. 🙏\n\n_(motivo: serviço ocupado · cód. IA-503)_';
+  }
+  if (code === 500 || gstatus === 'INTERNAL') {
+    return '🛠️ *O serviço de IA do Google teve um erro interno agora.*\n\nÉ momentâneo. Tente de novo em instantes — se continuar, me avise para investigarmos.\n\n_(motivo: erro interno do provedor · cód. IA-500)_';
+  }
+  // Conteúdo bloqueado por política de segurança do provedor.
+  const block = String(j?.promptFeedback?.blockReason || j?.candidates?.[0]?.finishReason || '').toUpperCase();
+  if (block.includes('SAFETY') || block.includes('BLOCK')) {
+    return '⚠️ *Não pude responder a essa mensagem por uma regra de segurança do provedor de IA.*\n\nSe puder reformular de outro jeito, consigo te ajudar normalmente. 🙏\n\n_(motivo: conteúdo bloqueado · cód. IA-SAFETY)_';
+  }
+  // Qualquer outra falha — mas com código para apuração.
+  return `😕 *Não consegui responder agora por uma instabilidade no serviço de IA.*\n\nJá registramos o ocorrido para verificar. Tente novamente em instantes, por favor.\n\n_(motivo: falha inesperada · cód. IA-${code || 'ERR'})_`;
+}
+
 async function askGemini(history, contextText, userMsg, key) {
   if (!key) return MSG_NO_KEY;
   const contents = [
@@ -848,16 +888,20 @@ async function askGemini(history, contextText, userMsg, key) {
     const r = await fetch(`${GEMINI_URL}?key=${key}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
-    const j = await r.json();
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j?.error) {
+      console.error(`WA Gemini falhou: HTTP ${r.status} resp=${JSON.stringify(j).slice(0, 500)}`);
+      return geminiErrorMessage(r.status, j);
+    }
     const text = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if (!text) {
-      console.error(`WA Gemini falhou: HTTP ${r.status} resp=${JSON.stringify(j).slice(0, 500)}`);
-      return 'Desculpe, não consegui responder agora. 😅';
+      console.error(`WA Gemini vazio: HTTP ${r.status} resp=${JSON.stringify(j).slice(0, 500)}`);
+      return geminiErrorMessage(r.status, j);
     }
     return text;
   } catch (e) {
     console.error('WA Gemini erro de rede:', e?.message || e);
-    return 'Desculpe, não consegui responder agora. 😅';
+    return '📡 *Não consegui falar com o serviço de IA agora* — parece uma instabilidade de conexão momentânea.\n\nTente novamente em instantes, por favor. Se persistir, me avise para verificarmos.\n\n_(motivo: falha de conexão · cód. IA-NET)_';
   }
 }
 
@@ -881,20 +925,27 @@ async function transcribeAudio(mediaId, key) {
       }],
     };
     const r = await fetch(`${GEMINI_URL}?key=${key}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const j = await r.json();
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j?.error) {
+      console.error(`WA audio falhou: HTTP ${r.status} ${JSON.stringify(j).slice(0, 300)}`);
+      return { errorMsg: geminiErrorMessage(r.status, j) };
+    }
     const t = j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if (!t) console.error('WA audio transcrição vazia:', JSON.stringify(j).slice(0, 300));
-    return t || '';
-  } catch (e) { console.error('WA transcribeAudio erro:', e?.message || e); return ''; }
+    return { text: t || '' };
+  } catch (e) {
+    console.error('WA transcribeAudio erro:', e?.message || e);
+    return { errorMsg: '📡 *Não consegui processar seu áudio agora* — parece uma instabilidade de conexão momentânea.\n\nTente enviar de novo em instantes, por favor.\n\n_(motivo: falha de conexão · cód. IA-NET)_' };
+  }
 }
 
 // Baixa um documento (PDF/CSV) do WhatsApp e extrai os lançamentos com o Gemini.
 async function extractStatement(docInfo, key) {
   const token = process.env.WHATSAPP_TOKEN;
-  if (!docInfo?.id || !key) return [];
+  if (!docInfo?.id || !key) return { items: [] };
   try {
     const meta = await fetch(`${GRAPH}/${docInfo.id}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
-    if (!meta?.url) { console.error('WA import: sem url', JSON.stringify(meta).slice(0, 200)); return []; }
+    if (!meta?.url) { console.error('WA import: sem url', JSON.stringify(meta).slice(0, 200)); return { items: [] }; }
     const resp = await fetch(meta.url, { headers: { Authorization: `Bearer ${token}` } });
     const buf = Buffer.from(await resp.arrayBuffer());
     const mime = (docInfo.mime_type || meta.mime_type || '').split(';')[0].toLowerCase();
@@ -911,19 +962,20 @@ Regras: amount SEMPRE positivo. type=expense para gastos/compras/débitos/saída
     }
     const body = { contents: [{ role: 'user', parts }], generationConfig: { temperature: 0, maxOutputTokens: 6000 } };
     const r = await fetch(`${GEMINI_URL}?key=${key}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const j = await r.json();
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j?.error) { console.error(`WA import falhou: HTTP ${r.status} ${JSON.stringify(j).slice(0, 300)}`); return { items: [], errorMsg: geminiErrorMessage(r.status, j) }; }
     const t = j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const m = t.match(/\[[\s\S]*\]/);
-    if (!m) { console.error('WA import: sem JSON na resposta', JSON.stringify(j).slice(0, 300)); return []; }
+    if (!m) { console.error('WA import: sem JSON na resposta', JSON.stringify(j).slice(0, 300)); return { items: [] }; }
     const arr = JSON.parse(m[0]);
-    return arr.map(x => ({
+    return { items: arr.map(x => ({
       description: String(x.description || 'Lançamento').slice(0, 80),
       amount: Math.abs(parseFloat(x.amount) || 0),
       date: /^\d{4}-\d{2}-\d{2}$/.test(x.date) ? x.date : '',
       type: x.type === 'income' ? 'income' : 'expense',
       category: EXPENSE_CATS.includes(x.category) ? x.category : 'other',
-    })).filter(x => x.amount > 0 && x.description);
-  } catch (e) { console.error('WA extractStatement erro:', e?.message || e); return []; }
+    })).filter(x => x.amount > 0 && x.description) };
+  } catch (e) { console.error('WA extractStatement erro:', e?.message || e); return { items: [], errorMsg: '📡 *Não consegui processar seu arquivo agora* — parece uma instabilidade de conexão momentânea.\n\nTente enviar de novo em instantes, por favor.\n\n_(motivo: falha de conexão · cód. IA-NET)_' }; }
 }
 
 // Recebe um documento, extrai os lançamentos e pede confirmação (SIM/NÃO).
@@ -933,7 +985,8 @@ async function handleDocumentImport(db, from, uid, sessRef, docInfo, key) {
   const ok = mime.includes('pdf') || mime.includes('csv') || mime.includes('text') || mime.includes('excel') || mime.includes('comma');
   if (!ok) { await sendText(from, 'Consigo ler *PDF* ou *CSV* (extrato do banco ou fatura do cartão). Esse formato eu não leio 😅. Dá pra exportar em PDF ou CSV?'); return; }
   await sendText(from, 'Recebi seu arquivo 📄 Estou lendo os lançamentos... um instante.');
-  const items = await extractStatement(docInfo, key);
+  const { items, errorMsg } = await extractStatement(docInfo, key);
+  if (errorMsg) { await sendText(from, errorMsg); return; }
   if (!items.length) { await sendText(from, 'Não consegui identificar lançamentos nesse arquivo 😅. Confere se é um extrato de banco/cartão em PDF ou CSV legível (não pode ser imagem/foto escaneada sem texto).'); return; }
   const capped = items.slice(0, 80);
   const totalExp = capped.filter(i => i.type === 'expense').reduce((a, i) => a + i.amount, 0);
@@ -1301,8 +1354,10 @@ export default async function handler(req, res) {
     // Áudio: transcreve agora, com a chave do usuário.
     if (msg.type === 'audio') {
       if (!geminiKey) { await sendText(from, MSG_NO_KEY); return res.status(200).json({ ok: true }); }
-      text = await transcribeAudio(audioId, geminiKey);
-      if (!text) { await sendText(from, 'Não consegui entender o áudio 😅. Pode repetir ou escrever?'); return res.status(200).json({ ok: true }); }
+      const tr = await transcribeAudio(audioId, geminiKey);
+      if (tr.errorMsg) { await sendText(from, tr.errorMsg); return res.status(200).json({ ok: true }); }
+      text = tr.text;
+      if (!text) { await sendText(from, 'Não consegui entender o áudio 😅 — pode ter ficado baixo ou muito curto. Tente repetir ou me escrever.'); return res.status(200).json({ ok: true }); }
       console.log(`WA audio transcrito: "${text.slice(0, 60)}"`);
     }
 
