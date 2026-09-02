@@ -149,7 +149,13 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                             </button>
                         </div>
                         <div className="flex justify-center">
-                            <img src={logo} alt="Alívia Logo" className="h-20 md:h-24 w-auto drop-shadow-sm" />
+                            <div className="flex flex-col items-center leading-none">
+                                <div className="w-[92px] h-[56px] overflow-hidden flex justify-center">
+                                    <img src={logo} alt="Alívia" className="w-[92px] h-[92px] object-cover object-top drop-shadow-sm" />
+                                </div>
+                                <span className="text-[20px] font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-[#69C8B9] via-emerald-500 to-[#5CCEEA]">Alívia</span>
+                                <span className={`text-[9px] font-bold uppercase tracking-[0.4em] mt-0.5 ml-[0.4em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Finanças</span>
+                            </div>
                         </div>
                         <div className="flex items-center justify-end gap-3">
                             <button onClick={onLogin} className={`hidden md:block text-xs font-bold px-4 py-2 rounded-xl transition-colors ${isDark ? 'text-slate-300 hover:text-[#69C8B9]' : 'text-slate-600 hover:text-[#69C8B9]'}`}>Entrar</button>
@@ -179,18 +185,18 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                         <div className="grid lg:grid-cols-2 gap-12 items-center">
                             {/* Left: text */}
                             <div className="space-y-8 text-center lg:text-left">
-                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#69C8B9]/10 border border-[#69C8B9]/20 text-[#5bb1a3] text-[10px] font-black uppercase tracking-widest">
-                                    <Sparkles className="w-3 h-3" />
-                                    <span>A consultora de IA que protege seu futuro</span>
+                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#25D366]/10 border border-[#25D366]/25 text-[#1faa52] text-[10px] font-black uppercase tracking-widest">
+                                    <MessageSquare className="w-3 h-3" />
+                                    <span>Sua consultora financeira no WhatsApp</span>
                                 </div>
                                 <h1 className={`text-4xl md:text-6xl xl:text-7xl font-black tracking-tight leading-[1.05] ${t.textH}`}>
-                                    Sua Vida<br />Financeira<br />
+                                    Cuide do seu<br />dinheiro<br />
                                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA]">
-                                        Elevada ao Máximo.
+                                        pelo WhatsApp.
                                     </span>
                                 </h1>
                                 <p className={`text-base md:text-xl leading-relaxed font-medium max-w-xl ${t.textBody}`}>
-                                    Alívia une <span className="text-[#5CCEEA] font-bold">Controle de Gastos</span> cirúrgico com <span className="text-[#69C8B9] font-bold">Construção de Patrimônio</span>. Tudo guiado por uma IA que combina com o seu ritmo.
+                                    Mande uma mensagem pra <span className="text-[#25D366] font-bold">Alívia no WhatsApp</span> e ela registra o gasto, dá baixa nas contas, lê o extrato e te manda o relatório — numa conversa. Tudo sincronizado com o app de <span className="text-[#5CCEEA] font-bold">Controle de Gastos</span> e <span className="text-[#69C8B9] font-bold">Patrimônio</span>.
                                 </p>
                                 <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
                                     <button onClick={onLogin} className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA] hover:opacity-90 text-white font-black text-lg shadow-xl shadow-[#69C8B9]/30 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 group">
@@ -226,9 +232,9 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                         <Shield className="w-4 h-4 text-[#69C8B9]" />
                                         Reserva OK
                                     </div>
-                                    <div className="absolute bottom-16 left-0 md:-left-6 z-20 flex items-center gap-2 px-4 py-3 rounded-2xl shadow-xl bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA] text-white text-sm font-black whitespace-nowrap">
-                                        <Zap className="w-4 h-4" />
-                                        IA ativa 24/7
+                                    <div className="absolute bottom-16 left-0 md:-left-6 z-20 flex items-center gap-2 px-4 py-3 rounded-2xl shadow-xl bg-[#25D366] text-white text-sm font-black whitespace-nowrap">
+                                        <MessageSquare className="w-4 h-4" />
+                                        No seu WhatsApp
                                     </div>
                                 </div>
                             </div>
@@ -413,7 +419,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                     <FeatureRow isDark={isDark} icon={CreditCard} title="Gestão de Cartões" desc="Acompanhe a fatura de todos os seus cartões em um só lugar, com parcelamentos e assinaturas organizados." color="text-[#5CCEEA]" />
                                     <FeatureRow isDark={isDark} icon={Layers} title="Essenciais vs. Supérfluos" desc="A Alívia separa o que é essencial do que é desejo e mostra se você passou do ideal de 30% em gastos supérfluos." color="text-[#5CCEEA]" />
                                     <FeatureRow isDark={isDark} icon={Bell} title="Metas de Gasto por Categoria" desc="Defina um teto para cada categoria e receba o aviso quando estiver se aproximando ou ultrapassando o limite." color="text-[#5CCEEA]" />
-                                    <FeatureRow isDark={isDark} icon={Bot} title="IA Alívia nos seus gastos" desc="Lance despesas por texto e peça análises pelo chat. No Gratuito são 4 lançamentos/mês; no Standard e Premium, sem limite." color="text-[#5CCEEA]" />
+                                    <FeatureRow isDark={isDark} icon={MessageSquare} title="Alívia no WhatsApp" desc="Lance despesas, dê baixa em contas e peça análises por mensagem ou áudio. No Gratuito são 10 conversas/mês; no PRO, sem limite." color="text-[#25D366]" />
                                     <FeatureRow isDark={isDark} icon={FileText} title="Relatórios em PDF" desc="Exportação com o design Alívia — perfeito para a revisão mensal ou consulta com seu contador." color="text-[#5CCEEA]" />
                                 </div>
                             </div>
@@ -452,8 +458,8 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 <div className="space-y-4">
                                     <FeatureRow isDark={isDark} icon={ShieldCheck} title="Reserva de Emergência" desc="Cálculo automático de quanto guardar para estar protegido por 3, 6 ou 12 meses. Disponível já no Gratuito." color="text-[#69C8B9]" />
                                     <FeatureRow isDark={isDark} icon={Activity} title="Saúde Patrimonial" desc="Um score que resume reservas, investimentos, bens e proteção — e te diz exatamente o próximo passo." color="text-[#69C8B9]" />
-                                    <FeatureRow isDark={isDark} icon={ChartNoAxesCombined} title="Evolução e Benchmarks" desc="No Premium: acompanhe a curva do seu patrimônio mês a mês comparada com CDI, IBOVESPA e S&P 500." color="text-[#69C8B9]" />
-                                    <FeatureRow isDark={isDark} icon={Target} title="Independência e Metas" desc="No Premium: descubra seu número da independência financeira, simule cenários e acompanhe metas com projeção no tempo." color="text-[#69C8B9]" />
+                                    <FeatureRow isDark={isDark} icon={ChartNoAxesCombined} title="Evolução e Benchmarks" desc="No PRO: acompanhe a curva do seu patrimônio mês a mês comparada com CDI, IBOVESPA e S&P 500." color="text-[#69C8B9]" />
+                                    <FeatureRow isDark={isDark} icon={Target} title="Independência e Metas" desc="No PRO: descubra seu número da independência financeira, simule cenários e acompanhe metas com projeção no tempo." color="text-[#69C8B9]" />
                                 </div>
                             </div>
                         </div>
@@ -465,7 +471,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                     <div className="max-w-6xl mx-auto px-6">
                         <div className="text-center space-y-4 mb-16">
                             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/15 text-amber-500 text-[10px] font-black uppercase tracking-widest">
-                                <Flame className="w-3 h-3" /> Por que o Premium vale cada centavo
+                                <Flame className="w-3 h-3" /> Por que vale a pena o PRO
                             </div>
                             <h2 className={`text-3xl md:text-5xl font-black ${t.textH}`}>
                                 A diferença entre{' '}
@@ -474,36 +480,36 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#5CCEEA] to-[#69C8B9]">prosperar.</span>
                             </h2>
                             <p className={`text-base md:text-lg font-medium max-w-2xl mx-auto ${t.textBody}`}>
-                                O Gratuito te tira do caos. O Standard libera o controle de gastos sem freios. O Premium coloca seu patrimônio para crescer.
+                                O Gratuito te tira do caos. O PRO libera tudo sem freios — <span className="text-[#25D366] font-bold">WhatsApp ilimitado</span>, controle de gastos completo e o seu patrimônio crescendo.
                             </p>
                         </div>
 
                         <div className="grid md:grid-cols-2 gap-8">
-                            <WhyPremiumCard isDark={isDark} accentColor="#5CCEEA" icon={Receipt} tag="Standard desbloqueia" title="Controle de gastos sem limites"
-                                subtitle="Tudo do Gratuito, agora sem travas — e com a IA Alívia trabalhando ao seu lado nos gastos."
+                            <WhyPremiumCard isDark={isDark} accentColor="#25D366" icon={MessageSquare} tag="PRO · no WhatsApp" title="A Alívia sem limite no WhatsApp"
+                                subtitle="O carro-chefe: resolva sua vida financeira por mensagem, sem trava."
                                 items={[
-                                    { icon: Layers, text: 'Lançamentos, cartões, contas fixas e recebimentos ilimitados' },
-                                    { icon: Bot, text: 'IA Alívia ilimitada para lançar e analisar seus gastos' },
-                                    { icon: Bell, text: 'Metas de gasto por categoria com alerta ao se aproximar do teto' },
-                                    { icon: BarChart3, text: 'Essenciais vs. supérfluos sempre à vista, com o ideal de 30%' },
-                                    { icon: FileText, text: 'Relatório PDF mensal profissional das suas finanças' },
+                                    { icon: MessageSquare, text: 'Conversas ilimitadas com a Alívia no WhatsApp' },
+                                    { icon: FileText, text: 'Importa extrato do banco/cartão (PDF ou CSV) e lança tudo' },
+                                    { icon: Bot, text: 'Registra gastos, dá baixa em contas e responde por áudio' },
+                                    { icon: BarChart3, text: 'Relatórios e gráficos direto na conversa' },
+                                    { icon: Layers, text: 'Lançamentos, cartões e contas fixas ilimitados no app' },
                                 ]}
                             />
-                            <WhyPremiumCard isDark={isDark} accentColor="#69C8B9" icon={ChartNoAxesCombined} tag="Premium desbloqueia" title="Patrimônio que cresce visível"
-                                subtitle="Tudo do Standard, mais o módulo de patrimônio completo e a IA cuidando dos seus investimentos."
+                            <WhyPremiumCard isDark={isDark} accentColor="#69C8B9" icon={ChartNoAxesCombined} tag="PRO · patrimônio" title="Patrimônio que cresce visível"
+                                subtitle="Além do WhatsApp, o módulo de patrimônio completo pra fazer seu dinheiro trabalhar."
                                 items={[
                                     { icon: Activity, text: 'Fluxo patrimonial e seu número da independência financeira' },
                                     { icon: TrendingUp, text: 'Evolução mês a mês comparada a CDI, IBOVESPA e S&P 500' },
                                     { icon: Target, text: 'Metas de patrimônio com projeção no tempo e simulações' },
                                     { icon: Landmark, text: 'Reservas, investimentos e bens sem limite de cadastro' },
-                                    { icon: Bot, text: 'IA Alívia ilimitada também analisando o seu patrimônio' },
+                                    { icon: BarChart3, text: 'Análises e relatórios avançados com exportação em PDF' },
                                 ]}
                             />
                         </div>
 
                         <div className={`mt-12 text-center p-8 rounded-[2rem] border ${isDark ? 'bg-gradient-to-r from-[#69C8B9]/10 via-transparent to-[#5CCEEA]/10 border-white/10' : 'bg-gradient-to-r from-[#69C8B9]/10 via-white to-[#5CCEEA]/10 border-slate-100'}`}>
                             <p className={`text-xl md:text-2xl font-black leading-relaxed ${t.textH}`}>
-                                "O Premium não é um gasto.<br />
+                                "O PRO não é um gasto.<br />
                                 <span className="text-[#69C8B9]">É o investimento que organiza todos os outros."</span>
                             </p>
                         </div>
@@ -515,13 +521,12 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                     <div className="max-w-6xl mx-auto px-6">
                         <div className="grid lg:grid-cols-2 gap-16 items-center">
                             <div className="space-y-8">
-                                <div className="text-[#69C8B9] text-[10px] font-black uppercase tracking-widest">Inteligência Artificial</div>
-                                <h2 className={`text-4xl md:text-6xl font-black leading-[1.1] ${t.textH}`}>Sua Mentora <br />Financeira 24/7.</h2>
-                                <p className={`text-lg md:text-xl font-medium ${t.textBody}`}>Alívia estuda seus dados para te dar <span className="text-[#69C8B9] font-black">Silêncio na Mente.</span></p>
+                                <div className="inline-flex items-center gap-1.5 text-[#25D366] text-[10px] font-black uppercase tracking-widest"><MessageSquare className="w-3 h-3" /> Alívia no WhatsApp · o carro-chefe</div>
+                                <h2 className={`text-4xl md:text-6xl font-black leading-[1.1] ${t.textH}`}>Resolva tudo <br />numa mensagem.</h2>
+                                <p className={`text-lg md:text-xl font-medium ${t.textBody}`}>Fale com a Alívia como você fala com um amigo — <span className="text-[#25D366] font-black">direto no seu WhatsApp.</span> Ela registra gastos, dá baixa nas contas, lê o extrato e te manda o relatório na hora.</p>
                                 <div className={`flex flex-col gap-2 p-4 rounded-2xl border text-sm font-medium ${isDark ? 'bg-white/[0.03] border-white/10 text-slate-300' : 'bg-white/70 border-slate-100 text-slate-600'}`}>
-                                    <div className="flex items-start gap-2.5"><Gift className="w-4 h-4 text-[#69C8B9] shrink-0 mt-0.5" /><span><span className="font-black">Gratuito:</span> chat com a Alívia com 4 lançamentos por mês.</span></div>
-                                    <div className="flex items-start gap-2.5"><MessageSquare className="w-4 h-4 text-[#5CCEEA] shrink-0 mt-0.5" /><span><span className="font-black">Standard:</span> IA ilimitada para o seu Controle de Gastos.</span></div>
-                                    <div className="flex items-start gap-2.5"><Sparkles className="w-4 h-4 text-[#69C8B9] shrink-0 mt-0.5" /><span><span className="font-black">Premium:</span> IA ilimitada nos gastos <span className="italic">e</span> no seu patrimônio.</span></div>
+                                    <div className="flex items-start gap-2.5"><Gift className="w-4 h-4 text-[#69C8B9] shrink-0 mt-0.5" /><span><span className="font-black">Gratuito:</span> 10 conversas por mês com a Alívia no WhatsApp.</span></div>
+                                    <div className="flex items-start gap-2.5"><Sparkles className="w-4 h-4 text-[#25D366] shrink-0 mt-0.5" /><span><span className="font-black">PRO:</span> conversas <span className="italic">ilimitadas</span> — registre, dê baixa, importe extratos (PDF/CSV) e peça relatórios sem parar.</span></div>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {Object.entries(scenarios).map(([id, s]) => (
@@ -540,10 +545,13 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 <div className={`rounded-[2.5rem] border shadow-2xl overflow-hidden ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
                                     <div className={`p-6 border-b flex items-center justify-between ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-50 bg-slate-50/20'}`}>
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-[#69C8B9] flex items-center justify-center overflow-hidden">
+                                            <div className="w-10 h-10 rounded-full bg-[#25D366] flex items-center justify-center overflow-hidden">
                                                 <img src={aliviaFinal} alt="Alívia" className="w-8 h-8 object-contain" />
                                             </div>
-                                            <div className={`font-black text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>ALÍVIA IA</div>
+                                            <div>
+                                                <div className={`font-black text-sm leading-none ${isDark ? 'text-white' : 'text-slate-800'}`}>Alívia</div>
+                                                <div className="flex items-center gap-1 text-[10px] font-bold text-[#25D366] mt-1"><span className="w-1.5 h-1.5 rounded-full bg-[#25D366]" /> online no WhatsApp</div>
+                                            </div>
                                         </div>
                                         <div className={`px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest text-white ${scenarios[activeScenario].tagColor}`}>
                                             {scenarios[activeScenario].tag}
@@ -619,12 +627,12 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                     <div className={`w-6 h-6 bg-[#69C8B9] rounded-full transition-all transform ${billing === 'annual' ? 'translate-x-8' : 'translate-x-0'}`}></div>
                                 </button>
                                 <span className={`text-sm font-black ${billing === 'annual' ? 'text-[#69C8B9]' : 'text-slate-400'}`}>
-                                    Anual <span className="bg-[#69C8B9] text-white text-[8px] px-3 py-1 rounded-full ml-2">-20%</span>
+                                    Anual <span className="bg-[#69C8B9] text-white text-[8px] px-3 py-1 rounded-full ml-2">-33%</span>
                                 </span>
                             </div>
                         </div>
 
-                        <div className="grid md:grid-cols-3 gap-6 text-left max-w-6xl mx-auto items-stretch">
+                        <div className="grid md:grid-cols-2 gap-6 text-left max-w-3xl mx-auto items-stretch">
                             <PlanCard
                                 isDark={isDark}
                                 name="Gratuito"
@@ -636,63 +644,38 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 ctaLabel="Começar Grátis"
                                 ctaStyle={isDark ? 'bg-white/5 text-white border border-white/10 hover:bg-white/10' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}
                                 included={[
-                                    'Controle de gastos (com limites)',
-                                    'Patrimônio essencial: reservas, investimentos e bens (com limites)',
+                                    'Controle de gastos essencial',
+                                    'Até 15 lançamentos e 1 cartão',
+                                    'Alívia no WhatsApp: 10 conversas por mês',
+                                    'Patrimônio essencial: reservas e investimentos',
                                     'Saúde Financeira e Patrimonial',
-                                    'Seguros e proteção',
-                                    'Chat com a Alívia: 4 lançamentos por mês',
                                     'Sincronização na nuvem',
                                 ]}
                                 excluded={[
-                                    'Uso sem limites',
-                                    'IA Alívia ilimitada',
-                                    'Planejamento avançado de patrimônio',
-                                ]}
-                            />
-                            <PlanCard
-                                isDark={isDark}
-                                name="Standard"
-                                subtitle="Controle de gastos completo, sem limites."
-                                price={`R$ ${billing === 'monthly' ? '9,90' : '7,90'}`}
-                                priceSuffix="/mês"
-                                note={billing === 'annual' ? 'Cobrado anualmente' : 'Cobrança mensal'}
-                                onClick={onLogin}
-                                ctaLabel="Assinar Standard"
-                                ctaStyle="bg-slate-800 text-white hover:bg-slate-700"
-                                includedTitle="Tudo do Gratuito, sem limites:"
-                                included={[
-                                    'Lançamentos, cartões e contas fixas ilimitados',
-                                    'Recebimentos e assinaturas ilimitados',
-                                    'IA Alívia ilimitada no Controle de Gastos',
-                                    'Sensor de Urgência ativo',
-                                    'Relatórios em PDF',
-                                    'Acesso Web e Mobile',
-                                ]}
-                                excluded={[
-                                    'Planejamento avançado de patrimônio',
-                                    'Evolução e benchmarks (CDI, IBOV, S&P)',
-                                    'IA Alívia sobre o seu patrimônio',
+                                    'WhatsApp ilimitado + leitura de extratos',
+                                    'Uso sem limites (lançamentos e cartões)',
+                                    'Módulo Patrimônio completo',
                                 ]}
                             />
                             <PlanCard
                                 isDark={isDark}
                                 featured
-                                name="Premium"
-                                subtitle="Controle de gastos + construção de patrimônio."
-                                price={`R$ ${billing === 'monthly' ? '19,90' : '15,90'}`}
+                                name="PRO"
+                                subtitle="A Alívia sem limites — com o WhatsApp como carro-chefe."
+                                price={`R$ ${billing === 'monthly' ? '14,99' : '9,99'}`}
                                 priceSuffix="/mês"
-                                note={billing === 'annual' ? 'Cobrado anualmente' : 'Cobrança mensal'}
+                                note={billing === 'annual' ? 'Cobrado anualmente (R$ 119,88/ano)' : 'Cobrança mensal · cancele quando quiser'}
                                 onClick={onLogin}
-                                ctaLabel="Ativar Premium"
-                                ctaStyle="bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA] text-white shadow-xl shadow-[#69C8B9]/20 hover:scale-[1.02]"
-                                includedTitle="Tudo do Standard, mais:"
+                                ctaLabel="Assinar o PRO"
+                                ctaStyle="bg-gradient-to-r from-[#25D366] to-[#69C8B9] text-white shadow-xl shadow-[#25D366]/20 hover:scale-[1.02]"
+                                includedTitle="Tudo do Gratuito, sem limites:"
                                 included={[
-                                    'Patrimônio completo, sem limites',
-                                    'Fluxo patrimonial e independência financeira',
-                                    'Evolução patrimonial (CDI, IBOV, S&P)',
-                                    'Metas de patrimônio com projeção no tempo',
-                                    'IA Alívia ilimitada também no patrimônio',
-                                    'Modo Pânico e alertas avançados',
+                                    'Alívia no WhatsApp ilimitada (o carro-chefe)',
+                                    'Importa extrato do banco/cartão (PDF ou CSV)',
+                                    'Registra gastos e responde por áudio no WhatsApp',
+                                    'Lançamentos, cartões e contas fixas ilimitados',
+                                    'Módulo Patrimônio completo (CDI, IBOV, S&P)',
+                                    'Relatórios e gráficos em PDF',
                                 ]}
                             />
                         </div>

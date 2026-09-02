@@ -199,12 +199,16 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                 {/* Header */}
                 <div className="text-center mb-12">
                     <div
-                        className="mb-8 cursor-help select-none"
+                        className="mb-8 cursor-help select-none flex flex-col items-center"
                         onDoubleClick={() => {
                             if (currentUser?.email === MASTER_EMAIL && onAdminAccess) onAdminAccess();
                         }}
                     >
-                        <img src={logo} alt="Logo" className="w-32 h-auto mx-auto drop-shadow-2xl" />
+                        <div className="w-[110px] h-[64px] overflow-hidden flex justify-center">
+                            <img src={logo} alt="Alívia" className="w-[110px] h-[110px] object-cover object-top drop-shadow-[0_0_24px_rgba(16,185,129,0.25)]" />
+                        </div>
+                        <span className="text-[24px] font-black tracking-tight leading-none text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500">Alívia</span>
+                        <span className="text-[10px] font-bold uppercase tracking-[0.42em] mt-1 ml-[0.42em] text-slate-400">Finanças</span>
                     </div>
 
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-200 text-xs font-black tracking-widest mb-6">
