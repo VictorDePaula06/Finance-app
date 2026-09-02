@@ -466,21 +466,6 @@ function waIntegrationStatus({ loading, connecting, hasError, connected, hasKey 
     return { key: 'idle', label: 'Não conectado', tone: 'slate', icon: MessageCircle, desc: 'Conecte seu WhatsApp pra conversar com a Alívia e cuidar das finanças por mensagem.' };
 }
 
-// Linha de status inline (dentro do card de Conexão) — sem banner/aviso duplicado.
-function WhatsAppStatusLine({ isDark, status }) {
-    const StatusIcon = status.icon;
-    const tone = BADGE_TONES[status.tone] || BADGE_TONES.slate;
-    return (
-        <div className={`flex items-start gap-3 rounded-xl px-3.5 py-3 ring-1 ${tone.wrap}`}>
-            <StatusIcon className={`w-4 h-4 shrink-0 mt-0.5 ${status.spin ? 'animate-spin' : ''}`} />
-            <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-wider">{status.label}</p>
-                <p className={`text-[12px] font-medium mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{status.desc}</p>
-            </div>
-        </div>
-    );
-}
-
 export function WhatsAppTab({ isDark, onGoTo }) {
     const { currentUser, userPrefs, saveUserPreferences } = useAuth();
     const uid = currentUser?.uid;
@@ -497,6 +482,8 @@ export function WhatsAppTab({ isDark, onGoTo }) {
     const [error, setError] = useState('');
     // Chave da IA (reportada pelo IATab) — compõe o status da integração.
     const [hasKey, setHasKey] = useState(() => { try { return !!localStorage.getItem(KEY_STORE); } catch { return false; } });
+    // Aba lateral ativa (Conexão / Inteligência / Notificações).
+    const [section, setSection] = useState('conexao');
 
     // Configuração (número + notificações), persistida nas preferências.
     const [cfg, setCfg] = useState({ ...DEFAULT_WA_CONFIG, ...(userPrefs?.whatsapp || {}) });
@@ -547,10 +534,26 @@ export function WhatsAppTab({ isDark, onGoTo }) {
 
     const status = waIntegrationStatus({ loading, connecting: generating, hasError: !!error, connected, hasKey });
 
+    const SUBTABS = [
+        { id: 'conexao', label: 'Conexão', icon: Link2 },
+        { id: 'ia', label: 'Inteligência', icon: Sparkles },
+        { id: 'notificacoes', label: 'Notificações', icon: Bell },
+    ];
+    const active = SUBTABS.find(s => s.id === section) || SUBTABS[0];
+    const panelDesc = {
+        conexao: 'Vincule seu número do WhatsApp à Alívia.',
+        ia: 'Sua chave do Google Gemini — é ela quem faz a Alívia responder.',
+        notificacoes: 'Escolha o que a Alívia te envia no WhatsApp.',
+    }[section];
+    const panelBadge =
+        section === 'ia' ? (hasKey ? { tone: 'emerald', label: 'Ativa' } : { tone: 'amber', label: 'Não configurada' })
+        : section === 'notificacoes' ? (cfg.enabled ? { tone: 'emerald', label: 'Ativas' } : { tone: 'slate', label: 'Desativadas' })
+        : { tone: status.tone, label: status.label };
+
     return (
-        <div className="space-y-4">
+        <div className="space-y-5">
             {/* ── Header nativo da página (avatar discreto da Alívia + título) ── */}
-            <div className="flex items-center gap-3.5 mb-1">
+            <div className="flex items-center gap-3.5">
                 <span className="w-12 h-12 rounded-full overflow-hidden shrink-0 ring-2 ring-emerald-500/25 bg-emerald-500/10">
                     <img src={aliviaFinal} alt="Alívia" className="w-full h-full object-cover object-top" />
                 </span>
@@ -560,124 +563,157 @@ export function WhatsAppTab({ isDark, onGoTo }) {
                 </div>
             </div>
 
-            {/* ── Conexão (status unificado no mesmo card) ── */}
-            <Card isDark={isDark}>
-                <SectionTitle isDark={isDark} icon={MessageCircle}
-                    right={<Badge tone={status.tone}>{status.label}</Badge>}>
-                    Conexão
-                </SectionTitle>
+            <div className="grid lg:grid-cols-[214px_1fr] gap-4 items-start">
+                {/* ── Abas laterais (vertical no desktop, rolagem horizontal no mobile) ── */}
+                <nav role="tablist" aria-label="Seções do WhatsApp"
+                    className={`flex lg:flex-col gap-1 p-1 rounded-2xl border overflow-x-auto no-scrollbar ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-100/70'}`}>
+                    {SUBTABS.map(t => {
+                        const Icon = t.icon;
+                        const on = section === t.id;
+                        const pend = t.id === 'conexao' && !loading && !connected;
+                        return (
+                            <button key={t.id} role="tab" aria-selected={on} onClick={() => setSection(t.id)}
+                                className={`relative flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[13px] font-bold whitespace-nowrap transition-all active:scale-[0.98] lg:w-full ${on
+                                    ? (isDark ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/25' : 'bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-500/15')
+                                    : (isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]' : 'text-slate-500 hover:text-slate-800 hover:bg-white/70')}`}>
+                                <Icon className="w-4 h-4 shrink-0" />
+                                <span className="truncate">{t.label}</span>
+                                {pend && <span className="lg:ml-auto w-2 h-2 rounded-full bg-amber-400 shrink-0" title="Pendente" />}
+                            </button>
+                        );
+                    })}
+                </nav>
 
-                <WhatsAppStatusLine isDark={isDark} status={status} />
-
-                {/* Input de número: só quando NÃO conectado (some quando vinculado). */}
-                {!loading && linked.length === 0 && (
-                    <>
-                        {/* Seu número de WhatsApp */}
-                        <div className="mt-4">
-                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Seu número de WhatsApp</span>
-                            <div className="relative">
-                                <MessageCircle className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} />
-                                <input inputMode="tel" value={cfg.number}
-                                    onChange={e => setC({ number: e.target.value.replace(/[^\d\s()+-]/g, '') })}
-                                    onKeyDown={e => { if (e.key === 'Enter') conectar(); }}
-                                    placeholder="Ex.: +55 21 99999-9999" className={inputCls} />
-                            </div>
-                            <p className={`text-[11px] mt-1.5 ${muted}`}>Com DDD (e país). Usamos para reconhecer você e enviar as notificações que escolher.</p>
+                {/* ── Painel grande (aba grande) com ícone do WhatsApp ── */}
+                <div className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]'}`}>
+                    {/* Cabeçalho do painel: ícone do WhatsApp + título da seção + status */}
+                    <div className={`flex items-center gap-3 p-5 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                        <span className="w-11 h-11 rounded-2xl bg-emerald-500/15 text-emerald-500 ring-1 ring-emerald-500/20 flex items-center justify-center shrink-0 shadow-[0_0_24px_rgba(16,185,129,0.15)]">
+                            <MessageCircle className="w-6 h-6" strokeWidth={2.2} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                            <h2 className={`text-[15px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{active.label}</h2>
+                            <p className={`text-[12px] mt-0.5 ${muted}`}>{panelDesc}</p>
                         </div>
-
-                        <button onClick={conectar} disabled={generating}
-                            className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition active:scale-95 disabled:opacity-60 shadow-md shadow-emerald-500/25">
-                            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />} Conversar com a Alívia no WhatsApp
-                        </button>
-                    </>
-                )}
-
-                {loading ? (
-                    <div className={`flex items-center gap-3 mt-4 rounded-xl border px-3.5 py-3 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-                        <Skeleton className="w-9 h-9" />
-                        <div className="flex-1 space-y-2">
-                            <Skeleton className="h-3 w-32" />
-                            <Skeleton className="h-2.5 w-24" />
-                        </div>
+                        <Badge tone={panelBadge.tone}>{panelBadge.label}</Badge>
                     </div>
-                ) : linked.length > 0 ? (
-                    <div className="mt-4 space-y-2">
-                        {linked.map(l => (
-                            <div key={l.phone} className={`flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 ${isDark ? 'border-emerald-500/20 bg-emerald-500/[0.05]' : 'border-emerald-200 bg-emerald-50'}`}>
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                    <span className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0"><Link2 className="w-4 h-4" /></span>
-                                    <div className="min-w-0">
-                                        <p className={`text-[13px] font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>WhatsApp vinculado</p>
-                                        <p className={`text-[12px] ${muted}`}>+{maskPhone(l.phone)}</p>
+
+                    <div className="p-5 sm:p-6">
+                        {/* ── CONEXÃO ── */}
+                        {section === 'conexao' && (
+                            <>
+                                {/* Input de número: só quando NÃO conectado (some quando vinculado). */}
+                                {!loading && linked.length === 0 && !code && (
+                                    <>
+                                        <div>
+                                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Seu número de WhatsApp</span>
+                                            <div className="relative">
+                                                <MessageCircle className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} />
+                                                <input inputMode="tel" value={cfg.number}
+                                                    onChange={e => setC({ number: e.target.value.replace(/[^\d\s()+-]/g, '') })}
+                                                    onKeyDown={e => { if (e.key === 'Enter') conectar(); }}
+                                                    placeholder="Ex.: +55 21 99999-9999" className={inputCls} />
+                                            </div>
+                                            <p className={`text-[11px] mt-1.5 ${muted}`}>Com DDD (e país). Usamos para reconhecer você e enviar as notificações que escolher.</p>
+                                        </div>
+
+                                        <button onClick={conectar} disabled={generating}
+                                            className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition active:scale-95 disabled:opacity-60 shadow-md shadow-emerald-500/25">
+                                            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />} Conversar com a Alívia no WhatsApp
+                                        </button>
+                                    </>
+                                )}
+
+                                {loading ? (
+                                    <div className={`flex items-center gap-3 rounded-xl border px-3.5 py-3 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                                        <Skeleton className="w-9 h-9" />
+                                        <div className="flex-1 space-y-2">
+                                            <Skeleton className="h-3 w-32" />
+                                            <Skeleton className="h-2.5 w-24" />
+                                        </div>
                                     </div>
+                                ) : linked.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {linked.map(l => (
+                                            <div key={l.phone} className={`flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 ${isDark ? 'border-emerald-500/20 bg-emerald-500/[0.05]' : 'border-emerald-200 bg-emerald-50'}`}>
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <span className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0"><Link2 className="w-4 h-4" /></span>
+                                                    <div className="min-w-0">
+                                                        <p className={`text-[13px] font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>WhatsApp vinculado</p>
+                                                        <p className={`text-[12px] ${muted}`}>+{maskPhone(l.phone)}</p>
+                                                    </div>
+                                                </div>
+                                                <DisconnectBtn isDark={isDark} onConfirm={() => desvincular(l.phone)} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : code ? (
+                                    /* Fallback: já geramos o código e abrimos o WhatsApp — caso não abra. */
+                                    <div className={`rounded-2xl border p-4 ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-50'}`}>
+                                        <p className={`text-[12px] ${cell}`}>Não abriu automaticamente? Abra a conversa da <b>Alívia</b> e envie este código (ou toque em "Abrir o WhatsApp"):</p>
+                                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                            <span className="text-2xl font-black tracking-[0.3em] tabular-nums text-emerald-500">{code}</span>
+                                            <button onClick={copiar} className={`p-2 rounded-lg text-[12px] font-bold flex items-center gap-1.5 transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+                                                {copied ? <><Check className="w-3.5 h-3.5 text-emerald-500" /> Copiado</> : <><Copy className="w-3.5 h-3.5" /> Copiar</>}
+                                            </button>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-3 flex-wrap">
+                                            <a href={waLink} target="_blank" rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold transition active:scale-95">
+                                                <MessageCircle className="w-4 h-4" /> Abrir o WhatsApp <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                                            </a>
+                                            <button onClick={refresh} className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] font-bold transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+                                                <Check className="w-4 h-4" /> Já vinculei
+                                            </button>
+                                        </div>
+                                        {error && <p className="text-[12px] font-bold text-rose-500 mt-2">{error}</p>}
+                                    </div>
+                                ) : error ? (
+                                    <p className="text-[12px] font-bold text-rose-500">{error}</p>
+                                ) : null}
+
+                                <div className={`mt-4 rounded-xl border px-3.5 py-3 flex items-start gap-3 text-[12px] ${isDark ? 'border-white/10 bg-white/[0.02] text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
+                                    <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                                    O código é de uso único e expira quando usado. Antes de lançar qualquer gasto, a Alívia sempre pede sua confirmação no WhatsApp.
                                 </div>
-                                <DisconnectBtn isDark={isDark} onConfirm={() => desvincular(l.phone)} />
-                            </div>
-                        ))}
+                            </>
+                        )}
+
+                        {/* ── INTELIGÊNCIA (Gemini) ── */}
+                        {section === 'ia' && <IATab isDark={isDark} bare onSavedChange={setHasKey} />}
+
+                        {/* ── NOTIFICAÇÕES ── */}
+                        {section === 'notificacoes' && (
+                            <>
+                                <div className={`divide-y ${isDark ? 'divide-white/[0.06]' : 'divide-slate-100'}`}>
+                                    <SwitchRow isDark={isDark} icon={Bell} title="Ativar notificações"
+                                        desc="Receber mensagens da Alívia no seu WhatsApp."
+                                        on={cfg.enabled} onClick={() => setC({ enabled: !cfg.enabled })} />
+                                    <SwitchRow isDark={isDark} icon={Zap} title="Alertas de gasto"
+                                        desc="Avisos de gasto alto ou saldo perto do negativo."
+                                        on={cfg.spendingAlerts} disabled={!cfg.enabled} onClick={() => setC({ spendingAlerts: !cfg.spendingAlerts })} />
+                                    <SwitchRow isDark={isDark} icon={CalendarClock} title="Lembretes de contas"
+                                        desc="Aviso quando uma conta ou fatura está perto de vencer."
+                                        on={cfg.billReminders} disabled={!cfg.enabled} onClick={() => setC({ billReminders: !cfg.billReminders })} />
+                                    <SwitchRow isDark={isDark} icon={FileBarChart} title="Relatório semanal"
+                                        desc="Um fechamento com o resumo da semana."
+                                        on={cfg.weeklyReport} disabled={!cfg.enabled} onClick={() => setC({ weeklyReport: !cfg.weeklyReport })} />
+                                    <SwitchRow isDark={isDark} icon={MessageCircle} title="Registrar gastos por mensagem"
+                                        desc="Permitir lançar despesas escrevendo pra Alívia (ex.: “uber 23”). Ela sempre pede confirmação."
+                                        on={cfg.allowExpenseEntry} onClick={() => setC({ allowExpenseEntry: !cfg.allowExpenseEntry })} />
+                                </div>
+
+                                <div className={`flex items-center gap-3 mt-3 pt-4 border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                                    <button onClick={saveCfg} disabled={savingCfg}
+                                        className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-2 transition disabled:opacity-60">
+                                        {savingCfg ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Salvar configurações
+                                    </button>
+                                    {cfgFlash && <span className="text-[12px] font-bold text-emerald-500">{cfgFlash}</span>}
+                                </div>
+                            </>
+                        )}
                     </div>
-                ) : code ? (
-                    /* Fallback: já geramos o código e abrimos o WhatsApp — caso não abra. */
-                    <div className={`mt-4 rounded-2xl border p-4 ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-50'}`}>
-                        <p className={`text-[12px] ${cell}`}>Não abriu automaticamente? Abra a conversa da <b>Alívia</b> e envie este código (ou toque em "Abrir o WhatsApp"):</p>
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
-                            <span className="text-2xl font-black tracking-[0.3em] tabular-nums text-emerald-500">{code}</span>
-                            <button onClick={copiar} className={`p-2 rounded-lg text-[12px] font-bold flex items-center gap-1.5 transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
-                                {copied ? <><Check className="w-3.5 h-3.5 text-emerald-500" /> Copiado</> : <><Copy className="w-3.5 h-3.5" /> Copiar</>}
-                            </button>
-                        </div>
-                        <div className="flex items-center gap-2 mt-3 flex-wrap">
-                            <a href={waLink} target="_blank" rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold transition active:scale-95">
-                                <MessageCircle className="w-4 h-4" /> Abrir o WhatsApp <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-                            </a>
-                            <button onClick={refresh} className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] font-bold transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
-                                <Check className="w-4 h-4" /> Já vinculei
-                            </button>
-                        </div>
-                        {error && <p className="text-[12px] font-bold text-rose-500 mt-2">{error}</p>}
-                    </div>
-                ) : error ? (
-                    <p className="text-[12px] font-bold text-rose-500 mt-3">{error}</p>
-                ) : null}
-            </Card>
-
-            {/* ── Inteligência da Alívia (Gemini) — necessária pra ela responder ── */}
-            <IATab isDark={isDark} onSavedChange={setHasKey} />
-
-            {/* ── Preferências e notificações (lista nativa com divisores) ── */}
-            <Card isDark={isDark}>
-                <SectionTitle isDark={isDark} icon={Bell}>Notificações</SectionTitle>
-                <div className={`divide-y ${isDark ? 'divide-white/[0.06]' : 'divide-slate-100'}`}>
-                    <SwitchRow isDark={isDark} icon={Bell} title="Ativar notificações"
-                        desc="Receber mensagens da Alívia no seu WhatsApp."
-                        on={cfg.enabled} onClick={() => setC({ enabled: !cfg.enabled })} />
-                    <SwitchRow isDark={isDark} icon={Zap} title="Alertas de gasto"
-                        desc="Avisos de gasto alto ou saldo perto do negativo."
-                        on={cfg.spendingAlerts} disabled={!cfg.enabled} onClick={() => setC({ spendingAlerts: !cfg.spendingAlerts })} />
-                    <SwitchRow isDark={isDark} icon={CalendarClock} title="Lembretes de contas"
-                        desc="Aviso quando uma conta ou fatura está perto de vencer."
-                        on={cfg.billReminders} disabled={!cfg.enabled} onClick={() => setC({ billReminders: !cfg.billReminders })} />
-                    <SwitchRow isDark={isDark} icon={FileBarChart} title="Relatório semanal"
-                        desc="Um fechamento com o resumo da semana."
-                        on={cfg.weeklyReport} disabled={!cfg.enabled} onClick={() => setC({ weeklyReport: !cfg.weeklyReport })} />
-                    <SwitchRow isDark={isDark} icon={MessageCircle} title="Registrar gastos por mensagem"
-                        desc="Permitir lançar despesas escrevendo pra Alívia (ex.: “uber 23”). Ela sempre pede confirmação."
-                        on={cfg.allowExpenseEntry} onClick={() => setC({ allowExpenseEntry: !cfg.allowExpenseEntry })} />
                 </div>
-
-                {/* Rodapé do card: ação primária */}
-                <div className={`flex items-center gap-3 mt-3 pt-4 border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
-                    <button onClick={saveCfg} disabled={savingCfg}
-                        className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-2 transition disabled:opacity-60">
-                        {savingCfg ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Salvar configurações
-                    </button>
-                    {cfgFlash && <span className="text-[12px] font-bold text-emerald-500">{cfgFlash}</span>}
-                </div>
-            </Card>
-
-            <div className={`rounded-2xl border px-4 py-3.5 flex items-start gap-3 text-[12px] ${isDark ? 'border-white/10 bg-white/[0.02] text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
-                <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                O código é de uso único e expira quando usado. Antes de lançar qualquer gasto, a Alívia sempre pede sua confirmação no WhatsApp.
             </div>
         </div>
     );
@@ -695,7 +731,7 @@ function DisconnectBtn({ isDark, onConfirm }) {
 }
 
 // ── Inteligência Artificial (Gemini) ────────────────────────────────
-function IATab({ isDark, onSavedChange }) {
+function IATab({ isDark, onSavedChange, bare }) {
     const { currentUser } = useAuth();
     const uid = currentUser?.uid;
     const [key, setKey] = useState(() => { try { return localStorage.getItem(KEY_STORE) || ''; } catch { return ''; } });
@@ -753,12 +789,14 @@ function IATab({ isDark, onSavedChange }) {
     const remove = async () => { setKey(''); try { localStorage.removeItem(KEY_STORE); } catch { } setGeminiKey(null); setSaved(false); setEditing(false); await persistToCloud(null); setFlash('Chave removida.'); toast.info('Chave removida.'); setTimeout(() => setFlash(''), 2500); };
     const cancelEdit = () => { setEditing(false); setShow(false); try { setKey(localStorage.getItem(KEY_STORE) || ''); } catch { } };
 
-    return (
-        <Card isDark={isDark}>
-            <SectionTitle isDark={isDark} icon={Sparkles}
-                right={<Badge tone={saved ? 'emerald' : 'amber'}>{saved ? 'Ativa' : 'Não configurada'}</Badge>}>
-                Inteligência Artificial (Gemini)
-            </SectionTitle>
+    const iaBody = (
+        <>
+            {!bare && (
+                <SectionTitle isDark={isDark} icon={Sparkles}
+                    right={<Badge tone={saved ? 'emerald' : 'amber'}>{saved ? 'Ativa' : 'Não configurada'}</Badge>}>
+                    Inteligência Artificial (Gemini)
+                </SectionTitle>
+            )}
             {saved && !editing ? (
                 /* ── Estado SALVO (read-only, limpo) ── */
                 <div className="animate-in fade-in duration-200">
@@ -827,8 +865,9 @@ function IATab({ isDark, onSavedChange }) {
                 <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                 Sua chave fica salva na sua conta (e neste dispositivo), usada só para a Alívia falar com o Gemini — no WhatsApp e no app. Você pode remover quando quiser.
             </div>
-        </Card>
+        </>
     );
+    return bare ? iaBody : <Card isDark={isDark}>{iaBody}</Card>;
 }
 
 // ── Aparência ───────────────────────────────────────────────────────
