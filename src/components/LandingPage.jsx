@@ -46,6 +46,7 @@ import {
 import { useTheme } from '../contexts/ThemeContext';
 import logo from '../assets/logo.png';
 import aliviaFinal    from '../assets/alivia/alivia-final.png';
+import aliviaHero     from '../assets/alivia/alivia-consultora.png';
 import aliviaAssist   from '../assets/alivia/alivia-assistant.png';
 import aliviaClean    from '../assets/alivia/alivia-clean.png';
 import aliviaGoal     from '../assets/alivia/alivia-goal.png';
@@ -218,7 +219,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                     <div className="absolute inset-0 rounded-full blur-3xl opacity-25 pointer-events-none"
                                          style={{ background: 'radial-gradient(circle, #69C8B9 0%, transparent 70%)', transform: 'scale(0.95)' }} />
                                     <img
-                                        src={aliviaFinal}
+                                        src={aliviaHero}
                                         alt="Alívia — sua consultora financeira"
                                         className="alivia-float relative z-10 w-full max-w-[440px] lg:max-w-[500px] drop-shadow-2xl mx-auto rounded-[2.5rem]"
                                     />
@@ -710,7 +711,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                             </div>
                             {/* Right: Alivia */}
                             <div className="hidden lg:flex items-end justify-center pt-8">
-                                <img src={aliviaFinal} alt="Alívia" className="w-72 xl:w-80 drop-shadow-2xl alivia-float" />
+                                <img src={aliviaHero} alt="Alívia" className="w-72 xl:w-80 drop-shadow-2xl alivia-float rounded-[2rem]" />
                             </div>
                         </div>
                     </div>
