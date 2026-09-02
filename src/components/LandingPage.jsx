@@ -68,6 +68,16 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
     const isDark = theme !== 'light';
     const [billing, setBilling] = React.useState('monthly');
     const [activeScenario, setActiveScenario] = React.useState('panic');
+    const [openFaq, setOpenFaq] = React.useState(0);
+
+    const faqs = [
+        { q: 'A Alívia funciona mesmo dentro do WhatsApp?', a: 'Sim. Você conversa com a Alívia no seu próprio WhatsApp — por texto ou áudio. Ela registra gastos, dá baixa em contas, lê extratos em PDF ou CSV e te devolve o relatório na hora. Tudo fica sincronizado com o app.' },
+        { q: 'O plano Gratuito é real ou é só um teste?', a: 'É gratuito para sempre e não pede cartão de crédito. Ele já organiza o essencial dos seus gastos e inclui 10 conversas por mês com a Alívia no WhatsApp. Quando quiser tudo sem limites, o PRO está a um clique.' },
+        { q: 'Preciso informar a senha ou os dados do meu banco?', a: 'Não. A Alívia nunca pede a senha do seu banco nem acesso à sua conta. Você registra o que quiser, do seu jeito — o controle é sempre seu.' },
+        { q: 'Como funciona a cobrança do PRO?', a: 'O PRO custa R$ 14,99/mês, ou R$ 9,99/mês no plano anual. O pagamento é processado com segurança pela Stripe e você cancela quando quiser, sem fidelidade.' },
+        { q: 'Meus dados financeiros ficam seguros?', a: 'Sim. Suas informações trafegam criptografadas (TLS) e ficam protegidas no Google Cloud, em conformidade com a LGPD. Você pode exportar ou excluir seus dados a qualquer momento, direto no app.' },
+        { q: 'Funciona no celular e no computador?', a: 'Funciona nos dois. O app é responsivo e pode ser instalado no celular (PWA), e a Alívia está sempre no seu WhatsApp. Acesse de onde estiver, tudo sincronizado.' },
+    ];
 
     const t = {
         pageBg:     isDark ? 'bg-slate-950 text-slate-200' : 'bg-white text-slate-800',
@@ -136,7 +146,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                     borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(226,232,240,0.5)',
                 }}>
                     <div className="max-w-7xl mx-auto px-6 h-24 md:h-28 grid grid-cols-3 items-center">
-                        <div className="flex items-center">
+                        <div className="flex items-center gap-2">
                             <button
                                 onClick={toggleTheme}
                                 className={`p-2.5 rounded-full transition-all border ${
@@ -149,6 +159,18 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                             >
                                 {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                             </button>
+                            <nav aria-label="Seções" className="hidden lg:flex items-center gap-1 ml-2">
+                                {[
+                                    { href: '#recursos', label: 'Recursos' },
+                                    { href: '#pricing', label: 'Planos' },
+                                    { href: '#faq', label: 'FAQ' },
+                                ].map(link => (
+                                    <a key={link.href} href={link.href}
+                                        className={`text-xs font-bold px-3 py-2 rounded-lg transition-colors ${isDark ? 'text-slate-300 hover:text-[#69C8B9] hover:bg-white/5' : 'text-slate-600 hover:text-[#69C8B9] hover:bg-slate-50'}`}>
+                                        {link.label}
+                                    </a>
+                                ))}
+                            </nav>
                         </div>
                         <div className="flex justify-center">
                             <div className="flex flex-col items-center leading-none">
@@ -192,9 +214,9 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                     <span>Sua consultora financeira no WhatsApp</span>
                                 </div>
                                 <h1 className={`text-4xl md:text-6xl xl:text-7xl font-black tracking-tight leading-[1.05] ${t.textH}`}>
-                                    Cuide do seu<br />dinheiro<br />
+                                    Organize seu<br />dinheiro<br />
                                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA]">
-                                        pelo WhatsApp.
+                                        numa conversa.
                                     </span>
                                 </h1>
                                 <p className={`text-base md:text-xl leading-relaxed font-medium max-w-xl ${t.textBody}`}>
@@ -255,7 +277,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                 <section className="relative py-20 px-6">
                     <div className="max-w-5xl mx-auto">
                         <div className="text-center mb-10">
-                            <p className={`text-[10px] font-black uppercase tracking-widest text-[#69C8B9] mb-2`}>Simples de usar</p>
+                            <Eyebrow className="mb-2">Simples de usar</Eyebrow>
                             <h2 className={`text-2xl md:text-4xl font-black ${t.textH}`}>Em 3 passos, sua vida financeira muda.</h2>
                         </div>
                         <div className="grid md:grid-cols-3 gap-4">
@@ -288,7 +310,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                 <section className="py-24 relative overflow-hidden">
                     <div className="max-w-6xl mx-auto px-6 text-center">
                         <div className="space-y-4 mb-16">
-                            <div className="text-[#69C8B9] text-[10px] font-black uppercase tracking-widest">A Metodologia Alívia</div>
+                            <Eyebrow>A Metodologia Alívia</Eyebrow>
                             <h2 className={`text-3xl md:text-5xl font-black ${t.textH}`}>O Caminho para a Liberdade Real.</h2>
                         </div>
                         <div className="grid md:grid-cols-3 gap-6">
@@ -390,7 +412,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                 </section>
 
                 {/* ── MODULE 1: GASTOS ── */}
-                <section className={`py-24 relative ${t.sectionAlt}`}>
+                <section id="recursos" className={`py-24 relative scroll-mt-28 ${t.sectionAlt}`}>
                     <div className="max-w-6xl mx-auto px-6">
                         <div className="grid lg:grid-cols-2 gap-16 items-center">
                             <div className="space-y-8">
@@ -509,7 +531,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                     <div className="max-w-6xl mx-auto px-6">
                         <div className="grid lg:grid-cols-2 gap-16 items-center">
                             <div className="space-y-8">
-                                <div className="inline-flex items-center gap-1.5 text-[#25D366] text-[10px] font-black uppercase tracking-widest"><MessageSquare className="w-3 h-3" /> Alívia no WhatsApp · o carro-chefe</div>
+                                <Eyebrow color="#25D366" icon={MessageSquare}>Alívia no WhatsApp · o carro-chefe</Eyebrow>
                                 <h2 className={`text-4xl md:text-6xl font-black leading-[1.1] ${t.textH}`}>Resolva tudo <br />numa mensagem.</h2>
                                 <p className={`text-lg md:text-xl font-medium ${t.textBody}`}>Fale com a Alívia como você fala com um amigo — <span className="text-[#25D366] font-black">direto no seu WhatsApp.</span> Ela registra gastos, dá baixa nas contas, lê o extrato e te manda o relatório na hora.</p>
                                 <div className={`flex flex-col gap-2 p-4 rounded-2xl border text-sm font-medium ${isDark ? 'bg-white/[0.03] border-white/10 text-slate-300' : 'bg-white/70 border-slate-100 text-slate-600'}`}>
@@ -604,7 +626,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                 </section>
 
                 {/* ── PRICING ── */}
-                <section className="py-24 relative" id="pricing">
+                <section className="py-24 relative scroll-mt-28" id="pricing">
                     <div className="max-w-6xl mx-auto px-6 text-center">
                         <div className="space-y-6 mb-16">
                             <h2 className={`text-3xl md:text-5xl font-black ${t.textH}`}>Planos de Tranquilidade.</h2>
@@ -676,6 +698,34 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                     </div>
                 </section>
 
+                {/* ── FAQ ── */}
+                <section id="faq" className={`py-24 scroll-mt-28 ${isDark ? 'bg-white/[0.02]' : 'bg-slate-50/40'}`}>
+                    <div className="max-w-3xl mx-auto px-6">
+                        <div className="text-center space-y-3 mb-12">
+                            <Eyebrow color="#69C8B9">Perguntas frequentes</Eyebrow>
+                            <h2 className={`text-3xl md:text-5xl font-black ${t.textH}`}>Ainda com alguma dúvida?</h2>
+                            <p className={`text-base font-medium ${t.textBody}`}>As respostas que a maioria das pessoas procura antes de começar.</p>
+                        </div>
+                        <div className="space-y-3">
+                            {faqs.map((item, i) => (
+                                <FaqItem
+                                    key={i}
+                                    isDark={isDark}
+                                    question={item.q}
+                                    answer={item.a}
+                                    isOpen={openFaq === i}
+                                    onToggle={() => setOpenFaq(openFaq === i ? -1 : i)}
+                                    id={`faq-${i}`}
+                                />
+                            ))}
+                        </div>
+                        <p className={`text-center text-sm font-medium mt-10 ${t.textBody}`}>
+                            Não achou o que procurava?{' '}
+                            <button onClick={onViewContact} className="font-black text-[#69C8B9] hover:underline underline-offset-4">Fale com a gente</button>.
+                        </p>
+                    </div>
+                </section>
+
                 {/* ── FINAL CTA ── */}
                 <section className="py-24 relative overflow-hidden mx-6 mb-16">
                     <div className={`rounded-[3rem] relative overflow-hidden shadow-2xl ${isDark ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900'}`}>
@@ -732,6 +782,58 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
+
+// ── Eyebrow (rótulo uppercase reutilizável — padrão do design system) ─────────
+function Eyebrow({ children, color = '#69C8B9', icon: Icon, className = '' }) {
+    return (
+        <div
+            className={`inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${className}`}
+            style={{ color }}
+        >
+            {Icon && <Icon className="w-3 h-3" aria-hidden="true" />}
+            {children}
+        </div>
+    );
+}
+
+// ── FAQ item (acordeão acessível) ─────────────────────────────────────────────
+function FaqItem({ question, answer, isOpen, onToggle, id, isDark }) {
+    return (
+        <div
+            className={`rounded-2xl border overflow-hidden transition-all ${
+                isOpen
+                    ? (isDark ? 'bg-white/[0.04] border-[#69C8B9]/40' : 'bg-white border-[#69C8B9]/40 shadow-sm')
+                    : (isDark ? 'bg-white/[0.02] border-white/8 hover:border-white/15' : 'bg-white/70 border-slate-100 hover:border-slate-200')
+            }`}
+        >
+            <h3>
+                <button
+                    type="button"
+                    onClick={onToggle}
+                    aria-expanded={isOpen}
+                    aria-controls={`${id}-panel`}
+                    id={`${id}-button`}
+                    className="w-full flex items-center justify-between gap-4 p-5 text-left"
+                >
+                    <span className={`font-black text-sm md:text-base ${isDark ? 'text-white' : 'text-slate-800'}`}>{question}</span>
+                    <ArrowRight
+                        className={`w-4 h-4 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-90 text-[#69C8B9]' : (isDark ? 'text-slate-500' : 'text-slate-400')}`}
+                        aria-hidden="true"
+                    />
+                </button>
+            </h3>
+            <div
+                id={`${id}-panel`}
+                role="region"
+                aria-labelledby={`${id}-button`}
+                hidden={!isOpen}
+                className="px-5 pb-5 -mt-1"
+            >
+                <p className={`text-sm font-medium leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{answer}</p>
+            </div>
+        </div>
+    );
+}
 
 // ── Redes sociais ─────────────────────────────────────────────────────────────
 function SocialLink({ isDark, href, label, children }) {
