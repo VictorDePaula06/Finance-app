@@ -11,6 +11,7 @@ import AnimatedNumber from '../components/ui/AnimatedNumber';
 import {
     LayoutDashboard, Settings, TrendingUp, TrendingDown, Wallet, Eye, EyeOff,
     PieChart as PieIcon, PiggyBank, Landmark, HeartPulse, ChevronRight, X, Check, ListChecks, CreditCard,
+    ArrowLeftRight, Repeat,
 } from 'lucide-react';
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -165,32 +166,47 @@ export default function Dashboard({ onNavigate }) {
     return (
         <div className="max-w-6xl mx-auto w-full">
             {/* Cabeçalho */}
-            <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
-                <div className="flex items-center gap-4">
-                    <UserAvatar className="w-14 h-14 rounded-2xl shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]"
+            <div className="flex items-center justify-between gap-3 mb-5">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <UserAvatar className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]"
                         fallback={
-                            <span className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/25 to-teal-600/15 ring-1 ring-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]">
-                                <LayoutDashboard className="w-7 h-7" strokeWidth={2.2} />
+                            <span className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-emerald-500/25 to-teal-600/15 ring-1 ring-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]">
+                                <LayoutDashboard className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={2.2} />
                             </span>
                         } />
-                    <div>
-                        <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Olá, {nome} 👋</h1>
-                        <p className={`text-sm mt-0.5 ${muted}`}>Seu controle financeiro do mês.</p>
+                    <div className="min-w-0">
+                        <h1 className={`text-xl sm:text-2xl font-black tracking-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>Olá, {nome} 👋</h1>
+                        <p className={`text-[13px] sm:text-sm mt-0.5 ${muted}`}>Seu controle financeiro do mês.</p>
                     </div>
                 </div>
-                <button onClick={() => setConfigOpen(true)} className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                    <Settings className="w-4 h-4" /> Configurar
+                <button onClick={() => setConfigOpen(true)} title="Configurar" className={`shrink-0 flex items-center gap-2 px-3 sm:px-3.5 py-2.5 sm:py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                    <Settings className="w-4 h-4" /> <span className="hidden sm:inline">Configurar</span>
                 </button>
             </div>
 
-            {/* KPIs */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Kpi isDark={isDark} icon={TrendingUp} label="Ganhos no mês" value={<AnimatedNumber value={ganhos} format={(v) => `R$ ${money(v)}`} />} sub="este mês" tone="emerald" />
-                <Kpi isDark={isDark} icon={TrendingDown} label="Gastos no mês" value={<AnimatedNumber value={gastos} format={(v) => `R$ ${money(v)}`} />} sub={cfg.incluirFatura ? 'inclui fatura em aberto' : 'este mês'} tone="rose"
+            {/* KPIs — no mobile: Ganhos/Gastos lado a lado + Saldo em destaque */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                <Kpi isDark={isDark} icon={TrendingUp} label="Ganhos" value={<AnimatedNumber value={ganhos} format={(v) => `R$ ${money(v)}`} />} sub="este mês" tone="emerald" />
+                <Kpi isDark={isDark} icon={TrendingDown} label="Gastos" value={<AnimatedNumber value={gastos} format={(v) => `R$ ${money(v)}`} />} sub={cfg.incluirFatura ? 'inclui fatura' : 'este mês'} tone="rose"
                     action={<button onClick={() => setGastosOpen(true)} title="Ver lista de gastos" className={`p-1 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}><ListChecks className="w-4 h-4" /></button>} />
 
-                <Kpi isDark={isDark} icon={Wallet} label="Saldo disponível" value={hideSaldo ? 'R$ ••••' : <AnimatedNumber value={saldo} format={(v) => `R$ ${money(v)}`} />} sub="disponível em conta" tone="blue"
+                <Kpi isDark={isDark} icon={Wallet} label="Saldo disponível" value={hideSaldo ? 'R$ ••••' : <AnimatedNumber value={saldo} format={(v) => `R$ ${money(v)}`} />} sub="disponível em conta" tone="blue" className="col-span-2 sm:col-span-1"
                     action={<button onClick={() => setHideSaldo(h => !h)} className={muted}>{hideSaldo ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>} />
+            </div>
+
+            {/* Ações rápidas — só mobile (no desktop a sidebar já dá acesso) */}
+            <div className="sm:hidden -mx-4 px-4 mt-4 flex gap-2 overflow-x-auto no-scrollbar">
+                {[
+                    { label: 'Lançar', icon: ArrowLeftRight, to: 'lancamentos' },
+                    { label: 'Reservas', icon: PiggyBank, to: 'reservas' },
+                    { label: 'Recorrentes', icon: Repeat, to: 'recorrentes' },
+                    { label: 'Cartão', icon: CreditCard, to: 'cartoes' },
+                ].map(a => (
+                    <button key={a.to} onClick={() => onNavigate?.(a.to)}
+                        className={`shrink-0 flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-[13px] font-bold transition active:scale-[0.97] ${isDark ? 'border-white/10 bg-white/[0.03] text-slate-200' : 'border-slate-200 bg-white text-slate-700'}`}>
+                        <a.icon className="w-4 h-4 text-emerald-500" /> {a.label}
+                    </button>
+                ))}
             </div>
 
             {/* Gastos por categoria · Reserva · Patrimônio */}
@@ -385,22 +401,22 @@ function GastosModal({ isDark, itens, total, incluiFatura, onClose }) {
     );
 }
 
-function Kpi({ isDark, icon: Icon, label, value, sub, tone, action }) {
+function Kpi({ isDark, icon: Icon, label, value, sub, tone, action, className = '' }) {
     const map = {
         emerald: { text: 'text-emerald-500', bg: 'bg-emerald-500/12 text-emerald-500', line: 'from-emerald-500' },
         rose: { text: 'text-rose-500', bg: 'bg-rose-500/12 text-rose-500', line: 'from-rose-500' },
         blue: { text: 'text-blue-400', bg: 'bg-blue-500/12 text-blue-400', line: 'from-blue-500' },
     }[tone];
     return (
-        <div className={`rounded-2xl border p-5 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
-            <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${map.bg}`}><Icon className="w-4 h-4" /></span>
-                    <span className={`text-[12px] font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{label}</span>
+        <div className={`rounded-2xl border p-4 sm:p-5 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'} ${className}`}>
+            <div className="flex items-center justify-between gap-1">
+                <span className="flex items-center gap-2 min-w-0">
+                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${map.bg}`}><Icon className="w-4 h-4" /></span>
+                    <span className={`text-[12px] font-bold truncate ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{label}</span>
                 </span>
                 {action}
             </div>
-            <p className={`text-3xl font-black tabular-nums mt-2 ${map.text}`}>{value}</p>
+            <p className={`text-2xl sm:text-3xl font-black tabular-nums mt-2 ${map.text}`}>{value}</p>
             <p className={`text-[11px] mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{sub}</p>
             <div className={`h-0.5 rounded-full mt-3 bg-gradient-to-r ${map.line} to-transparent`} />
         </div>
