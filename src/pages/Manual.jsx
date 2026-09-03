@@ -2,7 +2,7 @@ import React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import {
     BookOpen, LayoutDashboard, ArrowLeftRight, Repeat, CreditCard, PiggyBank,
-    Landmark, BarChart3, Sparkles, Rocket, Lightbulb, ShieldCheck,
+    Landmark, BarChart3, Sparkles, Rocket, Lightbulb, ShieldCheck, MessageCircle,
 } from 'lucide-react';
 
 // Guia rápido de uso do sistema. Aba "Manual".
@@ -44,8 +44,8 @@ const SECOES = [
         desc: 'Relatórios das suas finanças (gastos por categoria, evolução, cartão e mais). Antes de gerar cada um, você escolhe filtros como o período e se inclui a fatura em aberto do cartão.',
     },
     {
-        icon: Sparkles, color: '#10b981', title: 'Consultoria Alívia',
-        desc: 'Um assistente que olha para os seus números e dá orientações práticas para você organizar e melhorar a sua vida financeira.',
+        icon: MessageCircle, color: '#25D366', title: 'Alívia no WhatsApp',
+        desc: 'Fale com a Alívia direto no seu WhatsApp: registre gastos, dê baixa em contas, importe extratos e peça relatórios — por mensagem ou áudio. Configure em Configurações › WhatsApp.',
     },
 ];
 
@@ -135,8 +135,8 @@ export default function Manual() {
             </div>
 
             <div className={`mt-6 rounded-2xl border px-4 py-3.5 flex items-center gap-3 text-[13px] ${isDark ? 'border-white/10 bg-white/[0.02] text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
-                <Sparkles className="w-4 h-4 shrink-0 text-emerald-500" />
-                Ficou com dúvida em algo? Abra a <span className="font-bold text-emerald-500">Consultoria Alívia</span> e pergunte — ela ajuda com base nos seus próprios números.
+                <MessageCircle className="w-4 h-4 shrink-0 text-emerald-500" />
+                Ficou com dúvida em algo? Fale com a <span className="font-bold text-emerald-500">Alívia no WhatsApp</span> — ela ajuda com base nos seus próprios números, por mensagem ou áudio.
             </div>
         </div>
     );
