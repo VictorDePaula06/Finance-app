@@ -1269,8 +1269,36 @@ function parseExpense(text) {
 }
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const yes = (t) => /^(sim|confirmar|isso|ok|pode|s)\b/i.test(t.trim());
+const yes = (t) => /^(sim|confirmar|isso|ok|pode|s|bora)\b/i.test(t.trim());
 const no = (t) => /^(n[aã]o|cancelar|nao|n)\b/i.test(t.trim());
+// "fazer depois / pular" — usado no onboarding pós-vínculo.
+const skip = (t) => /(depois|pular|agora n[aã]o|mais tarde|skip)/i.test(String(t || ''));
+
+// Botões de escolha (2-3 opções) — reaproveita sendInteractive.
+async function sendChoice(to, bodyText, opts) {
+  await sendInteractive(to, {
+    type: 'button',
+    body: { text: String(bodyText).slice(0, 1024) },
+    action: { buttons: opts.slice(0, 3).map(o => ({ type: 'reply', reply: { id: o.id, title: o.title.slice(0, 20) } })) },
+  });
+}
+// Valor em reais a partir de texto livre ("3000", "3.000,00", "R$ 3 mil").
+function parseAmountBR(t) {
+  let s = String(t || '').toLowerCase().replace(/r\$/g, '').trim();
+  const mil = /\bmil\b/.test(s);
+  s = s.replace(/[^\d.,]/g, '');
+  if (!s) return NaN;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if ((s.match(/\./g) || []).length > 1) s = s.replace(/\./g, '');
+  let v = parseFloat(s);
+  if (mil && v < 1000) v *= 1000;
+  return v;
+}
+// Dia do mês (1–31) ou null.
+function parseDay(t) {
+  const n = parseInt(String(t).replace(/\D/g, ''), 10);
+  return (Number.isFinite(n) && n >= 1 && n <= 31) ? n : null;
+}
 
 export default async function handler(req, res) {
   // ── Verificação do webhook (GET) ──
@@ -1347,9 +1375,15 @@ export default async function handler(req, res) {
         if (snap.exists) { linkRef = db.collection('wa_links').doc(cand); linkSnap = snap; break; }
       }
       if (linkSnap) {
-        await db.collection('wa_users').doc(from).set({ uid: linkSnap.data().uid, linkedAt: Date.now() });
+        const linkedUid = linkSnap.data().uid;
+        await db.collection('wa_users').doc(from).set({ uid: linkedUid, linkedAt: Date.now() });
         await linkRef.delete();
-        await sendText(from, 'Pronto, seu WhatsApp foi vinculado à sua conta Alívia! ✅\n\nPode me perguntar sobre suas finanças ou registrar um gasto (ex.: "mercado 120").');
+        // Inicia o onboarding guiado (salário + cartão), com opção de fazer depois.
+        await db.collection('wa_sessions').doc(from).set({ uid: linkedUid, history: [], pending: { type: 'onb_offer' } }, { merge: true });
+        await sendText(from, 'Pronto, seu WhatsApp foi vinculado à sua conta Alívia! ✅');
+        await sendChoice(from,
+          'Pra deixar tudo redondo, posso já te ajudar a cadastrar o seu *salário* e o seu *cartão* aqui pelo WhatsApp — do mesmo jeitinho que você faria no app. Bora? 💚',
+          [{ id: 'onb_yes', title: 'Bora cadastrar' }, { id: 'onb_later', title: 'Fazer depois' }]);
       } else {
         await sendText(from, 'Oi! Sou a Alívia 💚\nPara conectar, abra o app em *Configurações › WhatsApp*, toque em *Conversar com a Alívia* e envie a mensagem que aparecer (ela já vem com seu código).');
       }
@@ -1389,6 +1423,117 @@ export default async function handler(req, res) {
     if (msg.type === 'document') {
       await handleDocumentImport(db, from, uid, sessRef, msg.document, geminiKey);
       return res.status(200).json({ ok: true });
+    }
+
+    // ── ONBOARDING pós-vínculo (salário + cartão) — state machine, sem IA ──
+    // Funciona mesmo antes de o usuário configurar a chave do Gemini.
+    if (sess.pending?.type?.startsWith('onb_')) {
+      const p = sess.pending;
+      const setPending = (np, extra = {}) => sessRef.set({ uid, history, pending: np, ...extra }, { merge: true });
+      const wantsLater = skip(text) || selId === 'onb_later' || selId === 'onb_card_later';
+      const offerCard = async () => {
+        await setPending({ type: 'onb_card_offer' });
+        await sendChoice(from, 'Agora, quer cadastrar um *cartão de crédito*? Assim eu acompanho a fatura pra você. 💳',
+          [{ id: 'onb_card_yes', title: 'Cadastrar cartão' }, { id: 'onb_card_later', title: 'Agora não' }]);
+      };
+      const done = async (m) => { await setPending(null); await sendText(from, m); };
+
+      // Oferta inicial
+      if (p.type === 'onb_offer') {
+        if (yes(text) || selId === 'onb_yes') {
+          await setPending({ type: 'onb_sal_value' });
+          await sendText(from, 'Show! Vamos ao seu *salário* 💚\n\nQual é o *valor* que você recebe por mês? (ex.: 3000)\n\n_Se preferir pular, responda "depois"._');
+          return res.status(200).json({ ok: true });
+        }
+        if (wantsLater || no(text)) { await done('Tranquilo! 👍 Quando quiser é só me dizer *"cadastrar salário"* ou *"cadastrar cartão"* — ou fazer pelo app, em *Recorrentes* e *Meu cartão*.'); return res.status(200).json({ ok: true }); }
+        // Mensagem longa/não reconhecida → abandona o onboarding e trata normalmente.
+        if (text.trim().split(/\s+/).length >= 4) { await setPending(null); sess.pending = null; }
+        else { await sendChoice(from, 'Posso te ajudar a cadastrar seu *salário* e *cartão*?', [{ id: 'onb_yes', title: 'Bora cadastrar' }, { id: 'onb_later', title: 'Fazer depois' }]); return res.status(200).json({ ok: true }); }
+      }
+
+      // SALÁRIO — valor
+      else if (p.type === 'onb_sal_value') {
+        if (wantsLater) { await offerCard(); return res.status(200).json({ ok: true }); }
+        const v = parseAmountBR(text);
+        if (!Number.isFinite(v) || v <= 0) { await sendText(from, 'Não entendi o valor 😅. Me manda só o número, ex.: *3000*. (ou "depois")'); return res.status(200).json({ ok: true }); }
+        await setPending({ type: 'onb_sal_day', data: { value: v } });
+        await sendText(from, `Valor: *R$ ${money(v)}* ✅\n\nQue *dia do mês* você costuma receber? (1 a 31)`);
+        return res.status(200).json({ ok: true });
+      }
+      // SALÁRIO — dia + salva
+      else if (p.type === 'onb_sal_day') {
+        if (wantsLater) { await offerCard(); return res.status(200).json({ ok: true }); }
+        const d = parseDay(text);
+        if (!d) { await sendText(from, 'Me diz só o *dia* do mês (número de 1 a 31). Ex.: *5*. (ou "depois")'); return res.status(200).json({ ok: true }); }
+        await db.collection('fixed_incomes').add({ name: 'Salário', value: p.data.value, category: 'salary', day: d, isVariable: false, userId: uid, createdAt: Date.now() });
+        await sendText(from, `🎉 *Salário cadastrado!* R$ ${money(p.data.value)}, todo dia ${d}. Já aparece no app em *Recorrentes*.`);
+        await offerCard();
+        return res.status(200).json({ ok: true });
+      }
+
+      // CARTÃO — oferta
+      else if (p.type === 'onb_card_offer') {
+        if (yes(text) || selId === 'onb_card_yes') {
+          await setPending({ type: 'onb_card_name' });
+          await sendText(from, 'Boa! Qual o *nome* do cartão? (ex.: Nubank, Itaú…)');
+          return res.status(200).json({ ok: true });
+        }
+        await done('Perfeito! 🎉 Tá tudo pronto. Agora é só me mandar seus gastos que eu registro — ex.: *"mercado 120"*.');
+        return res.status(200).json({ ok: true });
+      }
+      // CARTÃO — nome
+      else if (p.type === 'onb_card_name') {
+        if (wantsLater) { await done('Sem problema! 👍 Quando quiser, é só dizer *"cadastrar cartão"*.'); return res.status(200).json({ ok: true }); }
+        const name = text.trim().slice(0, 40);
+        if (!name) { await sendText(from, 'Me diz o *nome* do cartão (ex.: Nubank).'); return res.status(200).json({ ok: true }); }
+        await setPending({ type: 'onb_card_limit', data: { name } });
+        await sendText(from, `Cartão: *${name}* ✅\n\nQual o *limite* dele? (ex.: 5000 — ou "não sei")`);
+        return res.status(200).json({ ok: true });
+      }
+      // CARTÃO — limite
+      else if (p.type === 'onb_card_limit') {
+        const dontknow = /n[aã]o sei|nao sei|sei l[aá]|depois|pular/i.test(text);
+        const v = dontknow ? null : parseAmountBR(text);
+        if (!dontknow && (!Number.isFinite(v) || v <= 0)) { await sendText(from, 'Me manda só o número do *limite* (ex.: 5000), ou "não sei".'); return res.status(200).json({ ok: true }); }
+        await setPending({ type: 'onb_card_closing', data: { ...p.data, limit: dontknow ? null : v } });
+        await sendText(from, 'Qual o dia do *fechamento* da fatura? (1 a 31)');
+        return res.status(200).json({ ok: true });
+      }
+      // CARTÃO — fechamento
+      else if (p.type === 'onb_card_closing') {
+        const d = parseDay(text);
+        if (!d) { await sendText(from, 'Me diz só o *dia do fechamento* (1 a 31). Ex.: *2*.'); return res.status(200).json({ ok: true }); }
+        await setPending({ type: 'onb_card_due', data: { ...p.data, closingDay: d } });
+        await sendText(from, 'E o dia do *vencimento* da fatura? (1 a 31)');
+        return res.status(200).json({ ok: true });
+      }
+      // CARTÃO — vencimento + salva
+      else if (p.type === 'onb_card_due') {
+        const d = parseDay(text);
+        if (!d) { await sendText(from, 'Me diz só o *dia do vencimento* (1 a 31). Ex.: *10*.'); return res.status(200).json({ ok: true }); }
+        await db.collection('cards').add({
+          name: p.data.name, bank: p.data.name, brand: 'Visa', last4: '',
+          limit: p.data.limit ?? null, closingDay: p.data.closingDay, dueDay: d,
+          userId: uid, createdAt: Date.now(),
+        });
+        await done(`🎉 *Cartão cadastrado!* ${p.data.name} — fecha dia ${p.data.closingDay}, vence dia ${d}. Já está no app em *Meu cartão*.\n\nTá tudo pronto! Agora é só me mandar seus gastos que eu registro. Ex.: *"uber 25"*.`);
+        return res.status(200).json({ ok: true });
+      }
+    }
+
+    // Atalhos p/ (re)iniciar o cadastro guiado sob demanda.
+    if (!sess.pending) {
+      const tl = String(text).trim().toLowerCase();
+      if (/^cadastr(ar|a) (o |meu )?sal[aá]rio/.test(tl)) {
+        await sessRef.set({ uid, history, pending: { type: 'onb_sal_value' } }, { merge: true });
+        await sendText(from, 'Vamos cadastrar seu *salário* 💚\n\nQual é o *valor* que você recebe por mês? (ex.: 3000)');
+        return res.status(200).json({ ok: true });
+      }
+      if (/^cadastr(ar|a) (o |meu |um )?cart[aã]o/.test(tl)) {
+        await sessRef.set({ uid, history, pending: { type: 'onb_card_name' } }, { merge: true });
+        await sendText(from, 'Vamos cadastrar um *cartão* 💳\n\nQual o *nome* do cartão? (ex.: Nubank)');
+        return res.status(200).json({ ok: true });
+      }
     }
 
     // Detecta um pedido NOVO (frase digitada) pra não ficar preso num fluxo pendente.
