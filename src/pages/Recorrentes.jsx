@@ -180,25 +180,27 @@ export default function Recorrentes({ onNavigate }) {
                     tone={balancoProjetado >= 0 ? 'emerald' : 'rose'} />
             </div>
 
-            {/* Entradas */}
-            <RecorrentesSection kind="income" rows={incomeRows} isDark={isDark} wrapClass="mt-6"
-                onEdit={(r) => setForm({ kind: 'income', editing: r })}
-                onDelete={(r) => deleteDoc(doc(db, collOf('income'), r.id))}
-                onBaixa={(r) => setBaixa({ kind: 'income', rec: r })} />
+            {/* Entradas | Despesas — duas colunas */}
+            <div className="grid lg:grid-cols-2 gap-4 mt-6 items-start">
+                <RecorrentesSection kind="income" rows={incomeRows} isDark={isDark}
+                    onEdit={(r) => setForm({ kind: 'income', editing: r })}
+                    onDelete={(r) => deleteDoc(doc(db, collOf('income'), r.id))}
+                    onBaixa={(r) => setBaixa({ kind: 'income', rec: r })} />
 
-            {/* Despesas — sub-abas: Fixas & mensais vs No cartão */}
-            <RecorrentesSection kind="expense" rows={expTab === 'fixas' ? expenseRowsFix : cardRecurringRows} isDark={isDark} wrapClass="mt-6"
-                onEdit={(r) => setForm({ kind: 'expense', editing: r })}
-                onDelete={(r) => deleteDoc(doc(db, collOf('expense'), r.id))}
-                onBaixa={(r) => setBaixa({ kind: 'expense', rec: r })}
-                onNavigate={onNavigate}
-                emptyOverride={expTab === 'cartao' ? 'Nenhuma parcela ou assinatura vinculada a cartão.' : null}
-                headerRight={
-                    <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-100/70'}`}>
-                        <SubTab active={expTab === 'fixas'} onClick={() => setExpTab('fixas')} isDark={isDark} label="Fixas & mensais" count={expenseRowsFix.length} />
-                        <SubTab active={expTab === 'cartao'} onClick={() => setExpTab('cartao')} isDark={isDark} label="No cartão" count={cardRecurringRows.length} />
-                    </div>
-                } />
+                {/* Despesas — sub-abas: Fixas & mensais vs No cartão */}
+                <RecorrentesSection kind="expense" rows={expTab === 'fixas' ? expenseRowsFix : cardRecurringRows} isDark={isDark}
+                    onEdit={(r) => setForm({ kind: 'expense', editing: r })}
+                    onDelete={(r) => deleteDoc(doc(db, collOf('expense'), r.id))}
+                    onBaixa={(r) => setBaixa({ kind: 'expense', rec: r })}
+                    onNavigate={onNavigate}
+                    emptyOverride={expTab === 'cartao' ? 'Nenhuma parcela ou assinatura vinculada a cartão.' : null}
+                    headerRight={
+                        <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-100/70'}`}>
+                            <SubTab active={expTab === 'fixas'} onClick={() => setExpTab('fixas')} isDark={isDark} label="Fixas & mensais" count={expenseRowsFix.length} />
+                            <SubTab active={expTab === 'cartao'} onClick={() => setExpTab('cartao')} isDark={isDark} label="No cartão" count={cardRecurringRows.length} />
+                        </div>
+                    } />
+            </div>
 
             {/* Nota */}
             <div className={`mt-6 rounded-2xl border px-4 py-3.5 flex items-center gap-3 text-[13px] ${isDark ? 'border-white/10 bg-white/[0.02] text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
@@ -243,42 +245,50 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, onN
     const cell = isDark ? 'text-slate-300' : 'text-slate-700';
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const accent = income ? 'text-emerald-500' : 'text-rose-500';
+    const headBg = income
+        ? (isDark ? 'bg-emerald-500/[0.06]' : 'bg-emerald-50/70')
+        : (isDark ? 'bg-rose-500/[0.05]' : 'bg-rose-50/70');
+    const PREVIEW = 3;
+    const [showAll, setShowAll] = React.useState(false);
+    const shown = showAll ? rows : rows.slice(0, PREVIEW);
 
     return (
-        <div className={wrapClass}>
-            <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-                <h2 className={`text-[15px] font-black tracking-tight flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                    <SectionIcon className={`w-4 h-4 ${accent}`} /> {cfg.title}
+        <div className={`rounded-2xl border overflow-hidden flex flex-col ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]'} ${wrapClass}`}>
+            {/* Cabeçalho colorido do card */}
+            <div className={`flex items-center justify-between gap-2 px-4 sm:px-5 py-4 border-b flex-wrap ${isDark ? 'border-white/[0.06]' : 'border-slate-100'} ${headBg}`}>
+                <h2 className={`text-[15px] font-black tracking-tight flex items-center gap-2.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                    <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${income ? 'bg-emerald-500/15 text-emerald-500' : 'bg-rose-500/15 text-rose-500'}`}><SectionIcon className="w-4 h-4" /></span>
+                    {cfg.title}
                 </h2>
                 {headerRight}
             </div>
 
-            <div className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
-                {rows.length === 0 ? (
-                    <div className="py-12 text-center">
-                        <SectionIcon className={`w-7 h-7 mx-auto mb-2.5 ${muted}`} />
-                        <p className={`text-sm font-bold ${cell}`}>Nada por aqui</p>
-                        <p className={`text-xs mt-1 ${muted}`}>{emptyOverride || cfg.emptyHint}</p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left min-w-[600px]">
+            {rows.length === 0 ? (
+                <div className="py-12 text-center px-4">
+                    <SectionIcon className={`w-7 h-7 mx-auto mb-2.5 ${muted}`} />
+                    <p className={`text-sm font-bold ${cell}`}>Nada por aqui</p>
+                    <p className={`text-xs mt-1 ${muted}`}>{emptyOverride || cfg.emptyHint}</p>
+                </div>
+            ) : (
+                <>
+                    <div className="overflow-x-auto flex-1">
+                        <table className="w-full text-left">
                             <thead>
-                                <tr className={`text-[11px] font-black uppercase tracking-widest whitespace-nowrap ${muted} border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
-                                    <th className="px-4 py-3">{income ? 'Entrada' : 'Despesa'}</th>
-                                    <th className="px-4 py-3 hidden sm:table-cell">Categoria</th>
-                                    <th className="px-4 py-3 hidden md:table-cell text-center">{income ? 'Recebe' : 'Venc.'}</th>
-                                    <th className="px-4 py-3 text-right">Valor</th>
-                                    <th className="px-4 py-3 text-center">Situação</th>
-                                    <th className="px-4 py-3 text-right">Ações</th>
+                                <tr className={`text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${muted} border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+                                    <th className="px-4 py-2.5">{income ? 'Entrada' : 'Despesa'}</th>
+                                    <th className="px-3 py-2.5 hidden md:table-cell">Categoria</th>
+                                    <th className="px-3 py-2.5 hidden sm:table-cell text-center">{income ? 'Recebe' : 'Venc.'}</th>
+                                    <th className="px-3 py-2.5 text-right">Valor</th>
+                                    <th className="px-3 py-2.5 text-center">Situação</th>
+                                    <th className="px-3 py-2.5 text-right">Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {rows.map((r, i) => {
+                                {shown.map((r, i) => {
                                     const c = catMetaOf(kind, r.category);
                                     const hex = categoryHex(c);
                                     const Icon = c.icon;
-                                    const last = i === rows.length - 1;
+                                    const last = i === shown.length - 1;
                                     // Evita redundância: nome idêntico ao rótulo da categoria.
                                     const sameAsCat = String(r.name || '').trim().toLowerCase() === String(c.label || '').trim().toLowerCase();
                                     return (
@@ -303,8 +313,8 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, onN
                                                     ) : null}
                                                 </div>
                                             </td>
-                                            <td className={`px-4 py-3.5 hidden sm:table-cell ${sameAsCat ? muted : cell}`}>{sameAsCat ? '—' : c.label}</td>
-                                            <td className={`px-4 py-3.5 hidden md:table-cell text-center tabular-nums ${cell}`}>Dia {r.day || 1}</td>
+                                            <td className={`px-3 py-3 hidden md:table-cell ${sameAsCat ? muted : cell}`}>{sameAsCat ? '—' : c.label}</td>
+                                            <td className={`px-3 py-3 hidden sm:table-cell text-center tabular-nums ${cell}`}>Dia {r.day || 1}</td>
                                             <td className={`px-4 py-3.5 text-right font-black tabular-nums whitespace-nowrap ${income ? 'text-emerald-500' : 'text-rose-500'}`}>
                                                 {income ? '+' : '−'} R$ {money(r.value)}
                                             </td>
@@ -342,8 +352,15 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, onN
                             </tbody>
                         </table>
                     </div>
-                )}
-            </div>
+                    {rows.length > PREVIEW && (
+                        <button onClick={() => setShowAll(v => !v)}
+                            className={`flex items-center justify-between px-4 sm:px-5 py-3 border-t text-[13px] font-bold transition ${isDark ? 'border-white/[0.06] text-slate-300 hover:bg-white/[0.03]' : 'border-slate-100 text-slate-600 hover:bg-slate-50'}`}>
+                            <span>{showAll ? 'Ver menos' : `Ver todas ${income ? 'entradas' : 'despesas'} (${rows.length})`}</span>
+                            <ArrowRight className={`w-4 h-4 shrink-0 transition-transform ${accent} ${showAll ? '-rotate-90' : ''}`} />
+                        </button>
+                    )}
+                </>
+            )}
         </div>
     );
 }
