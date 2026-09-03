@@ -284,7 +284,7 @@ export default function Cartoes() {
                                                                 <p className={`text-[11px] mt-0.5 ${muted}`}>{sub}</p>
                                                             </div>
                                                             <span className="font-black tabular-nums whitespace-nowrap text-rose-500">− R$ {money(it.amount)}</span>
-                                                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
+                                                            <div className="flex items-center gap-0.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition">
                                                                 <button onClick={() => setBuyForm({ editing: it })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
                                                                 <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, it.kind === 'despesa' ? 'transactions' : 'subscriptions', it.id))} />
                                                             </div>

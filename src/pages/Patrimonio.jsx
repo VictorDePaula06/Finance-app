@@ -1152,7 +1152,7 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, changes = {
                 </td>
                 <td className="pr-2 pl-0 w-8">
                     {r.removable && (
-                        <button onClick={() => onDelete(r.id)} title="Remover" className={`p-1.5 rounded-lg text-slate-400 hover:text-rose-500 opacity-60 group-hover:opacity-100 transition ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => onDelete(r.id)} title="Remover" className={`p-1.5 rounded-lg text-slate-400 hover:text-rose-500 opacity-100 lg:opacity-60 lg:group-hover:opacity-100 transition ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Trash2 className="w-4 h-4" /></button>
                     )}
                 </td>
             </tr>
