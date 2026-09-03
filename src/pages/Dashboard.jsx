@@ -11,7 +11,6 @@ import AnimatedNumber from '../components/ui/AnimatedNumber';
 import {
     LayoutDashboard, Settings, TrendingUp, TrendingDown, Wallet, Eye, EyeOff,
     PieChart as PieIcon, PiggyBank, Landmark, HeartPulse, ChevronRight, X, Check, ListChecks, CreditCard,
-    ArrowLeftRight, Repeat,
 } from 'lucide-react';
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -179,8 +178,8 @@ export default function Dashboard({ onNavigate }) {
                         <p className={`text-[13px] sm:text-sm mt-0.5 ${muted}`}>Seu controle financeiro do mês.</p>
                     </div>
                 </div>
-                <button onClick={() => setConfigOpen(true)} title="Configurar" className={`shrink-0 flex items-center gap-2 px-3 sm:px-3.5 py-2.5 sm:py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                    <Settings className="w-4 h-4" /> <span className="hidden sm:inline">Configurar</span>
+                <button onClick={() => setConfigOpen(true)} title="Configurar" className={`shrink-0 hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                    <Settings className="w-4 h-4" /> Configurar
                 </button>
             </div>
 
@@ -194,20 +193,6 @@ export default function Dashboard({ onNavigate }) {
                     action={<button onClick={() => setHideSaldo(h => !h)} className={muted}>{hideSaldo ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>} />
             </div>
 
-            {/* Ações rápidas — só mobile (no desktop a sidebar já dá acesso) */}
-            <div className="sm:hidden -mx-4 px-4 mt-4 flex gap-2 overflow-x-auto no-scrollbar">
-                {[
-                    { label: 'Lançar', icon: ArrowLeftRight, to: 'lancamentos' },
-                    { label: 'Reservas', icon: PiggyBank, to: 'reservas' },
-                    { label: 'Recorrentes', icon: Repeat, to: 'recorrentes' },
-                    { label: 'Cartão', icon: CreditCard, to: 'cartoes' },
-                ].map(a => (
-                    <button key={a.to} onClick={() => onNavigate?.(a.to)}
-                        className={`shrink-0 flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-[13px] font-bold transition active:scale-[0.97] ${isDark ? 'border-white/10 bg-white/[0.03] text-slate-200' : 'border-slate-200 bg-white text-slate-700'}`}>
-                        <a.icon className="w-4 h-4 text-emerald-500" /> {a.label}
-                    </button>
-                ))}
-            </div>
 
             {/* Gastos por categoria · Reserva · Patrimônio */}
             <div className="grid lg:grid-cols-3 gap-4 mt-4">
