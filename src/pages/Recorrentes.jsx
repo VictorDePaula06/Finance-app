@@ -180,8 +180,8 @@ export default function Recorrentes({ onNavigate }) {
                     tone={balancoProjetado >= 0 ? 'emerald' : 'rose'} />
             </div>
 
-            {/* Entradas | Despesas — duas colunas */}
-            <div className="grid lg:grid-cols-2 gap-4 mt-6 items-start">
+            {/* Entradas | Despesas — duas colunas (mesma altura) */}
+            <div className="grid lg:grid-cols-2 gap-4 mt-6 items-stretch">
                 <RecorrentesSection kind="income" rows={incomeRows} isDark={isDark}
                     onEdit={(r) => setForm({ kind: 'income', editing: r })}
                     onDelete={(r) => deleteDoc(doc(db, collOf('income'), r.id))}
@@ -271,86 +271,66 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, onN
                 </div>
             ) : (
                 <>
-                    <div className="overflow-x-auto flex-1">
-                        <table className="w-full text-left">
-                            <thead>
-                                <tr className={`text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${muted} border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
-                                    <th className="px-4 py-2.5">{income ? 'Entrada' : 'Despesa'}</th>
-                                    <th className="px-3 py-2.5 hidden md:table-cell">Categoria</th>
-                                    <th className="px-3 py-2.5 hidden sm:table-cell text-center">{income ? 'Recebe' : 'Venc.'}</th>
-                                    <th className="px-3 py-2.5 text-right">Valor</th>
-                                    <th className="px-3 py-2.5 text-center">Situação</th>
-                                    <th className="px-3 py-2.5 text-right">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {shown.map((r, i) => {
-                                    const c = catMetaOf(kind, r.category);
-                                    const hex = categoryHex(c);
-                                    const Icon = c.icon;
-                                    const last = i === shown.length - 1;
-                                    // Evita redundância: nome idêntico ao rótulo da categoria.
-                                    const sameAsCat = String(r.name || '').trim().toLowerCase() === String(c.label || '').trim().toLowerCase();
-                                    return (
-                                        <tr key={r.id} className={`group text-sm transition-colors ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/70'} ${last ? '' : `border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}`}>
-                                            <td className="px-4 py-3.5">
-                                                <div className="flex items-center gap-2.5">
-                                                    <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>
-                                                        {Icon && <Icon className="w-4 h-4" />}
-                                                    </span>
-                                                    <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{r.name}</span>
-                                                    {!income && r.category === 'divida' && !r.onCard && (
-                                                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-400 flex items-center gap-1">
-                                                            <AlertTriangle className="w-2.5 h-2.5" /> Dívida
-                                                        </span>
-                                                    )}
-                                                    {r.onCard ? (
-                                                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">
-                                                            {r.cardKind === 'parcelamento' ? `Parcela ${r.parcela}` : 'Assinatura'}
-                                                        </span>
-                                                    ) : r.isVariable ? (
-                                                        <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Variável</span>
-                                                    ) : null}
+                    <div className="flex-1">
+                        {shown.map((r, i) => {
+                            const c = catMetaOf(kind, r.category);
+                            const hex = categoryHex(c);
+                            const Icon = c.icon;
+                            const last = i === shown.length - 1;
+                            // Evita redundância: nome idêntico ao rótulo da categoria.
+                            const sameAsCat = String(r.name || '').trim().toLowerCase() === String(c.label || '').trim().toLowerCase();
+                            const sub = [sameAsCat ? null : c.label, `${income ? 'recebe' : 'vence'} dia ${r.day || 1}`].filter(Boolean).join(' · ');
+                            return (
+                                <div key={r.id} className={`group flex items-center gap-2.5 px-4 py-3 transition-colors ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/70'} ${last ? '' : `border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}`}>
+                                    <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>
+                                        {Icon && <Icon className="w-4 h-4" />}
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                            <span className={`font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{r.name}</span>
+                                            {!income && r.category === 'divida' && !r.onCard && (
+                                                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-400 flex items-center gap-1 shrink-0"><AlertTriangle className="w-2.5 h-2.5" /> Dívida</span>
+                                            )}
+                                            {r.onCard ? (
+                                                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 shrink-0">{r.cardKind === 'parcelamento' ? `Parcela ${r.parcela}` : 'Assinatura'}</span>
+                                            ) : r.isVariable ? (
+                                                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Variável</span>
+                                            ) : null}
+                                        </div>
+                                        <p className={`text-[11px] truncate ${muted}`}>{sub}</p>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <p className={`font-black tabular-nums whitespace-nowrap text-[13px] ${income ? 'text-emerald-500' : 'text-rose-500'}`}>{income ? '+' : '−'} R$ {money(r.value)}</p>
+                                        <div className="mt-1 flex justify-end"><StatusBadge status={r.status} isDark={isDark} doneLabel={cfg.doneLabel} /></div>
+                                    </div>
+                                    <div className="shrink-0 flex items-center gap-0.5">
+                                        {r.onCard ? (
+                                            <button onClick={() => onNavigate?.('cartoes')} title="Ver fatura do cartão"
+                                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition active:scale-95 ${isDark ? 'text-blue-400 hover:bg-blue-500/10' : 'text-blue-600 hover:bg-blue-50'}`}>
+                                                <CreditCard className="w-4 h-4" />
+                                            </button>
+                                        ) : (
+                                            <>
+                                                {r.status === 'pago' ? (
+                                                    <span title={cfg.doneLabel} className="w-8 h-8 rounded-lg flex items-center justify-center text-emerald-500 bg-emerald-500/12 shrink-0"><Check className="w-4 h-4" strokeWidth={3} /></span>
+                                                ) : (
+                                                    <button onClick={() => onBaixa(r)} title={cfg.actionLabel}
+                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center border-2 transition active:scale-90 shrink-0 ${income
+                                                            ? 'border-emerald-500/40 text-emerald-500 hover:bg-emerald-500 hover:text-white hover:border-emerald-500'
+                                                            : 'border-rose-500/40 text-rose-500 hover:bg-rose-500 hover:text-white hover:border-rose-500'}`}>
+                                                        <Check className="w-4 h-4" strokeWidth={3} />
+                                                    </button>
+                                                )}
+                                                <div className="flex items-center gap-0.5 lg:opacity-60 lg:group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => onEdit(r)} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-200' : 'hover:bg-slate-100 hover:text-slate-700'}`}><Pencil className="w-4 h-4" /></button>
+                                                    <DeleteBtn isDark={isDark} disabled={r.status === 'pago'} onDelete={() => onDelete(r)} />
                                                 </div>
-                                            </td>
-                                            <td className={`px-3 py-3 hidden md:table-cell ${sameAsCat ? muted : cell}`}>{sameAsCat ? '—' : c.label}</td>
-                                            <td className={`px-3 py-3 hidden sm:table-cell text-center tabular-nums ${cell}`}>Dia {r.day || 1}</td>
-                                            <td className={`px-4 py-3.5 text-right font-black tabular-nums whitespace-nowrap ${income ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                                {income ? '+' : '−'} R$ {money(r.value)}
-                                            </td>
-                                            <td className="px-4 py-3.5 text-center"><StatusBadge status={r.status} isDark={isDark} doneLabel={cfg.doneLabel} /></td>
-                                            <td className="px-4 py-3.5">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    {r.onCard ? (
-                                                        <button onClick={() => onNavigate?.('cartoes')} title="Ir para a fatura do cartão"
-                                                            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition active:scale-95 ${isDark ? 'text-blue-400 hover:bg-blue-500/10' : 'text-blue-600 hover:bg-blue-50'}`}>
-                                                            <CreditCard className="w-3.5 h-3.5" /> Ver fatura <ArrowRight className="w-3 h-3" />
-                                                        </button>
-                                                    ) : (
-                                                        <>
-                                                            {r.status === 'pago' ? (
-                                                                <span title={cfg.doneLabel} className="w-8 h-8 rounded-lg flex items-center justify-center text-emerald-500 bg-emerald-500/12 shrink-0"><Check className="w-4 h-4" strokeWidth={3} /></span>
-                                                            ) : (
-                                                                <button onClick={() => onBaixa(r)} title={cfg.actionLabel}
-                                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center border-2 transition active:scale-90 shrink-0 ${income
-                                                                        ? 'border-emerald-500/40 text-emerald-500 hover:bg-emerald-500 hover:text-white hover:border-emerald-500'
-                                                                        : 'border-rose-500/40 text-rose-500 hover:bg-rose-500 hover:text-white hover:border-rose-500'}`}>
-                                                                    <Check className="w-4 h-4" strokeWidth={3} />
-                                                                </button>
-                                                            )}
-                                                            <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                                                                <button onClick={() => onEdit(r)} title="Editar" className={`p-2 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-200' : 'hover:bg-slate-100 hover:text-slate-700'}`}><Pencil className="w-4 h-4" /></button>
-                                                                <DeleteBtn isDark={isDark} disabled={r.status === 'pago'} onDelete={() => onDelete(r)} />
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                     {rows.length > PREVIEW && (
                         <button onClick={() => setShowAll(v => !v)}
