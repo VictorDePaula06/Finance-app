@@ -1597,6 +1597,24 @@ export default async function handler(req, res) {
         await sendText(from, 'Vamos cadastrar um *cartão* 💳\n\nQual o *nome* do cartão? (ex.: Nubank)');
         return res.status(200).json({ ok: true });
       }
+
+      // RESERVA IDEAL — resposta determinística ANTES da IA (não depende do modelo).
+      // Pergunta ("quanto de reserva/ideal/está boa?") — não confundir com comando
+      // ("guarda 50 na reserva", "meta de X").
+      const reserveAdviceIntent =
+        (/reserv/.test(tl)
+          && /(quanto|qual|ideal|deveria|recomend|precis|dever|boa|suficiente|certo|adequad|deixar|ter de|ter na)/.test(tl)
+          && !/(guard[ae]\s+\d|meta\s+de|adicion|coloc\w*\s+\d|p[oõ]e\s+\d|aport)/.test(tl))
+        || /(quanto).*(guardar|reservar).*(emerg)/.test(tl)
+        || /reserva ideal|reserva de emerg[eê]ncia ideal/.test(tl);
+      if (reserveAdviceIntent) {
+        try {
+          const txt = await buildReserveAdvice(db, uid);
+          await sessRef.set({ uid, history, pending: null }, { merge: true });
+          await sendText(from, txt);
+        } catch (e) { console.error('WA reserve_advice(kw):', e); await sendText(from, 'Não consegui calcular sua reserva ideal agora. Tenta de novo. 🙏'); }
+        return res.status(200).json({ ok: true });
+      }
     }
 
     // Detecta um pedido NOVO (frase digitada) pra não ficar preso num fluxo pendente.
