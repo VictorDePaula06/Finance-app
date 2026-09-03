@@ -482,7 +482,7 @@ export default function Patrimonio() {
                                 const open = openAsset === a.id;
                                 return (
                                     <div key={a.id} className={i ? `border-t ${isDark ? 'border-white/5' : 'border-slate-100'}` : ''}>
-                                        <div className="overflow-x-auto">
+                                        <div className="hidden lg:block overflow-x-auto">
                                             <div className="group flex items-center gap-4 px-4 py-3 min-w-[760px]">
                                                 {/* Ticker + nome + preço atual + variação do dia */}
                                                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -517,6 +517,30 @@ export default function Patrimonio() {
                                                     {market && <button onClick={() => setTrade({ asset: a, kind: 'sell' })} title="Vender" className={`px-2.5 py-1.5 rounded-lg text-[12px] font-bold ${isDark ? 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}>Vender</button>}
                                                     {/* Renda fixa não tem aportes → mantém edição direta. Ativos de mercado editam pelos aportes. */}
                                                     {!market && <button onClick={() => setForm({ editing: a })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>}
+                                                    <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, 'investments', a.id))} />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Mobile: card compacto do ativo (sem scroll horizontal) */}
+                                        <div className="lg:hidden px-4 py-3">
+                                            <div className="flex items-center gap-3">
+                                                <AssetIcon symbol={a.symbol} type={a.type} name={a.name} size={40} isUSD={a.isUSD} />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className={`font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{a.symbol ? a.symbol.toUpperCase() : (a.name || 'Ativo')}</p>
+                                                    <p className="text-[11px] truncate" style={{ color }}>{a.symbol ? (a.name || typeMeta(a.type).label) : typeMeta(a.type).label}</p>
+                                                </div>
+                                                <div className="text-right shrink-0">
+                                                    <p className={`font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>{fmt(val)}</p>
+                                                    <p className={`text-[11px] font-bold tabular-nums inline-flex items-center gap-0.5 justify-end ${posCls}`}><Arrow className="w-3 h-3" />{up ? '+' : ''}{r.toFixed(2)}%</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-between gap-2 mt-2.5">
+                                                <span className={`text-[11px] ${muted}`}>Lucro/Perda <span className={`font-black tabular-nums ${lucro >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{lucro >= 0 ? '+ ' : '− '}{fmt(Math.abs(lucro))}</span></span>
+                                                <div className="flex items-center gap-1 shrink-0">
+                                                    {market && <button onClick={() => setTrade({ asset: a, kind: 'buy' })} className={`px-2.5 py-1.5 rounded-lg text-[12px] font-bold ${isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>Aportar</button>}
+                                                    {market && <button onClick={() => setTrade({ asset: a, kind: 'sell' })} className={`px-2.5 py-1.5 rounded-lg text-[12px] font-bold ${isDark ? 'bg-amber-500/15 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>Vender</button>}
+                                                    {!market && <button onClick={() => setForm({ editing: a })} className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-4 h-4" /></button>}
                                                     <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, 'investments', a.id))} />
                                                 </div>
                                             </div>
