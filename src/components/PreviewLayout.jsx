@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Toaster } from './ui/Toaster';
 import OnboardingAlivia from './OnboardingAlivia';
 import AppSidebar, { NAV_ITEMS } from './AppSidebar';
+import MobileNav from './MobileNav';
 import Recorrentes from '../pages/Recorrentes';
 import Lancamentos from '../pages/Lancamentos';
 import Cartoes from '../pages/Cartoes';
@@ -61,30 +61,25 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
             {/* Sidebar desktop (some no mobile) */}
             <AppSidebar {...sidebarProps} />
 
-            {/* Drawer mobile */}
-            {drawer && (
-                <div className="lg:hidden fixed inset-0 z-50 flex">
-                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setDrawer(false)} />
-                    <div className="relative z-10">
-                        <AppSidebar {...sidebarProps} mobile onClose={() => setDrawer(false)} />
-                    </div>
-                </div>
-            )}
+            {/* Navegação mobile: bottom navigation + sheet "Mais" (some no desktop) */}
+            <MobileNav
+                active={active}
+                go={(id) => go(id)}
+                onOpenWhatsApp={() => go('whatsapp')}
+                onOpenProfile={() => navigate(`${tabPath('configuracoes')}?tab=perfil`)}
+                onLogout={sidebarProps.onLogout}
+            />
 
             <div className="flex-1 flex flex-col min-w-0"
                 style={isDark ? { backgroundImage: 'radial-gradient(1300px 620px at 12% -6%, rgba(16,185,129,0.18), transparent 60%), radial-gradient(820px 480px at 88% -10%, rgba(20,184,166,0.10), transparent 62%)' } : undefined}>
-                {/* Topo mobile (some no desktop) */}
-                <header className={`lg:hidden sticky top-0 z-30 flex items-center gap-3 px-4 h-14 border-b ${isDark ? 'bg-[#0a0a0a]/90 border-white/[0.06]' : 'bg-white/90 border-slate-100'} backdrop-blur`}>
-                    <button onClick={() => setDrawer(true)} aria-label="Abrir menu"
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? 'bg-white/5 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
-                        <Menu className="w-5 h-5" />
-                    </button>
+                {/* Topo mobile (some no desktop) — marca; navegação vive na bottom nav */}
+                <header className={`lg:hidden sticky top-0 z-30 flex items-center gap-2 px-4 h-14 border-b ${isDark ? 'bg-[#0a0a0a]/90 border-white/[0.06]' : 'bg-white/90 border-slate-100'} backdrop-blur`}>
                     <span className="text-[17px] font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500">Alívia</span>
                     <span className={`text-[10px] font-bold uppercase tracking-[0.3em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Finanças</span>
                 </header>
 
-            {/* Área de conteúdo */}
-            <main className="flex-1 p-4 sm:p-6 lg:p-10 overflow-y-auto">
+            {/* Área de conteúdo (respiro inferior no mobile p/ a bottom navigation) */}
+            <main className="flex-1 p-4 sm:p-6 lg:p-10 pb-24 lg:pb-10 overflow-y-auto">
                 {active === 'consultoria' ? <ConsultoriaAlivia onNavigate={go} /> : active === 'configuracoes' ? <Configuracoes /> : active === 'whatsapp' ? <div className="max-w-4xl mx-auto w-full"><WhatsAppTab isDark={isDark} /></div> : active === 'gerenciar-usuarios' ? <GerenciarUsuarios /> : active === 'dashboard' ? <Dashboard onNavigate={go} onSettings={() => go('configuracoes')} /> :active === 'recorrentes' ? <Recorrentes onNavigate={go} /> : active === 'lancamentos' ? <Lancamentos /> : active === 'cartoes' ? <Cartoes /> : active === 'patrimonio' ? <Patrimonio /> : active === 'reservas' ? <Reservas /> : active === 'analises' ? <Analises /> : active === 'manual' ? <Manual /> : active === 'assinatura' ? <Assinatura /> : (
                 <div className="max-w-4xl">
                     <span className={`text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Preview do novo layout</span>
