@@ -2,6 +2,7 @@ import { db, functions, auth } from './firebase';
 import { collection, addDoc, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { loadStripe } from '@stripe/stripe-js';
+import { webOrigin } from './nativeAuth';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
@@ -15,8 +16,8 @@ export async function createCheckoutSession(uid, priceId, onFinish, opts = {}) {
         // preço avulso quebra ("must provide at least one recurring price").
         const docRef = await addDoc(checkoutSessionsRef, {
             price: priceId,
-            success_url: window.location.origin,
-            cancel_url: window.location.origin,
+            success_url: webOrigin(),
+            cancel_url: webOrigin(),
             ...opts,
         });
 
@@ -73,10 +74,10 @@ export async function createAnnualCheckout() {
     if (!user) throw new Error('Você precisa estar logado.');
     const idToken = await user.getIdToken();
 
-    const resp = await fetch('/api/create-annual-checkout', {
+    const resp = await fetch(`${webOrigin()}/api/create-annual-checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({ origin: window.location.origin }),
+        body: JSON.stringify({ origin: webOrigin() }),
     });
     let data = {};
     let raw = '';
@@ -100,7 +101,7 @@ export async function upgradeSubscription(priceId) {
     if (!user) throw new Error('Você precisa estar logado.');
     const idToken = await user.getIdToken();
 
-    const resp = await fetch('/api/upgrade-subscription', {
+    const resp = await fetch(`${webOrigin()}/api/upgrade-subscription`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -141,9 +142,9 @@ export async function createPortalSession(opts = {}) {
         );
 
         const payload = {
-            returnUrl: window.location.origin,
+            returnUrl: webOrigin(),
             // alguns ambientes esperam "return_url"
-            return_url: window.location.origin,
+            return_url: webOrigin(),
         };
 
         // Leva direto à tela de cancelamento, se solicitado e possível.

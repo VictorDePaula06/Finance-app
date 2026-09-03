@@ -1178,6 +1178,7 @@ function Dashboard() {
 }
 
 import LandingPage from './components/LandingPage';
+import { isNativeApp } from './services/nativeAuth';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfUse from './components/TermsOfUse';
 import SubscriptionBlock from './components/SubscriptionBlock';
@@ -1283,7 +1284,9 @@ function AppRoutes() {
       {/* ─── ROTAS PÚBLICAS ─── */}
       <Route
         path="/"
-        element={currentUser ? <Navigate to="/inicio" replace /> : (
+        element={currentUser ? <Navigate to="/inicio" replace />
+          : isNativeApp() ? <Navigate to="/login" replace />  /* app nativo: sem página de vendas, vai direto ao login */
+          : (
           <LandingPage
             onLogin={() => navigate('/login')}
             onViewPrivacy={() => navigate('/politica-privacidade')}
@@ -1295,7 +1298,7 @@ function AppRoutes() {
       />
       <Route
         path="/login"
-        element={currentUser ? <Navigate to="/inicio" replace /> : <Login onBack={() => navigate('/')} />}
+        element={currentUser ? <Navigate to="/inicio" replace /> : <Login onBack={isNativeApp() ? undefined : () => navigate('/')} />}
       />
       <Route
         path="/politica-privacidade"

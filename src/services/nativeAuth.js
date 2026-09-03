@@ -54,3 +54,11 @@ export async function signOutAll() {
 export const isNativeApp = () => {
     try { return Capacitor.isNativePlatform(); } catch { return false; }
 };
+
+// Origem "web" para callbacks do Stripe e chamadas /api. No app nativo o origin do
+// WebView é https://localhost — que não resolve as APIs nem os retornos de checkout —
+// então usamos o domínio de produção. No navegador, usa o origin real (sem mudança).
+const PROD_ORIGIN = 'https://soualivia.com.br';
+export const webOrigin = () => {
+    try { return isNativeApp() ? PROD_ORIGIN : window.location.origin; } catch { return PROD_ORIGIN; }
+};
