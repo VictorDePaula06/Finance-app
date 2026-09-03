@@ -127,24 +127,24 @@ export default function Lancamentos() {
     return (
         <div className="max-w-6xl mx-auto w-full">
             {/* Cabeçalho */}
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-4">
-                    <span className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/25 to-teal-600/15 ring-1 ring-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]">
-                        <ArrowLeftRight className="w-8 h-8" strokeWidth={2.2} />
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <span className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-emerald-500/25 to-teal-600/15 ring-1 ring-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]">
+                        <ArrowLeftRight className="w-6 h-6 sm:w-8 sm:h-8" strokeWidth={2.2} />
                     </span>
-                    <div>
-                        <h1 className={`text-3xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Lançamentos</h1>
-                        <p className={`text-sm mt-0.5 ${muted}`}>Seu extrato do mês — entradas e despesas avulsas.</p>
+                    <div className="min-w-0">
+                        <h1 className={`text-2xl sm:text-3xl font-black tracking-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>Lançamentos</h1>
+                        <p className={`text-[13px] sm:text-sm mt-0.5 ${muted}`}>Seu extrato do mês — entradas e despesas avulsas.</p>
                     </div>
                 </div>
-                <NovoLancamentoButton onClick={() => setChooser(true)} />
+                <div className="hidden sm:block shrink-0"><NovoLancamentoButton onClick={() => setChooser(true)} /></div>
             </div>
 
-            {/* Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-                <SummaryCard isDark={isDark} icon={Wallet} label="Saldo em conta" value={<AnimatedNumber value={saldoConta} format={(v) => `R$ ${money(v)}`} />} tone={saldoConta >= 0 ? 'emerald' : 'rose'} />
-                <SummaryCard isDark={isDark} icon={TrendingUp} label="Entradas neste mês" value={<AnimatedNumber value={entradasMes} format={(v) => `R$ ${money(v)}`} />} tone="emerald" />
-                <SummaryCard isDark={isDark} icon={TrendingDown} label="Despesas neste mês" value={<AnimatedNumber value={despesasMes} format={(v) => `R$ ${money(v)}`} />} tone="rose" />
+            {/* Cards de resumo (compactos, uma linha) */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-5 sm:mt-6">
+                <SummaryCard isDark={isDark} icon={Wallet} label="Saldo" value={<AnimatedNumber value={saldoConta} format={(v) => `R$ ${money(v)}`} />} tone={saldoConta >= 0 ? 'emerald' : 'rose'} />
+                <SummaryCard isDark={isDark} icon={TrendingUp} label="Entradas" value={<AnimatedNumber value={entradasMes} format={(v) => `R$ ${money(v)}`} />} tone="emerald" />
+                <SummaryCard isDark={isDark} icon={TrendingDown} label="Despesas" value={<AnimatedNumber value={despesasMes} format={(v) => `R$ ${money(v)}`} />} tone="rose" />
             </div>
 
             {/* Extrato */}
@@ -244,7 +244,7 @@ export default function Lancamentos() {
                                         <span className={`font-black tabular-nums whitespace-nowrap ${isTransfer ? 'text-blue-400' : income ? 'text-emerald-500' : 'text-rose-500'}`}>
                                             {income ? '+' : '−'} R$ {money(t.amount)}
                                         </span>
-                                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
+                                        <div className="flex items-center gap-0.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition">
                                             <button onClick={() => setForm({ kind: income ? 'income' : 'expense', editing: t })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
                                             <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, 'transactions', t.id)).then(() => toast.success('Lançamento excluído.')).catch(() => toast.error('Não foi possível excluir.'))} />
                                         </div>
@@ -260,6 +260,13 @@ export default function Lancamentos() {
                 <Info className="w-4 h-4 shrink-0 text-emerald-500" />
                 Compras no crédito não aparecem aqui — ficam na fatura do cartão. Ao pagar a fatura, o total é debitado do saldo e entra no extrato.
             </div>
+
+            {/* FAB — novo lançamento (mobile). No desktop o botão fica no cabeçalho. */}
+            <button onClick={() => setChooser(true)} aria-label="Novo lançamento"
+                className="sm:hidden fixed right-4 z-30 w-14 h-14 rounded-full bg-gradient-to-br from-cyan-500 to-sky-500 text-white shadow-xl shadow-cyan-500/40 ring-1 ring-inset ring-white/20 flex items-center justify-center active:scale-95 transition"
+                style={{ bottom: 'calc(4.75rem + env(safe-area-inset-bottom))' }}>
+                <Plus className="w-6 h-6" strokeWidth={2.8} />
+            </button>
 
             {chooser && <KindChooserModal isDark={isDark} onClose={() => setChooser(false)}
                 onPick={(kind) => { setChooser(false); setForm({ kind, editing: null }); }} />}
@@ -289,11 +296,11 @@ function FilterGroup({ isDark, label, options, value, onChange }) {
 function SummaryCard({ isDark, icon: Icon, label, value, tone }) {
     const toneColor = { emerald: 'text-emerald-500', rose: 'text-rose-500', slate: isDark ? 'text-slate-200' : 'text-slate-700' }[tone];
     return (
-        <div className={`rounded-2xl border p-4 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
+        <div className={`rounded-2xl border p-3 sm:p-4 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
             <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                <Icon className="w-3.5 h-3.5" /> {label}
+                <Icon className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{label}</span>
             </div>
-            <p className={`text-lg font-black tabular-nums mt-1.5 ${toneColor}`}>{value}</p>
+            <p className={`text-[15px] sm:text-lg font-black tabular-nums mt-1.5 truncate ${toneColor}`}>{value}</p>
         </div>
     );
 }
