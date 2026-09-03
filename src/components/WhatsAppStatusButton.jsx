@@ -12,9 +12,43 @@ import { useWhatsAppStatus } from '../hooks/useWhatsAppStatus';
  * Reutiliza o status compartilhado (useWhatsAppStatus) — mesma fonte da tela
  * de configuração. Ao clicar, chama `onOpen` (abre a configuração de WhatsApp).
  */
-export default function WhatsAppStatusButton({ isDark, onOpen, active = false }) {
+export default function WhatsAppStatusButton({ isDark, onOpen, active = false, compact = false, ringColor }) {
     const { loading, connected } = useWhatsAppStatus();
-    const ring = isDark ? 'ring-[#0a0a0a]' : 'ring-white';
+    const ring = ringColor || (isDark ? 'ring-[#0a0a0a]' : 'ring-white');
+
+    // ── Modo COMPACTO (chip) — p/ cabeçalhos, ao lado do nome ──
+    if (compact) {
+        const pill = 'inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[12px] font-bold transition active:scale-[0.97] shrink-0';
+        if (loading) {
+            return (
+                <button type="button" onClick={onOpen} title="WhatsApp" aria-label="WhatsApp"
+                    className={`${pill} ${isDark ? 'text-slate-500 bg-white/5' : 'text-slate-400 bg-slate-100'}`}>
+                    <MessageCircle className="w-4 h-4" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin opacity-70" />
+                </button>
+            );
+        }
+        if (connected) {
+            return (
+                <button type="button" onClick={onOpen} title="WhatsApp conectado — toque para editar"
+                    className={`${pill} border ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Conectado</span>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                </button>
+            );
+        }
+        return (
+            <button type="button" onClick={onOpen} title="Configurar WhatsApp"
+                className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[12px] font-bold transition active:scale-[0.97] shrink-0 border bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/[0.16]">
+                <span className="relative inline-flex">
+                    <MessageCircle className="w-4 h-4" />
+                    <span className={`absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ${ring} animate-pulse`} />
+                </span>
+                <span>Configurar</span>
+            </button>
+        );
+    }
 
     const base = 'w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-[13px] font-bold transition-all active:scale-[0.98]';
 

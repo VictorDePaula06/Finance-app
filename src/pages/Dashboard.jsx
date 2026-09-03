@@ -7,6 +7,7 @@ import { CATEGORIES, categoryHex } from '../constants/categories';
 import { buildWalletLedger } from '../utils/financialLogic';
 import { getUsdRate } from '../utils/marketRates';
 import UserAvatar from '../components/UserAvatar';
+import WhatsAppStatusButton from '../components/WhatsAppStatusButton';
 import AnimatedNumber from '../components/ui/AnimatedNumber';
 import {
     LayoutDashboard, Settings, TrendingUp, TrendingDown, Wallet, Eye, EyeOff,
@@ -178,9 +179,13 @@ export default function Dashboard({ onNavigate }) {
                         <p className={`text-[13px] sm:text-sm mt-0.5 ${muted}`}>Seu controle financeiro do mês.</p>
                     </div>
                 </div>
-                <button onClick={() => setConfigOpen(true)} title="Configurar" className={`shrink-0 hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                    <Settings className="w-4 h-4" /> Configurar
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                    {/* Status/atalho do WhatsApp — ao lado do nome (pendente vs conectado) */}
+                    <WhatsAppStatusButton isDark={isDark} compact onOpen={() => onNavigate?.('whatsapp')} />
+                    <button onClick={() => setConfigOpen(true)} title="Configurar" className={`hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                        <Settings className="w-4 h-4" /> Configurar
+                    </button>
+                </div>
             </div>
 
             {/* KPIs — no mobile: Ganhos/Gastos lado a lado + Saldo em destaque */}
