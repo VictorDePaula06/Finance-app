@@ -778,6 +778,11 @@ Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (p
 15) SALDO / CARTEIRA / próximo vencimento — ex.: "quanto tenho na carteira?", "qual meu saldo?",
    "quanto tenho disponível?", "quando vence minha fatura?", "qual meu próximo compromisso?":
    {"action":"wallet_check"}
+16) RESERVA DE EMERGÊNCIA IDEAL — ex.: "quanto deveria ter de reserva?", "qual o valor ideal da
+   minha reserva?", "quanto guardar de emergência?", "minha reserva está boa?":
+   {"action":"reserve_advice"}
+   ⚠️ SEMPRE use esta ação. NUNCA diga que "não tem um valor ideal" — o app calcula o custo mensal
+   e aplica a regra de 6 a 12 meses, devolvendo o valor certinho.
 
 ⚠️ NUNCA diga em texto que cadastrou/guardou/criou/pagou/registrou/excluiu algo. Para AGIR, responda SÓ com o JSON — o app grava e confirma de verdade.
 Se não for nenhuma ação, responda normalmente em texto (sem inventar que fez algo).`;
@@ -1026,6 +1031,64 @@ function parseAction(text) {
   const m = text.match(/\{[\s\S]*?"action"[\s\S]*?\}/);
   if (!m) return null;
   try { return JSON.parse(m[0]); } catch { return null; }
+}
+
+// Reserva de emergência ideal — determinístico. Calcula o custo mensal médio
+// e aplica a regra de mercado (6 a 12 meses), comparando com o que já está guardado.
+async function buildReserveAdvice(db, uid) {
+  const [txSnap, jarSnap, fixSnap] = await Promise.all([
+    db.collection('transactions').where('userId', '==', uid).get(),
+    db.collection('savings_jars').where('userId', '==', uid).get(),
+    db.collection('fixed_expenses').where('userId', '==', uid).get(),
+  ]);
+  const consumo = (t) => t.type === 'expense' && !['credit_card_bill', 'vault', 'investment'].includes(t.category) && !t.reserveInternal;
+  const nowM = new Date().toISOString().slice(0, 7);
+  // Despesas de consumo agrupadas por mês.
+  const byMonth = {};
+  txSnap.docs.forEach(d => {
+    const t = d.data(); if (!consumo(t)) return;
+    const m = t.month || (t.date ? String(t.date).slice(0, 7) : null); if (!m) return;
+    byMonth[m] = (byMonth[m] || 0) + num(t.amount);
+  });
+  let months = Object.keys(byMonth).sort();
+  // Ignora o mês atual (incompleto) quando já há histórico, pra não subestimar.
+  if (months.length > 1) months = months.filter(m => m !== nowM);
+  const recent = months.slice(-6);
+  const avgFromTx = recent.length ? recent.reduce((a, m) => a + byMonth[m], 0) / recent.length : 0;
+  const fixedMonthly = fixSnap.docs.reduce((a, d) => a + num(d.data().value), 0);
+  // Custo mensal = o maior entre a média real de gastos e as contas fixas declaradas
+  // (as contas fixas são o piso; a média real capta o padrão de gasto completo).
+  const custoMensal = Math.max(avgFromTx, fixedMonthly);
+  const reserva = jarSnap.docs.reduce((a, d) => a + num(d.data().balance), 0);
+
+  if (custoMensal <= 0) {
+    return '💡 *Reserva de emergência*\n\nA regra é guardar de *6 a 12 meses* do seu custo mensal — pra aguentar imprevistos sem se endividar.\n\nSó que ainda não sei seu *custo mensal*. Cadastre suas contas fixas (em *Recorrentes*) ou registre alguns gastos comigo que eu já te digo o valor exato da sua reserva ideal. 💚';
+  }
+
+  const seis = custoMensal * 6;
+  const doze = custoMensal * 12;
+  const meses = reserva / custoMensal;
+  const mesesTxt = meses >= 99 ? '—' : meses.toFixed(1).replace('.', ',');
+
+  let status;
+  if (meses >= 12) status = `🎉 Você já tem *mais de 12 meses* cobertos — reserva excelente, parabéns!`;
+  else if (meses >= 6) status = `✅ Você já passou dos *6 meses* (${mesesTxt} meses) — mandou muito bem! Pode mirar nos 12 pra ficar ainda mais tranquilo(a).`;
+  else if (reserva > 0) status = `Hoje você tem *R$ ${money(reserva)}* guardado (cerca de *${mesesTxt} meses*). Faltam ~*R$ ${money(Math.max(0, seis - reserva))}* pra chegar nos 6 meses.`;
+  else status = `Você ainda não tem reserva. Um bom primeiro passo é mirar os *6 meses* (R$ ${money(seis)}) — comece com o que der, o importante é começar. 💚`;
+
+  return [
+    '💡 *Qual o valor ideal da sua reserva*',
+    '',
+    'A regra que o mercado usa é guardar de *6 a 12 meses* do seu custo mensal — é o colchão que te protege de imprevistos (perder a renda, uma emergência) sem precisar se endividar.',
+    '',
+    `Seu *custo mensal médio* é de *R$ ${money(custoMensal)}*. Então o ideal pra você é:`,
+    `• Mínimo (6 meses): *R$ ${money(seis)}*`,
+    `• Confortável (12 meses): *R$ ${money(doze)}*`,
+    '',
+    status,
+    '',
+    `Quer que eu já deixe essa meta salva? É só dizer *"meta de ${Math.round(seis)}"*.`,
+  ].join('\n');
 }
 
 // Acha a reserva do usuário (emergência) ou a 1ª; cria se não existir.
@@ -1668,6 +1731,16 @@ export default async function handler(req, res) {
         await sessRef.set({ uid, history, pending: null }, { merge: true });
         await sendText(from, txt);
       } catch (e) { console.error('WA wallet_check:', e); await sendText(from, 'Não consegui ver seu saldo agora. Tenta de novo. 🙏'); }
+      return res.status(200).json({ ok: true });
+    }
+
+    // 3w3. Reserva de emergência ideal — calcula custo mensal e aplica 6–12 meses.
+    if (action?.action === 'reserve_advice') {
+      try {
+        const txt = await buildReserveAdvice(db, uid);
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, txt);
+      } catch (e) { console.error('WA reserve_advice:', e); await sendText(from, 'Não consegui calcular sua reserva ideal agora. Tenta de novo. 🙏'); }
       return res.status(200).json({ ok: true });
     }
 
