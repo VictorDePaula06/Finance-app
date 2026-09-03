@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "android:add": "cap add android",
-    "android:sync": "vite build && cap sync android",
+    "android:sync": "npm --prefix .. run build && cap sync android",
     "android:open": "cap open android"
   },
   "dependencies": {

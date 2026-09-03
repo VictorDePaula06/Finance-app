@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import { isNativeApp } from '../services/nativeAuth';
 
 const PwaUpdateContext = createContext({ needRefresh: false, pendingVersion: '', updateNow: () => {}, dismiss: () => {} });
 
@@ -13,6 +14,9 @@ export function PwaUpdateProvider({ children }) {
     } = useRegisterSW({
         onRegisteredSW(swUrl, r) {
             if (!r) return;
+            // No app nativo (Capacitor) o Service Worker é desnecessário e pode
+            // servir cache antigo / mostrar aviso de update indevido — desregistra.
+            if (isNativeApp()) { r.unregister().catch(() => {}); return; }
             // Checa atualização ao registrar, a cada 60s e ao focar a aba.
             r.update().catch(() => {});
             setInterval(() => r.update().catch(() => {}), 60 * 1000);

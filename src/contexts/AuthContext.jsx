@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
-import { auth, googleProvider, db } from '../services/firebase';
+import { auth, db } from '../services/firebase';
 import {
-    signInWithPopup,
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     sendEmailVerification,
@@ -14,6 +13,7 @@ import {
     GoogleAuthProvider
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs, deleteDoc, updateDoc, addDoc } from 'firebase/firestore';
+import { signInWithGoogle as platformSignInWithGoogle, signOutAll, reauthenticateWithGoogle } from '../services/nativeAuth';
 import { log, maskEmail, maskUid } from '../utils/logger';
 import { isAdminEmail, isLifetimeEmail } from '../constants/admins';
 import { setGeminiKey, clearGeminiKey } from '../services/gemini';
@@ -84,7 +84,8 @@ export function AuthProvider({ children }) {
     }
 
     function loginWithGoogle() {
-        return signInWithPopup(auth, googleProvider);
+        // Nativo (app) → login nativo do Google; web → popup. (ver services/nativeAuth)
+        return platformSignInWithGoogle();
     }
 
     // Recarrega o usuário e força re-render dos consumidores (ex.: nome/foto
@@ -108,7 +109,7 @@ export function AuthProvider({ children }) {
                 throw err;
             }
         } else {
-            await signInWithPopup(auth, googleProvider);
+            await reauthenticateWithGoogle(u);
         }
     }
 
@@ -132,7 +133,7 @@ export function AuthProvider({ children }) {
         }
         globalMaxAccess = false;
         clearGeminiKey(); // F-08: limpa a chave Gemini da memória ao sair
-        return signOut(auth);
+        return signOutAll(); // encerra também a sessão nativa do Google (app)
     }
 
     useEffect(() => {
@@ -632,7 +633,7 @@ export function AuthProvider({ children }) {
                 if (!password) { const e = new Error('NEEDS_PASSWORD'); e.code = 'NEEDS_PASSWORD'; throw e; }
                 await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
             } else {
-                await signInWithPopup(auth, googleProvider);
+                await reauthenticateWithGoogle(user);
             }
         } catch (err) {
             if (err.code === 'NEEDS_PASSWORD') throw err;
