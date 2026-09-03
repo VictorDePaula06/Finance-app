@@ -90,13 +90,13 @@ export default function Configuracoes() {
     return (
         <div className="max-w-4xl mx-auto w-full">
             {/* Cabeçalho */}
-            <div className="flex items-center gap-4 mb-6">
-                <span className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/25 to-teal-600/15 ring-1 ring-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]">
-                    <Settings className="w-7 h-7" strokeWidth={2.2} />
+            <div className="flex items-center gap-3 sm:gap-4 mb-6">
+                <span className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-emerald-500/25 to-teal-600/15 ring-1 ring-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]">
+                    <Settings className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={2.2} />
                 </span>
-                <div>
-                    <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Configurações</h1>
-                    <p className={`text-sm mt-0.5 ${muted}`}>Sua conta, integrações e preferências do Alívia.</p>
+                <div className="min-w-0">
+                    <h1 className={`text-xl sm:text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Configurações</h1>
+                    <p className={`text-[13px] sm:text-sm mt-0.5 ${muted}`}>Sua conta, integrações e preferências do Alívia.</p>
                 </div>
             </div>
 
