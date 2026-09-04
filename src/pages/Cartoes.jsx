@@ -312,7 +312,7 @@ export default function Cartoes() {
             {despChooser && selected && <LancarChooser isDark={isDark} onClose={() => setDespChooser(false)}
                 onPick={(mode) => { setDespChooser(false); if (mode === 'rapido') setBuyForm({ editing: null, simple: true }); else setBatchForm(true); }} />}
             {buyForm && selected && <BuyForm isDark={isDark} uid={uid} card={selected} editing={buyForm.editing} simple={buyForm.simple} onClose={() => setBuyForm(null)} allowAddAnother={false} />}
-            {batchForm && selected && <BatchBuyForm isDark={isDark} uid={uid} card={selected} onClose={() => setBatchForm(false)} />}
+            {batchForm && selected && <BatchBuyForm isDark={isDark} uid={uid} cards={cards} card={selected} onClose={() => setBatchForm(false)} />}
             {pagarOpen && selected && <PagarFaturaModal isDark={isDark} uid={uid} card={selected} items={invoiceItems} total={faturaTotal} onClose={() => setPagarOpen(false)} />}
             {detalhes && <DetalhesModal isDark={isDark} tipo={detalhes} subs={subsOnCard} installments={installmentsOnCard} onClose={() => setDetalhes(null)} />}
             {historicoOpen && <FaturasAnterioresModal isDark={isDark} card={selected} faturas={faturasPagas} onClose={() => setHistoricoOpen(false)} />}
@@ -1065,35 +1065,29 @@ function LancarChooser({ isDark, onClose, onPick }) {
 const PRIO_DOT = { essential: '#10b981', comfort: '#f59e0b', superfluous: '#f43f5e' };
 const PRIO_LABEL = { essential: 'Essencial', comfort: 'Conforto', superfluous: 'Supérfluo' };
 
-function BatchBuyForm({ isDark, uid, card, onClose }) {
+function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
     const nextId = useRef(1);
-    const draftKey = `aliviaCardBatch_${card.id}`;
+    const [cardId, setCardId] = useState(card.id);
+    const activeCard = cards.find(c => c.id === cardId) || card;
+    const draftKey = `aliviaCardBatch_${activeCard.id}`;
     const [date, setDate] = useState(todayISO());
-    const [catPadrao, setCatPadrao] = useState('shopping');
-    const [tipoCompra, setTipoCompra] = useState('avulsa');
-    const [gastoPadrao, setGastoPadrao] = useState('comfort');
-    const [rows, setRows] = useState(() => [{ id: 0, description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [] }]);
-    const [saveModel, setSaveModel] = useState(false);
+    const [rows, setRows] = useState(() => [{ id: 0, description: '', tipo: 'avulsa', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [] }]);
     const [saving, setSaving] = useState(false);
     const [focusId, setFocusId] = useState(null);
     const [sumRow, setSumRow] = useState(null);
     const descRefs = useRef({});
 
-    const emptyRow = () => ({ id: nextId.current++, description: '', category: catPadrao, value: '', priority: gastoPadrao, date: '', parcelas: '2', parts: [] });
+    const emptyRow = () => ({ id: nextId.current++, description: '', tipo: 'avulsa', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [] });
 
-    // Restaura rascunho (ou o último "modelo" de defaults) ao abrir.
+    // Restaura rascunho ao abrir.
     useEffect(() => {
         try {
             const d = JSON.parse(localStorage.getItem(draftKey) || 'null');
             if (d && Array.isArray(d.rows) && d.rows.length) {
-                setDate(d.date || todayISO()); setCatPadrao(d.catPadrao || 'shopping');
-                setTipoCompra(d.tipoCompra || 'avulsa'); setGastoPadrao(d.gastoPadrao || 'comfort');
+                setDate(d.date || todayISO());
                 nextId.current = 1;
-                setRows(d.rows.map(r => ({ description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [], ...r, id: nextId.current++ })));
+                setRows(d.rows.map(r => ({ description: '', tipo: 'avulsa', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [], ...r, id: nextId.current++ })));
                 toast.info?.('Rascunho restaurado.');
-            } else {
-                const m = JSON.parse(localStorage.getItem('aliviaCardModel') || 'null');
-                if (m) { setCatPadrao(m.catPadrao || 'shopping'); setTipoCompra(m.tipoCompra || 'avulsa'); setGastoPadrao(m.gastoPadrao || 'comfort'); }
             }
         } catch { /* ignore */ }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1132,27 +1126,46 @@ function BatchBuyForm({ isDark, uid, card, onClose }) {
     const catMode = mode(valid.map(r => r.category));
     const prioMode = mode(valid.map(r => r.priority));
 
-    const saveDraft = () => { try { localStorage.setItem(draftKey, JSON.stringify({ date, catPadrao, tipoCompra, gastoPadrao, rows })); toast.success('Rascunho salvo.'); } catch { toast.error('Não foi possível salvar o rascunho.'); } };
+    const saveDraft = () => { try { localStorage.setItem(draftKey, JSON.stringify({ date, rows })); toast.success('Rascunho salvo.'); } catch { toast.error('Não foi possível salvar o rascunho.'); } };
+
+    const day = () => parseInt(activeCard.dueDay) || 1;
 
     const concluir = async () => {
         if (!valid.length) { toast.error('Adicione ao menos uma compra com descrição e valor.'); return; }
         setSaving(true);
         try {
+            let count = 0;
             for (const r of valid) {
                 const iso = new Date((r.date || date) + 'T12:00:00').toISOString();
-                const val = numBR(r.value);
-                if (tipoCompra === 'assinatura') {
-                    await addDoc(collection(db, 'subscriptions'), { name: normalizeName(r.description), value: val, day: parseInt(card.dueDay) || 1, cardId: card.id, category: r.category, priority: r.priority, type: 'recurring', userId: uid, createdAt: Date.now() });
-                } else if (tipoCompra === 'parcelamento') {
-                    const nParc = Math.max(1, parseInt(r.parcelas) || 1);
-                    await addDoc(collection(db, 'subscriptions'), { name: normalizeName(r.description), value: val / nParc, day: parseInt(card.dueDay) || 1, cardId: card.id, category: r.category, priority: r.priority, isInstallment: true, totalInstallments: nParc, currentInstallment: 1, installmentMode: 'total', type: 'installment', userId: uid, createdAt: Date.now() });
-                } else {
-                    await addDoc(collection(db, 'transactions'), { description: normalizeName(r.description), amount: val, type: 'expense', category: r.category, priority: r.priority, date: iso, month: iso.slice(0, 7), userId: uid, createdAt: Date.now(), paymentMethod: 'credito', selectedCardId: card.id, invoiceStatus: 'unpaid' });
+                const name = normalizeName(r.description);
+                const grouped = r.parts?.length > 0;
+
+                // Parcelamento agrupado: cada item vira um parcelamento próprio (valor + nº de parcelas dele).
+                if (r.tipo === 'parcelamento' && grouped) {
+                    for (const p of r.parts) {
+                        const val = numBR(p.value); if (val <= 0) continue;
+                        const nParc = Math.max(1, parseInt(p.parcelas) || 1);
+                        await addDoc(collection(db, 'subscriptions'), { name, value: val / nParc, day: day(), cardId: activeCard.id, category: r.category, priority: r.priority, isInstallment: true, totalInstallments: nParc, currentInstallment: 1, installmentMode: 'total', type: 'installment', userId: uid, createdAt: Date.now() });
+                        count++;
+                    }
+                    continue;
                 }
+
+                // Demais casos: consolida a linha em um único lançamento com o total.
+                const val = numBR(r.value); if (val <= 0) continue;
+                if (r.tipo === 'assinatura') {
+                    await addDoc(collection(db, 'subscriptions'), { name, value: val, day: day(), cardId: activeCard.id, category: r.category, priority: r.priority, type: 'recurring', userId: uid, createdAt: Date.now() });
+                } else if (r.tipo === 'parcelamento') {
+                    const nParc = Math.max(1, parseInt(r.parcelas) || 1);
+                    await addDoc(collection(db, 'subscriptions'), { name, value: val / nParc, day: day(), cardId: activeCard.id, category: r.category, priority: r.priority, isInstallment: true, totalInstallments: nParc, currentInstallment: 1, installmentMode: 'total', type: 'installment', userId: uid, createdAt: Date.now() });
+                } else {
+                    const amountParts = grouped ? r.parts.map(p => numBR(p.value)).filter(v => v > 0) : null;
+                    await addDoc(collection(db, 'transactions'), { description: name, amount: val, type: 'expense', category: r.category, priority: r.priority, date: iso, month: iso.slice(0, 7), userId: uid, createdAt: Date.now(), paymentMethod: 'credito', selectedCardId: activeCard.id, invoiceStatus: 'unpaid', ...(amountParts && amountParts.length > 1 ? { amountParts } : {}) });
+                }
+                count++;
             }
-            if (saveModel) { try { localStorage.setItem('aliviaCardModel', JSON.stringify({ catPadrao, tipoCompra, gastoPadrao })); } catch { /* */ } }
             try { localStorage.removeItem(draftKey); } catch { /* */ }
-            toast.success(`${valid.length} compra(s) lançada(s) na fatura!`);
+            toast.success(`${count} lançamento(s) na fatura!`);
             onClose();
         } catch (e) { console.error(e); toast.error('Não foi possível lançar. Tente de novo.'); setSaving(false); }
     };
@@ -1165,7 +1178,6 @@ function BatchBuyForm({ isDark, uid, card, onClose }) {
     const cardBg = isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white';
     const softBtn = isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50';
     const label = 'text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5';
-    const showParc = tipoCompra === 'parcelamento';
 
     const TIPOS = [{ id: 'avulsa', label: 'Avulsa' }, { id: 'assinatura', label: 'Assinatura' }, { id: 'parcelamento', label: 'Parcelamento' }];
 
@@ -1185,46 +1197,18 @@ function BatchBuyForm({ isDark, uid, card, onClose }) {
                         <button onClick={onClose} aria-label="Fechar" className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}><X className="w-4 h-4" /></button>
                     </div>
 
-                    {/* DADOS GERAIS */}
-                    <div className={`rounded-2xl border p-4 sm:p-5 ${cardBg}`}>
-                        <p className={label}>Dados do cartão e compra</p>
-                        <div className="grid sm:grid-cols-3 gap-3">
-                            <div>
-                                <span className={label}>Cartão</span>
-                                <div className={`h-11 px-3.5 rounded-xl border text-sm font-bold flex items-center gap-2 ${isDark ? 'bg-white/5 border-white/10 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
-                                    <CreditCard className="w-4 h-4 text-rose-500 shrink-0" /> <span className="truncate">{card.name || 'Cartão'}</span>
-                                    {card.last4 && <span className="ml-auto text-[11px] text-slate-400 tabular-nums shrink-0">•••• {card.last4}</span>}
-                                </div>
-                            </div>
-                            <div><span className={label}>Data padrão</span><input type="date" value={date} onChange={e => setDate(e.target.value)} className={`${cellInput} h-11`} style={{ colorScheme: isDark ? 'dark' : 'light' }} /></div>
-                            <div><span className={label}>Categoria padrão</span>
-                                <select value={catPadrao} onChange={e => setCatPadrao(e.target.value)} className={`${cellInput} h-11`} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
-                                    {CATEGORIES.expense.map(c => <option key={c.id} value={c.id} style={optStyle}>{c.label}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                        <div className="grid sm:grid-cols-2 gap-4 mt-4">
-                            <div>
-                                <span className={label}>Tipo de compra</span>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {TIPOS.map(t => (
-                                        <button key={t.id} type="button" onClick={() => setTipoCompra(t.id)}
-                                            className={`h-10 rounded-xl text-[12px] font-bold border transition active:scale-95 ${tipoCompra === t.id ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' : (isDark ? 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800')}`}>{t.label}</button>
-                                    ))}
-                                </div>
-                            </div>
-                            <div>
-                                <span className={label}>Tipo de gasto padrão</span>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {['essential', 'comfort', 'superfluous'].map(p => (
-                                        <button key={p} type="button" onClick={() => setGastoPadrao(p)}
-                                            className={`h-10 rounded-xl text-[12px] font-bold border transition active:scale-95 inline-flex items-center justify-center gap-1.5 ${gastoPadrao === p ? (isDark ? 'bg-white/10 border-white/20 text-white' : 'bg-slate-100 border-slate-300 text-slate-800') : (isDark ? 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800')}`}>
-                                            <span className="w-2 h-2 rounded-full" style={{ background: PRIO_DOT[p] }} /> {PRIO_LABEL[p]}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
+                    {/* BARRA FINA: seleção de cartão + data padrão */}
+                    <div className={`rounded-2xl border px-3 py-2.5 flex items-center gap-3 flex-wrap ${cardBg}`}>
+                        <span className="w-8 h-8 rounded-xl bg-rose-500/12 text-rose-500 flex items-center justify-center shrink-0"><CreditCard className="w-4 h-4" /></span>
+                        {cards.length > 1 ? (
+                            <select value={cardId} onChange={e => setCardId(e.target.value)} className={`${cellInput} w-auto min-w-[180px] font-bold`} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
+                                {cards.map(c => <option key={c.id} value={c.id} style={optStyle}>{c.name || 'Cartão'}{c.last4 ? ` •••• ${c.last4}` : ''}</option>)}
+                            </select>
+                        ) : (
+                            <span className={`text-sm font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{activeCard.name || 'Cartão'}{activeCard.last4 ? <span className="ml-1.5 text-[11px] text-slate-400 tabular-nums">•••• {activeCard.last4}</span> : null}</span>
+                        )}
+                        <span className="text-[12px] text-slate-500 ml-auto hidden sm:inline">Data padrão</span>
+                        <input type="date" value={date} onChange={e => setDate(e.target.value)} className={`${cellInput} w-auto`} style={{ colorScheme: isDark ? 'dark' : 'light' }} />
                     </div>
 
                     <div className="grid xl:grid-cols-[1fr_320px] gap-4 mt-4">
@@ -1232,16 +1216,17 @@ function BatchBuyForm({ isDark, uid, card, onClose }) {
                         <div className={`rounded-2xl border overflow-hidden ${cardBg}`}>
                             <div className={`px-4 py-3 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}><p className={label + ' mb-0'}>Lançamentos</p></div>
                             <div className="overflow-x-auto">
-                                <table className="w-full border-collapse min-w-[720px]">
+                                <table className="w-full border-collapse min-w-[920px]">
                                     <thead>
                                         <tr className={`text-[10px] font-black uppercase tracking-widest text-slate-500 ${isDark ? 'bg-white/[0.02]' : 'bg-slate-50'}`}>
                                             <th className="w-9 text-center py-2">#</th>
                                             <th className="text-left px-2 py-2">Descrição *</th>
-                                            <th className="text-left px-2 py-2 w-40">Categoria</th>
+                                            <th className="text-left px-2 py-2 w-36">Tipo</th>
+                                            <th className="text-left px-2 py-2 w-36">Categoria</th>
                                             <th className="text-right px-2 py-2 w-28">Valor *</th>
-                                            {showParc && <th className="text-center px-2 py-2 w-20">Parcelas</th>}
-                                            <th className="text-left px-2 py-2 w-36">Tipo de gasto</th>
-                                            <th className="text-left px-2 py-2 w-36">Data</th>
+                                            <th className="text-center px-2 py-2 w-20">Parcelas</th>
+                                            <th className="text-left px-2 py-2 w-32">Tipo de gasto</th>
+                                            <th className="text-left px-2 py-2 w-32">Data</th>
                                             <th className="w-20 text-center py-2">Ações</th>
                                         </tr>
                                     </thead>
@@ -1256,6 +1241,11 @@ function BatchBuyForm({ isDark, uid, card, onClose }) {
                                                             onChange={e => updateRow(r.id, { description: e.target.value })}
                                                             onKeyDown={e => onCellKey(e, r, isLast)}
                                                             placeholder="Ex.: Mercado, Netflix…" className={cellInput} autoFocus={i === 0} maxLength={50} />
+                                                    </td>
+                                                    <td className="px-1.5 py-1">
+                                                        <select value={r.tipo} onChange={e => updateRow(r.id, { tipo: e.target.value })} className={cellInput} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
+                                                            {TIPOS.map(t => <option key={t.id} value={t.id} style={optStyle}>{t.label}</option>)}
+                                                        </select>
                                                     </td>
                                                     <td className="px-1.5 py-1">
                                                         <select value={r.category} onChange={e => updateRow(r.id, { category: e.target.value })} className={cellInput} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
@@ -1276,11 +1266,17 @@ function BatchBuyForm({ isDark, uid, card, onClose }) {
                                                                 placeholder="0,00" className={`${cellInput} text-right`} />
                                                         )}
                                                     </td>
-                                                    {showParc && (
-                                                        <td className="px-1.5 py-1">
-                                                            <input inputMode="numeric" value={r.parcelas} onChange={e => updateRow(r.id, { parcelas: e.target.value.replace(/\D/g, '').slice(0, 2) })} placeholder="2" className={`${cellInput} text-center`} />
-                                                        </td>
-                                                    )}
+                                                    <td className="px-1.5 py-1">
+                                                        {r.tipo === 'parcelamento' ? (
+                                                            r.parts?.length ? (
+                                                                <div className="h-10 flex items-center justify-center text-[11px] font-bold text-emerald-500">por item</div>
+                                                            ) : (
+                                                                <input inputMode="numeric" value={r.parcelas} onChange={e => updateRow(r.id, { parcelas: e.target.value.replace(/\D/g, '').slice(0, 2) })} placeholder="2" className={`${cellInput} text-center`} />
+                                                            )
+                                                        ) : (
+                                                            <div className="h-10 flex items-center justify-center text-slate-600">—</div>
+                                                        )}
+                                                    </td>
                                                     <td className="px-1.5 py-1">
                                                         <div className="relative">
                                                             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full pointer-events-none" style={{ background: PRIO_DOT[r.priority] }} />
@@ -1344,14 +1340,7 @@ function BatchBuyForm({ isDark, uid, card, onClose }) {
 
             {/* RODAPÉ STICKY */}
             <div className={`shrink-0 border-t ${isDark ? 'border-white/[0.08] bg-[#0b0d0f]/95' : 'border-slate-200 bg-white/95'} backdrop-blur`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-                <div className="max-w-[1400px] mx-auto w-full px-4 sm:px-8 py-3.5 flex items-center justify-between gap-3 flex-wrap">
-                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                        <input type="checkbox" checked={saveModel} onChange={e => setSaveModel(e.target.checked)} className="w-4 h-4 accent-rose-500" />
-                        <span>
-                            <span className={`block text-[13px] font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Salvar como modelo</span>
-                            <span className="block text-[11px] text-slate-500">Usar estes padrões nas próximas compras</span>
-                        </span>
-                    </label>
+                <div className="max-w-[1400px] mx-auto w-full px-4 sm:px-8 py-3.5 flex items-center justify-end gap-3 flex-wrap">
                     <div className="flex items-center gap-3 flex-wrap">
                         <span className="text-[13px] font-bold text-slate-500 hidden sm:block">Total: <span className="text-emerald-500 font-black tabular-nums">R$ {money(total)}</span></span>
                         <button type="button" onClick={saveDraft} className={`px-4 py-2.5 rounded-xl text-sm font-bold border transition ${softBtn}`}>Salvar rascunho</button>
@@ -1375,11 +1364,12 @@ function BatchBuyForm({ isDark, uid, card, onClose }) {
 // Modal para somar vários gastos com o mesmo nome numa única linha.
 function SumDialog({ isDark, row, onClose, onSave }) {
     const pnextId = useRef(1);
+    const isParc = row.tipo === 'parcelamento';
     const [name, setName] = useState(row.description || '');
     const [parts, setParts] = useState(() => {
-        const base = (row.parts?.length ? row.parts : (numBR(row.value) > 0 ? [{ value: row.value, note: '' }] : []))
-            .map((p, i) => ({ id: i + 1, value: String(p.value ?? ''), note: p.note || '' }));
-        base.push({ id: base.length + 1, value: '', note: '' });
+        const base = (row.parts?.length ? row.parts : (numBR(row.value) > 0 ? [{ value: row.value, note: '', parcelas: row.parcelas }] : []))
+            .map((p, i) => ({ id: i + 1, value: String(p.value ?? ''), note: p.note || '', parcelas: String(p.parcelas || row.parcelas || '2') }));
+        base.push({ id: base.length + 1, value: '', note: '', parcelas: '2' });
         return base;
     });
     const [focusId, setFocusId] = useState(null);
@@ -1393,8 +1383,8 @@ function SumDialog({ isDark, row, onClose, onSave }) {
     const filled = parts.filter(p => numBR(p.value) > 0);
 
     const update = (id, patch) => setParts(ps => ps.map(p => p.id === id ? { ...p, ...patch } : p));
-    const add = () => { const p = { id: pnextId.current++, value: '', note: '' }; setParts(ps => [...ps, p]); setFocusId(p.id); };
-    const remove = (id) => setParts(ps => ps.length > 1 ? ps.filter(p => p.id !== id) : [{ id: pnextId.current++, value: '', note: '' }]);
+    const add = () => { const p = { id: pnextId.current++, value: '', note: '', parcelas: '2' }; setParts(ps => [...ps, p]); setFocusId(p.id); };
+    const remove = (id) => setParts(ps => ps.length > 1 ? ps.filter(p => p.id !== id) : [{ id: pnextId.current++, value: '', note: '', parcelas: '2' }]);
 
     const onValKey = (e, p, isLast) => {
         if (e.key === 'Enter') { e.preventDefault(); if (isLast) add(); else { const i = parts.findIndex(x => x.id === p.id); const nx = parts[i + 1]; if (nx) setFocusId(nx.id); } }
@@ -1402,8 +1392,9 @@ function SumDialog({ isDark, row, onClose, onSave }) {
     };
 
     const save = () => {
-        if (!filled.length) { onSave({ description: name.trim() || row.description, value: '', parts: [] }); return; }
-        onSave({ description: name.trim() || row.description, value: money(total), parts: filled.map(p => ({ value: money(numBR(p.value)), note: p.note.trim() })) });
+        const desc = name.trim() || row.description;
+        if (!filled.length) { onSave({ description: desc, value: '', parts: [] }); return; }
+        onSave({ description: desc, value: money(total), parts: filled.map(p => ({ value: money(numBR(p.value)), note: p.note.trim(), parcelas: String(Math.max(1, parseInt(p.parcelas) || 1)) })) });
     };
 
     const cardBg = isDark ? 'border-white/10 bg-[#141518]' : 'border-slate-200 bg-white';
@@ -1417,18 +1408,18 @@ function SumDialog({ isDark, row, onClose, onSave }) {
                 <div className={`flex items-center gap-3 px-5 py-4 border-b ${isDark ? 'border-white/[0.08]' : 'border-slate-100'}`}>
                     <span className="w-10 h-10 rounded-xl bg-emerald-500/12 text-emerald-500 flex items-center justify-center shrink-0"><Sigma className="w-5 h-5" strokeWidth={2.4} /></span>
                     <div className="min-w-0 flex-1">
-                        <h3 className={`text-[15px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Somar lançamentos</h3>
-                        <p className="text-[12px] text-slate-500">Vários gastos com o mesmo nome viram uma linha só.</p>
+                        <h3 className={`text-[15px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{isParc ? 'Vários parcelamentos' : 'Somar lançamentos'}</h3>
+                        <p className="text-[12px] text-slate-500">{isParc ? 'Cada item é um parcelamento próprio: valor total + nº de parcelas.' : 'Vários gastos com o mesmo nome viram uma linha só.'}</p>
                     </div>
                     <button onClick={onClose} aria-label="Fechar" className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}><X className="w-4 h-4" /></button>
                 </div>
 
                 <div className="px-5 py-4 overflow-y-auto">
                     <label className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Descrição</label>
-                    <input value={name} onChange={e => setName(e.target.value)} placeholder="Ex.: Lanche" maxLength={50} className={`${inp} mb-4`} />
+                    <input value={name} onChange={e => setName(e.target.value)} placeholder={isParc ? 'Ex.: Mercado Livre' : 'Ex.: Lanche'} maxLength={50} className={`${inp} mb-4`} />
 
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Valores</span>
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">{isParc ? 'Compras (valor total × parcelas)' : 'Valores'}</span>
                         <span className="text-[11px] font-bold text-slate-500 tabular-nums">{filled.length} item(ns)</span>
                     </div>
                     <div className="space-y-2">
@@ -1444,6 +1435,15 @@ function SumDialog({ isDark, row, onClose, onSave }) {
                                             onKeyDown={e => onValKey(e, p, isLast)}
                                             placeholder="0,00" className={`${inp} pl-9 text-right`} />
                                     </div>
+                                    {isParc && (
+                                        <div className="relative w-24 shrink-0">
+                                            <input inputMode="numeric" value={p.parcelas}
+                                                onChange={e => update(p.id, { parcelas: e.target.value.replace(/\D/g, '').slice(0, 2) })}
+                                                onKeyDown={e => onValKey(e, p, isLast)}
+                                                placeholder="12" className={`${inp} text-center pr-7`} />
+                                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-500 pointer-events-none">x</span>
+                                        </div>
+                                    )}
                                     <input value={p.note} onChange={e => update(p.id, { note: e.target.value })}
                                         onKeyDown={e => onValKey(e, p, isLast)}
                                         placeholder="Obs. (opcional)" maxLength={40} className={`${inp} flex-1 min-w-0`} />
