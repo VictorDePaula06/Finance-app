@@ -12,6 +12,7 @@ import { CATEGORIES, categoryHex } from '../constants/categories';
 import {
     Plus, Pencil, Trash2, X, Loader2, Check, Info,
     CreditCard, Calendar, CalendarCheck, Landmark, Wallet, ShoppingBag, ChevronRight, ChevronDown, Layers, History,
+    Upload, Copy, MoreVertical, Zap, Lightbulb, ArrowRight,
 } from 'lucide-react';
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1060,231 +1061,306 @@ function LancarChooser({ isDark, onClose, onPick }) {
     );
 }
 
-// ── Submodal: adicionar uma linha (usado no lançamento em lote) ──────
-function AddLineDialog({ isDark, defaults, onClose, onAdd }) {
-    const [description, setDescription] = useState('');
-    const [manualDesc, setManualDesc] = useState(false);
-    const [category, setCategory] = useState(defaults?.category || 'shopping');
-    const [priority, setPriority] = useState(defaults?.priority || 'comfort');
-    const [value, setValue] = useState('');
-    const [day, setDay] = useState('');
-    const [error, setError] = useState('');
-    const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
-    const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+// ── Lançamento em lote (planilha, tela cheia) ───────────────────────
+const PRIO_DOT = { essential: '#10b981', comfort: '#f59e0b', superfluous: '#f43f5e' };
+const PRIO_LABEL = { essential: 'Essencial', comfort: 'Conforto', superfluous: 'Supérfluo' };
 
-    const pick = (d) => { setDescription(d); const cat = DESC_CATEGORY[d]; if (cat) setCategory(cat); setError(''); };
-    const add = () => {
-        if (!description.trim()) { setError('Escolha ou digite a descrição.'); return; }
-        if (numBR(value) <= 0) { setError('Informe o valor.'); return; }
-        onAdd({ description: normalizeName(description), category, priority, value: numBR(value), day: day ? Math.min(31, Math.max(1, parseInt(day))) : null });
-    };
-
-    return (
-        <Modal isDark={isDark} title="Adicionar lançamento" icon={Plus} iconCls="bg-rose-500/12 text-rose-500" onClose={onClose}>
-            <div className="space-y-3.5">
-                {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
-                <Field label="Descrição">
-                    {manualDesc ? (
-                        <div className="space-y-2">
-                            <input value={description} onChange={e => { setDescription(e.target.value); setError(''); }} placeholder="Ex.: Geladeira, Presente da Ana" className={inputCls} maxLength={50} autoFocus />
-                            <button type="button" onClick={() => { setManualDesc(false); if (!COMMON_DESCRIPTIONS.includes(description)) setDescription(''); }}
-                                className={`text-[12px] font-bold inline-flex items-center gap-1 ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
-                                <ChevronDown className="w-3.5 h-3.5 rotate-90" /> Escolher da lista
-                            </button>
-                        </div>
-                    ) : (
-                        <div>
-                            <div className="flex flex-wrap gap-1.5">
-                                {COMMON_DESCRIPTIONS.map(d => (
-                                    <button type="button" key={d} onClick={() => pick(d)}
-                                        className={`px-3 py-1.5 rounded-xl text-[13px] font-bold border transition active:scale-95 ${description === d
-                                            ? 'bg-rose-500 text-white border-rose-500 shadow-sm shadow-rose-500/30'
-                                            : (isDark ? 'bg-white/5 border-white/10 text-slate-300 hover:border-white/20' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300')}`}>
-                                        {d}
-                                    </button>
-                                ))}
-                            </div>
-                            <button type="button" onClick={() => { setManualDesc(true); if (COMMON_DESCRIPTIONS.includes(description)) setDescription(''); }}
-                                className={`mt-2.5 text-[12px] font-bold inline-flex items-center gap-1 ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
-                                <Pencil className="w-3.5 h-3.5" /> Digitar outro nome
-                            </button>
-                        </div>
-                    )}
-                </Field>
-                <div className="grid grid-cols-2 gap-3">
-                    <Field label="Valor (R$)"><input inputMode="decimal" value={value} onChange={e => { setValue(e.target.value.replace(/[^0-9.,]/g, '')); setError(''); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }} placeholder="0,00" className={inputCls} /></Field>
-                    <Field label="Dia (opcional)"><input inputMode="numeric" value={day} onChange={e => setDay(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="ex.: 5" className={inputCls} /></Field>
-                </div>
-                <Field label="Categoria">
-                    <select value={category} onChange={e => setCategory(e.target.value)} className={inputCls} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
-                        {CATEGORIES.expense.map(c => <option key={c.id} value={c.id} style={optStyle}>{c.label}</option>)}
-                    </select>
-                </Field>
-                <div>
-                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Tipo de gasto</span>
-                    <div className="grid grid-cols-3 gap-2">
-                        {PRIORITIES.map(p => (
-                            <button key={p.id} type="button" onClick={() => setPriority(p.id)}
-                                className={`py-2 rounded-xl text-[12px] font-bold border transition active:scale-95 ${priority === p.id ? p.badge : (isDark ? 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800')}`}>
-                                {p.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-                <button type="button" onClick={add} className="w-full py-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm flex items-center justify-center gap-1.5 transition active:scale-95">
-                    <Plus className="w-4 h-4" strokeWidth={2.6} /> Adicionar na linha
-                </button>
-            </div>
-        </Modal>
-    );
-}
-
-// ── Lançamento em lote: 2 passos (Dados gerais → Revisão) ───────────
 function BatchBuyForm({ isDark, uid, card, onClose }) {
-    const [step, setStep] = useState(1);
+    const nextId = useRef(1);
+    const draftKey = `aliviaCardBatch_${card.id}`;
     const [date, setDate] = useState(todayISO());
     const [catPadrao, setCatPadrao] = useState('shopping');
+    const [tipoCompra, setTipoCompra] = useState('avulsa');
     const [gastoPadrao, setGastoPadrao] = useState('comfort');
-    const [lines, setLines] = useState([]);
-    const [addOpen, setAddOpen] = useState(false);
+    const [rows, setRows] = useState(() => [{ id: 0, description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2' }]);
+    const [saveModel, setSaveModel] = useState(false);
     const [saving, setSaving] = useState(false);
-    const nextId = useRef(1);
-    const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
-    const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
-    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+    const [focusId, setFocusId] = useState(null);
+    const descRefs = useRef({});
 
-    const total = lines.reduce((a, l) => a + (l.value || 0), 0);
-    const addLine = (l) => { setLines(ls => [...ls, { id: nextId.current++, ...l }]); setAddOpen(false); };
-    const removeLine = (id) => setLines(ls => ls.filter(l => l.id !== id));
+    const emptyRow = () => ({ id: nextId.current++, description: '', category: catPadrao, value: '', priority: gastoPadrao, date: '', parcelas: '2' });
 
-    const commit = async () => {
-        if (!lines.length) return;
+    // Restaura rascunho (ou o último "modelo" de defaults) ao abrir.
+    useEffect(() => {
+        try {
+            const d = JSON.parse(localStorage.getItem(draftKey) || 'null');
+            if (d && Array.isArray(d.rows) && d.rows.length) {
+                setDate(d.date || todayISO()); setCatPadrao(d.catPadrao || 'shopping');
+                setTipoCompra(d.tipoCompra || 'avulsa'); setGastoPadrao(d.gastoPadrao || 'comfort');
+                nextId.current = 1;
+                setRows(d.rows.map(r => ({ description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', ...r, id: nextId.current++ })));
+                toast.info?.('Rascunho restaurado.');
+            } else {
+                const m = JSON.parse(localStorage.getItem('aliviaCardModel') || 'null');
+                if (m) { setCatPadrao(m.catPadrao || 'shopping'); setTipoCompra(m.tipoCompra || 'avulsa'); setGastoPadrao(m.gastoPadrao || 'comfort'); }
+            }
+        } catch { /* ignore */ }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        const el = focusId != null ? descRefs.current[focusId] : null;
+        if (el) { el.focus(); el.select?.(); }
+    }, [focusId, rows.length]);
+
+    const updateRow = (id, patch) => setRows(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r));
+    const addRow = () => { const r = emptyRow(); setRows(rs => [...rs, r]); setFocusId(r.id); };
+    const dupRow = (row) => { const r = { ...row, id: nextId.current++ }; setRows(rs => { const i = rs.findIndex(x => x.id === row.id); const nr = [...rs]; nr.splice(i + 1, 0, r); return nr; }); setFocusId(r.id); };
+    const dupLast = () => { if (!rows.length) return addRow(); dupRow(rows[rows.length - 1]); };
+    const removeRow = (id) => setRows(rs => rs.length > 1 ? rs.filter(r => r.id !== id) : [{ ...emptyRow() }]);
+    const clearAll = () => { const r = emptyRow(); setRows([r]); setFocusId(r.id); };
+
+    const onCellKey = (e, row, isLast) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (e.ctrlKey || e.metaKey) { dupRow(row); return; }
+            if (isLast) addRow();
+            else { const idx = rows.findIndex(r => r.id === row.id); const nx = rows[idx + 1]; if (nx) setFocusId(nx.id); }
+        } else if (e.key === 'Delete' && !row.description && !numBR(row.value)) {
+            e.preventDefault();
+            const idx = rows.findIndex(r => r.id === row.id);
+            const prev = rows[idx - 1] || rows[idx + 1];
+            removeRow(row.id);
+            if (prev) setFocusId(prev.id);
+        }
+    };
+
+    const valid = rows.filter(r => r.description.trim() && numBR(r.value) > 0);
+    const total = valid.reduce((a, r) => a + numBR(r.value), 0);
+    const mode = (arr) => { const m = {}; arr.forEach(k => { m[k] = (m[k] || 0) + 1; }); let best = null, bc = 0; for (const k in m) if (m[k] > bc) { bc = m[k]; best = k; } return best; };
+    const catMode = mode(valid.map(r => r.category));
+    const prioMode = mode(valid.map(r => r.priority));
+
+    const saveDraft = () => { try { localStorage.setItem(draftKey, JSON.stringify({ date, catPadrao, tipoCompra, gastoPadrao, rows })); toast.success('Rascunho salvo.'); } catch { toast.error('Não foi possível salvar o rascunho.'); } };
+
+    const concluir = async () => {
+        if (!valid.length) { toast.error('Adicione ao menos uma compra com descrição e valor.'); return; }
         setSaving(true);
         try {
-            const now = new Date();
-            for (const l of lines) {
-                const iso = l.day
-                    ? new Date(now.getFullYear(), now.getMonth(), l.day, 12).toISOString()
-                    : new Date(date + 'T12:00:00').toISOString();
-                await addDoc(collection(db, 'transactions'), {
-                    description: l.description, amount: l.value, type: 'expense',
-                    category: l.category, priority: l.priority, date: iso, month: iso.slice(0, 7),
-                    userId: uid, createdAt: Date.now(), paymentMethod: 'credito', selectedCardId: card.id, invoiceStatus: 'unpaid',
-                });
+            for (const r of valid) {
+                const iso = new Date((r.date || date) + 'T12:00:00').toISOString();
+                const val = numBR(r.value);
+                if (tipoCompra === 'assinatura') {
+                    await addDoc(collection(db, 'subscriptions'), { name: normalizeName(r.description), value: val, day: parseInt(card.dueDay) || 1, cardId: card.id, category: r.category, priority: r.priority, type: 'recurring', userId: uid, createdAt: Date.now() });
+                } else if (tipoCompra === 'parcelamento') {
+                    const nParc = Math.max(1, parseInt(r.parcelas) || 1);
+                    await addDoc(collection(db, 'subscriptions'), { name: normalizeName(r.description), value: val / nParc, day: parseInt(card.dueDay) || 1, cardId: card.id, category: r.category, priority: r.priority, isInstallment: true, totalInstallments: nParc, currentInstallment: 1, installmentMode: 'total', type: 'installment', userId: uid, createdAt: Date.now() });
+                } else {
+                    await addDoc(collection(db, 'transactions'), { description: normalizeName(r.description), amount: val, type: 'expense', category: r.category, priority: r.priority, date: iso, month: iso.slice(0, 7), userId: uid, createdAt: Date.now(), paymentMethod: 'credito', selectedCardId: card.id, invoiceStatus: 'unpaid' });
+                }
             }
-            toast.success(`${lines.length} compra(s) lançada(s) na fatura!`);
+            if (saveModel) { try { localStorage.setItem('aliviaCardModel', JSON.stringify({ catPadrao, tipoCompra, gastoPadrao })); } catch { /* */ } }
+            try { localStorage.removeItem(draftKey); } catch { /* */ }
+            toast.success(`${valid.length} compra(s) lançada(s) na fatura!`);
             onClose();
         } catch (e) { console.error(e); toast.error('Não foi possível lançar. Tente de novo.'); setSaving(false); }
     };
 
-    const LineRow = ({ l, review }) => {
-        const c = catMetaExp(l.category);
-        const hex = categoryHex(c);
-        const Icon = c.icon;
-        const pr = PRIORITIES.find(p => p.id === l.priority) || PRIORITIES[1];
-        return (
-            <div className={`flex items-center gap-2.5 px-3.5 py-2.5 ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'}`}>
-                <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>{Icon && <Icon className="w-4 h-4" />}</span>
-                <div className="min-w-0 flex-1">
-                    <p className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{l.description}</p>
-                    <p className={`text-[11px] truncate ${muted}`}>{c.label} · {pr.label}{l.day ? ` · dia ${l.day}` : ''}</p>
-                </div>
-                <span className="text-[13px] font-black tabular-nums text-rose-500 whitespace-nowrap">− R$ {money(l.value)}</span>
-                {!review && <button type="button" onClick={() => removeLine(l.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 shrink-0"><Trash2 className="w-4 h-4" /></button>}
-            </div>
-        );
-    };
+    const soon = () => toast.info?.('Em breve por aqui. Por enquanto, mande o PDF/CSV do extrato pra Alívia no WhatsApp que ela lança tudo. 💬');
+
+    // estilos
+    const cellInput = `w-full bg-transparent px-2.5 h-10 text-[13px] font-semibold outline-none rounded-lg border transition ${isDark ? 'border-white/10 text-white placeholder-slate-600 focus:border-emerald-500/60 focus:bg-white/[0.04]' : 'border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:bg-white'}`;
+    const optStyle = { backgroundColor: isDark ? '#141518' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const cardBg = isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white';
+    const softBtn = isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50';
+    const label = 'text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5';
+    const showParc = tipoCompra === 'parcelamento';
+
+    const TIPOS = [{ id: 'avulsa', label: 'Avulsa' }, { id: 'assinatura', label: 'Assinatura' }, { id: 'parcelamento', label: 'Parcelamento' }];
 
     return (
-        <Modal isDark={isDark} wide title="Nova compra no cartão" icon={ShoppingBag} iconCls="bg-rose-500/12 text-rose-500" onClose={onClose}>
-            {/* Stepper */}
-            <div className="flex items-center gap-2 mb-5">
-                {[{ n: 1, l: 'Dados gerais' }, { n: 2, l: 'Revisão' }].map((s, i) => (
-                    <React.Fragment key={s.n}>
-                        {i > 0 && <div className={`flex-1 h-px ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />}
-                        <div className="flex items-center gap-2">
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black ${step >= s.n ? 'bg-rose-500 text-white' : (isDark ? 'bg-white/10 text-slate-400' : 'bg-slate-200 text-slate-500')}`}>{s.n}</span>
-                            <span className={`text-[12px] font-bold ${step >= s.n ? (isDark ? 'text-white' : 'text-slate-800') : muted}`}>{s.l}</span>
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: isDark ? '#0b0d0f' : '#f1f5f9' }}>
+            <div className="flex-1 overflow-y-auto">
+                <div className="max-w-[1400px] mx-auto w-full px-4 sm:px-8 py-5">
+                    {/* HEADER */}
+                    <div className="flex items-center gap-3 mb-5">
+                        <span className="w-11 h-11 rounded-2xl bg-rose-500/12 text-rose-500 flex items-center justify-center shrink-0"><ShoppingBag className="w-6 h-6" strokeWidth={2.2} /></span>
+                        <div className="min-w-0 flex-1">
+                            <h1 className={`text-lg sm:text-xl font-black tracking-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>Nova compra no cartão</h1>
+                            <p className="text-[12px] sm:text-[13px] text-slate-500">Lance uma ou várias compras de uma vez</p>
                         </div>
-                    </React.Fragment>
-                ))}
-            </div>
+                        <button onClick={soon} className={`hidden sm:inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition ${softBtn}`}><Upload className="w-4 h-4" /> Importar arquivo</button>
+                        <button onClick={soon} className={`hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl text-[13px] font-bold border transition ${softBtn}`}><MoreVertical className="w-4 h-4" /> Mais opções</button>
+                        <button onClick={onClose} aria-label="Fechar" className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}><X className="w-4 h-4" /></button>
+                    </div>
 
-            {step === 1 ? (
-                <div className="space-y-4">
-                    <div className="grid sm:grid-cols-3 gap-3">
-                        <div>
-                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Cartão</span>
-                            <div className={`px-3.5 py-3 rounded-xl border text-sm font-bold flex items-center gap-2 ${isDark ? 'bg-white/5 border-white/10 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
-                                <CreditCard className="w-4 h-4 text-rose-500 shrink-0" /> {card.name || 'Cartão'}
+                    {/* DADOS GERAIS */}
+                    <div className={`rounded-2xl border p-4 sm:p-5 ${cardBg}`}>
+                        <p className={label}>Dados do cartão e compra</p>
+                        <div className="grid sm:grid-cols-3 gap-3">
+                            <div>
+                                <span className={label}>Cartão</span>
+                                <div className={`h-11 px-3.5 rounded-xl border text-sm font-bold flex items-center gap-2 ${isDark ? 'bg-white/5 border-white/10 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                                    <CreditCard className="w-4 h-4 text-rose-500 shrink-0" /> <span className="truncate">{card.name || 'Cartão'}</span>
+                                    {card.last4 && <span className="ml-auto text-[11px] text-slate-400 tabular-nums shrink-0">•••• {card.last4}</span>}
+                                </div>
+                            </div>
+                            <div><span className={label}>Data padrão</span><input type="date" value={date} onChange={e => setDate(e.target.value)} className={`${cellInput} h-11`} style={{ colorScheme: isDark ? 'dark' : 'light' }} /></div>
+                            <div><span className={label}>Categoria padrão</span>
+                                <select value={catPadrao} onChange={e => setCatPadrao(e.target.value)} className={`${cellInput} h-11`} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
+                                    {CATEGORIES.expense.map(c => <option key={c.id} value={c.id} style={optStyle}>{c.label}</option>)}
+                                </select>
                             </div>
                         </div>
-                        <Field label="Data da compra"><input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} style={{ colorScheme: isDark ? 'dark' : 'light' }} /></Field>
-                        <Field label="Categoria padrão">
-                            <select value={catPadrao} onChange={e => setCatPadrao(e.target.value)} className={inputCls} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
-                                {CATEGORIES.expense.map(c => <option key={c.id} value={c.id} style={optStyle}>{c.label}</option>)}
-                            </select>
-                        </Field>
-                    </div>
-                    <div>
-                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Tipo de gasto padrão</span>
-                        <div className="grid grid-cols-3 gap-2 max-w-md">
-                            {PRIORITIES.map(p => (
-                                <button key={p.id} type="button" onClick={() => setGastoPadrao(p.id)}
-                                    className={`py-2 rounded-xl text-[12px] font-bold border transition active:scale-95 ${gastoPadrao === p.id ? p.badge : (isDark ? 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800')}`}>
-                                    {p.label}
-                                </button>
-                            ))}
+                        <div className="grid sm:grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <span className={label}>Tipo de compra</span>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {TIPOS.map(t => (
+                                        <button key={t.id} type="button" onClick={() => setTipoCompra(t.id)}
+                                            className={`h-10 rounded-xl text-[12px] font-bold border transition active:scale-95 ${tipoCompra === t.id ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' : (isDark ? 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800')}`}>{t.label}</button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <span className={label}>Tipo de gasto padrão</span>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {['essential', 'comfort', 'superfluous'].map(p => (
+                                        <button key={p} type="button" onClick={() => setGastoPadrao(p)}
+                                            className={`h-10 rounded-xl text-[12px] font-bold border transition active:scale-95 inline-flex items-center justify-center gap-1.5 ${gastoPadrao === p ? (isDark ? 'bg-white/10 border-white/20 text-white' : 'bg-slate-100 border-slate-300 text-slate-800') : (isDark ? 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800')}`}>
+                                            <span className="w-2 h-2 rounded-full" style={{ background: PRIO_DOT[p] }} /> {PRIO_LABEL[p]}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
-                        <p className={`text-[11px] mt-1.5 ${muted}`}>Usados como padrão ao adicionar cada lançamento (dá pra trocar em cada um).</p>
-                    </div>
-
-                    <div className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-                        <div className={`flex items-center justify-between px-3.5 py-2.5 border-b ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
-                            <span className={`text-[11px] font-black uppercase tracking-widest ${muted}`}>Lançamentos ({lines.length})</span>
-                            {lines.length > 0 && <span className="text-[13px] font-black tabular-nums text-rose-500">− R$ {money(total)}</span>}
-                        </div>
-                        <div className={`divide-y ${isDark ? 'divide-white/5' : 'divide-slate-100'}`}>
-                            {lines.length === 0 ? (
-                                <p className={`text-center text-[13px] py-8 ${muted}`}>Nenhum lançamento ainda. Toque em <b>Adicionar linha</b>.</p>
-                            ) : lines.map(l => <LineRow key={l.id} l={l} />)}
-                        </div>
-                        <button type="button" onClick={() => setAddOpen(true)}
-                            className={`w-full flex items-center justify-center gap-1.5 py-3 text-[13px] font-bold border-t transition ${isDark ? 'border-white/[0.06] text-emerald-400 hover:bg-emerald-500/[0.06]' : 'border-slate-100 text-emerald-600 hover:bg-emerald-50'}`}>
-                            <Plus className="w-4 h-4" strokeWidth={2.6} /> Adicionar linha
-                        </button>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                        <button type="button" onClick={onClose} className={`px-4 py-3 rounded-xl text-sm font-bold transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Cancelar</button>
-                        <button type="button" onClick={() => setStep(2)} disabled={!lines.length}
-                            className="px-5 py-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm flex items-center gap-1.5 transition disabled:opacity-50">
-                            Revisar e concluir <ChevronRight className="w-4 h-4" />
+                    <div className="grid xl:grid-cols-[1fr_320px] gap-4 mt-4">
+                        {/* GRADE */}
+                        <div className={`rounded-2xl border overflow-hidden ${cardBg}`}>
+                            <div className={`px-4 py-3 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}><p className={label + ' mb-0'}>Lançamentos</p></div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full border-collapse min-w-[720px]">
+                                    <thead>
+                                        <tr className={`text-[10px] font-black uppercase tracking-widest text-slate-500 ${isDark ? 'bg-white/[0.02]' : 'bg-slate-50'}`}>
+                                            <th className="w-9 text-center py-2">#</th>
+                                            <th className="text-left px-2 py-2">Descrição *</th>
+                                            <th className="text-left px-2 py-2 w-40">Categoria</th>
+                                            <th className="text-right px-2 py-2 w-28">Valor *</th>
+                                            {showParc && <th className="text-center px-2 py-2 w-20">Parcelas</th>}
+                                            <th className="text-left px-2 py-2 w-36">Tipo de gasto</th>
+                                            <th className="text-left px-2 py-2 w-36">Data</th>
+                                            <th className="w-12 text-center py-2">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {rows.map((r, i) => {
+                                            const isLast = i === rows.length - 1;
+                                            return (
+                                                <tr key={r.id} className={`border-t ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+                                                    <td className="text-center text-[12px] font-bold text-slate-500 tabular-nums">{i + 1}</td>
+                                                    <td className="px-1.5 py-1">
+                                                        <input ref={el => { descRefs.current[r.id] = el; }} value={r.description}
+                                                            onChange={e => updateRow(r.id, { description: e.target.value })}
+                                                            onKeyDown={e => onCellKey(e, r, isLast)}
+                                                            placeholder="Ex.: Mercado, Netflix…" className={cellInput} autoFocus={i === 0} maxLength={50} />
+                                                    </td>
+                                                    <td className="px-1.5 py-1">
+                                                        <select value={r.category} onChange={e => updateRow(r.id, { category: e.target.value })} className={cellInput} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
+                                                            {CATEGORIES.expense.map(c => <option key={c.id} value={c.id} style={optStyle}>{c.label}</option>)}
+                                                        </select>
+                                                    </td>
+                                                    <td className="px-1.5 py-1">
+                                                        <input inputMode="decimal" value={r.value}
+                                                            onChange={e => updateRow(r.id, { value: e.target.value.replace(/[^0-9.,]/g, '') })}
+                                                            onKeyDown={e => onCellKey(e, r, isLast)}
+                                                            placeholder="0,00" className={`${cellInput} text-right`} />
+                                                    </td>
+                                                    {showParc && (
+                                                        <td className="px-1.5 py-1">
+                                                            <input inputMode="numeric" value={r.parcelas} onChange={e => updateRow(r.id, { parcelas: e.target.value.replace(/\D/g, '').slice(0, 2) })} placeholder="2" className={`${cellInput} text-center`} />
+                                                        </td>
+                                                    )}
+                                                    <td className="px-1.5 py-1">
+                                                        <div className="relative">
+                                                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full pointer-events-none" style={{ background: PRIO_DOT[r.priority] }} />
+                                                            <select value={r.priority} onChange={e => updateRow(r.id, { priority: e.target.value })} className={`${cellInput} pl-6`} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
+                                                                {['essential', 'comfort', 'superfluous'].map(p => <option key={p} value={p} style={optStyle}>{PRIO_LABEL[p]}</option>)}
+                                                            </select>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-1.5 py-1">
+                                                        <input type="date" value={r.date} onChange={e => updateRow(r.id, { date: e.target.value })} className={cellInput} style={{ colorScheme: isDark ? 'dark' : 'light' }} />
+                                                    </td>
+                                                    <td className="text-center">
+                                                        <button type="button" onClick={() => removeRow(r.id)} title="Remover linha" className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition"><Trash2 className="w-4 h-4" /></button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className={`flex items-center justify-between gap-2 flex-wrap px-3 py-3 border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <button type="button" onClick={addRow} className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-bold border transition ${softBtn}`}><Plus className="w-4 h-4" /> Adicionar linha</button>
+                                    <button type="button" onClick={dupLast} className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-bold border transition ${softBtn}`}><Copy className="w-4 h-4" /> Duplicar última</button>
+                                    <button type="button" onClick={clearAll} className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-bold border transition ${isDark ? 'border-white/10 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10' : 'border-slate-200 text-slate-500 hover:text-rose-500 hover:bg-rose-50'}`}><Trash2 className="w-4 h-4" /> Limpar tudo</button>
+                                </div>
+                                <p className="text-[13px] font-bold text-slate-500">Total dos lançamentos: <span className="text-emerald-500 font-black tabular-nums">R$ {money(total)}</span></p>
+                            </div>
+                        </div>
+
+                        {/* SIDEBAR */}
+                        <div className="space-y-4">
+                            <div className={`rounded-2xl border p-4 ${cardBg}`}>
+                                <div className="flex items-center gap-2 mb-3"><Zap className="w-4 h-4 text-rose-500" /><span className={`text-[13px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Lançamento rápido</span></div>
+                                <p className={`text-[12px] mb-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Preencha a linha e use o teclado pra lançar várias compras.</p>
+                                {[['Tab', 'Próximo campo'], ['Enter', 'Adicionar linha'], ['Ctrl + Enter', 'Duplicar linha'], ['Del', 'Remover linha vazia']].map(([k, d]) => (
+                                    <div key={k} className="flex items-center gap-2.5 py-1">
+                                        <span className={`px-2 py-0.5 rounded-md text-[11px] font-black shrink-0 ${isDark ? 'bg-white/5 text-slate-300 border border-white/10' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>{k}</span>
+                                        <span className="text-[12px] text-slate-500">{d}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className={`rounded-2xl border p-4 ${cardBg}`}>
+                                <div className="flex items-center gap-2 mb-2"><ShoppingBag className="w-4 h-4 text-emerald-500" /><span className={`text-[11px] font-black uppercase tracking-widest text-slate-500`}>Resumo</span></div>
+                                <Resumo label="Total de compras" value={String(valid.length)} isDark={isDark} />
+                                <Resumo label="Valor total" value={`R$ ${money(total)}`} accent isDark={isDark} />
+                                <Resumo label="Categoria mais usada" value={catMode ? catMetaExp(catMode).label : '—'} isDark={isDark} />
+                                <Resumo label="Tipo de gasto mais usado" isDark={isDark}
+                                    value={prioMode ? <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: PRIO_DOT[prioMode] }} />{PRIO_LABEL[prioMode]}</span> : '—'} />
+                            </div>
+                            <div className={`rounded-2xl border p-4 ${cardBg}`}>
+                                <div className="flex items-center gap-2 mb-1.5"><Lightbulb className="w-4 h-4 text-amber-500" /><span className={`text-[13px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Dica</span></div>
+                                <p className={`text-[12px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Tem um extrato do cartão? Manda o PDF/CSV pra <b>Alívia no WhatsApp</b> que ela preenche os lançamentos automaticamente.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* RODAPÉ STICKY */}
+            <div className={`shrink-0 border-t ${isDark ? 'border-white/[0.08] bg-[#0b0d0f]/95' : 'border-slate-200 bg-white/95'} backdrop-blur`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                <div className="max-w-[1400px] mx-auto w-full px-4 sm:px-8 py-3.5 flex items-center justify-between gap-3 flex-wrap">
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                        <input type="checkbox" checked={saveModel} onChange={e => setSaveModel(e.target.checked)} className="w-4 h-4 accent-rose-500" />
+                        <span>
+                            <span className={`block text-[13px] font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Salvar como modelo</span>
+                            <span className="block text-[11px] text-slate-500">Usar estes padrões nas próximas compras</span>
+                        </span>
+                    </label>
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <span className="text-[13px] font-bold text-slate-500 hidden sm:block">Total: <span className="text-emerald-500 font-black tabular-nums">R$ {money(total)}</span></span>
+                        <button type="button" onClick={saveDraft} className={`px-4 py-2.5 rounded-xl text-sm font-bold border transition ${softBtn}`}>Salvar rascunho</button>
+                        <button type="button" onClick={concluir} disabled={saving}
+                            className="px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm flex items-center gap-2 transition active:scale-95 disabled:opacity-70 shadow-lg shadow-rose-500/25">
+                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Revisar e concluir <ArrowRight className="w-4 h-4" /></>}
                         </button>
                     </div>
                 </div>
-            ) : (
-                <div className="space-y-4">
-                    <p className={`text-[13px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Confira as <b>{lines.length}</b> compra(s) que serão lançadas na fatura de <span className="text-rose-500 font-bold">{card.name || 'cartão'}</span>:</p>
-                    <div className={`rounded-2xl border overflow-hidden divide-y ${isDark ? 'border-white/10 divide-white/5' : 'border-slate-200 divide-slate-100'}`}>
-                        {lines.map(l => <LineRow key={l.id} l={l} review />)}
-                        <div className={`flex items-center justify-between px-3.5 py-3 ${isDark ? 'bg-white/[0.02]' : 'bg-slate-50'}`}>
-                            <span className={`text-[11px] font-black uppercase tracking-widest ${muted}`}>Total</span>
-                            <span className="text-lg font-black tabular-nums text-rose-500">R$ {money(total)}</span>
-                        </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                        <button type="button" onClick={() => setStep(1)} className={`px-4 py-3 rounded-xl text-sm font-bold transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>← Voltar</button>
-                        <button type="button" onClick={commit} disabled={saving}
-                            className="px-5 py-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm flex items-center gap-1.5 transition disabled:opacity-70">
-                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> Concluir e lançar</>}
-                        </button>
-                    </div>
-                </div>
-            )}
+            </div>
+        </div>
+    );
+}
 
-            {addOpen && <AddLineDialog isDark={isDark} defaults={{ category: catPadrao, priority: gastoPadrao }} onClose={() => setAddOpen(false)} onAdd={addLine} />}
-        </Modal>
+function Resumo({ label, value, accent, isDark }) {
+    return (
+        <div className={`flex items-center justify-between gap-3 py-2 border-t first:border-t-0 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+            <span className="text-[12px] text-slate-500">{label}</span>
+            <span className={`text-[13px] font-black text-right ${accent ? 'text-emerald-500 tabular-nums' : (isDark ? 'text-white' : 'text-slate-800')}`}>{value}</span>
+        </div>
     );
 }
 
