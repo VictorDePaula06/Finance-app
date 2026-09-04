@@ -12,7 +12,7 @@ import { CATEGORIES, categoryHex } from '../constants/categories';
 import {
     Plus, Pencil, Trash2, X, Loader2, Check, Info,
     CreditCard, Calendar, CalendarCheck, Landmark, Wallet, ShoppingBag, ChevronRight, ChevronDown, Layers, History,
-    Upload, Copy, MoreVertical, Zap, Lightbulb, ArrowRight,
+    Upload, Copy, MoreVertical, Zap, Lightbulb, ArrowRight, Sigma,
 } from 'lucide-react';
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1072,13 +1072,14 @@ function BatchBuyForm({ isDark, uid, card, onClose }) {
     const [catPadrao, setCatPadrao] = useState('shopping');
     const [tipoCompra, setTipoCompra] = useState('avulsa');
     const [gastoPadrao, setGastoPadrao] = useState('comfort');
-    const [rows, setRows] = useState(() => [{ id: 0, description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2' }]);
+    const [rows, setRows] = useState(() => [{ id: 0, description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [] }]);
     const [saveModel, setSaveModel] = useState(false);
     const [saving, setSaving] = useState(false);
     const [focusId, setFocusId] = useState(null);
+    const [sumRow, setSumRow] = useState(null);
     const descRefs = useRef({});
 
-    const emptyRow = () => ({ id: nextId.current++, description: '', category: catPadrao, value: '', priority: gastoPadrao, date: '', parcelas: '2' });
+    const emptyRow = () => ({ id: nextId.current++, description: '', category: catPadrao, value: '', priority: gastoPadrao, date: '', parcelas: '2', parts: [] });
 
     // Restaura rascunho (ou o último "modelo" de defaults) ao abrir.
     useEffect(() => {
@@ -1088,7 +1089,7 @@ function BatchBuyForm({ isDark, uid, card, onClose }) {
                 setDate(d.date || todayISO()); setCatPadrao(d.catPadrao || 'shopping');
                 setTipoCompra(d.tipoCompra || 'avulsa'); setGastoPadrao(d.gastoPadrao || 'comfort');
                 nextId.current = 1;
-                setRows(d.rows.map(r => ({ description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', ...r, id: nextId.current++ })));
+                setRows(d.rows.map(r => ({ description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [], ...r, id: nextId.current++ })));
                 toast.info?.('Rascunho restaurado.');
             } else {
                 const m = JSON.parse(localStorage.getItem('aliviaCardModel') || 'null');
@@ -1241,7 +1242,7 @@ function BatchBuyForm({ isDark, uid, card, onClose }) {
                                             {showParc && <th className="text-center px-2 py-2 w-20">Parcelas</th>}
                                             <th className="text-left px-2 py-2 w-36">Tipo de gasto</th>
                                             <th className="text-left px-2 py-2 w-36">Data</th>
-                                            <th className="w-12 text-center py-2">Ações</th>
+                                            <th className="w-20 text-center py-2">Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1262,10 +1263,18 @@ function BatchBuyForm({ isDark, uid, card, onClose }) {
                                                         </select>
                                                     </td>
                                                     <td className="px-1.5 py-1">
-                                                        <input inputMode="decimal" value={r.value}
-                                                            onChange={e => updateRow(r.id, { value: e.target.value.replace(/[^0-9.,]/g, '') })}
-                                                            onKeyDown={e => onCellKey(e, r, isLast)}
-                                                            placeholder="0,00" className={`${cellInput} text-right`} />
+                                                        {r.parts?.length ? (
+                                                            <button type="button" onClick={() => setSumRow(r)} title="Editar valores somados"
+                                                                className={`${cellInput} text-right flex items-center justify-end gap-1.5 cursor-pointer ${isDark ? 'bg-emerald-500/[0.06] border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-300 text-emerald-700'}`}>
+                                                                <span className="mr-auto inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider opacity-70"><Sigma className="w-3 h-3" />{r.parts.length}</span>
+                                                                {money(numBR(r.value))}
+                                                            </button>
+                                                        ) : (
+                                                            <input inputMode="decimal" value={r.value}
+                                                                onChange={e => updateRow(r.id, { value: e.target.value.replace(/[^0-9.,]/g, '') })}
+                                                                onKeyDown={e => onCellKey(e, r, isLast)}
+                                                                placeholder="0,00" className={`${cellInput} text-right`} />
+                                                        )}
                                                     </td>
                                                     {showParc && (
                                                         <td className="px-1.5 py-1">
@@ -1283,7 +1292,9 @@ function BatchBuyForm({ isDark, uid, card, onClose }) {
                                                     <td className="px-1.5 py-1">
                                                         <input type="date" value={r.date} onChange={e => updateRow(r.id, { date: e.target.value })} className={cellInput} style={{ colorScheme: isDark ? 'dark' : 'light' }} />
                                                     </td>
-                                                    <td className="text-center">
+                                                    <td className="text-center whitespace-nowrap">
+                                                        <button type="button" onClick={() => setSumRow(r)} title="Somar vários gastos com este nome"
+                                                            className={`w-8 h-8 rounded-lg inline-flex items-center justify-center transition ${r.parts?.length ? 'text-emerald-500 bg-emerald-500/10' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-500/10'}`}><Sigma className="w-4 h-4" /></button>
                                                         <button type="button" onClick={() => removeRow(r.id)} title="Remover linha" className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition"><Trash2 className="w-4 h-4" /></button>
                                                     </td>
                                                 </tr>
@@ -1348,6 +1359,111 @@ function BatchBuyForm({ isDark, uid, card, onClose }) {
                             className="px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm flex items-center gap-2 transition active:scale-95 disabled:opacity-70 shadow-lg shadow-rose-500/25">
                             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Revisar e concluir <ArrowRight className="w-4 h-4" /></>}
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            {sumRow && (
+                <SumDialog isDark={isDark} row={sumRow}
+                    onClose={() => setSumRow(null)}
+                    onSave={(patch) => { updateRow(sumRow.id, patch); setSumRow(null); }} />
+            )}
+        </div>
+    );
+}
+
+// Modal para somar vários gastos com o mesmo nome numa única linha.
+function SumDialog({ isDark, row, onClose, onSave }) {
+    const pnextId = useRef(1);
+    const [name, setName] = useState(row.description || '');
+    const [parts, setParts] = useState(() => {
+        const base = (row.parts?.length ? row.parts : (numBR(row.value) > 0 ? [{ value: row.value, note: '' }] : []))
+            .map((p, i) => ({ id: i + 1, value: String(p.value ?? ''), note: p.note || '' }));
+        base.push({ id: base.length + 1, value: '', note: '' });
+        return base;
+    });
+    const [focusId, setFocusId] = useState(null);
+    const valRefs = useRef({});
+
+    // Inicializa o gerador de ids depois da montagem (fora do render).
+    useEffect(() => { pnextId.current = parts.length + 1; }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { const el = focusId != null ? valRefs.current[focusId] : null; el?.focus(); }, [focusId, parts.length]);
+
+    const total = parts.reduce((a, p) => a + numBR(p.value), 0);
+    const filled = parts.filter(p => numBR(p.value) > 0);
+
+    const update = (id, patch) => setParts(ps => ps.map(p => p.id === id ? { ...p, ...patch } : p));
+    const add = () => { const p = { id: pnextId.current++, value: '', note: '' }; setParts(ps => [...ps, p]); setFocusId(p.id); };
+    const remove = (id) => setParts(ps => ps.length > 1 ? ps.filter(p => p.id !== id) : [{ id: pnextId.current++, value: '', note: '' }]);
+
+    const onValKey = (e, p, isLast) => {
+        if (e.key === 'Enter') { e.preventDefault(); if (isLast) add(); else { const i = parts.findIndex(x => x.id === p.id); const nx = parts[i + 1]; if (nx) setFocusId(nx.id); } }
+        else if (e.key === 'Delete' && !numBR(p.value) && !p.note) { e.preventDefault(); const i = parts.findIndex(x => x.id === p.id); const prev = parts[i - 1] || parts[i + 1]; remove(p.id); if (prev) setFocusId(prev.id); }
+    };
+
+    const save = () => {
+        if (!filled.length) { onSave({ description: name.trim() || row.description, value: '', parts: [] }); return; }
+        onSave({ description: name.trim() || row.description, value: money(total), parts: filled.map(p => ({ value: money(numBR(p.value)), note: p.note.trim() })) });
+    };
+
+    const cardBg = isDark ? 'border-white/10 bg-[#141518]' : 'border-slate-200 bg-white';
+    const inp = `w-full bg-transparent px-3 h-10 text-[13px] font-semibold outline-none rounded-lg border transition ${isDark ? 'border-white/10 text-white placeholder-slate-600 focus:border-emerald-500/60 focus:bg-white/[0.04]' : 'border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:bg-white'}`;
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onMouseDown={onClose}>
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div onMouseDown={e => e.stopPropagation()} className={`relative w-full max-w-lg rounded-2xl border shadow-2xl ${cardBg} flex flex-col max-h-[88vh]`}>
+                {/* Header */}
+                <div className={`flex items-center gap-3 px-5 py-4 border-b ${isDark ? 'border-white/[0.08]' : 'border-slate-100'}`}>
+                    <span className="w-10 h-10 rounded-xl bg-emerald-500/12 text-emerald-500 flex items-center justify-center shrink-0"><Sigma className="w-5 h-5" strokeWidth={2.4} /></span>
+                    <div className="min-w-0 flex-1">
+                        <h3 className={`text-[15px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Somar lançamentos</h3>
+                        <p className="text-[12px] text-slate-500">Vários gastos com o mesmo nome viram uma linha só.</p>
+                    </div>
+                    <button onClick={onClose} aria-label="Fechar" className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}><X className="w-4 h-4" /></button>
+                </div>
+
+                <div className="px-5 py-4 overflow-y-auto">
+                    <label className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Descrição</label>
+                    <input value={name} onChange={e => setName(e.target.value)} placeholder="Ex.: Lanche" maxLength={50} className={`${inp} mb-4`} />
+
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Valores</span>
+                        <span className="text-[11px] font-bold text-slate-500 tabular-nums">{filled.length} item(ns)</span>
+                    </div>
+                    <div className="space-y-2">
+                        {parts.map((p, i) => {
+                            const isLast = i === parts.length - 1;
+                            return (
+                                <div key={p.id} className="flex items-center gap-2">
+                                    <span className="w-5 text-center text-[12px] font-bold text-slate-500 tabular-nums shrink-0">{i + 1}</span>
+                                    <div className="relative w-32 shrink-0">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-bold text-slate-500 pointer-events-none">R$</span>
+                                        <input ref={el => { valRefs.current[p.id] = el; }} inputMode="decimal" value={p.value}
+                                            onChange={e => update(p.id, { value: e.target.value.replace(/[^0-9.,]/g, '') })}
+                                            onKeyDown={e => onValKey(e, p, isLast)}
+                                            placeholder="0,00" className={`${inp} pl-9 text-right`} />
+                                    </div>
+                                    <input value={p.note} onChange={e => update(p.id, { note: e.target.value })}
+                                        onKeyDown={e => onValKey(e, p, isLast)}
+                                        placeholder="Obs. (opcional)" maxLength={40} className={`${inp} flex-1 min-w-0`} />
+                                    <button type="button" onClick={() => remove(p.id)} title="Remover" className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition shrink-0"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <button type="button" onClick={add} className={`mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-bold border transition ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Plus className="w-4 h-4" /> Adicionar valor</button>
+                </div>
+
+                {/* Footer */}
+                <div className={`px-5 py-4 border-t flex items-center justify-between gap-3 ${isDark ? 'border-white/[0.08]' : 'border-slate-100'}`}>
+                    <div>
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block">Total</span>
+                        <span className="text-xl font-black text-emerald-500 tabular-nums">R$ {money(total)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button type="button" onClick={onClose} className={`px-4 py-2.5 rounded-xl text-sm font-bold border transition ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Cancelar</button>
+                        <button type="button" onClick={save} className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-2 transition active:scale-95 shadow-lg shadow-emerald-500/25"><Check className="w-4 h-4" /> Somar</button>
                     </div>
                 </div>
             </div>
