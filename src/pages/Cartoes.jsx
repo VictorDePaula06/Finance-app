@@ -622,6 +622,10 @@ export function CardForm({ isDark, uid, editing, onClose, onSaved, hint }) {
 }
 
 // ── Form: nova/editar compra no cartão (avulsa / assinatura / parcelamento) ─
+// Descrições rápidas pré-definidas p/ "Nova compra no cartão" — a pessoa toca em vez
+// de digitar. Sempre há o atalho "Digitar outro nome" pra um nome manual.
+const COMMON_DESCRIPTIONS = ['Mercado', 'Farmácia', 'Restaurante', 'Lanche', 'Transporte', 'Combustível', 'Roupas', 'Presente', 'Streaming', 'Assinatura', 'Casa', 'Saúde', 'Eletrônico', 'Educação'];
+
 export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lockTipo = false, hint, allowAddAnother = false }) {
     const isEdit = !!editing;
     const againRef = useRef(false);
@@ -629,7 +633,11 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
     const kindToTipo = { despesa: 'avulsa', assinatura: 'assinatura', parcelamento: 'parcelamento' };
     const ref = editing?.ref || {};
     const [tipo, setTipo] = useState(editing ? kindToTipo[editing.kind] : (initialTipo || 'avulsa'));
-    const [description, setDescription] = useState(editing ? (ref.description || ref.name || '') : '');
+    const initDesc = editing ? (ref.description || ref.name || '') : '';
+    const [description, setDescription] = useState(initDesc);
+    // Modo de descrição: por padrão a lista de chips; "manual" quando é um nome
+    // fora da lista (ex.: editando uma compra antiga com descrição livre).
+    const [manualDesc, setManualDesc] = useState(!!initDesc && !COMMON_DESCRIPTIONS.includes(initDesc));
     // Editando uma despesa avulsa, o valor vira "parcela somável" (campo de input
     // fica vazio); nos demais tipos o valor fica no input normalmente.
     const [amount, setAmount] = useState(editing ? (editing.kind === 'despesa' ? '' : String(ref.amount ?? ref.value ?? '').replace('.', ',')) : '');
@@ -735,7 +743,37 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
                 {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
                 <p className={`text-[12px] font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>No cartão <span className="text-emerald-500 font-bold">{card.name || 'cartão'}</span>.</p>
 
-                <Field label="Descrição"><input value={description} onChange={e => setDescription(e.target.value)} placeholder="Ex.: Mercado, Netflix, Geladeira" className={inputCls} maxLength={50} autoFocus /></Field>
+                <Field label="Descrição">
+                    {manualDesc ? (
+                        <div className="space-y-2">
+                            <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Ex.: Geladeira, Presente da Ana" className={inputCls} maxLength={50} autoFocus />
+                            <button type="button" onClick={() => { setManualDesc(false); if (!COMMON_DESCRIPTIONS.includes(description)) setDescription(''); }}
+                                className={`text-[12px] font-bold inline-flex items-center gap-1 ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+                                <ChevronDown className="w-3.5 h-3.5 rotate-90" /> Escolher da lista
+                            </button>
+                        </div>
+                    ) : (
+                        <div>
+                            <div className="flex flex-wrap gap-1.5">
+                                {COMMON_DESCRIPTIONS.map(d => {
+                                    const on = description === d;
+                                    return (
+                                        <button type="button" key={d} onClick={() => setDescription(d)}
+                                            className={`px-3 py-1.5 rounded-xl text-[13px] font-bold border transition active:scale-95 ${on
+                                                ? 'bg-rose-500 text-white border-rose-500 shadow-sm shadow-rose-500/30'
+                                                : (isDark ? 'bg-white/5 border-white/10 text-slate-300 hover:border-white/20' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300')}`}>
+                                            {d}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <button type="button" onClick={() => { setManualDesc(true); if (COMMON_DESCRIPTIONS.includes(description)) setDescription(''); }}
+                                className={`mt-2.5 text-[12px] font-bold inline-flex items-center gap-1 ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+                                <Pencil className="w-3.5 h-3.5" /> Digitar outro nome
+                            </button>
+                        </div>
+                    )}
+                </Field>
 
                 {/* Tipo de compra (travado ao editar ou quando lockTipo) */}
                 {!isEdit && !lockTipo && (
