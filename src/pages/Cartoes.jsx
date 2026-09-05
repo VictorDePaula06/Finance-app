@@ -12,7 +12,7 @@ import { CATEGORIES, categoryHex } from '../constants/categories';
 import {
     Plus, Pencil, Trash2, X, Loader2, Check, Info,
     CreditCard, Calendar, CalendarCheck, Landmark, Wallet, ShoppingBag, ChevronRight, ChevronDown, Layers, History,
-    Upload, Copy, MoreVertical, Zap, Lightbulb, ArrowRight, Sigma,
+    Upload, Copy, MoreVertical, Zap, Lightbulb, ArrowRight, Sigma, RefreshCw,
 } from 'lucide-react';
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -58,7 +58,9 @@ export default function Cartoes() {
     const [pagarOpen, setPagarOpen] = useState(false);
     const [detalhes, setDetalhes] = useState(null);   // 'assinaturas' | 'parcelas' | null
     const [historicoOpen, setHistoricoOpen] = useState(false); // faturas anteriores
-    const [openGroup, setOpenGroup] = useState(null);           // accordion da fatura (começa tudo fechado)
+    const [showAllFatura, setShowAllFatura] = useState(false);  // "Ver todos" na fatura
+    const [filterTipo, setFilterTipo] = useState('all');        // filtro por tipo
+    const [filterCat, setFilterCat] = useState('all');          // filtro por categoria
 
     useEffect(() => {
         if (!uid) return;
@@ -99,15 +101,18 @@ export default function Cartoes() {
 
     const faturaTotal = invoiceItems.reduce((a, it) => a + it.amount, 0);
 
-    // Fatura agrupada por TIPO de lançamento: Avulsos, Parcelamentos, Assinaturas.
-    // Cores iguais às dos selos/cards (avulso rosa, parcelamento azul, assinatura roxo).
-    const invoiceGroups = useMemo(() => [
-        { id: 'despesa', label: 'Avulsos', color: '#f43f5e' },
-        { id: 'parcelamento', label: 'Parcelamentos', color: '#3b82f6' },
-        { id: 'assinatura', label: 'Assinaturas', color: '#a855f7' },
-    ]
-        .map(g => { const list = invoiceItems.filter(it => it.kind === g.id); return { ...g, list, total: list.reduce((a, it) => a + it.amount, 0) }; })
-        .filter(g => g.list.length > 0), [invoiceItems]);
+    // Categorias presentes na fatura (para o filtro).
+    const faturaCats = useMemo(() => {
+        const set = new Set(invoiceItems.map(it => it.category).filter(Boolean));
+        return [...set];
+    }, [invoiceItems]);
+
+    // Fatura ordenada por data (mais antigos primeiro) + filtros de tipo e categoria.
+    const faturaFiltered = useMemo(() => invoiceItems
+        .filter(it => (filterTipo === 'all' || it.kind === filterTipo) && (filterCat === 'all' || it.category === filterCat))
+        .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0)), [invoiceItems, filterTipo, filterCat]);
+
+    const faturaVisible = showAllFatura ? faturaFiltered : faturaFiltered.slice(0, 5);
 
     // Faturas já pagas deste cartão (pra ver a fatura do mês anterior).
     const faturasPagas = useMemo(() => {
@@ -135,6 +140,8 @@ export default function Cartoes() {
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const cell = isDark ? 'text-slate-300' : 'text-slate-700';
+    const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const filterSel = `h-9 pl-3 pr-8 rounded-xl border text-[13px] font-bold outline-none cursor-pointer transition ${isDark ? 'bg-white/5 border-white/10 text-slate-200 hover:border-white/20' : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'}`;
 
     return (
         <div className="max-w-6xl mx-auto w-full">
@@ -234,9 +241,25 @@ export default function Cartoes() {
                             <CreditCard className="w-4 h-4 text-emerald-500" /> Fatura atual
                             <span className={`text-[11px] font-bold ${muted}`}>· {invoiceItems.length} lançamento{invoiceItems.length === 1 ? '' : 's'}</span>
                         </h2>
-                        {selected && (
-                            <PillButton onClick={() => setDespChooser(true)} size="xs" color="rose">Lançar despesa</PillButton>
-                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {invoiceItems.length > 0 && (
+                                <>
+                                    <select value={filterTipo} onChange={e => { setFilterTipo(e.target.value); setShowAllFatura(false); }} className={filterSel} style={{ colorScheme: isDark ? 'dark' : 'light' }} aria-label="Filtrar por tipo">
+                                        <option value="all" style={optStyle}>Todos os tipos</option>
+                                        <option value="despesa" style={optStyle}>À vista</option>
+                                        <option value="assinatura" style={optStyle}>Assinatura</option>
+                                        <option value="parcelamento" style={optStyle}>Parcelado</option>
+                                    </select>
+                                    <select value={filterCat} onChange={e => { setFilterCat(e.target.value); setShowAllFatura(false); }} className={filterSel} style={{ colorScheme: isDark ? 'dark' : 'light' }} aria-label="Filtrar por categoria">
+                                        <option value="all" style={optStyle}>Todas as categorias</option>
+                                        {faturaCats.map(id => <option key={id} value={id} style={optStyle}>{catMetaExp(id).label}</option>)}
+                                    </select>
+                                </>
+                            )}
+                            {selected && (
+                                <PillButton onClick={() => setDespChooser(true)} size="xs" color="rose">Lançar despesa</PillButton>
+                            )}
+                        </div>
                     </div>
 
                     {invoiceItems.length === 0 ? (
@@ -246,59 +269,70 @@ export default function Cartoes() {
                             <p className={`text-xs mt-1 ${muted}`}>{selected ? 'Use “Nova compra” para lançar uma despesa, assinatura ou parcelamento.' : 'Cadastre um cartão para ver a fatura aqui.'}</p>
                         </div>
                     ) : (
-                        <div className="space-y-3">
-                            {invoiceGroups.map(g => {
-                                const open = openGroup === g.id;
-                                return (
-                                    <div key={g.id} className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
-                                        {/* Cabeçalho do tipo (clicável — abre 1 por vez) */}
-                                        <button onClick={() => setOpenGroup(open ? null : g.id)}
-                                            className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition ${isDark ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-50'}`}>
-                                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: g.color }} />
-                                            <span className="font-black" style={{ color: g.color }}>{g.label}</span>
-                                            <span className={`text-[11px] font-bold ${muted}`}>· {g.list.length} {g.list.length === 1 ? 'lançamento' : 'lançamentos'}</span>
-                                            <span className="ml-auto flex items-center gap-2.5">
-                                                <span className="font-black tabular-nums whitespace-nowrap text-rose-500">− R$ {money(g.total)}</span>
-                                                <ChevronDown className={`w-4 h-4 shrink-0 ${muted} transition-transform ${open ? 'rotate-180' : ''}`} />
-                                            </span>
-                                        </button>
-
-                                        {/* Itens do tipo */}
-                                        {open && (
-                                            <div className={`border-t ${isDark ? 'border-white/10' : 'border-slate-100'}`}>
-                                                {g.list.map((it, i) => {
-                                                    const c = catMetaExp(it.category);
-                                                    const hex = categoryHex(c);
-                                                    const Icon = c.icon;
-                                                    const kb = KIND_BADGE(isDark)[it.kind];
-                                                    const dateStr = it.date ? new Date(it.date).toLocaleDateString('pt-BR') : null;
-                                                    const extra = it.kind === 'parcelamento' ? `Parcela ${it.parcela}` : it.kind === 'assinatura' ? 'Mensal' : null;
-                                                    const sub = [dateStr, extra, c.label].filter(Boolean).join(' · ');
-                                                    return (
-                                                        <div key={it.kind + it.id} className={`group flex items-center gap-3 px-4 py-3 ${i ? `border-t ${isDark ? 'border-white/5' : 'border-slate-100'}` : ''}`}>
-                                                            <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>
-                                                                {Icon && <Icon className="w-4 h-4" />}
-                                                            </span>
-                                                            <div className="min-w-0 flex-1">
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <p className={`font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{it.name || c.label}</p>
-                                                                    <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${kb.cls}`}>{kb.label}</span>
-                                                                </div>
-                                                                <p className={`text-[11px] mt-0.5 ${muted}`}>{sub}</p>
-                                                            </div>
-                                                            <span className="font-black tabular-nums whitespace-nowrap text-rose-500">− R$ {money(it.amount)}</span>
-                                                            <div className="flex items-center gap-0.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition">
-                                                                <button onClick={() => setBuyForm({ editing: it })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
-                                                                <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, it.kind === 'despesa' ? 'transactions' : 'subscriptions', it.id))} />
-                                                            </div>
+                        <div className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
+                            <div className="overflow-x-auto">
+                                <table className="w-full border-collapse min-w-[820px]">
+                                    <thead>
+                                        <tr className={`text-[10px] font-black uppercase tracking-widest text-slate-500 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                                            <th className="text-left px-4 py-3 w-28">Data</th>
+                                            <th className="text-left px-4 py-3">Descrição</th>
+                                            <th className="text-left px-4 py-3 w-40">Categoria</th>
+                                            <th className="text-left px-4 py-3 w-36">Tipo</th>
+                                            <th className="text-left px-4 py-3 w-24">Parcelas</th>
+                                            <th className="text-right px-4 py-3 w-32">Valor</th>
+                                            <th className="w-12 px-2 py-3"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {faturaVisible.map((it, i) => {
+                                            const c = catMetaExp(it.category);
+                                            const hex = categoryHex(c);
+                                            const Icon = c.icon;
+                                            const tm = TIPO_META[it.kind];
+                                            const TipoIcon = tm.icon;
+                                            const dateStr = it.date ? new Date(it.date).toLocaleDateString('pt-BR') : '—';
+                                            const totalParc = it.kind === 'parcelamento' ? it.amount * (parseInt(it.ref?.totalInstallments) || 1) : 0;
+                                            return (
+                                                <tr key={it.kind + it.id} className={`${i ? `border-t ${isDark ? 'border-white/[0.05]' : 'border-slate-100'}` : ''} ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50'} transition`}>
+                                                    <td className={`px-4 py-3.5 text-[13px] whitespace-nowrap ${muted}`}>{dateStr}</td>
+                                                    <td className="px-4 py-3.5">
+                                                        <div className="flex items-center gap-2.5 min-w-0">
+                                                            <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>{Icon && <Icon className="w-4 h-4" />}</span>
+                                                            <span className={`text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{it.name || c.label}</span>
                                                         </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                                                    </td>
+                                                    <td className="px-4 py-3.5">
+                                                        <span className="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-lg" style={{ background: `${hex}1f`, color: hex }}>{c.label}</span>
+                                                    </td>
+                                                    <td className="px-4 py-3.5">
+                                                        <span className={`inline-flex items-center gap-1.5 text-[13px] font-semibold ${cell}`}><TipoIcon className={`w-4 h-4 ${muted}`} /> {tm.label}</span>
+                                                    </td>
+                                                    <td className={`px-4 py-3.5 text-[13px] font-semibold tabular-nums ${it.kind === 'parcelamento' ? cell : muted}`}>{it.kind === 'parcelamento' ? it.parcela : '–'}</td>
+                                                    <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                                                        <div className={`text-[13px] font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {money(it.amount)}</div>
+                                                        {totalParc > 0 && <div className={`text-[11px] ${muted}`}>de R$ {money(totalParc)}</div>}
+                                                    </td>
+                                                    <td className="px-2 py-3.5 text-center">
+                                                        <FaturaRowMenu isDark={isDark}
+                                                            onEdit={() => setBuyForm({ editing: it })}
+                                                            onDelete={() => deleteDoc(doc(db, it.kind === 'despesa' ? 'transactions' : 'subscriptions', it.id))} />
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {faturaFiltered.length === 0 && (
+                                <p className={`text-center text-[13px] font-semibold py-8 ${muted}`}>Nenhum lançamento com esse filtro.</p>
+                            )}
+                            {faturaFiltered.length > 5 && (
+                                <button type="button" onClick={() => setShowAllFatura(s => !s)}
+                                    className={`w-full flex items-center justify-center gap-1.5 py-3 text-[13px] font-bold border-t transition ${isDark ? 'border-white/[0.06] text-slate-300 hover:bg-white/[0.03]' : 'border-slate-100 text-slate-600 hover:bg-slate-50'}`}>
+                                    {showAllFatura ? 'Ver menos' : `Ver todos (${faturaFiltered.length})`}
+                                    <ChevronDown className={`w-4 h-4 transition-transform ${showAllFatura ? 'rotate-180' : ''}`} />
+                                </button>
+                            )}
                         </div>
                     )}
 
@@ -321,11 +355,45 @@ export default function Cartoes() {
 }
 
 // Selo do tipo de item na fatura.
-const KIND_BADGE = (isDark) => ({
-    despesa: { label: 'Despesa', cls: isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500' },
-    assinatura: { label: 'Assinatura', cls: 'bg-purple-500/15 text-purple-400' },
-    parcelamento: { label: 'Parcelamento', cls: 'bg-blue-500/15 text-blue-400' },
-});
+// Metadados da coluna TIPO da fatura.
+const TIPO_META = {
+    despesa: { label: 'À vista', icon: CreditCard },
+    assinatura: { label: 'Assinatura', icon: RefreshCw },
+    parcelamento: { label: 'Parcelado', icon: Layers },
+};
+
+// Menu de ações (⋮) de cada linha da fatura: Editar / Excluir (com confirmação).
+function FaturaRowMenu({ isDark, onEdit, onDelete }) {
+    const [open, setOpen] = useState(false);
+    const [confirm, setConfirm] = useState(false);
+    const close = () => { setOpen(false); setConfirm(false); };
+    return (
+        <div className="relative">
+            <button type="button" onClick={() => setOpen(o => !o)} title="Ações" className={`w-8 h-8 rounded-lg inline-flex items-center justify-center transition ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-100'}`}><MoreVertical className="w-4 h-4" /></button>
+            {open && (
+                <>
+                    <div className="fixed inset-0 z-40" onClick={close} />
+                    <div className={`absolute right-0 top-9 z-50 w-44 rounded-xl border shadow-xl overflow-hidden ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-200'}`}>
+                        {!confirm ? (
+                            <>
+                                <button type="button" onClick={() => { close(); onEdit(); }} className={`w-full flex items-center gap-2 px-3 py-2.5 text-[13px] font-bold text-left transition ${isDark ? 'text-slate-200 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-50'}`}><Pencil className="w-3.5 h-3.5" /> Editar</button>
+                                <button type="button" onClick={() => setConfirm(true)} className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] font-bold text-left text-rose-500 hover:bg-rose-500/10 transition"><Trash2 className="w-3.5 h-3.5" /> Excluir</button>
+                            </>
+                        ) : (
+                            <div className="p-3">
+                                <p className={`text-[12px] font-bold mb-2.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Excluir este lançamento?</p>
+                                <div className="flex gap-2">
+                                    <button type="button" onClick={close} className={`flex-1 py-1.5 rounded-lg text-[12px] font-bold border transition ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Não</button>
+                                    <button type="button" onClick={() => { close(); onDelete(); }} className="flex-1 py-1.5 rounded-lg text-[12px] font-bold bg-rose-500 hover:bg-rose-600 text-white transition">Sim</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
 
 // ── Cartão visual (dados-chave no próprio cartão) ───────────────────
 function CardVisual({ card, onEdit, onDelete, onAdd, isDark }) {
