@@ -61,7 +61,7 @@ const geminiUrl = (model) => `https://generativelanguage.googleapis.com/v1beta/m
 
 // Chama o Gemini tentando os modelos em ordem; só faz fallback quando o modelo
 // não existe pra aquela chave (404 / NOT_FOUND). Devolve { r, j } do 1º que responder.
-async function callGemini(body, key) {
+async function callGemini(body, key, usage = null) {
   let last = { r: { ok: false, status: 0 }, j: {} };
   for (const model of GEMINI_MODELS) {
     try {
@@ -72,6 +72,7 @@ async function callGemini(body, key) {
       const notFound = r.status === 404 || String(j?.error?.status || '').toUpperCase() === 'NOT_FOUND';
       if (notFound) { last = { r, j }; continue; } // tenta o próximo modelo
       if (model !== GEMINI_MODELS[0]) console.log(`WA Gemini usando modelo alternativo: ${model}`);
+      addUsage(usage, j);
       return { r, j };
     } catch (e) {
       last = { r: { ok: false, status: 0 }, j: {}, netError: e };
@@ -79,6 +80,43 @@ async function callGemini(body, key) {
     }
   }
   return last; // todos os modelos deram 404
+}
+
+// ── Contagem de tokens (Gemini) por usuário ────────────────────────────────
+// Cada resposta do Gemini traz usageMetadata { promptTokenCount, candidatesTokenCount,
+// totalTokenCount }. Acumulamos num "saco" por requisição e gravamos no user.
+const newUsage = () => ({ prompt: 0, candidates: 0, total: 0, calls: 0 });
+function addUsage(usage, j) {
+  const u = j?.usageMetadata;
+  if (!usage || !u) return;
+  usage.prompt += u.promptTokenCount || 0;
+  usage.candidates += u.candidatesTokenCount || 0;
+  usage.total += u.totalTokenCount || 0;
+  usage.calls += 1;
+}
+// Grava o consumo em users/{uid}.waTokens (mês corrente + total geral). Transação
+// pra zerar o contador do mês quando vira o mês. Best-effort: nunca lança.
+async function recordTokens(db, uid, usage) {
+  if (!db || !uid || !usage || !usage.total) return;
+  const mk = new Date().toISOString().slice(0, 7);
+  const ref = db.collection('users').doc(uid);
+  try {
+    await db.runTransaction(async (tx) => {
+      const wt = (await tx.get(ref)).data()?.waTokens || {};
+      const sameMonth = wt.month === mk;
+      tx.set(ref, {
+        waTokens: {
+          month: mk,
+          monthTotal: (sameMonth ? (wt.monthTotal || 0) : 0) + usage.total,
+          monthCalls: (sameMonth ? (wt.monthCalls || 0) : 0) + usage.calls,
+          allTimeTotal: (wt.allTimeTotal || 0) + usage.total,
+          allTimeCalls: (wt.allTimeCalls || 0) + usage.calls,
+          lastAt: Date.now(),
+        },
+      }, { merge: true });
+    });
+    console.log(`WA tokens uid=${uid} +${usage.total} (mês ${mk})`);
+  } catch (e) { console.error('WA recordTokens:', e?.message || e); }
 }
 
 // Categorias de despesa válidas (espelha src/constants/categories.js).
@@ -929,7 +967,7 @@ function geminiErrorMessage(httpStatus, j) {
   return `😕 *Não consegui responder agora por uma instabilidade no serviço de IA.*\n\nJá registramos o ocorrido para verificar. Tente novamente em instantes, por favor.\n\n_(motivo: falha inesperada · cód. IA-${code || 'ERR'})_`;
 }
 
-async function askGemini(history, contextText, userMsg, key) {
+async function askGemini(history, contextText, userMsg, key, usage = null) {
   if (!key) return MSG_NO_KEY;
   const contents = [
     ...(history || []).slice(-6).map(h => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.text }] })),
@@ -941,7 +979,7 @@ async function askGemini(history, contextText, userMsg, key) {
     generationConfig: { temperature: 0.7, maxOutputTokens: 600 },
   };
   try {
-    const { r, j } = await callGemini(body, key);
+    const { r, j } = await callGemini(body, key, usage);
     if (!r.ok || j?.error) {
       console.error(`WA Gemini falhou: HTTP ${r.status} resp=${JSON.stringify(j).slice(0, 500)}`);
       return geminiErrorMessage(r.status, j);
@@ -959,7 +997,7 @@ async function askGemini(history, contextText, userMsg, key) {
 }
 
 // Baixa um áudio do WhatsApp e transcreve com o Gemini (que entende áudio).
-async function transcribeAudio(mediaId, key) {
+async function transcribeAudio(mediaId, key, usage = null) {
   const token = process.env.WHATSAPP_TOKEN;
   if (!mediaId || !key) return '';
   try {
@@ -977,7 +1015,7 @@ async function transcribeAudio(mediaId, key) {
         ],
       }],
     };
-    const { r, j } = await callGemini(body, key);
+    const { r, j } = await callGemini(body, key, usage);
     if (!r.ok || j?.error) {
       console.error(`WA audio falhou: HTTP ${r.status} ${JSON.stringify(j).slice(0, 300)}`);
       return { errorMsg: geminiErrorMessage(r.status, j) };
@@ -992,7 +1030,7 @@ async function transcribeAudio(mediaId, key) {
 }
 
 // Baixa um documento (PDF/CSV) do WhatsApp e extrai os lançamentos com o Gemini.
-async function extractStatement(docInfo, key) {
+async function extractStatement(docInfo, key, usage = null) {
   const token = process.env.WHATSAPP_TOKEN;
   if (!docInfo?.id || !key) return { items: [] };
   try {
@@ -1013,7 +1051,7 @@ Regras: amount SEMPRE positivo. type=expense para gastos/compras/débitos/saída
       parts = [{ text: `${instruction}\n\nConteúdo do arquivo:\n${textCsv}` }];
     }
     const body = { contents: [{ role: 'user', parts }], generationConfig: { temperature: 0, maxOutputTokens: 6000 } };
-    const { r, j } = await callGemini(body, key);
+    const { r, j } = await callGemini(body, key, usage);
     if (!r.ok || j?.error) { console.error(`WA import falhou: HTTP ${r.status} ${JSON.stringify(j).slice(0, 300)}`); return { items: [], errorMsg: geminiErrorMessage(r.status, j) }; }
     const t = j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const m = t.match(/\[[\s\S]*\]/);
@@ -1036,7 +1074,9 @@ async function handleDocumentImport(db, from, uid, sessRef, docInfo, key) {
   const ok = mime.includes('pdf') || mime.includes('csv') || mime.includes('text') || mime.includes('excel') || mime.includes('comma');
   if (!ok) { await sendText(from, 'Consigo ler *PDF* ou *CSV* (extrato do banco ou fatura do cartão). Esse formato eu não leio 😅. Dá pra exportar em PDF ou CSV?'); return; }
   await sendText(from, 'Recebi seu arquivo 📄 Estou lendo os lançamentos... um instante.');
-  const { items, errorMsg } = await extractStatement(docInfo, key);
+  const usage = newUsage();
+  const { items, errorMsg } = await extractStatement(docInfo, key, usage);
+  await recordTokens(db, uid, usage);
   if (errorMsg) { await sendText(from, errorMsg); return; }
   if (!items.length) { await sendText(from, 'Não consegui identificar lançamentos nesse arquivo 😅. Confere se é um extrato de banco/cartão em PDF ou CSV legível (não pode ser imagem/foto escaneada sem texto).'); return; }
   const capped = items.slice(0, 80);
@@ -1496,10 +1536,12 @@ export default async function handler(req, res) {
       }
     }
 
-    // Áudio: transcreve agora, com a chave do usuário.
+    // Áudio: transcreve agora, com a chave global.
     if (msg.type === 'audio') {
       if (!geminiKey) { await sendText(from, MSG_NO_KEY); return res.status(200).json({ ok: true }); }
-      const tr = await transcribeAudio(audioId, geminiKey);
+      const tokAudio = newUsage();
+      const tr = await transcribeAudio(audioId, geminiKey, tokAudio);
+      await recordTokens(db, uid, tokAudio);
       if (tr.errorMsg) { await sendText(from, tr.errorMsg); return res.status(200).json({ ok: true }); }
       text = tr.text;
       if (!text) { await sendText(from, 'Não consegui entender o áudio 😅 — pode ter ficado baixo ou muito curto. Tente repetir ou me escrever.'); return res.status(200).json({ ok: true }); }
@@ -1751,7 +1793,9 @@ export default async function handler(req, res) {
 
     // 3. Conversa com a Alívia
     const ctx = await buildUserContext(db, uid);
-    const reply = await askGemini(history, ctx, text, geminiKey);
+    const tokChat = newUsage();
+    const reply = await askGemini(history, ctx, text, geminiKey, tokChat);
+    await recordTokens(db, uid, tokChat);
     const action = parseAction(reply);
 
     // 3z. Relatório com valores REAIS (calculado no servidor).

@@ -7,11 +7,24 @@ import { isAdminEmail } from '../constants/admins';
 import {
     Users, Search, ShieldCheck, Crown, Gift, Sparkles, Loader2, X, Check,
     RefreshCw, Save, Lock, Clock, Bell, Send, Wrench, KeyRound, Eye, EyeOff,
-    ExternalLink, Trash2, MessageCircle,
+    ExternalLink, Trash2, MessageCircle, Cpu,
 } from 'lucide-react';
 
 const AI_STUDIO_URL = 'https://aistudio.google.com/app/apikey';
 const maskKey = (k) => !k ? '' : (k.length <= 8 ? '••••' : `${k.slice(0, 4)}••••••••${k.slice(-4)}`);
+
+// Formata contagem de tokens: 1234 -> "1,2 mil"; 1500000 -> "1,5 mi".
+const fmtTokens = (n) => {
+    const v = Number(n) || 0;
+    if (v >= 1e6) return `${(v / 1e6).toFixed(1).replace('.', ',')} mi`;
+    if (v >= 1e3) return `${(v / 1e3).toFixed(1).replace('.', ',')} mil`;
+    return String(v);
+};
+// Tokens do MÊS corrente do usuário (zera automaticamente quando vira o mês).
+const monthTokens = (waTokens) => {
+    const mk = new Date().toISOString().slice(0, 7);
+    return (waTokens && waTokens.month === mk) ? (waTokens.monthTotal || 0) : 0;
+};
 
 // Timestamp Firestore/segundos/ms/ISO → ms.
 const toMs = (d) => {
@@ -99,6 +112,7 @@ export default function GerenciarUsuarios() {
                     periodEnd: toMs(subData?.current_period_end),
                     cancelAtEnd: subData?.cancel_at_period_end === true,
                     pushSubscriptions: Array.isArray(userData.pushSubscriptions) ? userData.pushSubscriptions : [],
+                    waTokens: userData.waTokens || null,
                     createdAt: userData.createdAt || null,
                     isDeleted: userData.status === 'deleted',
                 };
@@ -170,6 +184,8 @@ export default function GerenciarUsuarios() {
 
     // Total de dispositivos (push subscriptions) entre todos os usuários.
     const totalDevices = useMemo(() => users.reduce((a, u) => a + (u.pushSubscriptions?.length || 0), 0), [users]);
+    // Total de tokens do Gemini consumidos NO MÊS por todos os usuários (WhatsApp).
+    const totalMonthTokens = useMemo(() => users.reduce((a, u) => a + monthTokens(u.waTokens), 0), [users]);
 
     // Envia uma notificação push para TODOS os dispositivos cadastrados.
     const sendGlobal = async () => {
@@ -276,6 +292,9 @@ export default function GerenciarUsuarios() {
                     </button>
                 )}
                 <span className={`text-[12px] ${muted}`}>{list.length} usuário{list.length === 1 ? '' : 's'}</span>
+                <span className="inline-flex items-center gap-1.5 text-[12px] font-bold px-2.5 py-1.5 rounded-lg bg-amber-500/12 text-amber-500 shrink-0" title={`${totalMonthTokens.toLocaleString('pt-BR')} tokens do Gemini este mês (todos os usuários)`}>
+                    <Cpu className="w-3.5 h-3.5" /> {fmtTokens(totalMonthTokens)} tokens/mês
+                </span>
             </div>
 
             {/* Lista */}
@@ -310,6 +329,15 @@ export default function GerenciarUsuarios() {
                                         return (
                                             <span className={`hidden sm:flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-md shrink-0 ${exp.warn ? 'bg-rose-500/12 text-rose-400' : (isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
                                                 <Clock className="w-3 h-3" /> {exp.text}
+                                            </span>
+                                        );
+                                    })()}
+                                    {(() => {
+                                        const mt = monthTokens(u.waTokens);
+                                        return (
+                                            <span title={`${mt.toLocaleString('pt-BR')} tokens do Gemini este mês${u.waTokens?.monthCalls ? ` · ${u.waTokens.monthCalls} interações` : ''}`}
+                                                className={`hidden sm:inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-md shrink-0 ${mt > 0 ? 'bg-amber-500/12 text-amber-500' : (isDark ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400')}`}>
+                                                <Cpu className="w-3 h-3" /> {fmtTokens(mt)}
                                             </span>
                                         );
                                     })()}
