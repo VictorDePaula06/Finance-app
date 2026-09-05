@@ -1180,7 +1180,11 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
     const softBtn = isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50';
     const label = 'text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5';
 
-    const TIPOS = [{ id: 'avulsa', label: 'Avulsa' }, { id: 'assinatura', label: 'Assinatura' }, { id: 'parcelamento', label: 'Parcelamento' }];
+    const TIPOS = [
+        { id: 'avulsa', label: 'Avulsa', desc: 'Lance uma compra única', icon: ShoppingBag },
+        { id: 'assinatura', label: 'Assinatura', desc: 'Cadastre uma assinatura', icon: Pencil },
+        { id: 'parcelamento', label: 'Parcelamento', desc: 'Lance um parcelamento', icon: Layers },
+    ];
 
     return (
         <div className="fixed inset-0 z-50 flex flex-col" style={{ background: isDark ? '#0b0d0f' : '#f1f5f9' }}>
@@ -1214,13 +1218,24 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                     <div className="grid xl:grid-cols-[1fr_320px] gap-4 mt-4">
                         {/* GRADE */}
                         <div className={`rounded-2xl border overflow-hidden ${cardBg}`}>
-                            <div className={`px-4 py-3 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'} flex items-center justify-between gap-3 flex-wrap`}>
-                                <p className={label + ' mb-0'}>Lançamentos</p>
-                                <div className={`inline-flex items-center gap-1 p-1 rounded-xl border ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
-                                    {TIPOS.map(t => (
-                                        <button key={t.id} type="button" onClick={() => setTipoCompra(t.id)}
-                                            className={`px-3 h-8 rounded-lg text-[12px] font-bold transition ${tipoCompra === t.id ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>{t.label}</button>
-                                    ))}
+                            <div className={`px-4 pt-3.5 pb-4 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                                <p className={label}>Lançamentos</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                    {TIPOS.map(t => {
+                                        const Icon = t.icon; const on = tipoCompra === t.id;
+                                        return (
+                                            <button key={t.id} type="button" onClick={() => setTipoCompra(t.id)}
+                                                className={`flex items-center gap-3 p-3 rounded-xl border text-left transition active:scale-[0.99] ${on ? 'border-emerald-500/50 bg-emerald-500/[0.06] ring-1 ring-emerald-500/30' : (isDark ? 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]' : 'border-slate-200 bg-white hover:bg-slate-50')}`}>
+                                                <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${on ? 'bg-emerald-500/15 text-emerald-400' : (isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
+                                                    <Icon className="w-5 h-5" strokeWidth={2.2} />
+                                                </span>
+                                                <span className="min-w-0">
+                                                    <span className={`block text-[14px] font-black leading-tight ${on ? 'text-emerald-400' : (isDark ? 'text-white' : 'text-slate-800')}`}>{t.label}</span>
+                                                    <span className="block text-[12px] text-slate-500 truncate">{t.desc}</span>
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
                             <div className="overflow-x-auto">
