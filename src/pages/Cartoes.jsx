@@ -1070,23 +1070,24 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
     const [cardId, setCardId] = useState(card.id);
     const activeCard = cards.find(c => c.id === cardId) || card;
     const draftKey = `aliviaCardBatch_${activeCard.id}`;
-    const [date, setDate] = useState(todayISO());
-    const [rows, setRows] = useState(() => [{ id: 0, description: '', tipo: 'avulsa', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [] }]);
+    const [date] = useState(todayISO());
+    const [tipoCompra, setTipoCompra] = useState('avulsa');
+    const [rows, setRows] = useState(() => [{ id: 0, description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [] }]);
     const [saving, setSaving] = useState(false);
     const [focusId, setFocusId] = useState(null);
     const [sumRow, setSumRow] = useState(null);
     const descRefs = useRef({});
 
-    const emptyRow = () => ({ id: nextId.current++, description: '', tipo: 'avulsa', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [] });
+    const emptyRow = () => ({ id: nextId.current++, description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [] });
 
     // Restaura rascunho ao abrir.
     useEffect(() => {
         try {
             const d = JSON.parse(localStorage.getItem(draftKey) || 'null');
             if (d && Array.isArray(d.rows) && d.rows.length) {
-                setDate(d.date || todayISO());
+                if (d.tipoCompra) setTipoCompra(d.tipoCompra);
                 nextId.current = 1;
-                setRows(d.rows.map(r => ({ description: '', tipo: 'avulsa', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [], ...r, id: nextId.current++ })));
+                setRows(d.rows.map(r => ({ description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [], ...r, id: nextId.current++ })));
                 toast.info?.('Rascunho restaurado.');
             }
         } catch { /* ignore */ }
@@ -1126,7 +1127,7 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
     const catMode = mode(valid.map(r => r.category));
     const prioMode = mode(valid.map(r => r.priority));
 
-    const saveDraft = () => { try { localStorage.setItem(draftKey, JSON.stringify({ date, rows })); toast.success('Rascunho salvo.'); } catch { toast.error('Não foi possível salvar o rascunho.'); } };
+    const saveDraft = () => { try { localStorage.setItem(draftKey, JSON.stringify({ date, tipoCompra, rows })); toast.success('Rascunho salvo.'); } catch { toast.error('Não foi possível salvar o rascunho.'); } };
 
     const day = () => parseInt(activeCard.dueDay) || 1;
 
@@ -1141,7 +1142,7 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                 const grouped = r.parts?.length > 0;
 
                 // Parcelamento agrupado: cada item vira um parcelamento próprio (valor + nº de parcelas dele).
-                if (r.tipo === 'parcelamento' && grouped) {
+                if (tipoCompra === 'parcelamento' && grouped) {
                     for (const p of r.parts) {
                         const val = numBR(p.value); if (val <= 0) continue;
                         const nParc = Math.max(1, parseInt(p.parcelas) || 1);
@@ -1153,9 +1154,9 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
 
                 // Demais casos: consolida a linha em um único lançamento com o total.
                 const val = numBR(r.value); if (val <= 0) continue;
-                if (r.tipo === 'assinatura') {
+                if (tipoCompra === 'assinatura') {
                     await addDoc(collection(db, 'subscriptions'), { name, value: val, day: day(), cardId: activeCard.id, category: r.category, priority: r.priority, type: 'recurring', userId: uid, createdAt: Date.now() });
-                } else if (r.tipo === 'parcelamento') {
+                } else if (tipoCompra === 'parcelamento') {
                     const nParc = Math.max(1, parseInt(r.parcelas) || 1);
                     await addDoc(collection(db, 'subscriptions'), { name, value: val / nParc, day: day(), cardId: activeCard.id, category: r.category, priority: r.priority, isInstallment: true, totalInstallments: nParc, currentInstallment: 1, installmentMode: 'total', type: 'installment', userId: uid, createdAt: Date.now() });
                 } else {
@@ -1197,9 +1198,10 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                         <button onClick={onClose} aria-label="Fechar" className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}><X className="w-4 h-4" /></button>
                     </div>
 
-                    {/* BARRA FINA: seleção de cartão + data padrão */}
-                    <div className={`rounded-2xl border px-3 py-2.5 flex items-center gap-3 flex-wrap ${cardBg}`}>
+                    {/* BARRA FINA: seleção de cartão */}
+                    <div className={`rounded-2xl border px-3 py-2.5 flex items-center gap-3 ${cardBg}`}>
                         <span className="w-8 h-8 rounded-xl bg-rose-500/12 text-rose-500 flex items-center justify-center shrink-0"><CreditCard className="w-4 h-4" /></span>
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 shrink-0">Cartão</span>
                         {cards.length > 1 ? (
                             <select value={cardId} onChange={e => setCardId(e.target.value)} className={`${cellInput} w-auto min-w-[180px] font-bold`} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
                                 {cards.map(c => <option key={c.id} value={c.id} style={optStyle}>{c.name || 'Cartão'}{c.last4 ? ` •••• ${c.last4}` : ''}</option>)}
@@ -1207,26 +1209,31 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                         ) : (
                             <span className={`text-sm font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{activeCard.name || 'Cartão'}{activeCard.last4 ? <span className="ml-1.5 text-[11px] text-slate-400 tabular-nums">•••• {activeCard.last4}</span> : null}</span>
                         )}
-                        <span className="text-[12px] text-slate-500 ml-auto hidden sm:inline">Data padrão</span>
-                        <input type="date" value={date} onChange={e => setDate(e.target.value)} className={`${cellInput} w-auto`} style={{ colorScheme: isDark ? 'dark' : 'light' }} />
                     </div>
 
                     <div className="grid xl:grid-cols-[1fr_320px] gap-4 mt-4">
                         {/* GRADE */}
                         <div className={`rounded-2xl border overflow-hidden ${cardBg}`}>
-                            <div className={`px-4 py-3 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}><p className={label + ' mb-0'}>Lançamentos</p></div>
+                            <div className={`px-4 py-3 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'} flex items-center justify-between gap-3 flex-wrap`}>
+                                <p className={label + ' mb-0'}>Lançamentos</p>
+                                <div className={`inline-flex items-center gap-1 p-1 rounded-xl border ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                                    {TIPOS.map(t => (
+                                        <button key={t.id} type="button" onClick={() => setTipoCompra(t.id)}
+                                            className={`px-3 h-8 rounded-lg text-[12px] font-bold transition ${tipoCompra === t.id ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>{t.label}</button>
+                                    ))}
+                                </div>
+                            </div>
                             <div className="overflow-x-auto">
-                                <table className="w-full border-collapse min-w-[920px]">
+                                <table className={`w-full border-collapse ${tipoCompra === 'parcelamento' ? 'min-w-[820px]' : 'min-w-[760px]'}`}>
                                     <thead>
                                         <tr className={`text-[10px] font-black uppercase tracking-widest text-slate-500 ${isDark ? 'bg-white/[0.02]' : 'bg-slate-50'}`}>
                                             <th className="w-9 text-center py-2">#</th>
                                             <th className="text-left px-2 py-2">Descrição *</th>
-                                            <th className="text-left px-2 py-2 w-36">Tipo</th>
-                                            <th className="text-left px-2 py-2 w-36">Categoria</th>
+                                            <th className="text-left px-2 py-2 w-40">Categoria</th>
                                             <th className="text-right px-2 py-2 w-28">Valor *</th>
-                                            <th className="text-center px-2 py-2 w-20">Parcelas</th>
-                                            <th className="text-left px-2 py-2 w-32">Tipo de gasto</th>
-                                            <th className="text-left px-2 py-2 w-32">Data</th>
+                                            {tipoCompra === 'parcelamento' && <th className="text-center px-2 py-2 w-20">Parcelas</th>}
+                                            <th className="text-left px-2 py-2 w-36">Tipo de gasto</th>
+                                            <th className="text-left px-2 py-2 w-36">Data</th>
                                             <th className="w-20 text-center py-2">Ações</th>
                                         </tr>
                                     </thead>
@@ -1241,11 +1248,6 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                                                             onChange={e => updateRow(r.id, { description: e.target.value })}
                                                             onKeyDown={e => onCellKey(e, r, isLast)}
                                                             placeholder="Ex.: Mercado, Netflix…" className={cellInput} autoFocus={i === 0} maxLength={50} />
-                                                    </td>
-                                                    <td className="px-1.5 py-1">
-                                                        <select value={r.tipo} onChange={e => updateRow(r.id, { tipo: e.target.value })} className={cellInput} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
-                                                            {TIPOS.map(t => <option key={t.id} value={t.id} style={optStyle}>{t.label}</option>)}
-                                                        </select>
                                                     </td>
                                                     <td className="px-1.5 py-1">
                                                         <select value={r.category} onChange={e => updateRow(r.id, { category: e.target.value })} className={cellInput} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
@@ -1266,17 +1268,15 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                                                                 placeholder="0,00" className={`${cellInput} text-right`} />
                                                         )}
                                                     </td>
-                                                    <td className="px-1.5 py-1">
-                                                        {r.tipo === 'parcelamento' ? (
-                                                            r.parts?.length ? (
+                                                    {tipoCompra === 'parcelamento' && (
+                                                        <td className="px-1.5 py-1">
+                                                            {r.parts?.length ? (
                                                                 <div className="h-10 flex items-center justify-center text-[11px] font-bold text-emerald-500">por item</div>
                                                             ) : (
                                                                 <input inputMode="numeric" value={r.parcelas} onChange={e => updateRow(r.id, { parcelas: e.target.value.replace(/\D/g, '').slice(0, 2) })} placeholder="2" className={`${cellInput} text-center`} />
-                                                            )
-                                                        ) : (
-                                                            <div className="h-10 flex items-center justify-center text-slate-600">—</div>
-                                                        )}
-                                                    </td>
+                                                            )}
+                                                        </td>
+                                                    )}
                                                     <td className="px-1.5 py-1">
                                                         <div className="relative">
                                                             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full pointer-events-none" style={{ background: PRIO_DOT[r.priority] }} />
@@ -1353,7 +1353,7 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
             </div>
 
             {sumRow && (
-                <SumDialog isDark={isDark} row={sumRow}
+                <SumDialog isDark={isDark} row={sumRow} tipo={tipoCompra}
                     onClose={() => setSumRow(null)}
                     onSave={(patch) => { updateRow(sumRow.id, patch); setSumRow(null); }} />
             )}
@@ -1362,9 +1362,9 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
 }
 
 // Modal para somar vários gastos com o mesmo nome numa única linha.
-function SumDialog({ isDark, row, onClose, onSave }) {
+function SumDialog({ isDark, row, tipo, onClose, onSave }) {
     const pnextId = useRef(1);
-    const isParc = row.tipo === 'parcelamento';
+    const isParc = tipo === 'parcelamento';
     const [name, setName] = useState(row.description || '');
     const [parts, setParts] = useState(() => {
         const base = (row.parts?.length ? row.parts : (numBR(row.value) > 0 ? [{ value: row.value, note: '', parcelas: row.parcelas }] : []))
