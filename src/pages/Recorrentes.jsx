@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import AnimatedNumber from '../components/ui/AnimatedNumber';
 import { toast } from '../components/ui/Toaster';
 import AliviaFormHint from '../components/AliviaFormHint';
+import ConfirmActionModal from '../components/ConfirmActionModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -239,6 +240,7 @@ export default function Recorrentes({ onNavigate }) {
 
 // ── Seção (entradas ou despesas) ────────────────────────────────────
 function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, onNavigate, wrapClass = 'mt-8', headerRight = null, emptyOverride = null }) {
+    const [confirmAction, setConfirmAction] = useState(null); // { type:'edit'|'delete', row }
     const cfg = KIND[kind];
     const SectionIcon = cfg.icon;
     const income = kind === 'income';
@@ -253,6 +255,7 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, onN
     const shown = showAll ? rows : rows.slice(0, PREVIEW);
 
     return (
+        <>
         <div className={`rounded-2xl border overflow-hidden flex flex-col ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]'} ${wrapClass}`}>
             {/* Cabeçalho colorido do card */}
             <div className={`flex items-center justify-between gap-2 px-4 sm:px-5 py-4 border-b flex-wrap ${isDark ? 'border-white/[0.06]' : 'border-slate-100'} ${headBg}`}>
@@ -322,8 +325,8 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, onN
                                                     </button>
                                                 )}
                                                 <div className="flex items-center gap-0.5 lg:opacity-60 lg:group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => onEdit(r)} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-200' : 'hover:bg-slate-100 hover:text-slate-700'}`}><Pencil className="w-4 h-4" /></button>
-                                                    <DeleteBtn isDark={isDark} disabled={r.status === 'pago'} onDelete={() => onDelete(r)} />
+                                                    <button onClick={() => setConfirmAction({ type: 'edit', row: r })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5 hover:text-emerald-400' : 'hover:bg-slate-100 hover:text-emerald-600'}`}><Pencil className="w-4 h-4" /></button>
+                                                    <button onClick={() => setConfirmAction({ type: 'delete', row: r })} disabled={r.status === 'pago'} title="Excluir" className={`p-1.5 rounded-lg text-slate-400 transition disabled:opacity-30 disabled:pointer-events-none ${isDark ? 'hover:text-rose-500 hover:bg-white/5' : 'hover:text-rose-500 hover:bg-slate-100'}`}><Trash2 className="w-4 h-4" /></button>
                                                 </div>
                                             </>
                                         )}
@@ -342,6 +345,19 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, onN
                 </>
             )}
         </div>
+
+        {confirmAction && (
+            <ConfirmActionModal isDark={isDark} type={confirmAction.type}
+                name={confirmAction.row.name || confirmAction.row.description}
+                noun={income ? 'entrada recorrente' : 'despesa recorrente'}
+                onClose={() => setConfirmAction(null)}
+                onConfirm={async () => {
+                    const r = confirmAction.row;
+                    if (confirmAction.type === 'delete') { await onDelete(r); await new Promise(res => setTimeout(res, 300)); }
+                    else { await new Promise(res => setTimeout(res, 400)); onEdit(r); }
+                }} />
+        )}
+        </>
     );
 }
 

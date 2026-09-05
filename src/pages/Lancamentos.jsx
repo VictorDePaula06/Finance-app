@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import AnimatedNumber from '../components/ui/AnimatedNumber';
 import { toast } from '../components/ui/Toaster';
+import ConfirmActionModal from '../components/ConfirmActionModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -55,6 +56,7 @@ export default function Lancamentos() {
 
     const [transactions, setTransactions] = useState([]);
     const [form, setForm] = useState(null);  // { kind, editing }
+    const [confirmAction, setConfirmAction] = useState(null); // { type:'edit'|'delete', item }
     const [chooser, setChooser] = useState(false); // janela de escolha entrada/despesa
     const [filter, setFilter] = useState('all'); // all | income | expense
     const [origem, setOrigem] = useState('all'); // all | avulso | recorrente
@@ -245,8 +247,8 @@ export default function Lancamentos() {
                                             {income ? '+' : '−'} R$ {money(t.amount)}
                                         </span>
                                         <div className="flex items-center gap-0.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition">
-                                            <button onClick={() => setForm({ kind: income ? 'income' : 'expense', editing: t })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
-                                            <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, 'transactions', t.id)).then(() => toast.success('Lançamento excluído.')).catch(() => toast.error('Não foi possível excluir.'))} />
+                                            <button onClick={() => setConfirmAction({ type: 'edit', item: t })} title="Editar" className={`p-1.5 rounded-lg text-slate-400 transition ${isDark ? 'hover:text-emerald-400 hover:bg-white/5' : 'hover:text-emerald-600 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                                            <button onClick={() => setConfirmAction({ type: 'delete', item: t })} title="Excluir" className={`p-1.5 rounded-lg text-slate-400 transition ${isDark ? 'hover:text-rose-500 hover:bg-white/5' : 'hover:text-rose-500 hover:bg-slate-100'}`}><Trash2 className="w-3.5 h-3.5" /></button>
                                         </div>
                                     </div>
                                 );
@@ -271,6 +273,22 @@ export default function Lancamentos() {
             {chooser && <KindChooserModal isDark={isDark} onClose={() => setChooser(false)}
                 onPick={(kind) => { setChooser(false); setForm({ kind, editing: null }); }} />}
             {form && <LancamentoForm isDark={isDark} uid={uid} kind={form.kind} editing={form.editing} saldoConta={saldoConta} onClose={() => setForm(null)} />}
+            {confirmAction && (
+                <ConfirmActionModal isDark={isDark} type={confirmAction.type}
+                    name={confirmAction.item.description || catMetaOf(confirmAction.item.type === 'income' ? 'income' : 'expense', confirmAction.item.category).label}
+                    onClose={() => setConfirmAction(null)}
+                    onConfirm={async () => {
+                        const t = confirmAction.item;
+                        if (confirmAction.type === 'delete') {
+                            await deleteDoc(doc(db, 'transactions', t.id));
+                            await new Promise(res => setTimeout(res, 300));
+                            toast.success('Lançamento excluído.');
+                        } else {
+                            await new Promise(res => setTimeout(res, 400));
+                            setForm({ kind: t.type === 'income' ? 'income' : 'expense', editing: t });
+                        }
+                    }} />
+            )}
         </div>
     );
 }
