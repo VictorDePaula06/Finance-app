@@ -757,34 +757,20 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
                 <p className={`text-[12px] font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>No cartão <span className="text-emerald-500 font-bold">{card.name || 'cartão'}</span>.</p>
 
                 <Field label="Descrição">
-                    {manualDesc ? (
-                        <div className="space-y-2">
-                            <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Ex.: Geladeira, Presente da Ana" className={inputCls} maxLength={50} autoFocus />
-                            <button type="button" onClick={() => { setManualDesc(false); if (!COMMON_DESCRIPTIONS.includes(description)) setDescription(''); }}
-                                className={`text-[12px] font-bold inline-flex items-center gap-1 ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
-                                <ChevronDown className="w-3.5 h-3.5 rotate-90" /> Escolher da lista
-                            </button>
-                        </div>
-                    ) : (
-                        <div>
-                            <div className="flex flex-wrap gap-1.5">
-                                {COMMON_DESCRIPTIONS.map(d => {
-                                    const on = description === d;
-                                    return (
-                                        <button type="button" key={d} onClick={() => setDescription(d)}
-                                            className={`px-3 py-1.5 rounded-xl text-[13px] font-bold border transition active:scale-95 ${on
-                                                ? 'bg-rose-500 text-white border-rose-500 shadow-sm shadow-rose-500/30'
-                                                : (isDark ? 'bg-white/5 border-white/10 text-slate-300 hover:border-white/20' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300')}`}>
-                                            {d}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <button type="button" onClick={() => { setManualDesc(true); if (COMMON_DESCRIPTIONS.includes(description)) setDescription(''); }}
-                                className={`mt-2.5 text-[12px] font-bold inline-flex items-center gap-1 ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
-                                <Pencil className="w-3.5 h-3.5" /> Digitar outro nome
-                            </button>
-                        </div>
+                    <select
+                        value={manualDesc ? '__other__' : (COMMON_DESCRIPTIONS.includes(description) ? description : '')}
+                        onChange={e => {
+                            const v = e.target.value;
+                            if (v === '__other__') { setManualDesc(true); if (COMMON_DESCRIPTIONS.includes(description)) setDescription(''); }
+                            else { setManualDesc(false); setDescription(v); }
+                        }}
+                        className={inputCls} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
+                        <option value="" style={optStyle} disabled>Selecione…</option>
+                        {COMMON_DESCRIPTIONS.map(d => <option key={d} value={d} style={optStyle}>{d}</option>)}
+                        <option value="__other__" style={optStyle}>Outro (digitar)</option>
+                    </select>
+                    {manualDesc && (
+                        <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Ex.: Geladeira, Presente da Ana" className={`${inputCls} mt-2`} maxLength={50} autoFocus />
                     )}
                 </Field>
 
