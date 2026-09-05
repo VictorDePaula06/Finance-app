@@ -1388,13 +1388,18 @@ function SumDialog({ isDark, row, tipo, onClose, onSave }) {
         return base;
     });
     const [focusId, setFocusId] = useState(null);
+    // 'total' = o valor digitado é o total da compra; 'parcela' = é o valor de cada parcela.
+    const [valueMode, setValueMode] = useState('total');
     const valRefs = useRef({});
 
     // Inicializa o gerador de ids depois da montagem (fora do render).
     useEffect(() => { pnextId.current = parts.length + 1; }, []); // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => { const el = focusId != null ? valRefs.current[focusId] : null; el?.focus(); }, [focusId, parts.length]);
 
-    const total = parts.reduce((a, p) => a + numBR(p.value), 0);
+    const parcOf = (p) => Math.max(1, parseInt(p.parcelas) || 1);
+    // Valor total da compra, independente do modo digitado.
+    const fullOf = (p) => (isParc && valueMode === 'parcela') ? numBR(p.value) * parcOf(p) : numBR(p.value);
+    const total = parts.reduce((a, p) => a + fullOf(p), 0);
     const filled = parts.filter(p => numBR(p.value) > 0);
 
     const update = (id, patch) => setParts(ps => ps.map(p => p.id === id ? { ...p, ...patch } : p));
@@ -1409,7 +1414,8 @@ function SumDialog({ isDark, row, tipo, onClose, onSave }) {
     const save = () => {
         const desc = name.trim() || row.description;
         if (!filled.length) { onSave({ description: desc, value: '', parts: [] }); return; }
-        onSave({ description: desc, value: money(total), parts: filled.map(p => ({ value: money(numBR(p.value)), note: p.note.trim(), parcelas: String(Math.max(1, parseInt(p.parcelas) || 1)) })) });
+        // Normaliza sempre para o valor TOTAL da compra (o restante do fluxo divide por parcelas).
+        onSave({ description: desc, value: money(total), parts: filled.map(p => ({ value: money(fullOf(p)), note: p.note.trim(), parcelas: String(parcOf(p)) })) });
     };
 
     const cardBg = isDark ? 'border-white/10 bg-[#141518]' : 'border-slate-200 bg-white';
@@ -1424,7 +1430,7 @@ function SumDialog({ isDark, row, tipo, onClose, onSave }) {
                     <span className="w-10 h-10 rounded-xl bg-emerald-500/12 text-emerald-500 flex items-center justify-center shrink-0"><Sigma className="w-5 h-5" strokeWidth={2.4} /></span>
                     <div className="min-w-0 flex-1">
                         <h3 className={`text-[15px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{isParc ? 'Vários parcelamentos' : 'Somar lançamentos'}</h3>
-                        <p className="text-[12px] text-slate-500">{isParc ? 'Cada item é um parcelamento próprio: valor total + nº de parcelas.' : 'Vários gastos com o mesmo nome viram uma linha só.'}</p>
+                        <p className="text-[12px] text-slate-500">{isParc ? 'Cada item é um parcelamento próprio: valor + nº de parcelas.' : 'Vários gastos com o mesmo nome viram uma linha só.'}</p>
                     </div>
                     <button onClick={onClose} aria-label="Fechar" className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}><X className="w-4 h-4" /></button>
                 </div>
@@ -1433,15 +1439,28 @@ function SumDialog({ isDark, row, tipo, onClose, onSave }) {
                     <label className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Descrição</label>
                     <input value={name} onChange={e => setName(e.target.value)} placeholder={isParc ? 'Ex.: Mercado Livre' : 'Ex.: Lanche'} maxLength={50} className={`${inp} mb-4`} />
 
+                    {isParc && (
+                        <div className="mb-3">
+                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">O valor digitado é o…</span>
+                            <div className={`inline-flex items-center gap-1 p-1 rounded-xl border w-full ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                                {[['total', 'Valor total'], ['parcela', 'Valor por parcela']].map(([m, lbl]) => (
+                                    <button key={m} type="button" onClick={() => setValueMode(m)}
+                                        className={`flex-1 h-8 rounded-lg text-[12px] font-bold transition ${valueMode === m ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>{lbl}</button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">{isParc ? 'Compras (valor total × parcelas)' : 'Valores'}</span>
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">{isParc ? `Compras (valor ${valueMode === 'parcela' ? 'da parcela' : 'total'} × parcelas)` : 'Valores'}</span>
                         <span className="text-[11px] font-bold text-slate-500 tabular-nums">{filled.length} item(ns)</span>
                     </div>
                     <div className="space-y-2">
                         {parts.map((p, i) => {
                             const isLast = i === parts.length - 1;
                             return (
-                                <div key={p.id} className="flex items-center gap-2">
+                                <div key={p.id}>
+                                <div className="flex items-center gap-2">
                                     <span className="w-5 text-center text-[12px] font-bold text-slate-500 tabular-nums shrink-0">{i + 1}</span>
                                     <div className="relative w-32 shrink-0">
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-bold text-slate-500 pointer-events-none">R$</span>
@@ -1463,6 +1482,10 @@ function SumDialog({ isDark, row, tipo, onClose, onSave }) {
                                         onKeyDown={e => onValKey(e, p, isLast)}
                                         placeholder="Obs. (opcional)" maxLength={40} className={`${inp} flex-1 min-w-0`} />
                                     <button type="button" onClick={() => remove(p.id)} title="Remover" className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition shrink-0"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                                {isParc && valueMode === 'parcela' && numBR(p.value) > 0 && (
+                                    <p className="text-[11px] text-slate-500 pl-7 mt-1">{parcOf(p)}× de R$ {money(numBR(p.value))} = <span className="font-bold text-emerald-500">R$ {money(fullOf(p))}</span> no total</p>
+                                )}
                                 </div>
                             );
                         })}
