@@ -1076,6 +1076,7 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
     const [saving, setSaving] = useState(false);
     const [focusId, setFocusId] = useState(null);
     const [sumRow, setSumRow] = useState(null);
+    const [review, setReview] = useState(false);
     const descRefs = useRef({});
 
     const emptyRow = () => ({ id: nextId.current++, description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [] });
@@ -1131,44 +1132,60 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
 
     const day = () => parseInt(activeCard.dueDay) || 1;
 
-    const concluir = async () => {
-        if (!valid.length) { toast.error('Adicione ao menos uma compra com descrição e valor.'); return; }
+    // Monta a lista final de lançamentos (mesma base usada na revisão e na gravação).
+    const plannedEntries = () => {
+        const out = [];
+        for (const r of valid) {
+            const iso = new Date((r.date || date) + 'T12:00:00').toISOString();
+            const name = normalizeName(r.description);
+            const grouped = r.parts?.length > 0;
+            const base = { name, category: r.category, priority: r.priority, iso };
+
+            if (tipoCompra === 'parcelamento' && grouped) {
+                for (const p of r.parts) {
+                    const val = numBR(p.value); if (val <= 0) continue;
+                    const nParc = Math.max(1, parseInt(p.parcelas) || 1);
+                    out.push({ ...base, kind: 'installment', total: val, parcelas: nParc, perParcela: val / nParc, note: p.note });
+                }
+                continue;
+            }
+            const val = numBR(r.value); if (val <= 0) continue;
+            if (tipoCompra === 'assinatura') {
+                out.push({ ...base, kind: 'recurring', total: val });
+            } else if (tipoCompra === 'parcelamento') {
+                const nParc = Math.max(1, parseInt(r.parcelas) || 1);
+                out.push({ ...base, kind: 'installment', total: val, parcelas: nParc, perParcela: val / nParc });
+            } else {
+                const amountParts = grouped ? r.parts.map(p => numBR(p.value)).filter(v => v > 0) : null;
+                out.push({ ...base, kind: 'transaction', total: val, amountParts });
+            }
+        }
+        return out;
+    };
+
+    const doSave = async () => {
+        const entries = plannedEntries();
+        if (!entries.length) { toast.error('Adicione ao menos uma compra com descrição e valor.'); return; }
         setSaving(true);
         try {
-            let count = 0;
-            for (const r of valid) {
-                const iso = new Date((r.date || date) + 'T12:00:00').toISOString();
-                const name = normalizeName(r.description);
-                const grouped = r.parts?.length > 0;
-
-                // Parcelamento agrupado: cada item vira um parcelamento próprio (valor + nº de parcelas dele).
-                if (tipoCompra === 'parcelamento' && grouped) {
-                    for (const p of r.parts) {
-                        const val = numBR(p.value); if (val <= 0) continue;
-                        const nParc = Math.max(1, parseInt(p.parcelas) || 1);
-                        await addDoc(collection(db, 'subscriptions'), { name, value: val / nParc, day: day(), cardId: activeCard.id, category: r.category, priority: r.priority, isInstallment: true, totalInstallments: nParc, currentInstallment: 1, installmentMode: 'total', type: 'installment', userId: uid, createdAt: Date.now() });
-                        count++;
-                    }
-                    continue;
-                }
-
-                // Demais casos: consolida a linha em um único lançamento com o total.
-                const val = numBR(r.value); if (val <= 0) continue;
-                if (tipoCompra === 'assinatura') {
-                    await addDoc(collection(db, 'subscriptions'), { name, value: val, day: day(), cardId: activeCard.id, category: r.category, priority: r.priority, type: 'recurring', userId: uid, createdAt: Date.now() });
-                } else if (tipoCompra === 'parcelamento') {
-                    const nParc = Math.max(1, parseInt(r.parcelas) || 1);
-                    await addDoc(collection(db, 'subscriptions'), { name, value: val / nParc, day: day(), cardId: activeCard.id, category: r.category, priority: r.priority, isInstallment: true, totalInstallments: nParc, currentInstallment: 1, installmentMode: 'total', type: 'installment', userId: uid, createdAt: Date.now() });
+            for (const e of entries) {
+                if (e.kind === 'recurring') {
+                    await addDoc(collection(db, 'subscriptions'), { name: e.name, value: e.total, day: day(), cardId: activeCard.id, category: e.category, priority: e.priority, type: 'recurring', userId: uid, createdAt: Date.now() });
+                } else if (e.kind === 'installment') {
+                    await addDoc(collection(db, 'subscriptions'), { name: e.name, value: e.perParcela, day: day(), cardId: activeCard.id, category: e.category, priority: e.priority, isInstallment: true, totalInstallments: e.parcelas, currentInstallment: 1, installmentMode: 'total', type: 'installment', userId: uid, createdAt: Date.now() });
                 } else {
-                    const amountParts = grouped ? r.parts.map(p => numBR(p.value)).filter(v => v > 0) : null;
-                    await addDoc(collection(db, 'transactions'), { description: name, amount: val, type: 'expense', category: r.category, priority: r.priority, date: iso, month: iso.slice(0, 7), userId: uid, createdAt: Date.now(), paymentMethod: 'credito', selectedCardId: activeCard.id, invoiceStatus: 'unpaid', ...(amountParts && amountParts.length > 1 ? { amountParts } : {}) });
+                    await addDoc(collection(db, 'transactions'), { description: e.name, amount: e.total, type: 'expense', category: e.category, priority: e.priority, date: e.iso, month: e.iso.slice(0, 7), userId: uid, createdAt: Date.now(), paymentMethod: 'credito', selectedCardId: activeCard.id, invoiceStatus: 'unpaid', ...(e.amountParts && e.amountParts.length > 1 ? { amountParts: e.amountParts } : {}) });
                 }
-                count++;
             }
             try { localStorage.removeItem(draftKey); } catch { /* */ }
-            toast.success(`${count} lançamento(s) na fatura!`);
+            toast.success(`${entries.length} lançamento(s) na fatura!`);
             onClose();
-        } catch (e) { console.error(e); toast.error('Não foi possível lançar. Tente de novo.'); setSaving(false); }
+        } catch (err) { console.error(err); toast.error('Não foi possível lançar. Tente de novo.'); setSaving(false); }
+    };
+
+    const openReview = () => {
+        if (!valid.length) { toast.error('Adicione ao menos uma compra com descrição e valor.'); return; }
+        setReview(true);
     };
 
     const soon = () => toast.info?.('Em breve por aqui. Por enquanto, mande o PDF/CSV do extrato pra Alívia no WhatsApp que ela lança tudo. 💬');
@@ -1359,9 +1376,9 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                     <div className="flex items-center gap-3 flex-wrap">
                         <span className="text-[13px] font-bold text-slate-500 hidden sm:block">Total: <span className="text-emerald-500 font-black tabular-nums">R$ {money(total)}</span></span>
                         <button type="button" onClick={saveDraft} className={`px-4 py-2.5 rounded-xl text-sm font-bold border transition ${softBtn}`}>Salvar rascunho</button>
-                        <button type="button" onClick={concluir} disabled={saving}
-                            className="px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm flex items-center gap-2 transition active:scale-95 disabled:opacity-70 shadow-lg shadow-rose-500/25">
-                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Revisar e concluir <ArrowRight className="w-4 h-4" /></>}
+                        <button type="button" onClick={openReview}
+                            className="px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm flex items-center gap-2 transition active:scale-95 shadow-lg shadow-rose-500/25">
+                            Revisar e concluir <ArrowRight className="w-4 h-4" />
                         </button>
                     </div>
                 </div>
@@ -1372,6 +1389,68 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                     onClose={() => setSumRow(null)}
                     onSave={(patch) => { updateRow(sumRow.id, patch); setSumRow(null); }} />
             )}
+
+            {review && (
+                <ReviewDialog isDark={isDark} tipoCompra={tipoCompra} card={activeCard} entries={plannedEntries()} saving={saving}
+                    onClose={() => setReview(false)} onConfirm={doSave} />
+            )}
+        </div>
+    );
+}
+
+// Modal de revisão antes de gravar os lançamentos do lote.
+function ReviewDialog({ isDark, tipoCompra, card, entries, saving, onClose, onConfirm }) {
+    const total = entries.reduce((a, e) => a + e.total, 0);
+    const cardBg = isDark ? 'border-white/10 bg-[#141518]' : 'border-slate-200 bg-white';
+    const rowBg = isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-200 bg-white';
+    const TIPO_LABEL = { avulsa: 'Compra avulsa', assinatura: 'Assinatura', parcelamento: 'Parcelamento' };
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onMouseDown={saving ? undefined : onClose}>
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div onMouseDown={e => e.stopPropagation()} className={`relative w-full max-w-xl rounded-2xl border shadow-2xl ${cardBg} flex flex-col max-h-[88vh]`}>
+                {/* Header */}
+                <div className={`flex items-center gap-3 px-5 py-4 border-b ${isDark ? 'border-white/[0.08]' : 'border-slate-100'}`}>
+                    <span className="w-10 h-10 rounded-xl bg-rose-500/12 text-rose-500 flex items-center justify-center shrink-0"><Check className="w-5 h-5" strokeWidth={2.6} /></span>
+                    <div className="min-w-0 flex-1">
+                        <h3 className={`text-[15px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Revisar lançamentos</h3>
+                        <p className="text-[12px] text-slate-500">Confira antes de lançar em <b>{card.name || 'cartão'}</b>. {entries.length} item(ns).</p>
+                    </div>
+                    <button onClick={onClose} disabled={saving} aria-label="Fechar" className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 disabled:opacity-50 ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}><X className="w-4 h-4" /></button>
+                </div>
+
+                <div className="px-5 py-4 overflow-y-auto space-y-2">
+                    {entries.map((e, i) => (
+                        <div key={i} className={`flex items-center gap-3 rounded-xl border px-3.5 py-2.5 ${rowBg}`}>
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: PRIO_DOT[e.priority] }} />
+                            <div className="min-w-0 flex-1">
+                                <p className={`text-[13px] font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</p>
+                                <p className="text-[11px] text-slate-500 truncate">
+                                    {catMetaExp(e.category).label} · {TIPO_LABEL[tipoCompra]}
+                                    {e.kind === 'installment' && <> · {e.parcelas}× de <span className="font-bold text-slate-400">R$ {money(e.perParcela)}</span></>}
+                                    {e.note ? ` · ${e.note}` : ''}
+                                </p>
+                            </div>
+                            <span className="text-[13px] font-black tabular-nums text-emerald-500 shrink-0">R$ {money(e.total)}</span>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Footer */}
+                <div className={`px-5 py-4 border-t flex items-center justify-between gap-3 ${isDark ? 'border-white/[0.08]' : 'border-slate-100'}`}>
+                    <div>
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block">Total</span>
+                        <span className="text-xl font-black text-emerald-500 tabular-nums">R$ {money(total)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button type="button" onClick={onClose} disabled={saving} className={`px-4 py-2.5 rounded-xl text-sm font-bold border transition disabled:opacity-50 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Voltar</button>
+                        <button type="button" onClick={onConfirm} disabled={saving}
+                            className="px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm flex items-center gap-2 transition active:scale-95 disabled:opacity-70 shadow-lg shadow-rose-500/25">
+                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Concluir <Check className="w-4 h-4" /></>}
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
