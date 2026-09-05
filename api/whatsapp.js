@@ -787,24 +787,27 @@ Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (p
 ⚠️ NUNCA diga em texto que cadastrou/guardou/criou/pagou/registrou/excluiu algo. Para AGIR, responda SÓ com o JSON — o app grava e confirma de verdade.
 Se não for nenhuma ação, responda normalmente em texto (sem inventar que fez algo).`;
 
-// Mensagem quando o usuário ainda não configurou a própria chave do Gemini.
-const MSG_NO_KEY = '⚙️ Pra eu conversar, configure sua *chave do Gemini* no app: *Configurações › WhatsApp*. É grátis e leva 1 minuto. 🙏';
+// Mensagem quando a chave GLOBAL do Gemini não está configurada (problema do servidor,
+// não do usuário). O usuário não configura mais chave própria.
+const MSG_NO_KEY = '🛠️ A Alívia está em manutenção rápida e volta já já. Tente de novo em alguns minutos. 🙏';
 
-// Lê a chave do Gemini DO PRÓPRIO usuário. Procura em users/{uid}.geminiKey e,
-// como fallback, em users/{uid}/settings/general.geminiKey.
-async function getUserGeminiKey(db, uid) {
+// Lê a chave GLOBAL do Gemini (a mesma pra todos os usuários, com faturamento do app).
+// Fonte: admin_configs/whatsapp.geminiKey (configurável no painel do dev) e, como
+// fallback, a variável de ambiente GEMINI_API_KEY do servidor. Cacheada por processo.
+let _globalKeyCache = { key: null, at: 0 };
+async function getGlobalGeminiKey(db) {
+  const now = Date.now();
+  if (_globalKeyCache.key && (now - _globalKeyCache.at) < 60000) return _globalKeyCache.key;
+  const pick = (v) => (typeof v === 'string' && v.trim()) ? v.trim() : null;
+  let k = null;
   try {
-    const [uSnap, sSnap] = await Promise.all([
-      db.collection('users').doc(uid).get(),
-      db.collection('users').doc(uid).collection('settings').doc('general').get(),
-    ]);
-    const pick = (v) => (typeof v === 'string' && v.trim()) ? v.trim() : null;
-    const fromUser = pick(uSnap.data()?.geminiKey);
-    const fromSettings = pick(sSnap.data()?.geminiKey);
-    const k = fromUser || fromSettings;
-    console.log(`WA geminiKey uid=${uid} found=${!!k} (users=${!!fromUser} settings=${!!fromSettings})`);
-    return k;
-  } catch (e) { console.error('WA getUserGeminiKey:', e); return null; }
+    const snap = await db.collection('admin_configs').doc('whatsapp').get();
+    k = pick(snap.data()?.geminiKey);
+  } catch (e) { console.error('WA getGlobalGeminiKey (firestore):', e); }
+  if (!k) k = pick(process.env.GEMINI_API_KEY);
+  if (k) _globalKeyCache = { key: k, at: now };
+  console.log(`WA geminiKey global found=${!!k}`);
+  return k;
 }
 
 // ── LIMITE DO PLANO GRATUITO NO WHATSAPP ──────────────────────────────────
@@ -1457,8 +1460,8 @@ export default async function handler(req, res) {
     const sessRef = db.collection('wa_sessions').doc(from);
     const sess = (await sessRef.get()).data() || {};
     const history = sess.history || [];
-    // Chave do Gemini DO PRÓPRIO usuário — a IA responde com a chave dele, não a do servidor.
-    const geminiKey = await getUserGeminiKey(db, uid);
+    // Chave GLOBAL do Gemini (do app, com faturamento) — a mesma pra todos os usuários.
+    const geminiKey = await getGlobalGeminiKey(db);
 
     // Limite do plano GRATUITO: conta interações NOVAS (mensagem/áudio/documento
     // sem fluxo pendente). Continuações (toques em botão, confirmações de um fluxo

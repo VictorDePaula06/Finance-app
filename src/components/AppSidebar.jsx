@@ -3,7 +3,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
     LayoutDashboard, Repeat, ArrowLeftRight, CreditCard, Landmark,
-    BarChart3, Receipt, BookOpen, Settings, LogOut, Sun, Moon, X, PiggyBank, Users,
+    BarChart3, Receipt, BookOpen, Settings, LogOut, Sun, Moon, X, PiggyBank, Wrench,
 } from 'lucide-react';
 
 import logo from '../assets/logo.png';
@@ -118,12 +118,12 @@ export default function AppSidebar({ active, onNavigate, onSettings, onOpenWhats
                         </span>
                     </div>
                     {isAdmin && (
-                        <button onClick={() => withClose(onNavigate)('gerenciar-usuarios')} title="Gerenciar usuários"
+                        <button onClick={() => withClose(onNavigate)('gerenciar-usuarios')} title="Configurações de dev"
                             className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition active:scale-95 ${
                                 active === 'gerenciar-usuarios'
                                     ? 'bg-amber-500/15 text-amber-400'
                                     : (isDark ? 'bg-white/5 text-slate-400 hover:text-amber-300 hover:bg-amber-500/10' : 'bg-slate-100 text-slate-500 hover:text-amber-600 hover:bg-amber-50')}`}>
-                            <Users className="w-4 h-4" />
+                            <Wrench className="w-4 h-4" />
                         </button>
                     )}
                 </div>

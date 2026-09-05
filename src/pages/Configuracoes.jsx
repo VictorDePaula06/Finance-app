@@ -480,9 +480,7 @@ export function WhatsAppTab({ isDark, onGoTo }) {
     const [generating, setGenerating] = useState(false);
     const [copied, setCopied] = useState(false);
     const [error, setError] = useState('');
-    // Chave da IA (reportada pelo IATab) — compõe o status da integração.
-    const [hasKey, setHasKey] = useState(() => { try { return !!localStorage.getItem(KEY_STORE); } catch { return false; } });
-    // Aba lateral ativa (Conexão / Inteligência / Notificações).
+    // Aba lateral ativa (Conexão / Notificações).
     const [section, setSection] = useState('conexao');
 
     // Configuração (número + notificações), persistida nas preferências.
@@ -532,22 +530,21 @@ export function WhatsAppTab({ isDark, onGoTo }) {
 
     const waLink = code ? waLinkUrl(code) : '';
 
-    const status = waIntegrationStatus({ loading, connecting: generating, hasError: !!error, connected, hasKey });
+    // A chave do Gemini agora é global (do app) — a Alívia responde a todos.
+    // O status só depende de conexão + erros, não de chave por usuário.
+    const status = waIntegrationStatus({ loading, connecting: generating, hasError: !!error, connected, hasKey: true });
 
     const SUBTABS = [
         { id: 'conexao', label: 'Conexão', icon: Link2 },
-        { id: 'ia', label: 'Inteligência', icon: Sparkles },
         { id: 'notificacoes', label: 'Notificações', icon: Bell },
     ];
     const active = SUBTABS.find(s => s.id === section) || SUBTABS[0];
     const panelDesc = {
         conexao: 'Vincule seu número do WhatsApp à Alívia.',
-        ia: 'Sua chave do Google Gemini — é ela quem faz a Alívia responder.',
         notificacoes: 'Escolha o que a Alívia te envia no WhatsApp.',
     }[section];
     const panelBadge =
-        section === 'ia' ? (hasKey ? { tone: 'emerald', label: 'Ativa' } : { tone: 'amber', label: 'Não configurada' })
-        : section === 'notificacoes' ? (cfg.enabled ? { tone: 'emerald', label: 'Ativas' } : { tone: 'slate', label: 'Desativadas' })
+        section === 'notificacoes' ? (cfg.enabled ? { tone: 'emerald', label: 'Ativas' } : { tone: 'slate', label: 'Desativadas' })
         : { tone: status.tone, label: status.label };
 
     return (
@@ -678,9 +675,6 @@ export function WhatsAppTab({ isDark, onGoTo }) {
                                 </div>
                             </>
                         )}
-
-                        {/* ── INTELIGÊNCIA (Gemini) ── */}
-                        {section === 'ia' && <IATab isDark={isDark} bare onSavedChange={setHasKey} />}
 
                         {/* ── NOTIFICAÇÕES ── */}
                         {section === 'notificacoes' && (

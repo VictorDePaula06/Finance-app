@@ -2,12 +2,16 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db, auth } from '../services/firebase';
-import { collection, getDocs, getDoc, doc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, setDoc, writeBatch } from 'firebase/firestore';
 import { isAdminEmail } from '../constants/admins';
 import {
     Users, Search, ShieldCheck, Crown, Gift, Sparkles, Loader2, X, Check,
-    RefreshCw, Save, Lock, Clock, Bell, Send,
+    RefreshCw, Save, Lock, Clock, Bell, Send, Wrench, KeyRound, Eye, EyeOff,
+    ExternalLink, Trash2, MessageCircle,
 } from 'lucide-react';
+
+const AI_STUDIO_URL = 'https://aistudio.google.com/app/apikey';
+const maskKey = (k) => !k ? '' : (k.length <= 8 ? '••••' : `${k.slice(0, 4)}••••••••${k.slice(-4)}`);
 
 // Timestamp Firestore/segundos/ms/ISO → ms.
 const toMs = (d) => {
@@ -40,6 +44,7 @@ export default function GerenciarUsuarios() {
     const [error, setError] = useState('');
     const [search, setSearch] = useState('');
     const [tab, setTab] = useState('all'); // all | free | pro | lifetime | dev
+    const [topTab, setTopTab] = useState('api'); // api (chave global) | usuarios
     const [editing, setEditing] = useState(null); // user sendo editado
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState('');
@@ -211,19 +216,37 @@ export default function GerenciarUsuarios() {
             <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
                 <div className="flex items-center gap-4">
                     <span className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/25 to-orange-600/15 ring-1 ring-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 shadow-[0_0_28px_rgba(245,158,11,0.18)]">
-                        <Users className="w-7 h-7" strokeWidth={2.2} />
+                        <Wrench className="w-7 h-7" strokeWidth={2.2} />
                     </span>
                     <div>
-                        <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Gerenciar usuários</h1>
-                        <p className={`text-sm mt-0.5 ${muted}`}>Veja e altere o plano de cada usuário.</p>
+                        <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Configurações de dev</h1>
+                        <p className={`text-sm mt-0.5 ${muted}`}>Chave de API global da Alívia e gestão de usuários.</p>
                     </div>
                 </div>
-                <button onClick={fetchUsers} disabled={loading}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar
-                </button>
+                {topTab === 'usuarios' && (
+                    <button onClick={fetchUsers} disabled={loading}
+                        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar
+                    </button>
+                )}
             </div>
 
+            {/* Abas do painel: Chave de API (WhatsApp) · Usuários */}
+            <div className={`inline-flex items-center gap-1 p-1 rounded-2xl border mb-5 ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-slate-100/70 border-slate-200'}`}>
+                {[{ id: 'api', label: 'Chave de API (WhatsApp)', icon: KeyRound }, { id: 'usuarios', label: 'Usuários', icon: Users }].map(t => {
+                    const on = topTab === t.id; const Icon = t.icon;
+                    return (
+                        <button key={t.id} onClick={() => setTopTab(t.id)}
+                            className={`inline-flex items-center gap-2 px-3.5 h-9 rounded-xl text-[13px] font-bold transition ${on ? 'bg-amber-500 text-white shadow-sm' : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}>
+                            <Icon className="w-4 h-4" /> {t.label}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {topTab === 'api' && <ApiKeyPanel isDark={isDark} card={card} muted={muted} adminEmail={currentUser?.email} />}
+
+            {topTab === 'usuarios' && (<>
             {/* Cards de contagem por grupo */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
                 {GROUPS.map(g => {
@@ -331,6 +354,8 @@ export default function GerenciarUsuarios() {
                 </div>
             </div>
 
+            </>)}
+
             {/* Modal de alteração de grupo */}
             {editing && (
                 <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
@@ -381,6 +406,123 @@ export default function GerenciarUsuarios() {
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+// ── Chave de API global do WhatsApp (Gemini) — uma só, do app, com faturamento.
+// Todos os usuários usam esta chave; ninguém configura a própria. Guardada em
+// admin_configs/whatsapp (só o dev lê/grava; o webhook lê via Admin SDK no servidor).
+function ApiKeyPanel({ isDark, card, muted, adminEmail }) {
+    const [loading, setLoading] = useState(true);
+    const [saved, setSaved] = useState('');       // chave atualmente salva (para máscara)
+    const [key, setKey] = useState('');           // valor do input
+    const [editing, setEditing] = useState(false);
+    const [show, setShow] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [flash, setFlash] = useState('');
+    const cell = isDark ? 'text-slate-300' : 'text-slate-700';
+    const inputCls = `w-full pl-10 pr-12 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-amber-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-amber-500'}`;
+
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            try {
+                const snap = await getDoc(doc(db, 'admin_configs', 'whatsapp'));
+                const k = (snap.exists() && typeof snap.data().geminiKey === 'string') ? snap.data().geminiKey.trim() : '';
+                if (alive) { setSaved(k); setKey(k); }
+            } catch (e) { console.error('[admin_configs/whatsapp read]', e); }
+            finally { if (alive) setLoading(false); }
+        })();
+        return () => { alive = false; };
+    }, []);
+
+    const persist = async (val) => {
+        setBusy(true); setFlash('');
+        try {
+            await setDoc(doc(db, 'admin_configs', 'whatsapp'),
+                { geminiKey: val || '', updatedAt: Date.now(), updatedByEmail: adminEmail || '' }, { merge: true });
+            setSaved(val || ''); setEditing(false); setShow(false);
+            setFlash(val ? 'Chave salva! A Alívia já responde a todos com esta chave.' : 'Chave removida.');
+            setTimeout(() => setFlash(''), 3000);
+        } catch (e) { console.error('[admin_configs/whatsapp write]', e); setFlash('Não foi possível salvar (verifique permissões de admin).'); }
+        finally { setBusy(false); }
+    };
+
+    if (loading) {
+        return <div className={`rounded-2xl border ${card} py-16 flex items-center justify-center gap-2 text-sm text-slate-400`}><Loader2 className="w-5 h-5 animate-spin" /> Carregando…</div>;
+    }
+
+    return (
+        <div className={`rounded-2xl border p-5 sm:p-6 ${card}`}>
+            <div className="flex items-center gap-3 mb-4">
+                <span className="w-11 h-11 rounded-2xl bg-emerald-500/15 text-emerald-500 ring-1 ring-emerald-500/20 flex items-center justify-center shrink-0"><MessageCircle className="w-6 h-6" strokeWidth={2.2} /></span>
+                <div className="min-w-0 flex-1">
+                    <h2 className={`text-[15px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Chave de API do WhatsApp (Gemini)</h2>
+                    <p className={`text-[12px] mt-0.5 ${muted}`}>Uma única chave do app (com faturamento) que responde a <b>todos</b> os usuários.</p>
+                </div>
+                <span className={`text-[11px] font-black uppercase tracking-wider px-2 py-1 rounded-md shrink-0 ${saved ? 'bg-emerald-500/15 text-emerald-500' : 'bg-amber-500/15 text-amber-500'}`}>{saved ? 'Ativa' : 'Não configurada'}</span>
+            </div>
+
+            {saved && !editing ? (
+                <>
+                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Chave global</span>
+                    <div className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-3 ${isDark ? 'border-emerald-500/20 bg-emerald-500/[0.04]' : 'border-emerald-200 bg-emerald-50'}`}>
+                        <span className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0"><KeyRound className="w-4 h-4" /></span>
+                        <span className={`text-sm font-semibold tracking-wider flex-1 truncate ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{maskKey(saved)}</span>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-500 shrink-0"><Check className="w-3.5 h-3.5" /> Salva</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
+                        <button onClick={() => { setKey(saved); setShow(false); setEditing(true); }} disabled={busy}
+                            className={`px-3.5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition border ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                            <RefreshCw className="w-4 h-4" /> Alterar chave
+                        </button>
+                        <button onClick={() => persist('')} disabled={busy}
+                            className="px-3.5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition border border-rose-500/25 text-rose-500 hover:bg-rose-500/10 disabled:opacity-60">
+                            <Trash2 className="w-4 h-4" /> Remover
+                        </button>
+                        {flash && <span className="text-[12px] font-bold text-emerald-500">{flash}</span>}
+                    </div>
+                </>
+            ) : (
+                <>
+                    {!saved && (
+                        <>
+                            <p className={`text-[13px] ${cell}`}>Cole a chave do <b>Google Gemini</b> com faturamento ativo. Ela vale para <b>todos</b> os usuários no WhatsApp — ninguém precisa configurar chave própria.</p>
+                            <a href={AI_STUDIO_URL} target="_blank" rel="noopener noreferrer"
+                                className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white text-[13px] font-bold transition active:scale-95 shadow-md shadow-blue-500/30">
+                                <KeyRound className="w-4 h-4" /> Abrir Google AI Studio <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                            </a>
+                        </>
+                    )}
+                    <div className={saved ? '' : 'mt-4'}>
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">{editing ? 'Nova chave global' : 'Chave global'}</span>
+                        <div className="relative">
+                            <KeyRound className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${muted}`} />
+                            <input type={show ? 'text' : 'password'} value={key} onChange={e => setKey(e.target.value)} placeholder="AIza…" className={inputCls} autoComplete="off" spellCheck={false} autoFocus={editing} />
+                            <button type="button" onClick={() => setShow(s => !s)} className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}>
+                                {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
+                        <button onClick={() => persist(key.trim())} disabled={busy || !key.trim()}
+                            className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm flex items-center gap-2 transition disabled:opacity-50">
+                            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {busy ? 'Salvando…' : 'Salvar chave'}
+                        </button>
+                        {editing && (
+                            <button onClick={() => { setEditing(false); setShow(false); setKey(saved); }} disabled={busy}
+                                className={`px-3.5 py-2.5 rounded-xl text-sm font-bold transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Cancelar</button>
+                        )}
+                        {flash && <span className="text-[12px] font-bold text-emerald-500">{flash}</span>}
+                    </div>
+                </>
+            )}
+
+            <div className={`mt-4 rounded-xl border px-3.5 py-2.5 flex items-start gap-2.5 text-[12px] ${isDark ? 'border-white/10 bg-white/[0.02] text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
+                <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                A chave fica em <b>admin_configs/whatsapp</b> (só o dev acessa) e é lida pelo servidor da Alívia. Como alternativa, dá pra definir a variável <b>GEMINI_API_KEY</b> na Vercel — a chave daqui tem prioridade.
+            </div>
         </div>
     );
 }

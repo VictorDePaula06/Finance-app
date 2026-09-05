@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>html{color-scheme:light dark}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Esquema do Banco Alívia</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#eef3f1; --surface:#ffffff; --panel:#fbfdfc;
+    --ink:#0e1a16; --muted:#566b62; --faint:#7c8f86;
+    --border:#dbe6e1; --border2:#e8efeb;
+    --accent:#0e9f6e; --accent-2:#0d9488; --amber:#b45309; --blue:#2563eb;
+    --shadow:0 1px 2px rgba(6,30,22,.05), 0 12px 30px -18px rgba(6,30,22,.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0a0f0d; --surface:#101613; --panel:#0e1512;
+      --ink:#e9f2ed; --muted:#93a89e; --faint:#6f857b;
+      --border:rgba(255,255,255,.09); --border2:rgba(255,255,255,.06);
+      --accent:#34d399; --accent-2:#2dd4bf; --amber:#fbbf24; --blue:#60a5fa;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 18px 40px -22px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0a0f0d; --surface:#101613; --panel:#0e1512;
+    --ink:#e9f2ed; --muted:#93a89e; --faint:#6f857b;
+    --border:rgba(255,255,255,.09); --border2:rgba(255,255,255,.06);
+    --accent:#34d399; --accent-2:#2dd4bf; --amber:#fbbf24; --blue:#60a5fa;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 18px 40px -22px rgba(0,0,0,.7);
+  }
+
+  *{box-sizing:border-box}
+  body{background:var(--bg); color:var(--ink); font-family:"IBM Plex Sans",system-ui,sans-serif; line-height:1.55; -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px; margin:0 auto; padding:44px 22px 80px}
+
+  header.hd{margin-bottom:26px}
+  .eyebrow{font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:600; letter-spacing:.28em; text-transform:uppercase; color:var(--accent); display:flex; align-items:center; gap:10px}
+  .eyebrow::before{content:""; width:26px; height:2px; background:var(--accent); border-radius:2px}
+  h1{font-family:"Sora",sans-serif; font-weight:800; letter-spacing:-.02em; font-size:clamp(28px,4.6vw,44px); line-height:1.04; margin:.35em 0 .3em; text-wrap:balance}
+  h1 .fin{color:var(--accent)}
+  .lede{color:var(--muted); font-size:16px; max-width:64ch}
+  code{font-family:"IBM Plex Mono",monospace; font-size:.9em; color:var(--ink); background:color-mix(in srgb,var(--ink) 7%,transparent); padding:1px 5px; border-radius:5px}
+
+  .facts{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:24px 0 22px}
+  .fact{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px 16px}
+  .fact .n{font-family:"Sora",sans-serif; font-weight:800; font-size:24px; letter-spacing:-.02em}
+  .fact .l{font-size:12.5px; color:var(--muted); margin-top:2px}
+
+  /* Legenda em barra */
+  .legendbar{display:flex; flex-wrap:wrap; gap:10px 22px; align-items:center; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px 16px; margin-bottom:24px}
+  .lg{display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--muted)}
+  .lg b{color:var(--ink); font-weight:600}
+  .glyph{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:11.5px; min-width:46px; text-align:center; color:var(--accent); background:color-mix(in srgb,var(--accent) 12%,transparent); border:1px solid color-mix(in srgb,var(--accent) 30%,transparent); border-radius:7px; padding:3px 6px}
+
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:20px; box-shadow:var(--shadow); overflow:hidden; margin-bottom:22px}
+  .panel-hd{display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; padding:15px 20px; border-bottom:1px solid var(--border2)}
+  .panel-hd h2{font-family:"Sora",sans-serif; font-weight:700; font-size:16px; margin:0; letter-spacing:-.01em; display:flex; align-items:center; gap:10px}
+  .num{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:12px; color:var(--accent); background:color-mix(in srgb,var(--accent) 13%,transparent); border-radius:7px; padding:2px 8px}
+  .hint{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--faint)}
+
+  .diagram-scroll{overflow:auto; padding:16px}
+  .sheet{background:#ffffff; border-radius:14px; padding:16px}
+  pre.mermaid{margin:0; text-align:center; background:transparent; font-family:"IBM Plex Mono",monospace}
+  pre.mermaid:not([data-processed]){color:#334155; font-size:12px; padding:30px; text-align:left; white-space:pre-wrap}
+  .diagram-scroll svg{ max-width:none !important; width:auto !important; height:auto !important; display:block; margin:0 auto }
+
+  .notes{margin-top:30px; display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px}
+  .note{background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:18px 20px}
+  .note h3{font-family:"Sora",sans-serif; font-weight:700; font-size:14px; margin:0 0 8px; display:flex; align-items:center; gap:9px; letter-spacing:-.01em}
+  .tag{font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:600; letter-spacing:.04em; padding:2px 7px; border-radius:6px}
+  .tag.g{color:var(--accent); background:color-mix(in srgb,var(--accent) 13%,transparent)}
+  .tag.b{color:var(--blue); background:color-mix(in srgb,var(--blue) 13%,transparent)}
+  .tag.a{color:var(--amber); background:color-mix(in srgb,var(--amber) 15%,transparent)}
+  .note p{margin:0; font-size:13.5px; color:var(--muted)}
+  .foot{margin-top:28px; font-size:12px; color:var(--faint); font-family:"IBM Plex Mono",monospace}
+</style>
+
+<div class="wrap">
+  <header class="hd">
+    <div class="eyebrow">Firestore · esquema completo</div>
+    <h1>Banco de dados <span class="fin">Alívia&nbsp;Finanças</span></h1>
+    <p class="lede">Modelo de dados do app (Cloud Firestore, NoSQL). Quase toda coleção carrega <code>userId</code> apontando para <b>users</b> — o eixo do isolamento por usuário. Dividido em 3 módulos para leitura; juntos formam o banco completo (20+ coleções).</p>
+  </header>
+
+  <div class="facts">
+    <div class="fact"><div class="n">20+</div><div class="l">coleções</div></div>
+    <div class="fact"><div class="n">users</div><div class="l">entidade central (uid)</div></div>
+    <div class="fact"><div class="n">Stripe</div><div class="l">extensão em customers/*</div></div>
+    <div class="fact"><div class="n">WhatsApp</div><div class="l">vínculo por telefone</div></div>
+  </div>
+
+  <div class="legendbar">
+    <div class="lg"><span class="glyph">PK</span> <b>Chave primária</b> (id do doc)</div>
+    <div class="lg"><span class="glyph">FK</span> <b>Chave estrangeira</b></div>
+    <div class="lg"><span class="glyph">||—o&lt;</span> <b>1:N</b></div>
+    <div class="lg"><span class="glyph">&gt;o—o&lt;</span> <b>N:N</b> (via array)</div>
+    <div class="lg"><span class="glyph">||—||</span> <b>1:1</b></div>
+  </div>
+
+  <!-- MÓDULO 1 -->
+  <div class="panel">
+    <div class="panel-hd"><h2><span class="num">01</span> Gastos, contas &amp; recorrentes</h2><span class="hint">o dia a dia do dinheiro</span></div>
+    <div class="diagram-scroll"><div class="sheet">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#ecfdf5','primaryBorderColor':'#0e9f6e','primaryTextColor':'#0f172a','lineColor':'#5b6b7a','fontFamily':'IBM Plex Mono, monospace','fontSize':'15px'}}}%%
+erDiagram
+  users ||--o{ transactions : "userId"
+  users ||--o{ cards : "userId"
+  users ||--o{ fixed_incomes : "userId"
+  users ||--o{ fixed_expenses : "userId"
+  users ||--o{ subscriptions : "userId"
+  users ||--o{ savings_jars : "userId"
+  users ||--o{ recorrentes_baixas : "userId"
+  cards ||--o{ transactions : "cardId"
+  cards ||--o{ subscriptions : "cardId"
+  cards ||--o{ fixed_expenses : "cardId"
+  savings_jars ||--o{ transactions : "jarId"
+  fixed_incomes ||--o{ transactions : "recorrenteId"
+  fixed_expenses ||--o{ transactions : "recorrenteId"
+
+  users { string uid PK }
+  transactions {
+    string userId FK
+    string description
+    number amount
+    string type "income|expense"
+    string category
+    string date
+    string paymentMethod
+    string selectedCardId FK
+    string invoiceStatus
+    string priority
+    string recorrenteId FK
+    string jarId FK
+    boolean isTransfer
+  }
+  cards {
+    string userId FK
+    string name
+    string bank
+    string brand
+    number limit
+    number closingDay
+    number dueDay
+  }
+  fixed_incomes {
+    string userId FK
+    string name
+    number value
+    string category
+    number day
+    boolean isVariable
+  }
+  fixed_expenses {
+    string userId FK
+    string name
+    number value
+    string category
+    number day
+    string cardId FK
+  }
+  subscriptions {
+    string userId FK
+    string name
+    number value
+    string cardId FK
+    string type "assinatura|installment"
+    number totalInstallments
+  }
+  savings_jars {
+    string userId FK
+    string name
+    number balance
+    number invested
+    number target
+  }
+  recorrentes_baixas {
+    string kind "income|expense"
+    string recorrenteId FK
+    string monthKey
+    number amount
+    string txId FK
+  }
+</pre>
+    </div></div>
+  </div>
+
+  <!-- MÓDULO 2 -->
+  <div class="panel">
+    <div class="panel-hd"><h2><span class="num">02</span> Patrimônio, investimentos &amp; metas</h2><span class="hint">construção de patrimônio</span></div>
+    <div class="diagram-scroll"><div class="sheet">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#eef2ff','primaryBorderColor':'#4f46e5','primaryTextColor':'#0f172a','lineColor':'#5b6b7a','fontFamily':'IBM Plex Mono, monospace','fontSize':'15px'}}}%%
+erDiagram
+  users ||--o{ investments : "userId"
+  users ||--o{ watchlist : "userId"
+  users ||--o{ tangible_assets : "userId"
+  users ||--o{ insurances : "userId"
+  users ||--o{ debts : "userId"
+  users ||--o{ goals : "userId"
+  users ||--o{ expense_goals : "userId"
+  investments ||--o{ investment_txs : "investmentId"
+  tangible_assets ||--o{ insurances : "linkedAssetId"
+  goals }o--o{ savings_jars : "linkedJarIds"
+  goals }o--o{ investments : "linkedInvIds"
+
+  users { string uid PK }
+  savings_jars { string userId FK }
+  investments {
+    string userId FK
+    string symbol
+    string name
+    string type
+    number quantity
+    number purchasePrice
+    boolean isUSD
+    string tesouroName
+  }
+  investment_txs {
+    string userId FK
+    string investmentId FK
+    string kind "buy|sell"
+    number quantity
+    number price
+    string date
+  }
+  watchlist {
+    string userId FK
+    string symbol
+    string type
+    boolean isUSD
+  }
+  tangible_assets {
+    string userId FK
+    string name
+    string category
+    number value
+    string fipeCode
+  }
+  insurances {
+    string userId FK
+    string category "vida|imovel|veiculo"
+    string insurer
+    number coverageValue
+    number premium
+    string linkedAssetId FK
+  }
+  debts {
+    string userId FK
+    string name
+    number originalAmount
+    number remainingAmount
+    number monthlyPayment
+    number dueDay
+    boolean paidOff
+  }
+  goals {
+    string userId FK
+    string title
+    number target
+    number current
+    string status
+    array linkedJarIds
+    array linkedInvIds
+  }
+  expense_goals {
+    string userId FK
+    string type "categoria|cartao|divida|economia"
+    number targetValue
+    string category
+    string cardId FK
+  }
+</pre>
+    </div></div>
+  </div>
+
+  <!-- MÓDULO 3 -->
+  <div class="panel">
+    <div class="panel-hd"><h2><span class="num">03</span> Perfil, assinatura (Stripe) &amp; WhatsApp</h2><span class="hint">conta e integrações</span></div>
+    <div class="diagram-scroll"><div class="sheet">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#fffbeb','primaryBorderColor':'#d97706','primaryTextColor':'#0f172a','lineColor':'#5b6b7a','fontFamily':'IBM Plex Mono, monospace','fontSize':'15px'}}}%%
+erDiagram
+  users ||--|| settings_general : "perfil/prefs"
+  users ||--|| customers : "uid = id"
+  customers ||--o{ customer_subscriptions : "assinatura"
+  customers ||--o{ checkout_sessions : "checkout"
+  customers ||--o{ customer_payments : "pagamentos"
+  users ||--o{ wa_users : "vínculo"
+  users ||--o{ wa_links : "código"
+  users ||--o{ wa_sessions : "conversa"
+
+  users {
+    string uid PK "Firebase Auth"
+    string geminiKey
+    object waUsage
+    boolean isAdmin
+  }
+  settings_general {
+    string geminiKey
+    object whatsapp
+    string avatarDataUrl
+    object avatarPos
+    boolean onboardingDone
+  }
+  customers {
+    string id PK "= users.uid"
+    string stripeId
+  }
+  customer_subscriptions {
+    string status
+    string price
+    timestamp current_period_end
+  }
+  checkout_sessions {
+    string price
+    string mode
+    string url
+  }
+  customer_payments {
+    number amount
+    string status
+    string currency
+  }
+  wa_users {
+    string phone PK "E.164"
+    string uid FK
+    number linkedAt
+  }
+  wa_links {
+    string code PK "6 chars"
+    string uid FK
+    number createdAt
+  }
+  wa_sessions {
+    string phone PK
+    string uid FK
+    array history
+    object pending
+  }
+</pre>
+    </div></div>
+  </div>
+
+  <div class="notes">
+    <div class="note"><h3><span class="tag g">users</span> O eixo do modelo</h3><p>Cada usuário (id = uid do Firebase Auth) possui suas finanças. Quase toda coleção filtra por <code>userId == uid</code>. Perfil e preferências ficam em <code>users/{uid}/settings/general</code>.</p></div>
+    <div class="note"><h3><span class="tag b">customers</span> Stripe (extensão)</h3><p>A extensão <em>firestore-stripe-payments</em> mantém <code>customers/{uid}</code> com subcoleções <code>subscriptions</code>, <code>payments</code> e <code>checkout_sessions</code> — de onde o app lê o status do plano.</p></div>
+    <div class="note"><h3><span class="tag a">wa_*</span> WhatsApp</h3><p><code>wa_links</code> guarda o código (id = código); ao enviar, cria-se <code>wa_users</code> (id = telefone → uid). <code>wa_sessions</code> mantém histórico e estado do fluxo (onboarding, confirmações).</p></div>
+    <div class="note"><h3><span class="tag g">transactions</span> Coração financeiro</h3><p>Todo lançamento (entrada/saída). Liga-se a <b>cards</b> (fatura), <b>savings_jars</b> (aportes de reserva) e aos recorrentes por <code>recorrenteId</code> quando uma conta fixa recebe baixa.</p></div>
+  </div>
+
+  <p class="foot">Gerado a partir do código-fonte · Cloud Firestore · campos-chave por coleção (não exaustivo)</p>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, securityLevel: 'loose' });</script>
+</body>
+</html>
