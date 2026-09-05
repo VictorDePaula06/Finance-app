@@ -58,6 +58,7 @@ export default function Cartoes() {
     const [pagarOpen, setPagarOpen] = useState(false);
     const [detalhes, setDetalhes] = useState(null);   // 'assinaturas' | 'parcelas' | null
     const [historicoOpen, setHistoricoOpen] = useState(false); // faturas anteriores
+    const [confirmAction, setConfirmAction] = useState(null);   // { type:'edit'|'delete', item }
     const [showAllFatura, setShowAllFatura] = useState(false);  // "Ver todos" na fatura
     const [filterTipo, setFilterTipo] = useState('all');        // filtro por tipo
     const [filterCat, setFilterCat] = useState('all');          // filtro por categoria
@@ -312,10 +313,11 @@ export default function Cartoes() {
                                                         <div className={`text-[13px] font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {money(it.amount)}</div>
                                                         {totalParc > 0 && <div className={`text-[11px] ${muted}`}>de R$ {money(totalParc)}</div>}
                                                     </td>
-                                                    <td className="px-2 py-3.5 text-center">
-                                                        <FaturaRowMenu isDark={isDark}
-                                                            onEdit={() => setBuyForm({ editing: it })}
-                                                            onDelete={() => deleteDoc(doc(db, it.kind === 'despesa' ? 'transactions' : 'subscriptions', it.id))} />
+                                                    <td className="px-2 py-3.5">
+                                                        <div className="flex items-center justify-end gap-0.5">
+                                                            <button type="button" onClick={() => setConfirmAction({ type: 'edit', item: it })} title="Editar" className={`w-8 h-8 rounded-lg inline-flex items-center justify-center transition ${isDark ? 'text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}><Pencil className="w-4 h-4" /></button>
+                                                            <button type="button" onClick={() => setConfirmAction({ type: 'delete', item: it })} title="Excluir" className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition"><Trash2 className="w-4 h-4" /></button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );
@@ -346,6 +348,21 @@ export default function Cartoes() {
             {despChooser && selected && <LancarChooser isDark={isDark} onClose={() => setDespChooser(false)}
                 onPick={(mode) => { setDespChooser(false); if (mode === 'rapido') setBuyForm({ editing: null, simple: true }); else setBatchForm(true); }} />}
             {buyForm && selected && <BuyForm isDark={isDark} uid={uid} card={selected} editing={buyForm.editing} simple={buyForm.simple} onClose={() => setBuyForm(null)} allowAddAnother={false} />}
+            {confirmAction && (
+                <ConfirmActionModal isDark={isDark} type={confirmAction.type} name={confirmAction.item.name}
+                    onClose={() => setConfirmAction(null)}
+                    onConfirm={async () => {
+                        const it = confirmAction.item;
+                        if (confirmAction.type === 'delete') {
+                            await deleteDoc(doc(db, it.kind === 'despesa' ? 'transactions' : 'subscriptions', it.id));
+                            await new Promise(r => setTimeout(r, 350));
+                            toast.success('Lançamento excluído.');
+                        } else {
+                            await new Promise(r => setTimeout(r, 450));
+                            setBuyForm({ editing: it });
+                        }
+                    }} />
+            )}
             {batchForm && selected && <BatchBuyForm isDark={isDark} uid={uid} cards={cards} card={selected} onClose={() => setBatchForm(false)} />}
             {pagarOpen && selected && <PagarFaturaModal isDark={isDark} uid={uid} card={selected} items={invoiceItems} total={faturaTotal} onClose={() => setPagarOpen(false)} />}
             {detalhes && <DetalhesModal isDark={isDark} tipo={detalhes} subs={subsOnCard} installments={installmentsOnCard} onClose={() => setDetalhes(null)} />}
@@ -362,35 +379,44 @@ const TIPO_META = {
     parcelamento: { label: 'Parcelado', icon: Layers },
 };
 
-// Menu de ações (⋮) de cada linha da fatura: Editar / Excluir (com confirmação).
-function FaturaRowMenu({ isDark, onEdit, onDelete }) {
-    const [open, setOpen] = useState(false);
-    const [confirm, setConfirm] = useState(false);
-    const close = () => { setOpen(false); setConfirm(false); };
+// Modal de confirmação de Editar / Excluir um lançamento da fatura.
+// Ao confirmar, mostra "Editando…" / "Excluindo…" enquanto processa.
+function ConfirmActionModal({ isDark, type, name, onClose, onConfirm }) {
+    const [busy, setBusy] = useState(false);
+    const isDelete = type === 'delete';
+    const Icon = isDelete ? Trash2 : Pencil;
+    const cardBg = isDark ? 'border-white/10 bg-[#141518]' : 'border-slate-200 bg-white';
+
+    const confirm = async () => {
+        setBusy(true);
+        try { await onConfirm(); onClose(); }
+        catch (e) { console.error(e); toast.error('Não foi possível concluir. Tente de novo.'); setBusy(false); }
+    };
+
     return (
-        <div className="relative">
-            <button type="button" onClick={() => setOpen(o => !o)} title="Ações" className={`w-8 h-8 rounded-lg inline-flex items-center justify-center transition ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-100'}`}><MoreVertical className="w-4 h-4" /></button>
-            {open && (
-                <>
-                    <div className="fixed inset-0 z-40" onClick={close} />
-                    <div className={`absolute right-0 top-9 z-50 w-44 rounded-xl border shadow-xl overflow-hidden ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-200'}`}>
-                        {!confirm ? (
-                            <>
-                                <button type="button" onClick={() => { close(); onEdit(); }} className={`w-full flex items-center gap-2 px-3 py-2.5 text-[13px] font-bold text-left transition ${isDark ? 'text-slate-200 hover:bg-white/5' : 'text-slate-700 hover:bg-slate-50'}`}><Pencil className="w-3.5 h-3.5" /> Editar</button>
-                                <button type="button" onClick={() => setConfirm(true)} className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] font-bold text-left text-rose-500 hover:bg-rose-500/10 transition"><Trash2 className="w-3.5 h-3.5" /> Excluir</button>
-                            </>
-                        ) : (
-                            <div className="p-3">
-                                <p className={`text-[12px] font-bold mb-2.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Excluir este lançamento?</p>
-                                <div className="flex gap-2">
-                                    <button type="button" onClick={close} className={`flex-1 py-1.5 rounded-lg text-[12px] font-bold border transition ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Não</button>
-                                    <button type="button" onClick={() => { close(); onDelete(); }} className="flex-1 py-1.5 rounded-lg text-[12px] font-bold bg-rose-500 hover:bg-rose-600 text-white transition">Sim</button>
-                                </div>
-                            </div>
-                        )}
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onMouseDown={busy ? undefined : onClose}>
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div onMouseDown={e => e.stopPropagation()} className={`relative w-full max-w-sm rounded-2xl border shadow-2xl ${cardBg} p-5`}>
+                <div className="flex items-center gap-3 mb-3">
+                    <span className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isDelete ? 'bg-rose-500/12 text-rose-500' : 'bg-emerald-500/12 text-emerald-500'}`}><Icon className="w-5 h-5" strokeWidth={2.3} /></span>
+                    <div className="min-w-0">
+                        <h3 className={`text-[15px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{isDelete ? 'Excluir lançamento?' : 'Editar lançamento?'}</h3>
+                        <p className="text-[12px] text-slate-500 truncate">{name || 'Lançamento'}</p>
                     </div>
-                </>
-            )}
+                </div>
+                <p className={`text-[13px] leading-relaxed mb-4 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                    {isDelete
+                        ? 'Tem certeza que deseja excluir este lançamento da fatura? Esta ação não pode ser desfeita.'
+                        : 'Deseja abrir este lançamento para edição?'}
+                </p>
+                <div className="flex items-center gap-2">
+                    <button type="button" onClick={onClose} disabled={busy} className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition disabled:opacity-50 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Cancelar</button>
+                    <button type="button" onClick={confirm} disabled={busy}
+                        className={`flex-1 py-2.5 rounded-xl text-white font-bold text-sm inline-flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-80 ${isDelete ? 'bg-rose-500 hover:bg-rose-600 shadow-lg shadow-rose-500/25' : 'bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/25'}`}>
+                        {busy ? <><Loader2 className="w-4 h-4 animate-spin" /> {isDelete ? 'Excluindo…' : 'Editando…'}</> : <><Icon className="w-4 h-4" /> {isDelete ? 'Excluir' : 'Editar'}</>}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
