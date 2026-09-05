@@ -121,6 +121,23 @@ async function sendText(to, body) {
   }
 }
 
+// Marca a mensagem como LIDA e mostra o indicador "digitando…" no WhatsApp.
+// Dura até ~25s ou até enviarmos a resposta. Best-effort: nunca lança.
+async function sendTyping(messageId) {
+  const pid = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = process.env.WHATSAPP_TOKEN;
+  if (!messageId) return;
+  try {
+    const resp = await fetch(`${GRAPH}/${pid}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: messageId, typing_indicator: { type: 'text' } }),
+    });
+    const t = await resp.text().catch(() => '');
+    console.log(`WA typing -> status=${resp.status} resp=${t.slice(0, 150)}`);
+  } catch (e) { console.error('WA typing:', e?.message || e); }
+}
+
 // Envia uma mensagem INTERATIVA (lista ou botões) pelo WhatsApp.
 async function sendInteractive(to, interactive) {
   const pid = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -813,7 +830,7 @@ async function getGlobalGeminiKey(db) {
 // ── LIMITE DO PLANO GRATUITO NO WHATSAPP ──────────────────────────────────
 // No Gratuito a Alívia responde no WhatsApp, mas com um teto mensal de interações
 // (mensagens NOVAS; continuações de um fluxo em andamento não contam).
-const FREE_WA_MONTHLY_LIMIT = 10;
+const FREE_WA_MONTHLY_LIMIT = 5;
 
 // Plano do usuário (server-side): 'pro' (ilimitado) ou 'free' (limitado).
 // PRO = admin/vitalício OU assinatura ativa no Stripe OU compra anual válida.
@@ -857,14 +874,16 @@ async function bumpFreeUsage(db, uid) {
   } catch (e) { console.error('WA bumpFreeUsage:', e); return { allowed: true, count: 0, limit: FREE_WA_MONTHLY_LIMIT }; } // falha → não bloqueia
 }
 
-// Mensagem de upgrade (marketing) quando o Gratuito estoura o limite.
+// Mensagem agradável de upgrade quando o Gratuito estoura o limite (a partir da 6ª).
 const waUpgradeMessage = (limit) =>
-  `✨ *Você aproveitou bastante a Alívia este mês!*\n\n`
-  + `No plano *Gratuito* você tem ${limit} conversas por mês no WhatsApp — e elas acabaram por agora.\n\n`
-  + `Com o *Alívia PRO* isso vira *ilimitado*: registre gastos, dê baixa em contas, peça relatórios e até importe extratos pelo WhatsApp, sem parar. 🚀\n\n`
-  + `💚 Menos de *R$ 0,66 por dia* pra assumir o controle das suas finanças.\n`
-  + `👉 Assine em *soualivia.com.br* e desbloqueie tudo.\n\n`
-  + `_Seu limite renova no início do próximo mês._`;
+  `💚 *Adorei conversar com você por aqui!*\n\n`
+  + `No plano *Gratuito* eu respondo até *${limit} mensagens por mês* no WhatsApp — e a gente chegou nesse limite por agora. 🙂\n\n`
+  + `Pra gente continuar sem parar, o *Alívia PRO* libera conversas *ilimitadas*: você registra gastos, dá baixa em contas, pede relatórios e até me manda o extrato pra eu lançar tudo — a qualquer hora. 🚀\n\n`
+  + `É simples de assinar:\n`
+  + `1️⃣ Acesse *soualivia.com.br* e entre na sua conta\n`
+  + `2️⃣ Toque em *Assinar PRO*\n`
+  + `3️⃣ Conclua o pagamento — e volte aqui que eu te respondo na hora 💬\n\n`
+  + `_Seu limite gratuito renova no começo do próximo mês. Te espero! 💚_`;
 
 // Traduz uma falha do Gemini num motivo específico e profissional pro usuário —
 // pra ele (e a gente) saber exatamente o que aconteceu, em vez de "não posso responder".
@@ -1423,6 +1442,8 @@ export default async function handler(req, res) {
       audioId = msg.audio?.id || null;
     }
     console.log(`WA in <- from=${from} type=${msg.type} text="${text.slice(0, 60)}" sel=${selId || '-'}`);
+    // Marca como lida e mostra "digitando…" já — some quando enviarmos a resposta.
+    await sendTyping(msg.id);
     const db = initAdmin();
 
     // 1. Vínculo do número
