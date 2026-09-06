@@ -1120,6 +1120,14 @@ function LancarChooser({ isDark, onClose, onPick }) {
 const PRIO_DOT = { essential: '#10b981', comfort: '#f59e0b', superfluous: '#f43f5e' };
 const PRIO_LABEL = { essential: 'Essencial', comfort: 'Conforto', superfluous: 'Supérfluo' };
 
+// Cor por tipo de compra: avulsa=verde, assinatura=roxo, parcelamento=azul.
+// Classes literais (Tailwind precisa vê-las escritas por extenso).
+const TIPO_TONE = {
+    avulsa: { text: 'text-emerald-400', sel: 'border-emerald-500/50 bg-emerald-500/[0.06] ring-1 ring-emerald-500/30', iconOn: 'bg-emerald-500/15 text-emerald-400', badgeOn: 'bg-emerald-500 text-white' },
+    assinatura: { text: 'text-purple-400', sel: 'border-purple-500/50 bg-purple-500/[0.06] ring-1 ring-purple-500/30', iconOn: 'bg-purple-500/15 text-purple-400', badgeOn: 'bg-purple-500 text-white' },
+    parcelamento: { text: 'text-blue-400', sel: 'border-blue-500/50 bg-blue-500/[0.06] ring-1 ring-blue-500/30', iconOn: 'bg-blue-500/15 text-blue-400', badgeOn: 'bg-blue-500 text-white' },
+};
+
 function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
     const nextId = useRef(1);
     const [cardId, setCardId] = useState(card.id);
@@ -1313,17 +1321,18 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                                     {TIPOS.map(t => {
                                         const Icon = t.icon; const on = tipoCompra === t.id;
+                                        const tone = TIPO_TONE[t.id];
                                         const n = rows.filter(r => r.tipo === t.id && isValid(r)).length;
                                         return (
                                             <button key={t.id} type="button" onClick={() => switchTipo(t.id)}
-                                                className={`flex items-center gap-3 p-3 rounded-xl border text-left transition active:scale-[0.99] ${on ? 'border-emerald-500/50 bg-emerald-500/[0.06] ring-1 ring-emerald-500/30' : (isDark ? 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]' : 'border-slate-200 bg-white hover:bg-slate-50')}`}>
-                                                <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${on ? 'bg-emerald-500/15 text-emerald-400' : (isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
+                                                className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all duration-200 active:scale-[0.99] ${on ? tone.sel : (isDark ? 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]' : 'border-slate-200 bg-white hover:bg-slate-50')}`}>
+                                                <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${on ? tone.iconOn : (isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
                                                     <Icon className="w-5 h-5" strokeWidth={2.2} />
                                                 </span>
                                                 <span className="min-w-0 flex-1">
-                                                    <span className={`flex items-center gap-1.5 text-[14px] font-black leading-tight ${on ? 'text-emerald-400' : (isDark ? 'text-white' : 'text-slate-800')}`}>
+                                                    <span className={`flex items-center gap-1.5 text-[14px] font-black leading-tight ${on ? tone.text : (isDark ? 'text-white' : 'text-slate-800')}`}>
                                                         {t.label}
-                                                        {n > 0 && <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${on ? 'bg-emerald-500 text-white' : (isDark ? 'bg-white/10 text-slate-300' : 'bg-slate-200 text-slate-600')}`}>{n}</span>}
+                                                        {n > 0 && <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${on ? tone.badgeOn : (isDark ? 'bg-white/10 text-slate-300' : 'bg-slate-200 text-slate-600')}`}>{n}</span>}
                                                     </span>
                                                     <span className="block text-[12px] text-slate-500 truncate">{t.desc}</span>
                                                 </span>
@@ -1332,7 +1341,7 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                                     })}
                                 </div>
                             </div>
-                            <div className="overflow-x-auto">
+                            <div key={tipoCompra} className="overflow-x-auto animate-in fade-in slide-in-from-top-1 duration-300">
                                 <table className={`w-full border-collapse ${tipoCompra === 'parcelamento' ? 'min-w-[820px]' : 'min-w-[760px]'}`}>
                                     <thead>
                                         <tr className={`text-[10px] font-black uppercase tracking-widest text-slate-500 ${isDark ? 'bg-white/[0.02]' : 'bg-slate-50'}`}>
@@ -1430,8 +1439,8 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                                     </div>
                                 ))}
                             </div>
-                            <div className={`rounded-2xl border p-4 ${cardBg}`}>
-                                <div className="flex items-center gap-2 mb-2"><ShoppingBag className="w-4 h-4 text-emerald-500" /><span className={`text-[11px] font-black uppercase tracking-widest text-slate-500`}>Resumo · {TIPOS.find(t => t.id === tipoCompra)?.label}</span></div>
+                            <div key={tipoCompra} className={`rounded-2xl border p-4 animate-in fade-in duration-300 ${cardBg}`}>
+                                <div className="flex items-center gap-2 mb-2"><ShoppingBag className={`w-4 h-4 ${TIPO_TONE[tipoCompra].text}`} /><span className={`text-[11px] font-black uppercase tracking-widest text-slate-500`}>Resumo · {TIPOS.find(t => t.id === tipoCompra)?.label}</span></div>
                                 <Resumo label="Total de compras" value={String(validVis.length)} isDark={isDark} />
                                 <Resumo label="Valor total" value={`R$ ${money(totalVis)}`} accent isDark={isDark} />
                                 <Resumo label="Categoria mais usada" value={catMode ? catMetaExp(catMode).label : '—'} isDark={isDark} />
