@@ -1127,14 +1127,16 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
     const draftKey = `aliviaCardBatch_${activeCard.id}`;
     const [date] = useState(todayISO());
     const [tipoCompra, setTipoCompra] = useState('avulsa');
-    const [rows, setRows] = useState(() => [{ id: 0, description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [] }]);
+    const [rows, setRows] = useState(() => [{ id: 0, tipo: 'avulsa', description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [] }]);
     const [saving, setSaving] = useState(false);
     const [focusId, setFocusId] = useState(null);
     const [sumRow, setSumRow] = useState(null);
     const [review, setReview] = useState(false);
     const descRefs = useRef({});
 
-    const emptyRow = () => ({ id: nextId.current++, description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [] });
+    // Cada linha carrega o SEU tipo. A aba (tipoCompra) apenas FILTRA o que aparece,
+    // então trocar de aba não mexe nas linhas de outro tipo.
+    const emptyRow = (tipo = tipoCompra) => ({ id: nextId.current++, tipo, description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [] });
 
     // Restaura rascunho ao abrir.
     useEffect(() => {
@@ -1143,7 +1145,7 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
             if (d && Array.isArray(d.rows) && d.rows.length) {
                 if (d.tipoCompra) setTipoCompra(d.tipoCompra);
                 nextId.current = 1;
-                setRows(d.rows.map(r => ({ description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [], ...r, id: nextId.current++ })));
+                setRows(d.rows.map(r => ({ tipo: r.tipo || d.tipoCompra || 'avulsa', description: '', category: 'shopping', value: '', priority: 'comfort', date: '', parcelas: '2', parts: [], ...r, id: nextId.current++ })));
                 toast.info?.('Rascunho restaurado.');
             }
         } catch { /* ignore */ }
@@ -1155,33 +1157,49 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
         if (el) { el.focus(); el.select?.(); }
     }, [focusId, rows.length]);
 
+    // Linhas visíveis = só as do tipo da aba atual.
+    const visibleRows = rows.filter(r => r.tipo === tipoCompra);
+
     const updateRow = (id, patch) => setRows(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r));
     const addRow = () => { const r = emptyRow(); setRows(rs => [...rs, r]); setFocusId(r.id); };
     const dupRow = (row) => { const r = { ...row, id: nextId.current++ }; setRows(rs => { const i = rs.findIndex(x => x.id === row.id); const nr = [...rs]; nr.splice(i + 1, 0, r); return nr; }); setFocusId(r.id); };
-    const dupLast = () => { if (!rows.length) return addRow(); dupRow(rows[rows.length - 1]); };
-    const removeRow = (id) => setRows(rs => rs.length > 1 ? rs.filter(r => r.id !== id) : [{ ...emptyRow() }]);
-    const clearAll = () => { const r = emptyRow(); setRows([r]); setFocusId(r.id); };
+    const dupLast = () => { if (!visibleRows.length) return addRow(); dupRow(visibleRows[visibleRows.length - 1]); };
+    // Remove a linha; garante ao menos 1 linha do tipo atual pra editar.
+    const removeRow = (id) => setRows(rs => {
+        const nr = rs.filter(r => r.id !== id);
+        return nr.some(r => r.tipo === tipoCompra) ? nr : [...nr, emptyRow()];
+    });
+    // Limpa só as linhas do tipo atual (deixa os outros tipos intactos).
+    const clearAll = () => { const r = emptyRow(); setRows(rs => [...rs.filter(x => x.tipo !== tipoCompra), r]); setFocusId(r.id); };
+    // Troca de aba: se o tipo destino não tiver linhas, cria uma vazia pra editar.
+    const switchTipo = (t) => {
+        setTipoCompra(t);
+        setRows(rs => rs.some(r => r.tipo === t) ? rs : [...rs, emptyRow(t)]);
+    };
 
     const onCellKey = (e, row, isLast) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             if (e.ctrlKey || e.metaKey) { dupRow(row); return; }
             if (isLast) addRow();
-            else { const idx = rows.findIndex(r => r.id === row.id); const nx = rows[idx + 1]; if (nx) setFocusId(nx.id); }
+            else { const idx = visibleRows.findIndex(r => r.id === row.id); const nx = visibleRows[idx + 1]; if (nx) setFocusId(nx.id); }
         } else if (e.key === 'Delete' && !row.description && !numBR(row.value)) {
             e.preventDefault();
-            const idx = rows.findIndex(r => r.id === row.id);
-            const prev = rows[idx - 1] || rows[idx + 1];
+            const idx = visibleRows.findIndex(r => r.id === row.id);
+            const prev = visibleRows[idx - 1] || visibleRows[idx + 1];
             removeRow(row.id);
             if (prev) setFocusId(prev.id);
         }
     };
 
-    const valid = rows.filter(r => r.description.trim() && numBR(r.value) > 0);
+    const isValid = (r) => r.description.trim() && numBR(r.value) > 0;
+    const valid = rows.filter(isValid);                    // TODAS as linhas válidas (grava tudo)
+    const validVis = visibleRows.filter(isValid);          // só o tipo atual (resumo/total da grade)
     const total = valid.reduce((a, r) => a + numBR(r.value), 0);
+    const totalVis = validVis.reduce((a, r) => a + numBR(r.value), 0);
     const mode = (arr) => { const m = {}; arr.forEach(k => { m[k] = (m[k] || 0) + 1; }); let best = null, bc = 0; for (const k in m) if (m[k] > bc) { bc = m[k]; best = k; } return best; };
-    const catMode = mode(valid.map(r => r.category));
-    const prioMode = mode(valid.map(r => r.priority));
+    const catMode = mode(validVis.map(r => r.category));
+    const prioMode = mode(validVis.map(r => r.priority));
 
     const saveDraft = () => { try { localStorage.setItem(draftKey, JSON.stringify({ date, tipoCompra, rows })); toast.success('Rascunho salvo.'); } catch { toast.error('Não foi possível salvar o rascunho.'); } };
 
@@ -1194,9 +1212,9 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
             const iso = new Date((r.date || date) + 'T12:00:00').toISOString();
             const name = normalizeName(r.description);
             const grouped = r.parts?.length > 0;
-            const base = { name, category: r.category, priority: r.priority, iso };
+            const base = { name, category: r.category, priority: r.priority, iso, tipo: r.tipo };
 
-            if (tipoCompra === 'parcelamento' && grouped) {
+            if (r.tipo === 'parcelamento' && grouped) {
                 for (const p of r.parts) {
                     const val = numBR(p.value); if (val <= 0) continue;
                     const nParc = Math.max(1, parseInt(p.parcelas) || 1);
@@ -1205,9 +1223,9 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                 continue;
             }
             const val = numBR(r.value); if (val <= 0) continue;
-            if (tipoCompra === 'assinatura') {
+            if (r.tipo === 'assinatura') {
                 out.push({ ...base, kind: 'recurring', total: val });
-            } else if (tipoCompra === 'parcelamento') {
+            } else if (r.tipo === 'parcelamento') {
                 const nParc = Math.max(1, parseInt(r.parcelas) || 1);
                 out.push({ ...base, kind: 'installment', total: val, parcelas: nParc, perParcela: val / nParc });
             } else {
@@ -1295,14 +1313,18 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                                     {TIPOS.map(t => {
                                         const Icon = t.icon; const on = tipoCompra === t.id;
+                                        const n = rows.filter(r => r.tipo === t.id && isValid(r)).length;
                                         return (
-                                            <button key={t.id} type="button" onClick={() => setTipoCompra(t.id)}
+                                            <button key={t.id} type="button" onClick={() => switchTipo(t.id)}
                                                 className={`flex items-center gap-3 p-3 rounded-xl border text-left transition active:scale-[0.99] ${on ? 'border-emerald-500/50 bg-emerald-500/[0.06] ring-1 ring-emerald-500/30' : (isDark ? 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]' : 'border-slate-200 bg-white hover:bg-slate-50')}`}>
                                                 <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${on ? 'bg-emerald-500/15 text-emerald-400' : (isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
                                                     <Icon className="w-5 h-5" strokeWidth={2.2} />
                                                 </span>
-                                                <span className="min-w-0">
-                                                    <span className={`block text-[14px] font-black leading-tight ${on ? 'text-emerald-400' : (isDark ? 'text-white' : 'text-slate-800')}`}>{t.label}</span>
+                                                <span className="min-w-0 flex-1">
+                                                    <span className={`flex items-center gap-1.5 text-[14px] font-black leading-tight ${on ? 'text-emerald-400' : (isDark ? 'text-white' : 'text-slate-800')}`}>
+                                                        {t.label}
+                                                        {n > 0 && <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${on ? 'bg-emerald-500 text-white' : (isDark ? 'bg-white/10 text-slate-300' : 'bg-slate-200 text-slate-600')}`}>{n}</span>}
+                                                    </span>
                                                     <span className="block text-[12px] text-slate-500 truncate">{t.desc}</span>
                                                 </span>
                                             </button>
@@ -1325,8 +1347,8 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {rows.map((r, i) => {
-                                            const isLast = i === rows.length - 1;
+                                        {visibleRows.map((r, i) => {
+                                            const isLast = i === visibleRows.length - 1;
                                             return (
                                                 <tr key={r.id} className={`border-t ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
                                                     <td className="text-center text-[12px] font-bold text-slate-500 tabular-nums">{i + 1}</td>
@@ -1392,7 +1414,7 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                                     <button type="button" onClick={dupLast} className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-bold border transition ${softBtn}`}><Copy className="w-4 h-4" /> Duplicar última</button>
                                     <button type="button" onClick={clearAll} className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-bold border transition ${isDark ? 'border-white/10 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10' : 'border-slate-200 text-slate-500 hover:text-rose-500 hover:bg-rose-50'}`}><Trash2 className="w-4 h-4" /> Limpar tudo</button>
                                 </div>
-                                <p className="text-[13px] font-bold text-slate-500">Total dos lançamentos: <span className="text-emerald-500 font-black tabular-nums">R$ {money(total)}</span></p>
+                                <p className="text-[13px] font-bold text-slate-500">Total dos lançamentos: <span className="text-emerald-500 font-black tabular-nums">R$ {money(totalVis)}</span></p>
                             </div>
                         </div>
 
@@ -1409,9 +1431,9 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                                 ))}
                             </div>
                             <div className={`rounded-2xl border p-4 ${cardBg}`}>
-                                <div className="flex items-center gap-2 mb-2"><ShoppingBag className="w-4 h-4 text-emerald-500" /><span className={`text-[11px] font-black uppercase tracking-widest text-slate-500`}>Resumo</span></div>
-                                <Resumo label="Total de compras" value={String(valid.length)} isDark={isDark} />
-                                <Resumo label="Valor total" value={`R$ ${money(total)}`} accent isDark={isDark} />
+                                <div className="flex items-center gap-2 mb-2"><ShoppingBag className="w-4 h-4 text-emerald-500" /><span className={`text-[11px] font-black uppercase tracking-widest text-slate-500`}>Resumo · {TIPOS.find(t => t.id === tipoCompra)?.label}</span></div>
+                                <Resumo label="Total de compras" value={String(validVis.length)} isDark={isDark} />
+                                <Resumo label="Valor total" value={`R$ ${money(totalVis)}`} accent isDark={isDark} />
                                 <Resumo label="Categoria mais usada" value={catMode ? catMetaExp(catMode).label : '—'} isDark={isDark} />
                                 <Resumo label="Tipo de gasto mais usado" isDark={isDark}
                                     value={prioMode ? <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: PRIO_DOT[prioMode] }} />{PRIO_LABEL[prioMode]}</span> : '—'} />
@@ -1440,7 +1462,7 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
             </div>
 
             {sumRow && (
-                <SumDialog isDark={isDark} row={sumRow} tipo={tipoCompra}
+                <SumDialog isDark={isDark} row={sumRow} tipo={sumRow.tipo}
                     onClose={() => setSumRow(null)}
                     onSave={(patch) => { updateRow(sumRow.id, patch); setSumRow(null); }} />
             )}
@@ -1481,7 +1503,7 @@ function ReviewDialog({ isDark, tipoCompra, card, entries, saving, onClose, onCo
                             <div className="min-w-0 flex-1">
                                 <p className={`text-[13px] font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{e.name}</p>
                                 <p className="text-[11px] text-slate-500 truncate">
-                                    {catMetaExp(e.category).label} · {TIPO_LABEL[tipoCompra]}
+                                    {catMetaExp(e.category).label} · {TIPO_LABEL[e.tipo] || TIPO_LABEL[tipoCompra]}
                                     {e.kind === 'installment' && <> · {e.parcelas}× de <span className="font-bold text-slate-400">R$ {money(e.perParcela)}</span></>}
                                     {e.note ? ` · ${e.note}` : ''}
                                 </p>
