@@ -145,6 +145,22 @@ export default function Cartoes() {
     const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
     const filterSel = `h-9 pl-3 pr-8 rounded-xl border text-[13px] font-bold outline-none cursor-pointer transition ${isDark ? 'bg-white/5 border-white/10 text-slate-200 hover:border-white/20' : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'}`;
 
+    // Exclui um cartão E, em cascata, suas assinaturas/parcelamentos e os lançamentos
+    // da fatura em aberto — pra não deixar nada órfão (some do "No cartão" em Recorrentes).
+    const deletarCartao = async (cardId) => {
+        try {
+            const subs = subscriptions.filter(s => s.cardId === cardId);
+            const txs = transactions.filter(t => t.selectedCardId === cardId && t.invoiceStatus === 'unpaid');
+            await Promise.all([
+                ...subs.map(s => deleteDoc(doc(db, 'subscriptions', s.id))),
+                ...txs.map(t => deleteDoc(doc(db, 'transactions', t.id))),
+            ]);
+            await deleteDoc(doc(db, 'cards', cardId));
+            setSelectedId(null);
+            toast.success('Cartão excluído.');
+        } catch (e) { console.error(e); toast.error('Não foi possível excluir o cartão.'); }
+    };
+
     return (
         <div className="max-w-6xl mx-auto w-full">
             {/* Cabeçalho */}
@@ -187,7 +203,7 @@ export default function Cartoes() {
                             </div>
                             <CardVisual card={selected} isDark={isDark} onAdd={() => setCardForm({ editing: null })}
                                 onEdit={() => setCardForm({ editing: selected })}
-                                onDelete={() => { deleteDoc(doc(db, 'cards', selected.id)); setSelectedId(null); }} />
+                                onDelete={() => deletarCartao(selected.id)} />
                         </div>
 
                         <div className="flex flex-col gap-4">

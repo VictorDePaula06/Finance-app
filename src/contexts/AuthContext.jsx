@@ -667,32 +667,27 @@ export function AuthProvider({ children }) {
         if (!uid) return;
         try {
             log.info(`[Admin] Resetando dados para o usuário: ${maskUid(uid)}`);
-            
-            // 1. Transactions
-            const qT = query(collection(db, 'transactions'), where('userId', '==', uid));
-            const snapT = await getDocs(qT);
-            const deleteT = snapT.docs.map(d => deleteDoc(d.ref));
-            await Promise.all(deleteT);
 
-            // 2. Goals
-            const qG = query(collection(db, 'goals'), where('userId', '==', uid));
-            const snapG = await getDocs(qG);
-            const deleteG = snapG.docs.map(d => deleteDoc(d.ref));
-            await Promise.all(deleteG);
+            // TODAS as coleções financeiras do usuário (chaveadas por userId).
+            // IMPORTANTE: inclui fixed_incomes, fixed_expenses e subscriptions —
+            // sem isso, entradas recorrentes e itens "No cartão" ficavam órfãos.
+            const collectionsToClear = [
+                'transactions', 'fixed_incomes', 'fixed_expenses', 'subscriptions',
+                'cards', 'savings_jars', 'goals', 'expense_goals', 'debts',
+                'investments', 'investment_txs', 'watchlist', 'insurances', 'tangible_assets',
+            ];
+            for (const colName of collectionsToClear) {
+                const snap = await getDocs(query(collection(db, colName), where('userId', '==', uid)));
+                await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+            }
 
-            // 3. Savings Jars
-            const qJ = query(collection(db, 'savings_jars'), where('userId', '==', uid));
-            const snapJ = await getDocs(qJ);
-            const deleteJ = snapJ.docs.map(d => deleteDoc(d.ref));
-            await Promise.all(deleteJ);
+            // Baixas de recorrentes (subcoleção) — pra o status recomeçar limpo.
+            try {
+                const baixasSnap = await getDocs(collection(db, 'users', uid, 'recorrentes_baixas'));
+                await Promise.all(baixasSnap.docs.map(d => deleteDoc(d.ref)));
+            } catch (e) { console.warn('[reset] recorrentes_baixas:', e?.message || e); }
 
-            // 4. Cards
-            const qC = query(collection(db, 'cards'), where('userId', '==', uid));
-            const snapC = await getDocs(qC);
-            const deleteC = snapC.docs.map(d => deleteDoc(d.ref));
-            await Promise.all(deleteC);
-
-            // 5. Settings Reset
+            // Reset das preferências/config.
             const userPrefsRef = doc(db, 'users', uid, 'settings', 'general');
             await setDoc(userPrefsRef, {
                 hasSeenWelcome: true,

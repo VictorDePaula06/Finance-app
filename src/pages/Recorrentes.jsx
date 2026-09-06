@@ -93,6 +93,7 @@ export default function Recorrentes({ onNavigate }) {
     const [expenses, setExpenses] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [cardSubs, setCardSubs] = useState([]); // assinaturas/parcelamentos no cartão
+    const [cards, setCards] = useState([]);        // cartões existentes (p/ ignorar órfãos)
     const [form, setForm] = useState(null);   // { kind, editing }
     const [baixa, setBaixa] = useState(null);  // { kind, rec }
     const [chooser, setChooser] = useState(false); // janela de escolha entrada/despesa
@@ -108,7 +109,9 @@ export default function Recorrentes({ onNavigate }) {
             (s) => setTransactions(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
         const unsubS = onSnapshot(query(collection(db, 'subscriptions'), where('userId', '==', uid)),
             (s) => setCardSubs(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
-        return () => { unsubI(); unsubE(); unsubT(); unsubS(); };
+        const unsubC = onSnapshot(query(collection(db, 'cards'), where('userId', '==', uid)),
+            (s) => setCards(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
+        return () => { unsubI(); unsubE(); unsubT(); unsubS(); unsubC(); };
     }, [uid]);
 
     // Saldo em conta (derivado — soma das transações).
@@ -124,8 +127,10 @@ export default function Recorrentes({ onNavigate }) {
     // Assinaturas e parcelamentos lançados no CARTÃO. Aparecem aqui como despesas
     // recorrentes (só pra visualizar e somar) — a baixa é na fatura do cartão, então
     // não têm ação de "dar baixa"/editar/excluir aqui (status "no cartão").
+    const cardIds = useMemo(() => new Set(cards.map(c => c.id)), [cards]);
     const cardRecurringRows = useMemo(() => cardSubs
-        .filter(s => s.cardId)
+        // Só conta assinaturas/parcelamentos de cartões que AINDA existem (ignora órfãos).
+        .filter(s => s.cardId && cardIds.has(s.cardId))
         .map(s => {
             const isInst = s.type === 'installment' || s.isInstallment;
             return {
@@ -137,7 +142,7 @@ export default function Recorrentes({ onNavigate }) {
             };
         })
         .sort((a, b) => (a.day || 0) - (b.day || 0)),
-        [cardSubs]);
+        [cardSubs, cardIds]);
 
     // Fixos primeiro, depois os do cartão (read-only).
     const expenseRows = useMemo(() => [...expenseRowsFix, ...cardRecurringRows], [expenseRowsFix, cardRecurringRows]);
