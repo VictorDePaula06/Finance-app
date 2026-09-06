@@ -1123,9 +1123,9 @@ const PRIO_LABEL = { essential: 'Essencial', comfort: 'Conforto', superfluous: '
 // Cor por tipo de compra: avulsa=verde, assinatura=roxo, parcelamento=azul.
 // Classes literais (Tailwind precisa vê-las escritas por extenso).
 const TIPO_TONE = {
-    avulsa: { text: 'text-emerald-400', sel: 'border-emerald-500/50 bg-emerald-500/[0.06] ring-1 ring-emerald-500/30', iconOn: 'bg-emerald-500/15 text-emerald-400', badgeOn: 'bg-emerald-500 text-white' },
-    assinatura: { text: 'text-purple-400', sel: 'border-purple-500/50 bg-purple-500/[0.06] ring-1 ring-purple-500/30', iconOn: 'bg-purple-500/15 text-purple-400', badgeOn: 'bg-purple-500 text-white' },
-    parcelamento: { text: 'text-blue-400', sel: 'border-blue-500/50 bg-blue-500/[0.06] ring-1 ring-blue-500/30', iconOn: 'bg-blue-500/15 text-blue-400', badgeOn: 'bg-blue-500 text-white' },
+    avulsa: { text: 'text-emerald-400', textLight: 'text-emerald-600', sel: 'border-emerald-500/50 bg-emerald-500/[0.06] ring-1 ring-emerald-500/30', iconOn: 'bg-emerald-500/15 text-emerald-400', badgeOn: 'bg-emerald-500 text-white', focusDark: 'focus:border-emerald-500/60', focusLight: 'focus:border-emerald-500', groupDark: 'bg-emerald-500/[0.06] border-emerald-500/30 text-emerald-400', groupLight: 'bg-emerald-50 border-emerald-300 text-emerald-700' },
+    assinatura: { text: 'text-purple-400', textLight: 'text-purple-600', sel: 'border-purple-500/50 bg-purple-500/[0.06] ring-1 ring-purple-500/30', iconOn: 'bg-purple-500/15 text-purple-400', badgeOn: 'bg-purple-500 text-white', focusDark: 'focus:border-purple-500/60', focusLight: 'focus:border-purple-500', groupDark: 'bg-purple-500/[0.06] border-purple-500/30 text-purple-400', groupLight: 'bg-purple-50 border-purple-300 text-purple-700' },
+    parcelamento: { text: 'text-blue-400', textLight: 'text-blue-600', sel: 'border-blue-500/50 bg-blue-500/[0.06] ring-1 ring-blue-500/30', iconOn: 'bg-blue-500/15 text-blue-400', badgeOn: 'bg-blue-500 text-white', focusDark: 'focus:border-blue-500/60', focusLight: 'focus:border-blue-500', groupDark: 'bg-blue-500/[0.06] border-blue-500/30 text-blue-400', groupLight: 'bg-blue-50 border-blue-300 text-blue-700' },
 };
 
 function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
@@ -1272,7 +1272,8 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
     const soon = () => toast.info?.('Em breve por aqui. Por enquanto, mande o PDF/CSV do extrato pra Alívia no WhatsApp que ela lança tudo. 💬');
 
     // estilos
-    const cellInput = `w-full bg-transparent px-2.5 h-10 text-[13px] font-semibold outline-none rounded-lg border transition ${isDark ? 'border-white/10 text-white placeholder-slate-600 focus:border-emerald-500/60 focus:bg-white/[0.04]' : 'border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:bg-white'}`;
+    const tone = TIPO_TONE[tipoCompra];
+    const cellInput = `w-full bg-transparent px-2.5 h-10 text-[13px] font-semibold outline-none rounded-lg border transition ${isDark ? `border-white/10 text-white placeholder-slate-600 ${tone.focusDark} focus:bg-white/[0.04]` : `border-slate-200 text-slate-800 placeholder-slate-400 ${tone.focusLight} focus:bg-white`}`;
     const optStyle = { backgroundColor: isDark ? '#141518' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
     const cardBg = isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white';
     const softBtn = isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50';
@@ -1375,7 +1376,7 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                                                     <td className="px-1.5 py-1">
                                                         {r.parts?.length ? (
                                                             <button type="button" onClick={() => setSumRow(r)} title="Editar valores somados"
-                                                                className={`${cellInput} text-right flex items-center justify-end gap-1.5 cursor-pointer ${isDark ? 'bg-emerald-500/[0.06] border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-300 text-emerald-700'}`}>
+                                                                className={`${cellInput} text-right flex items-center justify-end gap-1.5 cursor-pointer ${isDark ? tone.groupDark : tone.groupLight}`}>
                                                                 <span className="mr-auto inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider opacity-70"><Sigma className="w-3 h-3" />{r.parts.length}</span>
                                                                 {money(numBR(r.value))}
                                                             </button>
@@ -1389,7 +1390,7 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
                                                     {tipoCompra === 'parcelamento' && (
                                                         <td className="px-1.5 py-1">
                                                             {r.parts?.length ? (
-                                                                <div className="h-10 flex items-center justify-center text-[11px] font-bold text-emerald-500">por item</div>
+                                                                <div className={`h-10 flex items-center justify-center text-[11px] font-bold ${tone.text}`}>por item</div>
                                                             ) : (
                                                                 <input inputMode="numeric" value={r.parcelas} onChange={e => updateRow(r.id, { parcelas: e.target.value.replace(/\D/g, '').slice(0, 2) })} placeholder="2" className={`${cellInput} text-center`} />
                                                             )}
