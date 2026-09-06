@@ -870,17 +870,34 @@ async function getGlobalGeminiKey(db) {
 // (mensagens NOVAS; continuações de um fluxo em andamento não contam).
 const FREE_WA_MONTHLY_LIMIT = 5;
 
+// E-mails privilegiados — ESPELHA src/constants/admins.js e firestore.rules.
+// Mantenha os TRÊS lugares em sincronia ao adicionar/remover.
+const ADMIN_EMAILS_WA = ['felipe.lopestecnologia11@gmail.com'];
+const LIFETIME_EMAILS_WA = ['felipe.lopestecnologia11@gmail.com', 'lopes.felipe365@outlook.com'];
+const normEmail = (email) => {
+  if (!email || typeof email !== 'string') return '';
+  const [local, domain] = email.trim().toLowerCase().split('@');
+  if (!domain) return email.trim().toLowerCase();
+  const isGmail = domain === 'gmail.com' || domain === 'googlemail.com';
+  return `${isGmail ? local.replace(/\./g, '') : local}@${domain}`;
+};
+const PRIV_SET_WA = new Set([...ADMIN_EMAILS_WA, ...LIFETIME_EMAILS_WA].map(normEmail));
+const isPrivilegedEmail = (email) => PRIV_SET_WA.has(normEmail(email));
+
 // Plano do usuário (server-side): 'pro' (ilimitado) ou 'free' (limitado).
-// PRO = admin/vitalício OU assinatura ativa no Stripe OU compra anual válida.
+// PRO = admin/vitalício (flag OU e-mail) OU assinatura ativa no Stripe OU compra anual válida.
 async function getUserPlan(db, uid) {
   try {
-    const [uSnap, subsSnap, paySnap] = await Promise.all([
+    const [uSnap, sSnap, subsSnap, paySnap] = await Promise.all([
       db.collection('users').doc(uid).get(),
+      db.collection('users').doc(uid).collection('settings').doc('general').get().catch(() => ({ data: () => ({}) })),
       db.collection('customers').doc(uid).collection('subscriptions').get().catch(() => ({ docs: [] })),
       db.collection('customers').doc(uid).collection('payments').get().catch(() => ({ docs: [] })),
     ]);
     const u = uSnap.data() || {};
+    const email = u.email || sSnap.data()?.email || '';
     if (u.isAdmin === true) return 'pro';
+    if (isPrivilegedEmail(email)) return 'pro';   // dev/vitalício reconhecido pelo e-mail
     if (u.subscription?.status === 'lifetime') return 'pro';
     const hasActive = (subsSnap.docs || []).some(d => ['active', 'trialing'].includes(d.data()?.status));
     if (hasActive) return 'pro';
