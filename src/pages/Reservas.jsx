@@ -10,7 +10,20 @@ import { getCdiRate } from '../utils/marketRates';
 import {
     Plus, Pencil, Trash2, X, Loader2, Check, Info, ChevronDown,
     PiggyBank, Target, Wallet, ArrowDownToLine, ArrowUpFromLine, TrendingUp,
+    ShieldCheck, Zap,
 } from 'lucide-react';
+
+// Tipos de reserva: cor + emoji + ícone. Emergência mede meses de custo fixo.
+const RES_TYPES = {
+    emergencia: { id: 'emergencia', label: 'Emergência', emoji: '🛡️', desc: 'Meses do seu custo fixo', icon: ShieldCheck, hex: '#10b981', bubbleDark: 'bg-emerald-500/12 text-emerald-400', bubbleLight: 'bg-emerald-50 text-emerald-600', defaultName: 'Reserva de emergência' },
+    oportunidades: { id: 'oportunidades', label: 'Oportunidades', emoji: '⚡', desc: 'Dinheiro pronto pra aproveitar', icon: Zap, hex: '#f59e0b', bubbleDark: 'bg-amber-500/12 text-amber-400', bubbleLight: 'bg-amber-50 text-amber-600', defaultName: 'Oportunidades' },
+    objetivos: { id: 'objetivos', label: 'Objetivos', emoji: '🎯', desc: 'Uma meta específica', icon: Target, hex: '#a855f7', bubbleDark: 'bg-purple-500/12 text-purple-400', bubbleLight: 'bg-purple-50 text-purple-600', defaultName: 'Meu objetivo' },
+};
+const resMeta = (r) => RES_TYPES[r?.reserveType] || { id: 'geral', label: 'Reserva', emoji: '🐷', desc: '', icon: PiggyBank, hex: '#ec4899', bubbleDark: 'bg-pink-500/12 text-pink-400', bubbleLight: 'bg-pink-50 text-pink-500', defaultName: 'Reserva' };
+// Meta (R$) da reserva: emergência = custo fixo × meses (dinâmico); demais = target salvo.
+const targetOf = (r, custoFixo) => r?.reserveType === 'emergencia'
+    ? custoFixo * (parseInt(r.months) || 6)
+    : (parseFloat(r.target) || 0);
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const numBR = (v) => parseFloat(String(v ?? '').replace(/\./g, '').replace(',', '.')) || 0;
@@ -37,6 +50,8 @@ export default function Reservas() {
 
     const [reserves, setReserves] = useState([]);
     const [txs, setTxs] = useState([]);
+    const [fixExp, setFixExp] = useState([]);
+    const [subs, setSubs] = useState([]);
     const [form, setForm] = useState(null);
     const [move, setMove] = useState(null);
     const [cdi, setCdi] = useState(14.9); // CDI anual real (%)
@@ -48,8 +63,18 @@ export default function Reservas() {
             (s) => setReserves(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { });
         const u2 = onSnapshot(query(collection(db, 'transactions'), where('userId', '==', uid)),
             (s) => setTxs(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { });
-        return () => { u1(); u2(); };
+        const u3 = onSnapshot(query(collection(db, 'fixed_expenses'), where('userId', '==', uid)),
+            (s) => setFixExp(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { });
+        const u4 = onSnapshot(query(collection(db, 'subscriptions'), where('userId', '==', uid)),
+            (s) => setSubs(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { });
+        return () => { u1(); u2(); u3(); u4(); };
     }, [uid]);
+
+    // Custo fixo mensal (igual Análises): contas fixas + assinaturas + parcelas.
+    const custoFixo = useMemo(() =>
+        fixExp.reduce((a, f) => a + (parseFloat(f.value) || 0), 0)
+        + subs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0),
+        [fixExp, subs]);
 
     useEffect(() => {
         getCdiRate().then(raw => {
@@ -66,7 +91,7 @@ export default function Reservas() {
     const totalInvestido = useMemo(() => reserves.reduce((a, r) => a + investedOfRes(r), 0), [reserves]);
     const rendimentoTotal = totalGuardado - totalInvestido;
     const rentab = totalInvestido > 0 ? rendimentoTotal / totalInvestido * 100 : 0;
-    const metaTotal = useMemo(() => reserves.reduce((a, r) => a + (parseFloat(r.target) || 0), 0), [reserves]);
+    const metaTotal = useMemo(() => reserves.reduce((a, r) => a + targetOf(r, custoFixo), 0), [reserves, custoFixo]);
     const progresso = metaTotal > 0 ? Math.min(100, totalGuardado / metaTotal * 100) : 0;
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
@@ -146,10 +171,13 @@ export default function Reservas() {
                         const inv = investedOfRes(r);
                         const rend = cur - inv;
                         const rpct = inv > 0 ? rend / inv * 100 : 0;
-                        const tgt = parseFloat(r.target) || 0;
+                        const tgt = targetOf(r, custoFixo);
                         const pct = tgt > 0 ? Math.min(100, cur / tgt * 100) : 0;
+                        const meta = resMeta(r);
+                        const MetaIcon = meta.icon;
                         return (
-                            <div key={r.id} className={`relative rounded-2xl border p-5 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
+                            <div key={r.id} className={`relative rounded-2xl border p-5 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}
+                                style={{ borderLeft: `3px solid ${meta.hex}` }}>
                                 <div className="absolute top-4 right-4 flex items-center gap-0.5">
                                     <button onClick={() => setForm({ editing: r })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
                                     <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, 'savings_jars', r.id))} />
@@ -158,10 +186,14 @@ export default function Reservas() {
                                 <div className="flex flex-col lg:flex-row lg:items-center gap-5">
                                     {/* Identificação */}
                                     <div className="flex items-center gap-3 lg:w-64 shrink-0 pr-8">
-                                        <span className="w-11 h-11 rounded-xl bg-pink-500/12 text-pink-400 flex items-center justify-center shrink-0"><PiggyBank className="w-5 h-5" /></span>
+                                        <span className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 text-lg ${isDark ? meta.bubbleDark : meta.bubbleLight}`}>{meta.emoji}</span>
                                         <div className="min-w-0">
-                                            <p className={`font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{r.name || 'Reserva'}</p>
-                                            <p className={`text-[11px] ${muted}`}>{r.cdiPercent || 100}% do CDI{tgt > 0 ? ` · Meta R$ ${money(tgt)}` : ''}</p>
+                                            <p className={`font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{r.name || meta.defaultName}</p>
+                                            <p className={`text-[11px] flex items-center gap-1 flex-wrap ${muted}`}>
+                                                <span className="inline-flex items-center gap-1 font-bold" style={{ color: meta.hex }}><MetaIcon className="w-3 h-3" />{meta.label}</span>
+                                                {r.reserveType === 'emergencia' && <span>· {r.months || 6} meses</span>}
+                                                {tgt > 0 && <span>· Meta R$ {money(tgt)}</span>}
+                                            </p>
                                         </div>
                                     </div>
 
@@ -176,9 +208,9 @@ export default function Reservas() {
                                         {tgt > 0 && (
                                             <>
                                                 <div className={`mt-2 h-2 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
-                                                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500" style={{ width: `${pct}%` }} />
+                                                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: meta.hex }} />
                                                 </div>
-                                                <p className={`text-[11px] mt-1 ${muted}`}>{pct.toFixed(0)}% da meta</p>
+                                                <p className={`text-[11px] mt-1 ${muted}`}>{pct.toFixed(0)}% da meta · falta <span className={`font-bold ${cell}`}>R$ {money(Math.max(0, tgt - cur))}</span></p>
                                             </>
                                         )}
                                     </div>
@@ -210,7 +242,7 @@ export default function Reservas() {
                 Rende todo dia pelo CDI. Depositar move do saldo em conta para a reserva; resgatar traz de volta — e aparece no extrato.
             </div>
 
-            {form && <ReservaForm isDark={isDark} uid={uid} cdi={cdi} editing={form.editing} onClose={() => setForm(null)} />}
+            {form && <ReservaForm isDark={isDark} uid={uid} cdi={cdi} custoFixo={custoFixo} editing={form.editing} onClose={() => setForm(null)} />}
             {move && <MoveForm isDark={isDark} uid={uid} cdi={cdi} reserve={move.reserve} kind={move.kind} onClose={() => setMove(null)} />}
         </div>
     );
@@ -238,8 +270,11 @@ function DeleteBtn({ isDark, onDelete }) {
 }
 
 // ── Form: nova/editar reserva (com CDI) ─────────────────────────────
-export function ReservaForm({ isDark, uid, cdi, editing, onClose, skipLedger = false, hint }) {
-    const [name, setName] = useState(editing?.name || 'Reserva de emergência');
+export function ReservaForm({ isDark, uid, cdi, custoFixo = 0, editing, onClose, skipLedger = false, hint }) {
+    const initType = editing?.reserveType || 'emergencia';
+    const [rtype, setRtype] = useState(initType);
+    const [name, setName] = useState(editing?.name || RES_TYPES[initType].defaultName);
+    const [months, setMonths] = useState(String(editing?.months || 6));
     const [target, setTarget] = useState(editing?.target != null ? String(editing.target).replace('.', ',') : '');
     const [cdiPercent, setCdiPercent] = useState(String(editing?.cdiPercent || 100));
     const [balance, setBalance] = useState('');
@@ -251,20 +286,29 @@ export function ReservaForm({ isDark, uid, cdi, editing, onClose, skipLedger = f
     const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
     const pct = Math.max(0, parseFloat(cdiPercent) || 0);
     const rendMes = (Math.pow(1 + dailyCalRate(cdi, pct), 30) - 1) * 100; // % ao mês aprox.
+    const isEmerg = rtype === 'emergencia';
+    const emergTarget = custoFixo * (parseInt(months) || 0);
+    const isDefaultName = (nm) => !nm.trim() || Object.values(RES_TYPES).some(t => t.defaultName === nm);
+    const pickType = (t) => { setRtype(t); setName(nm => isDefaultName(nm) ? RES_TYPES[t].defaultName : nm); };
 
     const submit = async (e) => {
         e.preventDefault();
         setError('');
         if (!name.trim()) { setError('Dê um nome à reserva.'); return; }
         setSaving(true);
+        // Campos que dependem do tipo: emergência guarda meses (meta = custo fixo × meses);
+        // os demais guardam a meta em R$.
+        const typeData = isEmerg
+            ? { reserveType: rtype, months: parseInt(months) || 6, target: emergTarget || null }
+            : { reserveType: rtype, months: null, target: numBR(target) || null };
         try {
             if (editing) {
-                await updateDoc(doc(db, 'savings_jars', editing.id), { name: normalizeName(name), target: numBR(target) || null, cdiPercent: pct || 100 });
+                await updateDoc(doc(db, 'savings_jars', editing.id), { name: normalizeName(name), cdiPercent: pct || 100, ...typeData });
             } else {
                 const init = numBR(balance);
                 const now = Date.now();
                 const ref = await addDoc(collection(db, 'savings_jars'), {
-                    name: normalizeName(name), target: numBR(target) || null, cdiPercent: pct || 100,
+                    name: normalizeName(name), cdiPercent: pct || 100, ...typeData,
                     balance: init, invested: init, lastYieldAt: now, type: 'reserva', userId: uid, createdAt: now,
                 });
                 // Registra o valor inicial como o 1º APORTE (aparece na lista de
@@ -291,11 +335,51 @@ export function ReservaForm({ isDark, uid, cdi, editing, onClose, skipLedger = f
             <form onSubmit={submit} className="space-y-3.5">
                 <AliviaFormHint isDark={isDark} text={hint} />
                 {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
-                <Field label="Nome"><input value={name} onChange={e => setName(e.target.value)} placeholder="Ex.: Reserva de emergência" className={inputCls} maxLength={40} autoFocus /></Field>
-                <div className="grid grid-cols-2 gap-3">
-                    <Field label="Meta (R$) — opcional"><input inputMode="decimal" value={target} onChange={e => setTarget(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
-                    <Field label="Rende (% do CDI)"><input inputMode="numeric" value={cdiPercent} onChange={e => setCdiPercent(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))} placeholder="100" className={inputCls} /></Field>
+
+                {/* Tipo de reserva */}
+                <div>
+                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Tipo de reserva</span>
+                    <div className="grid grid-cols-3 gap-2">
+                        {Object.values(RES_TYPES).map(t => {
+                            const on = rtype === t.id;
+                            return (
+                                <button key={t.id} type="button" onClick={() => pickType(t.id)}
+                                    className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border text-center transition active:scale-[0.98] ${on ? '' : (isDark ? 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]' : 'border-slate-200 bg-white hover:bg-slate-50')}`}
+                                    style={on ? { borderColor: t.hex, background: `${t.hex}14` } : undefined}>
+                                    <span className="text-xl leading-none">{t.emoji}</span>
+                                    <span className="text-[12px] font-black leading-tight" style={on ? { color: t.hex } : undefined}>{t.label}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1.5">{RES_TYPES[rtype].desc}</p>
                 </div>
+
+                <Field label="Nome"><input value={name} onChange={e => setName(e.target.value)} placeholder="Ex.: Reserva de emergência" className={inputCls} maxLength={40} /></Field>
+
+                {isEmerg ? (
+                    <div>
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Meses de custo fixo</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {[3, 6, 12].map(m => (
+                                <button key={m} type="button" onClick={() => setMonths(String(m))}
+                                    className={`px-3 py-2 rounded-xl text-[13px] font-bold border transition ${String(m) === String(months) ? 'bg-emerald-500 text-white border-emerald-500' : (isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50')}`}>{m} meses</button>
+                            ))}
+                            <input inputMode="numeric" value={months} onChange={e => setMonths(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="6" className={`${inputCls} w-20 text-center`} />
+                        </div>
+                        <div className={`mt-2.5 rounded-xl border px-3 py-2.5 text-[12px] ${isDark ? 'bg-emerald-500/[0.06] border-emerald-500/20 text-slate-300' : 'bg-emerald-50 border-emerald-200 text-slate-600'}`}>
+                            {custoFixo > 0 ? (
+                                <>Custo fixo <span className="font-bold">R$ {money(custoFixo)}</span> × {parseInt(months) || 0} meses = <span className="font-black text-emerald-500">Meta R$ {money(emergTarget)}</span></>
+                            ) : (
+                                <>Cadastre suas <b>contas fixas / assinaturas</b> para calcular a meta em meses. Você ainda pode criar a reserva.</>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <Field label="Meta (R$) — opcional"><input inputMode="decimal" value={target} onChange={e => setTarget(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
+                )}
+
+                <Field label="Rende (% do CDI)"><input inputMode="numeric" value={cdiPercent} onChange={e => setCdiPercent(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))} placeholder="100" className={inputCls} /></Field>
                 <div className={`rounded-xl border px-3 py-2.5 text-[12px] flex items-center gap-2 ${isDark ? 'bg-white/[0.03] border-white/10 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
                     <TrendingUp className="w-4 h-4 text-emerald-500 shrink-0" />
                     Rende ~<span className="font-bold text-emerald-500">{rendMes.toFixed(2)}% ao mês</span> ({pct || 0}% do CDI de {money(cdi)}%/ano).

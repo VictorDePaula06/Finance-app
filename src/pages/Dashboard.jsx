@@ -111,8 +111,16 @@ export default function Dashboard({ onNavigate }) {
     }, [expenseTx]);
 
     const reservaTotal = jars.reduce((a, j) => a + (parseFloat(j.balance) || 0), 0);
-    const mesesCobertura = gastos > 0 ? reservaTotal / gastos : (reservaTotal > 0 ? 99 : 0);
-    const metaMeses = Math.max(1, cfg.metaReservaMeses || 6);
+    // Custo fixo mensal (igual Análises): contas fixas + assinaturas + parcelas.
+    const custoFixo = useMemo(() =>
+        fixExp.reduce((a, f) => a + (parseFloat(f.value) || 0), 0)
+        + subs.reduce((a, s) => a + (parseFloat(s.value) || 0), 0),
+        [fixExp, subs]);
+    // Cobertura da reserva medida contra o CUSTO FIXO; meta = meses da reserva de
+    // emergência (se houver), senão a configuração do dashboard.
+    const emergJar = useMemo(() => jars.find(j => j.reserveType === 'emergencia'), [jars]);
+    const mesesCobertura = custoFixo > 0 ? reservaTotal / custoFixo : (reservaTotal > 0 ? 99 : 0);
+    const metaMeses = Math.max(1, (emergJar && parseInt(emergJar.months)) || cfg.metaReservaMeses || 6);
     const reservaPct = clamp(mesesCobertura / metaMeses * 100, 0, 100);
 
     const patrAtual = invs.reduce((a, x) => a + invValue(x, usdRate), 0);
