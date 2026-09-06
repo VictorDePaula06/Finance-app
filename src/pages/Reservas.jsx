@@ -330,65 +330,89 @@ export function ReservaForm({ isDark, uid, cdi, custoFixo = 0, editing, onClose,
         } catch (err) { console.error(err); toast.error('Não foi possível salvar. Tente de novo.'); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
     };
 
+    const tone = RES_TYPES[rtype] || RES_TYPES.emergencia;
+
     return (
-        <Modal isDark={isDark} title={editing ? 'Editar reserva' : 'Nova reserva'} icon={PiggyBank} iconCls="bg-pink-500/12 text-pink-400" onClose={onClose}>
-            <form onSubmit={submit} className="space-y-3.5">
+        <Modal isDark={isDark} wide title={editing ? 'Editar reserva' : 'Nova reserva'} icon={tone.icon} iconCls={isDark ? tone.bubbleDark : tone.bubbleLight} onClose={onClose}>
+            <form onSubmit={submit} className="space-y-5">
                 <AliviaFormHint isDark={isDark} text={hint} />
                 {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
 
-                {/* Tipo de reserva */}
+                {/* Tipo de reserva — cards grandes com ícone + emoji + descrição */}
                 <div>
-                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Tipo de reserva</span>
-                    <div className="grid grid-cols-3 gap-2">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-2">Tipo de reserva</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                         {Object.values(RES_TYPES).map(t => {
-                            const on = rtype === t.id;
+                            const on = rtype === t.id; const TIcon = t.icon;
                             return (
                                 <button key={t.id} type="button" onClick={() => pickType(t.id)}
-                                    className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border text-center transition active:scale-[0.98] ${on ? '' : (isDark ? 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]' : 'border-slate-200 bg-white hover:bg-slate-50')}`}
-                                    style={on ? { borderColor: t.hex, background: `${t.hex}14` } : undefined}>
-                                    <span className="text-xl leading-none">{t.emoji}</span>
-                                    <span className="text-[12px] font-black leading-tight" style={on ? { color: t.hex } : undefined}>{t.label}</span>
+                                    className={`flex items-center sm:flex-col sm:items-start gap-3 sm:gap-2 p-3.5 rounded-2xl border text-left transition-all active:scale-[0.98] ${on ? 'ring-1' : (isDark ? 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]' : 'border-slate-200 bg-white hover:bg-slate-50')}`}
+                                    style={on ? { borderColor: t.hex, background: `${t.hex}12`, '--tw-ring-color': t.hex } : undefined}>
+                                    <span className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ background: `${t.hex}1f` }}>{t.emoji}</span>
+                                    <span className="min-w-0">
+                                        <span className="flex items-center gap-1.5 text-[14px] font-black leading-tight" style={{ color: on ? t.hex : undefined }}>
+                                            <TIcon className="w-3.5 h-3.5 sm:hidden" style={{ color: t.hex }} />{t.label}
+                                        </span>
+                                        <span className="block text-[11px] text-slate-500 leading-snug mt-0.5">{t.desc}</span>
+                                    </span>
                                 </button>
                             );
                         })}
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-1.5">{RES_TYPES[rtype].desc}</p>
                 </div>
 
-                <Field label="Nome"><input value={name} onChange={e => setName(e.target.value)} placeholder="Ex.: Reserva de emergência" className={inputCls} maxLength={40} /></Field>
+                {/* Nome + meta/meses + rendimento em 2 colunas */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                    <Field label="Nome da reserva"><input value={name} onChange={e => setName(e.target.value)} placeholder="Ex.: Reserva de emergência" className={inputCls} maxLength={40} /></Field>
+                    <Field label="Rendimento (% do CDI)"><input inputMode="numeric" value={cdiPercent} onChange={e => setCdiPercent(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))} placeholder="100" className={inputCls} /></Field>
 
-                {isEmerg ? (
-                    <div>
-                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Meses de custo fixo</span>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {[3, 6, 12].map(m => (
-                                <button key={m} type="button" onClick={() => setMonths(String(m))}
-                                    className={`px-3 py-2 rounded-xl text-[13px] font-bold border transition ${String(m) === String(months) ? 'bg-emerald-500 text-white border-emerald-500' : (isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50')}`}>{m} meses</button>
-                            ))}
-                            <input inputMode="numeric" value={months} onChange={e => setMonths(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="6" className={`${inputCls} w-20 text-center`} />
+                    {isEmerg ? (
+                        <div className="sm:col-span-2">
+                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Meses de custo fixo</span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {[3, 6, 12].map(m => {
+                                    const sel = String(m) === String(months);
+                                    return (
+                                        <button key={m} type="button" onClick={() => setMonths(String(m))}
+                                            className={`px-3.5 py-2.5 rounded-xl text-[13px] font-bold border transition ${sel ? 'text-white border-transparent' : (isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50')}`}
+                                            style={sel ? { background: tone.hex } : undefined}>{m} meses</button>
+                                    );
+                                })}
+                                <input inputMode="numeric" value={months} onChange={e => setMonths(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="6" className={`${inputCls} w-24 text-center`} />
+                            </div>
                         </div>
-                        <div className={`mt-2.5 rounded-xl border px-3 py-2.5 text-[12px] ${isDark ? 'bg-emerald-500/[0.06] border-emerald-500/20 text-slate-300' : 'bg-emerald-50 border-emerald-200 text-slate-600'}`}>
+                    ) : (
+                        <Field label="Meta (R$) — opcional"><input inputMode="decimal" value={target} onChange={e => setTarget(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
+                    )}
+                </div>
+
+                {/* Destaque: meta calculada da emergência */}
+                {isEmerg && (
+                    <div className="rounded-2xl border p-4 flex items-center justify-between gap-4 flex-wrap"
+                        style={{ background: `${tone.hex}10`, borderColor: `${tone.hex}33` }}>
+                        <div className="min-w-0">
+                            <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Meta da reserva</p>
                             {custoFixo > 0 ? (
-                                <>Custo fixo <span className="font-bold">R$ {money(custoFixo)}</span> × {parseInt(months) || 0} meses = <span className="font-black text-emerald-500">Meta R$ {money(emergTarget)}</span></>
+                                <p className={`text-[12px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Custo fixo <b>R$ {money(custoFixo)}</b> × {parseInt(months) || 0} meses</p>
                             ) : (
-                                <>Cadastre suas <b>contas fixas / assinaturas</b> para calcular a meta em meses. Você ainda pode criar a reserva.</>
+                                <p className={`text-[12px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Cadastre suas contas fixas para calcular — dá pra criar mesmo assim.</p>
                             )}
                         </div>
+                        <p className="text-2xl font-black tabular-nums shrink-0" style={{ color: tone.hex }}>R$ {money(emergTarget)}</p>
                     </div>
-                ) : (
-                    <Field label="Meta (R$) — opcional"><input inputMode="decimal" value={target} onChange={e => setTarget(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
                 )}
 
-                <Field label="Rende (% do CDI)"><input inputMode="numeric" value={cdiPercent} onChange={e => setCdiPercent(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))} placeholder="100" className={inputCls} /></Field>
-                <div className={`rounded-xl border px-3 py-2.5 text-[12px] flex items-center gap-2 ${isDark ? 'bg-white/[0.03] border-white/10 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
+                {/* Rendimento estimado */}
+                <div className={`rounded-xl border px-3.5 py-2.5 text-[12px] flex items-center gap-2 ${isDark ? 'bg-white/[0.03] border-white/10 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
                     <TrendingUp className="w-4 h-4 text-emerald-500 shrink-0" />
                     Rende ~<span className="font-bold text-emerald-500">{rendMes.toFixed(2)}% ao mês</span> ({pct || 0}% do CDI de {money(cdi)}%/ano).
                 </div>
+
                 {!editing && (
                     <Field label="Valor inicial (R$) — opcional"><input inputMode="decimal" value={balance} onChange={e => setBalance(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
                 )}
                 {!editing && !skipLedger && (
-                    <label className={`flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl border cursor-pointer transition ${naoDescontar ? 'border-emerald-500/40 bg-emerald-500/10' : (isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50')}`}>
+                    <label className={`flex items-start gap-2.5 px-3.5 py-3 rounded-xl border cursor-pointer transition ${naoDescontar ? 'border-emerald-500/40 bg-emerald-500/10' : (isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50')}`}>
                         <input type="checkbox" checked={naoDescontar} onChange={e => setNaoDescontar(e.target.checked)} className="w-4 h-4 accent-emerald-500 mt-0.5" />
                         <div>
                             <p className={`text-[13px] font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Não descontar do meu saldo em conta</p>
@@ -396,9 +420,17 @@ export function ReservaForm({ isDark, uid, cdi, custoFixo = 0, editing, onClose,
                         </div>
                     </label>
                 )}
-                <button type="submit" disabled={saving} className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-70">
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {editing ? 'Salvar' : 'Criar reserva'}</>}
-                </button>
+
+                {/* Rodapé com ações */}
+                <div className={`flex items-center justify-end gap-2.5 pt-4 border-t ${isDark ? 'border-white/[0.08]' : 'border-slate-100'}`}>
+                    <button type="button" onClick={onClose} disabled={saving}
+                        className={`px-4 py-2.5 rounded-xl text-sm font-bold border transition disabled:opacity-50 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Cancelar</button>
+                    <button type="submit" disabled={saving}
+                        className="px-5 py-2.5 rounded-xl text-white font-bold text-sm inline-flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-70 hover:brightness-110 shadow-lg"
+                        style={{ background: tone.hex, boxShadow: `0 8px 24px ${tone.hex}40` }}>
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {editing ? 'Salvar alterações' : 'Criar reserva'}</>}
+                    </button>
+                </div>
             </form>
         </Modal>
     );
@@ -599,11 +631,11 @@ function Field({ label, children }) {
     return <label className="block"><span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">{label}</span>{children}</label>;
 }
 
-function Modal({ isDark, title, icon: Icon, iconCls = '', onClose, children }) {
+function Modal({ isDark, title, icon: Icon, iconCls = '', onClose, children, wide = false }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full ${wide ? 'max-w-2xl' : 'max-w-md'} max-h-[90vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2.5">
                         {Icon && <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${iconCls}`}><Icon className="w-5 h-5" strokeWidth={2.4} /></span>}
