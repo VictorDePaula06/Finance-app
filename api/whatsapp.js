@@ -790,6 +790,10 @@ Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (p
    {"action":"add_card_expense","description":"<texto>","amount":<número>,"category":"<id>","priority":"<id>","cardName":"<nome do cartão se citado, senão vazio>"}
 3) Entrada avulsa (recebi/ganhei/entrou) — ex.: "recebi 300 de freela", "caiu 100":
    {"action":"add_income","description":"<texto>","amount":<número>}
+   ⚠️ SALÁRIO normalmente é RECORRENTE (todo mês). Se a pessoa disse o DIA (ex.: "salário 4000 dia 5"),
+   use add_fixed_income (ação 7). Se mencionou salário SEM o dia, use add_income com description="Salário"
+   mesmo — o app vai perguntar se ela quer cadastrar como recorrente. Se o salário JÁ é recorrente e ela
+   diz "recebi meu salário", use baixa_recorrente (ação 8), não add_income.
 4) Guardar na RESERVA — ex.: "guarda 50 na reserva", "poupar 100":
    {"action":"add_to_reserve","amount":<número>}
 5) META da reserva — ex.: "meta de 20000", "quero juntar 20 mil":
@@ -1428,6 +1432,15 @@ const yes = (t) => /^(sim|confirmar|isso|ok|pode|s|bora)\b/i.test(t.trim());
 const no = (t) => /^(n[aã]o|cancelar|nao|n)\b/i.test(t.trim());
 // "fazer depois / pular" — usado no onboarding pós-vínculo.
 const skip = (t) => /(depois|pular|agora n[aã]o|mais tarde|skip)/i.test(String(t || ''));
+// Detecta menção a salário/holerite (renda tipicamente RECORRENTE).
+const isSalary = (t) => /\b(sal[aá]rio|hol[eé]rite|contra[- ]?cheque|ordenado|pr[oó][- ]?labore)\b/i.test(String(t || ''));
+// Já existe uma entrada recorrente de salário cadastrada?
+async function hasSalaryRecurring(db, uid) {
+  try {
+    const snap = await db.collection('fixed_incomes').where('userId', '==', uid).get();
+    return snap.docs.some(d => { const x = d.data() || {}; return x.category === 'salary' || isSalary(x.name); });
+  } catch { return false; }
+}
 
 // Botões de escolha (2-3 opções) — reaproveita sendInteractive.
 async function sendChoice(to, bodyText, opts) {
@@ -1676,6 +1689,38 @@ export default async function handler(req, res) {
           userId: uid, createdAt: Date.now(),
         });
         await done(`🎉 *Cartão cadastrado!* ${p.data.name} — fecha dia ${p.data.closingDay}, vence dia ${d}. Já está no app em *Meu cartão*.\n\nTá tudo pronto! Agora é só me mandar seus gastos que eu registro. Ex.: *"uber 25"*.`);
+        return res.status(200).json({ ok: true });
+      }
+    }
+
+    // ── SALÁRIO: recorrente ou avulso? (fluxo determinístico) ──
+    if (sess.pending?.type?.startsWith('inc_recur')) {
+      const p = sess.pending;
+      const clear = () => sessRef.set({ uid, history, pending: null }, { merge: true });
+      if (p.type === 'inc_recur_offer') {
+        if (yes(text) || selId === 'inc_recur_yes') {
+          await sessRef.set({ uid, history, pending: { type: 'inc_recur_day', data: p.data } }, { merge: true });
+          await sendText(from, 'Boa! 💚 Que *dia do mês* você costuma receber? (1 a 31)');
+          return res.status(200).json({ ok: true });
+        }
+        if (no(text) || selId === 'inc_recur_no') {
+          await doAddIncome(db, uid, { description: p.data.name, amount: p.data.amount });
+          await clear();
+          await sendText(from, `Boa! 💚 Registrei a entrada de *R$ ${money(p.data.amount)}*.`);
+          return res.status(200).json({ ok: true });
+        }
+        await sendChoice(from, 'Só confirmando: cadastro como *recorrente* (todo mês) ou *só dessa vez*?',
+          [{ id: 'inc_recur_yes', title: 'Todo mês' }, { id: 'inc_recur_no', title: 'Só dessa vez' }]);
+        return res.status(200).json({ ok: true });
+      }
+      if (p.type === 'inc_recur_day') {
+        const d = parseDay(text);
+        if (!d) { await sendText(from, 'Me diz só o *dia* do mês (1 a 31). Ex.: *5*.'); return res.status(200).json({ ok: true }); }
+        try {
+          await doAddFixed(db, uid, 'income', { name: p.data.name || 'Salário', value: p.data.amount, day: d });
+          await clear();
+          await sendText(from, `🎉 Cadastrei *${normName(p.data.name || 'Salário')}* como entrada *recorrente* de *R$ ${money(p.data.amount)}*, todo dia ${d}. Aparece no app em *Recorrentes*.`);
+        } catch (e) { console.error('WA inc_recur_day:', e); await sendText(from, 'Não consegui cadastrar agora. Tenta de novo. 🙏'); }
         return res.status(200).json({ ok: true });
       }
     }
@@ -1934,6 +1979,14 @@ export default async function handler(req, res) {
     if (action?.action === 'add_income') {
       const amount = Math.abs(parseFloat(action.amount) || 0);
       if (amount <= 0) { await sendText(from, 'Não entendi o valor que entrou. Ex.: "recebi 300 de freela". 🙏'); return res.status(200).json({ ok: true }); }
+      // Salário costuma ser RECORRENTE: se ainda não há recorrente de salário,
+      // pergunta se a pessoa quer cadastrar como recebimento todo mês.
+      if (isSalary(action.description) && !(await hasSalaryRecurring(db, uid))) {
+        await sessRef.set({ uid, history, pending: { type: 'inc_recur_offer', data: { amount, name: action.description || 'Salário' } } }, { merge: true });
+        await sendChoice(from, `Isso parece um *salário* 💰 Quer que eu cadastre como recebimento *recorrente* (todo mês)?`,
+          [{ id: 'inc_recur_yes', title: 'Sim, todo mês' }, { id: 'inc_recur_no', title: 'Só dessa vez' }]);
+        return res.status(200).json({ ok: true });
+      }
       try {
         await doAddIncome(db, uid, { description: action.description, amount });
         await sessRef.set({ uid, history, pending: null }, { merge: true });
