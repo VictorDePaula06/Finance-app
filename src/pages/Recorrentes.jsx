@@ -135,11 +135,10 @@ export default function Recorrentes({ onNavigate }) {
 
     // Recorrentes pagas no cartão — editáveis (variáveis inclusive), sem baixa. Ficam
     // no TOPO da aba "No cartão".
-    const cardFixedRows = useMemo(() => expenses.filter(isCardPaid)
-        .map(r => ({ ...r, cardPaid: true, status: 'cartao', cardName: cards.find(c => c.id === r.cardId)?.name || 'Cartão' }))
-        .sort((a, b) => (a.day || 0) - (b.day || 0)),
+    const cardFixedRows = useMemo(() => withStatus(expenses.filter(isCardPaid))
+        .map(r => ({ ...r, cardPaid: true, cardName: cards.find(c => c.id === r.cardId)?.name || 'Cartão' })),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [expenses, cardIds]);
+        [expenses, transactions, mk, cardIds]);
 
     // Assinaturas e parcelamentos lançados no CARTÃO (vêm de subscriptions) — read-only.
     const cardSubRows = useMemo(() => cardSubs
@@ -341,10 +340,14 @@ function RecorrentesSection({ kind, rows, isDark, cards = [], onEdit, onDelete, 
                                         ) : (
                                             <>
                                                 {r.cardPaid ? (
-                                                    <button onClick={() => onNavigate?.('cartoes')} title="Pagar/ver na fatura do cartão"
-                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition active:scale-95 shrink-0 ${isDark ? 'text-blue-400 hover:bg-blue-500/10' : 'text-blue-600 hover:bg-blue-50'}`}>
-                                                        <CreditCard className="w-4 h-4" />
-                                                    </button>
+                                                    r.status === 'pago' ? (
+                                                        <span title="Já lançado na fatura deste mês" className="w-8 h-8 rounded-lg flex items-center justify-center text-blue-500 bg-blue-500/12 shrink-0"><Check className="w-4 h-4" strokeWidth={3} /></span>
+                                                    ) : (
+                                                        <button onClick={() => onBaixa(r)} title={r.isVariable ? 'Confirmar valor e lançar na fatura' : 'Lançar na fatura do cartão'}
+                                                            className="w-8 h-8 rounded-lg flex items-center justify-center border-2 border-blue-500/40 text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 transition active:scale-90 shrink-0">
+                                                            <CreditCard className="w-4 h-4" />
+                                                        </button>
+                                                    )
                                                 ) : r.status === 'pago' ? (
                                                     <span title={cfg.doneLabel} className="w-8 h-8 rounded-lg flex items-center justify-center text-emerald-500 bg-emerald-500/12 shrink-0"><Check className="w-4 h-4" strokeWidth={3} /></span>
                                                 ) : (
@@ -646,13 +649,16 @@ export function RecorrenteForm({ isDark, uid, kind, editing, onClose, hint, init
 function BaixaDialog({ isDark, uid, kind, rec, saldo, mk, onClose }) {
     const cfg = KIND[kind];
     const income = kind === 'income';
-    const [amount, setAmount] = useState(String(rec.value ?? '').replace('.', ','));
+    // Recorrente paga no cartão: a "baixa" LANÇA na fatura (não debita o saldo agora).
+    const isCard = !income && rec.paymentMethod === 'credito' && !!rec.cardId;
+    // Variável: começa VAZIO — a pessoa é obrigada a confirmar o valor do mês.
+    const [amount, setAmount] = useState(rec.isVariable ? '' : String(rec.value ?? '').replace('.', ','));
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [ok, setOk] = useState(false);
     const val = numBR(amount);
-    // Só despesa valida saldo; receber dinheiro é sempre permitido.
-    const insufficient = !income && val > saldo + 0.005;
+    // Só despesa PAGA DA CONTA valida saldo; cartão vai pra fatura; receber é sempre permitido.
+    const insufficient = !income && !isCard && val > saldo + 0.005;
 
     const confirmar = async () => {
         setError('');
@@ -675,13 +681,14 @@ function BaixaDialog({ isDark, uid, kind, rec, saldo, mk, onClose }) {
                     txData.paymentMethod = rec.paymentMethod || 'pix';
                     txData.priority = rec.priority || 'essential';
                     txData.selectedCardId = rec.paymentMethod === 'credito' ? (rec.cardId || null) : null;
+                    if (isCard) txData.invoiceStatus = 'unpaid'; // entra na fatura em aberto
                 }
                 tx.set(txRef, txData);
                 tx.set(occRef, { kind, recorrenteId: rec.id, monthKey: mk, amount: val, txId: txRef.id, description: rec.name, at: serverTimestamp() });
                 tx.update(doc(db, cfg.collection, rec.id), { lastPaidMonth: mk, ...(rec.isVariable ? { lastPaidValue: val } : {}) });
             });
             setOk(true);
-            toast.success(income ? 'Recebimento confirmado!' : 'Baixa registrada!');
+            toast.success(income ? 'Recebimento confirmado!' : isCard ? 'Lançado na fatura!' : 'Baixa registrada!');
             setTimeout(onClose, 1200);
         } catch (err) {
             console.error('[baixa]', err);
@@ -697,18 +704,20 @@ function BaixaDialog({ isDark, uid, kind, rec, saldo, mk, onClose }) {
     const inputCls = `w-full pl-9 pr-3 py-3 rounded-xl border text-lg font-black outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 focus:border-emerald-500'}`;
 
     return (
-        <Modal isDark={isDark} title={income ? 'Confirmar recebimento' : 'Dar baixa'} onClose={onClose}>
+        <Modal isDark={isDark} title={income ? 'Confirmar recebimento' : isCard ? 'Lançar na fatura' : 'Dar baixa'} onClose={onClose}>
             {ok ? (
                 <div className="py-6 flex flex-col items-center text-center">
-                    <div className="w-14 h-14 rounded-2xl bg-emerald-500/12 flex items-center justify-center mb-3"><CheckCircle2 className="w-7 h-7 text-emerald-500" /></div>
-                    <p className={`text-[15px] font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{income ? 'Recebimento confirmado!' : 'Baixa registrada!'}</p>
-                    <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>O saldo em conta foi atualizado.</p>
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3 ${isCard ? 'bg-blue-500/12' : 'bg-emerald-500/12'}`}><CheckCircle2 className={`w-7 h-7 ${isCard ? 'text-blue-500' : 'text-emerald-500'}`} /></div>
+                    <p className={`text-[15px] font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{income ? 'Recebimento confirmado!' : isCard ? 'Lançado na fatura!' : 'Baixa registrada!'}</p>
+                    <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{isCard ? `Entrou na fatura de ${rec.cardName || 'seu cartão'}. Não saiu do saldo.` : 'O saldo em conta foi atualizado.'}</p>
                 </div>
             ) : (
                 <div className="space-y-4">
                     <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                         {income ? (
                             <>Confirmar o recebimento de <span className="font-black">{rec.name}</span>? Será registrado como entrada e somado ao <span className="font-bold">Saldo em conta</span>.</>
+                        ) : isCard ? (
+                            <>Lançar <span className="font-black">{rec.name}</span> na <span className="font-bold">fatura de {rec.cardName || 'seu cartão'}</span>? Entra na fatura do mês — <span className="font-bold">não sai do seu saldo em conta</span> agora (você paga a fatura em <span className="font-bold">Meu cartão</span>).</>
                         ) : (
                             <>Confirmar o pagamento de <span className="font-black">{rec.name}</span>? Será registrado como despesa e debitado do <span className="font-bold">Saldo em conta</span>.</>
                         )}
@@ -716,18 +725,26 @@ function BaixaDialog({ isDark, uid, kind, rec, saldo, mk, onClose }) {
 
                     {rec.isVariable && (
                         <div>
-                            <span className={`text-[11px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{income ? 'Valor recebido' : 'Valor pago'}</span>
+                            <span className={`text-[11px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{isCard ? 'Valor deste mês (obrigatório)' : income ? 'Valor recebido' : 'Valor pago'}</span>
                             <div className="relative mt-1">
                                 <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>R$</span>
-                                <input inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.,]/g, ''))} className={inputCls} />
+                                <input inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} autoFocus />
                             </div>
+                            <p className={`text-[11px] mt-1.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>É variável — confirme quanto foi <b>este mês</b> antes de lançar.</p>
                         </div>
                     )}
 
-                    <div className={`rounded-xl p-3.5 border flex items-center justify-between ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-100'}`}>
-                        <div><p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Saldo em conta</p><p className={`font-black tabular-nums ${saldo >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>R$ {money(saldo)}</p></div>
-                        <div className="text-right"><p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{income ? 'Entrada' : 'Baixa'}</p><p className={`font-black tabular-nums ${income ? 'text-emerald-500' : 'text-rose-500'}`}>{income ? '+' : '−'} R$ {money(val)}</p></div>
-                    </div>
+                    {isCard ? (
+                        <div className={`rounded-xl p-3.5 border flex items-center justify-between ${isDark ? 'bg-blue-500/[0.06] border-blue-500/20' : 'bg-blue-50 border-blue-200'}`}>
+                            <div className="flex items-center gap-2"><CreditCard className="w-4 h-4 text-blue-500 shrink-0" /><div><p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Fatura</p><p className={`font-bold text-[13px] ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{rec.cardName || 'Cartão'}</p></div></div>
+                            <div className="text-right"><p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Entra na fatura</p><p className="font-black tabular-nums text-blue-500">+ R$ {money(val)}</p></div>
+                        </div>
+                    ) : (
+                        <div className={`rounded-xl p-3.5 border flex items-center justify-between ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-100'}`}>
+                            <div><p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Saldo em conta</p><p className={`font-black tabular-nums ${saldo >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>R$ {money(saldo)}</p></div>
+                            <div className="text-right"><p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{income ? 'Entrada' : 'Baixa'}</p><p className={`font-black tabular-nums ${income ? 'text-emerald-500' : 'text-rose-500'}`}>{income ? '+' : '−'} R$ {money(val)}</p></div>
+                        </div>
+                    )}
 
                     {(error || insufficient) && (
                         <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] font-bold flex items-center gap-2">
@@ -737,8 +754,9 @@ function BaixaDialog({ isDark, uid, kind, rec, saldo, mk, onClose }) {
 
                     <div className="grid grid-cols-2 gap-2.5">
                         <button onClick={onClose} className={`py-3 rounded-xl font-bold text-sm ${isDark ? 'bg-white/5 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>Cancelar</button>
-                        <button onClick={confirmar} disabled={loading || insufficient} className="py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-50">
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {income ? 'Confirmar' : 'Confirmar baixa'}</>}
+                        <button onClick={confirmar} disabled={loading || insufficient || val <= 0}
+                            className={`py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-50 ${isCard ? 'bg-blue-500 hover:bg-blue-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {income ? 'Confirmar' : isCard ? 'Lançar na fatura' : 'Confirmar baixa'}</>}
                         </button>
                     </div>
                 </div>
