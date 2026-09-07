@@ -1124,10 +1124,26 @@ async function handleDocumentImport(db, from, uid, sessRef, docInfo, key) {
 
 // Extrai QUALQUER bloco de ação JSON da resposta da IA.
 function parseAction(text) {
-  const m = text.match(/\{[\s\S]*?"action"[\s\S]*?\}/);
-  if (!m) return null;
-  try { return JSON.parse(m[0]); } catch { return null; }
+  if (!text || text.indexOf('"action"') < 0) return null;
+  const start = text.indexOf('{');
+  if (start < 0) return null;
+  const frag = text.slice(start);
+  const tryParse = (s) => { try { const o = JSON.parse(s); return (o && o.action) ? o : null; } catch { return null; } };
+  // 1) do primeiro { até o último } (JSON completo).
+  const lastBrace = frag.lastIndexOf('}');
+  if (lastBrace >= 0) { const o = tryParse(frag.slice(0, lastBrace + 1)); if (o) return o; }
+  // 2) JSON TRUNCADO (o modelo cortou no meio): repara — fecha string aberta,
+  //    remove vírgula solta e fecha a chave. Campos que faltarem serão pedidos depois.
+  let r = (lastBrace >= 0 ? frag.slice(0, lastBrace + 1) : frag).trim();
+  r = r.replace(/:\s*"[^"]*$/, ': ""');   // string aberta no fim (ex.: "name":"Con)
+  r = r.replace(/,\s*$/, '');             // vírgula final
+  if (!r.endsWith('}')) r += '}';
+  r = r.replace(/,\s*}/g, '}');           // vírgula antes de }
+  return tryParse(r);
 }
+
+// Uma resposta que "vaza" JSON/estrutura em vez de texto natural — nunca enviar ao usuário.
+const looksLikeRawJson = (s) => /"action"\s*:/.test(String(s || '')) || /^\s*[{[]/.test(String(s || '').trim());
 
 // Reserva de emergência ideal — determinístico. Calcula o custo mensal médio
 // e aplica a regra de mercado (6 a 12 meses), comparando com o que já está guardado.
@@ -1725,6 +1741,21 @@ export default async function handler(req, res) {
       }
     }
 
+    // ── RECORRENTE: só faltou o DIA (nome/valor já vieram) ──
+    if (sess.pending?.type === 'fx_day') {
+      const p = sess.pending;
+      const d = parseDay(text);
+      if (!d) { await sendText(from, 'Me diz só o *dia* do mês (1 a 31). Ex.: *12*.'); return res.status(200).json({ ok: true }); }
+      try {
+        const r = await doAddFixed(db, uid, p.data.kind, { name: p.data.name, value: p.data.value, day: d, category: p.data.kind === 'expense' ? (p.data.category || undefined) : undefined });
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, r.ok
+          ? `Cadastrado! ✅ *${r.name}* virou uma ${p.data.kind === 'income' ? 'entrada' : 'despesa'} recorrente de *R$ ${money(p.data.value)}* (dia ${d}).`
+          : 'Não consegui cadastrar agora. Tenta de novo. 🙏');
+      } catch (e) { console.error('WA fx_day:', e); await sendText(from, 'Não consegui cadastrar agora. Tenta de novo. 🙏'); }
+      return res.status(200).json({ ok: true });
+    }
+
     // Atalhos p/ (re)iniciar o cadastro guiado sob demanda.
     if (!sess.pending) {
       const tl = String(text).trim().toLowerCase();
@@ -2000,12 +2031,19 @@ export default async function handler(req, res) {
       const kind = action.action === 'add_fixed_income' ? 'income' : 'expense';
       const value = Math.abs(parseFloat(action.value) || 0);
       if (value <= 0 || !action.name) { await sendText(from, 'Preciso do nome e do valor pra cadastrar. Ex.: "cadastra aluguel 1500 dia 10". 🙏'); return res.status(200).json({ ok: true }); }
+      const cat = EXPENSE_CATS.includes(action.category) ? action.category : undefined;
+      // Sem o DIA (ou veio truncado) → pergunta em vez de chutar dia 5.
+      const dNum = parseDay(String(action.day ?? ''));
+      if (!dNum) {
+        await sessRef.set({ uid, history, pending: { type: 'fx_day', data: { kind, name: action.name, value, category: kind === 'expense' ? cat : null } } }, { merge: true });
+        await sendText(from, `Quase lá! Que *dia do mês* ${kind === 'income' ? 'você recebe' : 'vence'} *${normName(action.name)}* (R$ ${money(value)})? (1 a 31)`);
+        return res.status(200).json({ ok: true });
+      }
       try {
-        const cat = EXPENSE_CATS.includes(action.category) ? action.category : undefined;
-        const r = await doAddFixed(db, uid, kind, { name: action.name, value, day: action.day, category: kind === 'expense' ? cat : undefined });
+        const r = await doAddFixed(db, uid, kind, { name: action.name, value, day: dNum, category: kind === 'expense' ? cat : undefined });
         await sessRef.set({ uid, history, pending: null }, { merge: true });
         await sendText(from, r.ok
-          ? `Cadastrado! ✅ *${r.name}* virou uma ${kind === 'income' ? 'entrada' : 'despesa'} recorrente de *R$ ${money(value)}* (dia ${Math.min(31, Math.max(1, parseInt(action.day) || 5))}).`
+          ? `Cadastrado! ✅ *${r.name}* virou uma ${kind === 'income' ? 'entrada' : 'despesa'} recorrente de *R$ ${money(value)}* (dia ${dNum}).`
           : 'Não consegui cadastrar agora. Tenta de novo. 🙏');
       } catch (e) { console.error('WA add_fixed:', e); await sendText(from, 'Não consegui cadastrar a recorrente agora. Tenta de novo. 🙏'); }
       return res.status(200).json({ ok: true });
@@ -2064,6 +2102,11 @@ export default async function handler(req, res) {
       const data = { description: normName(expense.description), amount: expense.amount, suggested: expense.category, isCard: false };
       await sessRef.set({ uid, history, pending: { type: 'exp_cat', data } }, { merge: true });
       await sendCatList(from, `Gasto: *${data.description}* — R$ ${money(expense.amount)}.\nEm qual *categoria*? 👇`, data.suggested);
+    } else if (looksLikeRawJson(reply)) {
+      // A IA tentou uma ação mas veio malformada/truncada — NÃO vaza o JSON.
+      console.error(`WA raw-json evitado: ${reply.slice(0, 200)}`);
+      await sessRef.set({ uid, history, pending: null }, { merge: true });
+      await sendText(from, 'Ops, me embananei aqui agora 😅 Pode repetir o que você quer, por favor? (ex.: "cadastra conta de luz 350 dia 12")');
     } else {
       const newHistory = [...history, { role: 'user', text }, { role: 'model', text: reply }].slice(-12);
       await sessRef.set({ uid, history: newHistory, pending: null }, { merge: true });
