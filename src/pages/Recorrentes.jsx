@@ -122,14 +122,27 @@ export default function Recorrentes({ onNavigate }) {
         .sort((a, b) => (a.day || 0) - (b.day || 0));
 
     const incomeRows = useMemo(() => withStatus(incomes), [incomes, transactions, mk]);
-    const expenseRowsFix = useMemo(() => withStatus(expenses), [expenses, transactions, mk]);
 
-    // Assinaturas e parcelamentos lançados no CARTÃO. Aparecem aqui como despesas
-    // recorrentes (só pra visualizar e somar) — a baixa é na fatura do cartão, então
-    // não têm ação de "dar baixa"/editar/excluir aqui (status "no cartão").
     const cardIds = useMemo(() => new Set(cards.map(c => c.id)), [cards]);
-    const cardRecurringRows = useMemo(() => cardSubs
-        // Só conta assinaturas/parcelamentos de cartões que AINDA existem (ignora órfãos).
+    // Uma despesa recorrente paga no CARTÃO (crédito + cartão existente): não é paga
+    // por baixa aqui — cai na fatura do cartão. Vai pra aba "No cartão".
+    const isCardPaid = (r) => r.paymentMethod === 'credito' && r.cardId && cardIds.has(r.cardId);
+
+    // "Fixas & mensais" = só as recorrentes NÃO pagas no cartão (essas têm baixa aqui).
+    const expenseRowsFix = useMemo(() => withStatus(expenses.filter(e => !isCardPaid(e))),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [expenses, transactions, mk, cardIds]);
+
+    // Recorrentes pagas no cartão — editáveis (variáveis inclusive), sem baixa. Ficam
+    // no TOPO da aba "No cartão".
+    const cardFixedRows = useMemo(() => expenses.filter(isCardPaid)
+        .map(r => ({ ...r, cardPaid: true, status: 'cartao', cardName: cards.find(c => c.id === r.cardId)?.name || 'Cartão' }))
+        .sort((a, b) => (a.day || 0) - (b.day || 0)),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [expenses, cardIds]);
+
+    // Assinaturas e parcelamentos lançados no CARTÃO (vêm de subscriptions) — read-only.
+    const cardSubRows = useMemo(() => cardSubs
         .filter(s => s.cardId && cardIds.has(s.cardId))
         .map(s => {
             const isInst = s.type === 'installment' || s.isInstallment;
@@ -143,6 +156,9 @@ export default function Recorrentes({ onNavigate }) {
         })
         .sort((a, b) => (a.day || 0) - (b.day || 0)),
         [cardSubs, cardIds]);
+
+    // Aba "No cartão": recorrentes de cartão (editáveis) no topo + assinaturas/parcelas.
+    const cardRecurringRows = useMemo(() => [...cardFixedRows, ...cardSubRows], [cardFixedRows, cardSubRows]);
 
     // Fixos primeiro, depois os do cartão (read-only).
     const expenseRows = useMemo(() => [...expenseRowsFix, ...cardRecurringRows], [expenseRowsFix, cardRecurringRows]);
@@ -199,7 +215,7 @@ export default function Recorrentes({ onNavigate }) {
                     onDelete={(r) => deleteDoc(doc(db, collOf('expense'), r.id))}
                     onBaixa={(r) => setBaixa({ kind: 'expense', rec: r })}
                     onNavigate={onNavigate}
-                    emptyOverride={expTab === 'cartao' ? 'Nenhuma parcela ou assinatura vinculada a cartão.' : null}
+                    emptyOverride={expTab === 'cartao' ? 'Nada no cartão ainda. Recorrentes pagas no crédito, assinaturas e parcelas aparecem aqui.' : null}
                     headerRight={
                         <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-100/70'}`}>
                             <SubTab active={expTab === 'fixas'} onClick={() => setExpTab('fixas')} isDark={isDark} label="Fixas & mensais" count={expenseRowsFix.length} />
@@ -301,6 +317,11 @@ function RecorrentesSection({ kind, rows, isDark, cards = [], onEdit, onDelete, 
                                             )}
                                             {r.onCard ? (
                                                 <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 shrink-0">{r.cardKind === 'parcelamento' ? `Parcela ${r.parcela}` : 'Assinatura'}</span>
+                                            ) : r.cardPaid ? (
+                                                <>
+                                                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 shrink-0 inline-flex items-center gap-1"><CreditCard className="w-2.5 h-2.5" /> {r.cardName}</span>
+                                                    {r.isVariable && <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Variável</span>}
+                                                </>
                                             ) : r.isVariable ? (
                                                 <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Variável</span>
                                             ) : null}
@@ -319,7 +340,12 @@ function RecorrentesSection({ kind, rows, isDark, cards = [], onEdit, onDelete, 
                                             </button>
                                         ) : (
                                             <>
-                                                {r.status === 'pago' ? (
+                                                {r.cardPaid ? (
+                                                    <button onClick={() => onNavigate?.('cartoes')} title="Pagar/ver na fatura do cartão"
+                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition active:scale-95 shrink-0 ${isDark ? 'text-blue-400 hover:bg-blue-500/10' : 'text-blue-600 hover:bg-blue-50'}`}>
+                                                        <CreditCard className="w-4 h-4" />
+                                                    </button>
+                                                ) : r.status === 'pago' ? (
                                                     <span title={cfg.doneLabel} className="w-8 h-8 rounded-lg flex items-center justify-center text-emerald-500 bg-emerald-500/12 shrink-0"><Check className="w-4 h-4" strokeWidth={3} /></span>
                                                 ) : (
                                                     <button onClick={() => onBaixa(r)} title={cfg.actionLabel}
