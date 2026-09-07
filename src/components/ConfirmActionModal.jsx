@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Trash2, Pencil, Loader2 } from 'lucide-react';
+import { Trash2, Pencil, Loader2, CreditCard } from 'lucide-react';
 import { toast } from './ui/Toaster';
 
 // Modal de confirmação de Editar / Excluir. Ao confirmar, mostra "Editando…" /
 // "Excluindo…" enquanto processa. `onConfirm` pode ser assíncrono.
+// `warning` (opcional) exibe um alerta âmbar em destaque (ex.: impacto na fatura).
 // Reutilizado na fatura do cartão, em Recorrentes e em Lançamentos.
-export default function ConfirmActionModal({ isDark, type, name, noun = 'lançamento', onClose, onConfirm }) {
+export default function ConfirmActionModal({ isDark, type, name, noun = 'lançamento', warning = null, onClose, onConfirm }) {
     const [busy, setBusy] = useState(false);
     const isDelete = type === 'delete';
     const Icon = isDelete ? Trash2 : Pencil;
@@ -28,11 +29,17 @@ export default function ConfirmActionModal({ isDark, type, name, noun = 'lançam
                         <p className="text-[12px] text-slate-500 truncate">{name || noun}</p>
                     </div>
                 </div>
-                <p className={`text-[13px] leading-relaxed mb-4 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                <p className={`text-[13px] leading-relaxed mb-3 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                     {isDelete
                         ? `Tem certeza que deseja excluir este ${noun}? Esta ação não pode ser desfeita.`
                         : `Deseja abrir este ${noun} para edição?`}
                 </p>
+                {warning && (
+                    <div className={`mb-4 rounded-xl border px-3.5 py-3 flex items-start gap-2.5 text-[12.5px] leading-relaxed ${isDark ? 'border-amber-500/25 bg-amber-500/[0.08] text-amber-200' : 'border-amber-300 bg-amber-50 text-amber-700'}`}>
+                        <CreditCard className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+                        <span>{warning}</span>
+                    </div>
+                )}
                 <div className="flex items-center gap-2">
                     <button type="button" onClick={onClose} disabled={busy} className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition disabled:opacity-50 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>Cancelar</button>
                     <button type="button" onClick={confirm} disabled={busy}

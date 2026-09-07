@@ -194,7 +194,7 @@ export default function Recorrentes({ onNavigate }) {
                     onBaixa={(r) => setBaixa({ kind: 'income', rec: r })} />
 
                 {/* Despesas — sub-abas: Fixas & mensais vs No cartão */}
-                <RecorrentesSection kind="expense" rows={expTab === 'fixas' ? expenseRowsFix : cardRecurringRows} isDark={isDark}
+                <RecorrentesSection kind="expense" rows={expTab === 'fixas' ? expenseRowsFix : cardRecurringRows} isDark={isDark} cards={cards}
                     onEdit={(r) => setForm({ kind: 'expense', editing: r })}
                     onDelete={(r) => deleteDoc(doc(db, collOf('expense'), r.id))}
                     onBaixa={(r) => setBaixa({ kind: 'expense', rec: r })}
@@ -244,7 +244,7 @@ export default function Recorrentes({ onNavigate }) {
 }
 
 // ── Seção (entradas ou despesas) ────────────────────────────────────
-function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, onNavigate, wrapClass = 'mt-8', headerRight = null, emptyOverride = null }) {
+function RecorrentesSection({ kind, rows, isDark, cards = [], onEdit, onDelete, onBaixa, onNavigate, wrapClass = 'mt-8', headerRight = null, emptyOverride = null }) {
     const [confirmAction, setConfirmAction] = useState(null); // { type:'edit'|'delete', row }
     const cfg = KIND[kind];
     const SectionIcon = cfg.icon;
@@ -351,17 +351,25 @@ function RecorrentesSection({ kind, rows, isDark, onEdit, onDelete, onBaixa, onN
             )}
         </div>
 
-        {confirmAction && (
-            <ConfirmActionModal isDark={isDark} type={confirmAction.type}
-                name={confirmAction.row.name || confirmAction.row.description}
-                noun={income ? 'entrada recorrente' : 'despesa recorrente'}
-                onClose={() => setConfirmAction(null)}
-                onConfirm={async () => {
-                    const r = confirmAction.row;
-                    if (confirmAction.type === 'delete') { await onDelete(r); await new Promise(res => setTimeout(res, 300)); }
-                    else { await new Promise(res => setTimeout(res, 400)); onEdit(r); }
-                }} />
-        )}
+        {confirmAction && (() => {
+            const r = confirmAction.row;
+            const noCartao = !income && r.paymentMethod === 'credito' && r.cardId;
+            const cardName = noCartao ? (cards.find(c => c.id === r.cardId)?.name || 'seu cartão') : '';
+            const warning = !noCartao ? null : (confirmAction.type === 'delete'
+                ? `Esta despesa é paga no cartão ${cardName} e entra na fatura. Ao excluir, ela deixa de ser lançada na fatura nos próximos meses. (Lançamentos já dados baixa em faturas passadas continuam lá.)`
+                : `Esta despesa é paga no cartão ${cardName} e entra na fatura. O que você alterar (valor, dia ou cartão) passa a valer para as próximas faturas.`);
+            return (
+                <ConfirmActionModal isDark={isDark} type={confirmAction.type}
+                    name={r.name || r.description}
+                    noun={income ? 'entrada recorrente' : 'despesa recorrente'}
+                    warning={warning}
+                    onClose={() => setConfirmAction(null)}
+                    onConfirm={async () => {
+                        if (confirmAction.type === 'delete') { await onDelete(r); await new Promise(res => setTimeout(res, 300)); }
+                        else { await new Promise(res => setTimeout(res, 400)); onEdit(r); }
+                    }} />
+            );
+        })()}
         </>
     );
 }
