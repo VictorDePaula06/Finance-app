@@ -162,6 +162,9 @@ export default function Recorrentes({ onNavigate }) {
     // Fixos primeiro, depois os do cartão (read-only).
     const expenseRows = useMemo(() => [...expenseRowsFix, ...cardRecurringRows], [expenseRowsFix, cardRecurringRows]);
 
+    // Variáveis pagas no cartão que ainda NÃO foram lançadas na fatura deste mês.
+    const pendVarCard = useMemo(() => cardFixedRows.filter(r => r.isVariable && r.status !== 'pago'), [cardFixedRows]);
+
     const totalEntradas = incomeRows.reduce((a, r) => a + (parseFloat(r.value) || 0), 0);
     const totalDespesas = expenseRows.reduce((a, r) => a + (parseFloat(r.value) || 0), 0);
     const balancoProjetado = totalEntradas - totalDespesas;
@@ -200,6 +203,25 @@ export default function Recorrentes({ onNavigate }) {
                     value={<AnimatedNumber value={balancoProjetado} format={(v) => `${v < 0 ? '− ' : ''}R$ ${money(Math.abs(v))}`} />}
                     tone={balancoProjetado >= 0 ? 'emerald' : 'rose'} />
             </div>
+
+            {/* Lembrete: variáveis no cartão pra confirmar o valor e lançar na fatura */}
+            {pendVarCard.length > 0 && (
+                <button type="button" onClick={() => setExpTab('cartao')}
+                    className={`mt-4 w-full text-left rounded-2xl border px-4 py-3.5 flex items-center gap-3 transition active:scale-[0.995] ${isDark ? 'border-blue-500/25 bg-blue-500/[0.07] hover:bg-blue-500/[0.1]' : 'border-blue-200 bg-blue-50 hover:bg-blue-100/70'}`}>
+                    <span className="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-500 flex items-center justify-center shrink-0"><CreditCard className="w-5 h-5" /></span>
+                    <div className="min-w-0 flex-1">
+                        <p className={`text-[13px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                            Confirme o valor no cartão · {pendVarCard.length} pendente{pendVarCard.length > 1 ? 's' : ''}
+                        </p>
+                        <p className={`text-[12px] mt-0.5 truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {pendVarCard.length === 1
+                                ? <><b>{pendVarCard[0].name}</b> é variável — confirme quanto foi este mês e lance na fatura.</>
+                                : <>Há despesas variáveis no cartão ({pendVarCard.slice(0, 3).map(r => r.name).join(', ')}{pendVarCard.length > 3 ? '…' : ''}) pra confirmar e lançar na fatura deste mês.</>}
+                        </p>
+                    </div>
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[12px] font-bold text-blue-500 shrink-0">Ver no cartão <ArrowRight className="w-3.5 h-3.5" /></span>
+                </button>
+            )}
 
             {/* Entradas | Despesas — duas colunas (mesma altura) */}
             <div className="grid lg:grid-cols-2 gap-4 mt-6 items-stretch">
