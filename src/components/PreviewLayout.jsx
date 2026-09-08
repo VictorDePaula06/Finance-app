@@ -4,7 +4,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Toaster } from './ui/Toaster';
 import OnboardingAlivia from './OnboardingAlivia';
-import AppSidebar, { NAV_ITEMS } from './AppSidebar';
+import AppSidebar, { NAV_ITEMS, APP_VERSION } from './AppSidebar';
 import MobileNav from './MobileNav';
 import Recorrentes from '../pages/Recorrentes';
 import Lancamentos from '../pages/Lancamentos';
@@ -72,14 +72,16 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
 
             <div className="flex-1 flex flex-col min-w-0"
                 style={isDark ? { backgroundImage: 'radial-gradient(1300px 620px at 12% -6%, rgba(16,185,129,0.18), transparent 60%), radial-gradient(820px 480px at 88% -10%, rgba(20,184,166,0.10), transparent 62%)' } : undefined}>
-                {/* Topo mobile (some no desktop) — marca; navegação vive na bottom nav */}
-                <header className={`lg:hidden sticky top-0 z-30 flex items-center gap-2 px-4 h-14 border-b ${isDark ? 'bg-[#0a0a0a]/90 border-white/[0.06]' : 'bg-white/90 border-slate-100'} backdrop-blur`}>
+                {/* Topo mobile (some no desktop) — marca + versão; respeita a barra de status. */}
+                <header className={`lg:hidden sticky top-0 z-30 flex items-center gap-2 px-4 border-b ${isDark ? 'bg-[#0a0a0a]/90 border-white/[0.06]' : 'bg-white/90 border-slate-100'} backdrop-blur`}
+                    style={{ height: 'calc(3.25rem + env(safe-area-inset-top))', paddingTop: 'env(safe-area-inset-top)' }}>
                     <span className="text-[17px] font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500">Alívia</span>
-                    <span className={`text-[10px] font-bold uppercase tracking-[0.3em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Finanças</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-[0.28em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Finanças</span>
+                    <span className={`ml-auto text-[10px] font-black tabular-nums px-1.5 py-0.5 rounded-md ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>v{APP_VERSION}</span>
                 </header>
 
             {/* Área de conteúdo (respiro inferior no mobile p/ a bottom navigation) */}
-            <main className="flex-1 p-4 sm:p-6 lg:p-10 pb-24 lg:pb-10 overflow-y-auto">
+            <main className="flex-1 p-4 sm:p-6 lg:p-10 pb-[calc(6rem_+_env(safe-area-inset-bottom))] lg:pb-10 overflow-y-auto">
                 {active === 'consultoria' ? <ConsultoriaAlivia onNavigate={go} /> : active === 'configuracoes' ? <Configuracoes /> : active === 'whatsapp' ? <div className="max-w-4xl mx-auto w-full"><WhatsAppTab isDark={isDark} /></div> : active === 'gerenciar-usuarios' ? <GerenciarUsuarios /> : active === 'dashboard' ? <Dashboard onNavigate={go} onSettings={() => go('configuracoes')} /> :active === 'recorrentes' ? <Recorrentes onNavigate={go} /> : active === 'lancamentos' ? <Lancamentos /> : active === 'cartoes' ? <Cartoes /> : active === 'patrimonio' ? <Patrimonio /> : active === 'reservas' ? <Reservas /> : active === 'analises' ? <Analises /> : active === 'manual' ? <Manual /> : active === 'assinatura' ? <Assinatura /> : (
                 <div className="max-w-4xl">
                     <span className={`text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Preview do novo layout</span>

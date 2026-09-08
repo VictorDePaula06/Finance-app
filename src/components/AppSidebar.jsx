@@ -11,7 +11,7 @@ import UserAvatar from './UserAvatar';
 import WhatsAppStatusButton from './WhatsAppStatusButton';
 
 // Versão do app (exibida discretamente na sidebar).
-export const APP_VERSION = '0.1';
+export const APP_VERSION = '0.9';
 
 // Navegação plana (sem módulos, sem subabas) — padrão Gym.
 export const NAV_ITEMS = [
