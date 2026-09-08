@@ -6,6 +6,7 @@ import { Toaster } from './ui/Toaster';
 import OnboardingAlivia from './OnboardingAlivia';
 import AppSidebar, { NAV_ITEMS, APP_VERSION } from './AppSidebar';
 import MobileNav from './MobileNav';
+import InstallPrompt from './InstallPrompt';
 import Recorrentes from '../pages/Recorrentes';
 import Lancamentos from '../pages/Lancamentos';
 import Cartoes from '../pages/Cartoes';
@@ -69,6 +70,9 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
                 onOpenProfile={() => navigate(`${tabPath('configuracoes')}?tab=perfil`)}
                 onLogout={sidebarProps.onLogout}
             />
+
+            {/* Card flutuante "Instalar Aplicativo" (mobile web, enquanto não instalado) */}
+            <InstallPrompt />
 
             <div className="flex-1 flex flex-col min-w-0"
                 style={isDark ? { backgroundImage: 'radial-gradient(1300px 620px at 12% -6%, rgba(16,185,129,0.18), transparent 60%), radial-gradient(820px 480px at 88% -10%, rgba(20,184,166,0.10), transparent 62%)' } : undefined}>
