@@ -67,11 +67,19 @@ html, body {
    Os textos "apagados" (slate-400/500) têm contraste baixo demais no branco.
    Aqui reforçamos o contraste no tema claro inteiro, sem tocar no escuro.
    O prefixo .theme-light dá especificidade suficiente pra prevalecer. */
-.theme-light .text-slate-400 { color: #5b6b7f; }   /* muito apagado → legível */
-.theme-light .text-slate-500 { color: #475569; }   /* secundário → slate-600 */
+.theme-light .text-slate-400 { color: #55637a; }   /* muito apagado → legível */
+.theme-light .text-slate-500 { color: #3f4b5c; }   /* secundário → mais forte */
 .theme-light .text-slate-600 { color: #334155; }   /* apoio → slate-700 */
 .theme-light .placeholder-slate-400::placeholder,
 .theme-light .placeholder-slate-500::placeholder { color: #64748b; opacity: 1; }
+
+/* Peso mínimo dos textinhos finos no tema claro (Quicksand fica fino em 10–12px).
+   Fica na camada `base`: os utilitários font-bold/black continuam prevalecendo,
+   então só os textos SEM peso explícito (os subtítulos finos) ganham corpo. */
+@layer base {
+  .theme-light .text-slate-400,
+  .theme-light .text-slate-500 { font-weight: 500; }
+}
 
 .theme-dark body {
   background-image:
