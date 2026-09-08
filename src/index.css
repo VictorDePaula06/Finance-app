@@ -63,6 +63,16 @@ html, body {
   animation: gradient-flow 20s ease infinite alternate;
 }
 
+/* ── TEMA CLARO: legibilidade dos textos ─────────────────────────────
+   Os textos "apagados" (slate-400/500) têm contraste baixo demais no branco.
+   Aqui reforçamos o contraste no tema claro inteiro, sem tocar no escuro.
+   O prefixo .theme-light dá especificidade suficiente pra prevalecer. */
+.theme-light .text-slate-400 { color: #5b6b7f; }   /* muito apagado → legível */
+.theme-light .text-slate-500 { color: #475569; }   /* secundário → slate-600 */
+.theme-light .text-slate-600 { color: #334155; }   /* apoio → slate-700 */
+.theme-light .placeholder-slate-400::placeholder,
+.theme-light .placeholder-slate-500::placeholder { color: #64748b; opacity: 1; }
+
 .theme-dark body {
   background-image:
     radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
