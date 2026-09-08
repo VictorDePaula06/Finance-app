@@ -28,3 +28,7 @@ dist-ssr
 
 .vercel
 .env*.local
+
+# Chave de serviço do Firebase (SECRETA) — nunca commitar
+serviceAccount.json
+serviceAccountKey.json
