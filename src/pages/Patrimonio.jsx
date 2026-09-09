@@ -1024,8 +1024,8 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                             );
                         })()}
                     </div>
-                ) : (!market || manual) ? (
-                    <Field label="Nome do ativo"><input value={name} onChange={e => setName(e.target.value)} placeholder={market ? 'Ex.: Bitcoin, Petrobras' : 'Ex.: CDB Banco X, Tesouro Selic 2029'} className={inputCls} maxLength={40} autoFocus={!market} /></Field>
+                ) : !market ? (
+                    <Field label="Nome do ativo"><input value={name} onChange={e => setName(e.target.value)} placeholder="Ex.: CDB Banco X, Tesouro Selic 2029" className={inputCls} maxLength={40} autoFocus /></Field>
                 ) : null}
 
                 {/* Moeda do ativo — vale para qualquer classe (dólar ou real) */}
@@ -1075,18 +1075,15 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                             {!manual && notFound && symbol.trim().length >= 2 && (
                                 <div className={`mt-2 rounded-xl border px-3 py-2.5 ${isDark ? 'bg-amber-500/[0.07] border-amber-500/25' : 'bg-amber-50 border-amber-200'}`}>
                                     <p className={`text-[12px] font-semibold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>Não encontramos esse ticker automaticamente.</p>
-                                    <button type="button" onClick={() => { setManual(true); if (!name.trim()) setName(''); }}
-                                        className="mt-1 text-[12px] font-black text-amber-500 hover:underline">Digitar os dados manualmente →</button>
+                                    <button type="button" onClick={() => setManual(true)}
+                                        className="mt-1 text-[12px] font-black text-amber-500 hover:underline">Continuar com este ticker mesmo assim →</button>
                                 </div>
                             )}
-                            {/* Toggle manual sempre disponível */}
-                            {manual ? (
+                            {/* Modo manual: preenche cotação na mão */}
+                            {manual && (
                                 <button type="button" onClick={() => { setManual(false); setNotFound(false); }}
-                                    className="mt-1.5 text-[11px] font-bold text-slate-400 hover:underline">← Voltar para busca automática</button>
-                            ) : (!resolvedName && !notFound && !resolving && (
-                                <button type="button" onClick={() => setManual(true)}
-                                    className="mt-1.5 text-[11px] font-bold text-slate-400 hover:underline">Não encontrou? Digitar manualmente</button>
-                            ))}
+                                    className="mt-1.5 text-[11px] font-bold text-slate-400 hover:underline">← Tentar busca automática de novo</button>
+                            )}
                         </Field>
                         <div className="grid grid-cols-3 gap-2">
                             <Field label="Quantidade"><input inputMode="decimal" value={quantity} onChange={e => setQuantity(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0" className={inputCls} /></Field>
