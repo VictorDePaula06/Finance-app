@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import AnimatedNumber from '../components/ui/AnimatedNumber';
 import AliviaFormHint from '../components/AliviaFormHint';
+import ConfirmActionModal from '../components/ConfirmActionModal';
+import { toast } from '../components/ui/Toaster';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -213,6 +215,7 @@ export default function Patrimonio() {
     const [cdi, setCdi] = useState(14.9);          // CDI anual (%) — taxa base do Brasil
     const [, setTick] = useState(0);                // re-render pro rendimento "andar"
     const [form, setForm] = useState(null);
+    const [confirmAction, setConfirmAction] = useState(null); // { type:'edit'|'delete', item }
 
     useEffect(() => {
         getCdiRate().then(raw => {
@@ -516,8 +519,8 @@ export default function Patrimonio() {
                                                     {market && <button onClick={() => setTrade({ asset: a, kind: 'buy' })} title="Aportar" className={`px-2.5 py-1.5 rounded-lg text-[12px] font-bold ${isDark ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>Aportar</button>}
                                                     {market && <button onClick={() => setTrade({ asset: a, kind: 'sell' })} title="Vender" className={`px-2.5 py-1.5 rounded-lg text-[12px] font-bold ${isDark ? 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}>Vender</button>}
                                                     {/* Renda fixa não tem aportes → mantém edição direta. Ativos de mercado editam pelos aportes. */}
-                                                    {!market && <button onClick={() => setForm({ editing: a })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>}
-                                                    <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, 'investments', a.id))} />
+                                                    {!market && <button onClick={() => setConfirmAction({ type: 'edit', item: a })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5 hover:text-emerald-400' : 'hover:bg-slate-100 hover:text-emerald-600'}`}><Pencil className="w-3.5 h-3.5" /></button>}
+                                                    <button onClick={() => setConfirmAction({ type: 'delete', item: a })} title="Excluir" className={`p-1.5 rounded-lg text-slate-400 transition ${isDark ? 'hover:text-rose-500 hover:bg-white/5' : 'hover:text-rose-500 hover:bg-slate-100'}`}><Trash2 className="w-3.5 h-3.5" /></button>
                                                 </div>
                                             </div>
                                         </div>
@@ -540,8 +543,8 @@ export default function Patrimonio() {
                                                 <div className="flex items-center gap-1 shrink-0">
                                                     {market && <button onClick={() => setTrade({ asset: a, kind: 'buy' })} className={`px-2.5 py-1.5 rounded-lg text-[12px] font-bold ${isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>Aportar</button>}
                                                     {market && <button onClick={() => setTrade({ asset: a, kind: 'sell' })} className={`px-2.5 py-1.5 rounded-lg text-[12px] font-bold ${isDark ? 'bg-amber-500/15 text-amber-400' : 'bg-amber-50 text-amber-600'}`}>Vender</button>}
-                                                    {!market && <button onClick={() => setForm({ editing: a })} className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-4 h-4" /></button>}
-                                                    <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, 'investments', a.id))} />
+                                                    {!market && <button onClick={() => setConfirmAction({ type: 'edit', item: a })} className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5 hover:text-emerald-400' : 'hover:bg-slate-100 hover:text-emerald-600'}`}><Pencil className="w-4 h-4" /></button>}
+                                                    <button onClick={() => setConfirmAction({ type: 'delete', item: a })} title="Excluir" className={`p-1.5 rounded-lg text-slate-400 transition ${isDark ? 'hover:text-rose-500 hover:bg-white/5' : 'hover:text-rose-500 hover:bg-slate-100'}`}><Trash2 className="w-4 h-4" /></button>
                                                 </div>
                                             </div>
                                         </div>
@@ -574,6 +577,22 @@ export default function Patrimonio() {
                 onConfirm={async (data) => { await applyTrade(trade.asset, { kind: trade.kind, ...data }); setTrade(null); setOpenAsset(trade.asset.id); }}
                 onClose={() => setTrade(null)} />}
             {form && <AtivoForm isDark={isDark} uid={uid} editing={form.editing} tesouroData={tesouroData} cdi={cdi} onClose={() => setForm(null)} />}
+            {confirmAction && (
+                <ConfirmActionModal isDark={isDark} type={confirmAction.type} noun="ativo"
+                    name={confirmAction.item.name || confirmAction.item.symbol || 'Ativo'}
+                    onClose={() => setConfirmAction(null)}
+                    onConfirm={async () => {
+                        const a = confirmAction.item;
+                        if (confirmAction.type === 'delete') {
+                            await deleteDoc(doc(db, 'investments', a.id));
+                            await new Promise(res => setTimeout(res, 300));
+                            toast.success('Ativo excluído.');
+                        } else {
+                            await new Promise(res => setTimeout(res, 400));
+                            setForm({ editing: a });
+                        }
+                    }} />
+            )}
             {monitorOpen && <MonitorModal isDark={isDark} investments={investments} watchlist={watchlist} prices={livePrices} changes={priceChanges}
                 defaultCur={cur} onAdd={addWatch} onUpdate={updWatch} onDelete={delWatch} onClose={() => setMonitorOpen(false)} />}
         </div>

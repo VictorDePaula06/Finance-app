@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import AnimatedNumber from '../components/ui/AnimatedNumber';
 import { toast } from '../components/ui/Toaster';
 import AliviaFormHint from '../components/AliviaFormHint';
+import ConfirmActionModal from '../components/ConfirmActionModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -54,6 +55,7 @@ export default function Reservas() {
     const [subs, setSubs] = useState([]);
     const [form, setForm] = useState(null);
     const [move, setMove] = useState(null);
+    const [confirmAction, setConfirmAction] = useState(null); // { type:'edit'|'delete', item }
     const [cdi, setCdi] = useState(14.9); // CDI anual real (%)
     const [, setTick] = useState(0);
 
@@ -179,8 +181,8 @@ export default function Reservas() {
                             <div key={r.id} className={`relative rounded-2xl border p-5 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}
                                 style={{ borderLeft: `3px solid ${meta.hex}` }}>
                                 <div className="absolute top-4 right-4 flex items-center gap-0.5">
-                                    <button onClick={() => setForm({ editing: r })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
-                                    <DeleteBtn isDark={isDark} onDelete={() => deleteDoc(doc(db, 'savings_jars', r.id))} />
+                                    <button onClick={() => setConfirmAction({ type: 'edit', item: r })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5 hover:text-emerald-400' : 'hover:bg-slate-100 hover:text-emerald-600'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => setConfirmAction({ type: 'delete', item: r })} title="Excluir" className={`p-1.5 rounded-lg text-slate-400 transition ${isDark ? 'hover:text-rose-500 hover:bg-white/5' : 'hover:text-rose-500 hover:bg-slate-100'}`}><Trash2 className="w-3.5 h-3.5" /></button>
                                 </div>
 
                                 <div className="flex flex-col lg:flex-row lg:items-center gap-5">
@@ -244,6 +246,22 @@ export default function Reservas() {
 
             {form && <ReservaForm isDark={isDark} uid={uid} cdi={cdi} custoFixo={custoFixo} editing={form.editing} onClose={() => setForm(null)} />}
             {move && <MoveForm isDark={isDark} uid={uid} cdi={cdi} reserve={move.reserve} kind={move.kind} onClose={() => setMove(null)} />}
+            {confirmAction && (
+                <ConfirmActionModal isDark={isDark} type={confirmAction.type} noun="reserva"
+                    name={confirmAction.item.name || resMeta(confirmAction.item).defaultName}
+                    onClose={() => setConfirmAction(null)}
+                    onConfirm={async () => {
+                        const r = confirmAction.item;
+                        if (confirmAction.type === 'delete') {
+                            await deleteDoc(doc(db, 'savings_jars', r.id));
+                            await new Promise(res => setTimeout(res, 300));
+                            toast.success('Reserva excluída.');
+                        } else {
+                            await new Promise(res => setTimeout(res, 400));
+                            setForm({ editing: r });
+                        }
+                    }} />
+            )}
         </div>
     );
 }
