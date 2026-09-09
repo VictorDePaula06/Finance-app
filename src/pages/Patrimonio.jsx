@@ -795,6 +795,27 @@ async function fetchTickerPrice(type, ticker, isUSD) {
     return null;
 }
 
+// Resolve NOME + cotação de um ticker (pega o nome automaticamente).
+// Cripto/populares → lista local; ações/ETFs/FIIs (BRL) → brapi (longName). found=false → não achou.
+async function resolveAsset(type, ticker, isUSD) {
+    const sym = String(ticker || '').trim().toUpperCase();
+    if (!sym) return { name: '', price: null, found: false };
+    const sug = (ASSET_SUGGESTIONS[type] || []).find(([s]) => s === sym);
+    let name = sug ? sug[1] : '';
+    let price = null;
+    if (type !== 'crypto' && !isUSD) {
+        try {
+            const res = await fetch(`https://brapi.dev/api/quote/${sym}`);
+            if (res.ok) {
+                const r0 = (await res.json())?.results?.[0];
+                if (r0) { name = name || r0.longName || r0.shortName || ''; if (r0.regularMarketPrice != null) price = parseFloat(r0.regularMarketPrice); }
+            }
+        } catch { /* ignore */ }
+    }
+    if (price == null) { try { price = await fetchTickerPrice(type, sym, isUSD); } catch { price = null; } }
+    return { name: name || sym, price, found: price != null || !!sug || (!!name && name !== sym) };
+}
+
 // ── Form: novo/editar ativo (com busca de cotação por ticker) ───────
 export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother = false, tesouroData = [], cdi = 14.9 }) {
     const againRef = useRef(false);
@@ -812,11 +833,14 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
     // renda fixa / imóveis (manual) — inicia pelos valores BRUTOS (na moeda do ativo).
     const [invested, setInvested] = useState(editing && !isMarket(editing?.type) ? String(editing.totalApplied ?? editing.purchasePrice ?? '').replace('.', ',') : '');
     const [current, setCurrent] = useState(editing && !isMarket(editing?.type) ? String(editing.manualCurrentPrice ?? '').replace('.', ',') : '');
-    const [fetching, setFetching] = useState(false);
-    const [fetchMsg, setFetchMsg] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [showSug, setShowSug] = useState(false);
+    // Auto-resolução do ticker (nome automático) + modo manual (digitar tudo).
+    const [manual, setManual] = useState(false);
+    const [resolvedName, setResolvedName] = useState(editing?.name || '');
+    const [resolving, setResolving] = useState(false);
+    const [notFound, setNotFound] = useState(false);
     // Renda fixa: subtipo + parâmetros (CDB/pós = % do CDI; Tesouro = título).
     const [rfKind, setRfKind] = useState(editing?.rfKind || (editing?.tesouroName ? 'tesouro' : 'cdb'));
     const [tesouroName, setTesouroName] = useState(editing?.tesouroName || '');
@@ -828,6 +852,25 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
     useEffect(() => { getUsdRate().then(r => { if (r) setUsdRate(r); }).catch(() => { }); }, []);
 
     const market = isMarket(type);
+
+    // Auto: ao digitar o ticker (ativo de mercado, não-manual), busca NOME + cotação.
+    useEffect(() => {
+        if (!market || manual) return;
+        const sym = symbol.trim();
+        if (sym.length < 2) { setResolvedName(''); setNotFound(false); setResolving(false); return; }
+        let alive = true;
+        setResolving(true); setNotFound(false);
+        const t = setTimeout(async () => {
+            const info = await resolveAsset(type, sym, isUSD);
+            if (!alive) return;
+            setResolving(false);
+            if (info.found) {
+                setResolvedName(info.name); setName(info.name); setNotFound(false);
+                if (info.price) setCurPrice(String(info.price.toFixed(info.price < 1 ? 6 : 2)).replace('.', ','));
+            } else { setResolvedName(''); setNotFound(true); }
+        }, 600);
+        return () => { alive = false; clearTimeout(t); };
+    }, [symbol, type, isUSD, market, manual]);
     const RF_KINDS = [{ id: 'cdb', label: 'CDB' }, { id: 'lci_lca', label: 'LCI/LCA' }, { id: 'tesouro', label: 'Tesouro' }, { id: 'outro', label: 'Outro' }];
     const isTesouro = type === 'renda_fixa' && rfKind === 'tesouro';
     const isCdiBased = type === 'renda_fixa' && (rfKind === 'cdb' || rfKind === 'lci_lca'); // rende % do CDI
@@ -857,27 +900,19 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
     const currentMkt = qty * numBR(curPrice) * mult;
     const rentMkt = investedMkt > 0 ? (currentMkt - investedMkt) / investedMkt * 100 : 0;
 
-    const buscar = async () => {
-        setFetchMsg(''); setFetching(true);
-        try {
-            const price = await fetchTickerPrice(type, symbol, isUSD);
-            if (price) { setCurPrice(String(price.toFixed(price < 1 ? 6 : 2)).replace('.', ',')); setFetchMsg('ok'); }
-            else setFetchMsg('Cotação não encontrada. Confira o ticker.');
-        } catch { setFetchMsg('Falha ao buscar. Tente de novo.'); }
-        finally { setFetching(false); }
-    };
-
     const submit = async (e) => {
         e.preventDefault();
         setError('');
         if (isTesouro && !tesouroName) { setError('Selecione o título do Tesouro.'); return; }
-        if (!isTesouro && !name.trim()) { setError('Informe o nome do ativo.'); return; }
+        if (market && !symbol.trim()) { setError('Informe o ticker do ativo.'); return; }
+        if (!market && !isTesouro && !name.trim()) { setError('Informe o nome do ativo.'); return; }
         setSaving(true);
         let data;
         if (market) {
             if (qty <= 0 || numBR(buyPrice) <= 0) { setError('Preencha quantidade e preço de compra.'); setSaving(false); return; }
+            const mktName = normalizeName(name || resolvedName || symbol.trim().toUpperCase());
             data = {
-                name: normalizeName(name), type, symbol: symbol.trim().toUpperCase(),
+                name: mktName, type, symbol: symbol.trim().toUpperCase(),
                 quantity: qty, purchasePrice: numBR(buyPrice),
                 manualCurrentPrice: numBR(curPrice) > 0 ? numBR(curPrice) : numBR(buyPrice),
                 isUSD,
@@ -926,7 +961,7 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                 {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
 
                 <Field label="Classe">
-                    <select value={type} onChange={e => { setType(e.target.value); setFetchMsg(''); }} className={inputCls} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
+                    <select value={type} onChange={e => { setType(e.target.value); }} className={inputCls} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
                         {ASSET_TYPES.map(t => <option key={t.id} value={t.id} style={optStyle}>{t.label}</option>)}
                     </select>
                 </Field>
@@ -989,13 +1024,13 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                             );
                         })()}
                     </div>
-                ) : (
-                    <Field label="Nome do ativo"><input value={name} onChange={e => setName(e.target.value)} placeholder={market ? 'Ex.: Petrobras, Bitcoin' : 'Ex.: CDB Banco X, Tesouro Selic 2029'} className={inputCls} maxLength={40} autoFocus /></Field>
-                )}
+                ) : (!market || manual) ? (
+                    <Field label="Nome do ativo"><input value={name} onChange={e => setName(e.target.value)} placeholder={market ? 'Ex.: Bitcoin, Petrobras' : 'Ex.: CDB Banco X, Tesouro Selic 2029'} className={inputCls} maxLength={40} autoFocus={!market} /></Field>
+                ) : null}
 
                 {/* Moeda do ativo — vale para qualquer classe (dólar ou real) */}
                 <label className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border cursor-pointer transition ${isUSD ? 'border-emerald-500/40 bg-emerald-500/10' : (isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50')}`}>
-                    <input type="checkbox" checked={isUSD} onChange={e => { setIsUSD(e.target.checked); setFetchMsg(''); }} className="w-4 h-4 accent-emerald-500" />
+                    <input type="checkbox" checked={isUSD} onChange={e => { setIsUSD(e.target.checked); }} className="w-4 h-4 accent-emerald-500" />
                     <div>
                         <p className={`text-[13px] font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Valores em dólar (US$)</p>
                         <p className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Converte pelo câmbio atual · US$ 1 = R$ {money(usdRate)}</p>
@@ -1005,33 +1040,53 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                 {market ? (
                     <>
                         <Field label={type === 'crypto' ? 'Ticker (ex.: BTC, ETH)' : 'Ticker (ex.: PETR4, IVVB11)'}>
-                            <div className="flex gap-2">
-                                <div className="relative flex-1">
-                                    {symbol.trim() && <span className="absolute left-2 top-1/2 -translate-y-1/2"><AssetIcon symbol={symbol} type={type} size={22} /></span>}
-                                    <input value={symbol}
-                                        onChange={e => { setSymbol(e.target.value.toUpperCase().replace(/\s/g, '')); setFetchMsg(''); setShowSug(true); }}
-                                        onFocus={() => setShowSug(true)} onBlur={() => setTimeout(() => setShowSug(false), 150)}
-                                        placeholder="Digite o ticker (ex.: BTC)" className={`${inputCls} ${symbol.trim() ? 'pl-9' : ''}`} maxLength={10} />
-                                    {showSug && sugList.length > 0 && (
-                                        <div className={`absolute z-20 left-0 right-0 mt-1 rounded-xl border shadow-2xl overflow-hidden max-h-56 overflow-y-auto ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-200'}`}>
-                                            {sugList.map(([s, n]) => (
-                                                <button key={s} type="button" onMouseDown={(e) => { e.preventDefault(); setSymbol(s); if (!name.trim()) setName(n); setShowSug(false); setFetchMsg(''); }}
-                                                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
-                                                    <AssetIcon symbol={s} type={type} name={n} size={26} />
-                                                    <span className={`text-[13px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{s}</span>
-                                                    <span className={`text-[12px] truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{n}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                                <button type="button" onClick={buscar} disabled={fetching || !symbol.trim()}
-                                    className="shrink-0 px-3 rounded-xl bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 font-bold text-sm flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50">
-                                    {fetching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Buscar
-                                </button>
+                            <div className="relative">
+                                {symbol.trim() && <span className="absolute left-2 top-1/2 -translate-y-1/2"><AssetIcon symbol={symbol} type={type} size={22} /></span>}
+                                <input value={symbol}
+                                    onChange={e => { setSymbol(e.target.value.toUpperCase().replace(/\s/g, '')); setShowSug(true); }}
+                                    onFocus={() => setShowSug(true)} onBlur={() => setTimeout(() => setShowSug(false), 150)}
+                                    placeholder="Digite o ticker (ex.: BTC)" className={`${inputCls} ${symbol.trim() ? 'pl-9' : ''} pr-9`} maxLength={10} autoFocus />
+                                {resolving && <Loader2 className="w-4 h-4 animate-spin text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />}
+                                {!resolving && !manual && resolvedName && <Check className="w-4 h-4 text-emerald-500 absolute right-3 top-1/2 -translate-y-1/2" />}
+                                {showSug && sugList.length > 0 && (
+                                    <div className={`absolute z-20 left-0 right-0 mt-1 rounded-xl border shadow-2xl overflow-hidden max-h-56 overflow-y-auto ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-200'}`}>
+                                        {sugList.map(([s, n]) => (
+                                            <button key={s} type="button" onMouseDown={(e) => { e.preventDefault(); setSymbol(s); setShowSug(false); }}
+                                                className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
+                                                <AssetIcon symbol={s} type={type} name={n} size={26} />
+                                                <span className={`text-[13px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{s}</span>
+                                                <span className={`text-[12px] truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{n}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                            {fetchMsg && fetchMsg !== 'ok' && <p className="text-[11px] text-rose-400 mt-1 font-semibold">{fetchMsg}</p>}
-                            {fetchMsg === 'ok' && <p className="text-[11px] text-emerald-400 mt-1 font-semibold">Cotação atualizada ✓</p>}
+                            {/* Preview do ativo resolvido automaticamente */}
+                            {!manual && resolvedName && (
+                                <div className={`mt-2 flex items-center gap-2.5 rounded-xl border px-3 py-2 ${isDark ? 'bg-emerald-500/[0.07] border-emerald-500/25' : 'bg-emerald-50 border-emerald-200'}`}>
+                                    <AssetIcon symbol={symbol} type={type} name={resolvedName} size={28} />
+                                    <div className="min-w-0 flex-1">
+                                        <p className={`text-[13px] font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{resolvedName}</p>
+                                        <p className="text-[11px] font-semibold text-emerald-500">Ativo identificado automaticamente ✓</p>
+                                    </div>
+                                </div>
+                            )}
+                            {/* Não encontrado */}
+                            {!manual && notFound && symbol.trim().length >= 2 && (
+                                <div className={`mt-2 rounded-xl border px-3 py-2.5 ${isDark ? 'bg-amber-500/[0.07] border-amber-500/25' : 'bg-amber-50 border-amber-200'}`}>
+                                    <p className={`text-[12px] font-semibold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>Não encontramos esse ticker automaticamente.</p>
+                                    <button type="button" onClick={() => { setManual(true); if (!name.trim()) setName(''); }}
+                                        className="mt-1 text-[12px] font-black text-amber-500 hover:underline">Digitar os dados manualmente →</button>
+                                </div>
+                            )}
+                            {/* Toggle manual sempre disponível */}
+                            {manual ? (
+                                <button type="button" onClick={() => { setManual(false); setNotFound(false); }}
+                                    className="mt-1.5 text-[11px] font-bold text-slate-400 hover:underline">← Voltar para busca automática</button>
+                            ) : (!resolvedName && !notFound && !resolving && (
+                                <button type="button" onClick={() => setManual(true)}
+                                    className="mt-1.5 text-[11px] font-bold text-slate-400 hover:underline">Não encontrou? Digitar manualmente</button>
+                            ))}
                         </Field>
                         <div className="grid grid-cols-3 gap-2">
                             <Field label="Quantidade"><input inputMode="decimal" value={quantity} onChange={e => setQuantity(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0" className={inputCls} /></Field>
