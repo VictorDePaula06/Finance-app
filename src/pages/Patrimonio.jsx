@@ -760,8 +760,41 @@ function DeleteBtn({ isDark, onDelete }) {
     return <button onClick={() => setConfirm(true)} title="Excluir" className={`p-1.5 rounded-lg text-slate-400 hover:text-rose-500 ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Trash2 className="w-3.5 h-3.5" /></button>;
 }
 
+// Yahoo é bloqueado por CORS no navegador → tenta uma lista de proxies com fallback.
+async function proxiedJson(targetUrl) {
+    const makers = [
+        u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+        u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+        u => `https://thingproxy.freeboard.io/fetch/${u}`,
+    ];
+    for (const mk of makers) {
+        try {
+            const ctl = new AbortController();
+            const to = setTimeout(() => ctl.abort(), 6000);
+            const res = await fetch(mk(targetUrl), { signal: ctl.signal });
+            clearTimeout(to);
+            if (res.ok) { const d = await res.json(); if (d) return d; }
+        } catch { /* timeout/erro → tenta o próximo proxy */ }
+    }
+    return null;
+}
+
+// Yahoo Finance (chart): NOME + cotação na moeda nativa do ativo.
+// Tenta os hosts query1/query2 (cada um passa pela lista de proxies).
+async function fetchYahoo(sym) {
+    for (const host of ['query1', 'query2']) {
+        const d = await proxiedJson(`https://${host}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}`);
+        const m = d?.chart?.result?.[0]?.meta;
+        if (m) {
+            const p = m.regularMarketPrice ?? m.previousClose ?? m.chartPreviousClose;
+            return { name: m.longName || m.shortName || '', price: p != null ? parseFloat(p) : null };
+        }
+    }
+    return { name: '', price: null };
+}
+
 // Busca a cotação de um ticker NA MOEDA do ativo (USD se isUSD, senão BRL).
-// Cripto via Binance; ações/ETFs/FIIs via brapi (BRL) / Yahoo (moeda nativa).
+// Cripto via Binance; ações/ETFs/FIIs via brapi (BRL) / Yahoo + Stooq (EUA).
 async function fetchTickerPrice(type, ticker, isUSD) {
     const sym = String(ticker || '').trim().toUpperCase();
     if (!sym) return null;
@@ -779,41 +812,52 @@ async function fetchTickerPrice(type, ticker, isUSD) {
         }
         return null;
     }
-    // Ações / ETFs / FIIs. Sem isUSD → brapi (BRL). Com isUSD (ativo em bolsa dos EUA) → Yahoo.
     if (!isUSD) {
+        // Brasil: brapi primeiro, depois Yahoo (.SA) como reforço.
         try {
             const res = await fetch(`https://brapi.dev/api/quote/${sym}`);
             if (res.ok) { const d = await res.json(); const p = d?.results?.[0]?.regularMarketPrice; if (p) return parseFloat(p); }
-        } catch { }
+        } catch { /* segue p/ Yahoo */ }
+        const isBR = /\d/.test(sym) || (sym.length >= 5 && !sym.includes('.'));
+        const y = await fetchYahoo(isBR ? `${sym}.SA` : sym);
+        return y.price;
     }
-    try {
-        const isBR = !isUSD && (/\d/.test(sym) || (sym.length >= 5 && !sym.includes('.')));
-        const yt = isBR ? `${sym}.SA` : sym;
-        const r2 = await fetch(`https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${yt}`)}`);
-        if (r2.ok) { const d2 = await r2.json(); const m = d2?.chart?.result?.[0]?.meta; const p = m?.regularMarketPrice || m?.previousClose; if (p) return parseFloat(p); }
-    } catch { }
-    return null;
+    // EUA (USD): Yahoo (query1/query2).
+    const y = await fetchYahoo(sym);
+    return y.price;
 }
 
 // Resolve NOME + cotação de um ticker (pega o nome automaticamente).
-// Cripto/populares → lista local; ações/ETFs/FIIs (BRL) → brapi (longName). found=false → não achou.
+// Retorna { name, price, found, priceMissing }: found=identificou o ticker;
+// priceMissing=identificou mas não conseguiu a cotação agora.
 async function resolveAsset(type, ticker, isUSD) {
     const sym = String(ticker || '').trim().toUpperCase();
-    if (!sym) return { name: '', price: null, found: false };
+    if (!sym) return { name: '', price: null, found: false, priceMissing: false };
     const sug = (ASSET_SUGGESTIONS[type] || []).find(([s]) => s === sym);
     let name = sug ? sug[1] : '';
     let price = null;
-    if (type !== 'crypto' && !isUSD) {
+    if (type === 'crypto') {
+        try { price = await fetchTickerPrice('crypto', sym, isUSD); } catch { price = null; }
+    } else if (!isUSD) {
+        // Brasil: brapi dá nome + preço; Yahoo (.SA) reforça o que faltar.
         try {
             const res = await fetch(`https://brapi.dev/api/quote/${sym}`);
-            if (res.ok) {
-                const r0 = (await res.json())?.results?.[0];
-                if (r0) { name = name || r0.longName || r0.shortName || ''; if (r0.regularMarketPrice != null) price = parseFloat(r0.regularMarketPrice); }
-            }
+            if (res.ok) { const r0 = (await res.json())?.results?.[0]; if (r0) { name = name || r0.longName || r0.shortName || ''; if (r0.regularMarketPrice != null) price = parseFloat(r0.regularMarketPrice); } }
         } catch { /* ignore */ }
+        if (!name || price == null) {
+            const isBR = /\d/.test(sym) || (sym.length >= 5 && !sym.includes('.'));
+            const y = await fetchYahoo(isBR ? `${sym}.SA` : sym);
+            if (!name && y.name) name = y.name;
+            if (price == null && y.price != null) price = y.price;
+        }
+    } else {
+        // EUA: Yahoo dá nome + preço.
+        const y = await fetchYahoo(sym);
+        if (!name && y.name) name = y.name;
+        if (y.price != null) price = y.price;
     }
-    if (price == null) { try { price = await fetchTickerPrice(type, sym, isUSD); } catch { price = null; } }
-    return { name: name || sym, price, found: price != null || !!sug || (!!name && name !== sym) };
+    const found = price != null || !!sug || (!!name && name !== sym);
+    return { name: name || sym, price, found, priceMissing: found && price == null };
 }
 
 // ── Form: novo/editar ativo (com busca de cotação por ticker) ───────
@@ -841,6 +885,7 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
     const [resolvedName, setResolvedName] = useState(editing?.name || '');
     const [resolving, setResolving] = useState(false);
     const [notFound, setNotFound] = useState(false);
+    const [priceMissing, setPriceMissing] = useState(false);
     // Renda fixa: subtipo + parâmetros (CDB/pós = % do CDI; Tesouro = título).
     const [rfKind, setRfKind] = useState(editing?.rfKind || (editing?.tesouroName ? 'tesouro' : 'cdb'));
     const [tesouroName, setTesouroName] = useState(editing?.tesouroName || '');
@@ -857,17 +902,18 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
     useEffect(() => {
         if (!market || manual) return;
         const sym = symbol.trim();
-        if (sym.length < 2) { setResolvedName(''); setNotFound(false); setResolving(false); return; }
+        if (sym.length < 2) { setResolvedName(''); setNotFound(false); setPriceMissing(false); setResolving(false); return; }
         let alive = true;
-        setResolving(true); setNotFound(false);
+        setResolving(true); setNotFound(false); setPriceMissing(false);
         const t = setTimeout(async () => {
             const info = await resolveAsset(type, sym, isUSD);
             if (!alive) return;
             setResolving(false);
             if (info.found) {
                 setResolvedName(info.name); setName(info.name); setNotFound(false);
+                setPriceMissing(!!info.priceMissing);
                 if (info.price) setCurPrice(String(info.price.toFixed(info.price < 1 ? 6 : 2)).replace('.', ','));
-            } else { setResolvedName(''); setNotFound(true); }
+            } else { setResolvedName(''); setNotFound(true); setPriceMissing(false); }
         }, 600);
         return () => { alive = false; clearTimeout(t); };
     }, [symbol, type, isUSD, market, manual]);
@@ -1063,11 +1109,13 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                             </div>
                             {/* Preview do ativo resolvido automaticamente */}
                             {!manual && resolvedName && (
-                                <div className={`mt-2 flex items-center gap-2.5 rounded-xl border px-3 py-2 ${isDark ? 'bg-emerald-500/[0.07] border-emerald-500/25' : 'bg-emerald-50 border-emerald-200'}`}>
+                                <div className={`mt-2 flex items-center gap-2.5 rounded-xl border px-3 py-2 ${priceMissing ? (isDark ? 'bg-amber-500/[0.07] border-amber-500/25' : 'bg-amber-50 border-amber-200') : (isDark ? 'bg-emerald-500/[0.07] border-emerald-500/25' : 'bg-emerald-50 border-emerald-200')}`}>
                                     <AssetIcon symbol={symbol} type={type} name={resolvedName} size={28} />
                                     <div className="min-w-0 flex-1">
                                         <p className={`text-[13px] font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{resolvedName}</p>
-                                        <p className="text-[11px] font-semibold text-emerald-500">Ativo identificado automaticamente ✓</p>
+                                        {priceMissing
+                                            ? <p className={`text-[11px] font-semibold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>Identificado ✓ — cotação indisponível agora. Informe o valor "Atual" abaixo.</p>
+                                            : <p className="text-[11px] font-semibold text-emerald-500">Ativo identificado automaticamente ✓</p>}
                                     </div>
                                 </div>
                             )}
