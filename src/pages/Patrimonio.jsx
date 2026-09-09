@@ -12,7 +12,7 @@ import { getUsdRate, getCdiRate } from '../utils/marketRates';
 import {
     Plus, Minus, Pencil, Trash2, X, Loader2, Check, Search, Save, ChevronDown,
     Landmark, PieChart as PieIcon, Activity, Bitcoin, TrendingUp, TrendingDown,
-    ArrowUpRight, ArrowDownRight,
+    ArrowUpRight, ArrowDownRight, DollarSign,
 } from 'lucide-react';
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -39,13 +39,14 @@ const GROUP_META = {
 const GROUP_IDS = Object.keys(GROUP_META);
 const getGroup = (type) =>
     type === 'renda_fixa' ? 'renda_fixa'
-        : (type === 'acoes' || type === 'etfs') ? 'acoes_etfs'
+        : (type === 'acoes' || type === 'acoes_us' || type === 'etfs') ? 'acoes_etfs'
             : type === 'crypto' ? 'crypto'
                 : (type === 'fiis' || type === 'imoveis') ? 'fundos_imoveis' : 'renda_fixa';
 
 const ASSET_TYPES = [
     { id: 'renda_fixa', label: 'Renda Fixa', market: false },
-    { id: 'acoes', label: 'Ações', market: true },
+    { id: 'acoes', label: 'Ações (Brasil)', market: true },
+    { id: 'acoes_us', label: 'Ações Americanas', market: true },
     { id: 'etfs', label: 'ETFs', market: true },
     { id: 'fiis', label: 'Fundos Imobiliários', market: true },
     { id: 'crypto', label: 'Criptomoedas', market: true },
@@ -58,7 +59,7 @@ const isMarket = (type) => !!typeMeta(type).market;
 // dólar. Ticker da B3 termina em dígito (PETR4, VALE3, IVVB11); ticker dos EUA
 // é só letras (NVDA, AAPL, TSLA) → cotação em USD.
 const guessUSD = (type, symbol) => {
-    if (type === 'crypto') return true;
+    if (type === 'crypto' || type === 'acoes_us') return true;
     if (type === 'acoes') return !/\d$/.test(String(symbol || '').trim());
     return false; // ETFs/FIIs da B3 são em reais
 };
@@ -68,7 +69,7 @@ const ACOES_BR = [['PETR4', 'Petrobras'], ['VALE3', 'Vale'], ['ITUB4', 'Itaú'],
 const ACOES_US = [['NVDA', 'NVIDIA'], ['AAPL', 'Apple'], ['TSLA', 'Tesla'], ['AMZN', 'Amazon'], ['MSFT', 'Microsoft'], ['GOOGL', 'Alphabet'], ['GOOG', 'Alphabet C'], ['META', 'Meta'], ['AMD', 'AMD'], ['KO', 'Coca-Cola'], ['DIS', 'Disney'], ['NU', 'Nubank'], ['PLTR', 'Palantir'], ['BABA', 'Alibaba'], ['NFLX', 'Netflix'], ['ORCL', 'Oracle'], ['INTC', 'Intel'], ['PYPL', 'PayPal'], ['UBER', 'Uber']];
 const ASSET_SUGGESTIONS = {
     crypto: [['BTC', 'Bitcoin'], ['ETH', 'Ethereum'], ['USDT', 'Tether'], ['BNB', 'BNB'], ['SOL', 'Solana'], ['XRP', 'XRP'], ['ADA', 'Cardano'], ['DOGE', 'Dogecoin'], ['AVAX', 'Avalanche'], ['MATIC', 'Polygon'], ['DOT', 'Polkadot'], ['LINK', 'Chainlink'], ['LTC', 'Litecoin'], ['SHIB', 'Shiba Inu'], ['TRX', 'TRON'], ['UNI', 'Uniswap']],
-    acoes: [...ACOES_BR, ...ACOES_US],
+    acoes: ACOES_BR,
     acoes_br: ACOES_BR,
     acoes_us: ACOES_US,
     etfs: [['IVVB11', 'S&P 500'], ['BOVA11', 'Ibovespa'], ['SMAL11', 'Small Caps'], ['HASH11', 'Cripto (Hashdex)'], ['NASD11', 'Nasdaq 100'], ['GOLD11', 'Ouro']],
@@ -85,7 +86,7 @@ const assetLogoCandidates = (symbol, type, usd) => {
     const S = String(symbol || '').trim().toUpperCase();
     if (!S) return [];
     if (type === 'crypto') return [`https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${S.toLowerCase()}.png`];
-    if (['acoes', 'etfs', 'fiis'].includes(type)) {
+    if (['acoes', 'acoes_us', 'etfs', 'fiis'].includes(type)) {
         const parqet = `https://assets.parqet.com/logos/symbol/${S}`;
         const brapi = `https://icons.brapi.dev/icons/${S}.svg`;
         return usd ? [parqet, brapi] : [brapi, parqet]; // EUA → parqet 1º; B3 → brapi 1º
@@ -867,7 +868,8 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
     // Por padrão NÃO desconta do saldo (o ativo já existe / já foi aportado).
     const [naoDescontar, setNaoDescontar] = useState(true);
     const [name, setName] = useState(editing?.name || '');
-    const [type, setType] = useState(editing?.type || 'renda_fixa');
+    // Ação salva como 'acoes' em dólar reabre como classe "Ações Americanas".
+    const [type, setType] = useState(editing?.type === 'acoes' && editing?.isUSD ? 'acoes_us' : (editing?.type || 'renda_fixa'));
     const [symbol, setSymbol] = useState(editing?.symbol || '');
     const [quantity, setQuantity] = useState(editing?.quantity ? String(editing.quantity).replace('.', ',') : '');
     const [buyPrice, setBuyPrice] = useState(editing?.purchasePrice != null ? String(editing.purchasePrice).replace('.', ',') : '');
@@ -953,12 +955,14 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
         if (market && !symbol.trim()) { setError('Informe o ticker do ativo.'); return; }
         if (!market && !isTesouro && !name.trim()) { setError('Informe o nome do ativo.'); return; }
         setSaving(true);
+        // "Ações Americanas" é salva como 'acoes' em dólar (compatível com o resto do app).
+        const saveType = type === 'acoes_us' ? 'acoes' : type;
         let data;
         if (market) {
             if (qty <= 0 || numBR(buyPrice) <= 0) { setError('Preencha quantidade e preço de compra.'); setSaving(false); return; }
             const mktName = normalizeName(name || resolvedName || symbol.trim().toUpperCase());
             data = {
-                name: mktName, type, symbol: symbol.trim().toUpperCase(),
+                name: mktName, type: saveType, symbol: symbol.trim().toUpperCase(),
                 quantity: qty, purchasePrice: numBR(buyPrice),
                 manualCurrentPrice: numBR(curPrice) > 0 ? numBR(curPrice) : numBR(buyPrice),
                 isUSD,
@@ -1007,7 +1011,13 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                 {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
 
                 <Field label="Classe">
-                    <select value={type} onChange={e => { setType(e.target.value); }} className={inputCls} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
+                    <select value={type} onChange={e => {
+                        const nt = e.target.value;
+                        setType(nt);
+                        // Ações Americanas e cripto são sempre em dólar; classes da B3 voltam a real.
+                        if (nt === 'acoes_us' || nt === 'crypto') setIsUSD(true);
+                        else if (nt === 'acoes' || nt === 'etfs' || nt === 'fiis') setIsUSD(false);
+                    }} className={inputCls} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
                         {ASSET_TYPES.map(t => <option key={t.id} value={t.id} style={optStyle}>{t.label}</option>)}
                     </select>
                 </Field>
@@ -1074,25 +1084,36 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                     <Field label="Nome do ativo"><input value={name} onChange={e => setName(e.target.value)} placeholder="Ex.: CDB Banco X, Tesouro Selic 2029" className={inputCls} maxLength={40} autoFocus /></Field>
                 ) : null}
 
-                {/* Moeda do ativo — vale para qualquer classe (dólar ou real) */}
-                <label className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border cursor-pointer transition ${isUSD ? 'border-emerald-500/40 bg-emerald-500/10' : (isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50')}`}>
-                    <input type="checkbox" checked={isUSD} onChange={e => { setIsUSD(e.target.checked); }} className="w-4 h-4 accent-emerald-500" />
-                    <div>
-                        <p className={`text-[13px] font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Valores em dólar (US$)</p>
-                        <p className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Converte pelo câmbio atual · US$ 1 = R$ {money(usdRate)}</p>
+                {/* Ações Americanas já são sempre em dólar → mostra só um selo informativo. */}
+                {type === 'acoes_us' ? (
+                    <div className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border ${isDark ? 'border-emerald-500/30 bg-emerald-500/[0.08]' : 'border-emerald-200 bg-emerald-50'}`}>
+                        <DollarSign className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <div>
+                            <p className={`text-[13px] font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Valores em dólar (US$)</p>
+                            <p className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Convertido pelo câmbio atual · US$ 1 = R$ {money(usdRate)}</p>
+                        </div>
                     </div>
-                </label>
+                ) : (
+                    /* Demais classes: escolha manual de moeda (dólar ou real). */
+                    <label className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border cursor-pointer transition ${isUSD ? 'border-emerald-500/40 bg-emerald-500/10' : (isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50')}`}>
+                        <input type="checkbox" checked={isUSD} onChange={e => { setIsUSD(e.target.checked); }} className="w-4 h-4 accent-emerald-500" />
+                        <div>
+                            <p className={`text-[13px] font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Valores em dólar (US$)</p>
+                            <p className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Converte pelo câmbio atual · US$ 1 = R$ {money(usdRate)}</p>
+                        </div>
+                    </label>
+                )}
 
                 {market ? (
                     <>
-                        <Field label={type === 'crypto' ? 'Ticker (ex.: BTC, ETH)' : 'Ticker (ex.: PETR4, IVVB11)'}>
+                        <Field label={type === 'crypto' ? 'Ticker (ex.: BTC, ETH)' : type === 'acoes_us' ? 'Ticker (ex.: AAPL, MSFT)' : 'Ticker (ex.: PETR4, IVVB11)'}>
                             <div className="relative">
                                 {symbol.trim() && <span className="absolute left-2 top-1/2 -translate-y-1/2"><AssetIcon symbol={symbol} type={type} size={22} /></span>}
                                 <input value={symbol}
                                     onChange={e => { setSymbol(e.target.value.toUpperCase().replace(/\s/g, '')); setShowSug(true); }}
                                     onFocus={() => setShowSug(true)} onBlur={() => setTimeout(() => setShowSug(false), 150)}
-                                    placeholder="Digite o ticker (ex.: BTC)" className={`${inputCls} ${symbol.trim() ? 'pl-9' : ''} pr-9`} maxLength={10} autoFocus />
-                                {resolving && <Loader2 className="w-4 h-4 animate-spin text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />}
+                                    placeholder={type === 'crypto' ? 'Digite o ticker (ex.: BTC)' : type === 'acoes_us' ? 'Digite o ticker (ex.: AAPL)' : 'Digite o ticker (ex.: PETR4)'} className={`${inputCls} ${symbol.trim() ? 'pl-9' : ''} pr-9`} maxLength={10} autoFocus />
+                                {resolving && <Loader2 className="w-4 h-4 animate-spin text-emerald-500 absolute right-3 top-1/2 -translate-y-1/2" />}
                                 {!resolving && !manual && resolvedName && <Check className="w-4 h-4 text-emerald-500 absolute right-3 top-1/2 -translate-y-1/2" />}
                                 {showSug && sugList.length > 0 && (
                                     <div className={`absolute z-20 left-0 right-0 mt-1 rounded-xl border shadow-2xl overflow-hidden max-h-56 overflow-y-auto ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-200'}`}>
@@ -1107,15 +1128,22 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                                     </div>
                                 )}
                             </div>
+                            {/* Status da consulta automática */}
+                            {!manual && resolving && symbol.trim().length >= 2 && (
+                                <div className={`mt-2 flex items-center gap-2 text-[12px] font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-500 shrink-0" />
+                                    <span>Consultando preço atual de <span className="font-black">"{symbol.trim()}"</span>…</span>
+                                </div>
+                            )}
                             {/* Preview do ativo resolvido automaticamente */}
-                            {!manual && resolvedName && (
+                            {!manual && !resolving && resolvedName && (
                                 <div className={`mt-2 flex items-center gap-2.5 rounded-xl border px-3 py-2 ${priceMissing ? (isDark ? 'bg-amber-500/[0.07] border-amber-500/25' : 'bg-amber-50 border-amber-200') : (isDark ? 'bg-emerald-500/[0.07] border-emerald-500/25' : 'bg-emerald-50 border-emerald-200')}`}>
                                     <AssetIcon symbol={symbol} type={type} name={resolvedName} size={28} />
                                     <div className="min-w-0 flex-1">
                                         <p className={`text-[13px] font-black truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{resolvedName}</p>
                                         {priceMissing
                                             ? <p className={`text-[11px] font-semibold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>Identificado ✓ — cotação indisponível agora. Informe o valor "Atual" abaixo.</p>
-                                            : <p className="text-[11px] font-semibold text-emerald-500">Ativo identificado automaticamente ✓</p>}
+                                            : <p className="text-[11px] font-semibold text-emerald-500">Preço atualizado ✓ · {isUSD ? 'US$' : 'R$'} {money(numBR(curPrice))}</p>}
                                     </div>
                                 </div>
                             )}
