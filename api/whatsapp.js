@@ -1275,23 +1275,13 @@ async function doAddFixed(db, uid, kind, { name, value, day, category }) {
 
 // Dá baixa numa recorrente do MÊS ATUAL — atômico (ID único impede baixa dupla),
 // espelhando exatamente o fluxo do app (Recorrentes.jsx › BaixaDialog).
-async function doBaixaRecorrente(db, uid, kind, name) {
-  const income = kind === 'income';
+// Efetiva a baixa de UMA recorrente (rec já resolvida) com um valor.
+async function commitBaixa(db, uid, income, rec, val) {
   const coll = income ? 'fixed_incomes' : 'fixed_expenses';
   const occPrefix = income ? 'inc_' : '';
   const defaultCat = income ? 'salary' : 'conta_fixa';
-  const snap = await db.collection(coll).where('userId', '==', uid).get();
-  if (snap.empty) return { ok: false, reason: 'notfound', income };
-  const q = String(name || '').toLowerCase().trim();
-  let doc = q ? snap.docs.find(d => {
-    const n = String(d.data().name || '').toLowerCase();
-    return n.includes(q) || q.includes(n);
-  }) : null;
-  if (!doc && snap.docs.length === 1) doc = snap.docs[0]; // só existe uma → assume essa
-  if (!doc) return { ok: false, reason: 'notfound', income };
-  const rec = { id: doc.id, ...doc.data() };
-  const val = Math.abs(parseFloat(rec.value) || 0);
-  if (val <= 0) return { ok: false, reason: 'invalid', name: rec.name, income };
+  const amount = Math.abs(parseFloat(val) || 0);
+  if (amount <= 0) return { ok: false, reason: 'invalid', name: rec.name, income };
   const mk = mkNow();
   const occRef = db.collection('users').doc(uid).collection('recorrentes_baixas').doc(`${occPrefix}${rec.id}_${mk}`);
   const txRef = db.collection('transactions').doc();
@@ -1301,7 +1291,7 @@ async function doBaixaRecorrente(db, uid, kind, name) {
       if (occ.exists) throw new Error('ALREADY_PAID');
       const now = new Date();
       const txData = {
-        description: rec.name, amount: val, type: income ? 'income' : 'expense',
+        description: rec.name, amount, type: income ? 'income' : 'expense',
         category: rec.category || defaultCat, date: now.toISOString(), month: mk,
         userId: uid, createdAt: Date.now(), isFixed: true, source: 'recorrente_baixa', recorrenteId: rec.id,
       };
@@ -1309,16 +1299,46 @@ async function doBaixaRecorrente(db, uid, kind, name) {
         txData.paymentMethod = rec.paymentMethod || 'pix';
         txData.priority = rec.priority || 'essential';
         txData.selectedCardId = rec.paymentMethod === 'credito' ? (rec.cardId || null) : null;
+        if (rec.paymentMethod === 'credito') txData.invoiceStatus = 'unpaid'; // vai pra fatura
       }
       tx.set(txRef, txData);
-      tx.set(occRef, { kind, recorrenteId: rec.id, monthKey: mk, amount: val, txId: txRef.id, description: rec.name, at: FieldValue.serverTimestamp() });
-      tx.update(db.collection(coll).doc(rec.id), { lastPaidMonth: mk });
+      tx.set(occRef, { kind: income ? 'income' : 'expense', recorrenteId: rec.id, monthKey: mk, amount, txId: txRef.id, description: rec.name, at: FieldValue.serverTimestamp() });
+      tx.update(db.collection(coll).doc(rec.id), { lastPaidMonth: mk, ...(rec.isVariable ? { lastPaidValue: amount } : {}) });
     });
-    return { ok: true, name: rec.name, amount: val, income };
+    return { ok: true, name: rec.name, amount, income };
   } catch (e) {
     if (e?.message === 'ALREADY_PAID') return { ok: false, reason: 'already', name: rec.name, income };
     throw e;
   }
+}
+
+// Resolve a recorrente a dar baixa. Em vez de "não achei", consulta e:
+//  - reason 'empty'    → nenhuma cadastrada (oferecer cadastro)
+//  - reason 'choose'   → várias possíveis → devolve candidates p/ o usuário escolher
+//  - reason 'needvalue'→ é variável → pedir o valor do mês
+async function doBaixaRecorrente(db, uid, kind, name) {
+  const income = kind === 'income';
+  const coll = income ? 'fixed_incomes' : 'fixed_expenses';
+  const snap = await db.collection(coll).where('userId', '==', uid).get();
+  if (snap.empty) return { ok: false, reason: 'empty', income };
+  const q = String(name || '').toLowerCase().trim();
+  const matches = q ? snap.docs.filter(d => {
+    const n = String(d.data().name || '').toLowerCase();
+    return n && (n.includes(q) || q.includes(n));
+  }) : [];
+  let doc = null;
+  if (matches.length === 1) doc = matches[0];
+  else if (!matches.length && snap.docs.length === 1) doc = snap.docs[0];
+  if (!doc) {
+    const pool = matches.length ? matches : snap.docs;
+    return {
+      ok: false, reason: 'choose', income,
+      candidates: pool.map(d => ({ id: d.id, name: d.data().name || (income ? 'Entrada' : 'Conta'), value: parseFloat(d.data().value) || 0, isVariable: !!d.data().isVariable })),
+    };
+  }
+  const rec = { id: doc.id, ...doc.data() };
+  if (rec.isVariable) return { ok: false, reason: 'needvalue', rec: { id: rec.id, name: rec.name }, income };
+  return await commitBaixa(db, uid, income, rec, rec.value);
 }
 
 // Acha o lançamento mais recente do usuário (opcional: que contenha `description`).
@@ -1464,6 +1484,14 @@ async function sendChoice(to, bodyText, opts) {
     type: 'button',
     body: { text: String(bodyText).slice(0, 1024) },
     action: { buttons: opts.slice(0, 3).map(o => ({ type: 'reply', reply: { id: o.id, title: o.title.slice(0, 20) } })) },
+  });
+}
+// Lista de escolha (até 10 opções). rows: { id, title, description? }.
+async function sendPickList(to, bodyText, rows) {
+  await sendInteractive(to, {
+    type: 'list',
+    body: { text: String(bodyText).slice(0, 1024) },
+    action: { button: 'Escolher', sections: [{ title: 'Recorrentes', rows: rows.slice(0, 10).map(r => ({ id: r.id, title: String(r.title).slice(0, 24), ...(r.description ? { description: String(r.description).slice(0, 72) } : {}) })) }] },
   });
 }
 // Valor em reais a partir de texto livre ("3000", "3.000,00", "R$ 3 mil").
@@ -1753,6 +1781,61 @@ export default async function handler(req, res) {
           ? `Cadastrado! ✅ *${r.name}* virou uma ${p.data.kind === 'income' ? 'entrada' : 'despesa'} recorrente de *R$ ${money(p.data.value)}* (dia ${d}).`
           : 'Não consegui cadastrar agora. Tenta de novo. 🙏');
       } catch (e) { console.error('WA fx_day:', e); await sendText(from, 'Não consegui cadastrar agora. Tenta de novo. 🙏'); }
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── BAIXA: usuário escolheu qual recorrente dar baixa (lista) ──
+    if (sess.pending?.type === 'baixa_pick') {
+      const p = sess.pending; const income = p.data.kind === 'income';
+      let recId = (selId && selId.startsWith('bxpick_')) ? selId.slice(7) : null;
+      if (!recId) {
+        const q = String(text).toLowerCase().trim();
+        const c = p.data.candidates.find(c => { const n = String(c.name).toLowerCase(); return n && (n.includes(q) || q.includes(n)); });
+        recId = c?.id || null;
+      }
+      const chosen = p.data.candidates.find(c => c.id === recId);
+      if (!chosen) { await sendText(from, 'Não entendi qual escolher 😅. Toca numa das opções da lista, por favor.'); return res.status(200).json({ ok: true }); }
+      if (chosen.isVariable) {
+        await sessRef.set({ uid, history, pending: { type: 'baixa_val', data: { kind: p.data.kind, recId: chosen.id, name: chosen.name } } }, { merge: true });
+        await sendText(from, `Quanto foi ${income ? 'recebido' : 'pago'} de *${chosen.name}* este mês? (ex.: 3000)`);
+        return res.status(200).json({ ok: true });
+      }
+      try {
+        const doc = await db.collection(income ? 'fixed_incomes' : 'fixed_expenses').doc(chosen.id).get();
+        const rec = { id: chosen.id, ...(doc.data() || {}) };
+        const r = await commitBaixa(db, uid, income, rec, rec.value);
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, r.ok ? `${income ? 'Recebimento confirmado' : 'Baixa registrada'}! ✅ *${r.name}* (R$ ${money(r.amount)}).`
+          : r.reason === 'already' ? `Essa já foi ${income ? 'confirmada' : 'baixada'} neste mês. 👍` : 'Não consegui concluir agora. 🙏');
+      } catch (e) { console.error('WA baixa_pick:', e); await sendText(from, 'Não consegui concluir agora. Tenta de novo. 🙏'); }
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── BAIXA: valor do mês de uma recorrente VARIÁVEL ──
+    if (sess.pending?.type === 'baixa_val') {
+      const p = sess.pending; const income = p.data.kind === 'income';
+      const v = parseAmountBR(text);
+      if (!Number.isFinite(v) || v <= 0) { await sendText(from, 'Não entendi o valor 😅. Me manda só o número, ex.: *3000*.'); return res.status(200).json({ ok: true }); }
+      try {
+        const doc = await db.collection(income ? 'fixed_incomes' : 'fixed_expenses').doc(p.data.recId).get();
+        const rec = { id: p.data.recId, ...(doc.data() || {}) };
+        const r = await commitBaixa(db, uid, income, rec, v);
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, r.ok ? `${income ? 'Recebimento confirmado' : 'Baixa registrada'}! ✅ *${r.name}* (R$ ${money(r.amount)}).`
+          : r.reason === 'already' ? `Essa já foi ${income ? 'confirmada' : 'baixada'} neste mês. 👍` : 'Não consegui concluir agora. 🙏');
+      } catch (e) { console.error('WA baixa_val:', e); await sendText(from, 'Não consegui concluir agora. Tenta de novo. 🙏'); }
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── Não há entrada recorrente: oferta de cadastrar salário ──
+    if (sess.pending?.type === 'baixa_empty_inc') {
+      if (yes(text) || selId === 'be_inc_yes') {
+        await sessRef.set({ uid, history, pending: { type: 'onb_sal_value' } }, { merge: true });
+        await sendText(from, 'Vamos cadastrar seu *salário* 💚\n\nQual o *valor* que você recebe por mês? (ex.: 3000)');
+        return res.status(200).json({ ok: true });
+      }
+      await sessRef.set({ uid, history, pending: null }, { merge: true });
+      await sendText(from, 'Beleza! Quando quiser cadastrar, é só dizer. 👍');
       return res.status(200).json({ ok: true });
     }
 
@@ -2052,18 +2135,35 @@ export default async function handler(req, res) {
     // 3e. Baixa de recorrente do mês (pagar despesa fixa / confirmar recebimento).
     if (action?.action === 'baixa_recorrente') {
       const kind = action.kind === 'income' ? 'income' : 'expense';
+      const income = kind === 'income';
       try {
         const r = await doBaixaRecorrente(db, uid, kind, action.name);
-        await sessRef.set({ uid, history, pending: null }, { merge: true });
         if (r.ok) {
+          await sessRef.set({ uid, history, pending: null }, { merge: true });
           await sendText(from, r.income
             ? `Recebimento confirmado! ✅ *${r.name}* (R$ ${money(r.amount)}) entrou no seu saldo.`
             : `Baixa registrada! ✅ Paguei *${r.name}* (R$ ${money(r.amount)}) — debitado do saldo.`);
         } else if (r.reason === 'already') {
+          await sessRef.set({ uid, history, pending: null }, { merge: true });
           await sendText(from, r.income ? `A entrada *${r.name}* já foi confirmada neste mês. 👍` : `A conta *${r.name}* já foi baixada neste mês. 👍`);
-        } else if (r.reason === 'notfound') {
-          await sendText(from, `Não achei essa ${kind === 'income' ? 'entrada' : 'despesa'} recorrente cadastrada. Confere o nome ou cadastra primeiro. 🙏`);
+        } else if (r.reason === 'needvalue') {
+          await sessRef.set({ uid, history, pending: { type: 'baixa_val', data: { kind, recId: r.rec.id, name: r.rec.name } } }, { merge: true });
+          await sendText(from, `A ${income ? 'entrada' : 'conta'} *${r.rec.name}* é variável. Qual foi o valor ${income ? 'recebido' : 'pago'} este mês? (ex.: 3000)`);
+        } else if (r.reason === 'choose') {
+          const rows = r.candidates.map(c => ({ id: `bxpick_${c.id}`, title: c.name, description: c.isVariable ? 'valor variável' : `R$ ${money(c.value)}` }));
+          await sessRef.set({ uid, history, pending: { type: 'baixa_pick', data: { kind, candidates: r.candidates } } }, { merge: true });
+          await sendPickList(from, `Você tem ${r.candidates.length} ${income ? 'entradas' : 'contas'} recorrentes. Qual você ${income ? 'recebeu' : 'pagou'}? 👇`, rows);
+        } else if (r.reason === 'empty') {
+          if (income) {
+            await sessRef.set({ uid, history, pending: { type: 'baixa_empty_inc' } }, { merge: true });
+            await sendChoice(from, `Você ainda não tem *entrada recorrente* cadastrada (tipo salário). Quer cadastrar agora?`,
+              [{ id: 'be_inc_yes', title: 'Cadastrar salário' }, { id: 'be_no', title: 'Agora não' }]);
+          } else {
+            await sessRef.set({ uid, history, pending: null }, { merge: true });
+            await sendText(from, `Você ainda não tem *despesas recorrentes* cadastradas. Quer cadastrar? É só me dizer, ex.: *"cadastra aluguel 1500 dia 10"*. 💚`);
+          }
         } else {
+          await sessRef.set({ uid, history, pending: null }, { merge: true });
           await sendText(from, 'Não consegui dar baixa agora. Tenta de novo. 🙏');
         }
       } catch (e) { console.error('WA baixa_recorrente:', e); await sendText(from, 'Não consegui dar baixa agora. Tenta de novo. 🙏'); }
