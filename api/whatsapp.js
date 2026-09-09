@@ -1372,7 +1372,7 @@ async function createAsset(db, uid, data) {
     const totalApplied = parseFloat(data.totalApplied) || 0;
     total = totalApplied;
     doc = {
-      type, name: normalizeName(data.name || 'Renda Fixa'), symbol: '', quantity: 1,
+      type, name: normName(data.name || 'Renda Fixa'), symbol: '', quantity: 1,
       purchasePrice: totalApplied, manualCurrentPrice: null, cdiPercent: null, totalApplied,
       isUSD: false, subType: '', yieldType: 'cdi', purchaseDate: dateStr,
       aportes: [{ id: aporteId, total: totalApplied, rate: null, date: dateStr, isUSD: false }],
@@ -1383,7 +1383,7 @@ async function createAsset(db, uid, data) {
     const price = parseFloat(data.price) || 0;
     total = quantity * price;
     doc = {
-      type, name: normalizeName(data.name || data.symbol || ASSET_LABELS[type]), symbol: String(data.symbol || '').toUpperCase(),
+      type, name: normName(data.name || data.symbol || ASSET_LABELS[type]), symbol: String(data.symbol || '').toUpperCase(),
       quantity, purchasePrice: price, manualCurrentPrice: null, cdiPercent: null, totalApplied: null,
       isUSD: !!data.isUSD, subType: '', yieldType: 'cdi', purchaseDate: dateStr,
       aportes: [{ id: aporteId, quantity, unitPrice: price, total, date: dateStr, isUSD: !!data.isUSD }],
@@ -1410,6 +1410,13 @@ async function proceedAsset(db, from, uid, sessRef, history, data) {
       ? 'Qual o *código/nome* do ativo? (ex.: PETR4, BTC, HGLG11)'
       : data.type === 'renda_fixa' ? 'Qual o *nome* do investimento? (ex.: CDB Banco X, Tesouro Selic)'
         : 'Qual o *nome* do imóvel? (ex.: Apto Centro)');
+    return;
+  }
+  // Moeda: só pra ativos variáveis (ação/FII/ETF/cripto). Pergunta por BOTÃO (não digitar).
+  if (isVarAsset(data.type) && typeof data.isUSD !== 'boolean') {
+    await setP('currency');
+    await sendChoice(from, 'Você comprou em *Real* ou *Dólar*?',
+      [{ id: 'cur_brl', title: 'Real (R$)' }, { id: 'cur_usd', title: 'Dólar (US$)' }]);
     return;
   }
   if (data.type === 'renda_fixa') {
@@ -1941,6 +1948,10 @@ export default async function handler(req, res) {
         if (!v) { await sendText(from, 'Me diz o *nome/código*, por favor.'); return res.status(200).json({ ok: true }); }
         if (isVarAsset(data.type)) data.symbol = v;
         data.name = v;
+      } else if (ask === 'currency') {
+        if (selId === 'cur_usd' || /d[oó]lar|dolar|us\$|usd/i.test(text)) data.isUSD = true;
+        else if (selId === 'cur_brl' || /real|r\$|brl/i.test(text)) data.isUSD = false;
+        else { await sendChoice(from, 'Toca em uma opção: *Real* ou *Dólar*?', [{ id: 'cur_brl', title: 'Real (R$)' }, { id: 'cur_usd', title: 'Dólar (US$)' }]); return res.status(200).json({ ok: true }); }
       } else if (ask === 'qty') {
         const v = parseAmountBR(text);
         if (!Number.isFinite(v) || v <= 0) { await sendText(from, 'Me manda só a *quantidade* (ex.: 10, ou 0,5). 🙏'); return res.status(200).json({ ok: true }); }
@@ -2205,7 +2216,6 @@ export default async function handler(req, res) {
         quantity: parseFloat(action.quantity) || 0,
         price: parseFloat(action.price) || 0,
         totalApplied: parseFloat(action.totalApplied) || 0,
-        isUSD: false,
       };
       await proceedAsset(db, from, uid, sessRef, history, data);
       return res.status(200).json({ ok: true });
