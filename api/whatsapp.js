@@ -842,6 +842,10 @@ Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (p
    {"action":"reserve_advice"}
    ⚠️ SEMPRE use esta ação. NUNCA diga que "não tem um valor ideal" — o app calcula o custo mensal
    e aplica a regra de 6 a 12 meses, devolvendo o valor certinho.
+17) INVESTIMENTO / ATIVO no PATRIMÔNIO — ex.: "cadastra um investimento", "comprei 10 ações da PETR4 a 38",
+   "adiciona 0,5 bitcoin a 300 mil", "apliquei 5000 num CDB", "quero registrar um FII":
+   {"action":"add_asset","assetType":"<acoes|fiis|etfs|crypto|renda_fixa|imoveis ou vazio>","name":"<nome/ativo>","symbol":"<ticker se houver>","quantity":<número ou 0>,"price":<preço unitário ou 0>,"totalApplied":<valor aplicado p/ renda fixa ou 0>}
+   Preencha só o que a pessoa disse; deixe 0/vazio o resto — o app pergunta o que faltar (tipo, quantidade, preço…).
 
 ⚠️ NUNCA diga em texto que cadastrou/guardou/criou/pagou/registrou/excluiu algo. Para AGIR, responda SÓ com o JSON — o app grava e confirma de verdade.
 Se não for nenhuma ação, responda normalmente em texto (sem inventar que fez algo).
@@ -1339,6 +1343,92 @@ async function doBaixaRecorrente(db, uid, kind, name) {
   const rec = { id: doc.id, ...doc.data() };
   if (rec.isVariable) return { ok: false, reason: 'needvalue', rec: { id: rec.id, name: rec.name }, income };
   return await commitBaixa(db, uid, income, rec, rec.value);
+}
+
+// ── INVESTIMENTOS (Patrimônio) ─────────────────────────────────────────────
+const ASSET_LABELS = { acoes: 'Ações', fiis: 'Fundos Imobiliários', etfs: 'ETFs', crypto: 'Criptomoedas', renda_fixa: 'Renda Fixa', imoveis: 'Imóveis' };
+const isVarAsset = (t) => ['acoes', 'fiis', 'etfs', 'crypto'].includes(t);
+const normAssetType = (t) => {
+  const s = String(t || '').toLowerCase().trim();
+  if (['acoes', 'fiis', 'etfs', 'crypto', 'renda_fixa', 'imoveis'].includes(s)) return s;
+  if (/a[cç][oõ]es|\bacao\b|\bstock/.test(s)) return 'acoes';
+  if (/\bfii|fundo imobil/.test(s)) return 'fiis';
+  if (/\betf/.test(s)) return 'etfs';
+  if (/cripto|crypto|bitcoin|\bbtc\b|\beth\b/.test(s)) return 'crypto';
+  if (/renda fixa|\bcdb\b|tesouro|\blci\b|\blca\b|\brdb\b|fixed/.test(s)) return 'renda_fixa';
+  if (/im[oó]ve(l|is)|apartamento|\bcasa\b|terreno/.test(s)) return 'imoveis';
+  return '';
+};
+
+// Cria o investimento no formato exato do app (aportes + campos por tipo).
+async function createAsset(db, uid, data) {
+  const type = data.type;
+  const isRF = type === 'renda_fixa';
+  const nowIso = new Date().toISOString();
+  const dateStr = nowIso.split('T')[0];
+  const aporteId = `ap_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  let doc, total;
+  if (isRF) {
+    const totalApplied = parseFloat(data.totalApplied) || 0;
+    total = totalApplied;
+    doc = {
+      type, name: normalizeName(data.name || 'Renda Fixa'), symbol: '', quantity: 1,
+      purchasePrice: totalApplied, manualCurrentPrice: null, cdiPercent: null, totalApplied,
+      isUSD: false, subType: '', yieldType: 'cdi', purchaseDate: dateStr,
+      aportes: [{ id: aporteId, total: totalApplied, rate: null, date: dateStr, isUSD: false }],
+      createdAt: nowIso, updatedAt: nowIso, userId: uid,
+    };
+  } else {
+    const quantity = isVarAsset(type) ? (parseFloat(data.quantity) || 1) : 1;
+    const price = parseFloat(data.price) || 0;
+    total = quantity * price;
+    doc = {
+      type, name: normalizeName(data.name || data.symbol || ASSET_LABELS[type]), symbol: String(data.symbol || '').toUpperCase(),
+      quantity, purchasePrice: price, manualCurrentPrice: null, cdiPercent: null, totalApplied: null,
+      isUSD: !!data.isUSD, subType: '', yieldType: 'cdi', purchaseDate: dateStr,
+      aportes: [{ id: aporteId, quantity, unitPrice: price, total, date: dateStr, isUSD: !!data.isUSD }],
+      createdAt: nowIso, updatedAt: nowIso, userId: uid,
+    };
+  }
+  const ref = await db.collection('investments').add(doc);
+  return { id: ref.id, name: doc.name, total, type };
+}
+
+// Fluxo guiado de cadastro de ativo: pergunta só o que faltar, por tipo.
+async function proceedAsset(db, from, uid, sessRef, history, data) {
+  const setP = (ask) => sessRef.set({ uid, history, pending: { type: 'asset_flow', data, ask } }, { merge: true });
+  if (!data.type) {
+    await setP('type');
+    await sendPickList(from, 'Que *tipo de ativo* você quer cadastrar no patrimônio? 👇', [
+      { id: 'ast_acoes', title: 'Ações' }, { id: 'ast_fiis', title: 'Fundos Imobiliários' }, { id: 'ast_etfs', title: 'ETFs' },
+      { id: 'ast_crypto', title: 'Criptomoedas' }, { id: 'ast_renda_fixa', title: 'Renda Fixa' }, { id: 'ast_imoveis', title: 'Imóveis' }]);
+    return;
+  }
+  if (!data.name && !data.symbol) {
+    await setP('name');
+    await sendText(from, isVarAsset(data.type)
+      ? 'Qual o *código/nome* do ativo? (ex.: PETR4, BTC, HGLG11)'
+      : data.type === 'renda_fixa' ? 'Qual o *nome* do investimento? (ex.: CDB Banco X, Tesouro Selic)'
+        : 'Qual o *nome* do imóvel? (ex.: Apto Centro)');
+    return;
+  }
+  if (data.type === 'renda_fixa') {
+    if (!(parseFloat(data.totalApplied) > 0)) { await setP('total'); await sendText(from, 'Quanto você *aplicou*? (valor total, ex.: 5000)'); return; }
+  } else if (data.type === 'imoveis') {
+    if (!(parseFloat(data.price) > 0)) { await setP('price'); await sendText(from, 'Qual o *valor* do imóvel? (ex.: 300000)'); return; }
+  } else {
+    if (!(parseFloat(data.quantity) > 0)) { await setP('qty'); await sendText(from, 'Qual a *quantidade*? (ex.: 10 — pode ser fracionado, ex.: 0,5)'); return; }
+    if (!(parseFloat(data.price) > 0)) { await setP('price'); await sendText(from, 'Qual o *preço de compra* por unidade? (ex.: 38,50)'); return; }
+  }
+  try {
+    const r = await createAsset(db, uid, data);
+    await sessRef.set({ uid, history, pending: null }, { merge: true });
+    await sendText(from, `Investimento cadastrado! ✅ *${r.name}* (${ASSET_LABELS[r.type]}) — R$ ${money(r.total)}. Já aparece em *Patrimônio*. 📈`);
+  } catch (e) {
+    console.error('WA createAsset:', e);
+    await sessRef.set({ uid, history, pending: null }, { merge: true });
+    await sendText(from, 'Não consegui cadastrar o investimento agora. Tenta de novo. 🙏');
+  }
 }
 
 // Acha o lançamento mais recente do usuário (opcional: que contenha `description`).
@@ -1839,6 +1929,35 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
+    // ── ATIVO no patrimônio: coleta guiada dos dados ──
+    if (sess.pending?.type === 'asset_flow') {
+      const p = sess.pending; const data = { ...p.data }; const ask = p.ask;
+      if (ask === 'type') {
+        const t = (selId && selId.startsWith('ast_')) ? selId.slice(4) : normAssetType(text);
+        if (!t) { await sendText(from, 'Escolhe um tipo na lista, por favor. 🙏'); return res.status(200).json({ ok: true }); }
+        data.type = t;
+      } else if (ask === 'name') {
+        const v = String(text).trim();
+        if (!v) { await sendText(from, 'Me diz o *nome/código*, por favor.'); return res.status(200).json({ ok: true }); }
+        if (isVarAsset(data.type)) data.symbol = v;
+        data.name = v;
+      } else if (ask === 'qty') {
+        const v = parseAmountBR(text);
+        if (!Number.isFinite(v) || v <= 0) { await sendText(from, 'Me manda só a *quantidade* (ex.: 10, ou 0,5). 🙏'); return res.status(200).json({ ok: true }); }
+        data.quantity = v;
+      } else if (ask === 'price') {
+        const v = parseAmountBR(text);
+        if (!Number.isFinite(v) || v <= 0) { await sendText(from, 'Me manda só o *valor* (ex.: 38,50). 🙏'); return res.status(200).json({ ok: true }); }
+        data.price = v;
+      } else if (ask === 'total') {
+        const v = parseAmountBR(text);
+        if (!Number.isFinite(v) || v <= 0) { await sendText(from, 'Me manda só o *valor aplicado* (ex.: 5000). 🙏'); return res.status(200).json({ ok: true }); }
+        data.totalApplied = v;
+      }
+      await proceedAsset(db, from, uid, sessRef, history, data);
+      return res.status(200).json({ ok: true });
+    }
+
     // Atalhos p/ (re)iniciar o cadastro guiado sob demanda.
     if (!sess.pending) {
       const tl = String(text).trim().toLowerCase();
@@ -2074,6 +2193,21 @@ export default async function handler(req, res) {
         await sessRef.set({ uid, history, pending: null }, { merge: true });
         await sendText(from, `Pronto! Guardei *R$ ${money(amount)}* na sua *${nm}*. ✅`);
       } catch (e) { console.error('WA add_to_reserve:', e); await sendText(from, 'Não consegui guardar na reserva agora. Tenta de novo. 🙏'); }
+      return res.status(200).json({ ok: true });
+    }
+
+    // 3a2. Cadastrar ATIVO no patrimônio (fluxo guiado — pede o que faltar).
+    if (action?.action === 'add_asset') {
+      const data = {
+        type: normAssetType(action.assetType),
+        name: String(action.name || '').trim(),
+        symbol: String(action.symbol || '').trim(),
+        quantity: parseFloat(action.quantity) || 0,
+        price: parseFloat(action.price) || 0,
+        totalApplied: parseFloat(action.totalApplied) || 0,
+        isUSD: false,
+      };
+      await proceedAsset(db, from, uid, sessRef, history, data);
       return res.status(200).json({ ok: true });
     }
 
