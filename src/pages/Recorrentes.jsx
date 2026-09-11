@@ -196,7 +196,7 @@ export default function Recorrentes({ onNavigate }) {
 
             {/* Topo: métricas 2×2 à esquerda + Entradas recorrentes à direita */}
             <div className="grid lg:grid-cols-2 gap-4 items-stretch">
-                <div className="grid grid-cols-2 gap-3 content-start">
+                <div className="grid grid-cols-2 grid-rows-2 gap-3 h-full">
                     <SummaryCard isDark={isDark} icon={Wallet} label="Saldo em conta" value={<AnimatedNumber value={saldoConta} format={(v) => `R$ ${money(v)}`} />} tone={saldoConta >= 0 ? 'emerald' : 'rose'} />
                     <SummaryCard isDark={isDark} icon={Scale} label="Balanço projetado" hint="Entradas − Despesas"
                         value={<AnimatedNumber value={balancoProjetado} format={(v) => `${v < 0 ? '− ' : ''}R$ ${money(Math.abs(v))}`} />}
@@ -301,7 +301,7 @@ function RecorrentesSection({ kind, rows, isDark, cards = [], onEdit, onDelete, 
             {/* Cabeçalho colorido do card */}
             <div className={`flex items-center justify-between gap-2 px-4 sm:px-5 py-4 border-b flex-wrap ${isDark ? 'border-white/[0.06]' : 'border-slate-100'} ${headBg}`}>
                 <h2 className={`text-[15px] font-black tracking-tight flex items-center gap-2.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                    <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${income ? 'bg-emerald-500/15 text-emerald-500' : 'bg-rose-500/15 text-rose-500'}`}><SectionIcon className="w-4 h-4" /></span>
+                    <span className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${income ? 'bg-emerald-500/15 text-emerald-500' : 'bg-rose-500/15 text-rose-500'}`}><SectionIcon className="w-6 h-6" strokeWidth={2.4} /></span>
                     {cfg.title}
                 </h2>
                 {headerRight}
@@ -427,7 +427,7 @@ function RecorrentesSection({ kind, rows, isDark, cards = [], onEdit, onDelete, 
 function SummaryCard({ isDark, icon: Icon, label, value, tone, hint }) {
     const toneColor = { emerald: 'text-emerald-500', rose: 'text-rose-500', amber: 'text-amber-500', slate: isDark ? 'text-slate-200' : 'text-slate-700' }[tone];
     return (
-        <div className={`rounded-2xl border p-4 transition-shadow duration-300 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]'}`}>
+        <div className={`h-full flex flex-col justify-center rounded-2xl border p-4 transition-shadow duration-300 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]'}`}>
             <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                 <Icon className="w-3.5 h-3.5" /> {label}
             </div>
