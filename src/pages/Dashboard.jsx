@@ -94,10 +94,11 @@ export default function Dashboard({ onNavigate }) {
         // IGNORA o pagamento da fatura (credit_card_bill), senão o mesmo gasto entraria
         // duas vezes (a compra + a quitação). Assim, pagar a fatura não altera o total.
         const acct = monthTx.filter(t => t.type === 'expense' && !isTransferOrAdj(t) && !isBill(t));
-        // Compras avulsas no crédito: em aberto OU quitadas neste mês (pra o total não
-        // cair ao pagar; no mês seguinte elas saem naturalmente).
+        // Compras no crédito contam no MÊS EM QUE FORAM FEITAS, pagas ou não. Pagar a
+        // fatura só quita o saldo — não move nem apaga o gasto do mês original (e como
+        // o pagamento credit_card_bill é ignorado acima, também não conta em dobro).
         const credito = tx.filter(t => t.type === 'expense' && t.paymentMethod === 'credito'
-            && (t.invoiceStatus === 'unpaid' || t.invoiceMonthPaid === mk));
+            && txMonthKey(t) === mk);
         // …+ assinaturas e parcelamentos do cartão (coleção subscriptions), que
         // também compõem a fatura mas não são "transactions".
         const cardSubs = subs.filter(s => s.cardId).map(s => ({
