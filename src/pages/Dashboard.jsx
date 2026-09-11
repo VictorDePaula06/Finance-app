@@ -190,7 +190,7 @@ export default function Dashboard({ onNavigate }) {
     const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const cell = isDark ? 'text-slate-300' : 'text-slate-700';
-    const cardCls = `rounded-2xl border p-5 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`;
+    const cardCls = `rounded-2xl border p-5 flex flex-col ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`;
 
     return (
         <div className="max-w-6xl mx-auto w-full">
@@ -435,7 +435,7 @@ function Kpi({ isDark, icon: Icon, label, value, sub, tone, action, className = 
 
 function Action({ isDark, onClick, children }) {
     return (
-        <button onClick={onClick} className={`w-full mt-4 py-2.5 rounded-xl text-[12px] font-bold flex items-center justify-center gap-1 transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}>
+        <button onClick={onClick} className={`w-full mt-auto py-2.5 rounded-xl text-[12px] font-bold flex items-center justify-center gap-1 transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}>
             {children} →
         </button>
     );
