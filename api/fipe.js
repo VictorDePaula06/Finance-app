@@ -47,6 +47,7 @@ export default async function handler(req, res) {
         if (mapped.length) return res.status(200).json(mapped);
       } catch { /* ignore */ }
     }
-    return res.status(502).json({ error: 'FIPE upstream indisponível', detail: String(e?.message || e) });
+    console.error('fipe error:', e?.message || e);
+    return res.status(502).json({ error: 'FIPE upstream indisponível' });
   }
 }

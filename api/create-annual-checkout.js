@@ -121,6 +121,6 @@ export default async function handler(req, res) {
         if (e?.type === 'StripeAuthenticationError') {
             return res.status(500).json({ success: false, error: 'Chave secreta do Stripe inválida (verifique STRIPE_SECRET_KEY na Vercel).' });
         }
-        return res.status(500).json({ success: false, error: e?.message || 'Erro ao iniciar o pagamento anual.' });
+        return res.status(500).json({ success: false, error: 'Erro ao iniciar o pagamento anual. Tente novamente.' });
     }
 }

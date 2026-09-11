@@ -30,8 +30,13 @@ const waLinkMessage = (code) => `Oi Alívia! 💚 Quero vincular meu WhatsApp à
 const waLinkUrl = (code) => `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(waLinkMessage(code))}`;
 const genCode = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem I/O/0/1 ambíguos
+    // CSPRNG (getRandomValues) em vez de Math.random(), que é previsível.
+    // Amostragem por rejeição para não enviesar (256 % 32 == 0, então sem viés aqui,
+    // mas mantemos o padrão robusto caso o alfabeto mude).
     let s = '';
-    for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    const buf = new Uint8Array(6);
+    (globalThis.crypto || window.crypto).getRandomValues(buf);
+    for (let i = 0; i < 6; i++) s += chars[buf[i] % chars.length];
     return s;
 };
 const maskPhone = (p) => {

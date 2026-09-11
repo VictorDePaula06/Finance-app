@@ -179,7 +179,10 @@ service cloud.firestore {
     // é dele. wa_sessions é gravado apenas pelo servidor.
     // ─────────────────────────────────────────────────────────
     match /wa_links/{code} {
-      allow read:   if isSignedIn();
+      // Leitura RESTRITA ao dono — antes era `isSignedIn()`, o que permitia a
+      // qualquer autenticado LISTAR todos os códigos+uids e sequestrar o vínculo
+      // de WhatsApp de outra conta. O cliente só cria/deleta (nunca lê).
+      allow read:   if isSignedIn() && resource.data.uid == request.auth.uid;
       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
     }

@@ -66,7 +66,12 @@ export default async function handler(req, res) {
             process.env.VITE_STRIPE_PRICE_ID_MONTHLY,
             process.env.VITE_STRIPE_PRICE_ID_YEARLY,
         ].filter(Boolean);
-        if (!priceId || (ALLOWED.length > 0 && !ALLOWED.includes(priceId))) {
+        // FAIL-CLOSED: sem allowlist configurada, NÃO aceita qualquer priceId do
+        // cliente (antes a checagem era pulada quando ALLOWED estava vazia).
+        if (ALLOWED.length === 0) {
+            return res.status(500).json({ success: false, error: 'Configuração de preços ausente no servidor.' });
+        }
+        if (!priceId || !ALLOWED.includes(priceId)) {
             return res.status(400).json({ success: false, error: 'Preço inválido.' });
         }
 
@@ -103,6 +108,6 @@ export default async function handler(req, res) {
         if (e?.type === 'StripeConnectionError') {
             return res.status(502).json({ success: false, error: 'Falha de conexao com o Stripe (StripeConnectionError). Geralmente e chave invalida/mascarada ou instabilidade momentanea. Tente de novo; se persistir, confira a STRIPE_SECRET_KEY.' });
         }
-        return res.status(500).json({ success: false, error: e?.message || 'Erro ao atualizar a assinatura.' });
+        return res.status(500).json({ success: false, error: 'Erro ao atualizar a assinatura. Tente novamente.' });
     }
 }

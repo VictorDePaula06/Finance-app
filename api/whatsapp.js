@@ -43,7 +43,10 @@ async function readRawBody(req) {
 // atual; ao definir o segredo, o webhook passa a rejeitar POSTs forjados.
 function verifySignature(req, rawBody) {
   const secret = process.env.WHATSAPP_APP_SECRET;
-  if (!secret) return true; // não configurado ainda → não bloqueia (só recomendado)
+  // FAIL-CLOSED: sem o segredo configurado, rejeita (antes retornava true, o que
+  // aceitava POSTs forjados). Defina WHATSAPP_APP_SECRET na Vercel — sem ele o
+  // webhook para de aceitar eventos (inclusive os legítimos da Meta).
+  if (!secret) return false;
   const header = req.headers['x-hub-signature-256'] || '';
   const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
   try {
@@ -1684,6 +1687,14 @@ export default async function handler(req, res) {
       for (const cand of candidates) {
         const snap = await db.collection('wa_links').doc(cand).get();
         if (snap.exists) { linkRef = db.collection('wa_links').doc(cand); linkSnap = snap; break; }
+      }
+      // TTL: código de vínculo expira em 15 min (defesa em profundidade contra
+      // reuso/força-bruta de códigos vazados). Expirado → apaga e pede novo.
+      const LINK_TTL_MS = 15 * 60 * 1000;
+      if (linkSnap && Number(linkSnap.data().createdAt || 0) < Date.now() - LINK_TTL_MS) {
+        await linkRef.delete().catch(() => {});
+        await sendText(from, 'Esse código expirou ⏳. Abra o app em *Configurações › WhatsApp* e gere um novo pra conectar.');
+        return res.status(200).json({ ok: true });
       }
       if (linkSnap) {
         const linkedUid = linkSnap.data().uid;
