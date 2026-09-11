@@ -13,7 +13,7 @@ import { CATEGORIES, categoryHex } from '../constants/categories';
 import {
     Plus, Pencil, Trash2, X, Loader2, Check, Info,
     CreditCard, Calendar, CalendarCheck, Landmark, Wallet, ShoppingBag, ChevronRight, ChevronDown, Layers, History,
-    Upload, Copy, MoreVertical, Zap, Lightbulb, ArrowRight, Sigma, RefreshCw,
+    Upload, Copy, MoreVertical, Zap, Lightbulb, ArrowRight, Sigma, RefreshCw, AlertTriangle,
 } from 'lucide-react';
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -138,6 +138,34 @@ export default function Cartoes() {
         return { due, days };
     }, [selected]);
 
+    // Fatura VENCIDA: a fatura que já fechou passou do vencimento e ainda não foi paga.
+    // Detecta pelo registro de pagamento (não pelo "bucket" de itens, que recorre),
+    // evitando falso-positivo com assinaturas/parcelas que reaparecem todo mês.
+    const overdueInfo = useMemo(() => {
+        if (!selected?.dueDay || faturaTotal <= 0) return null;
+        const dueDay = selected.dueDay;
+        const closeDay = closingOf(selected);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        // Último fechamento que já ocorreu (a fatura fechada).
+        let lastClose = new Date(now.getFullYear(), now.getMonth(), closeDay);
+        if (lastClose > today) lastClose = new Date(now.getFullYear(), now.getMonth() - 1, closeDay);
+        // Vencimento dessa fatura fechada = primeiro dia de vencimento após o fechamento.
+        let dueClosed = new Date(lastClose.getFullYear(), lastClose.getMonth(), dueDay);
+        if (dueClosed <= lastClose) dueClosed = new Date(lastClose.getFullYear(), lastClose.getMonth() + 1, dueDay);
+        if (today <= dueClosed) return null; // ainda dentro do prazo
+        // Já foi paga? (pagamento registrado depois que a fatura fechou)
+        const pago = faturasPagas.some(p => p.date && new Date(p.date) >= lastClose);
+        if (pago) return null;
+        // Valor vencido estimado: itens que já estavam na fatura fechada (compras até o
+        // fechamento + assinaturas/parcelas do ciclo). Compras após o fechamento são da fatura aberta.
+        const overdueTotal = invoiceItems
+            .filter(it => !it.date || new Date(it.date) <= lastClose)
+            .reduce((a, it) => a + it.amount, 0);
+        const days = Math.round((today - dueClosed) / 86400000);
+        return { due: dueClosed, days, total: overdueTotal > 0 ? overdueTotal : faturaTotal };
+    }, [selected, faturaTotal, faturasPagas, invoiceItems]);
+
     const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
@@ -226,10 +254,32 @@ export default function Cartoes() {
                                         </button>
                                     )}
                                 </div>
+
+                                {/* Alerta: fatura vencida (passou do vencimento e não foi paga) */}
+                                {overdueInfo && (
+                                    <div className={`mt-3 rounded-xl border px-3.5 py-3 ${isDark ? 'border-rose-500/30 bg-rose-500/[0.08]' : 'border-rose-200 bg-rose-50'}`}>
+                                        <div className="flex items-start gap-2.5">
+                                            <span className="w-8 h-8 rounded-lg bg-rose-500/15 text-rose-500 flex items-center justify-center shrink-0"><AlertTriangle className="w-4 h-4" /></span>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[13px] font-black text-rose-500">
+                                                    Fatura vencida há {overdueInfo.days} {overdueInfo.days === 1 ? 'dia' : 'dias'} · R$ {money(overdueInfo.total)}
+                                                </p>
+                                                <p className={`text-[12px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                                    Venceu em {selected.dueDay} de {MESES[overdueInfo.due.getMonth()].toLowerCase()}. Pague ou registre o pagamento para regularizar.
+                                                </p>
+                                                <button onClick={() => setPagarOpen(true)}
+                                                    className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500 hover:bg-rose-600 text-white text-[12px] font-black transition active:scale-95">
+                                                    <Wallet className="w-3.5 h-3.5" /> Pagar / registrar fatura
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="flex items-end justify-between gap-3 mt-0.5 flex-wrap">
                                     {dueInfo ? (
                                         <p className={`text-[13px] ${muted}`}>
-                                            Vence em <span className="font-black text-rose-400">{dueInfo.days} {dueInfo.days === 1 ? 'dia' : 'dias'}</span> · {selected.dueDay} de {MESES[dueInfo.due.getMonth()].toLowerCase()}
+                                            {overdueInfo ? 'Próxima vence em ' : 'Vence em '}<span className="font-black text-rose-400">{dueInfo.days} {dueInfo.days === 1 ? 'dia' : 'dias'}</span> · {selected.dueDay} de {MESES[dueInfo.due.getMonth()].toLowerCase()}
                                         </p>
                                     ) : <span />}
                                     {selected && (
