@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+import { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
@@ -30,10 +30,13 @@ if (appCheckKey) {
         if (import.meta.env.DEV && import.meta.env.VITE_APPCHECK_DEBUG_TOKEN) {
             self.FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
         }
-        initializeAppCheck(app, {
-            provider: new ReCaptchaV3Provider(appCheckKey),
-            isTokenAutoRefreshEnabled: true,
-        });
+        // Provedor: reCAPTCHA Enterprise (padrão atual do Google) ou v3 clássico.
+        // Defina VITE_APPCHECK_PROVIDER='enterprise' para usar o Enterprise.
+        const useEnterprise = String(import.meta.env.VITE_APPCHECK_PROVIDER || '').toLowerCase() === 'enterprise';
+        const provider = useEnterprise
+            ? new ReCaptchaEnterpriseProvider(appCheckKey)
+            : new ReCaptchaV3Provider(appCheckKey);
+        initializeAppCheck(app, { provider, isTokenAutoRefreshEnabled: true });
     } catch (e) {
         console.warn('App Check não inicializado (seguindo sem enforcement):', e?.message);
     }
