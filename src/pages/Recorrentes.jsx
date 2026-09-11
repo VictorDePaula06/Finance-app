@@ -194,20 +194,27 @@ export default function Recorrentes({ onNavigate }) {
                 <div className="ml-auto shrink-0"><NovoRecorrenteButton onClick={() => setChooser(true)} /></div>
             </div>
 
-            {/* Métricas (com Balanço projetado) */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <SummaryCard isDark={isDark} icon={Wallet} label="Saldo em conta" value={<AnimatedNumber value={saldoConta} format={(v) => `R$ ${money(v)}`} />} tone={saldoConta >= 0 ? 'emerald' : 'rose'} />
-                <SummaryCard isDark={isDark} icon={TrendingUp} label="Entradas recorrentes" value={<AnimatedNumber value={totalEntradas} format={(v) => `R$ ${money(v)}`} />} tone="emerald" />
-                <SummaryCard isDark={isDark} icon={TrendingDown} label="Despesas recorrentes" value={<AnimatedNumber value={totalDespesas} format={(v) => `R$ ${money(v)}`} />} tone="rose" />
-                <SummaryCard isDark={isDark} icon={Scale} label="Balanço projetado" hint="Entradas − Despesas"
-                    value={<AnimatedNumber value={balancoProjetado} format={(v) => `${v < 0 ? '− ' : ''}R$ ${money(Math.abs(v))}`} />}
-                    tone={balancoProjetado >= 0 ? 'emerald' : 'rose'} />
+            {/* Topo: métricas 2×2 à esquerda + Entradas recorrentes à direita */}
+            <div className="grid lg:grid-cols-2 gap-4 items-stretch">
+                <div className="grid grid-cols-2 gap-3 content-start">
+                    <SummaryCard isDark={isDark} icon={Wallet} label="Saldo em conta" value={<AnimatedNumber value={saldoConta} format={(v) => `R$ ${money(v)}`} />} tone={saldoConta >= 0 ? 'emerald' : 'rose'} />
+                    <SummaryCard isDark={isDark} icon={Scale} label="Balanço projetado" hint="Entradas − Despesas"
+                        value={<AnimatedNumber value={balancoProjetado} format={(v) => `${v < 0 ? '− ' : ''}R$ ${money(Math.abs(v))}`} />}
+                        tone={balancoProjetado >= 0 ? 'emerald' : 'rose'} />
+                    <SummaryCard isDark={isDark} icon={TrendingUp} label="Entradas recorrentes" value={<AnimatedNumber value={totalEntradas} format={(v) => `R$ ${money(v)}`} />} tone="emerald" />
+                    <SummaryCard isDark={isDark} icon={TrendingDown} label="Despesas recorrentes" value={<AnimatedNumber value={totalDespesas} format={(v) => `R$ ${money(v)}`} />} tone="rose" />
+                </div>
+
+                <RecorrentesSection kind="income" rows={incomeRows} isDark={isDark} wrapClass=""
+                    onEdit={(r) => setForm({ kind: 'income', editing: r })}
+                    onDelete={(r) => deleteDoc(doc(db, collOf('income'), r.id))}
+                    onBaixa={(r) => setBaixa({ kind: 'income', rec: r })} />
             </div>
 
             {/* Lembrete: variáveis no cartão pra confirmar o valor e lançar na fatura */}
             {pendVarCard.length > 0 && (
                 <button type="button" onClick={() => setExpTab('cartao')}
-                    className={`mt-4 w-full text-left rounded-2xl border px-4 py-3.5 flex items-center gap-3 transition active:scale-[0.995] ${isDark ? 'border-blue-500/25 bg-blue-500/[0.07] hover:bg-blue-500/[0.1]' : 'border-blue-200 bg-blue-50 hover:bg-blue-100/70'}`}>
+                    className={`mt-6 w-full text-left rounded-2xl border px-4 py-3.5 flex items-center gap-3 transition active:scale-[0.995] ${isDark ? 'border-blue-500/25 bg-blue-500/[0.07] hover:bg-blue-500/[0.1]' : 'border-blue-200 bg-blue-50 hover:bg-blue-100/70'}`}>
                     <span className="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-500 flex items-center justify-center shrink-0"><CreditCard className="w-5 h-5" /></span>
                     <div className="min-w-0 flex-1">
                         <p className={`text-[13px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>
@@ -223,27 +230,19 @@ export default function Recorrentes({ onNavigate }) {
                 </button>
             )}
 
-            {/* Entradas | Despesas — duas colunas (mesma altura) */}
-            <div className="grid lg:grid-cols-2 gap-4 mt-6 items-stretch">
-                <RecorrentesSection kind="income" rows={incomeRows} isDark={isDark}
-                    onEdit={(r) => setForm({ kind: 'income', editing: r })}
-                    onDelete={(r) => deleteDoc(doc(db, collOf('income'), r.id))}
-                    onBaixa={(r) => setBaixa({ kind: 'income', rec: r })} />
-
-                {/* Despesas — sub-abas: Fixas & mensais vs No cartão */}
-                <RecorrentesSection kind="expense" rows={expTab === 'fixas' ? expenseRowsFix : cardRecurringRows} isDark={isDark} cards={cards}
-                    onEdit={(r) => setForm({ kind: 'expense', editing: r })}
-                    onDelete={(r) => deleteDoc(doc(db, collOf('expense'), r.id))}
-                    onBaixa={(r) => setBaixa({ kind: 'expense', rec: r })}
-                    onNavigate={onNavigate}
-                    emptyOverride={expTab === 'cartao' ? 'Nada no cartão ainda. Recorrentes pagas no crédito, assinaturas e parcelas aparecem aqui.' : null}
-                    headerRight={
-                        <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-100/70'}`}>
-                            <SubTab active={expTab === 'fixas'} onClick={() => setExpTab('fixas')} isDark={isDark} label="Fixas & mensais" count={expenseRowsFix.length} />
-                            <SubTab active={expTab === 'cartao'} onClick={() => setExpTab('cartao')} isDark={isDark} label="No cartão" count={cardRecurringRows.length} />
-                        </div>
-                    } />
-            </div>
+            {/* Despesas — largura toda; sub-abas: Fixas & mensais vs No cartão */}
+            <RecorrentesSection kind="expense" rows={expTab === 'fixas' ? expenseRowsFix : cardRecurringRows} isDark={isDark} cards={cards} wrapClass="mt-6"
+                onEdit={(r) => setForm({ kind: 'expense', editing: r })}
+                onDelete={(r) => deleteDoc(doc(db, collOf('expense'), r.id))}
+                onBaixa={(r) => setBaixa({ kind: 'expense', rec: r })}
+                onNavigate={onNavigate}
+                emptyOverride={expTab === 'cartao' ? 'Nada no cartão ainda. Recorrentes pagas no crédito, assinaturas e parcelas aparecem aqui.' : null}
+                headerRight={
+                    <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-100/70'}`}>
+                        <SubTab active={expTab === 'fixas'} onClick={() => setExpTab('fixas')} isDark={isDark} label="Fixas & mensais" count={expenseRowsFix.length} />
+                        <SubTab active={expTab === 'cartao'} onClick={() => setExpTab('cartao')} isDark={isDark} label="No cartão" count={cardRecurringRows.length} />
+                    </div>
+                } />
 
             {/* Nota */}
             <div className={`mt-6 rounded-2xl border px-4 py-3.5 flex items-center gap-3 text-[13px] ${isDark ? 'border-white/10 bg-white/[0.02] text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
