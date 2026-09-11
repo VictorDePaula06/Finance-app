@@ -84,21 +84,29 @@ export default function Dashboard({ onNavigate }) {
     const faturaTotal = faturaAvulsa + faturaSubs;
 
     // Despesas consideradas (com ou sem a fatura, conforme config)
+    const isBill = (t) => t.category === 'credit_card_bill';
     const expenseTx = useMemo(() => {
-        const acct = monthTx.filter(t => t.type === 'expense' && !isTransferOrAdj(t));
-        if (!cfg.incluirFatura) return acct;
-        // Fatura em aberto = compras avulsas no crédito (coleção transactions)…
-        const credito = tx.filter(t => t.type === 'expense' && t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid');
+        // Sem incluir a fatura em aberto: conta as saídas reais da conta, incluindo o
+        // pagamento da fatura (é quando o dinheiro do crédito de fato sai).
+        if (!cfg.incluirFatura) return monthTx.filter(t => t.type === 'expense' && !isTransferOrAdj(t));
+
+        // Incluindo a fatura em aberto: conta as compras do cartão diretamente e
+        // IGNORA o pagamento da fatura (credit_card_bill), senão o mesmo gasto entraria
+        // duas vezes (a compra + a quitação). Assim, pagar a fatura não altera o total.
+        const acct = monthTx.filter(t => t.type === 'expense' && !isTransferOrAdj(t) && !isBill(t));
+        // Compras avulsas no crédito: em aberto OU quitadas neste mês (pra o total não
+        // cair ao pagar; no mês seguinte elas saem naturalmente).
+        const credito = tx.filter(t => t.type === 'expense' && t.paymentMethod === 'credito'
+            && (t.invoiceStatus === 'unpaid' || t.invoiceMonthPaid === mk));
         // …+ assinaturas e parcelamentos do cartão (coleção subscriptions), que
-        // também compõem a fatura mas não são "transactions". Sem isso, o total
-        // ficava bem menor que a fatura real do cartão.
+        // também compõem a fatura mas não são "transactions".
         const cardSubs = subs.filter(s => s.cardId).map(s => ({
             id: `sub_${s.id}`, description: s.name || 'Cartão', amount: parseFloat(s.value) || 0,
             category: s.category || 'other', priority: s.priority || 'comfort',
             paymentMethod: 'credito', type: 'expense', date: null,
         }));
         return [...acct, ...credito, ...cardSubs];
-    }, [monthTx, tx, subs, cfg.incluirFatura]);
+    }, [monthTx, tx, subs, cfg.incluirFatura, mk]);
     const gastos = expenseTx.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
     const sobra = ganhos - gastos;
     const superfluo = expenseTx.filter(t => t.priority === 'superfluous').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
