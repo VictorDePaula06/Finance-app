@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { rateLimit } from './_rateLimit.js';
 
 /**
  * Cria o checkout do plano ANUAL como PAGAMENTO ÚNICO (mode: 'payment'), com
@@ -66,6 +67,10 @@ export default async function handler(req, res) {
         catch (e) { console.error('token verify falhou:', e?.message); return res.status(401).json({ success: false, error: 'Sessão inválida. Faça login novamente.' }); }
         const uid = decoded.sub;
         const email = decoded.email;
+
+        // Rate limit por usuário (inerte sem Upstash configurado).
+        const rl = await rateLimit(`checkout:${uid}`, { limit: 8, windowSec: 60 });
+        if (!rl.ok) return res.status(429).json({ success: false, error: 'Muitas tentativas. Aguarde um minuto e tente de novo.' });
 
         const ANNUAL_PRICE = (process.env.VITE_STRIPE_PRICE_ID_ANNUAL_ONETIME || 'price_1U8IWWKAwb86obAGMUt1Jn4Q').trim();
 

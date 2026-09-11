@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+import { rateLimit } from './_rateLimit.js';
 
 /**
  * Faz o UPGRADE/DOWNGRADE da assinatura EXISTENTE do usuário (troca o preço do
@@ -57,6 +58,10 @@ export default async function handler(req, res) {
             return res.status(401).json({ success: false, error: 'Sessão inválida. Faça login novamente.' });
         }
         const uid = decoded.uid;
+
+        // Rate limit por usuário (inerte sem Upstash configurado).
+        const rl = await rateLimit(`upgrade:${uid}`, { limit: 8, windowSec: 60 });
+        if (!rl.ok) return res.status(429).json({ success: false, error: 'Muitas tentativas. Aguarde um minuto e tente de novo.' });
 
         // 2. Preço alvo — só aceita preços conhecidos do app (allowlist).
         const { priceId } = req.body || {};
