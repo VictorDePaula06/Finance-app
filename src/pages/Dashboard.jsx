@@ -83,6 +83,22 @@ export default function Dashboard({ onNavigate }) {
     const faturaSubs = subs.filter(s => s.cardId).reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
     const faturaTotal = faturaAvulsa + faturaSubs;
 
+    // Próximo vencimento da fatura (o mais próximo entre os cartões cadastrados).
+    const faturaDue = useMemo(() => {
+        const comDia = cards.filter(c => c.dueDay);
+        if (!comDia.length) return null;
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        let best = null;
+        for (const c of comDia) {
+            let due = new Date(now.getFullYear(), now.getMonth(), c.dueDay);
+            if (due < today) due = new Date(now.getFullYear(), now.getMonth() + 1, c.dueDay);
+            if (!best || due < best.due) best = { due, day: c.dueDay };
+        }
+        best.days = Math.round((best.due - today) / 86400000);
+        return best;
+    }, [cards]);
+
     // Despesas consideradas (com ou sem a fatura, conforme config)
     const isBill = (t) => t.category === 'credit_card_bill';
     const expenseTx = useMemo(() => {
@@ -114,11 +130,6 @@ export default function Dashboard({ onNavigate }) {
     const superfluo = expenseTx.filter(t => t.priority === 'superfluous').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
     const superfluoPct = gastos > 0 ? superfluo / gastos * 100 : 0;
 
-    const categorias = useMemo(() => {
-        const m = {};
-        expenseTx.forEach(t => { m[t.category || 'other'] = (m[t.category || 'other'] || 0) + (parseFloat(t.amount) || 0); });
-        return Object.entries(m).map(([id, value]) => { const c = catMeta(id); return { id, label: c.label, color: categoryHex(c), value }; }).sort((a, b) => b.value - a.value);
-    }, [expenseTx]);
 
     const reservaTotal = jars.reduce((a, j) => a + (parseFloat(j.balance) || 0), 0);
     // Custo fixo mensal (igual Análises): contas fixas + assinaturas + parcelas.
@@ -206,37 +217,28 @@ export default function Dashboard({ onNavigate }) {
                 </div>
             </div>
 
-            {/* KPIs — no mobile: Ganhos/Gastos lado a lado + Saldo em destaque */}
+            {/* KPIs — Saldo em destaque primeiro; no mobile ele ocupa a linha toda */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                <Kpi isDark={isDark} icon={Wallet} label="Saldo disponível" value={hideSaldo ? 'R$ ••••' : <AnimatedNumber value={saldo} format={(v) => `R$ ${money(v)}`} />} sub="disponível em conta" tone="blue" className="col-span-2 sm:col-span-1"
+                    action={<button onClick={() => setHideSaldo(h => !h)} className={muted}>{hideSaldo ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>} />
                 <Kpi isDark={isDark} icon={TrendingUp} label="Ganhos" value={<AnimatedNumber value={ganhos} format={(v) => `R$ ${money(v)}`} />} sub="este mês" tone="emerald" />
                 <Kpi isDark={isDark} icon={TrendingDown} label="Gastos" value={<AnimatedNumber value={gastos} format={(v) => `R$ ${money(v)}`} />} sub={cfg.incluirFatura ? 'inclui fatura' : 'só a conta'} tone="rose"
                     action={<button onClick={() => setGastosOpen(true)} title="Ver lista de gastos" className={`p-1 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}><ListChecks className="w-4 h-4" /></button>} />
-
-                <Kpi isDark={isDark} icon={Wallet} label="Saldo disponível" value={hideSaldo ? 'R$ ••••' : <AnimatedNumber value={saldo} format={(v) => `R$ ${money(v)}`} />} sub="disponível em conta" tone="blue" className="col-span-2 sm:col-span-1"
-                    action={<button onClick={() => setHideSaldo(h => !h)} className={muted}>{hideSaldo ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>} />
             </div>
 
 
-            {/* Gastos por categoria · Reserva · Patrimônio */}
+            {/* Fatura do cartão · Reserva · Patrimônio */}
             <div className="grid lg:grid-cols-3 gap-4 mt-4">
-                {/* Gastos por categoria */}
+                {/* Fatura do cartão — valor exato + dia do vencimento */}
                 <div className={cardCls}>
-                    <h2 className={`text-[13px] font-black uppercase tracking-widest flex items-center gap-1.5 mb-3 ${muted}`}><PieIcon className="w-3.5 h-3.5 text-emerald-500" /> Gastos por categoria</h2>
-                    {categorias.length === 0 ? (
-                        <p className={`text-center text-[13px] py-8 ${muted}`}>Você não teve gastos este mês. 🎉</p>
-                    ) : (
-                        <div className="flex items-center gap-4">
-                            <Donut data={categorias} total={gastos} isDark={isDark} label={`R$ ${money(gastos)}`} />
-                            <div className="flex-1 min-w-0 space-y-1.5 max-h-[132px] overflow-y-auto no-scrollbar">
-                                {categorias.map(c => (
-                                    <div key={c.id} className="flex items-center justify-between gap-2 text-[12px]">
-                                        <span className="flex items-center gap-1.5 min-w-0"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: c.color }} /><span className={`truncate ${cell}`}>{c.label}</span></span>
-                                        <span className="font-black tabular-nums shrink-0" style={{ color: c.color }}>{gastos ? Math.round(c.value / gastos * 100) : 0}%</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                    <h2 className={`text-[13px] font-black uppercase tracking-widest flex items-center gap-1.5 mb-3 ${muted}`}><CreditCard className="w-3.5 h-3.5 text-amber-500" /> Fatura do cartão</h2>
+                    <p className="text-3xl font-black tabular-nums text-amber-500"><AnimatedNumber value={faturaTotal} format={(v) => `R$ ${money(v)}`} /></p>
+                    <p className={`text-[12px] mt-0.5 ${muted}`}>
+                        {faturaDue
+                            ? <>Vence dia <span className="font-bold text-amber-500">{faturaDue.day}</span> · em {faturaDue.days} {faturaDue.days === 1 ? 'dia' : 'dias'}</>
+                            : (faturaTotal > 0 ? 'fatura em aberto' : 'nenhum cartão cadastrado')}
+                    </p>
+                    <Action isDark={isDark} onClick={() => onNavigate?.('cartoes')}>Ver fatura</Action>
                 </div>
 
                 {/* Reserva de emergência (sem barra) */}
