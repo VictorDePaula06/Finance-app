@@ -46,15 +46,51 @@ import {
 import { useTheme } from '../contexts/ThemeContext';
 import logo from '../assets/logo.png';
 import aliviaFinal    from '../assets/alivia/alivia-final.png';
-import aliviaHero     from '../assets/alivia/alivia-consultora.png';
-import aliviaWppHero  from '../assets/alivia/alivia-whatsapp-hero.png';
-import aliviaAssist   from '../assets/alivia/alivia-assistant.png';
 
 import gastosMobile from '../assets/screenshots/gastos-mobile.png';
 import patrimonioMobile from '../assets/screenshots/patrimonio-mobile.png';
 
 const TEAL = '#69C8B9';
 const CYAN = '#5CCEEA';
+
+// Mockup de conversa no WhatsApp (visual de produto — substitui as ilustrações).
+function AliviaChatMock({ isDark, avatar, tag = 'Registro rápido', tagColor = 'bg-[#25D366]', user, reply = [] }) {
+    return (
+        <div className={`rounded-[2.5rem] border shadow-2xl overflow-hidden w-full max-w-[380px] mx-auto ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`p-5 border-b flex items-center justify-between ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-50 bg-[#25D366]/[0.04]'}`}>
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#25D366] flex items-center justify-center overflow-hidden">
+                        <img src={avatar} alt="Alívia" className="w-8 h-8 object-contain" />
+                    </div>
+                    <div>
+                        <div className={`font-black text-sm leading-none ${isDark ? 'text-white' : 'text-slate-800'}`}>Alívia</div>
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-[#25D366] mt-1"><span className="w-1.5 h-1.5 rounded-full bg-[#25D366]" /> online no WhatsApp</div>
+                    </div>
+                </div>
+                <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest text-white ${tagColor}`}>{tag}</div>
+            </div>
+            <div className="p-6 space-y-4 min-h-[320px] flex flex-col justify-end bg-gradient-to-b from-transparent to-[#69C8B9]/5">
+                <div className="flex justify-end">
+                    <div className="max-w-[82%] p-3.5 rounded-[1.4rem] rounded-tr-none bg-[#5CCEEA] text-white font-bold text-xs shadow-md">{user}</div>
+                </div>
+                {reply.map((msg, i) => (
+                    <div key={i} className="flex gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-[#69C8B9] shrink-0 flex items-center justify-center shadow-sm overflow-hidden">
+                            <img src={avatar} alt="" className="w-5 h-5 object-contain" />
+                        </div>
+                        <div className={`max-w-[82%] p-3.5 rounded-[1.4rem] rounded-tl-none font-bold text-xs shadow-sm border ${isDark ? 'bg-white/5 text-slate-200 border-white/5' : 'bg-slate-50 text-slate-700 border-slate-50'}`}>{msg}</div>
+                    </div>
+                ))}
+            </div>
+            <div className={`p-5 border-t ${isDark ? 'border-white/5' : 'border-slate-50'}`}>
+                <div className={`flex items-center gap-3 p-2.5 rounded-2xl ${isDark ? 'bg-white/[0.03]' : 'bg-slate-50/70'}`}>
+                    <div className="flex-1 text-slate-400 text-[10px] font-black uppercase tracking-widest italic">Mensagem para a Alívia…</div>
+                    <div className="w-8 h-8 rounded-full bg-[#25D366] flex items-center justify-center text-white"><ArrowRight className="w-4 h-4" /></div>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTerms, onViewManual, onViewContact }) {
     // "Começar Grátis" leva à tela de CADASTRO; "Entrar" leva ao login.
@@ -230,17 +266,21 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                 </p>
                             </div>
 
-                            {/* Right: Alivia em destaque com badges flutuantes */}
+                            {/* Right: conversa com a Alívia no WhatsApp (mockup de produto) */}
                             <div className="relative flex items-center justify-center lg:justify-end">
-                                <div className="relative">
-                                    {/* glow atrás da Alivia */}
+                                <div className="relative w-full">
+                                    {/* glow atrás do mockup */}
                                     <div className="absolute inset-0 rounded-full blur-3xl opacity-25 pointer-events-none"
                                          style={{ background: 'radial-gradient(circle, #69C8B9 0%, transparent 70%)', transform: 'scale(0.95)' }} />
-                                    <img
-                                        src={aliviaWppHero}
-                                        alt="Fale com a Alívia pelo WhatsApp — sua consultora financeira"
-                                        className="alivia-float relative z-10 w-full max-w-[460px] lg:max-w-[520px] drop-shadow-2xl mx-auto rounded-[2.5rem]"
-                                    />
+                                    <div className="alivia-float relative z-10">
+                                        <AliviaChatMock isDark={isDark} avatar={aliviaFinal}
+                                            tag="Registro rápido"
+                                            user="Gastei R$ 89,90 no mercado 🛒"
+                                            reply={[
+                                                'Anotado! 📝 R$ 89,90 em Mercado (essencial).',
+                                                'Você já usou 62% do teto de Alimentação este mês. Quer que eu te avise ao chegar em 80%?',
+                                            ]} />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -325,16 +365,20 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                     <div className="max-w-6xl mx-auto px-6">
                         <div className="grid lg:grid-cols-2 gap-16 items-center">
 
-                            {/* Alivia assistant illustration */}
+                            {/* Sensor de urgência — conversa "Modo Pânico" (mockup de produto) */}
                             <div className="relative flex justify-center order-2 lg:order-1">
-                                <div className="relative">
+                                <div className="relative w-full max-w-[380px]">
                                     <div className="absolute inset-0 rounded-full blur-3xl opacity-20 pointer-events-none"
                                          style={{ background: 'radial-gradient(circle, #ef4444 0%, transparent 70%)', transform: 'scale(0.7)' }} />
-                                    <img
-                                        src={aliviaAssist}
-                                        alt="Alívia no modo alerta"
-                                        className="alivia-float relative z-10 w-64 md:w-80 drop-shadow-2xl"
-                                    />
+                                    <div className="alivia-float relative z-10">
+                                        <AliviaChatMock isDark={isDark} avatar={aliviaFinal}
+                                            tag="Modo Pânico" tagColor="bg-rose-500"
+                                            user="Surgiu um gasto inesperado e tô desesperada 😰"
+                                            reply={[
+                                                'Calma 💚 Já olhei suas reservas.',
+                                                'Sua margem de segurança cobre esse gasto. Vamos ajustar o plano do mês juntas?',
+                                            ]} />
+                                    </div>
                                     {/* alert bubble */}
                                     <div className={`absolute top-8 -right-4 md:-right-12 z-20 max-w-[180px] p-4 rounded-2xl shadow-xl border text-xs font-bold leading-relaxed ${isDark ? 'bg-slate-900 border-rose-500/30 text-slate-200' : 'bg-white border-rose-100 text-slate-700'}`}>
                                         <div className="flex items-center gap-2 mb-2">
@@ -741,9 +785,17 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                     Começar Grátis <ArrowRight className="w-6 h-6 transition-transform group-hover:translate-x-1" />
                                 </button>
                             </div>
-                            {/* Right: Alivia */}
-                            <div className="hidden lg:flex items-end justify-center pt-8">
-                                <img src={aliviaHero} alt="Alívia" className="w-72 xl:w-80 drop-shadow-2xl alivia-float rounded-[2rem]" />
+                            {/* Right: conversa com a Alívia (mockup de produto) */}
+                            <div className="hidden lg:flex items-center justify-center">
+                                <div className="alivia-float w-full">
+                                    <AliviaChatMock isDark={isDark} avatar={aliviaFinal}
+                                        tag="Recebi meu salário" tagColor="bg-[#25D366]"
+                                        user="Recebi meu salário hoje 💰"
+                                        reply={[
+                                            'Boa! 🎉 Registrei sua entrada e atualizei seu saldo.',
+                                            'Separei sua reserva do mês e suas contas fixas já estão previstas. Bora ver o resumo?',
+                                        ]} />
+                                </div>
                             </div>
                         </div>
                     </div>
