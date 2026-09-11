@@ -86,11 +86,12 @@ export default function Dashboard({ onNavigate }) {
     // Despesas consideradas (com ou sem a fatura, conforme config)
     const isBill = (t) => t.category === 'credit_card_bill';
     const expenseTx = useMemo(() => {
-        // Sem incluir a fatura em aberto: conta as saídas reais da conta, incluindo o
-        // pagamento da fatura (é quando o dinheiro do crédito de fato sai).
-        if (!cfg.incluirFatura) return monthTx.filter(t => t.type === 'expense' && !isTransferOrAdj(t));
+        // Sem incluir a fatura: mostra só os gastos DA CONTA (fora do cartão) — nem as
+        // compras no crédito, nem o pagamento da fatura entram. Assim a diferença entre
+        // ligado/desligado é exatamente a fatura do cartão.
+        if (!cfg.incluirFatura) return monthTx.filter(t => t.type === 'expense' && !isTransferOrAdj(t) && !isBill(t));
 
-        // Incluindo a fatura em aberto: conta as compras do cartão diretamente e
+        // Incluindo a fatura: conta as compras do cartão diretamente e
         // IGNORA o pagamento da fatura (credit_card_bill), senão o mesmo gasto entraria
         // duas vezes (a compra + a quitação). Assim, pagar a fatura não altera o total.
         const acct = monthTx.filter(t => t.type === 'expense' && !isTransferOrAdj(t) && !isBill(t));
@@ -208,7 +209,7 @@ export default function Dashboard({ onNavigate }) {
             {/* KPIs — no mobile: Ganhos/Gastos lado a lado + Saldo em destaque */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
                 <Kpi isDark={isDark} icon={TrendingUp} label="Ganhos" value={<AnimatedNumber value={ganhos} format={(v) => `R$ ${money(v)}`} />} sub="este mês" tone="emerald" />
-                <Kpi isDark={isDark} icon={TrendingDown} label="Gastos" value={<AnimatedNumber value={gastos} format={(v) => `R$ ${money(v)}`} />} sub={cfg.incluirFatura ? 'inclui fatura' : 'este mês'} tone="rose"
+                <Kpi isDark={isDark} icon={TrendingDown} label="Gastos" value={<AnimatedNumber value={gastos} format={(v) => `R$ ${money(v)}`} />} sub={cfg.incluirFatura ? 'inclui fatura' : 'só a conta'} tone="rose"
                     action={<button onClick={() => setGastosOpen(true)} title="Ver lista de gastos" className={`p-1 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}><ListChecks className="w-4 h-4" /></button>} />
 
                 <Kpi isDark={isDark} icon={Wallet} label="Saldo disponível" value={hideSaldo ? 'R$ ••••' : <AnimatedNumber value={saldo} format={(v) => `R$ ${money(v)}`} />} sub="disponível em conta" tone="blue" className="col-span-2 sm:col-span-1"
@@ -517,8 +518,10 @@ function ConfigModal({ isDark, cfg, onChange, onClose, faturaTotal }) {
 
                 <Section isDark={isDark} title="Apuração do mês">
                     <Flag isDark={isDark} on={cfg.incluirFatura} onToggle={v => set({ incluirFatura: v })}
-                        label="Incluir fatura em aberto nas despesas"
-                        hint={`Soma a fatura do cartão (R$ ${money(faturaTotal)}) aos gastos do mês.`} />
+                        label="Incluir a fatura do cartão nos gastos"
+                        hint={cfg.incluirFatura
+                            ? `Ligado: os gastos do mês somam a fatura do cartão (R$ ${money(faturaTotal)}).`
+                            : `Desligado: os gastos mostram só a conta, sem o cartão (a fatura de R$ ${money(faturaTotal)} fica de fora).`} />
                     <Flag isDark={isDark} on={cfg.ocultarSaldo} onToggle={v => set({ ocultarSaldo: v })}
                         label="Ocultar saldo por padrão" hint="O saldo começa escondido (👁 pra revelar)." />
                 </Section>
