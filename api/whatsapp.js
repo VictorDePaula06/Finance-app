@@ -42,17 +42,20 @@ async function readRawBody(req) {
 // Só EXIGE quando WHATSAPP_APP_SECRET está configurado — assim não quebra o fluxo
 // atual; ao definir o segredo, o webhook passa a rejeitar POSTs forjados.
 function verifySignature(req, rawBody) {
-  const secret = process.env.WHATSAPP_APP_SECRET;
+  // .trim() remove espaço/quebra de linha coladas junto do valor na Vercel.
+  const secret = (process.env.WHATSAPP_APP_SECRET || '').trim();
+  const header = req.headers['x-hub-signature-256'] || '';
   // FAIL-CLOSED: sem o segredo configurado, rejeita (antes retornava true, o que
   // aceitava POSTs forjados). Defina WHATSAPP_APP_SECRET na Vercel — sem ele o
   // webhook para de aceitar eventos (inclusive os legítimos da Meta).
-  if (!secret) return false;
-  const header = req.headers['x-hub-signature-256'] || '';
+  if (!secret) { console.warn('WA sig: WHATSAPP_APP_SECRET AUSENTE em Production'); return false; }
   const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
   try {
     const a = Buffer.from(header);
     const b = Buffer.from(expected);
-    return a.length === b.length && crypto.timingSafeEqual(a, b);
+    const ok = a.length === b.length && crypto.timingSafeEqual(a, b);
+    if (!ok) console.warn(`WA sig MISMATCH: headerPresent=${!!header} headerLen=${header.length} expectedLen=${expected.length} secretLen=${secret.length}`);
+    return ok;
   } catch { return false; }
 }
 
