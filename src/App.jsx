@@ -1289,6 +1289,7 @@ function AppRoutes() {
           : (
           <LandingPage
             onLogin={() => navigate('/login')}
+            onSignup={() => navigate('/cadastro')}
             onViewPrivacy={() => navigate('/politica-privacidade')}
             onViewTerms={() => navigate('/termos')}
             onViewManual={() => navigate('/manual')}
@@ -1299,6 +1300,10 @@ function AppRoutes() {
       <Route
         path="/login"
         element={currentUser ? <Navigate to="/inicio" replace /> : <Login onBack={isNativeApp() ? undefined : () => navigate('/')} />}
+      />
+      <Route
+        path="/cadastro"
+        element={currentUser ? <Navigate to="/inicio" replace /> : <Login initialMode="signup" onBack={isNativeApp() ? undefined : () => navigate('/')} />}
       />
       <Route
         path="/politica-privacidade"

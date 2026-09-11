@@ -44,12 +44,13 @@ const STRENGTH = [
     { label: 'Forte', color: '#059669' },
 ];
 
-export default function Login({ onBack }) {
+export default function Login({ onBack, initialMode }) {
     const { login, signup, loginWithGoogle } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const isDark = theme === 'dark';
 
-    const [mode, setMode] = useState('login'); // 'login' | 'signup'
+    // Modo inicial: vem de "Começar Grátis" (cadastro) ou "Entrar" (login).
+    const [mode, setMode] = useState(initialMode === 'signup' ? 'signup' : 'login'); // 'login' | 'signup'
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');

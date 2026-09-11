@@ -49,21 +49,16 @@ import aliviaFinal    from '../assets/alivia/alivia-final.png';
 import aliviaHero     from '../assets/alivia/alivia-consultora.png';
 import aliviaWppHero  from '../assets/alivia/alivia-whatsapp-hero.png';
 import aliviaAssist   from '../assets/alivia/alivia-assistant.png';
-import aliviaClean    from '../assets/alivia/alivia-clean.png';
-import aliviaGoal     from '../assets/alivia/alivia-goal.png';
-import aliviaGrowth   from '../assets/alivia/alivia-growth.png';
-import aliviaPlanning from '../assets/alivia/alivia-planning.png';
 
-import hubImg from '../assets/screenshots/hub.png';
-import gastosImg from '../assets/screenshots/gastos.png';
-import patrimonioImg from '../assets/screenshots/patrimonio.png';
 import gastosMobile from '../assets/screenshots/gastos-mobile.png';
 import patrimonioMobile from '../assets/screenshots/patrimonio-mobile.png';
 
 const TEAL = '#69C8B9';
 const CYAN = '#5CCEEA';
 
-export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onViewManual, onViewContact }) {
+export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTerms, onViewManual, onViewContact }) {
+    // "Começar Grátis" leva à tela de CADASTRO; "Entrar" leva ao login.
+    const goSignup = onSignup || onLogin;
     const { theme, toggleTheme } = useTheme();
     const isDark = theme !== 'light';
     const [billing, setBilling] = React.useState('monthly');
@@ -183,7 +178,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                         </div>
                         <div className="flex items-center justify-end gap-3">
                             <button onClick={onLogin} className={`hidden md:block text-xs font-bold px-4 py-2 rounded-xl transition-colors ${isDark ? 'text-slate-300 hover:text-[#69C8B9]' : 'text-slate-600 hover:text-[#69C8B9]'}`}>Entrar</button>
-                            <button onClick={onLogin} className="px-5 py-2 md:px-6 md:py-2.5 rounded-xl bg-[#69C8B9] hover:bg-[#5bb1a3] text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95">Começar Grátis</button>
+                            <button onClick={goSignup} className="px-5 py-2 md:px-6 md:py-2.5 rounded-xl bg-[#69C8B9] hover:bg-[#5bb1a3] text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95">Começar Grátis</button>
                         </div>
                     </div>
                 </nav>,
@@ -223,7 +218,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                     Mande uma mensagem pra <span className="text-[#25D366] font-bold">Alívia no WhatsApp</span> e ela registra o gasto, dá baixa nas contas, lê o extrato e te manda o relatório — numa conversa. Tudo sincronizado com o app de <span className="text-[#5CCEEA] font-bold">Controle de Gastos</span> e <span className="text-[#69C8B9] font-bold">Patrimônio</span>.
                                 </p>
                                 <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
-                                    <button onClick={onLogin} className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA] hover:opacity-90 text-white font-black text-lg shadow-xl shadow-[#69C8B9]/30 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 group">
+                                    <button onClick={goSignup} className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA] hover:opacity-90 text-white font-black text-lg shadow-xl shadow-[#69C8B9]/30 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 group">
                                         Começar Grátis <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
                                     </button>
                                     <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className={`w-full sm:w-auto px-8 py-4 rounded-2xl font-black text-base border transition-all hover:scale-105 active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:border-[#69C8B9]/40 hover:text-[#69C8B9]' : 'border-slate-200 text-slate-700 hover:border-[#69C8B9]/50 hover:text-[#69C8B9]'}`}>
@@ -650,7 +645,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 price="R$ 0"
                                 priceSuffix=""
                                 note="Para sempre · sem cartão"
-                                onClick={onLogin}
+                                onClick={goSignup}
                                 ctaLabel="Começar Grátis"
                                 ctaStyle={isDark ? 'bg-white/5 text-white border border-white/10 hover:bg-white/10' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}
                                 included={[
@@ -675,7 +670,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                 price={`R$ ${billing === 'monthly' ? '14,99' : '9,99'}`}
                                 priceSuffix="/mês"
                                 note={billing === 'annual' ? 'Cobrado anualmente (R$ 119,88/ano)' : 'Cobrança mensal · cancele quando quiser'}
-                                onClick={onLogin}
+                                onClick={goSignup}
                                 ctaLabel="Assinar o PRO"
                                 ctaStyle="bg-gradient-to-r from-[#25D366] to-[#69C8B9] text-white shadow-xl shadow-[#25D366]/20 hover:scale-[1.02]"
                                 includedTitle="Tudo do Gratuito, sem limites:"
@@ -742,7 +737,7 @@ export default function LandingPage({ onLogin, onViewPrivacy, onViewTerms, onVie
                                     O futuro está<br />te esperando.
                                 </h2>
                                 <p className="text-white/70 text-lg font-medium">Comece hoje com o Plano Gratuito. Sem cartão, sem risco. Faça upgrade quando quiser — os preços já estão esperando por você.</p>
-                                <button onClick={onLogin} className="px-10 py-5 rounded-2xl bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA] text-white font-black text-xl shadow-xl shadow-[#69C8B9]/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-3 mx-auto lg:mx-0 group">
+                                <button onClick={goSignup} className="px-10 py-5 rounded-2xl bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA] text-white font-black text-xl shadow-xl shadow-[#69C8B9]/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-3 mx-auto lg:mx-0 group">
                                     Começar Grátis <ArrowRight className="w-6 h-6 transition-transform group-hover:translate-x-1" />
                                 </button>
                             </div>
