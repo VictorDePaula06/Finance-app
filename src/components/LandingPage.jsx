@@ -47,8 +47,9 @@ import { useTheme } from '../contexts/ThemeContext';
 import logo from '../assets/logo.png';
 import aliviaFinal    from '../assets/alivia/alivia-final.png';
 
-import gastosMobile from '../assets/screenshots/gastos-mobile.png';
-import patrimonioMobile from '../assets/screenshots/patrimonio-mobile.png';
+import gastosMobile from '../assets/screenshots/dashboard-mobile.jpeg';
+import patrimonioMobile from '../assets/screenshots/analises-mobile.jpeg';
+import whatsappChat from '../assets/screenshots/whatsapp-chat.jpeg';
 
 const TEAL = '#69C8B9';
 const CYAN = '#5CCEEA';
@@ -273,13 +274,8 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                     <div className="absolute inset-0 rounded-full blur-3xl opacity-25 pointer-events-none"
                                          style={{ background: 'radial-gradient(circle, #69C8B9 0%, transparent 70%)', transform: 'scale(0.95)' }} />
                                     <div className="alivia-float relative z-10">
-                                        <AliviaChatMock isDark={isDark} avatar={aliviaFinal}
-                                            tag="Registro rápido"
-                                            user="Gastei R$ 89,90 no mercado 🛒"
-                                            reply={[
-                                                'Anotado! 📝 R$ 89,90 em Mercado (essencial).',
-                                                'Você já usou 62% do teto de Alimentação este mês. Quer que eu te avise ao chegar em 80%?',
-                                            ]} />
+                                        <img src={whatsappChat} alt="Conversa real com a Alívia no WhatsApp"
+                                            className="w-full max-w-[330px] mx-auto rounded-[2.2rem] shadow-2xl border border-black/10" />
                                     </div>
                                 </div>
                             </div>
