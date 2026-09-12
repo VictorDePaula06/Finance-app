@@ -300,7 +300,7 @@ export default function Login({ onBack, initialMode }) {
                 </div>
             </div>
 
-            <footer className={`absolute bottom-6 text-xs font-bold uppercase tracking-widest pointer-events-none opacity-50 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>© {new Date().getFullYear()} ALÍVIA</footer>
+            <footer className={`relative z-10 mt-8 text-xs font-bold uppercase tracking-widest opacity-50 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>© {new Date().getFullYear()} ALÍVIA</footer>
 
             <style dangerouslySetInnerHTML={{ __html: `
                 @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
