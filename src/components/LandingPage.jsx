@@ -47,9 +47,9 @@ import { useTheme } from '../contexts/ThemeContext';
 import logo from '../assets/logo.png';
 import aliviaFinal    from '../assets/alivia/alivia-final.png';
 
+import aliviaWppHero from '../assets/alivia/alivia-whatsapp-hero.png';
 import gastosMobile from '../assets/screenshots/dashboard-mobile.jpeg';
 import patrimonioMobile from '../assets/screenshots/analises-mobile.jpeg';
-import whatsappChat from '../assets/screenshots/whatsapp-chat.jpeg';
 
 const TEAL = '#69C8B9';
 const CYAN = '#5CCEEA';
@@ -246,19 +246,19 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                     <span>Sua consultora financeira no WhatsApp</span>
                                 </div>
                                 <h1 className={`text-4xl md:text-6xl xl:text-7xl font-black tracking-tight leading-[1.05] ${t.textH}`}>
-                                    Organize seu<br />dinheiro<br />
-                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA]">
-                                        numa conversa.
+                                    Sua vida financeira,<br />resolvida{' '}
+                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#25D366] to-[#69C8B9]">
+                                        no WhatsApp.
                                     </span>
                                 </h1>
                                 <p className={`text-base md:text-xl leading-relaxed font-medium max-w-xl ${t.textBody}`}>
-                                    Mande uma mensagem pra <span className="text-[#25D366] font-bold">Alívia no WhatsApp</span> e ela registra o gasto, dá baixa nas contas, lê o extrato e te manda o relatório — numa conversa. Tudo sincronizado com o app de <span className="text-[#5CCEEA] font-bold">Controle de Gastos</span> e <span className="text-[#69C8B9] font-bold">Patrimônio</span>.
+                                    Registre gastos por <span className="text-[#25D366] font-bold">áudio, foto ou texto</span>, dê baixa nas contas e receba <span className="text-[#5CCEEA] font-bold">relatórios completos</span> — tudo numa conversa com a Alívia, a IA que cuida do seu dinheiro. <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Sem apps pesados, sem planilhas.</span>
                                 </p>
                                 <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
-                                    <button onClick={goSignup} className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA] hover:opacity-90 text-white font-black text-lg shadow-xl shadow-[#69C8B9]/30 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 group">
-                                        Começar Grátis <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+                                    <button onClick={goSignup} className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-gradient-to-r from-[#25D366] to-[#1faa52] hover:brightness-110 text-white font-black text-base md:text-lg shadow-xl shadow-[#25D366]/40 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2.5 group">
+                                        <MessageSquare className="w-5 h-5" /> Começar Grátis no WhatsApp <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
                                     </button>
-                                    <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className={`w-full sm:w-auto px-8 py-4 rounded-2xl font-black text-base border transition-all hover:scale-105 active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:border-[#69C8B9]/40 hover:text-[#69C8B9]' : 'border-slate-200 text-slate-700 hover:border-[#69C8B9]/50 hover:text-[#69C8B9]'}`}>
+                                    <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className={`w-full sm:w-auto px-8 py-4 rounded-2xl font-black text-base border transition-all hover:scale-105 active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:border-[#25D366]/40 hover:text-[#25D366]' : 'border-slate-200 text-slate-700 hover:border-[#25D366]/50 hover:text-[#25D366]'}`}>
                                         Ver Planos
                                     </button>
                                 </div>
@@ -273,10 +273,8 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                     {/* glow atrás do mockup */}
                                     <div className="absolute inset-0 rounded-full blur-3xl opacity-25 pointer-events-none"
                                          style={{ background: 'radial-gradient(circle, #69C8B9 0%, transparent 70%)', transform: 'scale(0.95)' }} />
-                                    <div className="alivia-float relative z-10">
-                                        <img src={whatsappChat} alt="Conversa real com a Alívia no WhatsApp"
-                                            className="w-full max-w-[330px] mx-auto rounded-[2.2rem] shadow-2xl border border-black/10" />
-                                    </div>
+                                    <img src={aliviaWppHero} alt="Fale com a Alívia pelo WhatsApp — sua consultora financeira"
+                                        className="alivia-float relative z-10 w-full max-w-[460px] lg:max-w-[520px] drop-shadow-2xl mx-auto rounded-[2.5rem]" />
                                 </div>
                             </div>
                         </div>
@@ -308,16 +306,16 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                 <section className="relative py-20 px-6">
                     <div className="max-w-5xl mx-auto">
                         <div className="text-center mb-10">
-                            <Eyebrow className="mb-2">Simples de usar</Eyebrow>
-                            <h2 className={`text-2xl md:text-4xl font-black ${t.textH}`}>Em 3 passos, sua vida financeira muda.</h2>
+                            <Eyebrow className="mb-2">O fluxo mágico pelo WhatsApp</Eyebrow>
+                            <h2 className={`text-2xl md:text-4xl font-black ${t.textH}`}>Do gasto ao relatório, em 3 mensagens.</h2>
                         </div>
                         <div className="grid md:grid-cols-3 gap-4">
                             {[
-                                { step: '01', icon: Wallet, color: '#5CCEEA', title: 'Registre seus gastos', desc: 'Lance pelo chat com a Alívia ou manualmente. Categorização automática.' },
-                                { step: '02', icon: Brain, color: '#69C8B9', title: 'A Alívia analisa', desc: 'IA monitora padrões, compara com suas metas e avisa antes dos limites.' },
-                                { step: '03', icon: TrendingUp, color: '#69C8B9', title: 'Veja crescer', desc: 'Patrimônio, reservas e metas evoluindo visíveis no painel em tempo real.' },
+                                { step: '01', icon: MessageSquare, color: '#25D366', title: 'Manda no WhatsApp', desc: 'Um áudio, uma foto do recibo ou só o texto: "gastei 45 no mercado". Do jeito que for mais fácil pra você.' },
+                                { step: '02', icon: Sparkles, color: '#69C8B9', title: 'A Alívia registra na hora', desc: 'A IA entende, categoriza e lança tudo automaticamente — e já te diz quanto você gastou na categoria no mês.' },
+                                { step: '03', icon: BarChart3, color: '#5CCEEA', title: 'Peça seu raio-X', desc: 'Peça o relatório da semana ou do mês e receba um resumo completo dos seus gastos em segundos, na conversa.' },
                             ].map((item, i) => (
-                                <div key={i} className={`relative p-8 rounded-[2rem] border flex flex-col gap-4 group hover:shadow-lg transition-all ${isDark ? 'bg-white/[0.03] border-white/8 hover:border-white/15' : 'bg-white border-slate-100 shadow-sm hover:shadow-md'}`}>
+                                <div key={i} className={`relative p-8 rounded-[2rem] border flex flex-col gap-4 group transition-all hover:-translate-y-1 ${isDark ? 'bg-white/[0.04] border-white/10 backdrop-blur-sm hover:border-[#25D366]/30 hover:shadow-[0_10px_40px_-10px_rgba(37,211,102,0.25)]' : 'bg-white/70 border-slate-100 backdrop-blur-sm shadow-sm hover:shadow-xl hover:border-[#25D366]/30'}`}>
                                     {i < 2 && (
                                         <div className="hidden md:block absolute top-1/2 -right-3 z-10 text-slate-600">
                                             <ArrowRight className="w-5 h-5" />
