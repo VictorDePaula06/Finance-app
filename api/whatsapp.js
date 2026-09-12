@@ -464,13 +464,20 @@ async function buildUserContext(db, uid) {
   const num = (v) => parseFloat(v) || 0;
   const R = (v) => `R$ ${money(v)}`;
   try {
-    const [txSnap, jarSnap, subSnap, fixSnap, goalSnap] = await Promise.all([
+    const [txSnap, jarSnap, subSnap, fixSnap, goalSnap, userSnap] = await Promise.all([
       db.collection('transactions').where('userId', '==', uid).get(),
       db.collection('savings_jars').where('userId', '==', uid).get(),
       db.collection('subscriptions').where('userId', '==', uid).get(),
       db.collection('fixed_expenses').where('userId', '==', uid).get(),
       db.collection('expense_goals').where('userId', '==', uid).get(),
+      db.collection('users').doc(uid).get(),
     ]);
+    // Nome do perfil — só o primeiro nome, pra Alívia chamar a pessoa pelo nome.
+    const rawName = String(userSnap.exists ? (userSnap.data().name || userSnap.data().displayName || '') : '').trim();
+    const firstName = rawName ? rawName.split(/\s+/)[0] : '';
+    const nameLine = firstName
+      ? `O nome da pessoa é *${firstName}*. Trate-a por esse nome de forma natural e calorosa — use nas saudações e confirmações, sem repetir em toda frase.`
+      : '';
     const txAll = txSnap.docs.map(d => d.data());
     const txMk = (t) => t.month || String(t.date || '').slice(0, 7);
     const consumo = (t) => t.type === 'expense' && !['credit_card_bill', 'vault', 'investment'].includes(t.category) && !t.reserveInternal;
@@ -506,6 +513,7 @@ async function buildUserContext(db, uid) {
     const saldoCarteira = walletBalance(txAll);
 
     return [
+      ...(nameLine ? [nameLine, ''] : []),
       `RESUMO FINANCEIRO REAL — mês ${monthLabel(mk)} (use SOMENTE estes números; nunca invente outros):`,
       `- Saldo em carteira (dinheiro disponível hoje, acumulado): ${R(saldoCarteira)}`,
       `- Entradas do mês: ${R(entradas)}`,
@@ -782,6 +790,8 @@ async function generateAndSendPdf(db, from, uid, id) {
 
 const SYSTEM = `Você é a **Alívia**, assistente financeira acolhedora, respondendo pelo WhatsApp.
 REGRAS:
+- RESPONDA SEMPRE, de forma útil — nunca ignore uma mensagem. Se não entender o que a pessoa quis dizer, pergunte com gentileza, em UMA frase, o que ela precisa.
+- Quando souber o nome da pessoa (informado no contexto), chame-a pelo nome de forma natural — principalmente em saudações e confirmações. Não repita o nome em toda frase.
 - RESPONDA A PERGUNTA DE FORMA DIRETA E CURTA (1 a 3 frases). Nada de textão.
 - Pode e DEVE citar os valores do "RESUMO FINANCEIRO REAL" abaixo quando a pergunta for sobre dados (ex.: "quanto tenho preso em parcelamento?" → responda com o valor de "total ainda a pagar").
 - NUNCA invente números que não estejam no resumo. Se o dado exato não estiver lá, diga em UMA frase que pode gerar um relatório detalhado (aba Análises) e ofereça — não enrole.
@@ -1070,6 +1080,41 @@ async function transcribeAudio(mediaId, key, usage = null) {
   } catch (e) {
     console.error('WA transcribeAudio erro:', e?.message || e);
     return { errorMsg: '📡 *Não consegui processar seu áudio agora* — parece uma instabilidade de conexão momentânea.\n\nTente enviar de novo em instantes, por favor.\n\n_(motivo: falha de conexão · cód. IA-NET)_' };
+  }
+}
+
+// Analisa uma FOTO enviada no WhatsApp (Gemini vision). Se for um recibo/comprovante,
+// extrai valor + estabelecimento; senão, descreve pra Alívia responder algo inteligente.
+// Retorna { expenseText } (frase pronta "gastei X em Y") ou { description } ou { errorMsg }.
+async function analyzeImage(mediaId, key, usage = null) {
+  const token = process.env.WHATSAPP_TOKEN;
+  if (!mediaId || !key) return { description: '' };
+  try {
+    const meta = await fetch(`${GRAPH}/${mediaId}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+    if (!meta?.url) { console.error('WA image: sem url', JSON.stringify(meta).slice(0, 200)); return { description: '' }; }
+    const imgResp = await fetch(meta.url, { headers: { Authorization: `Bearer ${token}` } });
+    const b64 = Buffer.from(await imgResp.arrayBuffer()).toString('base64');
+    const mime = (meta.mime_type || 'image/jpeg').split(';')[0];
+    const instruction = `Esta é uma foto enviada por um usuário de um app financeiro.
+Se for um RECIBO, NOTA, CUPOM FISCAL ou COMPROVANTE de compra/pagamento: identifique o VALOR TOTAL (em reais) e o estabelecimento.
+Responda em UMA linha, EXATAMENTE neste formato: GASTO|<valor numérico com ponto decimal>|<estabelecimento curto>
+Se NÃO for um comprovante (ex.: foto de pessoa, paisagem, print de tela, objeto qualquer): responda EXATAMENTE: OUTRO|<descrição bem curta do que aparece, em português>`;
+    const body = {
+      contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mime, data: b64 } }, { text: instruction }] }],
+    };
+    const { r, j } = await callGemini(body, key, usage);
+    if (!r.ok || j?.error) { console.error(`WA image falhou: HTTP ${r.status} ${JSON.stringify(j).slice(0, 300)}`); return { errorMsg: geminiErrorMessage(r.status, j) }; }
+    const out = (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+    if (/^GASTO\|/i.test(out)) {
+      const [, val, estab] = out.split('|');
+      const valor = parseFloat(String(val).replace(/[^\d.,]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.'));
+      if (valor > 0) return { expenseText: `gastei ${valor.toFixed(2)} em ${String(estab || 'compra').trim()}` };
+    }
+    const desc = out.replace(/^OUTRO\|/i, '').trim();
+    return { description: desc };
+  } catch (e) {
+    console.error('WA analyzeImage erro:', e?.message || e);
+    return { errorMsg: '📡 *Não consegui abrir sua foto agora* — parece uma instabilidade momentânea. Tenta enviar de novo, por favor.' };
   }
 }
 
@@ -1654,14 +1699,22 @@ export default async function handler(req, res) {
     }
 
     const msg = value?.messages?.[0];
-    if (!msg || !['text', 'interactive', 'audio', 'document'].includes(msg.type)) return res.status(200).json({ ok: true }); // ignora outros tipos
+    if (!msg) return res.status(200).json({ ok: true });
+    // SEMPRE responde: tipos não suportados (sticker, vídeo, localização, contato…)
+    // recebem uma resposta amigável em vez de silêncio.
+    const SUPPORTED = ['text', 'interactive', 'audio', 'document', 'image'];
+    if (!SUPPORTED.includes(msg.type)) {
+      await sendTyping(msg.id).catch(() => {});
+      await sendText(msg.from, 'Recebi sua mensagem 💚 Por aqui eu entendo *texto*, *áudio* e *foto* de recibo — me manda de um desses jeitos que eu te ajudo na hora!');
+      return res.status(200).json({ ok: true });
+    }
 
     const from = msg.from; // telefone E.164 só dígitos
-    // Entrada pode ser texto, um toque em lista/botão (interactive) OU áudio (voz).
-    // O áudio é transcrito DEPOIS (com a chave do próprio usuário), após o vínculo.
+    // Entrada pode ser texto, toque em lista/botão (interactive), áudio (voz) ou foto.
     let text = '';
     let selId = null;
     let audioId = null;
+    let imageId = null;
     if (msg.type === 'text') {
       text = msg.text?.body || '';
     } else if (msg.type === 'interactive') {
@@ -1670,6 +1723,8 @@ export default async function handler(req, res) {
       text = it.list_reply?.title || it.button_reply?.title || '';
     } else if (msg.type === 'audio') {
       audioId = msg.audio?.id || null;
+    } else if (msg.type === 'image') {
+      imageId = msg.image?.id || null;
     }
     console.log(`WA in <- from=${from} type=${msg.type} text="${text.slice(0, 60)}" sel=${selId || '-'}`);
     // Marca como lida e mostra "digitando…" já — some quando enviarmos a resposta.
@@ -1744,6 +1799,26 @@ export default async function handler(req, res) {
       text = tr.text;
       if (!text) { await sendText(from, 'Não consegui entender o áudio 😅 — pode ter ficado baixo ou muito curto. Tente repetir ou me escrever.'); return res.status(200).json({ ok: true }); }
       console.log(`WA audio transcrito: "${text.slice(0, 60)}"`);
+    }
+
+    // Foto: se for recibo, vira um gasto (segue o fluxo normal); senão, responde algo.
+    if (msg.type === 'image') {
+      if (!geminiKey) { await sendText(from, MSG_NO_KEY); return res.status(200).json({ ok: true }); }
+      const tokImg = newUsage();
+      const img = await analyzeImage(imageId, geminiKey, tokImg);
+      await recordTokens(db, uid, tokImg);
+      if (img.errorMsg) { await sendText(from, img.errorMsg); return res.status(200).json({ ok: true }); }
+      if (img.expenseText) {
+        // Vira texto de gasto e segue o pipeline normal (categoria → prioridade → lança).
+        text = img.expenseText;
+        console.log(`WA image -> gasto: "${text}"`);
+      } else {
+        const d = (img.description || '').trim();
+        await sendText(from, d
+          ? `Recebi sua foto 📸 — parece ${d}. Se for um gasto, me diz o valor que eu registro; ou me conta como posso te ajudar. 💚`
+          : 'Recebi sua foto 📸, mas não consegui identificar um recibo nela. Se for um gasto, me manda o valor (ex.: "mercado 89,90") que eu registro na hora!');
+        return res.status(200).json({ ok: true });
+      }
     }
 
     // 0. Documento (PDF/CSV) — extrai lançamentos e pede confirmação (importação em lote).
