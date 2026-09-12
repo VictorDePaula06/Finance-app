@@ -2055,7 +2055,20 @@ export default async function handler(req, res) {
         await db.collection('transactions').add(txData);
         await sessRef.set({ uid, history, pending: null }, { merge: true });
         const onde = p.isCard ? ` na fatura do *${p.cardName}*` : '';
-        await sendText(from, `Lançado! ✅ *${p.description}* — R$ ${money(p.amount)}${onde}\n_${CAT_LABELS[p.category]} · ${PRIO_LABELS[prio]}_`);
+        // Acumulado do mês na MESMA categoria (já inclui o lançamento recém-feito).
+        const mkExp = now.toISOString().slice(0, 7);
+        let catLine = '';
+        try {
+          const snap = await db.collection('transactions').where('userId', '==', uid).get();
+          const catTotal = snap.docs.reduce((a, d) => {
+            const t = d.data();
+            const tMk = t.month || String(t.date || '').slice(0, 7);
+            return (t.type === 'expense' && t.category === p.category && tMk === mkExp)
+              ? a + (parseFloat(t.amount) || 0) : a;
+          }, 0);
+          catLine = `\n\n📊 Você já gastou *R$ ${money(catTotal)}* em *${CAT_LABELS[p.category]}* este mês.`;
+        } catch (e) { console.error('WA cat total:', e?.message); }
+        await sendText(from, `Lançado! ✅ *${p.description}* — R$ ${money(p.amount)}${onde}\n_${CAT_LABELS[p.category]} · ${PRIO_LABELS[prio]}_${catLine}`);
         return res.status(200).json({ ok: true });
       }
     }
