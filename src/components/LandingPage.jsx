@@ -42,6 +42,7 @@ import {
     Star,
     TrendingDown,
     PiggyBank,
+    ArrowLeft, CheckCheck, Mic, MoreVertical, Video, Smile, Paperclip, Camera, Phone,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import logo from '../assets/logo.png';
@@ -54,39 +55,56 @@ import patrimonioMobile from '../assets/screenshots/analises-mobile.jpeg';
 const TEAL = '#69C8B9';
 const CYAN = '#5CCEEA';
 
-// Mockup de conversa no WhatsApp (visual de produto — substitui as ilustrações).
-function AliviaChatMock({ isDark, avatar, tag = 'Registro rápido', tagColor = 'bg-[#25D366]', user, reply = [] }) {
+// Tela de conversa no WhatsApp (visual autêntico — hoje só se fala com a Alívia por lá).
+function AliviaChatMock({ isDark, avatar, user, reply = [], time = '09:41' }) {
+    const meBg = isDark ? '#005C4B' : '#D9FDD3';
+    const aliBg = isDark ? '#202C33' : '#FFFFFF';
+    const txt = isDark ? '#E9EDEF' : '#111B21';
+    const meta = isDark ? '#8FA6AD' : '#667781';
+    const chatBg = isDark ? '#0B141A' : '#EFEAE2';
     return (
-        <div className={`rounded-[2.5rem] border shadow-2xl overflow-hidden w-full max-w-[380px] mx-auto ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
-            <div className={`p-5 border-b flex items-center justify-between ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-50 bg-[#25D366]/[0.04]'}`}>
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#25D366] flex items-center justify-center overflow-hidden">
-                        <img src={avatar} alt="Alívia" className="w-8 h-8 object-contain" />
-                    </div>
-                    <div>
-                        <div className={`font-black text-sm leading-none ${isDark ? 'text-white' : 'text-slate-800'}`}>Alívia</div>
-                        <div className="flex items-center gap-1 text-[10px] font-bold text-[#25D366] mt-1"><span className="w-1.5 h-1.5 rounded-full bg-[#25D366]" /> online no WhatsApp</div>
-                    </div>
+        <div className="rounded-[1.8rem] overflow-hidden w-full max-w-[360px] mx-auto shadow-2xl border" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
+            {/* Cabeçalho estilo WhatsApp */}
+            <div className="flex items-center gap-2.5 px-3 py-2.5" style={{ background: isDark ? '#202C33' : '#008069' }}>
+                <ArrowLeft className="w-5 h-5 text-white/90 shrink-0" />
+                <div className="w-9 h-9 rounded-full overflow-hidden bg-white/20 shrink-0 flex items-center justify-center">
+                    <img src={avatar} alt="Alívia" className="w-full h-full object-cover" />
                 </div>
-                <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest text-white ${tagColor}`}>{tag}</div>
+                <div className="min-w-0 flex-1">
+                    <div className="text-white font-bold text-[14px] leading-tight truncate">Alívia Finanças</div>
+                    <div className="text-white/70 text-[11px] leading-tight">online</div>
+                </div>
+                <Video className="w-5 h-5 text-white/85 shrink-0" />
+                <Phone className="w-[18px] h-[18px] text-white/85 shrink-0" />
+                <MoreVertical className="w-5 h-5 text-white/85 shrink-0" />
             </div>
-            <div className="p-6 space-y-4 min-h-[320px] flex flex-col justify-end bg-gradient-to-b from-transparent to-[#69C8B9]/5">
+            {/* Conversa */}
+            <div className="px-3 py-4 space-y-2 min-h-[330px] flex flex-col justify-end" style={{ backgroundColor: chatBg }}>
                 <div className="flex justify-end">
-                    <div className="max-w-[82%] p-3.5 rounded-[1.4rem] rounded-tr-none bg-[#5CCEEA] text-white font-bold text-xs shadow-md">{user}</div>
+                    <div className="max-w-[82%] px-2.5 py-1.5 rounded-lg rounded-tr-sm text-[13px] leading-snug shadow-sm" style={{ background: meBg, color: txt }}>
+                        {user}
+                        <span className="float-right ml-2 mt-1 inline-flex items-center gap-0.5 text-[10px]" style={{ color: meta }}>{time} <CheckCheck className="w-3.5 h-3.5" style={{ color: '#53BDEB' }} /></span>
+                    </div>
                 </div>
                 {reply.map((msg, i) => (
-                    <div key={i} className="flex gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-[#69C8B9] shrink-0 flex items-center justify-center shadow-sm overflow-hidden">
-                            <img src={avatar} alt="" className="w-5 h-5 object-contain" />
+                    <div key={i} className="flex justify-start">
+                        <div className="max-w-[82%] px-2.5 py-1.5 rounded-lg rounded-tl-sm text-[13px] leading-snug shadow-sm" style={{ background: aliBg, color: txt }}>
+                            {msg}
+                            <span className="float-right ml-2 mt-1 text-[10px]" style={{ color: meta }}>{time}</span>
                         </div>
-                        <div className={`max-w-[82%] p-3.5 rounded-[1.4rem] rounded-tl-none font-bold text-xs shadow-sm border ${isDark ? 'bg-white/5 text-slate-200 border-white/5' : 'bg-slate-50 text-slate-700 border-slate-50'}`}>{msg}</div>
                     </div>
                 ))}
             </div>
-            <div className={`p-5 border-t ${isDark ? 'border-white/5' : 'border-slate-50'}`}>
-                <div className={`flex items-center gap-3 p-2.5 rounded-2xl ${isDark ? 'bg-white/[0.03]' : 'bg-slate-50/70'}`}>
-                    <div className="flex-1 text-slate-400 text-[10px] font-black uppercase tracking-widest italic">Mensagem para a Alívia…</div>
-                    <div className="w-8 h-8 rounded-full bg-[#25D366] flex items-center justify-center text-white"><ArrowRight className="w-4 h-4" /></div>
+            {/* Barra de digitação */}
+            <div className="flex items-center gap-2 px-2 py-2" style={{ backgroundColor: chatBg }}>
+                <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-full" style={{ background: aliBg }}>
+                    <Smile className="w-[18px] h-[18px] shrink-0" style={{ color: meta }} />
+                    <span className="flex-1 text-[12px]" style={{ color: meta }}>Mensagem</span>
+                    <Paperclip className="w-[18px] h-[18px] shrink-0" style={{ color: meta }} />
+                    <Camera className="w-[18px] h-[18px] shrink-0" style={{ color: meta }} />
+                </div>
+                <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: '#00A884' }}>
+                    <Mic className="w-4 h-4 text-white" />
                 </div>
             </div>
         </div>
@@ -585,47 +603,9 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                 </div>
                             </div>
                             <div className="relative">
-                                <div className={`rounded-[2.5rem] border shadow-2xl overflow-hidden ${isDark ? 'bg-slate-900 border-white/10' : 'bg-white border-slate-100'}`}>
-                                    <div className={`p-6 border-b flex items-center justify-between ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-slate-50 bg-slate-50/20'}`}>
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-[#25D366] flex items-center justify-center overflow-hidden">
-                                                <img src={aliviaFinal} alt="Alívia" className="w-8 h-8 object-contain" />
-                                            </div>
-                                            <div>
-                                                <div className={`font-black text-sm leading-none ${isDark ? 'text-white' : 'text-slate-800'}`}>Alívia</div>
-                                                <div className="flex items-center gap-1 text-[10px] font-bold text-[#25D366] mt-1"><span className="w-1.5 h-1.5 rounded-full bg-[#25D366]" /> online no WhatsApp</div>
-                                            </div>
-                                        </div>
-                                        <div className={`px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest text-white ${scenarios[activeScenario].tagColor}`}>
-                                            {scenarios[activeScenario].tag}
-                                        </div>
-                                    </div>
-                                    <div className="p-8 space-y-6 min-h-[350px] flex flex-col justify-end bg-gradient-to-b from-transparent to-[#69C8B9]/5">
-                                        <div className="flex justify-end">
-                                            <div className="max-w-[80%] p-4 rounded-[1.5rem] rounded-tr-none bg-[#5CCEEA] text-white font-bold text-xs shadow-md">
-                                                {scenarios[activeScenario].user}
-                                            </div>
-                                        </div>
-                                        {scenarios[activeScenario].reply.map((msg, i) => (
-                                            <div key={i} className="flex gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-[#69C8B9] shrink-0 flex items-center justify-center shadow-sm overflow-hidden">
-                                                    <img src={aliviaFinal} alt="Alívia" className="w-6 h-6 object-contain" />
-                                                </div>
-                                                <div className={`max-w-[80%] p-4 rounded-[1.5rem] rounded-tl-none font-bold text-xs shadow-sm border ${isDark ? 'bg-white/5 text-slate-200 border-white/5' : 'bg-slate-50 text-slate-700 border-slate-50'}`}>
-                                                    {msg}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className={`p-6 border-t ${isDark ? 'border-white/5' : 'border-slate-50'}`}>
-                                        <div className={`flex items-center gap-4 p-3 rounded-2xl ${isDark ? 'bg-white/[0.03]' : 'bg-slate-50/50'}`}>
-                                            <div className="flex-1 text-slate-400 text-[10px] font-black uppercase tracking-widest italic">Ouvindo você...</div>
-                                            <div className="w-8 h-8 rounded-full bg-[#69C8B9] flex items-center justify-center text-white">
-                                                <ArrowRight className="w-4 h-4" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                <AliviaChatMock isDark={isDark} avatar={aliviaFinal}
+                                    user={scenarios[activeScenario].user}
+                                    reply={scenarios[activeScenario].reply} />
                             </div>
                         </div>
                     </div>
