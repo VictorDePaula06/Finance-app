@@ -305,7 +305,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                         <div className={`grid grid-cols-2 md:grid-cols-4 gap-4 p-6 md:p-8 rounded-[2rem] border ${isDark ? 'bg-white/[0.03] border-white/8' : 'bg-white/80 border-slate-100 shadow-lg'}`}>
                             {[
                                 { value: '100%', label: 'Privacidade', sub: 'Zero dados bancários', icon: ShieldCheck, color: '#69C8B9' },
-                                { value: '3 em 1', label: 'Módulos', sub: 'Gastos · Patrimônio · IA', icon: Layers, color: '#5CCEEA' },
+                                { value: 'Tudo em 1', label: 'Plataforma', sub: 'Gastos · Patrimônio · IA', icon: Layers, color: '#5CCEEA' },
                                 { value: '24/7', label: 'IA Alívia', sub: 'Sempre disponível', icon: Brain, color: '#69C8B9' },
                                 { value: 'R$0', label: 'Para começar', sub: 'Plano gratuito real', icon: Gift, color: '#5CCEEA' },
                             ].map((s, i) => (
@@ -462,13 +462,23 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                     </div>
                 </section>
 
-                {/* ── MODULE 1: GASTOS ── */}
+                {/* ── PLATAFORMA COMPLETA (gastos + patrimônio, tudo junto) ── */}
                 <section id="recursos" className={`py-24 relative scroll-mt-28 ${t.sectionAlt}`}>
                     <div className="max-w-6xl mx-auto px-6">
+                        <div className="text-center max-w-3xl mx-auto mb-16">
+                            <Eyebrow className="mb-2">Uma plataforma completa</Eyebrow>
+                            <h2 className={`text-3xl md:text-5xl font-black leading-[1.1] ${t.textH}`}>
+                                Gastos, cartões, reservas e patrimônio.<br />
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#25D366] to-[#69C8B9]">Tudo junto, tudo pelo WhatsApp.</span>
+                            </h2>
+                            <p className={`text-base md:text-lg font-medium mt-4 ${t.textBody}`}>
+                                Não são apps separados nem planilhas soltas: é uma plataforma só, que você comanda por mensagem com a Alívia.
+                            </p>
+                        </div>
                         <div className="grid lg:grid-cols-2 gap-16 items-center">
                             <div className="space-y-8">
                                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#5CCEEA]/10 text-[#5CCEEA] text-[10px] font-black uppercase tracking-widest">
-                                    Módulo 01 — Controle de Gastos
+                                    Controle de gastos
                                 </div>
                                 <h2 className={`text-3xl md:text-5xl font-black leading-[1.1] ${t.textH}`}>
                                     Cada centavo com <br /><span className="text-[#5CCEEA]">destino certo.</span>
@@ -508,13 +518,13 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                             </div>
                             <div className="order-1 lg:order-2 space-y-8">
                                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#69C8B9]/10 text-[#69C8B9] text-[10px] font-black uppercase tracking-widest">
-                                    Módulo 02 — Construção de Patrimônio
+                                    Patrimônio & investimentos
                                 </div>
                                 <h2 className={`text-3xl md:text-5xl font-black leading-[1.1] ${t.textH}`}>
                                     Seu patrimônio <br /><span className="text-[#69C8B9]">crescendo visível.</span>
                                 </h2>
                                 <p className={`text-base md:text-lg leading-relaxed font-medium ${t.textBody}`}>
-                                    Não basta guardar dinheiro. Você precisa ver ele trabalhar para você. O módulo de patrimônio transforma números em evolução real.
+                                    Não basta guardar dinheiro. Você precisa ver ele trabalhar para você. A Alívia transforma seus números em evolução real — na mesma plataforma dos seus gastos.
                                 </p>
                                 <div className="space-y-4">
                                     <FeatureRow isDark={isDark} icon={ShieldCheck} title="Reserva de Emergência" desc="Cálculo automático de quanto guardar para estar protegido por 3, 6 ou 12 meses. Disponível já no Gratuito." color="text-[#69C8B9]" />
@@ -557,7 +567,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                 ]}
                             />
                             <WhyPremiumCard isDark={isDark} accentColor="#69C8B9" icon={ChartNoAxesCombined} tag="PRO · patrimônio" title="Patrimônio que cresce visível"
-                                subtitle="Além do WhatsApp, o módulo de patrimônio completo pra fazer seu dinheiro trabalhar."
+                                subtitle="Além do WhatsApp, o patrimônio completo pra fazer seu dinheiro trabalhar."
                                 items={[
                                     { icon: Activity, text: 'Fluxo patrimonial e seu número da independência financeira' },
                                     { icon: TrendingUp, text: 'Evolução mês a mês comparada a CDI, IBOVESPA e S&P 500' },
@@ -677,7 +687,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                 excluded={[
                                     'WhatsApp ilimitado + leitura de extratos',
                                     'Uso sem limites (lançamentos e cartões)',
-                                    'Módulo Patrimônio completo',
+                                    'Patrimônio completo',
                                 ]}
                             />
                             <PlanCard
@@ -697,7 +707,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                     'Importa extrato do banco/cartão (PDF ou CSV)',
                                     'Registra gastos e responde por áudio no WhatsApp',
                                     'Lançamentos, cartões e contas fixas ilimitados',
-                                    'Módulo Patrimônio completo (CDI, IBOV, S&P)',
+                                    'Patrimônio completo (CDI, IBOV, S&P)',
                                     'Relatórios e gráficos em PDF',
                                 ]}
                             />
