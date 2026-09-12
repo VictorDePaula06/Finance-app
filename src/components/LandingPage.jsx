@@ -50,7 +50,7 @@ import aliviaFinal    from '../assets/alivia/alivia-final.png';
 
 import aliviaWppHero from '../assets/alivia/alivia-whatsapp-hero.png';
 import gastosMobile from '../assets/screenshots/dashboard-mobile.jpeg';
-import patrimonioMobile from '../assets/screenshots/analises-mobile.jpeg';
+import patrimonioMobile from '../assets/screenshots/patrimonio-mobile-app.jpeg';
 
 const TEAL = '#69C8B9';
 const CYAN = '#5CCEEA';
