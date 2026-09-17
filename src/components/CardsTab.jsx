@@ -20,6 +20,7 @@ import {
   Repeat,
   Download
 } from 'lucide-react';
+import { toast } from './ui/Toaster';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
@@ -547,6 +548,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
         setPayingInvoice(null);
         setOverdraftPending(null);
         setPaidInvoiceSuccess(paidCardId);
+        toast.success('Fatura paga! 🎉');
 
         setTimeout(() => {
             setPaidInvoiceSuccess(prev => prev === paidCardId ? null : prev);
@@ -554,6 +556,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
 
     } catch (err) {
         console.error("Erro ao pagar fatura:", err);
+        toast.error('Não foi possível registrar o pagamento da fatura. Tente de novo.');
     }
   };
 
@@ -2163,7 +2166,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
                     <button 
                       onClick={() => {
                         setViewingInvoiceCardId(null);
-                        setPayingInvoice({ cardId: card.id, total: totalInvoice, expenses: unpaidExpenses, subs: cardSubs });
+                        setPayingInvoice({ cardId: card.id, total: totalInvoice, expenses: unpaidExpenses, subs: cardSubs, invoiceMonth: modalInvoiceMonth });
                       }}
                       className="flex-1 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/20 transition-all"
                     >
