@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Toaster } from './ui/Toaster';
 import OnboardingAlivia from './OnboardingAlivia';
-import AppSidebar, { NAV_ITEMS, APP_VERSION } from './AppSidebar';
+import AppSidebar, { NAV_ITEMS, APP_VERSION, RELEASE_NOTES_URL } from './AppSidebar';
 import MobileNav from './MobileNav';
 import InstallPrompt from './InstallPrompt';
 import Recorrentes from '../pages/Recorrentes';
@@ -14,16 +14,18 @@ import Patrimonio from '../pages/Patrimonio';
 import Reservas from '../pages/Reservas';
 import Dashboard from '../pages/Dashboard';
 import ConsultoriaAlivia from '../pages/ConsultoriaAlivia';
-import Configuracoes, { WhatsAppTab } from '../pages/Configuracoes';
+import Configuracoes from '../pages/Configuracoes';
 import Analises from '../pages/Analises';
 import Manual from '../pages/Manual';
-import Assinatura from '../pages/Assinatura';
 import GerenciarUsuarios from '../pages/GerenciarUsuarios';
 
 // Preview TEMPORÁRIO do novo layout (só pra validar o visual da sidebar).
 // Acesse em /preview-layout. Não faz parte do app final.
 // Caminho de URL de cada aba (paginação). O dashboard vive em /inicio.
-export const tabPath = (id) => (id === 'dashboard' ? '/inicio' : `/app/${id}`);
+// A conexão do WhatsApp mora em Configurações e Cadastros (aba "WhatsApp").
+// Telas que viraram abas de Configurações e Cadastros (WhatsApp, Assinatura).
+const CONFIG_TABS = ['whatsapp', 'assinatura'];
+export const tabPath = (id) => (id === 'dashboard' ? '/inicio' : CONFIG_TABS.includes(id) ? `/app/configuracoes?tab=${id}` : `/app/${id}`);
 
 export default function PreviewLayout({ tab = 'dashboard' }) {
     const { theme } = useTheme();
@@ -45,14 +47,16 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
     const showOnboarding = !obDismissed && (forceOnboarding
         || (isDataLoaded && !(userPrefs?.onboardingDone) && !(userPrefs?.hasSeenWelcome)));
 
-    const label = active === 'configuracoes' ? 'Configurações' : active === 'whatsapp' ? 'WhatsApp' : (NAV_ITEMS.find(i => i.id === active)?.label || active);
+    const label = active === 'configuracoes' ? 'Configurações e Cadastros' : (NAV_ITEMS.find(i => i.id === active)?.label || active);
     const sidebarProps = {
         active,
         onNavigate: (id) => { go(id); setDrawer(false); },
         onSettings: () => { go('configuracoes'); setDrawer(false); },
-        onOpenWhatsApp: () => { go('whatsapp'); setDrawer(false); },
         onLogout: async () => { try { await logout?.(); } catch (e) { console.error(e); } },
     };
+
+    // Links antigos /app/whatsapp e /app/assinatura → abas dentro de Configurações e Cadastros.
+    if (CONFIG_TABS.includes(active)) return <Navigate to={tabPath(active)} replace />;
 
     return (
         <div className={`min-h-screen flex ${isDark ? 'bg-[#0e0f12]' : 'bg-slate-50'}`}>
@@ -66,7 +70,6 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
             <MobileNav
                 active={active}
                 go={(id) => go(id)}
-                onOpenWhatsApp={() => go('whatsapp')}
                 onOpenProfile={() => navigate(`${tabPath('configuracoes')}?tab=perfil`)}
                 onLogout={sidebarProps.onLogout}
             />
@@ -81,12 +84,13 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
                     style={{ height: 'calc(3.25rem + env(safe-area-inset-top))', paddingTop: 'env(safe-area-inset-top)' }}>
                     <span className="text-[17px] font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500">Alívia</span>
                     <span className={`text-[10px] font-bold uppercase tracking-[0.28em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Finanças</span>
-                    <span className={`ml-auto text-[10px] font-black tabular-nums px-1.5 py-0.5 rounded-md ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>v{APP_VERSION}</span>
+                    <a href={RELEASE_NOTES_URL} target="_blank" rel="noopener noreferrer" title="Ver as notas desta atualização"
+                        className={`ml-auto text-[10px] font-black tabular-nums px-1.5 py-0.5 rounded-md transition ${isDark ? 'bg-white/5 text-slate-400 active:bg-emerald-500/15' : 'bg-slate-100 text-slate-500 active:bg-emerald-50'}`}>v{APP_VERSION}</a>
                 </header>
 
             {/* Área de conteúdo (respiro inferior no mobile p/ a bottom navigation) */}
             <main className="flex-1 p-4 sm:p-6 lg:p-10 pb-[calc(6rem_+_env(safe-area-inset-bottom))] lg:pb-10 overflow-y-auto">
-                {active === 'consultoria' ? <ConsultoriaAlivia onNavigate={go} /> : active === 'configuracoes' ? <Configuracoes /> : active === 'whatsapp' ? <div className="max-w-4xl mx-auto w-full"><WhatsAppTab isDark={isDark} /></div> : active === 'gerenciar-usuarios' ? <GerenciarUsuarios /> : active === 'dashboard' ? <Dashboard onNavigate={go} onSettings={() => go('configuracoes')} /> :active === 'recorrentes' ? <Recorrentes onNavigate={go} /> : active === 'lancamentos' ? <Lancamentos /> : active === 'cartoes' ? <Cartoes /> : active === 'patrimonio' ? <Patrimonio /> : active === 'reservas' ? <Reservas /> : active === 'analises' ? <Analises /> : active === 'manual' ? <Manual /> : active === 'assinatura' ? <Assinatura /> : (
+                {active === 'consultoria' ? <ConsultoriaAlivia onNavigate={go} /> : active === 'configuracoes' ? <Configuracoes /> : active === 'gerenciar-usuarios' ? <GerenciarUsuarios /> : active === 'dashboard' ? <Dashboard onNavigate={go} onSettings={() => go('configuracoes')} /> :active === 'recorrentes' ? <Recorrentes onNavigate={go} /> : active === 'lancamentos' ? <Lancamentos /> : active === 'cartoes' ? <Cartoes /> : active === 'patrimonio' ? <Patrimonio /> : active === 'reservas' ? <Reservas /> : active === 'analises' ? <Analises /> : active === 'manual' ? <Manual /> : (
                 <div className="max-w-4xl">
                     <span className={`text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Preview do novo layout</span>
                     <h1 className={`text-3xl font-black tracking-tight mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{label}</h1>

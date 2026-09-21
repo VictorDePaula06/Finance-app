@@ -6,8 +6,9 @@ import UserAvatar from './UserAvatar';
 import {
     Home, ArrowLeftRight, BarChart3, CreditCard, LayoutGrid, X,
     Repeat, PiggyBank, Landmark, Receipt, BookOpen, Settings, User,
-    MessageCircle, LogOut, Sun, Moon, Users, ChevronRight, CheckCircle2,
+    LogOut, Sun, Moon, Users, ChevronRight, CheckCircle2,
 } from 'lucide-react';
+import WhatsAppIcon from './ui/WhatsAppIcon';
 
 // Navegação mobile nativa: bottom navigation fixa + sheet "Mais".
 // Reutiliza as MESMAS rotas/telas do desktop (via `go(id)`), só reorganiza
@@ -21,9 +22,9 @@ const BOTTOM = [
     { id: 'cartoes', label: 'Cartão', icon: CreditCard },
 ];
 // Telas que vivem dentro do "Mais" (usadas p/ marcar a aba "Mais" como ativa).
-const IN_MORE = ['recorrentes', 'reservas', 'patrimonio', 'assinatura', 'manual', 'configuracoes', 'whatsapp', 'gerenciar-usuarios'];
+const IN_MORE = ['recorrentes', 'reservas', 'patrimonio', 'manual', 'configuracoes', 'gerenciar-usuarios'];
 
-export default function MobileNav({ active, go, onOpenWhatsApp, onOpenProfile, onLogout }) {
+export default function MobileNav({ active, go, onOpenProfile, onLogout }) {
     const { theme, toggleTheme } = useTheme();
     const isDark = theme !== 'light';
     const { currentUser, planLevel, isAdmin } = useAuth();
@@ -51,7 +52,6 @@ export default function MobileNav({ active, go, onOpenWhatsApp, onOpenProfile, o
     const moreActive = IN_MORE.includes(active) || more;
 
     const nav = (id) => { setMore(false); go(id); };
-    const doWhatsApp = () => { setMore(false); onOpenWhatsApp?.(); };
     const doProfile = () => { setMore(false); onOpenProfile?.(); };
 
     const tabCls = (on) => `flex-1 flex flex-col items-center justify-center gap-1 h-full min-w-0 transition-colors ${
@@ -135,18 +135,6 @@ export default function MobileNav({ active, go, onOpenWhatsApp, onOpenProfile, o
                                 <ChevronRight className={`w-4 h-4 shrink-0 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
                             </button>
 
-                            {/* Integração WhatsApp — com estado de pendência/conexão */}
-                            <GroupLabel>Integrações</GroupLabel>
-                            <Row
-                                icon={MessageCircle}
-                                label="WhatsApp"
-                                desc={waLoading ? 'Verificando…' : connected ? 'Conectado' : 'Configure seu WhatsApp'}
-                                onClick={doWhatsApp}
-                                right={waLoading ? null : connected
-                                    ? <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                                    : <span className="shrink-0 w-5 h-5 rounded-full bg-amber-400/20 text-amber-500 flex items-center justify-center text-[12px] font-black">!</span>}
-                            />
-
                             <GroupLabel>Finanças</GroupLabel>
                             <Row icon={Repeat} label="Recorrentes" onClick={() => nav('recorrentes')} />
                             <Row icon={PiggyBank} label="Reservas" onClick={() => nav('reservas')} />
@@ -154,7 +142,12 @@ export default function MobileNav({ active, go, onOpenWhatsApp, onOpenProfile, o
 
                             <GroupLabel>Conta &amp; app</GroupLabel>
                             <Row icon={Receipt} label="Assinatura" onClick={() => nav('assinatura')} />
-                            <Row icon={Settings} label="Configurações" onClick={() => nav('configuracoes')} />
+                            <Row icon={Settings} label="Configurações e Cadastros"
+                                desc={waLoading ? 'Conta, cadastros e WhatsApp' : connected ? 'Conta, cadastros · WhatsApp conectado' : 'Conta, cadastros · configure o WhatsApp'}
+                                onClick={() => nav('configuracoes')}
+                                right={waLoading ? null : connected
+                                    ? <span className="shrink-0 inline-flex items-center gap-1 text-emerald-500"><WhatsAppIcon className="w-4 h-4" /><CheckCircle2 className="w-4 h-4" /></span>
+                                    : <span className="shrink-0 w-5 h-5 rounded-full bg-amber-400/20 text-amber-500 flex items-center justify-center text-[12px] font-black">!</span>} />
                             <Row icon={User} label="Perfil" onClick={doProfile} />
                             <Row icon={BookOpen} label="Manual" onClick={() => nav('manual')} />
                             {isAdmin && <Row icon={Users} label="Gerenciar usuários" onClick={() => nav('gerenciar-usuarios')} />}

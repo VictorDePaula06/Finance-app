@@ -9,10 +9,22 @@ import { getUsdRate } from '../utils/marketRates';
 import UserAvatar from '../components/UserAvatar';
 import WhatsAppStatusButton from '../components/WhatsAppStatusButton';
 import AnimatedNumber from '../components/ui/AnimatedNumber';
+import CeilingAlerts from '../components/CeilingAlerts';
+import BankLogo, { detectBank } from '../components/ui/BankLogo';
+import WhatsAppIcon from '../components/ui/WhatsAppIcon';
+import { useWhatsAppStatus } from '../hooks/useWhatsAppStatus';
+import RedirectOverlay, { DESTINO, useRedirect } from '../components/ui/RedirectOverlay';
 import {
     LayoutDashboard, Settings, TrendingUp, TrendingDown, Wallet, Eye, EyeOff,
-    PieChart as PieIcon, PiggyBank, Landmark, HeartPulse, ChevronRight, X, Check, ListChecks, CreditCard,
+    PieChart as PieIcon, PiggyBank, Landmark, HeartPulse, ChevronRight, X, Check, ListChecks, CreditCard, CheckCircle2, ExternalLink,
 } from 'lucide-react';
+
+// Telefone só dígitos → "+55 (21) 99999-9999".
+const fmtPhone = (p) => {
+    const d = String(p || '').replace(/\D/g, '');
+    const m = d.match(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/);
+    return m ? `+${m[1]} (${m[2]}) ${m[3]}-${m[4]}` : (d ? `+${d}` : '');
+};
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const monthKeyNow = () => new Date().toISOString().slice(0, 7);
@@ -50,6 +62,11 @@ export default function Dashboard({ onNavigate }) {
     const [cfg, setCfg] = useState(() => { try { return { ...DEFAULT_CFG, ...JSON.parse(localStorage.getItem(CFG_KEY) || '{}') }; } catch { return DEFAULT_CFG; } });
     const [configOpen, setConfigOpen] = useState(false);
     const [gastosOpen, setGastosOpen] = useState(false); // lista de gastos do mês
+    const [waOpen, setWaOpen] = useState(false);        // janela de status do WhatsApp
+    const wa = useWhatsAppStatus();
+    // Navegação com a janela rápida "Você será direcionado para…" (~0,8s e vai).
+    const { redirect, goTo: goWith } = useRedirect();
+    const goTo = (id) => goWith(DESTINO[id] || id, () => onNavigate?.(id));
     const [hideSaldo, setHideSaldo] = useState(cfg.ocultarSaldo);
     const [usdRate, setUsdRate] = useState(5.4);
     const [patCur, setPatCur] = useState(() => { try { return localStorage.getItem('aliviaDashPatCur') || 'BRL'; } catch { return 'BRL'; } });
@@ -78,10 +95,13 @@ export default function Dashboard({ onNavigate }) {
     const isTransferOrAdj = (t) => t.isTransfer || ['vault', 'vault_redemption', 'initial_balance', 'carryover'].includes(t.category);
     const ganhos = monthTx.filter(t => t.type === 'income' && !isTransferOrAdj(t)).reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
 
-    // Fatura do cartão em aberto (avulsas crédito + assinaturas/parcelas)
-    const faturaAvulsa = tx.filter(t => t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
-    const faturaSubs = subs.filter(s => s.cardId).reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
-    const faturaTotal = faturaAvulsa + faturaSubs;
+    // Fatura em aberto POR CARTÃO (avulsas no crédito + assinaturas/parcelas) e o total de todos.
+    const faturaPorCartao = useMemo(() => cards.map(c => {
+        const avulsa = tx.filter(t => t.paymentMethod === 'credito' && t.invoiceStatus === 'unpaid' && t.selectedCardId === c.id).reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+        const rec = subs.filter(s => s.cardId === c.id).reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+        return { card: c, total: avulsa + rec };
+    }).sort((a, b) => b.total - a.total), [cards, tx, subs]);
+    const faturaTotal = faturaPorCartao.reduce((a, f) => a + f.total, 0);
 
     // Próximo vencimento da fatura (o mais próximo entre os cartões cadastrados).
     const faturaDue = useMemo(() => {
@@ -210,7 +230,7 @@ export default function Dashboard({ onNavigate }) {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     {/* Status/atalho do WhatsApp — ao lado do nome (pendente vs conectado) */}
-                    <WhatsAppStatusButton isDark={isDark} compact onOpen={() => onNavigate?.('whatsapp')} />
+                    <WhatsAppStatusButton isDark={isDark} compact onOpen={() => (wa.connected ? setWaOpen(true) : goTo('whatsapp'))} />
                     <button onClick={() => setConfigOpen(true)} title="Configurar" className={`hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                         <Settings className="w-4 h-4" /> Configurar
                     </button>
@@ -226,6 +246,11 @@ export default function Dashboard({ onNavigate }) {
                     action={<button onClick={() => setGastosOpen(true)} title="Ver lista de gastos" className={`p-1 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}><ListChecks className="w-4 h-4" /></button>} />
             </div>
 
+            {/* Alívia avisa: categoria perto ou acima do teto (definido em Cadastros) */}
+            <CeilingAlerts transactions={tx} mk={mk} isDark={isDark} />
+
+            {redirect && <RedirectOverlay isDark={isDark} label={redirect} />}
+            {waOpen && <WhatsAppStatusModal isDark={isDark} phones={wa.linked.map(l => l.phone)} onClose={() => setWaOpen(false)} onManage={() => { setWaOpen(false); goTo('whatsapp'); }} />}
 
             {/* Fatura do cartão · Reserva · Patrimônio */}
             <div className="grid lg:grid-cols-3 gap-4 mt-4">
@@ -235,10 +260,26 @@ export default function Dashboard({ onNavigate }) {
                     <p className="text-3xl font-black tabular-nums text-amber-500"><AnimatedNumber value={faturaTotal} format={(v) => `R$ ${money(v)}`} /></p>
                     <p className={`text-[12px] mt-0.5 ${muted}`}>
                         {faturaDue
-                            ? <>Vence dia <span className="font-bold text-amber-500">{faturaDue.day}</span> · em {faturaDue.days} {faturaDue.days === 1 ? 'dia' : 'dias'}</>
+                            ? <>Vence dia <span className="font-bold text-amber-500">{faturaDue.day}</span> · em {faturaDue.days} {faturaDue.days === 1 ? 'dia' : 'dias'}{cards.length > 1 ? ` · ${cards.length} cartões` : ''}</>
                             : (faturaTotal > 0 ? 'fatura em aberto' : 'nenhum cartão cadastrado')}
                     </p>
-                    <Action isDark={isDark} onClick={() => onNavigate?.('cartoes')}>Ver fatura</Action>
+                    {/* Mais de um cartão: fatura de cada um, bem compacto (mini-cartão com o logo do banco) */}
+                    {cards.length > 1 && (
+                        <div className="mt-3 space-y-1.5">
+                            {faturaPorCartao.map(({ card, total }) => {
+                                const bank = detectBank(card.bank, card.name);
+                                return (
+                                    <div key={card.id} className="flex items-center gap-2">
+                                        {/* Só o ícone do banco, sem fundo de cartão */}
+                                        <BankLogo bank={bank} className="w-6 h-6" rounded="rounded-md" />
+                                        <span className={`text-[12px] font-semibold truncate flex-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{card.name || bank?.label || 'Cartão'}</span>
+                                        <span className={`text-[12px] font-black tabular-nums ${total > 0 ? 'text-amber-500' : muted}`}>R$ {money(total)}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                    <Action isDark={isDark} onClick={() => goTo('cartoes')}>Ver fatura</Action>
                 </div>
 
                 {/* Reserva de emergência (sem barra) */}
@@ -249,7 +290,7 @@ export default function Dashboard({ onNavigate }) {
                     <div className={`mt-3 flex items-center gap-1.5 text-[12px] ${mesesCobertura >= metaMeses ? 'text-emerald-500 font-bold' : muted}`}>
                         {mesesCobertura >= metaMeses ? <>Meta de {metaMeses} meses atingida 🎉</> : <>Meta: {metaMeses} meses de gastos</>}
                     </div>
-                    <Action isDark={isDark} onClick={() => onNavigate?.('reservas')}>Ver detalhes</Action>
+                    <Action isDark={isDark} onClick={() => goTo('reservas')}>Ver detalhes</Action>
                 </div>
 
                 {/* Patrimônio */}
@@ -278,7 +319,7 @@ export default function Dashboard({ onNavigate }) {
                             <p className={`text-[15px] font-black tabular-nums ${patrLucroDisp >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{patrLucroDisp >= 0 ? '+' : ''}{curSym} {money(patrLucroDisp)}</p>
                         </div>
                     </div>
-                    <Action isDark={isDark} onClick={() => onNavigate?.('patrimonio')}>Ver patrimônio</Action>
+                    <Action isDark={isDark} onClick={() => goTo('patrimonio')}>Ver patrimônio</Action>
                 </div>
             </div>
 
@@ -316,7 +357,7 @@ export default function Dashboard({ onNavigate }) {
 
                     <div className={`flex items-center justify-between gap-3 px-5 py-3 border-t text-[12px] flex-wrap ${isDark ? 'border-white/10' : 'border-slate-100'} ${muted}`}>
                         <span>Atualizado hoje às {agora} · Renda base: R$ {money(ganhos)}</span>
-                        <button onClick={() => onNavigate?.('analises')} className="flex items-center gap-0.5 font-bold text-emerald-500 hover:text-emerald-400 transition">Ver análise completa <ChevronRight className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => goTo('analises')} className="flex items-center gap-0.5 font-bold text-emerald-500 hover:text-emerald-400 transition">Ver análise completa <ChevronRight className="w-3.5 h-3.5" /></button>
                     </div>
                 </div>
 
@@ -406,6 +447,40 @@ function GastosModal({ isDark, itens, total, incluiFatura, onClose }) {
                             : 'Soma só o que saiu da conta neste mês. A fatura do cartão não está incluída (ajuste em Configurar).'}
                     </p>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+// Janela de status do WhatsApp (no próprio Dashboard): número vinculado + "Conectado".
+function WhatsAppStatusModal({ isDark, phones = [], onClose, onManage }) {
+    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+    return (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className={`relative w-full max-w-sm rounded-3xl border shadow-2xl p-7 text-center animate-in zoom-in-95 fade-in duration-200 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+                <button onClick={onClose} aria-label="Fechar" className={`absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}><X className="w-4 h-4" /></button>
+
+                {/* Ícone do WhatsApp em destaque */}
+                <span className="relative w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center bg-[#25D366] text-white shadow-[0_0_40px_rgba(37,211,102,0.35)]">
+                    <WhatsAppIcon className="w-10 h-10" />
+                    <span className={`absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center ring-4 ${isDark ? 'ring-[#141518]' : 'ring-white'}`}><Check className="w-4 h-4" strokeWidth={3} /></span>
+                </span>
+
+                <p className={`text-[11px] font-black uppercase tracking-[0.22em] ${muted}`}>WhatsApp</p>
+                <p className="text-3xl font-black tracking-tight text-emerald-500 mt-1 flex items-center justify-center gap-2"><CheckCircle2 className="w-7 h-7" /> Conectado</p>
+
+                <div className={`mt-5 rounded-2xl border px-4 py-3.5 ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-50'}`}>
+                    <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>Número vinculado</p>
+                    {phones.length === 0
+                        ? <p className={`text-[15px] font-bold mt-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>—</p>
+                        : phones.map(ph => <p key={ph} className={`text-[17px] font-black tabular-nums mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{fmtPhone(ph)}</p>)}
+                </div>
+
+                <p className={`text-[12.5px] mt-4 ${muted}`}>A Alívia está pronta para receber seus gastos por mensagem ou áudio.</p>
+                <button onClick={onManage} className={`mt-4 inline-flex items-center gap-1.5 text-[12px] font-bold transition ${isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}>
+                    Gerenciar conexão <ExternalLink className="w-3.5 h-3.5" />
+                </button>
             </div>
         </div>
     );

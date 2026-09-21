@@ -1,21 +1,19 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import AnimatedNumber from '../components/ui/AnimatedNumber';
 import { toast } from '../components/ui/Toaster';
 import AliviaFormHint from '../components/AliviaFormHint';
-import ConfirmActionModal from '../components/ConfirmActionModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import {
-    collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc,
+    collection, query, where, onSnapshot, addDoc, updateDoc,
     doc, runTransaction, serverTimestamp,
 } from 'firebase/firestore';
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import { buildWalletLedger } from '../utils/financialLogic';
 import {
-    Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, X, Loader2,
-    Wallet, Repeat, History, Check, TrendingUp, TrendingDown, ChevronDown, Info,
-    Scale, ArrowRight, CreditCard,
+    Plus, CheckCircle2, AlertTriangle, X, Loader2,
+    Repeat, Check, TrendingUp, TrendingDown,
+    CreditCard, Layers, RefreshCw, Lock, CalendarDays, Sparkles,
 } from 'lucide-react';
 
 const monthKeyNow = () => new Date().toISOString().slice(0, 7);
@@ -26,8 +24,9 @@ const normalizeName = (s) => {
     const t = String(s || '').trim().replace(/\s+/g, ' ');
     return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : t;
 };
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 
-// ── Config por tipo (entrada x despesa) ─────────────────────────────
+// ── Config por tipo (entrada x despesa) — o formulário (onboarding) e a baixa usam ──
 const KIND = {
     income: {
         collection: 'fixed_incomes',
@@ -35,13 +34,9 @@ const KIND = {
         defaultCat: 'salary',
         occPrefix: 'inc_',
         txType: 'income',
-        title: 'Entradas recorrentes',
-        newLabel: 'Nova entrada recorrente',
-        emptyHint: 'Cadastre seu salário e outras entradas fixas.',
         doneLabel: 'Recebido',
-        actionLabel: 'Confirmar',
+        actionLabel: 'Confirmar recebimento',
         icon: TrendingUp,
-        btn: 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-900/30',
         submitBtn: 'bg-emerald-500 hover:bg-emerald-600',
     },
     expense: {
@@ -50,20 +45,16 @@ const KIND = {
         defaultCat: 'conta_fixa',
         occPrefix: '',
         txType: 'expense',
-        title: 'Despesas recorrentes',
-        newLabel: 'Nova despesa recorrente',
-        emptyHint: 'Cadastre contas fixas, assinaturas e mensalidades.',
         doneLabel: 'Pago',
         actionLabel: 'Dar baixa',
         icon: TrendingDown,
-        btn: 'bg-rose-500 hover:bg-rose-600 shadow-rose-900/30',
         submitBtn: 'bg-rose-500 hover:bg-rose-600',
     },
 };
 const catMetaOf = (kind, id) => KIND[kind].cats.find(c => c.id === id) || { label: 'Outro', color: 'text-slate-400', icon: null };
 
 // Situação de um recorrente no mês corrente.
-function statusOf(rec, transactions, mk) {
+export function statusOf(rec, transactions, mk) {
     const name = String(rec.name || '').trim().toLowerCase();
     const paid = rec.lastPaidMonth === mk
         || transactions.some(t => t.isFixed && (t.month || String(t.date || '').slice(0, 7)) === mk
@@ -82,454 +73,360 @@ function statusOf(rec, transactions, mk) {
     return 'pendente';
 }
 
-export default function Recorrentes({ onNavigate }) {
+// Lançamento (baixa) deste mês que corresponde ao recorrente — pra mostrar valor/data pagos.
+export function paidTxOf(rec, transactions, mk) {
+    const name = String(rec.name || '').trim().toLowerCase();
+    return transactions.find(t => t.isFixed && (t.month || String(t.date || '').slice(0, 7)) === mk
+        && (t.recorrenteId === rec.id || String(t.description || '').trim().toLowerCase() === name)) || null;
+}
+
+// Dias até o vencimento neste mês (negativo = já passou).
+function daysToDue(day, mk) {
+    const [y, m] = String(mk).split('-').map(Number);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const due = new Date(y, (m || 1) - 1, Math.min(31, Math.max(1, day || 1)));
+    return Math.round((due - today) / 86400000);
+}
+
+// ── Página ──────────────────────────────────────────────────────────
+// Recorrentes = as DESPESAS cadastradas em Configurações e Cadastros. Aqui só
+// se confirma o mês (baixa). Nada é criado ou editado por aqui.
+export default function Recorrentes() {
     const { currentUser } = useAuth();
     const { theme } = useTheme();
     const isDark = theme !== 'light';
     const uid = currentUser?.uid;
     const mk = monthKeyNow();
 
-    const [incomes, setIncomes] = useState([]);
     const [expenses, setExpenses] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [cardSubs, setCardSubs] = useState([]); // assinaturas/parcelamentos no cartão
-    const [cards, setCards] = useState([]);        // cartões existentes (p/ ignorar órfãos)
-    const [form, setForm] = useState(null);   // { kind, editing }
-    const [baixa, setBaixa] = useState(null);  // { kind, rec }
-    const [chooser, setChooser] = useState(false); // janela de escolha entrada/despesa
-    const [expTab, setExpTab] = useState('fixas'); // 'fixas' | 'cartao'
+    const [cards, setCards] = useState([]);
+    const [tab, setTab] = useState('apagar');     // 'apagar' | 'pago'
+    const [baixa, setBaixa] = useState(null);     // { kind, rec }
 
     useEffect(() => {
         if (!uid) return;
-        const unsubI = onSnapshot(query(collection(db, 'fixed_incomes'), where('userId', '==', uid)),
-            (s) => setIncomes(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
-        const unsubE = onSnapshot(query(collection(db, 'fixed_expenses'), where('userId', '==', uid)),
-            (s) => setExpenses(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
-        const unsubT = onSnapshot(query(collection(db, 'transactions'), where('userId', '==', uid)),
-            (s) => setTransactions(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
-        const unsubS = onSnapshot(query(collection(db, 'subscriptions'), where('userId', '==', uid)),
-            (s) => setCardSubs(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
-        const unsubC = onSnapshot(query(collection(db, 'cards'), where('userId', '==', uid)),
-            (s) => setCards(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
-        return () => { unsubI(); unsubE(); unsubT(); unsubS(); unsubC(); };
+        const q = (c) => query(collection(db, c), where('userId', '==', uid));
+        const list = [
+            onSnapshot(q('fixed_expenses'), (s) => setExpenses(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {}),
+            onSnapshot(q('transactions'), (s) => setTransactions(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {}),
+            onSnapshot(q('subscriptions'), (s) => setCardSubs(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {}),
+            onSnapshot(q('cards'), (s) => setCards(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {}),
+        ];
+        return () => list.forEach(u => u());
     }, [uid]);
 
     // Saldo em conta (derivado — soma das transações).
     const saldoConta = useMemo(() => buildWalletLedger(transactions, mk).finalBalance, [transactions, mk]);
 
-    const withStatus = (list) => [...list]
-        .map(r => ({ ...r, status: statusOf(r, transactions, mk) }))
-        .sort((a, b) => (a.day || 0) - (b.day || 0));
-
-    const incomeRows = useMemo(() => withStatus(incomes), [incomes, transactions, mk]);
-
     const cardIds = useMemo(() => new Set(cards.map(c => c.id)), [cards]);
-    // Uma despesa recorrente paga no CARTÃO (crédito + cartão existente): não é paga
-    // por baixa aqui — cai na fatura do cartão. Vai pra aba "No cartão".
-    const isCardPaid = (r) => r.paymentMethod === 'credito' && r.cardId && cardIds.has(r.cardId);
+    const cardName = (id) => cards.find(c => c.id === id)?.name || 'Cartão';
 
-    // "Fixas & mensais" = só as recorrentes NÃO pagas no cartão (essas têm baixa aqui).
-    const expenseRowsFix = useMemo(() => withStatus(expenses.filter(e => !isCardPaid(e))),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Despesas recorrentes com status do mês, ordenadas por dia.
+    const rows = useMemo(() => [...expenses]
+        .map(r => ({
+            ...r, kind: 'expense', status: statusOf(r, transactions, mk), paidTx: paidTxOf(r, transactions, mk),
+            days: daysToDue(r.day, mk),
+            cardPaid: r.paymentMethod === 'credito' && r.cardId && cardIds.has(r.cardId),
+        }))
+        .sort((a, b) => (a.day || 0) - (b.day || 0)),
         [expenses, transactions, mk, cardIds]);
 
-    // Recorrentes pagas no cartão — editáveis (variáveis inclusive), sem baixa. Ficam
-    // no TOPO da aba "No cartão".
-    const cardFixedRows = useMemo(() => withStatus(expenses.filter(isCardPaid))
-        .map(r => ({ ...r, cardPaid: true, cardName: cards.find(c => c.id === r.cardId)?.name || 'Cartão' })),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [expenses, transactions, mk, cardIds]);
+    const aPagar = rows.filter(r => r.status !== 'pago');
+    const pagas = rows.filter(r => r.status === 'pago');
+    const atrasadas = aPagar.filter(r => r.status === 'atrasado').length;
 
-    // Assinaturas e parcelamentos lançados no CARTÃO (vêm de subscriptions) — read-only.
-    const cardSubRows = useMemo(() => cardSubs
+    // Recorrências do CARTÃO (vêm de subscriptions) — só leitura aqui.
+    const cardRows = useMemo(() => cardSubs
         .filter(s => s.cardId && cardIds.has(s.cardId))
         .map(s => {
             const isInst = s.type === 'installment' || s.isInstallment;
             return {
                 id: `card_${s.id}`, name: s.name || (isInst ? 'Parcelamento' : 'Assinatura'),
                 value: parseFloat(s.value) || 0, category: s.category || 'conta_fixa',
-                day: s.day || 1, isVariable: false, onCard: true, status: 'cartao',
-                cardKind: isInst ? 'parcelamento' : 'assinatura',
+                day: s.day || 1, cardName: cards.find(c => c.id === s.cardId)?.name || 'Cartão',
+                isInstallment: isInst,
                 parcela: isInst ? `${s.currentInstallment || 1}/${s.totalInstallments || 1}` : null,
+                current: s.currentInstallment || 1, total: s.totalInstallments || 1,
             };
         })
         .sort((a, b) => (a.day || 0) - (b.day || 0)),
-        [cardSubs, cardIds]);
+        [cardSubs, cardIds, cards]);
+    const parcelamentos = cardRows.filter(r => r.isInstallment);
+    const assinaturas = cardRows.filter(r => !r.isInstallment);
 
-    // Aba "No cartão": recorrentes de cartão (editáveis) no topo + assinaturas/parcelas.
-    const cardRecurringRows = useMemo(() => [...cardFixedRows, ...cardSubRows], [cardFixedRows, cardSubRows]);
-
-    // Fixos primeiro, depois os do cartão (read-only).
-    const expenseRows = useMemo(() => [...expenseRowsFix, ...cardRecurringRows], [expenseRowsFix, cardRecurringRows]);
-
-    // Variáveis pagas no cartão que ainda NÃO foram lançadas na fatura deste mês.
-    const pendVarCard = useMemo(() => cardFixedRows.filter(r => r.isVariable && r.status !== 'pago'), [cardFixedRows]);
-
-    const totalEntradas = incomeRows.reduce((a, r) => a + (parseFloat(r.value) || 0), 0);
-    const totalDespesas = expenseRows.reduce((a, r) => a + (parseFloat(r.value) || 0), 0);
-    const balancoProjetado = totalEntradas - totalDespesas;
-
-    const history = useMemo(() =>
-        transactions
-            .filter(t => t.isFixed && t.source === 'recorrente_baixa')
-            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-            .slice(0, 12),
-        [transactions]);
+    const totalAPagar = aPagar.reduce((a, r) => a + (parseFloat(r.value) || 0), 0);
+    const totalPago = pagas.reduce((a, r) => a + (parseFloat(r.paidTx?.amount ?? r.value) || 0), 0);
+    const totalCartao = cardRows.reduce((a, r) => a + r.value, 0);
+    // Compromisso recorrente do mês inteiro: contas cadastradas (pagas ou não) + o que está no cartão.
+    const totalRecorrentes = totalAPagar + totalPago + totalCartao;
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+    const [my, mm] = mk.split('-').map(Number);
+    const mesLabel = `${MESES[(mm || 1) - 1]} de ${my}`;
 
-    const collOf = (kind) => KIND[kind].collection;
+    const TABS = [
+        { id: 'apagar', label: 'A pagar', count: aPagar.length },
+        { id: 'pago', label: 'Pago', count: pagas.length },
+    ];
 
     return (
         <div className="max-w-6xl mx-auto w-full">
-            {/* Header compacto (largura toda pras tabelas) */}
-            <div className="flex items-center gap-4 mb-6">
-                <span className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/25 to-teal-600/15 ring-1 ring-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]">
-                    <Repeat className="w-7 h-7" strokeWidth={2.2} />
-                </span>
-                <div className="min-w-0">
-                    <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Recorrentes</h1>
-                    <p className={`text-sm mt-0.5 ${muted}`}>Entradas e despesas fixas do mês</p>
+            {/* Cabeçalho: título à esquerda · seletor em pílula (A pagar / Pago) à direita */}
+            <div className="flex items-center justify-between gap-4 flex-wrap mb-6">
+                <div className="flex items-center gap-4 min-w-0">
+                    <span className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/25 to-teal-600/15 ring-1 ring-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]">
+                        <Repeat className="w-7 h-7" strokeWidth={2.2} />
+                    </span>
+                    <div className="min-w-0">
+                        <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Recorrentes</h1>
+                        <p className={`text-sm mt-0.5 ${muted}`}>Suas contas fixas de <span className={`font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{mesLabel}</span></p>
+                    </div>
                 </div>
-                <div className="ml-auto shrink-0"><NovoRecorrenteButton onClick={() => setChooser(true)} /></div>
-            </div>
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                    {/* Resumo do mês — muda com a aba: A pagar ↔ Pago */}
+                    {tab === 'apagar'
+                        ? <Stat isDark={isDark} label="Contas a pagar" value={totalAPagar} tone="rose" />
+                        : <Stat isDark={isDark} label="Pago" value={totalPago} tone="emerald" />}
+                    <Stat isDark={isDark} label="Na fatura" value={totalCartao} tone="blue" />
+                    <Stat isDark={isDark} label="Total recorrentes" value={totalRecorrentes} tone="slate" />
 
-            {/* Topo: métricas 2×2 à esquerda + Entradas recorrentes à direita */}
-            <div className="grid lg:grid-cols-2 gap-4 items-stretch">
-                <div className="grid grid-cols-2 grid-rows-2 gap-3 h-full">
-                    <SummaryCard isDark={isDark} icon={Wallet} label="Saldo em conta" value={<AnimatedNumber value={saldoConta} format={(v) => `R$ ${money(v)}`} />} tone={saldoConta >= 0 ? 'emerald' : 'rose'} />
-                    <SummaryCard isDark={isDark} icon={Scale} label="Balanço projetado" hint="Entradas − Despesas"
-                        value={<AnimatedNumber value={balancoProjetado} format={(v) => `${v < 0 ? '− ' : ''}R$ ${money(Math.abs(v))}`} />}
-                        tone={balancoProjetado >= 0 ? 'emerald' : 'rose'} />
-                    <SummaryCard isDark={isDark} icon={TrendingUp} label="Entradas recorrentes" value={<AnimatedNumber value={totalEntradas} format={(v) => `R$ ${money(v)}`} />} tone="emerald" />
-                    <SummaryCard isDark={isDark} icon={TrendingDown} label="Despesas recorrentes" value={<AnimatedNumber value={totalDespesas} format={(v) => `R$ ${money(v)}`} />} tone="rose" />
+                <div role="tablist" aria-label="Situação"
+                    className={`inline-flex items-center p-1 rounded-full border ${isDark ? 'border-white/10' : 'border-slate-200 bg-white'}`}>
+                    {TABS.map(t => {
+                        const on = tab === t.id;
+                        return (
+                            <button key={t.id} role="tab" aria-selected={on} onClick={() => setTab(t.id)}
+                                className={`px-5 py-2 rounded-full text-[13px] font-bold whitespace-nowrap transition-all duration-200 active:scale-[0.97] ${on
+                                    ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/25'
+                                    : (isDark ? 'bg-transparent text-white hover:bg-white/[0.06]' : 'bg-transparent text-slate-700 hover:bg-slate-100')}`}>
+                                {t.label} ({t.count})
+                            </button>
+                        );
+                    })}
                 </div>
-
-                <RecorrentesSection kind="income" rows={incomeRows} isDark={isDark} wrapClass=""
-                    onEdit={(r) => setForm({ kind: 'income', editing: r })}
-                    onDelete={(r) => deleteDoc(doc(db, collOf('income'), r.id))}
-                    onBaixa={(r) => setBaixa({ kind: 'income', rec: r })} />
+                </div>
             </div>
 
-            {/* Lembrete: variáveis no cartão pra confirmar o valor e lançar na fatura */}
-            {pendVarCard.length > 0 && (
-                <button type="button" onClick={() => setExpTab('cartao')}
-                    className={`mt-6 w-full text-left rounded-2xl border px-4 py-3.5 flex items-center gap-3 transition active:scale-[0.995] ${isDark ? 'border-blue-500/25 bg-blue-500/[0.07] hover:bg-blue-500/[0.1]' : 'border-blue-200 bg-blue-50 hover:bg-blue-100/70'}`}>
-                    <span className="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-500 flex items-center justify-center shrink-0"><CreditCard className="w-5 h-5" /></span>
-                    <div className="min-w-0 flex-1">
-                        <p className={`text-[13px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                            Confirme o valor no cartão · {pendVarCard.length} pendente{pendVarCard.length > 1 ? 's' : ''}
-                        </p>
-                        <p className={`text-[12px] mt-0.5 truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                            {pendVarCard.length === 1
-                                ? <><b>{pendVarCard[0].name}</b> é variável — confirme quanto foi este mês e lance na fatura.</>
-                                : <>Há despesas variáveis no cartão ({pendVarCard.slice(0, 3).map(r => r.name).join(', ')}{pendVarCard.length > 3 ? '…' : ''}) pra confirmar e lançar na fatura deste mês.</>}
-                        </p>
-                    </div>
-                    <span className="hidden sm:inline-flex items-center gap-1 text-[12px] font-bold text-blue-500 shrink-0">Ver no cartão <ArrowRight className="w-3.5 h-3.5" /></span>
-                </button>
-            )}
+            {tab === 'apagar' ? (
+                <div className="space-y-8 animate-in fade-in duration-200">
+                    {/* Contas a pagar — cards */}
+                    <section>
+                        <SectionTitle isDark={isDark} icon={TrendingDown} tone="rose" title="Contas a pagar" count={aPagar.length}
+                            hint={atrasadas > 0 ? `${atrasadas} atrasada${atrasadas > 1 ? 's' : ''}` : null} hintTone="rose" />
+                        {aPagar.length === 0 ? (
+                            <Empty isDark={isDark} icon={rows.length === 0 ? CalendarDays : Sparkles}
+                                title={rows.length === 0 ? 'Nenhuma conta cadastrada' : 'Tudo pago por aqui 🎉'}
+                                text={rows.length === 0 ? 'Cadastre suas despesas fixas em Configurações e Cadastros.' : 'Nenhuma conta pendente neste mês.'} />
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                                {aPagar.map(r => <BillCard key={r.id} r={r} isDark={isDark} cardName={cardName}
+                                    onBaixa={() => setBaixa({ kind: 'expense', rec: { ...r, cardName: cardName(r.cardId) } })} />)}
+                            </div>
+                        )}
+                    </section>
 
-            {/* Despesas — largura toda; sub-abas: Fixas & mensais vs No cartão */}
-            <RecorrentesSection kind="expense" rows={expTab === 'fixas' ? expenseRowsFix : cardRecurringRows} isDark={isDark} cards={cards} wrapClass="mt-6"
-                onEdit={(r) => setForm({ kind: 'expense', editing: r })}
-                onDelete={(r) => deleteDoc(doc(db, collOf('expense'), r.id))}
-                onBaixa={(r) => setBaixa({ kind: 'expense', rec: r })}
-                onNavigate={onNavigate}
-                emptyOverride={expTab === 'cartao' ? 'Nada no cartão ainda. Recorrentes pagas no crédito, assinaturas e parcelas aparecem aqui.' : null}
-                headerRight={
-                    <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-100/70'}`}>
-                        <SubTab active={expTab === 'fixas'} onClick={() => setExpTab('fixas')} isDark={isDark} label="Fixas & mensais" count={expenseRowsFix.length} />
-                        <SubTab active={expTab === 'cartao'} onClick={() => setExpTab('cartao')} isDark={isDark} label="No cartão" count={cardRecurringRows.length} />
-                    </div>
-                } />
+                    {/* No cartão — parcelamentos e assinaturas (só leitura) */}
+                    <section>
+                        <SectionTitle isDark={isDark} icon={CreditCard} tone="blue" title="No cartão" count={cardRows.length} />
+                        <div className={`mb-4 rounded-2xl border px-4 py-3 flex items-center gap-3 text-[12.5px] ${isDark ? 'border-blue-500/20 bg-blue-500/[0.06] text-slate-300' : 'border-blue-200 bg-blue-50 text-slate-600'}`}>
+                            <Lock className="w-4 h-4 shrink-0 text-blue-500" />
+                            <span>Recorrências do cartão são só consulta aqui. <b>Edições e baixas são feitas em Meu cartão</b>, junto com a fatura.</span>
+                        </div>
 
-            {/* Nota */}
-            <div className={`mt-6 rounded-2xl border px-4 py-3.5 flex items-center gap-3 text-[13px] ${isDark ? 'border-white/10 bg-white/[0.02] text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
-                <Info className="w-4 h-4 shrink-0 text-emerald-500" />
-                Ao confirmar ou dar baixa, o valor será lançado na conta e o saldo será atualizado automaticamente.
-            </div>
+                        <GroupTitle isDark={isDark} icon={Layers} title="Parcelamentos" count={parcelamentos.length} />
+                        {parcelamentos.length === 0
+                            ? <p className={`text-[12.5px] mb-5 ${muted}`}>Nenhum parcelamento ativo no cartão.</p>
+                            : <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">{parcelamentos.map(r => <CardBill key={r.id} r={r} isDark={isDark} />)}</div>}
 
-            {/* Histórico de baixas */}
-            {history.length > 0 && (
-                <div className="mt-8">
-                    <h2 className={`text-[11px] font-black uppercase tracking-widest ${muted} mb-2 flex items-center gap-1.5`}><History className="w-3.5 h-3.5" /> Histórico</h2>
-                    <div className={`rounded-2xl border divide-y ${isDark ? 'border-white/10 divide-white/5 bg-white/[0.02]' : 'border-slate-200 divide-slate-100 bg-white'}`}>
-                        {history.map(h => {
-                            const inc = h.type === 'income';
-                            return (
-                                <div key={h.id} className="flex items-center justify-between px-4 py-3 text-sm">
-                                    <div>
-                                        <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{h.description}</span>
-                                        <span className={`ml-2 text-xs ${muted}`}>{new Date(h.date).toLocaleDateString('pt-BR')}</span>
-                                    </div>
-                                    <span className={`font-black tabular-nums ${inc ? 'text-emerald-500' : 'text-rose-500'}`}>{inc ? '+' : '−'} R$ {money(h.amount)}</span>
-                                </div>
-                            );
-                        })}
-                    </div>
+                        <GroupTitle isDark={isDark} icon={RefreshCw} title="Assinaturas" count={assinaturas.length} tone="purple" />
+                        {assinaturas.length === 0
+                            ? <p className={`text-[12.5px] ${muted}`}>Nenhuma assinatura no cartão.</p>
+                            : <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">{assinaturas.map(r => <CardBill key={r.id} r={r} isDark={isDark} />)}</div>}
+                    </section>
+                </div>
+            ) : (
+                <div className="animate-in fade-in duration-200">
+                    <SectionTitle isDark={isDark} icon={CheckCircle2} tone="emerald" title="Pagas este mês" count={pagas.length} />
+                    {pagas.length === 0 ? (
+                        <Empty isDark={isDark} icon={CheckCircle2} title="Nada pago ainda" text="As contas que você der baixa neste mês aparecem aqui." />
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {pagas.map(r => <BillCard key={r.id} r={r} isDark={isDark} cardName={cardName} paid />)}
+                        </div>
+                    )}
                 </div>
             )}
 
-            {chooser && <KindChooserModal isDark={isDark} onClose={() => setChooser(false)}
-                onPick={(kind) => { setChooser(false); setForm({ kind, editing: null }); }} />}
-            {form && <RecorrenteForm isDark={isDark} uid={uid} kind={form.kind} editing={form.editing} onClose={() => setForm(null)} />}
             {baixa && <BaixaDialog isDark={isDark} uid={uid} kind={baixa.kind} rec={baixa.rec} saldo={saldoConta} mk={mk} onClose={() => setBaixa(null)} />}
         </div>
     );
 }
 
-// ── Seção (entradas ou despesas) ────────────────────────────────────
-function RecorrentesSection({ kind, rows, isDark, cards = [], onEdit, onDelete, onBaixa, onNavigate, wrapClass = 'mt-8', headerRight = null, emptyOverride = null }) {
-    const [confirmAction, setConfirmAction] = useState(null); // { type:'edit'|'delete', row }
-    const cfg = KIND[kind];
-    const SectionIcon = cfg.icon;
-    const income = kind === 'income';
-    const cell = isDark ? 'text-slate-300' : 'text-slate-700';
+// ── Peças de layout ─────────────────────────────────────────────────
+const TONE = {
+    rose: { tile: 'bg-rose-500/15 text-rose-500', text: 'text-rose-500' },
+    emerald: { tile: 'bg-emerald-500/15 text-emerald-500', text: 'text-emerald-500' },
+    blue: { tile: 'bg-blue-500/15 text-blue-500', text: 'text-blue-500' },
+    slate: { tile: 'bg-slate-500/15 text-slate-400', text: '' },
+};
+
+function Stat({ isDark, label, value, tone }) {
+    const color = TONE[tone].text || (isDark ? 'text-white' : 'text-slate-800');
+    return (
+        <div className={`rounded-xl border px-3.5 py-2 min-w-[110px] ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
+            <p className={`text-[9.5px] font-black uppercase tracking-widest whitespace-nowrap ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{label}</p>
+            <p className={`text-[14px] font-black tabular-nums leading-tight ${color}`}>R$ {money(value)}</p>
+        </div>
+    );
+}
+
+function SectionTitle({ isDark, icon: Icon, tone, title, count, hint, hintTone = 'rose' }) {
+    return (
+        <div className="flex items-center gap-3 mb-4">
+            <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${TONE[tone].tile}`}><Icon className="w-5 h-5" strokeWidth={2.4} /></span>
+            <h2 className={`text-[16px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{title}</h2>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isDark ? 'bg-white/10 text-slate-400' : 'bg-slate-200 text-slate-500'}`}>{count}</span>
+            {hint && <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${hintTone === 'rose' ? 'bg-rose-500/12 text-rose-500' : 'bg-emerald-500/12 text-emerald-500'}`}>{hint}</span>}
+        </div>
+    );
+}
+
+function GroupTitle({ isDark, icon: Icon, title, count, tone = 'blue' }) {
+    return (
+        <div className={`flex items-center gap-2 mb-3 text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+            <Icon className={`w-3.5 h-3.5 ${tone === 'purple' ? 'text-purple-400' : 'text-blue-500'}`} /> {title}
+            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${isDark ? 'bg-white/10 text-slate-400' : 'bg-slate-200 text-slate-500'}`}>{count}</span>
+        </div>
+    );
+}
+
+function Empty({ isDark, icon: Icon, title, text }) {
+    return (
+        <div className={`rounded-2xl border border-dashed py-12 text-center px-4 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50/60'}`}>
+            <span className={`w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center ${isDark ? 'bg-white/5 text-slate-500' : 'bg-white text-slate-400 shadow-sm'}`}><Icon className="w-6 h-6" /></span>
+            <p className={`text-sm font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{title}</p>
+            <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{text}</p>
+        </div>
+    );
+}
+
+// Card de uma conta cadastrada (a pagar / paga).
+function BillCard({ r, isDark, cardName, onBaixa, paid = false }) {
+    const c = catMetaOf('expense', r.category);
+    const hex = categoryHex(c);
+    const Icon = c.icon;
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
-    const accent = income ? 'text-emerald-500' : 'text-rose-500';
-    const headBg = income
-        ? (isDark ? 'bg-emerald-500/[0.06]' : 'bg-emerald-50/70')
-        : (isDark ? 'bg-rose-500/[0.05]' : 'bg-rose-50/70');
-    const PREVIEW = 3;
-    const [showAll, setShowAll] = React.useState(false);
-    const shown = showAll ? rows : rows.slice(0, PREVIEW);
+    const late = r.status === 'atrasado';
+    const paidDate = paid && r.paidTx?.date ? new Date(r.paidTx.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : null;
+    const shownValue = paid ? (r.paidTx?.amount ?? r.value) : r.value;
+    const dueText = paid
+        ? (paidDate ? `Pago em ${paidDate}` : 'Pago este mês')
+        : late ? `Venceu dia ${r.day} · há ${Math.abs(r.days)} ${Math.abs(r.days) === 1 ? 'dia' : 'dias'}`
+        : r.days === 0 ? `Vence hoje · dia ${r.day}`
+        : `Vence dia ${r.day} · em ${r.days} ${r.days === 1 ? 'dia' : 'dias'}`;
+    const ring = '';
+    const btn = r.cardPaid
+        ? 'bg-blue-500 hover:bg-blue-600 shadow-blue-500/25'
+        : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/25';
 
     return (
-        <>
-        <div className={`rounded-2xl border overflow-hidden flex flex-col ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]'} ${wrapClass}`}>
-            {/* Cabeçalho colorido do card */}
-            <div className={`flex items-center justify-between gap-2 px-4 sm:px-5 py-4 border-b flex-wrap ${isDark ? 'border-white/[0.06]' : 'border-slate-100'} ${headBg}`}>
-                <h2 className={`text-[15px] font-black tracking-tight flex items-center gap-2.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                    <span className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${income ? 'bg-emerald-500/15 text-emerald-500' : 'bg-rose-500/15 text-rose-500'}`}><SectionIcon className="w-6 h-6" strokeWidth={2.4} /></span>
-                    {cfg.title}
-                </h2>
-                {headerRight}
+        <div className={`rounded-2xl border p-4 flex flex-col gap-3 transition ${isDark ? 'border-white/10 bg-white/[0.02] hover:border-white/[0.16]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_-12px_rgba(15,23,42,0.18)]'} ${ring}`}>
+            {/* Topo: ícone da categoria · nome · status */}
+            <div className="flex items-start gap-3">
+                <span className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>{Icon && <Icon className="w-5 h-5" />}</span>
+                <div className="min-w-0 flex-1">
+                    <p className={`font-black text-[15px] leading-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{r.name}</p>
+                    <p className={`text-[11.5px] mt-0.5 truncate ${muted}`}>{c.label}</p>
+                </div>
+                <StatusBadge status={r.status} isDark={isDark} doneLabel="Pago" />
             </div>
 
-            {rows.length === 0 ? (
-                <div className="py-12 text-center px-4">
-                    <SectionIcon className={`w-7 h-7 mx-auto mb-2.5 ${muted}`} />
-                    <p className={`text-sm font-bold ${cell}`}>Nada por aqui</p>
-                    <p className={`text-xs mt-1 ${muted}`}>{emptyOverride || cfg.emptyHint}</p>
+            {/* Selos */}
+            {(r.cardPaid || r.isVariable || r.category === 'divida') && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                    {r.category === 'divida' && <Tag cls="bg-rose-500/15 text-rose-400"><AlertTriangle className="w-2.5 h-2.5" /> Dívida</Tag>}
+                    {r.cardPaid && <Tag cls="bg-blue-500/15 text-blue-400"><CreditCard className="w-2.5 h-2.5" /> {cardName?.(r.cardId)}</Tag>}
+                    {r.isVariable && <Tag cls={isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}>Valor variável</Tag>}
                 </div>
-            ) : (
-                <>
-                    <div className="flex-1">
-                        {shown.map((r, i) => {
-                            const c = catMetaOf(kind, r.category);
-                            const hex = categoryHex(c);
-                            const Icon = c.icon;
-                            const last = i === shown.length - 1;
-                            // Evita redundância: nome idêntico ao rótulo da categoria.
-                            const sameAsCat = String(r.name || '').trim().toLowerCase() === String(c.label || '').trim().toLowerCase();
-                            const sub = [sameAsCat ? null : c.label, `${income ? 'recebe' : 'vence'} dia ${r.day || 1}`].filter(Boolean).join(' · ');
-                            return (
-                                <div key={r.id} className={`group flex items-center gap-2.5 px-4 py-3 transition-colors ${isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-slate-50/70'} ${last ? '' : `border-b ${isDark ? 'border-white/5' : 'border-slate-100'}`}`}>
-                                    <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>
-                                        {Icon && <Icon className="w-4 h-4" />}
-                                    </span>
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-1.5 min-w-0">
-                                            <span className={`font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{r.name}</span>
-                                            {!income && r.category === 'divida' && !r.onCard && (
-                                                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-400 flex items-center gap-1 shrink-0"><AlertTriangle className="w-2.5 h-2.5" /> Dívida</span>
-                                            )}
-                                            {r.onCard ? (
-                                                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 shrink-0">{r.cardKind === 'parcelamento' ? `Parcela ${r.parcela}` : 'Assinatura'}</span>
-                                            ) : r.cardPaid ? (
-                                                <>
-                                                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 shrink-0 inline-flex items-center gap-1"><CreditCard className="w-2.5 h-2.5" /> {r.cardName}</span>
-                                                    {r.isVariable && <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Variável</span>}
-                                                </>
-                                            ) : r.isVariable ? (
-                                                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Variável</span>
-                                            ) : null}
-                                        </div>
-                                        <p className={`text-[11px] truncate ${muted}`}>{sub}</p>
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                        <p className={`font-black tabular-nums whitespace-nowrap text-[13px] ${income ? 'text-emerald-500' : 'text-rose-500'}`}>{income ? '+' : '−'} R$ {money(r.value)}</p>
-                                        <div className="mt-1 flex justify-end"><StatusBadge status={r.status} isDark={isDark} doneLabel={cfg.doneLabel} /></div>
-                                    </div>
-                                    <div className="shrink-0 flex items-center gap-0.5">
-                                        {r.onCard ? (
-                                            <button onClick={() => onNavigate?.('cartoes')} title="Ver fatura do cartão"
-                                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition active:scale-95 ${isDark ? 'text-blue-400 hover:bg-blue-500/10' : 'text-blue-600 hover:bg-blue-50'}`}>
-                                                <CreditCard className="w-4 h-4" />
-                                            </button>
-                                        ) : (
-                                            <>
-                                                {r.cardPaid ? (
-                                                    r.status === 'pago' ? (
-                                                        <span title="Já lançado na fatura deste mês" className="w-8 h-8 rounded-lg flex items-center justify-center text-blue-500 bg-blue-500/12 shrink-0"><Check className="w-4 h-4" strokeWidth={3} /></span>
-                                                    ) : (
-                                                        <button onClick={() => onBaixa(r)} title={r.isVariable ? 'Confirmar valor e lançar na fatura' : 'Lançar na fatura do cartão'}
-                                                            className="w-8 h-8 rounded-lg flex items-center justify-center border-2 border-blue-500/40 text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 transition active:scale-90 shrink-0">
-                                                            <CreditCard className="w-4 h-4" />
-                                                        </button>
-                                                    )
-                                                ) : r.status === 'pago' ? (
-                                                    <span title={cfg.doneLabel} className="w-8 h-8 rounded-lg flex items-center justify-center text-emerald-500 bg-emerald-500/12 shrink-0"><Check className="w-4 h-4" strokeWidth={3} /></span>
-                                                ) : (
-                                                    <button onClick={() => onBaixa(r)} title={cfg.actionLabel}
-                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center border-2 transition active:scale-90 shrink-0 ${income
-                                                            ? 'border-emerald-500/40 text-emerald-500 hover:bg-emerald-500 hover:text-white hover:border-emerald-500'
-                                                            : 'border-rose-500/40 text-rose-500 hover:bg-rose-500 hover:text-white hover:border-rose-500'}`}>
-                                                        <Check className="w-4 h-4" strokeWidth={3} />
-                                                    </button>
-                                                )}
-                                                <div className="flex items-center gap-0.5 lg:opacity-60 lg:group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => setConfirmAction({ type: 'edit', row: r })} title="Editar" className={`p-1.5 rounded-lg ${muted} ${isDark ? 'hover:bg-white/5 hover:text-emerald-400' : 'hover:bg-slate-100 hover:text-emerald-600'}`}><Pencil className="w-4 h-4" /></button>
-                                                    <button onClick={() => setConfirmAction({ type: 'delete', row: r })} disabled={r.status === 'pago'} title="Excluir" className={`p-1.5 rounded-lg text-slate-400 transition disabled:opacity-30 disabled:pointer-events-none ${isDark ? 'hover:text-rose-500 hover:bg-white/5' : 'hover:text-rose-500 hover:bg-slate-100'}`}><Trash2 className="w-4 h-4" /></button>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                    {rows.length > PREVIEW && (
-                        <button onClick={() => setShowAll(v => !v)}
-                            className={`flex items-center justify-between px-4 sm:px-5 py-3 border-t text-[13px] font-bold transition ${isDark ? 'border-white/[0.06] text-slate-300 hover:bg-white/[0.03]' : 'border-slate-100 text-slate-600 hover:bg-slate-50'}`}>
-                            <span>{showAll ? 'Ver menos' : `Ver todas ${income ? 'entradas' : 'despesas'} (${rows.length})`}</span>
-                            <ArrowRight className={`w-4 h-4 shrink-0 transition-transform ${accent} ${showAll ? '-rotate-90' : ''}`} />
-                        </button>
-                    )}
-                </>
+            )}
+
+            {/* Valor + vencimento */}
+            <div className="flex items-end justify-between gap-3 mt-auto">
+                <div>
+                    <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>{paid ? 'Valor pago' : r.isVariable ? 'Valor estimado' : 'Valor'}</p>
+                    <p className={`text-[22px] font-black tabular-nums leading-tight ${paid ? 'text-emerald-500' : (isDark ? 'text-white' : 'text-slate-800')}`}>R$ {money(shownValue)}</p>
+                </div>
+                <p className={`text-[11.5px] font-semibold text-right ${late ? 'text-amber-500' : muted}`}>
+                    <CalendarDays className="w-3.5 h-3.5 inline-block -mt-0.5 mr-1" />{dueText}
+                </p>
+            </div>
+
+            {/* Ação */}
+            {!paid && (
+                <button onClick={onBaixa}
+                    className={`w-full py-2.5 rounded-xl text-white text-[13px] font-bold flex items-center justify-center gap-2 shadow-md transition active:scale-[0.98] ${btn}`}>
+                    {r.cardPaid ? <><CreditCard className="w-4 h-4" /> Lançar na fatura</> : <><Check className="w-4 h-4" strokeWidth={3} /> Dar baixa</>}
+                </button>
             )}
         </div>
-
-        {confirmAction && (() => {
-            const r = confirmAction.row;
-            const noCartao = !income && r.paymentMethod === 'credito' && r.cardId;
-            const cardName = noCartao ? (cards.find(c => c.id === r.cardId)?.name || 'seu cartão') : '';
-            const warning = !noCartao ? null : (confirmAction.type === 'delete'
-                ? `Esta despesa é paga no cartão ${cardName} e entra na fatura. Ao excluir, ela deixa de ser lançada na fatura nos próximos meses. (Lançamentos já dados baixa em faturas passadas continuam lá.)`
-                : `Esta despesa é paga no cartão ${cardName} e entra na fatura. O que você alterar (valor, dia ou cartão) passa a valer para as próximas faturas.`);
-            return (
-                <ConfirmActionModal isDark={isDark} type={confirmAction.type}
-                    name={r.name || r.description}
-                    noun={income ? 'entrada recorrente' : 'despesa recorrente'}
-                    warning={warning}
-                    onClose={() => setConfirmAction(null)}
-                    onConfirm={async () => {
-                        if (confirmAction.type === 'delete') { await onDelete(r); await new Promise(res => setTimeout(res, 300)); }
-                        else { await new Promise(res => setTimeout(res, 400)); onEdit(r); }
-                    }} />
-            );
-        })()}
-        </>
     );
 }
 
-function SummaryCard({ isDark, icon: Icon, label, value, tone, hint }) {
-    const toneColor = { emerald: 'text-emerald-500', rose: 'text-rose-500', amber: 'text-amber-500', slate: isDark ? 'text-slate-200' : 'text-slate-700' }[tone];
+// Card de item do cartão (parcelamento/assinatura) — só leitura.
+function CardBill({ r, isDark }) {
+    const c = catMetaOf('expense', r.category);
+    const hex = categoryHex(c);
+    const Icon = c.icon;
+    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+    const pct = r.isInstallment ? Math.round((r.current / Math.max(1, r.total)) * 100) : 0;
     return (
-        <div className={`h-full flex flex-col justify-center rounded-2xl border p-4 transition-shadow duration-300 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]'}`}>
-            <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                <Icon className="w-3.5 h-3.5" /> {label}
+        <div className={`rounded-2xl border p-4 flex flex-col gap-3 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]'}`}>
+            <div className="flex items-start gap-3">
+                <span className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>{Icon && <Icon className="w-5 h-5" />}</span>
+                <div className="min-w-0 flex-1">
+                    <p className={`font-black text-[15px] leading-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{r.name}</p>
+                    <p className={`text-[11.5px] mt-0.5 truncate ${muted}`}>{c.label} · {r.cardName}</p>
+                </div>
+                <StatusBadge status={r.isInstallment ? 'cartao' : 'assinatura'} isDark={isDark} />
             </div>
-            <p className={`text-lg font-black tabular-nums mt-1.5 ${toneColor}`}>{value}</p>
-            {hint && <p className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{hint}</p>}
-        </div>
-    );
-}
-
-// Sub-aba (segmented) usada nas Despesas: Fixas & mensais vs No cartão.
-function SubTab({ active, onClick, isDark, label, count }) {
-    return (
-        <button onClick={onClick} role="tab" aria-selected={active}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold whitespace-nowrap transition-all active:scale-[0.97] ${active
-                ? (isDark ? 'bg-white/10 text-white shadow-sm' : 'bg-white text-slate-800 shadow-[0_1px_4px_rgba(0,0,0,0.08)]')
-                : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700')}`}>
-            {label}
-            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${active ? 'bg-emerald-500/15 text-emerald-500' : (isDark ? 'bg-white/10 text-slate-400' : 'bg-slate-200 text-slate-500')}`}>{count}</span>
-        </button>
-    );
-}
-
-// Botão único "Novo recorrente" — abre a janela de escolha (entrada / despesa).
-function NovoRecorrenteButton({ onClick }) {
-    return (
-        <button onClick={onClick}
-            className="group flex items-center gap-2 pl-1.5 pr-3.5 py-1.5 rounded-full bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-400 hover:to-purple-400 text-white transition-all active:scale-95 shadow-md shadow-violet-500/30 ring-1 ring-inset ring-white/20">
-            <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center group-hover:rotate-90 transition-transform">
-                <Plus className="w-3 h-3" strokeWidth={3} />
-            </span>
-            <span className="font-black uppercase tracking-[0.12em] text-[11px]">Novo recorrente</span>
-        </button>
-    );
-}
-
-// Janela para escolher entre Entrada e Despesa recorrente antes do formulário.
-function KindChooserModal({ isDark, onClose, onPick }) {
-    const opts = [
-        {
-            kind: 'income', label: 'Entrada recorrente', sub: 'Salário, aluguel recebido…', icon: TrendingUp,
-            iconWrap: 'bg-emerald-500/15 text-emerald-500',
-            ring: isDark ? 'hover:border-emerald-500/40 hover:bg-emerald-500/[0.06]' : 'hover:border-emerald-300 hover:bg-emerald-50',
-        },
-        {
-            kind: 'expense', label: 'Despesa recorrente', sub: 'Aluguel, internet, assinatura…', icon: TrendingDown,
-            iconWrap: 'bg-rose-500/15 text-rose-500',
-            ring: isDark ? 'hover:border-rose-500/40 hover:bg-rose-500/[0.06]' : 'hover:border-rose-300 hover:bg-rose-50',
-        },
-    ];
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-md rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
-                <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2.5">
-                        <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white flex items-center justify-center shrink-0"><Repeat className="w-5 h-5" strokeWidth={2.4} /></span>
-                        <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Novo recorrente</h2>
+            {r.isInstallment && (
+                <div>
+                    <div className="flex items-center justify-between text-[11px] mb-1">
+                        <span className={`font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Parcela {r.parcela}</span>
+                        <span className={muted}>{pct}%</span>
                     </div>
-                    <button onClick={onClose} className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}><X className="w-4 h-4" /></button>
+                    <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-200'}`}>
+                        <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${pct}%` }} />
+                    </div>
                 </div>
-                <p className={`text-[13px] mb-5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>O que se repete todo mês?</p>
-
-                <div className="grid grid-cols-2 gap-3">
-                    {opts.map(o => {
-                        const Icon = o.icon;
-                        return (
-                            <button key={o.kind} onClick={() => onPick(o.kind)}
-                                className={`group rounded-2xl border p-4 text-center transition active:scale-[0.98] ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'} ${o.ring}`}>
-                                <span className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3 transition group-hover:scale-105 ${o.iconWrap}`}>
-                                    <Icon className="w-6 h-6" strokeWidth={2.2} />
-                                </span>
-                                <p className={`font-black text-[14px] ${isDark ? 'text-white' : 'text-slate-800'}`}>{o.label}</p>
-                                <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{o.sub}</p>
-                            </button>
-                        );
-                    })}
+            )}
+            <div className="flex items-end justify-between gap-3 mt-auto">
+                <div>
+                    <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>{r.isInstallment ? 'Parcela' : 'Mensal'}</p>
+                    <p className={`text-[22px] font-black tabular-nums leading-tight ${r.isInstallment ? 'text-blue-500' : 'text-purple-400'}`}>R$ {money(r.value)}</p>
                 </div>
+                <p className={`text-[11.5px] font-semibold flex items-center gap-1 ${muted}`}><Lock className="w-3.5 h-3.5" /> Meu cartão</p>
             </div>
         </div>
     );
+}
+
+function Tag({ cls, children }) {
+    return <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded inline-flex items-center gap-1 shrink-0 ${cls}`}>{children}</span>;
 }
 
 function StatusBadge({ status, isDark, doneLabel = 'Pago' }) {
     const map = {
         pago: { label: doneLabel, cls: 'bg-emerald-500/12 text-emerald-500 border-emerald-500/20' },
         pendente: { label: 'Pendente', cls: isDark ? 'bg-white/5 text-slate-400 border-white/10' : 'bg-slate-100 text-slate-500 border-slate-200' },
-        atrasado: { label: 'Atrasado', cls: 'bg-rose-500/12 text-rose-500 border-rose-500/20' },
+        atrasado: { label: 'Atrasado', cls: 'bg-amber-500/12 text-amber-500 border-amber-500/20' },
         cartao: { label: 'Na fatura', cls: 'bg-blue-500/12 text-blue-400 border-blue-500/20' },
+        assinatura: { label: 'Na fatura', cls: 'bg-purple-500/12 text-purple-400 border-purple-500/20' },
     }[status];
     return <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full border ${map.cls}`}>{map.label}</span>;
-}
-
-function DeleteBtn({ isDark, disabled, onDelete }) {
-    const [confirm, setConfirm] = useState(false);
-    if (disabled) return null;
-    if (confirm) return (
-        <div className="flex items-center gap-1">
-            <button onClick={() => setConfirm(false)} className={`px-2 py-1 rounded text-[11px] font-bold ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Não</button>
-            <button onClick={onDelete} className="px-2 py-1 rounded text-[11px] font-bold bg-rose-500 text-white">Excluir</button>
-        </div>
-    );
-    return <button onClick={() => setConfirm(true)} title="Excluir" className={`p-2 rounded-lg text-slate-400 hover:text-rose-500 ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Trash2 className="w-4 h-4" /></button>;
 }
 
 // Modal de criar/editar recorrente (entrada ou despesa).
@@ -667,7 +564,7 @@ export function RecorrenteForm({ isDark, uid, kind, editing, onClose, hint, init
 }
 
 // Diálogo de baixa / confirmação de recebimento (com transação atômica).
-function BaixaDialog({ isDark, uid, kind, rec, saldo, mk, onClose }) {
+export function BaixaDialog({ isDark, uid, kind, rec, saldo, mk, onClose }) {
     const cfg = KIND[kind];
     const income = kind === 'income';
     // Recorrente paga no cartão: a "baixa" LANÇA na fatura (não debita o saldo agora).

@@ -10,9 +10,10 @@ import {
 } from 'firebase/firestore';
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import { buildWalletLedger } from '../utils/financialLogic';
+import { BaixaDialog, statusOf, paidTxOf } from './Recorrentes';
 import {
     Plus, Pencil, Trash2, X, Loader2, Check, ChevronDown, Info,
-    Wallet, TrendingUp, TrendingDown, ArrowLeftRight, Calendar, SlidersHorizontal,
+    Wallet, TrendingUp, TrendingDown, ArrowLeftRight, Calendar, SlidersHorizontal, CalendarDays, Repeat,
 } from 'lucide-react';
 
 const monthKeyNow = () => new Date().toISOString().slice(0, 7);
@@ -55,6 +56,8 @@ export default function Lancamentos() {
     const mk = monthKeyNow();
 
     const [transactions, setTransactions] = useState([]);
+    const [incomes, setIncomes] = useState([]);   // entradas recorrentes (Cadastros)
+    const [entradas, setEntradas] = useState(false); // janela "Entradas do mês"
     const [form, setForm] = useState(null);  // { kind, editing }
     const [confirmAction, setConfirmAction] = useState(null); // { type:'edit'|'delete', item }
     const [chooser, setChooser] = useState(false); // janela de escolha entrada/despesa
@@ -66,8 +69,11 @@ export default function Lancamentos() {
 
     useEffect(() => {
         if (!uid) return;
-        return onSnapshot(query(collection(db, 'transactions'), where('userId', '==', uid)),
+        const unsubT = onSnapshot(query(collection(db, 'transactions'), where('userId', '==', uid)),
             (s) => setTransactions(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
+        const unsubI = onSnapshot(query(collection(db, 'fixed_incomes'), where('userId', '==', uid)),
+            (s) => setIncomes(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
+        return () => { unsubT(); unsubI(); };
     }, [uid]);
 
     const saldoConta = useMemo(() => buildWalletLedger(transactions, mk).finalBalance, [transactions, mk]);
@@ -271,7 +277,9 @@ export default function Lancamentos() {
             </button>
 
             {chooser && <KindChooserModal isDark={isDark} onClose={() => setChooser(false)}
-                onPick={(kind) => { setChooser(false); setForm({ kind, editing: null }); }} />}
+                onPick={(kind) => { setChooser(false); if (kind === 'income') setEntradas(true); else setForm({ kind, editing: null }); }} />}
+            {entradas && <EntradasModal isDark={isDark} uid={uid} incomes={incomes} transactions={transactions} mk={mk} saldoConta={saldoConta}
+                onClose={() => setEntradas(false)} />}
             {form && <LancamentoForm isDark={isDark} uid={uid} kind={form.kind} editing={form.editing} saldoConta={saldoConta} onClose={() => setForm(null)} />}
             {confirmAction && (
                 <ConfirmActionModal isDark={isDark} type={confirmAction.type}
@@ -382,6 +390,138 @@ function KindChooserModal({ isDark, onClose, onPick }) {
     );
 }
 
+// ── Janela "Entradas do mês": entradas recorrentes cadastradas em cards + confirmar recebimento ──
+// O avulso fica num botão discreto embaixo (seta pra baixo).
+function EntradasModal({ isDark, uid, incomes, transactions, mk, saldoConta, onClose }) {
+    const [baixa, setBaixa] = useState(null); // rec a confirmar
+    const [avulso, setAvulso] = useState(false); // formulário avulso aberto embaixo
+    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+
+    const rows = useMemo(() => [...incomes]
+        .map(r => ({ ...r, status: statusOf(r, transactions, mk), paidTx: paidTxOf(r, transactions, mk) }))
+        .sort((a, b) => (a.status === b.status ? 0 : a.status === 'pago' ? 1 : -1) || (a.day || 0) - (b.day || 0)),
+        [incomes, transactions, mk]);
+    const pendentes = rows.filter(r => r.status !== 'pago');
+    const totalPend = pendentes.reduce((a, r) => a + (parseFloat(r.value) || 0), 0);
+    const totalRec = rows.filter(r => r.status === 'pago').reduce((a, r) => a + (parseFloat(r.paidTx?.amount ?? r.value) || 0), 0);
+    const [y, m] = mk.split('-').map(Number);
+    const mes = new Date(y, (m || 1) - 1).toLocaleDateString('pt-BR', { month: 'long' });
+
+    return (
+        <>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+                <div className={`relative w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-3xl border shadow-2xl ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+                    {/* Cabeçalho */}
+                    <div className={`flex items-center gap-3.5 px-6 py-5 border-b ${isDark ? 'border-white/[0.06] bg-emerald-500/[0.06]' : 'border-slate-100 bg-emerald-50/70'}`}>
+                        <span className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-500 ring-1 ring-emerald-500/20 flex items-center justify-center shrink-0"><TrendingUp className="w-6 h-6" strokeWidth={2.4} /></span>
+                        <div className="min-w-0 flex-1">
+                            <h2 className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Entradas de {mes}</h2>
+                            <p className={`text-[13px] mt-0.5 ${muted}`}>Confirme o que já caiu na conta. Cada confirmação vira um lançamento e soma no saldo.</p>
+                        </div>
+                        <div className="hidden sm:flex items-center gap-2">
+                            <MiniStat isDark={isDark} label="A receber" value={totalPend} cls={isDark ? 'text-white' : 'text-slate-800'} />
+                            <MiniStat isDark={isDark} label="Recebido" value={totalRec} cls="text-emerald-500" />
+                        </div>
+                        <button onClick={onClose} className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}><X className="w-4 h-4" /></button>
+                    </div>
+
+                    {/* Cards das entradas recorrentes */}
+                    <div className="p-5 sm:p-6">
+                        {rows.length === 0 ? (
+                            <div className={`rounded-2xl border border-dashed py-10 text-center px-4 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50/60'}`}>
+                                <span className={`w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center ${isDark ? 'bg-white/5 text-slate-500' : 'bg-white text-slate-400 shadow-sm'}`}><Repeat className="w-6 h-6" /></span>
+                                <p className={`text-sm font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Nenhuma entrada recorrente cadastrada</p>
+                                <p className={`text-xs mt-1 ${muted}`}>Cadastre seu salário e outras entradas fixas em Configurações e Cadastros. Ou lance uma entrada avulsa abaixo.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {rows.map(r => <EntradaCard key={r.id} r={r} isDark={isDark} onConfirm={() => setBaixa(r)} />)}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Avulso — pequeno, embaixo, com seta; abre o formulário logo abaixo (acordeão) */}
+                    <div className={`border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                        <div className="px-6 py-4 flex justify-center">
+                            <button onClick={() => setAvulso(v => !v)} aria-expanded={avulso}
+                                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12px] font-bold border transition active:scale-95 ${avulso
+                                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-500'
+                                    : (isDark ? 'border-white/10 text-slate-300 hover:bg-white/5 hover:text-white' : 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800')}`}>
+                                Lançar entrada avulsa <ChevronDown className={`w-4 h-4 transition-transform ${avulso ? 'rotate-180' : ''}`} />
+                            </button>
+                        </div>
+                        {avulso && (
+                            <div className={`px-6 pb-6 animate-in fade-in slide-in-from-top-1 duration-200 ${isDark ? 'bg-white/[0.02]' : 'bg-slate-50/60'}`}>
+                                <div className="flex items-center gap-2.5 pt-4 pb-3">
+                                    <span className="w-8 h-8 rounded-lg bg-emerald-500/12 text-emerald-500 flex items-center justify-center shrink-0"><TrendingUp className="w-4 h-4" strokeWidth={2.4} /></span>
+                                    <h3 className={`text-[15px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Nova entrada avulsa</h3>
+                                </div>
+                                <LancamentoForm isDark={isDark} uid={uid} kind="income" editing={null} saldoConta={saldoConta} inline onClose={() => setAvulso(false)} />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {baixa && <BaixaDialog isDark={isDark} uid={uid} kind="income" rec={baixa} saldo={saldoConta} mk={mk} onClose={() => setBaixa(null)} />}
+        </>
+    );
+}
+
+function MiniStat({ isDark, label, value, cls }) {
+    return (
+        <div className={`rounded-xl border px-3 py-1.5 min-w-[100px] ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-white'}`}>
+            <p className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{label}</p>
+            <p className={`text-[13px] font-black tabular-nums leading-tight ${cls}`}>R$ {money(value)}</p>
+        </div>
+    );
+}
+
+// Card de uma entrada recorrente dentro da janela.
+function EntradaCard({ r, isDark, onConfirm }) {
+    const c = catMetaOf('income', r.category);
+    const hex = categoryHex(c);
+    const Icon = c.icon;
+    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+    const paid = r.status === 'pago';
+    const paidDate = paid && r.paidTx?.date ? new Date(r.paidTx.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : null;
+    const value = paid ? (r.paidTx?.amount ?? r.value) : r.value;
+    return (
+        <div className={`rounded-2xl border p-4 flex flex-col gap-3 transition ${paid
+            ? (isDark ? 'border-emerald-500/20 bg-emerald-500/[0.04]' : 'border-emerald-200 bg-emerald-50/50')
+            : (isDark ? 'border-white/10 bg-white/[0.02] hover:border-white/[0.16]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]')}`}>
+            <div className="flex items-start gap-3">
+                <span className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>{Icon && <Icon className="w-5 h-5" />}</span>
+                <div className="min-w-0 flex-1">
+                    <p className={`font-black text-[15px] leading-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{r.name}</p>
+                    <p className={`text-[11.5px] mt-0.5 truncate ${muted}`}>{c.label}{r.isVariable ? ' · valor variável' : ''}</p>
+                </div>
+                <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full border ${paid
+                    ? 'bg-emerald-500/12 text-emerald-500 border-emerald-500/20'
+                    : (isDark ? 'bg-white/5 text-slate-400 border-white/10' : 'bg-slate-100 text-slate-500 border-slate-200')}`}>{paid ? 'Recebido' : 'Pendente'}</span>
+            </div>
+            <div className="flex items-end justify-between gap-3">
+                <div>
+                    <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>{paid ? 'Recebido' : r.isVariable ? 'Valor estimado' : 'Valor'}</p>
+                    <p className={`text-[22px] font-black tabular-nums leading-tight ${paid ? 'text-emerald-500' : (isDark ? 'text-white' : 'text-slate-800')}`}>R$ {money(value)}</p>
+                </div>
+                <p className={`text-[11.5px] font-semibold text-right ${muted}`}>
+                    <CalendarDays className="w-3.5 h-3.5 inline-block -mt-0.5 mr-1" />{paid ? (paidDate ? `Recebido em ${paidDate}` : 'Recebido este mês') : `Recebe dia ${r.day || 1}`}
+                </p>
+            </div>
+            {paid ? (
+                <div className="w-full py-2.5 rounded-xl text-[13px] font-bold flex items-center justify-center gap-2 bg-emerald-500/12 text-emerald-500"><Check className="w-4 h-4" strokeWidth={3} /> Confirmado</div>
+            ) : (
+                <button onClick={onConfirm}
+                    className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold flex items-center justify-center gap-2 shadow-md shadow-emerald-500/25 transition active:scale-[0.98]">
+                    <Check className="w-4 h-4" strokeWidth={3} /> Confirmar recebimento
+                </button>
+            )}
+        </div>
+    );
+}
+
 function DeleteBtn({ isDark, onDelete }) {
     const [confirm, setConfirm] = useState(false);
     if (confirm) return (
@@ -394,7 +534,7 @@ function DeleteBtn({ isDark, onDelete }) {
 }
 
 // Modal de novo/editar lançamento — com adicionador de múltiplos valores.
-function LancamentoForm({ isDark, uid, kind, editing, saldoConta = 0, onClose }) {
+function LancamentoForm({ isDark, uid, kind, editing, saldoConta = 0, onClose, inline = false }) {
     const cfg = KIND[kind];
     const income = kind === 'income';
     const [description, setDescription] = useState(editing?.description || '');
@@ -468,10 +608,7 @@ function LancamentoForm({ isDark, uid, kind, editing, saldoConta = 0, onClose })
         } catch (err) { console.error(err); toast.error('Não foi possível salvar. Tente de novo.'); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
     };
 
-    return (
-        <Modal isDark={isDark} title={editing ? (income ? 'Editar entrada' : 'Editar despesa') : cfg.title}
-            icon={cfg.icon} iconCls={income ? 'bg-emerald-500/12 text-emerald-500' : 'bg-rose-500/12 text-rose-500'}
-            onClose={onClose}>
+    const body = (
             <form onSubmit={submit} className="space-y-3.5">
                 {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
 
@@ -592,6 +729,13 @@ function LancamentoForm({ isDark, uid, kind, editing, saldoConta = 0, onClose })
                     </button>
                 )}
             </form>
+    );
+    if (inline) return body;
+    return (
+        <Modal isDark={isDark} title={editing ? (income ? 'Editar entrada' : 'Editar despesa') : cfg.title}
+            icon={cfg.icon} iconCls={income ? 'bg-emerald-500/12 text-emerald-500' : 'bg-rose-500/12 text-rose-500'}
+            onClose={onClose}>
+            {body}
         </Modal>
     );
 }

@@ -1181,6 +1181,7 @@ import LandingPage from './components/LandingPage';
 import { isNativeApp } from './services/nativeAuth';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfUse from './components/TermsOfUse';
+import Novidades from './pages/Novidades';
 import SubscriptionBlock from './components/SubscriptionBlock';
 import Contact from './components/Contact';
 import PatrimonioTab from './components/PatrimonioTab';
@@ -1313,6 +1314,8 @@ function AppRoutes() {
         path="/termos"
         element={<TermsOfUse onBack={() => navigate(currentUser ? '/inicio' : '/')} />}
       />
+      {/* Notas de atualização — pública; abre em nova aba ao clicar na versão. */}
+      <Route path="/novidades" element={<Novidades />} />
       <Route
         path="/manual"
         element={<Manual onBack={() => navigate(currentUser ? '/inicio' : '/')} />}

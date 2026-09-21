@@ -3,15 +3,16 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
     LayoutDashboard, Repeat, ArrowLeftRight, CreditCard, Landmark,
-    BarChart3, Receipt, BookOpen, Settings, LogOut, Sun, Moon, X, PiggyBank, Wrench,
+    BarChart3, BookOpen, Settings, LogOut, Sun, Moon, X, PiggyBank, Wrench,
 } from 'lucide-react';
 
 import logo from '../assets/logo.png';
 import UserAvatar from './UserAvatar';
-import WhatsAppStatusButton from './WhatsAppStatusButton';
 
 // Versão do app (exibida discretamente na sidebar).
-export const APP_VERSION = '1.0';
+export const APP_VERSION = '1.2';
+// Notas da atualização (página pública, abre em nova aba ao clicar na versão).
+export const RELEASE_NOTES_URL = '/novidades';
 
 // Navegação plana (sem módulos, sem subabas) — padrão Gym.
 export const NAV_ITEMS = [
@@ -22,13 +23,12 @@ export const NAV_ITEMS = [
     { id: 'reservas',    label: 'Reservas',    icon: PiggyBank },
     { id: 'patrimonio',  label: 'Patrimônio',  icon: Landmark },
     { id: 'analises',    label: 'Análises',    icon: BarChart3 },
-    { id: 'assinatura',  label: 'Assinatura',  icon: Receipt },
     { id: 'manual',      label: 'Manual',      icon: BookOpen },
 ];
 
 const PLAN_LABEL = { lifetime: 'Vitalício', premium: 'Pro', standard: 'Pro', free: 'Gratuito' };
 
-export default function AppSidebar({ active, onNavigate, onSettings, onOpenWhatsApp, onLogout, mobile = false, onClose }) {
+export default function AppSidebar({ active, onNavigate, onSettings, onLogout, mobile = false, onClose }) {
     const { theme, toggleTheme } = useTheme();
     const { currentUser, planLevel, isAdmin } = useAuth();
     const isDark = theme !== 'light';
@@ -71,9 +71,10 @@ export default function AppSidebar({ active, onNavigate, onSettings, onOpenWhats
                     <span className={`text-[11px] font-bold uppercase tracking-[0.42em] mt-1.5 ml-[0.42em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                         Finanças
                     </span>
-                    <span className={`text-[10px] font-bold tracking-wide mt-1.5 ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>
-                        v{APP_VERSION}
-                    </span>
+                    <a href={RELEASE_NOTES_URL} target="_blank" rel="noopener noreferrer" title="Ver as notas desta atualização"
+                        className={`text-[10px] font-bold tracking-wide mt-1.5 px-1.5 py-0.5 rounded-md transition ${isDark ? 'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}>
+                        v{APP_VERSION} · novidades
+                    </a>
                 </div>
             </div>
 
@@ -103,11 +104,18 @@ export default function AppSidebar({ active, onNavigate, onSettings, onOpenWhats
 
             {/* Conversa com a Alívia agora acontece só no WhatsApp (aba removida). */}
 
-            {/* Bloco do usuário + configurações */}
+            {/* Configurações e Cadastros + bloco do usuário + sair */}
             <div className="mt-3 pt-3 space-y-1">
-                {/* CTA contextual de WhatsApp (acima do nome) — pendência quando não configurado. */}
-                <WhatsAppStatusButton isDark={isDark} active={active === 'whatsapp'} onOpen={withClose(onOpenWhatsApp)} />
+                {/* Cadastros (recorrentes, tetos), WhatsApp e configurações da conta */}
+                <button onClick={withClose(onSettings)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl text-[12.5px] font-bold transition ${
+                        active === 'configuracoes'
+                            ? 'bg-emerald-500/10 text-emerald-500'
+                            : (isDark ? 'text-slate-400 hover:bg-white/5 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800')}`}>
+                    <Settings className="w-[18px] h-[18px] shrink-0" /> <span className="truncate">Configurações e Cadastros</span>
+                </button>
 
+                {/* Bloco do usuário (abaixo de Configurações e Cadastros) */}
                 <div className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl ${isDark ? 'bg-white/5' : 'bg-slate-50'}`}>
                     <UserAvatar className="w-9 h-9 rounded-full shrink-0"
                         fallbackClassName="rounded-full bg-gradient-to-br from-emerald-500 to-teal-600" textClassName="font-black text-white text-sm" />
@@ -127,14 +135,6 @@ export default function AppSidebar({ active, onNavigate, onSettings, onOpenWhats
                         </button>
                     )}
                 </div>
-
-                <button onClick={withClose(onSettings)}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-[13px] font-bold transition ${
-                        active === 'configuracoes'
-                            ? 'bg-emerald-500/10 text-emerald-500'
-                            : (isDark ? 'text-slate-400 hover:bg-white/5 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800')}`}>
-                    <Settings className="w-[18px] h-[18px]" /> Configurações
-                </button>
                 <button onClick={withClose(onLogout)}
                     className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-[13px] font-bold text-rose-500 hover:bg-rose-500/10 transition">
                     <LogOut className="w-[18px] h-[18px]" /> Sair

@@ -47,7 +47,7 @@ const FREE_FEATURES = [
     { ok: false, text: 'Patrimônio, análises e relatórios avançados' },
 ];
 
-export default function Assinatura() {
+export default function Assinatura({ embedded = false }) {
     const { currentUser, planLevel, isAdmin, stripeSubId, subType } = useAuth();
     const { theme } = useTheme();
     const isDark = theme !== 'light';
@@ -89,13 +89,13 @@ export default function Assinatura() {
     const cardCls = `rounded-3xl border p-6 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`;
 
     return (
-        <div className="max-w-5xl mx-auto w-full">
+        <div className={embedded ? 'w-full' : 'max-w-5xl mx-auto w-full'}>
             {/* Cabeçalho */}
-            <div className="text-center mb-8">
+            <div className={`text-center ${embedded ? 'mb-6' : 'mb-8'}`}>
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full bg-emerald-500/12 text-emerald-500 mb-3">
                     <Crown className="w-3.5 h-3.5" /> Planos Alívia
                 </span>
-                <h1 className={`text-3xl sm:text-4xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                <h1 className={`${embedded ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-4xl'} font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>
                     Sua vida financeira, sem limites.
                 </h1>
                 <p className={`text-sm sm:text-base mt-2 max-w-xl mx-auto ${muted}`}>

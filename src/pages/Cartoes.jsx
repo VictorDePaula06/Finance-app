@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AnimatedNumber from '../components/ui/AnimatedNumber';
 import { toast } from '../components/ui/Toaster';
 import AliviaFormHint from '../components/AliviaFormHint';
@@ -10,10 +11,13 @@ import {
     collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
 } from 'firebase/firestore';
 import { CATEGORIES, categoryHex } from '../constants/categories';
+import { gradOf } from '../components/CardForm';
+import BankLogo, { detectBank } from '../components/ui/BankLogo';
+import RedirectOverlay, { useRedirect } from '../components/ui/RedirectOverlay';
 import {
     Plus, Pencil, Trash2, X, Loader2, Check, Info,
     CreditCard, Calendar, CalendarCheck, Landmark, Wallet, ShoppingBag, ChevronRight, ChevronDown, Layers, History,
-    Upload, Copy, MoreVertical, Zap, Lightbulb, ArrowRight, Sigma, RefreshCw, AlertTriangle,
+    Upload, Copy, MoreVertical, Zap, Lightbulb, ArrowRight, Sigma, RefreshCw, AlertTriangle, Settings,
 } from 'lucide-react';
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -21,16 +25,6 @@ const numBR = (v) => parseFloat(String(v ?? '').replace(/\./g, '').replace(',', 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const normalizeName = (s) => { const t = String(s || '').trim().replace(/\s+/g, ' '); return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : t; };
 
-const BRANDS = ['Visa', 'Mastercard', 'Elo', 'Amex', 'Hipercard', 'Outra'];
-const COLORS = [
-    { id: 'from-purple-600 to-indigo-700', dot: 'bg-gradient-to-br from-purple-600 to-indigo-700' },
-    { id: 'from-slate-700 to-slate-900', dot: 'bg-gradient-to-br from-slate-700 to-slate-900' },
-    { id: 'from-emerald-600 to-teal-700', dot: 'bg-gradient-to-br from-emerald-600 to-teal-700' },
-    { id: 'from-blue-600 to-cyan-700', dot: 'bg-gradient-to-br from-blue-600 to-cyan-700' },
-    { id: 'from-rose-600 to-pink-700', dot: 'bg-gradient-to-br from-rose-600 to-pink-700' },
-    { id: 'from-amber-500 to-orange-700', dot: 'bg-gradient-to-br from-amber-500 to-orange-700' },
-];
-const gradOf = (c) => (c && c.includes('from-') ? c : 'from-slate-700 to-slate-900');
 const closingOf = (card) => card.closingDay || ((card.dueDay - 7 > 0) ? card.dueDay - 7 : 25);
 const bestBuyDay = (card) => { const cl = closingOf(card); return (cl % 31) + 1; };
 
@@ -52,7 +46,6 @@ export default function Cartoes() {
     const [transactions, setTransactions] = useState([]);
     const [subscriptions, setSubscriptions] = useState([]);
     const [selectedId, setSelectedId] = useState(null);
-    const [cardForm, setCardForm] = useState(null);   // { editing }
     const [buyForm, setBuyForm] = useState(null);     // { editing, simple } | null
     const [despChooser, setDespChooser] = useState(false); // seletor rápido x lote
     const [batchForm, setBatchForm] = useState(false);     // lançamento em lote
@@ -173,21 +166,10 @@ export default function Cartoes() {
     const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
     const filterSel = `h-9 pl-3 pr-8 rounded-xl border text-[13px] font-bold outline-none cursor-pointer transition ${isDark ? 'bg-white/5 border-white/10 text-slate-200 hover:border-white/20' : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'}`;
 
-    // Exclui um cartão E, em cascata, suas assinaturas/parcelamentos e os lançamentos
-    // da fatura em aberto — pra não deixar nada órfão (some do "No cartão" em Recorrentes).
-    const deletarCartao = async (cardId) => {
-        try {
-            const subs = subscriptions.filter(s => s.cardId === cardId);
-            const txs = transactions.filter(t => t.selectedCardId === cardId && t.invoiceStatus === 'unpaid');
-            await Promise.all([
-                ...subs.map(s => deleteDoc(doc(db, 'subscriptions', s.id))),
-                ...txs.map(t => deleteDoc(doc(db, 'transactions', t.id))),
-            ]);
-            await deleteDoc(doc(db, 'cards', cardId));
-            setSelectedId(null);
-            toast.success('Cartão excluído.');
-        } catch (e) { console.error(e); toast.error('Não foi possível excluir o cartão.'); }
-    };
+    // Cadastro, edição e exclusão de cartões acontecem em Configurações e Cadastros → Cadastros.
+    const navigate = useNavigate();
+    const { redirect, goTo } = useRedirect();
+    const irParaCadastros = () => goTo('Configurações e Cadastros', () => navigate('/app/configuracoes?tab=cadastros'));
 
     return (
         <div className="max-w-6xl mx-auto w-full">
@@ -202,6 +184,11 @@ export default function Cartoes() {
                         <p className={`text-sm mt-0.5 ${muted}`}>Seus cartões, limites e a fatura atual.</p>
                     </div>
                 </div>
+                {/* Cadastro/edição/exclusão de cartões vive em Configurações e Cadastros */}
+                <button onClick={irParaCadastros}
+                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                    <Settings className="w-4 h-4" /> Gerenciar cartões
+                </button>
             </div>
 
             <div>
@@ -215,7 +202,7 @@ export default function Cartoes() {
                                         className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12px] font-bold border transition ${on
                                             ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-500'
                                             : (isDark ? 'border-white/10 text-slate-400 hover:text-slate-200' : 'border-slate-200 text-slate-500 hover:text-slate-700')}`}>
-                                        <span className={`w-3.5 h-3.5 rounded bg-gradient-to-br ${gradOf(c.color)}`} />
+                                        <BankLogo bank={detectBank(c.bank, c.name)} className="w-5 h-5" rounded="rounded-md" />
                                         {c.name || c.bank || 'Cartão'}
                                     </button>
                                 );
@@ -223,76 +210,65 @@ export default function Cartoes() {
                         </div>
                     )}
 
-                    {/* Cartão (esquerda) + Fatura & métricas (direita) */}
-                    <div className="grid lg:grid-cols-[340px_1fr] gap-5 items-stretch mt-6">
-                        <div className="flex flex-col gap-3">
-                            <div className="flex justify-start">
-                                <GhostAddButton isDark={isDark} onClick={() => setCardForm({ editing: null })}>Novo cartão</GhostAddButton>
-                            </div>
-                            <CardVisual card={selected} isDark={isDark} onAdd={() => setCardForm({ editing: null })}
-                                onEdit={() => setCardForm({ editing: selected })}
-                                onDelete={() => deletarCartao(selected.id)} />
-                        </div>
+                    {/* Cartão (proporção real 1.586:1) à esquerda · fatura + métricas à direita, na MESMA altura do cartão */}
+                    <div className="grid lg:grid-cols-[340px_1fr] gap-4 items-stretch mt-6">
+                        <div className="w-full aspect-[1.586/1] self-start flex"><CardVisual card={selected} isDark={isDark} onAdd={irParaCadastros} /></div>
 
-                        <div className="flex flex-col gap-4">
-                            {/* Fatura atual — destaque */}
-                            <div className={`rounded-2xl border p-5 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
-                                <p className={`text-[11px] font-black uppercase tracking-widest ${muted}`}>
-                                    Fatura atual{dueInfo ? ` · ${MESES[dueInfo.due.getMonth()]}` : ''}
-                                </p>
-                                <div className="flex items-center justify-between gap-3 mt-1 flex-wrap">
-                                    <p className="text-[34px] leading-tight font-black tabular-nums text-amber-500">
-                                        <span className="text-lg align-top mr-1 text-amber-500/70">R$</span>{money(faturaTotal)}
-                                    </p>
-                                    {invoiceItems.length > 0 && (
-                                        <button onClick={() => setPagarOpen(true)}
-                                            className="group shrink-0 flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-900 transition-all active:scale-95 shadow-md shadow-amber-500/30 ring-1 ring-inset ring-black/10">
-                                            <span className="w-5 h-5 rounded-full bg-black/10 flex items-center justify-center">
-                                                <Wallet className="w-3 h-3" strokeWidth={2.6} />
-                                            </span>
-                                            <span className="font-black uppercase tracking-[0.12em] text-[11px]">Pagar fatura</span>
-                                        </button>
-                                    )}
+                        {/* Coluna direita: fatura (estica) + métricas (fixas) = altura do cartão */}
+                        <div className="flex flex-col gap-3 min-h-0">
+                            {/* Fatura atual — curta: valor + vencimento à esquerda, ações à direita */}
+                            <div className={`flex-1 rounded-2xl border px-5 py-3.5 flex flex-col justify-center ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
+                                <div className="flex items-center justify-between gap-4 flex-wrap">
+                                    <div className="min-w-0">
+                                        <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>
+                                            Fatura atual{dueInfo ? ` · ${MESES[dueInfo.due.getMonth()]}` : ''}
+                                        </p>
+                                        <p className="text-[30px] leading-none font-black tabular-nums text-amber-500 mt-1">
+                                            <span className="text-base align-top mr-1 text-amber-500/70">R$</span>{money(faturaTotal)}
+                                        </p>
+                                        {dueInfo && (
+                                            <p className={`text-[12px] mt-1.5 ${muted}`}>
+                                                {overdueInfo ? 'Próxima vence em ' : 'Vence em '}<span className="font-black text-rose-400">{dueInfo.days} {dueInfo.days === 1 ? 'dia' : 'dias'}</span> · {selected.dueDay} de {MESES[dueInfo.due.getMonth()].toLowerCase()}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col items-end gap-2 shrink-0">
+                                        {invoiceItems.length > 0 && (
+                                            <button onClick={() => setPagarOpen(true)}
+                                                className="group flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-900 transition-all active:scale-95 shadow-md shadow-amber-500/30 ring-1 ring-inset ring-black/10">
+                                                <span className="w-5 h-5 rounded-full bg-black/10 flex items-center justify-center">
+                                                    <Wallet className="w-3 h-3" strokeWidth={2.6} />
+                                                </span>
+                                                <span className="font-black uppercase tracking-[0.12em] text-[11px]">Pagar fatura</span>
+                                            </button>
+                                        )}
+                                        {selected && (
+                                            <button onClick={() => setHistoricoOpen(true)}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                                                <History className="w-3.5 h-3.5" /> Faturas anteriores
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Alerta: fatura vencida (passou do vencimento e não foi paga) */}
                                 {overdueInfo && (
-                                    <div className={`mt-3 rounded-xl border px-3.5 py-3 ${isDark ? 'border-rose-500/30 bg-rose-500/[0.08]' : 'border-rose-200 bg-rose-50'}`}>
-                                        <div className="flex items-start gap-2.5">
-                                            <span className="w-8 h-8 rounded-lg bg-rose-500/15 text-rose-500 flex items-center justify-center shrink-0"><AlertTriangle className="w-4 h-4" /></span>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-[13px] font-black text-rose-500">
-                                                    Fatura vencida há {overdueInfo.days} {overdueInfo.days === 1 ? 'dia' : 'dias'} · R$ {money(overdueInfo.total)}
-                                                </p>
-                                                <p className={`text-[12px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                                                    Venceu em {selected.dueDay} de {MESES[overdueInfo.due.getMonth()].toLowerCase()}. Pague ou registre o pagamento para regularizar.
-                                                </p>
-                                                <button onClick={() => setPagarOpen(true)}
-                                                    className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500 hover:bg-rose-600 text-white text-[12px] font-black transition active:scale-95">
-                                                    <Wallet className="w-3.5 h-3.5" /> Pagar / registrar fatura
-                                                </button>
-                                            </div>
-                                        </div>
+                                    <div className={`mt-3 rounded-xl border px-3.5 py-2.5 flex items-center gap-2.5 flex-wrap ${isDark ? 'border-rose-500/30 bg-rose-500/[0.08]' : 'border-rose-200 bg-rose-50'}`}>
+                                        <span className="w-7 h-7 rounded-lg bg-rose-500/15 text-rose-500 flex items-center justify-center shrink-0"><AlertTriangle className="w-4 h-4" /></span>
+                                        <p className="text-[12.5px] font-black text-rose-500 flex-1 min-w-0">
+                                            Fatura vencida há {overdueInfo.days} {overdueInfo.days === 1 ? 'dia' : 'dias'} · R$ {money(overdueInfo.total)}
+                                            <span className={`block text-[11px] font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Venceu em {selected.dueDay} de {MESES[overdueInfo.due.getMonth()].toLowerCase()}.</span>
+                                        </p>
+                                        <button onClick={() => setPagarOpen(true)}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-black transition active:scale-95 shrink-0">
+                                            <Wallet className="w-3.5 h-3.5" /> Pagar / registrar
+                                        </button>
                                     </div>
                                 )}
-
-                                <div className="flex items-end justify-between gap-3 mt-0.5 flex-wrap">
-                                    {dueInfo ? (
-                                        <p className={`text-[13px] ${muted}`}>
-                                            {overdueInfo ? 'Próxima vence em ' : 'Vence em '}<span className="font-black text-rose-400">{dueInfo.days} {dueInfo.days === 1 ? 'dia' : 'dias'}</span> · {selected.dueDay} de {MESES[dueInfo.due.getMonth()].toLowerCase()}
-                                        </p>
-                                    ) : <span />}
-                                    {selected && (
-                                        <button onClick={() => setHistoricoOpen(true)}
-                                            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                                            <History className="w-3.5 h-3.5" /> Faturas anteriores
-                                        </button>
-                                    )}
-                                </div>
                             </div>
 
-                            {/* Métricas */}
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {/* Métricas — compactas */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
                                 <StatCard isDark={isDark} label="Assinaturas" value={`R$ ${money(assinaturasTotal)}`} sub={`${subsOnCard.length} no mês`} tone="purple"
                                     onDetails={subsOnCard.length ? () => setDetalhes('assinaturas') : null} />
                                 <StatCard isDark={isDark} label="Parcelamento" value={`R$ ${money(parcelamentoTotal)}`} sub={`${installmentsOnCard.length} ativo${installmentsOnCard.length === 1 ? '' : 's'}`} tone="blue"
@@ -411,10 +387,10 @@ export default function Cartoes() {
                     </div>
             </div>
 
-            {cardForm && <CardForm isDark={isDark} uid={uid} editing={cardForm.editing} onClose={() => setCardForm(null)} onSaved={(id) => setSelectedId(id)} />}
             {despChooser && selected && <LancarChooser isDark={isDark} onClose={() => setDespChooser(false)}
                 onPick={(mode) => { setDespChooser(false); if (mode === 'rapido') setBuyForm({ editing: null, simple: true }); else setBatchForm(true); }} />}
             {buyForm && selected && <BuyForm isDark={isDark} uid={uid} card={selected} editing={buyForm.editing} simple={buyForm.simple} onClose={() => setBuyForm(null)} allowAddAnother={false} />}
+            {redirect && <RedirectOverlay isDark={isDark} label={redirect} />}
             {confirmAction && (
                 <ConfirmActionModal isDark={isDark} type={confirmAction.type} name={confirmAction.item.name}
                     onClose={() => setConfirmAction(null)}
@@ -447,61 +423,56 @@ const TIPO_META = {
 };
 
 // ── Cartão visual (dados-chave no próprio cartão) ───────────────────
-function CardVisual({ card, onEdit, onDelete, onAdd, isDark }) {
+function CardVisual({ card, onAdd, isDark }) {
     const grad = gradOf(card?.color);
     const last4 = card?.last4 || '0000';
+    const bank = detectBank(card?.bank, card?.name);
 
     // Placeholder — sem cartão cadastrado, mesmo formato do cartão.
     if (!card) {
         return (
             <button onClick={onAdd}
-                className={`relative rounded-3xl p-6 min-h-[200px] flex flex-col items-center justify-center text-center border-2 border-dashed transition group ${isDark ? 'border-white/15 bg-white/[0.02] hover:bg-white/[0.04] text-slate-400' : 'border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-400'}`}>
+                className={`relative w-full h-full rounded-3xl p-6 flex flex-col items-center justify-center text-center border-2 border-dashed transition group ${isDark ? 'border-white/15 bg-white/[0.02] hover:bg-white/[0.04] text-slate-400' : 'border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-400'}`}>
                 <span className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-3 group-hover:scale-105 transition"><CreditCard className="w-6 h-6" /></span>
                 <p className={`text-sm font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Nenhum cartão cadastrado</p>
-                <p className="text-[12px] mt-1">Toque para adicionar seu cartão</p>
+                <p className="text-[12px] mt-1">Cadastre em <span className="font-bold text-emerald-500">Configurações e Cadastros → Cadastros</span></p>
             </button>
         );
     }
 
+    // O nome já cita o banco (ex.: "Picpay epic")? Então não repete a linha do banco.
+    const bankLabel = bank?.label || card?.bank || '';
+    const nameHasBank = bankLabel && String(card?.name || '').toLowerCase().includes(bankLabel.toLowerCase().split(' ')[0]);
+    const showBankLine = bankLabel && !nameHasBank; // só quando o nome não cita o banco
+
     return (
-        <div className={`relative rounded-3xl p-6 min-h-[200px] flex flex-col justify-between text-white bg-gradient-to-br ${grad} shadow-2xl overflow-hidden`}>
-            <div className="absolute -right-10 -top-12 w-44 h-44 rounded-full bg-white/10" />
-            <div className="absolute -right-20 top-8 w-44 h-44 rounded-full bg-white/5" />
+        <div className={`relative w-full h-full rounded-3xl p-5 flex flex-col justify-between text-white bg-gradient-to-br ${grad} shadow-2xl overflow-hidden`}>
+            {/* Brilho suave, sem competir com o conteúdo */}
+            <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_100%_0%,rgba(255,255,255,0.14),transparent_55%)]" />
+            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/20 to-transparent" />
 
-            {/* Ações */}
-            <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
-                <button onClick={onEdit} title="Editar" className="w-7 h-7 rounded-lg bg-white/15 hover:bg-white/25 flex items-center justify-center transition"><Pencil className="w-3.5 h-3.5" /></button>
-                <CardDeleteBtn onDelete={onDelete} />
+            {/* Topo: chip à esquerda · bandeira discreta à direita (o logo do banco fica só no seletor) */}
+            <div className="relative flex items-start justify-between gap-3">
+                <span className="w-10 h-7 rounded-md bg-gradient-to-br from-amber-200/80 to-amber-400/70 ring-1 ring-black/10 shadow-inner" aria-hidden="true" />
+                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/60 mt-1">{card?.brand || 'Visa'}</span>
             </div>
 
-            <div className="relative">
-                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/70">{card?.brand || 'Visa'}</p>
-                <p className="text-2xl font-black tracking-tight mt-1 leading-tight max-w-[75%] truncate">{card?.name || 'Meu cartão'}</p>
-                {card?.bank && <p className="text-[12px] font-semibold text-white/70 mt-0.5">{card.bank}</p>}
+            {/* Meio: nome do cartão em destaque (o banco só se não estiver no nome) */}
+            <div className="relative mt-3">
+                {showBankLine && <p className="text-[11px] font-semibold text-white/60">{bankLabel}</p>}
+                <p className="text-[21px] font-black tracking-tight leading-tight truncate">{card?.name || 'Meu cartão'}</p>
             </div>
 
-            <div className="flex items-end justify-between relative mt-4">
-                <div>
-                    <p className="text-lg font-black tracking-[0.15em] tabular-nums text-white/90">•••• •••• •••• {last4}</p>
-                </div>
-                <div className="text-right shrink-0 ml-3">
-                    <p className="text-[9px] uppercase tracking-widest text-white/60">Vencimento</p>
-                    <p className="text-sm font-bold">Dia {card?.dueDay || '—'}</p>
+            {/* Base: número mascarado · vencimento */}
+            <div className="relative flex items-end justify-between gap-3 mt-3">
+                <p className="text-[15px] font-bold tracking-[0.18em] tabular-nums text-white/85">•••• {last4}</p>
+                <div className="text-right shrink-0">
+                    <p className="text-[9px] uppercase tracking-widest text-white/55">Vence dia</p>
+                    <p className="text-[15px] font-black leading-tight">{card?.dueDay || '—'}</p>
                 </div>
             </div>
         </div>
     );
-}
-
-function CardDeleteBtn({ onDelete }) {
-    const [confirm, setConfirm] = useState(false);
-    if (confirm) return (
-        <div className="flex items-center gap-1">
-            <button onClick={() => setConfirm(false)} className="px-2 py-1 rounded-md bg-white/15 text-white text-[10px] font-bold">Não</button>
-            <button onClick={onDelete} className="px-2 py-1 rounded-md bg-rose-500 text-white text-[10px] font-bold">Excluir</button>
-        </div>
-    );
-    return <button onClick={() => setConfirm(true)} title="Excluir" className="w-7 h-7 rounded-lg bg-white/15 hover:bg-rose-500/70 flex items-center justify-center transition"><Trash2 className="w-3.5 h-3.5" /></button>;
 }
 
 // ── Card de métrica (estilo do mockup) ──────────────────────────────
@@ -510,17 +481,15 @@ function StatCard({ isDark, label, value, sub, tone, onDetails }) {
         purple: 'text-purple-400', blue: 'text-blue-400', emerald: 'text-emerald-500',
         amber: 'text-amber-500', rose: 'text-rose-500', slate: isDark ? 'text-slate-200' : 'text-slate-700',
     }[tone];
+    const Tag = onDetails ? 'button' : 'div';
     return (
-        <div className={`rounded-2xl border p-4 flex flex-col ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
-            <p className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{label}</p>
-            <p className={`text-lg font-black tabular-nums mt-1 ${toneColor}`}>{value}</p>
-            {sub && <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{sub}</p>}
-            {onDetails && (
-                <button onClick={onDetails} className={`mt-2 self-start inline-flex items-center gap-1 text-[11px] font-bold transition ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
-                    Ver detalhes <ChevronRight className="w-3 h-3" />
-                </button>
-            )}
-        </div>
+        <Tag onClick={onDetails || undefined} title={onDetails ? 'Ver detalhes' : undefined}
+            className={`group relative rounded-2xl border px-3.5 py-3 flex flex-col justify-center text-left min-w-0 transition ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'} ${onDetails ? (isDark ? 'hover:bg-white/[0.04] active:scale-[0.98]' : 'hover:bg-slate-50 active:scale-[0.98]') : ''}`}>
+            <p className={`text-[10px] font-black uppercase tracking-widest truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{label}</p>
+            <p className={`text-[17px] font-black tabular-nums mt-0.5 truncate ${toneColor}`}>{value}</p>
+            {sub && <p className={`text-[11px] truncate ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{sub}</p>}
+            {onDetails && <ChevronRight className={`absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 transition ${isDark ? 'text-slate-600 group-hover:text-slate-300' : 'text-slate-300 group-hover:text-slate-500'}`} />}
+        </Tag>
     );
 }
 
@@ -650,15 +619,6 @@ function PillButton({ children, onClick, size = 'md', color = 'emerald' }) {
 }
 
 // Botão discreto (sem cor chamativa) para adicionar cartão quando já existe um.
-function GhostAddButton({ isDark, onClick, children }) {
-    return (
-        <button onClick={onClick}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-400 hover:text-slate-200 hover:border-white/20' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
-            <Plus className="w-3.5 h-3.5" strokeWidth={2.6} /> {children}
-        </button>
-    );
-}
-
 function DeleteBtn({ isDark, onDelete }) {
     const [confirm, setConfirm] = useState(false);
     if (confirm) return (
@@ -668,82 +628,6 @@ function DeleteBtn({ isDark, onDelete }) {
         </div>
     );
     return <button onClick={() => setConfirm(true)} title="Excluir" className={`p-1.5 rounded-lg text-slate-400 hover:text-rose-500 ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><Trash2 className="w-4 h-4" /></button>;
-}
-
-// ── Form: novo/editar cartão ────────────────────────────────────────
-export function CardForm({ isDark, uid, editing, onClose, onSaved, hint }) {
-    const [name, setName] = useState(editing?.name || '');
-    const [bank, setBank] = useState(editing?.bank || '');
-    const [brand, setBrand] = useState(editing?.brand || 'Visa');
-    const [last4, setLast4] = useState(editing?.last4 || '');
-    const [limit, setLimit] = useState(editing?.limit != null ? String(editing.limit).replace('.', ',') : '');
-    const [closingDay, setClosingDay] = useState(String(editing?.closingDay || 1));
-    const [dueDay, setDueDay] = useState(String(editing?.dueDay || 10));
-    const [color, setColor] = useState(gradOf(editing?.color));
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState('');
-
-    const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
-    const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
-
-    const submit = async (e) => {
-        e.preventDefault();
-        setError('');
-        if (!name.trim()) { setError('Dê um nome ao cartão.'); return; }
-        setSaving(true);
-        const data = {
-            name: normalizeName(name), bank: normalizeName(bank), brand,
-            last4: String(last4).replace(/\D/g, '').slice(0, 4),
-            limit: numBR(limit) || null,
-            closingDay: Math.min(31, Math.max(1, parseInt(closingDay) || 1)),
-            dueDay: Math.min(31, Math.max(1, parseInt(dueDay) || 10)),
-            color,
-        };
-        try {
-            if (editing) { await updateDoc(doc(db, 'cards', editing.id), data); onSaved?.(editing.id); }
-            else { const ref = await addDoc(collection(db, 'cards'), { ...data, userId: uid, createdAt: Date.now() }); onSaved?.(ref.id); }
-            toast.success(editing ? 'Cartão atualizado!' : 'Cartão adicionado!');
-            onClose();
-        } catch (err) { console.error(err); toast.error('Não foi possível salvar. Tente de novo.'); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
-    };
-
-    return (
-        <Modal isDark={isDark} title={editing ? 'Editar cartão' : 'Novo cartão'} icon={CreditCard} iconCls="bg-emerald-500/12 text-emerald-500" onClose={onClose}>
-            <form onSubmit={submit} className="space-y-3.5">
-                <AliviaFormHint isDark={isDark} text={hint} />
-                {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
-                <Field label="Nome do cartão"><input value={name} onChange={e => setName(e.target.value)} placeholder="Ex.: Nubank Roxinho" className={inputCls} maxLength={30} autoFocus /></Field>
-                <div className="grid grid-cols-2 gap-3">
-                    <Field label="Banco"><input value={bank} onChange={e => setBank(e.target.value)} placeholder="Ex.: Nubank" className={inputCls} maxLength={20} /></Field>
-                    <Field label="Bandeira">
-                        <select value={brand} onChange={e => setBrand(e.target.value)} className={inputCls} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
-                            {BRANDS.map(b => <option key={b} value={b} style={optStyle}>{b}</option>)}
-                        </select>
-                    </Field>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                    <Field label="Final (4 dígitos)"><input inputMode="numeric" value={last4} onChange={e => setLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" className={inputCls} /></Field>
-                    <Field label="Limite (R$)"><input inputMode="decimal" value={limit} onChange={e => setLimit(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                    <Field label="Dia do fechamento"><input inputMode="numeric" value={closingDay} onChange={e => setClosingDay(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="1" className={inputCls} /></Field>
-                    <Field label="Dia do vencimento"><input inputMode="numeric" value={dueDay} onChange={e => setDueDay(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="10" className={inputCls} /></Field>
-                </div>
-                <div>
-                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Cor do cartão</span>
-                    <div className="flex gap-2">
-                        {COLORS.map(c => (
-                            <button key={c.id} type="button" onClick={() => setColor(c.id)}
-                                className={`w-9 h-9 rounded-xl ${c.dot} transition ${color === c.id ? 'ring-2 ring-offset-2 ring-emerald-500 ' + (isDark ? 'ring-offset-slate-900' : 'ring-offset-white') : ''}`} />
-                        ))}
-                    </div>
-                </div>
-                <button type="submit" disabled={saving} className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-70">
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {editing ? 'Salvar' : 'Cadastrar'}</>}
-                </button>
-            </form>
-        </Modal>
-    );
 }
 
 // ── Form: nova/editar compra no cartão (avulsa / assinatura / parcelamento) ─

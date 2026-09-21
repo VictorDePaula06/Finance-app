@@ -800,9 +800,10 @@ REGRAS:
 
 AÇÕES — quando o usuário quiser AGIR, responda SOMENTE com o JSON da ação (nada de texto junto).
 Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (priority) ∈ [${PRIORITIES.join(', ')}].
-1) Gasto avulso (dinheiro/pix/débito) — ex.: "gastei 50 no mercado", "uber 23":
-   {"action":"add_expense","description":"<texto>","amount":<número>,"category":"<id>","priority":"<id>"}
-2) Gasto no CARTÃO de crédito — ex.: "passei 200 no cartão", "comprei 80 no crédito do Nubank":
+1) Gasto avulso — ex.: "gastei 50 no mercado", "uber 23", "paguei 40 no pix":
+   {"action":"add_expense","description":"<texto>","amount":<número>,"category":"<id>","priority":"<id>","method":"<pix|debito|dinheiro|boleto se a pessoa DISSE como pagou; senão vazio>"}
+   ⚠️ Se a pessoa NÃO disser como pagou, deixe "method" vazio — o app aplica a forma de pagamento padrão que ela configurou (pode ser cartão).
+2) Gasto no CARTÃO de crédito (só quando a pessoa CITA cartão/crédito) — ex.: "passei 200 no cartão", "comprei 80 no crédito do Nubank":
    {"action":"add_card_expense","description":"<texto>","amount":<número>,"category":"<id>","priority":"<id>","cardName":"<nome do cartão se citado, senão vazio>"}
 3) Entrada avulsa (recebi/ganhei/entrou) — ex.: "recebi 300 de freela", "caiu 100":
    {"action":"add_income","description":"<texto>","amount":<número>}
@@ -1531,8 +1532,9 @@ async function doDeleteTx(db, uid, tx) {
   return true;
 }
 
-// Resolve qual cartão usar (por nome citado, senão o 1º). Retorna null se não houver.
-async function resolveCard(db, uid, cardName) {
+// Resolve qual cartão usar: por nome citado → cartão padrão (preferredId) → o 1º.
+// Retorna null se não houver cartão.
+async function resolveCard(db, uid, cardName, preferredId = '') {
   const snap = await db.collection('cards').where('userId', '==', uid).get();
   if (snap.empty) return null;
   const q = String(cardName || '').toLowerCase().trim();
@@ -1540,6 +1542,7 @@ async function resolveCard(db, uid, cardName) {
     const c = d.data();
     return `${c.name || ''} ${c.bank || ''} ${c.brand || ''}`.toLowerCase().includes(q);
   }) : null;
+  if (!doc && preferredId) doc = snap.docs.find(d => d.id === preferredId) || null;
   if (!doc) doc = snap.docs[0];
   return { id: doc.id, name: doc.data().name || doc.data().bank || 'cartão' };
 }
@@ -1607,11 +1610,44 @@ function parseExpense(text) {
       amount,
       category: EXPENSE_CATS.includes(j.category) ? j.category : 'other',
       priority: PRIORITIES.includes(j.priority) ? j.priority : 'comfort',
+      method: PAY_METHODS.includes(j.method) ? j.method : '',
     };
   } catch { return null; }
 }
 
+// Forma de pagamento padrão do WhatsApp (Configurações e Cadastros → WhatsApp).
+// Quando a pessoa não diz como pagou, o gasto vai pra cá: pix/débito/dinheiro/boleto
+// ou o cartão de crédito escolhido (defaultCardId). Sem config → pix.
+const PAY_METHODS = ['pix', 'debito', 'dinheiro', 'boleto', 'credito'];
+const PAY_LABELS_WA = { pix: 'PIX', debito: 'débito', dinheiro: 'dinheiro', boleto: 'boleto', credito: 'cartão de crédito' };
+async function getWaDefaults(db, uid) {
+  try {
+    const snap = await db.collection('users').doc(uid).collection('settings').doc('general').get();
+    const wa = snap.data()?.whatsapp || {};
+    const method = PAY_METHODS.includes(wa.defaultPayment) ? wa.defaultPayment : 'pix';
+    return { method, cardId: method === 'credito' ? (wa.defaultCardId || '') : '' };
+  } catch (e) { console.error('WA defaults:', e?.message); return { method: 'pix', cardId: '' }; }
+}
+
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Teto por categoria (definido no app em Cadastros → Teto por categoria; vive em
+// settings/general.manualConfig.categoryBudgets). Mesma régua do Dashboard:
+// avisa a partir de 80% e quando passa. Sem teto → linha vazia.
+const CEILING_NEAR = 0.8;
+function ceilingLine(budgets, catId, spent) {
+  const ceiling = parseFloat(String(budgets?.[catId] ?? '').replace(',', '.'));
+  if (!(ceiling > 0)) return '';
+  const pct = Math.round((spent / ceiling) * 100);
+  const label = CAT_LABELS[catId] || catId;
+  if (spent >= ceiling) {
+    return `\n\n🚨 *Passou do teto de ${label}!* Você está em *${pct}%* do limite de R$ ${money(ceiling)} — passou R$ ${money(spent - ceiling)}. Vale segurar essa categoria até o fim do mês. 💛`;
+  }
+  if (spent >= ceiling * CEILING_NEAR) {
+    return `\n\n⚠️ Atenção: você está a *${pct}%* do teto de *${label}* (R$ ${money(ceiling)}). Ainda cabem R$ ${money(ceiling - spent)} este mês.`;
+  }
+  return `\n🎯 ${pct}% do seu teto de *${label}* (R$ ${money(ceiling)}).`;
+}
 const yes = (t) => /^(sim|confirmar|isso|ok|pode|s|bora)\b/i.test(t.trim());
 const no = (t) => /^(n[aã]o|cancelar|nao|n)\b/i.test(t.trim());
 // "fazer depois / pular" — usado no onboarding pós-vínculo.
@@ -2126,22 +2162,27 @@ export default async function handler(req, res) {
           userId: uid, createdAt: Date.now(), isFixed: false, source: 'whatsapp',
         };
         if (p.isCard) { txData.paymentMethod = 'credito'; txData.selectedCardId = p.cardId; txData.invoiceStatus = 'unpaid'; }
-        else { txData.paymentMethod = 'pix'; }
+        else { txData.paymentMethod = PAY_METHODS.includes(p.method) ? p.method : 'pix'; }
         await db.collection('transactions').add(txData);
         await sessRef.set({ uid, history, pending: null }, { merge: true });
         const onde = p.isCard ? ` na fatura do *${p.cardName}*` : '';
-        // Acumulado do mês na MESMA categoria (já inclui o lançamento recém-feito).
+        // Acumulado do mês na MESMA categoria (já inclui o lançamento recém-feito)
+        // + comparação com o TETO da categoria (Cadastros → Teto por categoria).
         const mkExp = now.toISOString().slice(0, 7);
         let catLine = '';
         try {
-          const snap = await db.collection('transactions').where('userId', '==', uid).get();
+          const [snap, cfgSnap] = await Promise.all([
+            db.collection('transactions').where('userId', '==', uid).get(),
+            db.collection('users').doc(uid).collection('settings').doc('general').get().catch(() => null),
+          ]);
           const catTotal = snap.docs.reduce((a, d) => {
             const t = d.data();
             const tMk = t.month || String(t.date || '').slice(0, 7);
-            return (t.type === 'expense' && t.category === p.category && tMk === mkExp)
+            return (t.type === 'expense' && !t.isTransfer && t.category === p.category && tMk === mkExp)
               ? a + (parseFloat(t.amount) || 0) : a;
           }, 0);
           catLine = `\n\n📊 Você já gastou *R$ ${money(catTotal)}* em *${CAT_LABELS[p.category]}* este mês.`;
+          catLine += ceilingLine(cfgSnap?.data?.()?.manualConfig?.categoryBudgets, p.category, catTotal);
         } catch (e) { console.error('WA cat total:', e?.message); }
         await sendText(from, `Lançado! ✅ *${p.description}* — R$ ${money(p.amount)}${onde}\n_${CAT_LABELS[p.category]} · ${PRIO_LABELS[prio]}_${catLine}`);
         return res.status(200).json({ ok: true });
@@ -2420,8 +2461,9 @@ export default async function handler(req, res) {
     if (action?.action === 'add_card_expense') {
       const amount = Math.abs(parseFloat(action.amount) || 0);
       if (amount <= 0 || !action.description) { await sendText(from, 'Não entendi a compra no cartão. Ex.: "passei 200 no cartão do Nubank". 🙏'); return res.status(200).json({ ok: true }); }
-      const card = await resolveCard(db, uid, action.cardName);
-      if (!card) { await sendText(from, 'Você ainda não tem cartão cadastrado. Cadastre em *Cartões* no app e tente de novo. 🙏'); return res.status(200).json({ ok: true }); }
+      const waDef = await getWaDefaults(db, uid);
+      const card = await resolveCard(db, uid, action.cardName, waDef.cardId);
+      if (!card) { await sendText(from, 'Você ainda não tem cartão cadastrado. Cadastre em *Configurações e Cadastros → Cadastros* no app e tente de novo. 🙏'); return res.status(200).json({ ok: true }); }
       const data = {
         description: normName(String(action.description).slice(0, 120)), amount,
         suggested: EXPENSE_CATS.includes(action.category) ? action.category : 'shopping',
@@ -2445,9 +2487,22 @@ export default async function handler(req, res) {
     // 3h. Gasto avulso — abre o fluxo interativo (escolher categoria → prioridade).
     const expense = parseExpense(reply);
     if (expense) {
-      const data = { description: normName(expense.description), amount: expense.amount, suggested: expense.category, isCard: false };
+      // Forma de pagamento: a que a pessoa disse; senão a PADRÃO configurada no app.
+      const waDef = expense.method ? { method: expense.method, cardId: '' } : await getWaDefaults(db, uid);
+      const usedDefault = !expense.method;
+      let data = { description: normName(expense.description), amount: expense.amount, suggested: expense.category, isCard: false, method: waDef.method };
+      let intro = `Gasto: *${data.description}* — R$ ${money(expense.amount)}.`;
+      if (waDef.method === 'credito') {
+        const card = await resolveCard(db, uid, '', waDef.cardId);
+        if (card) {
+          data = { ...data, isCard: true, cardId: card.id, cardName: card.name, method: 'credito' };
+          intro = `Compra no cartão *${card.name}*${usedDefault ? ' _(sua forma padrão)_' : ''}: *${data.description}* — R$ ${money(expense.amount)}.`;
+        } else { data.method = 'pix'; } // padrão é cartão mas não há cartão cadastrado → cai na conta
+      } else if (usedDefault && waDef.method !== 'pix') {
+        intro += ` _(${PAY_LABELS_WA[waDef.method] || waDef.method}, sua forma padrão)_`;
+      }
       await sessRef.set({ uid, history, pending: { type: 'exp_cat', data } }, { merge: true });
-      await sendCatList(from, `Gasto: *${data.description}* — R$ ${money(expense.amount)}.\nEm qual *categoria*? 👇`, data.suggested);
+      await sendCatList(from, `${intro}\nEm qual *categoria*? 👇`, data.suggested);
     } else if (looksLikeRawJson(reply)) {
       // A IA tentou uma ação mas veio malformada/truncada — NÃO vaza o JSON.
       console.error(`WA raw-json evitado: ${reply.slice(0, 200)}`);

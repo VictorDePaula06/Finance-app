@@ -1,5 +1,6 @@
 import React from 'react';
-import { MessageCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
+import WhatsAppIcon from './ui/WhatsAppIcon';
 import { useWhatsAppStatus } from '../hooks/useWhatsAppStatus';
 
 /**
@@ -23,7 +24,7 @@ export default function WhatsAppStatusButton({ isDark, onOpen, active = false, c
             return (
                 <button type="button" onClick={onOpen} title="WhatsApp" aria-label="WhatsApp"
                     className={`${pill} ${isDark ? 'text-slate-500 bg-white/5' : 'text-slate-400 bg-slate-100'}`}>
-                    <MessageCircle className="w-4 h-4" />
+                    <WhatsAppIcon className="w-4 h-4" />
                     <Loader2 className="w-3.5 h-3.5 animate-spin opacity-70" />
                 </button>
             );
@@ -32,7 +33,7 @@ export default function WhatsAppStatusButton({ isDark, onOpen, active = false, c
             return (
                 <button type="button" onClick={onOpen} title="WhatsApp conectado — toque para editar"
                     className={`${pill} border ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                    <MessageCircle className="w-4 h-4" />
+                    <WhatsAppIcon className="w-4 h-4" />
                     <span>Conectado</span>
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                 </button>
@@ -42,7 +43,7 @@ export default function WhatsAppStatusButton({ isDark, onOpen, active = false, c
             <button type="button" onClick={onOpen} title="Configurar WhatsApp"
                 className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[12px] font-bold transition active:scale-[0.97] shrink-0 border bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/[0.16]">
                 <span className="relative inline-flex">
-                    <MessageCircle className="w-4 h-4" />
+                    <WhatsAppIcon className="w-4 h-4" />
                     <span className={`absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ${ring} animate-pulse`} />
                 </span>
                 <span>Configurar</span>
@@ -62,7 +63,7 @@ export default function WhatsAppStatusButton({ isDark, onOpen, active = false, c
                 title="WhatsApp"
                 className={`${base} ${active ? 'bg-emerald-500/10 text-emerald-500' : (isDark ? 'text-slate-500 hover:bg-white/5' : 'text-slate-400 hover:bg-slate-50')}`}
             >
-                <MessageCircle className="w-[18px] h-[18px] shrink-0" />
+                <WhatsAppIcon className="w-[18px] h-[18px] shrink-0" />
                 <span className="truncate flex-1 text-left">WhatsApp</span>
                 <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 opacity-70" />
             </button>
@@ -78,7 +79,7 @@ export default function WhatsAppStatusButton({ isDark, onOpen, active = false, c
                 title="WhatsApp conectado — toque para editar"
                 className={`${base} ${active ? 'bg-emerald-500/10 text-emerald-500' : (isDark ? 'text-slate-400 hover:bg-white/5 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800')}`}
             >
-                <MessageCircle className="w-[18px] h-[18px] shrink-0" />
+                <WhatsAppIcon className="w-[18px] h-[18px] shrink-0" />
                 <span className="truncate flex-1 text-left">WhatsApp conectado</span>
                 <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
             </button>
@@ -94,7 +95,7 @@ export default function WhatsAppStatusButton({ isDark, onOpen, active = false, c
             className={`${base} border bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/[0.16] shadow-sm`}
         >
             <span className="relative shrink-0 inline-flex">
-                <MessageCircle className="w-[18px] h-[18px]" />
+                <WhatsAppIcon className="w-[18px] h-[18px]" />
                 <span className={`absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ${ring} animate-pulse`} />
             </span>
             <span className="truncate flex-1 text-left">Configurar WhatsApp</span>

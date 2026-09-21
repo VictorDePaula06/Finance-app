@@ -9,7 +9,8 @@ import { Check, Loader2, Send, Sparkles, Briefcase, CreditCard, PiggyBank, Landm
 
 // Formulários REAIS reaproveitados (mesmos campos do cadastro manual).
 import { RecorrenteForm } from '../pages/Recorrentes';
-import { CardForm, BuyForm } from '../pages/Cartoes';
+import { BuyForm } from '../pages/Cartoes';
+import CardForm from './CardForm';
 import { ReservaForm } from '../pages/Reservas';
 import { AtivoForm } from '../pages/Patrimonio';
 

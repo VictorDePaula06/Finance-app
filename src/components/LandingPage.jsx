@@ -378,7 +378,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                         <div className="grid lg:grid-cols-2 gap-16 items-center">
 
                             {/* Sensor de urgência — conversa "Modo Pânico" (mockup de produto) */}
-                            <div className="relative flex justify-center order-2 lg:order-1">
+                            <div className="relative flex justify-center order-2 lg:order-1 mt-24 mb-24 lg:mt-0 lg:mb-0">
                                 <div className="relative w-full max-w-[380px]">
                                     <div className="absolute inset-0 rounded-full blur-3xl opacity-20 pointer-events-none"
                                          style={{ background: 'radial-gradient(circle, #ef4444 0%, transparent 70%)', transform: 'scale(0.7)' }} />
@@ -392,14 +392,14 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                             ]} />
                                     </div>
                                     {/* alert bubble */}
-                                    <div className={`absolute top-8 -right-4 md:-right-12 z-20 max-w-[180px] p-4 rounded-2xl shadow-xl border text-xs font-bold leading-relaxed ${isDark ? 'bg-slate-900 border-rose-500/30 text-slate-200' : 'bg-white border-rose-100 text-slate-700'}`}>
+                                    <div className={`absolute -top-20 right-1 md:top-8 md:-right-12 z-20 max-w-[150px] md:max-w-[180px] p-3 md:p-4 rounded-2xl shadow-xl border text-[11px] md:text-xs font-bold leading-relaxed ${isDark ? 'bg-slate-900 border-rose-500/30 text-slate-200' : 'bg-white border-rose-100 text-slate-700'}`}>
                                         <div className="flex items-center gap-2 mb-2">
                                             <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
                                             <span className="font-black text-rose-400 text-[10px] uppercase tracking-widest">Alerta</span>
                                         </div>
                                         Você atingiu 85% do seu teto de gastos com lazer este mês.
                                     </div>
-                                    <div className={`absolute bottom-16 -left-4 md:-left-10 z-20 max-w-[160px] p-4 rounded-2xl shadow-xl border text-xs font-bold leading-relaxed ${isDark ? 'bg-slate-900 border-[#69C8B9]/30 text-slate-200' : 'bg-white border-[#69C8B9]/20 text-slate-700'}`}>
+                                    <div className={`absolute -bottom-20 left-1 md:bottom-16 md:-left-10 z-20 max-w-[135px] md:max-w-[160px] p-3 md:p-4 rounded-2xl shadow-xl border text-[11px] md:text-xs font-bold leading-relaxed ${isDark ? 'bg-slate-900 border-[#69C8B9]/30 text-slate-200' : 'bg-white border-[#69C8B9]/20 text-slate-700'}`}>
                                         <div className="flex items-center gap-2 mb-2">
                                             <CheckCircle2 className="w-4 h-4 text-[#69C8B9] shrink-0" />
                                             <span className="font-black text-[#69C8B9] text-[10px] uppercase tracking-widest">Protegida</span>
