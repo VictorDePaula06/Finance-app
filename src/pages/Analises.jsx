@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import AnimatedNumber from '../components/ui/AnimatedNumber';
+import { ceilingsFrom, ceilingRows, NEAR_RATIO } from '../utils/categoryCeilings';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
@@ -8,7 +10,7 @@ import { CATEGORIES, categoryHex } from '../constants/categories';
 import {
     BarChart3, PieChart as PieIcon, Repeat, Scale, Wallet, TrendingUp, TrendingDown,
     ArrowLeft, ChevronRight, Download, Loader2, CreditCard, Gauge, Layers, AlertTriangle,
-    SlidersHorizontal, X, Check, Sparkles,
+    SlidersHorizontal, X, Check, Sparkles, Target, Settings,
 } from 'lucide-react';
 
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -35,6 +37,7 @@ const PAG_COLOR = { pix: '#10b981', debito: '#3b82f6', credito: '#8b5cf6', dinhe
 
 const ANALISES = [
     { id: 'categorias', label: 'Gastos por categoria', desc: 'Para onde seu dinheiro vai no mês', icon: PieIcon, color: '#10b981' },
+    { id: 'tetos', label: 'Teto por categoria', desc: 'Quanto de cada teto você já usou', icon: Target, color: '#f59e0b' },
     { id: 'evolucao', label: 'Evolução mensal', desc: 'Entradas × saídas nos últimos meses', icon: BarChart3, color: '#3b82f6' },
     { id: 'custo_fixo', label: 'Custo fixo mensal', desc: 'Recorrentes, assinaturas e parcelas', icon: Repeat, color: '#f59e0b' },
     { id: 'prioridade', label: 'Essencial × Supérfluo', desc: 'Quanto é necessidade vs desejo', icon: Scale, color: '#8b5cf6' },
@@ -48,6 +51,7 @@ const ANALISES = [
 // Quais filtros cada relatório mostra antes de gerar.
 const REPORT_FILTERS = {
     categorias: ['month', 'openInvoice'],
+    tetos: ['month'],
     evolucao: ['months', 'openInvoice'],
     custo_fixo: ['fixedTypes'],
     prioridade: ['month', 'openInvoice'],
@@ -76,10 +80,14 @@ const prevMonthKey = (mk) => {
 const monthKeyLabel = (mk) => { const [y, m] = mk.split('-'); return `${MESES_ABREV[(parseInt(m) || 1) - 1]}/${y}`; };
 
 export default function Analises() {
-    const { currentUser } = useAuth();
+    const { currentUser, userPrefs } = useAuth();
     const { theme } = useTheme();
+    const navigate = useNavigate();
     const isDark = theme !== 'light';
     const uid = currentUser?.uid;
+    // Deep-link: /app/analises?report=tetos abre o relatório direto (mês atual).
+    const [searchParams] = useSearchParams();
+    const reportParam = searchParams.get('report');
 
     const [tx, setTx] = useState([]);
     const [fixExp, setFixExp] = useState([]);
@@ -106,6 +114,15 @@ export default function Analises() {
         setGeneratingReport(id);
         setTimeout(() => { setGeneratingReport(null); setView(id); }, 900);
     };
+
+    // Deep-link (?report=tetos): pula os filtros, mas passa pela janela "Gerando relatório…".
+    useEffect(() => {
+        if (!ANALISES.some(a => a.id === reportParam)) return;
+        setFilters(defaultFilters());
+        setGeneratingReport(reportParam);
+        const t = setTimeout(() => { setGeneratingReport(null); setView(reportParam); }, 900);
+        return () => clearTimeout(t);
+    }, [reportParam]);
 
     const exportarPDF = async () => {
         const el = document.getElementById('analise-print');
@@ -247,6 +264,22 @@ export default function Analises() {
         return { list, mensal, dividaTotal };
     }, [subs, cards, filters.cardId]);
 
+    // Teto por categoria: uso do mês em cada categoria com teto definido (Cadastros).
+    const tetos = useMemo(() => {
+        const ceilings = ceilingsFrom(userPrefs);
+        const rows = ceilingRows(tx, ceilings, mk);
+        const comTeto = rows.filter(r => r.ceiling > 0).sort((a, b) => b.ratio - a.ratio);
+        const semTeto = rows.filter(r => !(r.ceiling > 0) && r.spent > 0).sort((a, b) => b.spent - a.spent);
+        const totalTeto = comTeto.reduce((a, r) => a + r.ceiling, 0);
+        const totalGasto = comTeto.reduce((a, r) => a + r.spent, 0);
+        return {
+            comTeto, semTeto, totalTeto, totalGasto,
+            over: comTeto.filter(r => r.level === 'over').length,
+            near: comTeto.filter(r => r.level === 'near').length,
+            ok: comTeto.filter(r => r.level === 'ok').length,
+        };
+    }, [tx, userPrefs, mk]);
+
     // ── HUB ──
     if (!view) {
         return (
@@ -314,6 +347,10 @@ export default function Analises() {
             {view === 'categorias' && <BreakdownView isDark={isDark} title={`Gastos por categoria — ${monthKeyLabel(mk)}`} total={categorias.total} list={categorias.list} emptyText="Sem gastos neste mês." note={filters.includeOpenInvoice ? undefined : 'Fatura em aberto do cartão não incluída (visão de caixa).'} />}
             {view === 'prioridade' && <BreakdownView isDark={isDark} title={`Consumo por prioridade — ${monthKeyLabel(mk)}`} total={prioridade.total} list={prioridade.list} emptyText="Sem gastos neste mês." note={filters.includeOpenInvoice ? 'Ideal: manter os supérfluos baixos e priorizar o essencial.' : 'Fatura em aberto do cartão não incluída (visão de caixa).'} />}
             {view === 'pagamento' && <BreakdownView isDark={isDark} title={`Formas de pagamento — ${monthKeyLabel(mk)}`} total={pagamento.total} list={pagamento.list} emptyText="Sem gastos neste mês." />}
+
+            {view === 'tetos' && (
+                <TetosView isDark={isDark} data={tetos} mk={mk} onCadastros={() => navigate('/app/configuracoes?tab=cadastros')} />
+            )}
 
             {view === 'evolucao' && (
                 <div className={cardCls}>
@@ -434,6 +471,110 @@ export default function Analises() {
 }
 
 // ── Componentes ─────────────────────────────────────────────────────
+// ── Relatório: teto por categoria ────────────────────────────────────
+const LEVEL_META = {
+    ok: { label: 'No limite', bar: 'bg-emerald-500', text: 'text-emerald-500', chip: 'bg-emerald-500/12 text-emerald-500' },
+    near: { label: 'Perto do teto', bar: 'bg-amber-500', text: 'text-amber-500', chip: 'bg-amber-500/12 text-amber-500' },
+    over: { label: 'Passou do teto', bar: 'bg-rose-500', text: 'text-rose-500', chip: 'bg-rose-500/12 text-rose-500' },
+};
+function TetosView({ isDark, data, mk, onCadastros }) {
+    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+    const cell = isDark ? 'text-slate-300' : 'text-slate-700';
+    const cardCls = `rounded-2xl border p-5 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`;
+    const usoPct = data.totalTeto ? Math.round(data.totalGasto / data.totalTeto * 100) : 0;
+    const geral = data.over ? 'over' : data.near ? 'near' : 'ok';
+
+    if (data.comTeto.length === 0) {
+        return (
+            <div className={`${cardCls} text-center py-10`}>
+                <span className={`w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center ${isDark ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}><Target className="w-6 h-6" /></span>
+                <p className={`text-sm font-bold ${cell}`}>Nenhum teto definido ainda</p>
+                <p className={`text-xs mt-1 ${muted}`}>Defina quanto quer gastar por mês em cada categoria e acompanhe aqui.</p>
+                <button onClick={onCadastros} className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold transition active:scale-95">
+                    <Settings className="w-4 h-4" /> Definir tetos em Cadastros
+                </button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            {/* Resumo */}
+            <div className={`${cardCls} flex items-center justify-between gap-4 flex-wrap`}>
+                <div>
+                    <p className={`text-[11px] font-black uppercase tracking-widest ${muted}`}>Uso dos tetos — {monthKeyLabel(mk)}</p>
+                    <p className={`text-3xl font-black tabular-nums mt-0.5 ${LEVEL_META[geral].text}`}><AnimatedNumber value={usoPct} format={(v) => `${Math.round(v)}%`} /></p>
+                    <p className={`text-[12px] mt-0.5 ${muted}`}>R$ {money(data.totalGasto)} gastos de R$ {money(data.totalTeto)} combinados</p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                    {[['over', data.over], ['near', data.near], ['ok', data.ok]].map(([lv, n]) => (
+                        <span key={lv} className={`inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1.5 rounded-full ${LEVEL_META[lv].chip}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${LEVEL_META[lv].bar}`} /> {n} {LEVEL_META[lv].label.toLowerCase()}
+                        </span>
+                    ))}
+                </div>
+            </div>
+
+            {/* Categoria a categoria */}
+            <div className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
+                <div className={`px-5 py-3.5 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                    <p className={`text-[11px] font-black uppercase tracking-widest ${muted}`}>Categorias com teto · do mais usado ao menos</p>
+                </div>
+                <div className={`divide-y ${isDark ? 'divide-white/5' : 'divide-slate-100'}`}>
+                    {data.comTeto.map(r => {
+                        const Icon = r.icon;
+                        const hex = categoryHex(r);
+                        const lv = LEVEL_META[r.level];
+                        const diff = r.ceiling - r.spent;
+                        return (
+                            <div key={r.id} className="px-5 py-3.5">
+                                <div className="flex items-center gap-3">
+                                    <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>{Icon && <Icon className="w-4 h-4" />}</span>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{r.label}</p>
+                                            <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${lv.chip}`}>{lv.label}</span>
+                                        </div>
+                                        <p className={`text-[12px] ${muted}`}>
+                                            R$ {money(r.spent)} de R$ {money(r.ceiling)} · {diff >= 0 ? <>ainda cabem <b className={cell}>R$ {money(diff)}</b></> : <>passou <b className="text-rose-500">R$ {money(-diff)}</b></>}
+                                        </p>
+                                    </div>
+                                    <p className={`text-lg font-black tabular-nums shrink-0 ${lv.text}`}>{r.pct}%</p>
+                                </div>
+                                <div className={`mt-2.5 h-2 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-200'}`}>
+                                    <div className={`h-full rounded-full transition-all duration-700 ${lv.bar}`} style={{ width: `${Math.min(100, r.pct)}%` }} />
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Gastos em categorias sem teto */}
+            {data.semTeto.length > 0 && (
+                <div className={cardCls}>
+                    <p className={`text-[11px] font-black uppercase tracking-widest mb-3 ${muted}`}>Gastou este mês, mas sem teto definido</p>
+                    <div className="flex flex-wrap gap-2">
+                        {data.semTeto.map(r => (
+                            <span key={r.id} className={`inline-flex items-center gap-1.5 text-[12px] font-bold px-2.5 py-1.5 rounded-xl border ${isDark ? 'border-white/10 text-slate-300' : 'border-slate-200 text-slate-600'}`}>
+                                {r.label} <span className={muted}>R$ {money(r.spent)}</span>
+                            </span>
+                        ))}
+                    </div>
+                    <button onClick={onCadastros} className={`mt-3 inline-flex items-center gap-1.5 text-[12px] font-bold text-emerald-500 hover:text-emerald-400 transition`}>
+                        <Settings className="w-3.5 h-3.5" /> Definir teto para essas categorias
+                    </button>
+                </div>
+            )}
+
+            <p className={`text-[12px] flex items-center gap-2 ${muted}`}>
+                <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                A Alívia avisa no Dashboard e no WhatsApp a partir de {Math.round(NEAR_RATIO * 100)}% do teto e quando passa.
+            </p>
+        </div>
+    );
+}
+
 function BreakdownView({ isDark, title, total, list, emptyText, note }) {
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const cell = isDark ? 'text-slate-300' : 'text-slate-700';

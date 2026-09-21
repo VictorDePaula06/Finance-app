@@ -225,7 +225,10 @@ export default function Dashboard({ onNavigate }) {
                         } />
                     <div className="min-w-0">
                         <h1 className={`text-xl sm:text-2xl font-black tracking-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>Olá, {nome} 👋</h1>
-                        <p className={`text-[13px] sm:text-sm mt-0.5 ${muted}`}>Seu controle financeiro do mês.</p>
+                        {/* Subtítulo: análise rápida da Alívia sobre tetos (quando houver) ou a frase padrão */}
+                        <div className={`text-[13px] sm:text-sm mt-0.5 ${muted}`}>
+                            <CeilingAlerts transactions={tx} mk={mk} isDark={isDark} fallback="Seu controle financeiro do mês." />
+                        </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -245,9 +248,6 @@ export default function Dashboard({ onNavigate }) {
                 <Kpi isDark={isDark} icon={TrendingDown} label="Gastos" value={<AnimatedNumber value={gastos} format={(v) => `R$ ${money(v)}`} />} sub={cfg.incluirFatura ? 'inclui fatura' : 'só a conta'} tone="rose"
                     action={<button onClick={() => setGastosOpen(true)} title="Ver lista de gastos" className={`p-1 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}><ListChecks className="w-4 h-4" /></button>} />
             </div>
-
-            {/* Alívia avisa: categoria perto ou acima do teto (definido em Cadastros) */}
-            <CeilingAlerts transactions={tx} mk={mk} isDark={isDark} />
 
             {redirect && <RedirectOverlay isDark={isDark} label={redirect} />}
             {waOpen && <WhatsAppStatusModal isDark={isDark} phones={wa.linked.map(l => l.phone)} onClose={() => setWaOpen(false)} onManage={() => { setWaOpen(false); goTo('whatsapp'); }} />}
