@@ -441,9 +441,12 @@ function ChangePasswordCard({ isDark }) {
                     <div className="relative"><Lock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} /><input type={show ? 'text' : 'password'} autoComplete="current-password" value={current} onChange={e => setCurrent(e.target.value)} placeholder="Senha atual" className={inputCls} />{eye}</div>
                     <div className="relative"><Lock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} /><input type={show ? 'text' : 'password'} autoComplete="new-password" value={next} onChange={e => setNext(e.target.value)} placeholder="Nova senha (mín. 6)" className={inputCls} />{eye}</div>
                     <div className="relative"><Lock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} /><input type={show ? 'text' : 'password'} autoComplete="new-password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Confirmar nova senha" className={inputCls} />{eye}</div>
-                    <button type="submit" disabled={loading} className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-70">
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> Salvar nova senha</>}
-                    </button>
+                    {/* Botão só aparece quando há algo digitado (sem alteração, sem botão). */}
+                    {(current || next || confirm) && (
+                        <button type="submit" disabled={loading} className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-70 animate-in fade-in slide-in-from-top-1 duration-200">
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> Salvar nova senha</>}
+                        </button>
+                    )}
                 </form>
             )}
         </Card>
@@ -527,6 +530,11 @@ export function WhatsAppTab({ isDark, onGoTo }) {
     const [cfgFlash, setCfgFlash] = useState('');
     useEffect(() => { setCfg({ ...DEFAULT_WA_CONFIG, ...(userPrefs?.whatsapp || {}) }); }, [userPrefs?.whatsapp]);
     const setC = (patch) => setCfg(c => ({ ...c, ...patch }));
+
+    // Notificações "sujas"? Compara os switches com o que está salvo nas preferências.
+    const NOTIF_KEYS = ['enabled', 'spendingAlerts', 'billReminders', 'weeklyReport', 'allowExpenseEntry'];
+    const savedCfg = { ...DEFAULT_WA_CONFIG, ...(userPrefs?.whatsapp || {}) };
+    const notifDirty = NOTIF_KEYS.some(k => !!cfg[k] !== !!savedCfg[k]);
 
     const saveCfg = async () => {
         setSavingCfg(true); setCfgFlash('');
@@ -784,13 +792,24 @@ export function WhatsAppTab({ isDark, onGoTo }) {
                             on={cfg.allowExpenseEntry} onClick={() => setC({ allowExpenseEntry: !cfg.allowExpenseEntry })} />
                     </div>
 
-                    <div className={`flex items-center gap-3 mt-3 pt-4 border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
-                        <button onClick={saveCfg} disabled={savingCfg}
-                            className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-2 transition disabled:opacity-60">
-                            {savingCfg ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Salvar configurações
-                        </button>
-                        {cfgFlash && <span className="text-[12px] font-bold text-emerald-500">{cfgFlash}</span>}
-                    </div>
+                    {/* Botão só aparece quando há alteração pendente. */}
+                    {(notifDirty || cfgFlash) && (
+                        <div className={`flex items-center gap-3 mt-3 pt-4 border-t animate-in fade-in slide-in-from-top-1 duration-200 ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
+                            {notifDirty && (
+                                <>
+                                    <button onClick={saveCfg} disabled={savingCfg}
+                                        className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-2 transition disabled:opacity-60">
+                                        {savingCfg ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Salvar alterações
+                                    </button>
+                                    <button onClick={() => setCfg(savedCfg)} disabled={savingCfg}
+                                        className={`px-3.5 py-2.5 rounded-xl text-sm font-bold transition ${isDark ? 'text-slate-400 hover:bg-white/5 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}>
+                                        Descartar
+                                    </button>
+                                </>
+                            )}
+                            {cfgFlash && <span className="text-[12px] font-bold text-emerald-500">{cfgFlash}</span>}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
