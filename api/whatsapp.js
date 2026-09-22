@@ -140,6 +140,38 @@ const CAT_LABELS = {
 const CAT_ORDER = ['food', 'fast_food', 'transport', 'health', 'shopping', 'leisure', 'subscriptions', 'housing', 'personal_care', 'education', 'pets', 'conta_fixa', 'church', 'taxes', 'other'];
 const PRIO_LABELS = { essential: 'Essencial', comfort: 'Conforto', superfluous: 'Supérfluo' };
 
+// Prioridade padrão de cada categoria (espelha defaultPriority do app).
+const CAT_DEFAULT_PRIO = {
+  housing: 'essential', food: 'essential', fast_food: 'superfluous', transport: 'essential',
+  health: 'essential', education: 'essential', pets: 'comfort', personal_care: 'comfort',
+  subscriptions: 'comfort', credit_card: 'comfort', church: 'essential', taxes: 'essential',
+  leisure: 'superfluous', shopping: 'superfluous', conta_fixa: 'essential', other: 'comfort',
+};
+
+// Categoria "óbvia" pela descrição — quando bate, a Alívia lança direto, sem perguntar.
+// Ordem importa: o primeiro que casar vence (fast food antes de alimentação, etc.).
+const KEYWORD_CATS = [
+  ['fast_food', /(?<![\p{L}\d])(mc ?donald'?s?|m[eé]qui|burger|hamb[uú]rguer|bk|burger king|pizza|pizzaria|hot ?dog|cachorro[- ]quente|lanche|lanchonete|subway|kfc|habib'?s|giraffas|bob'?s|coxinha|pastel|salgado|sorvete|a[cç]a[ií]|milk ?shake)(?![\p{L}\d])/iu],
+  ['food', /(?<![\p{L}\d])(padaria|p[aã]o|mercado|supermercado|hortifruti|feira|a[cç]ougue|restaurante|almo[cç]o|jantar|caf[eé]|cafeteria|marmita|quentinha|ifood|rappi|delivery|comida|refei[cç][aã]o|churrasco|bebida|cerveja|vinho|assa[ií]|carrefour|extra|p[aã]o de a[cç][uú]car|atacad[aã]o|sacol[aã]o|verdura|fruta|leite|carne)(?![\p{L}\d])/iu],
+  ['transport', /(?<![\p{L}\d])(uber|99|99 ?pop|t[aá]xi|taxi|[oô]nibus|busao|bus[aã]o|metr[oô]|trem|brt|vlt|gasolina|combust[ií]vel|etanol|[aá]lcool|diesel|posto|estacionamento|ped[aá]gio|passagem|bilhete|riocard|sptrans|mecânico|mec[aâ]nico|oficina|pneu|lavagem|lava ?r[aá]pido|ipva|carro|moto|bike|patinete)(?![\p{L}\d])/iu],
+  ['health', /(?<![\p{L}\d])(farm[aá]cia|rem[eé]dio|medicamento|drogaria|drogasil|pacheco|raia|m[eé]dico|m[eé]dica|consulta|dentista|exame|laborat[oó]rio|hospital|cl[ií]nica|plano de sa[uú]de|psic[oó]log[oa]|terapia|fisioterapia|[oó]tica|[oó]culos|lente|vacina|nutricionista)(?![\p{L}\d])/iu],
+  ['pets', /(?<![\p{L}\d])(pet|petshop|pet ?shop|ra[cç][aã]o|veterin[aá]ri[oa]|vet|cachorro|gato|banho e tosa|tosa|areia do gato)(?![\p{L}\d])/iu],
+  ['subscriptions', /(?<![\p{L}\d])(netflix|spotify|disney|prime video|amazon prime|hbo|max|globoplay|youtube premium|apple tv|apple music|deezer|paramount|crunchyroll|icloud|google one|chatgpt|assinatura|mensalidade do app)(?![\p{L}\d])/iu],
+  ['personal_care', /(?<![\p{L}\d])(cabelo|cabeleireir[oa]|barbeiro|barbearia|sal[aã]o|manicure|pedicure|unha|depila[cç][aã]o|est[eé]tica|academia|smart ?fit|crossfit|pilates|perfume|maquiagem|cosm[eé]tico|skincare|sobrancelha)(?![\p{L}\d])/iu],
+  ['housing', /(?<![\p{L}\d])(aluguel|condom[ií]nio|luz|energia|[aá]gua|g[aá]s|internet|wifi|iptu|reforma|pedreiro|encanador|eletricista|m[oó]veis|m[oó]vel|faxina|diarista|limpeza|material de constru[cç][aã]o)(?![\p{L}\d])/iu],
+  ['education', /(?<![\p{L}\d])(curso|escola|col[eé]gio|faculdade|universidade|mensalidade|livro|apostila|material escolar|aula|professor|ingl[eê]s|udemy|alura|matr[ií]cula)(?![\p{L}\d])/iu],
+  ['leisure', /(?<![\p{L}\d])(cinema|ingresso|show|teatro|bar|balada|festa|boteco|jogo|game|steam|playstation|xbox|viagem|hotel|airbnb|passeio|parque|praia|clube|churrasco com|rol[eê])(?![\p{L}\d])/iu],
+  ['shopping', /(?<![\p{L}\d])(roupa|cal[cç]a|camisa|camiseta|blusa|vestido|t[eê]nis|sapato|cal[cç]ado|shopping|amazon|shopee|mercado livre|aliexpress|shein|magalu|magazine|renner|c&a|riachuelo|zara|presente|eletr[oô]nico|celular|fone|carregador|decora[cç][aã]o|brinquedo)(?![\p{L}\d])/iu],
+  ['church', /(?<![\p{L}\d])(igreja|d[ií]zimo|oferta|missa|culto|doa[cç][aã]o)(?![\p{L}\d])/iu],
+  ['taxes', /(?<![\p{L}\d])(taxa|imposto|multa|tarifa|anuidade|juros|cart[oó]rio|documento|detran|darf|inss)(?![\p{L}\d])/iu],
+];
+// Devolve a categoria óbvia da descrição, ou null quando não dá pra ter certeza.
+function guessCategory(description) {
+  const d = ` ${String(description || '').toLowerCase()} `;
+  for (const [cat, re] of KEYWORD_CATS) if (re.test(d)) return cat;
+  return null;
+}
+
 function initAdmin() {
   if (!getApps().length) {
     const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
@@ -803,6 +835,8 @@ Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (p
 1) Gasto avulso — ex.: "gastei 50 no mercado", "uber 23", "paguei 40 no pix":
    {"action":"add_expense","description":"<texto>","amount":<número>,"category":"<id>","priority":"<id>","method":"<pix|debito|dinheiro|boleto se a pessoa DISSE como pagou; senão vazio>"}
    ⚠️ Se a pessoa NÃO disser como pagou, deixe "method" vazio — o app aplica a forma de pagamento padrão que ela configurou (pode ser cartão).
+   ⚠️ "category": só preencha quando for CLARO pela descrição (padaria/mercado → food; uber/gasolina → transport; farmácia → health; netflix → subscriptions…).
+   Se NÃO der pra saber a categoria com segurança, use "other" — o app pergunta pra pessoa.
 2) Gasto no CARTÃO de crédito (só quando a pessoa CITA cartão/crédito) — ex.: "passei 200 no cartão", "comprei 80 no crédito do Nubank":
    {"action":"add_card_expense","description":"<texto>","amount":<número>,"category":"<id>","priority":"<id>","cardName":"<nome do cartão se citado, senão vazio>"}
 3) Entrada avulsa (recebi/ganhei/entrou) — ex.: "recebi 300 de freela", "caiu 100":
@@ -1648,6 +1682,44 @@ function ceilingLine(budgets, catId, spent) {
   }
   return `\n🎯 ${pct}% do seu teto de *${label}* (R$ ${money(ceiling)}).`;
 }
+// Lança o gasto (conta ou fatura), limpa o fluxo e responde com acumulado/teto da categoria.
+// `auto` = categoria decidida sozinha (sem perguntar): a resposta oferece "trocar".
+async function commitExpense(db, uid, from, sessRef, history, p, prio, { auto = false } = {}) {
+  const now = new Date();
+  const txData = {
+    description: p.description, amount: p.amount, type: 'expense',
+    category: p.category, priority: prio,
+    date: now.toISOString(), month: now.toISOString().slice(0, 7),
+    userId: uid, createdAt: Date.now(), isFixed: false, source: 'whatsapp',
+  };
+  if (p.isCard) { txData.paymentMethod = 'credito'; txData.selectedCardId = p.cardId; txData.invoiceStatus = 'unpaid'; }
+  else { txData.paymentMethod = PAY_METHODS.includes(p.method) ? p.method : 'pix'; }
+  const ref = await db.collection('transactions').add(txData);
+  // Guarda o último lançamento automático pra permitir "trocar" a categoria em 1 toque.
+  await sessRef.set({ uid, history, pending: null, lastTx: auto ? { id: ref.id, description: p.description, category: p.category } : null }, { merge: true });
+  const onde = p.isCard ? ` na fatura do *${p.cardName}*` : '';
+  // Acumulado do mês na MESMA categoria (já inclui o lançamento recém-feito)
+  // + comparação com o TETO da categoria (Cadastros → Teto por categoria).
+  const mkExp = now.toISOString().slice(0, 7);
+  let catLine = '';
+  try {
+    const [snap, cfgSnap] = await Promise.all([
+      db.collection('transactions').where('userId', '==', uid).get(),
+      db.collection('users').doc(uid).collection('settings').doc('general').get().catch(() => null),
+    ]);
+    const catTotal = snap.docs.reduce((a, d) => {
+      const t = d.data();
+      const tMk = t.month || String(t.date || '').slice(0, 7);
+      return (t.type === 'expense' && !t.isTransfer && t.category === p.category && tMk === mkExp)
+        ? a + (parseFloat(t.amount) || 0) : a;
+    }, 0);
+    catLine = `\n\n📊 Você já gastou *R$ ${money(catTotal)}* em *${CAT_LABELS[p.category]}* este mês.`;
+    catLine += ceilingLine(cfgSnap?.data?.()?.manualConfig?.categoryBudgets, p.category, catTotal);
+  } catch (e) { console.error('WA cat total:', e?.message); }
+  const fix = auto ? `\n\n_Errei a categoria? Responda *trocar*._` : '';
+  await sendText(from, `Lançado! ✅ *${p.description}* — R$ ${money(p.amount)}${onde}\n_${CAT_LABELS[p.category]} · ${PRIO_LABELS[prio]}_${catLine}${fix}`);
+}
+
 const yes = (t) => /^(sim|confirmar|isso|ok|pode|s|bora)\b/i.test(t.trim());
 const no = (t) => /^(n[aã]o|cancelar|nao|n)\b/i.test(t.trim());
 // "fazer depois / pular" — usado no onboarding pós-vínculo.
@@ -2153,40 +2225,32 @@ export default async function handler(req, res) {
         else { await sendPrioButtons(from, 'Toque pra escolher a *prioridade* 👇'); return res.status(200).json({ ok: true }); }
       }
       if (prio) {
-        const p = sess.pending.data;
-        const now = new Date();
-        const txData = {
-          description: p.description, amount: p.amount, type: 'expense',
-          category: p.category, priority: prio,
-          date: now.toISOString(), month: now.toISOString().slice(0, 7),
-          userId: uid, createdAt: Date.now(), isFixed: false, source: 'whatsapp',
-        };
-        if (p.isCard) { txData.paymentMethod = 'credito'; txData.selectedCardId = p.cardId; txData.invoiceStatus = 'unpaid'; }
-        else { txData.paymentMethod = PAY_METHODS.includes(p.method) ? p.method : 'pix'; }
-        await db.collection('transactions').add(txData);
-        await sessRef.set({ uid, history, pending: null }, { merge: true });
-        const onde = p.isCard ? ` na fatura do *${p.cardName}*` : '';
-        // Acumulado do mês na MESMA categoria (já inclui o lançamento recém-feito)
-        // + comparação com o TETO da categoria (Cadastros → Teto por categoria).
-        const mkExp = now.toISOString().slice(0, 7);
-        let catLine = '';
-        try {
-          const [snap, cfgSnap] = await Promise.all([
-            db.collection('transactions').where('userId', '==', uid).get(),
-            db.collection('users').doc(uid).collection('settings').doc('general').get().catch(() => null),
-          ]);
-          const catTotal = snap.docs.reduce((a, d) => {
-            const t = d.data();
-            const tMk = t.month || String(t.date || '').slice(0, 7);
-            return (t.type === 'expense' && !t.isTransfer && t.category === p.category && tMk === mkExp)
-              ? a + (parseFloat(t.amount) || 0) : a;
-          }, 0);
-          catLine = `\n\n📊 Você já gastou *R$ ${money(catTotal)}* em *${CAT_LABELS[p.category]}* este mês.`;
-          catLine += ceilingLine(cfgSnap?.data?.()?.manualConfig?.categoryBudgets, p.category, catTotal);
-        } catch (e) { console.error('WA cat total:', e?.message); }
-        await sendText(from, `Lançado! ✅ *${p.description}* — R$ ${money(p.amount)}${onde}\n_${CAT_LABELS[p.category]} · ${PRIO_LABELS[prio]}_${catLine}`);
+        await commitExpense(db, uid, from, sessRef, history, sess.pending.data, prio, { auto: false });
         return res.status(200).json({ ok: true });
       }
+    }
+
+    // 2b. "Trocar categoria" do último gasto lançado automaticamente — PASSO: escolher a nova.
+    if (sess.pending?.type === 'fix_cat') {
+      if (no(text)) { await sessRef.set({ uid, history, pending: null }, { merge: true }); await sendText(from, 'Beleza, mantive como estava. 👍'); return res.status(200).json({ ok: true }); }
+      const catId = pickCat(selId, text);
+      if (catId) {
+        const { txId, description } = sess.pending.data;
+        try {
+          await db.collection('transactions').doc(txId).update({ category: catId, priority: CAT_DEFAULT_PRIO[catId] || 'comfort' });
+          await sessRef.set({ uid, history, pending: null, lastTx: null }, { merge: true });
+          await sendText(from, `Pronto! ✅ *${description}* agora está em *${CAT_LABELS[catId]}* (${PRIO_LABELS[CAT_DEFAULT_PRIO[catId] || 'comfort']}).`);
+        } catch (e) { console.error('WA fix_cat:', e); await sessRef.set({ uid, history, pending: null }, { merge: true }); await sendText(from, 'Não consegui trocar a categoria agora. Você pode editar no app, em *Lançamentos*. 🙏'); }
+        return res.status(200).json({ ok: true });
+      }
+      if (looksNewIntent) { await sessRef.set({ uid, pending: null }, { merge: true }); sess.pending = null; }
+      else { await sendCatList(from, 'Toque na *categoria* certa 👇 (ou "cancelar")', null); return res.status(200).json({ ok: true }); }
+    }
+    // Atalho: "trocar" / "mudar categoria" logo depois de um lançamento automático.
+    if (sess.lastTx && !selId && /^(trocar|mudar|corrigir|errou|errado|categoria errada)(\s+(a\s+)?categoria)?\s*!?$/i.test(text.trim())) {
+      await sessRef.set({ uid, history, pending: { type: 'fix_cat', data: { txId: sess.lastTx.id, description: sess.lastTx.description } } }, { merge: true });
+      await sendCatList(from, `Em qual *categoria* fica *${sess.lastTx.description}*? 👇`, sess.lastTx.category);
+      return res.status(200).json({ ok: true });
     }
 
     // 2a. Confirmação de IMPORTAÇÃO (extrato PDF/CSV) — lança tudo em lote.
@@ -2469,6 +2533,12 @@ export default async function handler(req, res) {
         suggested: EXPENSE_CATS.includes(action.category) ? action.category : 'shopping',
         isCard: true, cardId: card.id, cardName: card.name,
       };
+      // Categoria óbvia (palavra-chave ou a IA teve certeza) → lança direto, sem perguntar.
+      const sure = guessCategory(data.description) || (EXPENSE_CATS.includes(action.category) && action.category !== 'other' ? action.category : null);
+      if (sure) {
+        await commitExpense(db, uid, from, sessRef, history, { ...data, category: sure }, CAT_DEFAULT_PRIO[sure] || 'comfort', { auto: true });
+        return res.status(200).json({ ok: true });
+      }
       await sessRef.set({ uid, history, pending: { type: 'exp_cat', data } }, { merge: true });
       await sendCatList(from, `Compra no cartão *${card.name}*: *${data.description}* — R$ ${money(amount)}.\nEm qual *categoria*? 👇`, data.suggested);
       return res.status(200).json({ ok: true });
@@ -2500,6 +2570,12 @@ export default async function handler(req, res) {
         } else { data.method = 'pix'; } // padrão é cartão mas não há cartão cadastrado → cai na conta
       } else if (usedDefault && waDef.method !== 'pix') {
         intro += ` _(${PAY_LABELS_WA[waDef.method] || waDef.method}, sua forma padrão)_`;
+      }
+      // Categoria óbvia (palavra-chave ou a IA teve certeza) → lança direto, sem perguntar.
+      const sure = guessCategory(data.description) || (expense.category && expense.category !== 'other' ? expense.category : null);
+      if (sure) {
+        await commitExpense(db, uid, from, sessRef, history, { ...data, category: sure }, CAT_DEFAULT_PRIO[sure] || 'comfort', { auto: true });
+        return res.status(200).json({ ok: true });
       }
       await sessRef.set({ uid, history, pending: { type: 'exp_cat', data } }, { merge: true });
       await sendCatList(from, `${intro}\nEm qual *categoria*? 👇`, data.suggested);

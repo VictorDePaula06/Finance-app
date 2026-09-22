@@ -682,7 +682,7 @@ export function WhatsAppTab({ isDark, onGoTo }) {
 
                     <div className={`mt-4 rounded-xl border px-3.5 py-3 flex items-start gap-3 text-[12px] ${isDark ? 'border-white/10 bg-white/[0.02] text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
                         <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                        O código é de uso único e expira quando usado. Antes de lançar qualquer gasto, a Alívia sempre pede sua confirmação no WhatsApp.
+                        O código é de uso único e expira quando usado. Gastos óbvios (padaria, uber, farmácia…) a Alívia lança na hora e te avisa; se errar a categoria, é só responder "trocar".
                     </div>
                 </div>
             </div>
@@ -788,7 +788,7 @@ export function WhatsAppTab({ isDark, onGoTo }) {
                             desc="Um fechamento com o resumo da semana."
                             on={cfg.weeklyReport} disabled={!cfg.enabled} onClick={() => setC({ weeklyReport: !cfg.weeklyReport })} />
                         <SwitchRow isDark={isDark} icon={WhatsAppIcon} title="Registrar gastos por mensagem"
-                            desc="Permitir lançar despesas escrevendo pra Alívia (ex.: “uber 23”). Ela sempre pede confirmação."
+                            desc="Permitir lançar despesas escrevendo pra Alívia (ex.: “uber 23”). Categoria óbvia ela lança direto; em dúvida, pergunta."
                             on={cfg.allowExpenseEntry} onClick={() => setC({ allowExpenseEntry: !cfg.allowExpenseEntry })} />
                     </div>
 

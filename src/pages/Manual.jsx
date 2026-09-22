@@ -169,7 +169,7 @@ export default function Manual() {
                         <p className={`font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Alívia no WhatsApp</p>
                     </div>
                     <p className={`text-[13px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                        Registre gastos, dê baixa em contas, importe extratos e peça relatórios por mensagem ou áudio. A cada gasto lançado,
+                        Registre gastos, dê baixa em contas, importe extratos e peça relatórios por mensagem ou áudio. Gastos óbvios ("padaria 10", "uber 23") entram direto na categoria certa — só quando não dá pra saber ela pergunta (e "trocar" corrige). A cada gasto lançado,
                         ela mostra o acumulado da categoria no mês e, se houver teto, em quantos % você está — avisando quando se aproximar ou passar.
                         Conecte em Configurações e Cadastros › WhatsApp.
                     </p>

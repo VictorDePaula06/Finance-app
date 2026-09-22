@@ -78,6 +78,7 @@ const RELEASES = [
                 icon: WhatsAppIcon, color: '#25D366', title: 'Alívia no WhatsApp', wa: true,
                 items: [
                     'Forma de pagamento padrão: escolha PIX, débito, dinheiro ou cartão de crédito (e qual cartão). Quando você não diz como pagou, a Alívia lança nessa forma.',
+                    'Mais ágil: "gastei 10 na padaria" ou "uber 23" já entram na categoria certa (Alimentação, Transporte…) sem perguntar. Só quando não dá pra saber ela pede a categoria. Errou? Responda "trocar".',
                     'A cada gasto, ela informa o acumulado da categoria e, se houver teto, em quantos % você está — avisando quando se aproximar ou passar.',
                     'Ícone oficial do WhatsApp no app; Conexão e Notificações na mesma tela, uma abaixo da outra.',
                 ],
