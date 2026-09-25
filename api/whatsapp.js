@@ -1163,10 +1163,15 @@ async function extractStatement(docInfo, key, usage = null) {
     const resp = await fetch(meta.url, { headers: { Authorization: `Bearer ${token}` } });
     const buf = Buffer.from(await resp.arrayBuffer());
     const mime = (docInfo.mime_type || meta.mime_type || '').split(';')[0].toLowerCase();
-    const instruction = `Este arquivo é um extrato bancário ou fatura de cartão de crédito. Extraia TODOS os lançamentos (transações).
-Responda APENAS com um JSON array puro, sem nenhum texto fora dele, no formato:
-[{"description":"<texto curto>","amount":<número positivo>,"date":"<AAAA-MM-DD ou string vazia>","type":"expense|income","category":"<um destes: ${EXPENSE_CATS.join(', ')}>"}]
-Regras: amount SEMPRE positivo. type=expense para gastos/compras/débitos/saídas; type=income para créditos/recebimentos/entradas. IGNORE linhas de saldo, subtotal, total da fatura, e "pagamento de fatura". Escolha a category mais provável. Se não houver lançamentos, responda [].`;
+    const instruction = `Este arquivo é um extrato bancário OU uma fatura de cartão de crédito. Extraia TODOS os lançamentos (transações) e identifique o TIPO do documento.
+Responda APENAS com um JSON puro, sem nenhum texto fora dele, no formato:
+{"docType":"invoice|statement","items":[{"description":"<texto curto>","amount":<número positivo>,"date":"<AAAA-MM-DD ou string vazia>","type":"expense|income","category":"<um destes: ${EXPENSE_CATS.join(', ')}>"}]}
+Regras:
+- docType="invoice" se for FATURA de cartão de crédito (tem compras, parcelas, "fatura", nome de bandeira/banco de cartão, limite); docType="statement" se for extrato de conta bancária (tem saldo, pix, ted/doc, depósitos, transferências).
+- amount SEMPRE positivo.
+- type=expense para gastos/compras/débitos/saídas; type=income para créditos/estornos/recebimentos/entradas.
+- IGNORE linhas de saldo, subtotal, total da fatura, e "pagamento de fatura recebido".
+- Escolha a category mais provável. Se não houver lançamentos, items=[].`;
     let parts;
     if (mime.includes('pdf')) {
       parts = [{ inline_data: { mime_type: 'application/pdf', data: buf.toString('base64') } }, { text: instruction }];
@@ -1178,10 +1183,13 @@ Regras: amount SEMPRE positivo. type=expense para gastos/compras/débitos/saída
     const { r, j } = await callGemini(body, key, usage);
     if (!r.ok || j?.error) { console.error(`WA import falhou: HTTP ${r.status} ${JSON.stringify(j).slice(0, 300)}`); return { items: [], errorMsg: geminiErrorMessage(r.status, j) }; }
     const t = j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const m = t.match(/\[[\s\S]*\]/);
-    if (!m) { console.error('WA import: sem JSON na resposta', JSON.stringify(j).slice(0, 300)); return { items: [] }; }
-    const arr = JSON.parse(m[0]);
-    return { items: arr.map(x => ({
+    // Aceita tanto o objeto novo {docType, items} quanto um array puro (formato antigo).
+    let arr = null, docType = '';
+    const mo = t.match(/\{[\s\S]*\}/);
+    if (mo) { try { const o = JSON.parse(mo[0]); if (Array.isArray(o?.items)) { arr = o.items; docType = o.docType === 'invoice' ? 'invoice' : o.docType === 'statement' ? 'statement' : ''; } } catch { /* tenta array */ } }
+    if (!arr) { const ma = t.match(/\[[\s\S]*\]/); if (ma) { try { arr = JSON.parse(ma[0]); } catch { /* nada */ } } }
+    if (!Array.isArray(arr)) { console.error('WA import: sem JSON na resposta', JSON.stringify(j).slice(0, 300)); return { items: [] }; }
+    return { docType, items: arr.map(x => ({
       description: String(x.description || 'Lançamento').slice(0, 80),
       amount: Math.abs(parseFloat(x.amount) || 0),
       date: /^\d{4}-\d{2}-\d{2}$/.test(x.date) ? x.date : '',
@@ -1199,17 +1207,67 @@ async function handleDocumentImport(db, from, uid, sessRef, docInfo, key) {
   if (!ok) { await sendText(from, 'Consigo ler *PDF* ou *CSV* (extrato do banco ou fatura do cartão). Esse formato eu não leio 😅. Dá pra exportar em PDF ou CSV?'); return; }
   await sendText(from, 'Recebi seu arquivo 📄 Estou lendo os lançamentos... um instante.');
   const usage = newUsage();
-  const { items, errorMsg } = await extractStatement(docInfo, key, usage);
+  const { items, errorMsg, docType } = await extractStatement(docInfo, key, usage);
   await recordTokens(db, uid, usage);
   if (errorMsg) { await sendText(from, errorMsg); return; }
   if (!items.length) { await sendText(from, 'Não consegui identificar lançamentos nesse arquivo 😅. Confere se é um extrato de banco/cartão em PDF ou CSV legível (não pode ser imagem/foto escaneada sem texto).'); return; }
   const capped = items.slice(0, 80);
-  const totalExp = capped.filter(i => i.type === 'expense').reduce((a, i) => a + i.amount, 0);
-  const totalInc = capped.filter(i => i.type === 'income').reduce((a, i) => a + i.amount, 0);
-  await sessRef.set({ uid, pending: { type: 'import', data: { items: capped } } }, { merge: true });
-  const preview = capped.slice(0, 8).map(i => `• ${i.type === 'income' ? '+' : '−'} R$ ${money(i.amount)} — ${i.description}`).join('\n');
-  const resto = capped.length > 8 ? `\n… e mais ${capped.length - 8} lançamento(s).` : '';
-  await sendText(from, `Encontrei *${capped.length} lançamento(s)*:\n\n${preview}${resto}\n\n💸 Saídas: *R$ ${money(totalExp)}*${totalInc ? `\n💚 Entradas: *R$ ${money(totalInc)}*` : ''}\n\nPosso lançar tudo de uma vez? Responda *SIM* pra confirmar ou *NÃO* pra cancelar.`);
+  // PASSO 1: que documento é este? Numa FATURA não existe "entrada" — crédito é
+  // estorno e abate o valor. Num EXTRATO, entradas são recebimentos de verdade.
+  await sessRef.set({ uid, pending: { type: 'import_kind', data: { items: capped, guess: docType || '' } } }, { merge: true });
+  const dica = docType === 'invoice' ? '\n\n_Pelo conteúdo, parece uma *fatura de cartão*._'
+    : docType === 'statement' ? '\n\n_Pelo conteúdo, parece um *extrato bancário*._' : '';
+  await sendChoice(from, `Encontrei *${capped.length} lançamento(s)* no arquivo 📄${dica}\n\nAntes de lançar: este documento é uma *fatura de cartão* ou um *extrato bancário*?`,
+    [{ id: 'imp_invoice', title: 'Fatura de cartão' }, { id: 'imp_statement', title: 'Extrato bancário' }, { id: 'imp_cancel', title: 'Cancelar' }]);
+}
+
+// Resumo final da importação + pedido de confirmação (SIM/NÃO).
+// `meta`: { kind: 'invoice'|'statement', cardId, cardName, method }
+async function sendImportSummary(from, sessRef, uid, history, items, meta) {
+  const isInvoice = meta.kind === 'invoice';
+  // Numa fatura, o que veio como "income" é ESTORNO (crédito) — abate a fatura.
+  const gastos = items.filter(i => i.type === 'expense');
+  const creditos = items.filter(i => i.type === 'income');
+  const totalExp = gastos.reduce((a, i) => a + i.amount, 0);
+  const totalInc = creditos.reduce((a, i) => a + i.amount, 0);
+  await sessRef.set({ uid, history, pending: { type: 'import', data: { items, meta } } }, { merge: true });
+  const preview = items.slice(0, 8).map(i => {
+    const sinal = i.type === 'income' ? (isInvoice ? '↩︎' : '+') : '−';
+    return `• ${sinal} R$ ${money(i.amount)} — ${i.description}`;
+  }).join('\n');
+  const resto = items.length > 8 ? `\n… e mais ${items.length - 8} lançamento(s).` : '';
+
+  let onde, extra = '';
+  if (isInvoice) {
+    onde = `💳 Vou lançar na *fatura do ${meta.cardName}* (não sai do seu saldo agora).`;
+    if (creditos.length) {
+      extra = `\n\n↩︎ *${creditos.length} crédito(s)* de *R$ ${money(totalInc)}* — numa fatura isso é *estorno*, não entrada. Vou abater da fatura em vez de lançar como receita.`;
+    }
+  } else {
+    onde = `${PAY_EMOJI[meta.method] || '💸'} Vou lançar as saídas como *${PAY_LABELS_WA[meta.method] || meta.method}*.`;
+    extra = `\n\n_Pagou de outra forma? Responda *pix*, *débito*, *dinheiro*, *boleto* ou *cartão* que eu ajusto._`;
+    if (creditos.length) extra = `\n\n💚 *${creditos.length} entrada(s)* de *R$ ${money(totalInc)}* vão entrar como recebimento.` + extra;
+  }
+  await sendText(from, `*${items.length} lançamento(s)* prontos:\n\n${preview}${resto}\n\n💸 Saídas: *R$ ${money(totalExp)}*\n${onde}${extra}\n\nPosso lançar? Responda *SIM* pra confirmar ou *NÃO* pra cancelar.`);
+}
+
+// Resolve o cartão da fatura: padrão configurado → único cadastrado → pergunta.
+async function startInvoiceImport(db, from, sessRef, uid, history, items) {
+  const snap = await db.collection('cards').where('userId', '==', uid).get();
+  const cards = snap.docs.map(d => ({ id: d.id, name: d.data().name || d.data().bank || 'Cartão' }));
+  if (!cards.length) {
+    await sessRef.set({ uid, history, pending: null }, { merge: true });
+    await sendText(from, 'Você ainda não tem cartão cadastrado 💳\n\nCadastre em *Configurações e Cadastros → Cadastros* e me envie a fatura de novo.');
+    return;
+  }
+  const waDef = await getWaDefaults(db, uid);
+  const preferido = cards.find(c => c.id === waDef.cardId) || (cards.length === 1 ? cards[0] : null);
+  if (preferido) {
+    await sendImportSummary(from, sessRef, uid, history, items, { kind: 'invoice', cardId: preferido.id, cardName: preferido.name });
+    return;
+  }
+  await sessRef.set({ uid, history, pending: { type: 'import_card', data: { items, cards } } }, { merge: true });
+  await sendPickList(from, 'De qual *cartão* é essa fatura? 👇', cards.map(c => ({ id: `impcard_${c.id}`, title: c.name })));
 }
 
 // Extrai QUALQUER bloco de ação JSON da resposta da IA.
@@ -1654,6 +1712,17 @@ function parseExpense(text) {
 // ou o cartão de crédito escolhido (defaultCardId). Sem config → pix.
 const PAY_METHODS = ['pix', 'debito', 'dinheiro', 'boleto', 'credito'];
 const PAY_LABELS_WA = { pix: 'PIX', debito: 'débito', dinheiro: 'dinheiro', boleto: 'boleto', credito: 'cartão de crédito' };
+const PAY_EMOJI = { pix: '⚡', debito: '💳', dinheiro: '💵', boleto: '🧾', credito: '💳' };
+// Forma de pagamento dita pela pessoa em texto livre ("foi no pix", "débito").
+function parsePayMethod(text) {
+  const q = String(text || '').toLowerCase();
+  if (/\bpix\b/.test(q)) return 'pix';
+  if (/\bd[eé]bito\b/.test(q)) return 'debito';
+  if (/\bdinheiro\b|\bespécie\b|\bespecie\b/.test(q)) return 'dinheiro';
+  if (/\bboleto\b/.test(q)) return 'boleto';
+  if (/\bcr[eé]dito\b|\bcart[aã]o\b|\bfatura\b/.test(q)) return 'credito';
+  return null;
+}
 async function getWaDefaults(db, uid) {
   try {
     const snap = await db.collection('users').doc(uid).collection('settings').doc('general').get();
@@ -2253,28 +2322,102 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // 2a. Confirmação de IMPORTAÇÃO (extrato PDF/CSV) — lança tudo em lote.
+    // 2a-1. IMPORTAÇÃO — PASSO 1: fatura de cartão ou extrato bancário?
+    if (sess.pending?.type === 'import_kind') {
+      const items = sess.pending.data?.items || [];
+      const escolha = selId === 'imp_invoice' ? 'invoice' : selId === 'imp_statement' ? 'statement'
+        : selId === 'imp_cancel' ? 'cancel'
+        : /fatura|cart[aã]o|cr[eé]dito/i.test(text) ? 'invoice'
+        : /extrato|conta|banc[aá]ri/i.test(text) ? 'statement'
+        : no(text) ? 'cancel' : '';
+      if (escolha === 'cancel') {
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, 'Sem problema, não lancei nada. 👍');
+        return res.status(200).json({ ok: true });
+      }
+      if (escolha === 'invoice') { await startInvoiceImport(db, from, sessRef, uid, history, items); return res.status(200).json({ ok: true }); }
+      if (escolha === 'statement') {
+        const waDef = await getWaDefaults(db, uid);
+        // Extrato de conta: se o padrão é cartão, cai no PIX (extrato é movimento da conta).
+        const method = waDef.method === 'credito' ? 'pix' : waDef.method;
+        await sendImportSummary(from, sessRef, uid, history, items, { kind: 'statement', method });
+        return res.status(200).json({ ok: true });
+      }
+      await sendChoice(from, 'Esse arquivo é uma *fatura de cartão* ou um *extrato bancário*? 👇',
+        [{ id: 'imp_invoice', title: 'Fatura de cartão' }, { id: 'imp_statement', title: 'Extrato bancário' }, { id: 'imp_cancel', title: 'Cancelar' }]);
+      return res.status(200).json({ ok: true });
+    }
+
+    // 2a-2. IMPORTAÇÃO — PASSO 2 (fatura com vários cartões): de qual cartão é?
+    if (sess.pending?.type === 'import_card') {
+      const { items = [], cards = [] } = sess.pending.data || {};
+      let card = null;
+      if (selId && selId.startsWith('impcard_')) card = cards.find(c => c.id === selId.slice(8)) || null;
+      if (!card && text.trim()) {
+        const q = text.trim().toLowerCase();
+        card = cards.find(c => String(c.name).toLowerCase().includes(q)) || null;
+      }
+      if (no(text)) {
+        await sessRef.set({ uid, history, pending: null }, { merge: true });
+        await sendText(from, 'Sem problema, não lancei nada. 👍');
+        return res.status(200).json({ ok: true });
+      }
+      if (!card) {
+        await sendPickList(from, 'Toque no *cartão* dessa fatura 👇 (ou "cancelar")', cards.map(c => ({ id: `impcard_${c.id}`, title: c.name })));
+        return res.status(200).json({ ok: true });
+      }
+      await sendImportSummary(from, sessRef, uid, history, items, { kind: 'invoice', cardId: card.id, cardName: card.name });
+      return res.status(200).json({ ok: true });
+    }
+
+    // 2a-3. IMPORTAÇÃO — confirmação final (lança tudo em lote).
     if (sess.pending?.type === 'import') {
+      const items = sess.pending.data?.items || [];
+      const meta = sess.pending.data?.meta || { kind: 'statement', method: 'pix' };
+      // A pessoa pode corrigir a forma de pagamento antes de confirmar.
+      const novaForma = parsePayMethod(text);
+      if (!yes(text) && !no(text) && novaForma) {
+        if (novaForma === 'credito') {
+          await startInvoiceImport(db, from, sessRef, uid, history, items);
+        } else {
+          await sendImportSummary(from, sessRef, uid, history, items, { kind: 'statement', method: novaForma });
+        }
+        return res.status(200).json({ ok: true });
+      }
       if (yes(text)) {
-        const items = sess.pending.data?.items || [];
-        let ok = 0;
+        const isInvoice = meta.kind === 'invoice';
+        let ok = 0, estornos = 0;
         try {
           const batch = db.batch();
           const nowMs = Date.now();
           for (const it of items) {
             const iso = it.date ? new Date(it.date + 'T12:00:00').toISOString() : new Date().toISOString();
             const ref = db.collection('transactions').doc();
+            // Numa FATURA, crédito é estorno: entra como despesa NEGATIVA, abatendo a fatura
+            // (não vira receita, que inflaria os "ganhos" do mês).
+            const isEstorno = isInvoice && it.type === 'income';
             const tx = {
-              description: normName(it.description), amount: it.amount, type: it.type,
+              // Não duplica o rótulo quando a descrição já fala em estorno/crédito.
+              description: normName(isEstorno && !/estorno|cr[eé]dito|reembolso|devolu/i.test(it.description) ? `Estorno: ${it.description}` : it.description),
+              amount: isEstorno ? -Math.abs(it.amount) : it.amount,
+              type: isEstorno ? 'expense' : it.type,
               category: it.category, date: iso, month: iso.slice(0, 7),
               userId: uid, createdAt: nowMs, isFixed: false, source: 'whatsapp_import',
             };
-            if (it.type === 'expense') { tx.priority = 'comfort'; tx.paymentMethod = 'pix'; }
+            if (isEstorno) tx.isRefund = true;
+            if (tx.type === 'expense') {
+              tx.priority = 'comfort';
+              if (isInvoice) { tx.paymentMethod = 'credito'; tx.selectedCardId = meta.cardId; tx.invoiceStatus = 'unpaid'; }
+              else { tx.paymentMethod = PAY_METHODS.includes(meta.method) ? meta.method : 'pix'; }
+            }
             batch.set(ref, tx); ok++;
+            if (isEstorno) estornos++;
           }
           await batch.commit();
           await sessRef.set({ uid, history, pending: null }, { merge: true });
-          await sendText(from, `Pronto! ✅ Lancei *${ok}* lançamento(s) do seu extrato de uma vez. Já estão no app.`);
+          const onde = isInvoice ? `na *fatura do ${meta.cardName}*` : `como *${PAY_LABELS_WA[meta.method] || meta.method}*`;
+          const notaEstorno = estornos ? `\n↩︎ ${estornos} estorno(s) abatido(s) da fatura.` : '';
+          await sendText(from, `Pronto! ✅ Lancei *${ok}* lançamento(s) ${onde}.${notaEstorno}\n\nJá estão no app.`);
         } catch (e) { console.error('WA import commit:', e); await sendText(from, 'Deu um erro ao lançar em lote. Tenta enviar o arquivo de novo. 🙏'); }
         return res.status(200).json({ ok: true });
       }
@@ -2283,7 +2426,7 @@ export default async function handler(req, res) {
         await sendText(from, 'Sem problema, não lancei nada. 👍');
         return res.status(200).json({ ok: true });
       }
-      await sendText(from, 'Responda *SIM* pra eu lançar tudo, ou *NÃO* pra cancelar. 🙏');
+      await sendText(from, 'Responda *SIM* pra eu lançar tudo, *NÃO* pra cancelar — ou diga a forma de pagamento (*pix*, *débito*, *dinheiro*, *boleto*, *cartão*). 🙏');
       return res.status(200).json({ ok: true });
     }
 
