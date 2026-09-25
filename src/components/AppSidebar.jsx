@@ -8,6 +8,7 @@ import {
 
 import logo from '../assets/logo.png';
 import UserAvatar from './UserAvatar';
+import { useI18n } from '../contexts/LanguageContext';
 
 // Versão do app (exibida discretamente na sidebar).
 export const APP_VERSION = '1.2';
@@ -15,21 +16,24 @@ export const APP_VERSION = '1.2';
 export const RELEASE_NOTES_URL = '/novidades';
 
 // Navegação plana (sem módulos, sem subabas) — padrão Gym.
+// `label` é a chave de tradução (ver src/locales); `fallback` cobre quem
+// importa NAV_ITEMS fora de um provider de idioma.
 export const NAV_ITEMS = [
-    { id: 'dashboard',   label: 'Dashboard',   icon: LayoutDashboard },
-    { id: 'recorrentes', label: 'Recorrentes', icon: Repeat },
-    { id: 'lancamentos', label: 'Lançamentos', icon: ArrowLeftRight },
-    { id: 'cartoes',     label: 'Meu cartão',  icon: CreditCard },
-    { id: 'reservas',    label: 'Reservas',    icon: PiggyBank },
-    { id: 'patrimonio',  label: 'Patrimônio',  icon: Landmark },
-    { id: 'analises',    label: 'Análises',    icon: BarChart3 },
-    { id: 'manual',      label: 'Manual',      icon: BookOpen },
+    { id: 'dashboard',   label: 'nav.dashboard',    fallback: 'Dashboard',   icon: LayoutDashboard },
+    { id: 'recorrentes', label: 'nav.recurring',    fallback: 'Recorrentes', icon: Repeat },
+    { id: 'lancamentos', label: 'nav.transactions', fallback: 'Lançamentos', icon: ArrowLeftRight },
+    { id: 'cartoes',     label: 'nav.card',         fallback: 'Meu cartão',  icon: CreditCard },
+    { id: 'reservas',    label: 'nav.reserves',     fallback: 'Reservas',    icon: PiggyBank },
+    { id: 'patrimonio',  label: 'nav.patrimony',    fallback: 'Patrimônio',  icon: Landmark },
+    { id: 'analises',    label: 'nav.analysis',     fallback: 'Análises',    icon: BarChart3 },
+    { id: 'manual',      label: 'nav.manual',       fallback: 'Manual',      icon: BookOpen },
 ];
 
 const PLAN_LABEL = { lifetime: 'Vitalício', premium: 'Pro', standard: 'Pro', free: 'Gratuito' };
 
 export default function AppSidebar({ active, onNavigate, onSettings, onLogout, mobile = false, onClose }) {
     const { theme, toggleTheme } = useTheme();
+    const { t } = useI18n();
     const { currentUser, planLevel, isAdmin } = useAuth();
     const isDark = theme !== 'light';
     // Grupo REAL (mesma prioridade do gerenciador): Dev > Vitalício > Pro > Gratuito.
@@ -71,16 +75,16 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
                     <span className={`text-[11px] font-bold uppercase tracking-[0.42em] mt-1.5 ml-[0.42em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                         Finanças
                     </span>
-                    <a href={RELEASE_NOTES_URL} target="_blank" rel="noopener noreferrer" title="Ver as notas desta atualização"
+                    <a href={RELEASE_NOTES_URL} target="_blank" rel="noopener noreferrer" title={t('nav.releaseNotesTitle')}
                         className={`text-[10px] font-bold tracking-wide mt-1.5 px-1.5 py-0.5 rounded-md transition ${isDark ? 'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}>
-                        v{APP_VERSION} · novidades
+                        v{APP_VERSION} · {t('nav.releaseNotes')}
                     </a>
                 </div>
             </div>
 
             {/* Separador + rótulo da seção */}
             <div className={`border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`} />
-            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mt-3 mb-2 px-1.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>Menu</p>
+            <p className={`text-[10px] font-black uppercase tracking-[0.2em] mt-3 mb-2 px-1.5 ${isDark ? 'text-slate-600' : 'text-slate-400'}`}>{t('nav.menu')}</p>
 
             {/* Navegação */}
             <nav className="flex-1 space-y-1 overflow-y-auto no-scrollbar">
@@ -95,7 +99,7 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
                                               : 'text-slate-500 border border-transparent hover:bg-slate-50 hover:text-slate-800')
                             }`}>
                             <Icon className="w-[18px] h-[18px] shrink-0" strokeWidth={on ? 2.4 : 2} />
-                            <span className="truncate">{label}</span>
+                            <span className="truncate">{t(label)}</span>
                         </button>
                     );
                 })}
@@ -112,7 +116,7 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
                         active === 'configuracoes'
                             ? 'bg-emerald-500/10 text-emerald-500'
                             : (isDark ? 'text-slate-400 hover:bg-white/5 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800')}`}>
-                    <Settings className="w-[18px] h-[18px] shrink-0" /> <span className="truncate">Configurações e Cadastros</span>
+                    <Settings className="w-[18px] h-[18px] shrink-0" /> <span className="truncate">{t('nav.settings')}</span>
                 </button>
 
                 {/* Bloco do usuário (abaixo de Configurações e Cadastros) */}
@@ -137,7 +141,7 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
                 </div>
                 <button onClick={withClose(onLogout)}
                     className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-[13px] font-bold text-rose-500 hover:bg-rose-500/10 transition">
-                    <LogOut className="w-[18px] h-[18px]" /> Sair
+                    <LogOut className="w-[18px] h-[18px]" /> {t('nav.logout')}
                 </button>
             </div>
         </aside>

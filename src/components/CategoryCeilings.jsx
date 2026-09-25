@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../contexts/LanguageContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { categoryHex } from '../constants/categories';
@@ -24,6 +25,7 @@ const LEVEL = {
 };
 
 export default function CategoryCeilings({ isDark }) {
+    const { t, fmtMoney: money } = useI18n();
     const { currentUser, userPrefs, saveUserPreferences } = useAuth();
     const uid = currentUser?.uid;
     const mk = monthKeyNow();
@@ -58,9 +60,9 @@ export default function CategoryCeilings({ isDark }) {
             const budgets = { ...(userPrefs?.manualConfig?.categoryBudgets || {}) };
             if (value > 0) budgets[catId] = value; else delete budgets[catId];
             await saveUserPreferences({ manualConfig: { ...(userPrefs?.manualConfig || {}), categoryBudgets: budgets } });
-            toast.success(value > 0 ? 'Teto salvo!' : 'Teto removido.');
+            toast.success(value > 0 ? t('ceilr.saved') : t('ceilr.removed'));
             cancel();
-        } catch (e) { console.error(e); toast.error('Não foi possível salvar o teto.'); }
+        } catch (e) { console.error(e); toast.error(t('ceilr.errSave')); }
         setSaving(false);
     };
     const save = (catId) => persist(catId, numBR(draft));
@@ -77,38 +79,38 @@ export default function CategoryCeilings({ isDark }) {
                 <div className="min-w-0">
                     <h2 className={`text-[15px] font-black tracking-tight flex items-center gap-2.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>
                         <span className="w-7 h-7 rounded-lg bg-emerald-500/12 text-emerald-500 flex items-center justify-center shrink-0"><Target className="w-4 h-4" /></span>
-                        Teto por categoria
+                        {t('reg.ceilings')}
                     </h2>
-                    <p className={`text-[12px] mt-1 ${muted}`}>Quanto, no máximo, você quer gastar por mês em cada categoria. Ex.: até R$ 1.000 em Alimentação.</p>
+                    <p className={`text-[12px] mt-1 ${muted}`}>{t('reg.ceilingsDesc')}</p>
                 </div>
                 <span className={`shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
-                    {defined.length} de {rows.length} com teto
+                    {t('reg.withCeiling', { n: defined.length, total: rows.length })}
                 </span>
             </div>
 
             {/* Onde a Alívia avisa */}
             <div className={`px-4 sm:px-5 py-2.5 border-b flex items-center gap-x-4 gap-y-1 flex-wrap text-[11.5px] ${isDark ? 'border-white/[0.06] text-slate-400' : 'border-slate-100 text-slate-500'}`}>
-                <span className="inline-flex items-center gap-1.5"><LayoutDashboard className="w-3.5 h-3.5 text-emerald-500" /> Alívia avisa no <b>Dashboard</b></span>
-                <span className="inline-flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5 text-emerald-500" /> e no <b>WhatsApp</b> a cada gasto</span>
-                <span className={`inline-flex items-center gap-1.5 ${muted}`}>· a partir de {Math.round(NEAR_RATIO * 100)}% do teto</span>
+                <span className="inline-flex items-center gap-1.5"><LayoutDashboard className="w-3.5 h-3.5 text-emerald-500" /> {t('ceilr.aliviaWarns')}</span>
+                <span className="inline-flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5 text-emerald-500" /> {t('ceilr.andWhatsApp')}</span>
+                <span className={`inline-flex items-center gap-1.5 ${muted}`}>{t('ceilr.fromPct', { pct: Math.round(NEAR_RATIO * 100) })}</span>
             </div>
 
             {shown.length === 0 && !expanded ? (
                 <div className="py-10 text-center px-4">
                     <Target className={`w-7 h-7 mx-auto mb-2.5 ${muted}`} />
-                    <p className={`text-sm font-bold ${cell}`}>Nenhum teto definido ainda</p>
-                    <p className={`text-xs mt-1 ${muted}`}>Defina um limite mensal e a Alívia te avisa antes de estourar.</p>
+                    <p className={`text-sm font-bold ${cell}`}>{t('ceilr.noneYet')}</p>
+                    <p className={`text-xs mt-1 ${muted}`}>{t('ceilr.noneYetDesc')}</p>
                 </div>
             ) : (
                 <div className="overflow-x-auto">
                     <table className="w-full text-[13px]">
                         <thead>
                             <tr className={isDark ? 'bg-white/[0.03]' : 'bg-slate-50'}>
-                                <th className={th}>Categoria</th>
-                                <th className={`${th} hidden sm:table-cell`}>Gasto no mês</th>
-                                <th className={th}>Teto mensal</th>
-                                <th className={`${th} hidden md:table-cell w-[26%]`}>Uso</th>
-                                <th className={`${th} text-right`}>Ações</th>
+                                <th className={th}>{t('common.category')}</th>
+                                <th className={`${th} hidden sm:table-cell`}>{t('reg.spentInMonth')}</th>
+                                <th className={th}>{t('reg.monthlyCeiling')}</th>
+                                <th className={`${th} hidden md:table-cell w-[26%]`}>{t('reg.usage')}</th>
+                                <th className={`${th} text-right`}>{t('common.actions')}</th>
                             </tr>
                         </thead>
                         <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-slate-100'}`}>
@@ -124,7 +126,7 @@ export default function CategoryCeilings({ isDark }) {
                                                 <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${hex}1f`, color: hex }}>{Icon && <Icon className="w-4 h-4" />}</span>
                                                 <div className="min-w-0">
                                                     <p className={`font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{r.label}</p>
-                                                    <p className={`text-[11px] sm:hidden ${muted}`}>Gasto: R$ {money(r.spent)}</p>
+                                                    <p className={`text-[11px] sm:hidden ${muted}`}>{t('ceilr.spentLabel', { value: money(r.spent) })}</p>
                                                 </div>
                                             </div>
                                         </td>
@@ -140,7 +142,7 @@ export default function CategoryCeilings({ isDark }) {
                                             ) : r.ceiling > 0 ? (
                                                 <span className={`font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {money(r.ceiling)}</span>
                                             ) : (
-                                                <button onClick={() => startEdit(r)} className={`text-[12px] font-bold underline-offset-2 hover:underline ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Definir teto</button>
+                                                <button onClick={() => startEdit(r)} className={`text-[12px] font-bold underline-offset-2 hover:underline ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{t('reg.setCeiling')}</button>
                                             )}
                                         </td>
                                         <td className="px-4 py-2.5 hidden md:table-cell">
@@ -157,14 +159,14 @@ export default function CategoryCeilings({ isDark }) {
                                             <div className="flex items-center justify-end gap-0.5">
                                                 {isEd ? (
                                                     <>
-                                                        <button onClick={() => save(r.id)} disabled={saving} title="Salvar" className="p-2 rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" strokeWidth={3} />}</button>
-                                                        <button onClick={cancel} disabled={saving} title="Cancelar" className={`p-2 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><X className="w-4 h-4" /></button>
+                                                        <button onClick={() => save(r.id)} disabled={saving} title={t('common.save')} className="p-2 rounded-lg text-emerald-500 hover:bg-emerald-500/10 transition disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" strokeWidth={3} />}</button>
+                                                        <button onClick={cancel} disabled={saving} title={t('common.cancel')} className={`p-2 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}><X className="w-4 h-4" /></button>
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <button onClick={() => startEdit(r)} title={r.ceiling > 0 ? 'Editar teto' : 'Definir teto'}
+                                                        <button onClick={() => startEdit(r)} title={r.ceiling > 0 ? t('ceilr.editCeiling') : t('reg.setCeiling')}
                                                             className={`p-2 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5 hover:text-emerald-400' : 'hover:bg-slate-100 hover:text-emerald-600'}`}><Pencil className="w-4 h-4" /></button>
-                                                        <button onClick={() => persist(r.id, 0)} disabled={!(r.ceiling > 0) || saving} title="Remover teto"
+                                                        <button onClick={() => persist(r.id, 0)} disabled={!(r.ceiling > 0) || saving} title={t('ceilr.removeCeiling')}
                                                             className={`p-2 rounded-lg transition disabled:opacity-30 disabled:pointer-events-none ${muted} ${isDark ? 'hover:bg-white/5 hover:text-rose-500' : 'hover:bg-slate-100 hover:text-rose-500'}`}><Trash2 className="w-4 h-4" /></button>
                                                     </>
                                                 )}
@@ -181,7 +183,7 @@ export default function CategoryCeilings({ isDark }) {
             {/* Expandir / recolher */}
             <button onClick={() => { setExpanded(v => !v); cancel(); }}
                 className={`w-full flex items-center justify-center gap-1.5 px-4 py-3 border-t text-[12.5px] font-bold transition ${isDark ? 'border-white/[0.06] text-slate-300 hover:bg-white/[0.03]' : 'border-slate-100 text-slate-600 hover:bg-slate-50'}`}>
-                {expanded ? 'Mostrar só os maiores' : `Ver todas as categorias${hidden > 0 ? ` (${hidden} a mais)` : ''}`}
+                {expanded ? t('reg.showTopOnly') : `${t('reg.seeAllCategories')}${hidden > 0 ? ` ${t('ceilr.moreCount', { n: hidden })}` : ''}`}
                 <ChevronDown className={`w-4 h-4 text-emerald-500 transition-transform ${expanded ? 'rotate-180' : ''}`} />
             </button>
         </div>

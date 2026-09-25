@@ -8,6 +8,7 @@ import {
     setDoc, deleteDoc, doc, getDoc, collection, query, where, onSnapshot,
 } from 'firebase/firestore';
 import BankLogo, { detectBank } from '../components/ui/BankLogo';
+import { useI18n } from '../contexts/LanguageContext';
 import { setGeminiKey } from '../services/gemini';
 import { downloadUserData } from '../utils/dataExport';
 import { toast } from '../components/ui/Toaster';
@@ -20,7 +21,7 @@ import aliviaFinal from '../assets/alivia/alivia-final.png';
 import {
     Settings, User, Sparkles, Palette, ShieldCheck, ClipboardList, SlidersHorizontal, Crown,
     KeyRound, ExternalLink, Check, Eye, EyeOff, Trash2, Loader2, Copy,
-    Lock, Sun, Moon, Download, FileText, Mail, Link2, Unlink, AlertTriangle, Banknote, CreditCard,
+    Lock, Sun, Moon, Download, FileText, Mail, Link2, Unlink, AlertTriangle, Banknote, CreditCard, Languages,
     CheckCircle2, RefreshCw, Camera, Upload, Bell, Zap, CalendarClock, FileBarChart, Wallet, Pencil,
 } from 'lucide-react';
 
@@ -78,11 +79,11 @@ const fileToDataUrl = (file, max = 512) => new Promise((resolve, reject) => {
 
 // Abas na horizontal (segmented control; rolável no mobile).
 const TABS = [
-    { id: 'geral', label: 'Geral', icon: SlidersHorizontal },
-    { id: 'cadastros', label: 'Cadastros', icon: ClipboardList },
-    { id: 'whatsapp', label: 'WhatsApp', icon: WhatsAppIcon },
-    { id: 'assinatura', label: 'Assinatura', icon: Crown },
-    { id: 'dados', label: 'Dados e Privacidade', icon: ShieldCheck },
+    { id: 'geral', label: 'settings.tabGeneral', icon: SlidersHorizontal },
+    { id: 'cadastros', label: 'settings.tabRegistry', icon: ClipboardList },
+    { id: 'whatsapp', label: 'settings.tabWhatsApp', icon: WhatsAppIcon },
+    { id: 'assinatura', label: 'settings.tabSubscription', icon: Crown },
+    { id: 'dados', label: 'settings.tabData', icon: ShieldCheck },
 ];
 // Compatibilidade com deep-links antigos (?tab=perfil / ?tab=conta → Geral).
 const LEGACY_TAB = { perfil: 'geral', conta: 'geral', aparencia: 'geral' };
@@ -90,6 +91,7 @@ const resolveTab = (id) => LEGACY_TAB[id] || (TABS.some(t => t.id === id) ? id :
 
 export default function Configuracoes() {
     const { theme, toggleTheme } = useTheme();
+    const { t } = useI18n();
     const isDark = theme !== 'light';
     const [searchParams, setSearchParams] = useSearchParams();
     const paramTab = searchParams.get('tab');
@@ -100,7 +102,7 @@ export default function Configuracoes() {
     const goTab = (t) => { setTab(t); setSearchParams({ tab: t }, { replace: true }); };
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
-    const current = TABS.find(t => t.id === tab) || TABS[0];
+    const current = TABS.find(x => x.id === tab) || TABS[0];
 
     return (
         <div className="max-w-4xl mx-auto w-full">
@@ -110,31 +112,31 @@ export default function Configuracoes() {
                     <Settings className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={2.2} />
                 </span>
                 <div className="min-w-0">
-                    <h1 className={`text-xl sm:text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Configurações e Cadastros</h1>
-                    <p className={`text-[13px] sm:text-sm mt-0.5 ${muted}`}>Sua conta, seus cadastros e as preferências do Alívia.</p>
+                    <h1 className={`text-xl sm:text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('settings.title')}</h1>
+                    <p className={`text-[13px] sm:text-sm mt-0.5 ${muted}`}>{t('settings.subtitle')}</p>
                 </div>
             </div>
 
             {/* Abas — linha horizontal (segmented control), rolável no mobile */}
-            <div role="tablist" aria-label="Seções"
+            <div role="tablist" aria-label={t('settings.sections')}
                 className={`flex items-center gap-1 overflow-x-auto no-scrollbar p-1 mb-6 rounded-2xl border ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-100/70'}`}>
-                {TABS.map(t => {
-                    const Icon = t.icon;
-                    const on = tab === t.id;
+                {TABS.map(tab_ => {
+                    const Icon = tab_.icon;
+                    const on = tab === tab_.id;
                     return (
-                        <button key={t.id} onClick={() => goTab(t.id)} role="tab" aria-selected={on}
+                        <button key={tab_.id} onClick={() => goTab(tab_.id)} role="tab" aria-selected={on}
                             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold whitespace-nowrap transition-all duration-200 active:scale-[0.97] ${on
                                 ? (isDark ? 'bg-emerald-500/15 text-emerald-400 shadow-sm ring-1 ring-emerald-500/25' : 'bg-white text-emerald-600 shadow-[0_2px_8px_-2px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/15')
                                 : (isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]' : 'text-slate-500 hover:text-slate-800 hover:bg-white/70')}`}>
-                            <Icon className="w-4 h-4" strokeWidth={on ? 2.5 : 2} /> {t.label}
+                            <Icon className="w-4 h-4" strokeWidth={on ? 2.5 : 2} /> {t(tab_.label)}
                         </button>
                     );
                 })}
             </div>
 
             {/* Conteúdo da aba */}
-            <div role="tabpanel" aria-label={current.label}>
-                {tab === 'geral' && <div className="space-y-4"><PerfilTab isDark={isDark} /><AparenciaTab isDark={isDark} toggleTheme={toggleTheme} /><ContaTab isDark={isDark} /></div>}
+            <div role="tabpanel" aria-label={t(current.label)}>
+                {tab === 'geral' && <div className="space-y-4"><PerfilTab isDark={isDark} /><AparenciaTab isDark={isDark} toggleTheme={toggleTheme} /><IdiomaTab isDark={isDark} /><ContaTab isDark={isDark} /></div>}
                 {tab === 'cadastros' && <CadastrosTab isDark={isDark} />}
                 {tab === 'whatsapp' && <WhatsAppTab isDark={isDark} />}
                 {tab === 'assinatura' && <Assinatura embedded />}
@@ -187,6 +189,7 @@ const avatarStyle = (pos) => ({ width: '100%', height: '100%', objectFit: 'cover
 
 // ── Perfil ──────────────────────────────────────────────────────────
 function PerfilTab({ isDark }) {
+    const { t } = useI18n();
     const { currentUser, planLevel, userPrefs, saveUserPreferences, refreshUser } = useAuth();
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const badge = planBadge(planLevel);
@@ -269,15 +272,15 @@ function PerfilTab({ isDark }) {
                 <div className="flex items-center gap-2 mt-4 flex-wrap">
                     <button onClick={() => fileRef.current?.click()}
                         className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
-                        <Upload className="w-4 h-4" /> {hasCustomPhoto ? 'Trocar foto' : 'Enviar foto'}
+                        <Upload className="w-4 h-4" /> {hasCustomPhoto ? t('settings.changePhoto') : t('settings.sendPhoto')}
                     </button>
                     {hasCustomPhoto && (
                         <>
                             <button onClick={() => setEditor({ src: avatar })} className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
-                                <Camera className="w-4 h-4" /> Ajustar posição
+                                <Camera className="w-4 h-4" /> {t('settings.adjustPosition')}
                             </button>
                             <button onClick={removePhoto} className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold transition ${isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'}`}>
-                                <Trash2 className="w-4 h-4" /> Remover
+                                <Trash2 className="w-4 h-4" /> {t('settings.remove')}
                             </button>
                         </>
                     )}
@@ -289,36 +292,36 @@ function PerfilTab({ isDark }) {
             {/* Nome de exibição */}
             <Card isDark={isDark}>
                 <SectionTitle isDark={isDark} icon={User}
-                    right={currentUser?.displayName ? <Badge tone="emerald">Definido</Badge> : <Badge tone="amber">Pendente</Badge>}>
-                    Nome de exibição
+                    right={currentUser?.displayName ? <Badge tone="emerald">{t('settings.nameDefined')}</Badge> : <Badge tone="amber">{t('settings.namePending')}</Badge>}>
+                    {t('settings.displayName')}
                 </SectionTitle>
 
                 {currentUser?.displayName && !editingName ? (
                     /* ── Estado DEFINIDO (read-only) ── */
                     <div className={`animate-in fade-in duration-200 flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-50'}`}>
                         <div className="min-w-0">
-                            <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Como te chamamos</p>
+                            <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">{t('settings.howWeCallYou')}</p>
                             <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{currentUser.displayName}</p>
                         </div>
                         <button onClick={() => setEditingName(true)}
                             className={`shrink-0 px-3.5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition active:scale-[0.97] border ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
-                            <Pencil className="w-4 h-4" /> Editar
+                            <Pencil className="w-4 h-4" /> {t('common.edit')}
                         </button>
                     </div>
                 ) : (
                     /* ── Estado EDIÇÃO ── */
                     <div className="animate-in fade-in duration-200">
                         <div className="flex gap-2">
-                            <input value={name} onChange={e => setName(e.target.value)} placeholder="Como quer ser chamado(a)" className={inputCls} maxLength={40} autoFocus={editingName} />
+                            <input value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.namePlaceholder')} className={inputCls} maxLength={40} autoFocus={editingName} />
                             <button onClick={saveName} disabled={savingName || !name.trim() || name.trim() === currentUser?.displayName}
                                 className="shrink-0 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-2 transition disabled:opacity-50">
-                                {savingName ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Salvar
+                                {savingName ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} {t('common.save')}
                             </button>
                         </div>
                         <div className="flex items-center gap-3 mt-2 flex-wrap">
                             {currentUser?.displayName && (
                                 <button onClick={cancelName} className={`px-3.5 py-2 rounded-xl text-[13px] font-bold transition active:scale-[0.97] ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                                    Cancelar
+                                    {t('common.cancel')}
                                 </button>
                             )}
                             {nameFlash && <span className="text-[12px] font-bold text-emerald-500 animate-in fade-in slide-in-from-left-1">{nameFlash}</span>}
@@ -390,6 +393,7 @@ function pwErrorMsg(code) {
 }
 
 function ChangePasswordCard({ isDark }) {
+    const { t } = useI18n();
     const { currentUser, changePassword } = useAuth();
     const hasPassword = (currentUser?.providerData || []).some(p => p.providerId === 'password');
     const [current, setCurrent] = useState('');
@@ -432,19 +436,19 @@ function ChangePasswordCard({ isDark }) {
 
     return (
         <Card isDark={isDark}>
-            <SectionTitle isDark={isDark} icon={Lock}>Alterar senha</SectionTitle>
+            <SectionTitle isDark={isDark} icon={Lock}>{t('settings.changePassword')}</SectionTitle>
             {ok ? (
                 <div className="flex items-center gap-2 text-emerald-500 font-bold text-sm py-2"><CheckCircle2 className="w-5 h-5" /> Senha alterada com sucesso!</div>
             ) : (
                 <form onSubmit={submit} className="space-y-3">
                     {error && <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-3 py-2.5 rounded-xl text-[12px] text-center font-bold">{error}</div>}
-                    <div className="relative"><Lock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} /><input type={show ? 'text' : 'password'} autoComplete="current-password" value={current} onChange={e => setCurrent(e.target.value)} placeholder="Senha atual" className={inputCls} />{eye}</div>
-                    <div className="relative"><Lock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} /><input type={show ? 'text' : 'password'} autoComplete="new-password" value={next} onChange={e => setNext(e.target.value)} placeholder="Nova senha (mín. 6)" className={inputCls} />{eye}</div>
-                    <div className="relative"><Lock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} /><input type={show ? 'text' : 'password'} autoComplete="new-password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Confirmar nova senha" className={inputCls} />{eye}</div>
+                    <div className="relative"><Lock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} /><input type={show ? 'text' : 'password'} autoComplete="current-password" value={current} onChange={e => setCurrent(e.target.value)} placeholder={t('settings.currentPassword')} className={inputCls} />{eye}</div>
+                    <div className="relative"><Lock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} /><input type={show ? 'text' : 'password'} autoComplete="new-password" value={next} onChange={e => setNext(e.target.value)} placeholder={t('settings.newPassword')} className={inputCls} />{eye}</div>
+                    <div className="relative"><Lock className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} /><input type={show ? 'text' : 'password'} autoComplete="new-password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder={t('settings.confirmPassword')} className={inputCls} />{eye}</div>
                     {/* Botão só aparece quando há algo digitado (sem alteração, sem botão). */}
                     {(current || next || confirm) && (
                         <button type="submit" disabled={loading} className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-70 animate-in fade-in slide-in-from-top-1 duration-200">
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> Salvar nova senha</>}
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {t('settings.saveNewPassword')}</>}
                         </button>
                     )}
                 </form>
@@ -479,10 +483,10 @@ const DEFAULT_WA_CONFIG = {
     defaultPayment: 'pix', defaultCardId: '',
 };
 const PAY_OPTIONS = [
-    { id: 'pix', label: 'PIX', desc: 'Sai do saldo em conta', icon: Zap },
-    { id: 'debito', label: 'Débito', desc: 'Sai do saldo em conta', icon: Wallet },
-    { id: 'dinheiro', label: 'Dinheiro', desc: 'Sai do saldo em conta', icon: Banknote },
-    { id: 'credito', label: 'Cartão de crédito', desc: 'Vai para a fatura', icon: CreditCard },
+    { id: 'pix', label: 'PIX', desc: 'wac.fromAccount', icon: Zap },
+    { id: 'debito', label: 'wac.debit', i18n: true, desc: 'wac.fromAccount', icon: Wallet },
+    { id: 'dinheiro', label: 'wac.cash', i18n: true, desc: 'wac.fromAccount', icon: Banknote },
+    { id: 'credito', label: 'recf.creditCard', i18n: true, desc: 'wac.toInvoice', icon: CreditCard },
 ];
 
 // Estado da integração de WhatsApp — feedback visual único e claro.
@@ -497,6 +501,7 @@ function waIntegrationStatus({ loading, connecting, hasError, connected, hasKey 
 }
 
 export function WhatsAppTab({ isDark, onGoTo }) {
+    const { t } = useI18n();
     const { currentUser, userPrefs, saveUserPreferences } = useAuth();
     const uid = currentUser?.uid;
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
@@ -523,8 +528,8 @@ export function WhatsAppTab({ isDark, onGoTo }) {
     const savePayment = async (patch) => {
         const next = { ...cfg, ...patch };
         setCfg(next);
-        try { await saveUserPreferences({ whatsapp: { ...next, number: String(next.number || '').replace(/\D/g, '') } }); toast.success('Forma de pagamento padrão salva!'); }
-        catch (e) { console.error(e); toast.error('Não foi possível salvar.'); }
+        try { await saveUserPreferences({ whatsapp: { ...next, number: String(next.number || '').replace(/\D/g, '') } }); toast.success(t('wac.okPayment')); }
+        catch (e) { console.error(e); toast.error(t('wac.errSave')); }
     };
     const [savingCfg, setSavingCfg] = useState(false);
     const [cfgFlash, setCfgFlash] = useState('');
@@ -540,8 +545,8 @@ export function WhatsAppTab({ isDark, onGoTo }) {
         setSavingCfg(true); setCfgFlash('');
         try {
             await saveUserPreferences({ whatsapp: { ...cfg, number: String(cfg.number || '').replace(/\D/g, '') } });
-            setCfgFlash('Configurações salvas!'); toast.success('Configurações salvas!');
-        } catch (e) { console.error(e); setCfgFlash('Não foi possível salvar.'); toast.error('Não foi possível salvar.'); }
+            setCfgFlash(t('wac.savedCfg')); toast.success(t('wac.savedCfg'));
+        } catch (e) { console.error(e); setCfgFlash(t('wac.errSave')); toast.error(t('wac.errSave')); }
         setSavingCfg(false);
         setTimeout(() => setCfgFlash(''), 2500);
     };
@@ -593,7 +598,7 @@ export function WhatsAppTab({ isDark, onGoTo }) {
                 </span>
                 <div className="min-w-0">
                     <h2 className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>WhatsApp</h2>
-                    <p className={`text-[13px] mt-0.5 ${muted}`}>Fale com a Alívia e cuide das finanças direto no seu WhatsApp.</p>
+                    <p className={`text-[13px] mt-0.5 ${muted}`}>{t('wac.intro')}</p>
                 </div>
             </div>
 
@@ -604,8 +609,8 @@ export function WhatsAppTab({ isDark, onGoTo }) {
                         <WhatsAppIcon className="w-6 h-6" />
                     </span>
                     <div className="min-w-0 flex-1">
-                        <h3 className={`text-[15px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Conexão</h3>
-                        <p className={`text-[12px] mt-0.5 ${muted}`}>Vincule seu número do WhatsApp à Alívia.</p>
+                        <h3 className={`text-[15px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('wa.connection')}</h3>
+                        <p className={`text-[12px] mt-0.5 ${muted}`}>{t('wa.connectionDesc')}</p>
                     </div>
                     <Badge tone={status.tone}>{status.label}</Badge>
                 </div>
@@ -614,7 +619,7 @@ export function WhatsAppTab({ isDark, onGoTo }) {
                     {!loading && linked.length === 0 && !code && (
                         <>
                             <div>
-                                <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Seu número de WhatsApp</span>
+                                <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">{t('wac.yourNumber')}</span>
                                 <div className="relative">
                                     <WhatsAppIcon className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${muted}`} />
                                     <input inputMode="tel" value={cfg.number}
@@ -622,12 +627,12 @@ export function WhatsAppTab({ isDark, onGoTo }) {
                                         onKeyDown={e => { if (e.key === 'Enter') conectar(); }}
                                         placeholder="Ex.: +55 21 99999-9999" className={inputCls} />
                                 </div>
-                                <p className={`text-[11px] mt-1.5 ${muted}`}>Com DDD (e país). Usamos para reconhecer você e enviar as notificações que escolher.</p>
+                                <p className={`text-[11px] mt-1.5 ${muted}`}>{t('wac.numberHint')}</p>
                             </div>
 
                             <button onClick={conectar} disabled={generating}
                                 className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold transition active:scale-95 disabled:opacity-60 shadow-md shadow-emerald-500/25">
-                                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <WhatsAppIcon className="w-4 h-4" />} Conversar com a Alívia no WhatsApp
+                                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <WhatsAppIcon className="w-4 h-4" />} {t('wac.talkToAlivia')}
                             </button>
                         </>
                     )}
@@ -647,7 +652,7 @@ export function WhatsAppTab({ isDark, onGoTo }) {
                                     <div className="flex items-center gap-2.5 min-w-0">
                                         <span className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0"><Link2 className="w-4 h-4" /></span>
                                         <div className="min-w-0">
-                                            <p className={`text-[13px] font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>WhatsApp vinculado</p>
+                                            <p className={`text-[13px] font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('wac.linked')}</p>
                                             <p className={`text-[12px] ${muted}`}>+{maskPhone(l.phone)}</p>
                                         </div>
                                     </div>
@@ -658,20 +663,20 @@ export function WhatsAppTab({ isDark, onGoTo }) {
                     ) : code ? (
                         /* Fallback: já geramos o código e abrimos o WhatsApp — caso não abra. */
                         <div className={`rounded-2xl border p-4 ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-50'}`}>
-                            <p className={`text-[12px] ${cell}`}>Não abriu automaticamente? Abra a conversa da <b>Alívia</b> e envie este código (ou toque em "Abrir o WhatsApp"):</p>
+                            <p className={`text-[12px] ${cell}`}>{t('wac.codeFallback')}</p>
                             <div className="flex items-center gap-2 mt-2 flex-wrap">
                                 <span className="text-2xl font-black tracking-[0.3em] tabular-nums text-emerald-500">{code}</span>
                                 <button onClick={copiar} className={`p-2 rounded-lg text-[12px] font-bold flex items-center gap-1.5 transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
-                                    {copied ? <><Check className="w-3.5 h-3.5 text-emerald-500" /> Copiado</> : <><Copy className="w-3.5 h-3.5" /> Copiar</>}
+                                    {copied ? <><Check className="w-3.5 h-3.5 text-emerald-500" /> {t('wac.copied')}</> : <><Copy className="w-3.5 h-3.5" /> {t('wac.copy')}</>}
                                 </button>
                             </div>
                             <div className="flex items-center gap-2 mt-3 flex-wrap">
                                 <a href={waLink} target="_blank" rel="noopener noreferrer"
                                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold transition active:scale-95">
-                                    <WhatsAppIcon className="w-4 h-4" /> Abrir o WhatsApp <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                                    <WhatsAppIcon className="w-4 h-4" /> {t('wac.openWhatsApp')} <ExternalLink className="w-3.5 h-3.5 opacity-80" />
                                 </a>
                                 <button onClick={refresh} className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] font-bold transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
-                                    <Check className="w-4 h-4" /> Já vinculei
+                                    <Check className="w-4 h-4" /> {t('wac.alreadyLinked')}
                                 </button>
                             </div>
                             {error && <p className="text-[12px] font-bold text-rose-500 mt-2">{error}</p>}
@@ -682,7 +687,7 @@ export function WhatsAppTab({ isDark, onGoTo }) {
 
                     <div className={`mt-4 rounded-xl border px-3.5 py-3 flex items-start gap-3 text-[12px] ${isDark ? 'border-white/10 bg-white/[0.02] text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
                         <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                        O código é de uso único e expira quando usado. Gastos óbvios (padaria, uber, farmácia…) a Alívia lança na hora e te avisa; se errar a categoria, é só responder "trocar".
+                        {t('wac.securityNote')}
                     </div>
                 </div>
             </div>
@@ -694,11 +699,11 @@ export function WhatsAppTab({ isDark, onGoTo }) {
                         <Wallet className="w-5 h-5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                        <h3 className={`text-[15px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Forma de pagamento padrão</h3>
-                        <p className={`text-[12px] mt-0.5 ${muted}`}>Quando você manda um gasto sem dizer como pagou, a Alívia lança nesta forma.</p>
+                        <h3 className={`text-[15px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('wa.defaultPayment')}</h3>
+                        <p className={`text-[12px] mt-0.5 ${muted}`}>{t('wa.defaultPaymentDesc')}</p>
                     </div>
                     <Badge tone={cfg.defaultPayment === 'credito' ? 'blue' : 'emerald'}>
-                        {PAY_OPTIONS.find(o => o.id === cfg.defaultPayment)?.label || 'PIX'}
+                        {(() => { const o = PAY_OPTIONS.find(x => x.id === cfg.defaultPayment); return o ? (o.i18n ? t(o.label) : o.label) : 'PIX'; })()}
                         {cfg.defaultPayment === 'credito' && cfg.defaultCardId ? ` · ${cards.find(c => c.id === cfg.defaultCardId)?.name || 'cartão'}` : ''}
                     </Badge>
                 </div>
@@ -715,8 +720,8 @@ export function WhatsAppTab({ isDark, onGoTo }) {
                                                   : (isDark ? 'border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/30' : 'border-emerald-300 bg-emerald-50 ring-1 ring-emerald-200'))
                                         : (isDark ? 'border-white/10 bg-white/[0.02] hover:border-white/20' : 'border-slate-200 bg-white hover:border-slate-300')}`}>
                                     <span className={`w-9 h-9 rounded-xl flex items-center justify-center mb-2 ${on ? (credit ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-white') : (isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500')}`}><Icon className="w-4 h-4" /></span>
-                                    <p className={`text-[13px] font-black ${on ? (isDark ? 'text-white' : 'text-slate-800') : (isDark ? 'text-slate-300' : 'text-slate-700')}`}>{o.label}</p>
-                                    <p className={`text-[11px] mt-0.5 ${muted}`}>{o.desc}</p>
+                                    <p className={`text-[13px] font-black ${on ? (isDark ? 'text-white' : 'text-slate-800') : (isDark ? 'text-slate-300' : 'text-slate-700')}`}>{o.i18n ? t(o.label) : o.label}</p>
+                                    <p className={`text-[11px] mt-0.5 ${muted}`}>{t(o.desc)}</p>
                                 </button>
                             );
                         })}
@@ -725,10 +730,10 @@ export function WhatsAppTab({ isDark, onGoTo }) {
                     {/* Cartão de crédito: precisa dizer QUAL (pode haver mais de um) */}
                     {cfg.defaultPayment === 'credito' && (
                         <div className={`mt-4 rounded-2xl border p-4 ${isDark ? 'border-blue-500/20 bg-blue-500/[0.05]' : 'border-blue-200 bg-blue-50/60'}`}>
-                            <p className={`text-[11px] font-black uppercase tracking-widest mb-2.5 ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>Qual cartão?</p>
+                            <p className={`text-[11px] font-black uppercase tracking-widest mb-2.5 ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>{t('wac.whichCard')}</p>
                             {cards.length === 0 ? (
                                 <p className={`text-[12.5px] ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                                    Você ainda não tem cartão cadastrado. Cadastre em <b>Cadastros</b>; até lá, os gastos vão para o saldo em conta (PIX).
+                                    {t('wac.noCardsForDefault')}
                                 </p>
                             ) : (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -756,7 +761,7 @@ export function WhatsAppTab({ isDark, onGoTo }) {
 
                     <p className={`text-[12px] mt-4 flex items-start gap-2 ${muted}`}>
                         <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5 text-emerald-500" />
-                        <span>Isso é só o padrão. Se você disser como pagou ("paguei 40 no pix", "passei 200 no cartão do Nubank"), a Alívia respeita o que você falou.</span>
+                        <span>{t('wac.paymentNote')}</span>
                     </p>
                 </div>
             </div>
@@ -768,27 +773,27 @@ export function WhatsAppTab({ isDark, onGoTo }) {
                         <Bell className="w-5 h-5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                        <h3 className={`text-[15px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Notificações</h3>
-                        <p className={`text-[12px] mt-0.5 ${muted}`}>Escolha o que a Alívia te envia no WhatsApp.</p>
+                        <h3 className={`text-[15px] font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('wa.notifications')}</h3>
+                        <p className={`text-[12px] mt-0.5 ${muted}`}>{t('wa.notificationsDesc')}</p>
                     </div>
                     <Badge tone={notifBadge.tone}>{notifBadge.label}</Badge>
                 </div>
                 <div className="p-5 sm:p-6">
                     <div className={`divide-y ${isDark ? 'divide-white/[0.06]' : 'divide-slate-100'}`}>
-                        <SwitchRow isDark={isDark} icon={Bell} title="Ativar notificações"
-                            desc="Receber mensagens da Alívia no seu WhatsApp."
+                        <SwitchRow isDark={isDark} icon={Bell} title={t('wac.enableNotif')}
+                            desc={t('wac.enableNotifDesc')}
                             on={cfg.enabled} onClick={() => setC({ enabled: !cfg.enabled })} />
-                        <SwitchRow isDark={isDark} icon={Zap} title="Alertas de gasto"
-                            desc="Avisos de gasto alto ou saldo perto do negativo."
+                        <SwitchRow isDark={isDark} icon={Zap} title={t('wac.spendAlerts')}
+                            desc={t('wac.spendAlertsDesc')}
                             on={cfg.spendingAlerts} disabled={!cfg.enabled} onClick={() => setC({ spendingAlerts: !cfg.spendingAlerts })} />
-                        <SwitchRow isDark={isDark} icon={CalendarClock} title="Lembretes de contas"
-                            desc="Aviso quando uma conta ou fatura está perto de vencer."
+                        <SwitchRow isDark={isDark} icon={CalendarClock} title={t('wac.billReminders')}
+                            desc={t('wac.billRemindersDesc')}
                             on={cfg.billReminders} disabled={!cfg.enabled} onClick={() => setC({ billReminders: !cfg.billReminders })} />
-                        <SwitchRow isDark={isDark} icon={FileBarChart} title="Relatório semanal"
-                            desc="Um fechamento com o resumo da semana."
+                        <SwitchRow isDark={isDark} icon={FileBarChart} title={t('wac.weeklyReport')}
+                            desc={t('wac.weeklyReportDesc')}
                             on={cfg.weeklyReport} disabled={!cfg.enabled} onClick={() => setC({ weeklyReport: !cfg.weeklyReport })} />
-                        <SwitchRow isDark={isDark} icon={WhatsAppIcon} title="Registrar gastos por mensagem"
-                            desc="Permitir lançar despesas escrevendo pra Alívia (ex.: “uber 23”). Categoria óbvia ela lança direto; em dúvida, pergunta."
+                        <SwitchRow isDark={isDark} icon={WhatsAppIcon} title={t('wac.logByMessage')}
+                            desc={t('wac.logByMessageDesc')}
                             on={cfg.allowExpenseEntry} onClick={() => setC({ allowExpenseEntry: !cfg.allowExpenseEntry })} />
                     </div>
 
@@ -799,11 +804,11 @@ export function WhatsAppTab({ isDark, onGoTo }) {
                                 <>
                                     <button onClick={saveCfg} disabled={savingCfg}
                                         className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center gap-2 transition disabled:opacity-60">
-                                        {savingCfg ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Salvar alterações
+                                        {savingCfg ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} {t('common.saveChanges')}
                                     </button>
                                     <button onClick={() => setCfg(savedCfg)} disabled={savingCfg}
                                         className={`px-3.5 py-2.5 rounded-xl text-sm font-bold transition ${isDark ? 'text-slate-400 hover:bg-white/5 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}>
-                                        Descartar
+                                        {t('common.discard')}
                                     </button>
                                 </>
                             )}
@@ -969,19 +974,74 @@ function IATab({ isDark, onSavedChange, bare }) {
 
 // ── Aparência ───────────────────────────────────────────────────────
 function AparenciaTab({ isDark, toggleTheme }) {
+    const { t } = useI18n();
     return (
         <Card isDark={isDark}>
-            <SectionTitle isDark={isDark} icon={Palette}>Aparência</SectionTitle>
+            <SectionTitle isDark={isDark} icon={Palette}>{t('settings.appearance')}</SectionTitle>
             <div className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3.5 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'}`}>
                 <div>
-                    <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Tema {isDark ? 'escuro' : 'claro'}</p>
-                    <p className="text-[12px] text-slate-500 mt-0.5">Alterne entre claro e escuro conforme sua preferência.</p>
+                    <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('settings.themeNow', { theme: isDark ? t('settings.themeDark') : t('settings.themeLight') })}</p>
+                    <p className="text-[12px] text-slate-500 mt-0.5">{t('settings.themeDesc')}</p>
                 </div>
                 <button onClick={toggleTheme}
                     className={`p-3 rounded-xl border transition active:scale-95 ${isDark ? 'bg-slate-800 border-white/10 text-amber-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                     {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                 </button>
             </div>
+        </Card>
+    );
+}
+
+// ── Idioma ──────────────────────────────────────────────────────────
+// Troca o idioma de toda a plataforma na hora (e guarda na conta).
+function IdiomaTab({ isDark }) {
+    const { t, lang, setLang, languages, fmtMonth } = useI18n();
+    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
+    const atual = languages.find(l => l.id === lang) || languages[0];
+
+    const escolher = (id) => {
+        if (id === lang) return;
+        setLang(id);
+        // O toast já sai no idioma novo (o dicionário troca junto com o estado).
+        setTimeout(() => toast.success(languages.find(l => l.id === id)?.dict?.['settings.languageSaved'] || 'Idioma alterado!'), 0);
+    };
+
+    return (
+        <Card isDark={isDark}>
+            <SectionTitle isDark={isDark} icon={Languages}
+                right={<Badge tone="emerald" dot={false}>{atual.flag} {atual.label}</Badge>}>
+                {t('settings.language')}
+            </SectionTitle>
+            <p className={`text-[13px] mb-4 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{t('settings.languageDesc')}</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {languages.map(l => {
+                    const on = l.id === lang;
+                    return (
+                        <button key={l.id} type="button" onClick={() => escolher(l.id)} aria-pressed={on}
+                            className={`flex items-center gap-3 rounded-2xl border p-3.5 text-left transition active:scale-[0.98] ${on
+                                ? (isDark ? 'border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/30' : 'border-emerald-300 bg-emerald-50 ring-1 ring-emerald-200')
+                                : (isDark ? 'border-white/10 bg-white/[0.02] hover:border-white/20' : 'border-slate-200 bg-white hover:border-slate-300')}`}>
+                            <span className="text-2xl leading-none shrink-0" aria-hidden="true">{l.flag}</span>
+                            <span className="min-w-0 flex-1">
+                                <span className={`block text-[13.5px] font-black truncate ${on ? (isDark ? 'text-white' : 'text-slate-800') : (isDark ? 'text-slate-300' : 'text-slate-700')}`}>{l.label}</span>
+                                <span className={`block text-[11px] truncate ${muted}`}>{l.native}</span>
+                            </span>
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${on ? 'bg-emerald-500 text-white' : (isDark ? 'bg-white/10' : 'bg-slate-200')}`}>
+                                {on && <Check className="w-3 h-3" strokeWidth={3} />}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Prévia do formato de números e datas no idioma escolhido */}
+            <div className={`mt-4 rounded-xl border px-3.5 py-3 flex items-center gap-x-5 gap-y-1 flex-wrap text-[12px] ${isDark ? 'border-white/10 bg-white/[0.02] text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>
+                <span className="inline-flex items-center gap-1.5"><Languages className="w-3.5 h-3.5 text-emerald-500" /> {t('settings.languageCurrent')}: <b>{atual.native}</b></span>
+                <span>R$ {(1234.5).toLocaleString(atual.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="capitalize">{fmtMonth(new Date().toISOString().slice(0, 7))}</span>
+            </div>
+            <p className={`text-[11px] mt-2 ${muted}`}>{t('settings.languageNote')}</p>
         </Card>
     );
 }

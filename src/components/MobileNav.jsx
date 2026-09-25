@@ -9,6 +9,7 @@ import {
     LogOut, Sun, Moon, Users, ChevronRight, CheckCircle2,
 } from 'lucide-react';
 import WhatsAppIcon from './ui/WhatsAppIcon';
+import { useI18n } from '../contexts/LanguageContext';
 
 // Navegação mobile nativa: bottom navigation fixa + sheet "Mais".
 // Reutiliza as MESMAS rotas/telas do desktop (via `go(id)`), só reorganiza
@@ -16,16 +17,17 @@ import WhatsAppIcon from './ui/WhatsAppIcon';
 
 // Áreas de uso diário na barra inferior (as demais vão pro "Mais").
 const BOTTOM = [
-    { id: 'dashboard', label: 'Início', icon: Home },
-    { id: 'lancamentos', label: 'Lançamentos', icon: ArrowLeftRight },
-    { id: 'analises', label: 'Análises', icon: BarChart3 },
-    { id: 'cartoes', label: 'Cartão', icon: CreditCard },
+    { id: 'dashboard', label: 'nav.home', icon: Home },
+    { id: 'lancamentos', label: 'nav.transactions', icon: ArrowLeftRight },
+    { id: 'analises', label: 'nav.analysis', icon: BarChart3 },
+    { id: 'cartoes', label: 'nav.card', icon: CreditCard },
 ];
 // Telas que vivem dentro do "Mais" (usadas p/ marcar a aba "Mais" como ativa).
 const IN_MORE = ['recorrentes', 'reservas', 'patrimonio', 'manual', 'configuracoes', 'gerenciar-usuarios'];
 
 export default function MobileNav({ active, go, onOpenProfile, onLogout }) {
     const { theme, toggleTheme } = useTheme();
+    const { t } = useI18n();
     const isDark = theme !== 'light';
     const { currentUser, planLevel, isAdmin } = useAuth();
     const { connected, loading: waLoading } = useWhatsAppStatus();
@@ -91,7 +93,7 @@ export default function MobileNav({ active, go, onOpenProfile, onLogout }) {
                         return (
                             <button key={id} onClick={() => nav(id)} className={tabCls(on)} aria-current={on ? 'page' : undefined}>
                                 <Icon className="w-[22px] h-[22px]" strokeWidth={on ? 2.5 : 2} />
-                                <span className="text-[9px] font-bold leading-none tracking-tight whitespace-nowrap">{label}</span>
+                                <span className="text-[9px] font-bold leading-none tracking-tight whitespace-nowrap">{t(label)}</span>
                             </button>
                         );
                     })}
@@ -102,7 +104,7 @@ export default function MobileNav({ active, go, onOpenProfile, onLogout }) {
                                 <span className={`absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ${isDark ? 'ring-[#0a0a0a]' : 'ring-white'}`} />
                             )}
                         </span>
-                        <span className="text-[9px] font-bold leading-none tracking-tight">Mais</span>
+                        <span className="text-[9px] font-bold leading-none tracking-tight">{t('nav.more')}</span>
                     </button>
                 </div>
             </nav>
@@ -135,26 +137,26 @@ export default function MobileNav({ active, go, onOpenProfile, onLogout }) {
                                 <ChevronRight className={`w-4 h-4 shrink-0 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
                             </button>
 
-                            <GroupLabel>Finanças</GroupLabel>
-                            <Row icon={Repeat} label="Recorrentes" onClick={() => nav('recorrentes')} />
-                            <Row icon={PiggyBank} label="Reservas" onClick={() => nav('reservas')} />
-                            <Row icon={Landmark} label="Patrimônio" onClick={() => nav('patrimonio')} />
+                            <GroupLabel>{t('nav.finances')}</GroupLabel>
+                            <Row icon={Repeat} label={t('nav.recurring')} onClick={() => nav('recorrentes')} />
+                            <Row icon={PiggyBank} label={t('nav.reserves')} onClick={() => nav('reservas')} />
+                            <Row icon={Landmark} label={t('nav.patrimony')} onClick={() => nav('patrimonio')} />
 
-                            <GroupLabel>Conta &amp; app</GroupLabel>
-                            <Row icon={Receipt} label="Assinatura" onClick={() => nav('assinatura')} />
-                            <Row icon={Settings} label="Configurações e Cadastros"
-                                desc={waLoading ? 'Conta, cadastros e WhatsApp' : connected ? 'Conta, cadastros · WhatsApp conectado' : 'Conta, cadastros · configure o WhatsApp'}
+                            <GroupLabel>{t('nav.accountApp')}</GroupLabel>
+                            <Row icon={Receipt} label={t('nav.subscription')} onClick={() => nav('assinatura')} />
+                            <Row icon={Settings} label={t('nav.settings')}
+                                desc={waLoading ? t('nav.settingsDescLoading') : connected ? t('nav.settingsDescConnected') : t('nav.settingsDescPending')}
                                 onClick={() => nav('configuracoes')}
                                 right={waLoading ? null : connected
                                     ? <span className="shrink-0 inline-flex items-center gap-1 text-emerald-500"><WhatsAppIcon className="w-4 h-4" /><CheckCircle2 className="w-4 h-4" /></span>
                                     : <span className="shrink-0 w-5 h-5 rounded-full bg-amber-400/20 text-amber-500 flex items-center justify-center text-[12px] font-black">!</span>} />
-                            <Row icon={User} label="Perfil" onClick={doProfile} />
-                            <Row icon={BookOpen} label="Manual" onClick={() => nav('manual')} />
-                            {isAdmin && <Row icon={Users} label="Gerenciar usuários" onClick={() => nav('gerenciar-usuarios')} />}
+                            <Row icon={User} label={t('nav.profile')} onClick={doProfile} />
+                            <Row icon={BookOpen} label={t('nav.manual')} onClick={() => nav('manual')} />
+                            {isAdmin && <Row icon={Users} label={t('nav.manageUsers')} onClick={() => nav('gerenciar-usuarios')} />}
 
-                            <GroupLabel>Sistema</GroupLabel>
-                            <Row icon={isDark ? Sun : Moon} label={`Tema ${isDark ? 'claro' : 'escuro'}`} onClick={toggleTheme} right={<span />} />
-                            <Row icon={LogOut} label="Sair" onClick={() => { setMore(false); onLogout?.(); }} right={<span />} danger />
+                            <GroupLabel>{t('nav.system')}</GroupLabel>
+                            <Row icon={isDark ? Sun : Moon} label={isDark ? t('nav.themeLight') : t('nav.themeDark')} onClick={toggleTheme} right={<span />} />
+                            <Row icon={LogOut} label={t('nav.logout')} onClick={() => { setMore(false); onLogout?.(); }} right={<span />} danger />
                         </div>
                     </div>
                 </div>

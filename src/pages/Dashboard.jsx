@@ -13,6 +13,7 @@ import CeilingAlerts from '../components/CeilingAlerts';
 import BankLogo, { detectBank } from '../components/ui/BankLogo';
 import WhatsAppIcon from '../components/ui/WhatsAppIcon';
 import { useWhatsAppStatus } from '../hooks/useWhatsAppStatus';
+import { useI18n } from '../contexts/LanguageContext';
 import RedirectOverlay, { DESTINO, useRedirect } from '../components/ui/RedirectOverlay';
 import {
     LayoutDashboard, Settings, TrendingUp, TrendingDown, Wallet, Eye, EyeOff,
@@ -49,6 +50,7 @@ const DEFAULT_CFG = { incluirFatura: false, ocultarSaldo: false, somarReservas: 
 export default function Dashboard({ onNavigate }) {
     const { currentUser } = useAuth();
     const { theme } = useTheme();
+    const { t, fmtMoney: money } = useI18n();
     const isDark = theme !== 'light';
     const uid = currentUser?.uid;
     const mk = monthKeyNow();
@@ -66,7 +68,8 @@ export default function Dashboard({ onNavigate }) {
     const wa = useWhatsAppStatus();
     // Navegação com a janela rápida "Você será direcionado para…" (~0,8s e vai).
     const { redirect, goTo: goWith } = useRedirect();
-    const goTo = (id) => goWith(DESTINO[id] || id, () => onNavigate?.(id));
+    const DEST_KEY = { cartoes: 'nav.card', reservas: 'nav.reserves', patrimonio: 'nav.patrimony', analises: 'nav.analysis', whatsapp: 'settings.tabWhatsApp', configuracoes: 'nav.settings' };
+    const goTo = (id) => goWith(DEST_KEY[id] ? t(DEST_KEY[id]) : (DESTINO[id] || id), () => onNavigate?.(id));
     const [hideSaldo, setHideSaldo] = useState(cfg.ocultarSaldo);
     const [usdRate, setUsdRate] = useState(5.4);
     const [patCur, setPatCur] = useState(() => { try { return localStorage.getItem('aliviaDashPatCur') || 'BRL'; } catch { return 'BRL'; } });
@@ -201,10 +204,10 @@ export default function Dashboard({ onNavigate }) {
         return Math.round((pD + pR + pSup) / totalW * 100);
     }, [temDados, temDivida, dividaRatio, mesesCobertura, metaMeses, superfluoPct, cfg.considerarSuperfluo]);
 
-    const scoreInfo = score >= 80 ? { label: 'Excelente', color: '#10b981' }
-        : score >= 60 ? { label: 'Bom', color: '#3b82f6' }
-            : score >= 40 ? { label: 'Atenção', color: '#f59e0b' }
-                : { label: temDados ? 'Crítico' : 'Sem dados', color: temDados ? '#f43f5e' : '#64748b' };
+    const scoreInfo = score >= 80 ? { label: t('health.excellent'), color: '#10b981' }
+        : score >= 60 ? { label: t('health.good'), color: '#3b82f6' }
+            : score >= 40 ? { label: t('health.attention'), color: '#f59e0b' }
+                : { label: temDados ? t('health.critical') : t('health.noData'), color: temDados ? '#f43f5e' : '#64748b' };
 
     const nome = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'você';
     const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -224,28 +227,28 @@ export default function Dashboard({ onNavigate }) {
                             </span>
                         } />
                     <div className="min-w-0">
-                        <h1 className={`text-xl sm:text-2xl font-black tracking-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>Olá, {nome} 👋</h1>
+                        <h1 className={`text-xl sm:text-2xl font-black tracking-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('dash.hello', { name: nome })} 👋</h1>
                         {/* Subtítulo: análise rápida da Alívia sobre tetos (quando houver) ou a frase padrão */}
                         <div className={`text-[13px] sm:text-sm mt-0.5 ${muted}`}>
-                            <CeilingAlerts transactions={tx} mk={mk} isDark={isDark} fallback="Seu controle financeiro do mês." />
+                            <CeilingAlerts transactions={tx} mk={mk} isDark={isDark} fallback={t('dash.subtitle')} />
                         </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     {/* Status/atalho do WhatsApp — ao lado do nome (pendente vs conectado) */}
                     <WhatsAppStatusButton isDark={isDark} compact onOpen={() => (wa.connected ? setWaOpen(true) : goTo('whatsapp'))} />
-                    <button onClick={() => setConfigOpen(true)} title="Configurar" className={`hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                        <Settings className="w-4 h-4" /> Configurar
+                    <button onClick={() => setConfigOpen(true)} title={t('dash.configure')} className={`hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                        <Settings className="w-4 h-4" /> {t('dash.configure')}
                     </button>
                 </div>
             </div>
 
             {/* KPIs — Saldo em destaque primeiro; no mobile ele ocupa a linha toda */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-                <Kpi isDark={isDark} icon={Wallet} label="Saldo disponível" value={hideSaldo ? 'R$ ••••' : <AnimatedNumber value={saldo} format={(v) => `R$ ${money(v)}`} />} sub="disponível em conta" tone="blue" className="col-span-2 sm:col-span-1"
+                <Kpi isDark={isDark} icon={Wallet} label={t('dash.balance')} value={hideSaldo ? 'R$ ••••' : <AnimatedNumber value={saldo} format={(v) => `R$ ${money(v)}`} />} sub={t('dash.balanceSub')} tone="blue" className="col-span-2 sm:col-span-1"
                     action={<button onClick={() => setHideSaldo(h => !h)} className={muted}>{hideSaldo ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>} />
-                <Kpi isDark={isDark} icon={TrendingUp} label="Ganhos" value={<AnimatedNumber value={ganhos} format={(v) => `R$ ${money(v)}`} />} sub="este mês" tone="emerald" />
-                <Kpi isDark={isDark} icon={TrendingDown} label="Gastos" value={<AnimatedNumber value={gastos} format={(v) => `R$ ${money(v)}`} />} sub={cfg.incluirFatura ? 'inclui fatura' : 'só a conta'} tone="rose"
+                <Kpi isDark={isDark} icon={TrendingUp} label={t('dash.gains')} value={<AnimatedNumber value={ganhos} format={(v) => `R$ ${money(v)}`} />} sub={t('common.thisMonth')} tone="emerald" />
+                <Kpi isDark={isDark} icon={TrendingDown} label={t('dash.spent')} value={<AnimatedNumber value={gastos} format={(v) => `R$ ${money(v)}`} />} sub={cfg.incluirFatura ? t('dash.spentWithInvoice') : t('dash.spentAccountOnly')} tone="rose"
                     action={<button onClick={() => setGastosOpen(true)} title="Ver lista de gastos" className={`p-1 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}><ListChecks className="w-4 h-4" /></button>} />
             </div>
 
@@ -256,12 +259,12 @@ export default function Dashboard({ onNavigate }) {
             <div className="grid lg:grid-cols-3 gap-4 mt-4">
                 {/* Fatura do cartão — valor exato + dia do vencimento */}
                 <div className={cardCls}>
-                    <h2 className={`text-[13px] font-black uppercase tracking-widest flex items-center gap-1.5 mb-3 ${muted}`}><CreditCard className="w-3.5 h-3.5 text-amber-500" /> Fatura do cartão</h2>
+                    <h2 className={`text-[13px] font-black uppercase tracking-widest flex items-center gap-1.5 mb-3 ${muted}`}><CreditCard className="w-3.5 h-3.5 text-amber-500" /> {t('dash.cardInvoice')}</h2>
                     <p className="text-3xl font-black tabular-nums text-amber-500"><AnimatedNumber value={faturaTotal} format={(v) => `R$ ${money(v)}`} /></p>
                     <p className={`text-[12px] mt-0.5 ${muted}`}>
                         {faturaDue
-                            ? <>Vence dia <span className="font-bold text-amber-500">{faturaDue.day}</span> · em {faturaDue.days} {faturaDue.days === 1 ? 'dia' : 'dias'}{cards.length > 1 ? ` · ${cards.length} cartões` : ''}</>
-                            : (faturaTotal > 0 ? 'fatura em aberto' : 'nenhum cartão cadastrado')}
+                            ? <>{t('dash.invoiceDue', { day: faturaDue.day, days: faturaDue.days, daysWord: faturaDue.days === 1 ? t('common.day') : t('common.days') })}{cards.length > 1 ? ` · ${t('dash.cardsCount', { n: cards.length })}` : ''}</>
+                            : (faturaTotal > 0 ? t('dash.invoiceOpen') : t('dash.noCards'))}
                     </p>
                     {/* Mais de um cartão: fatura de cada um, bem compacto (mini-cartão com o logo do banco) */}
                     {cards.length > 1 && (
@@ -279,24 +282,24 @@ export default function Dashboard({ onNavigate }) {
                             })}
                         </div>
                     )}
-                    <Action isDark={isDark} onClick={() => goTo('cartoes')}>Ver fatura</Action>
+                    <Action isDark={isDark} onClick={() => goTo('cartoes')}>{t('dash.seeInvoice')}</Action>
                 </div>
 
                 {/* Reserva de emergência (sem barra) */}
                 <div className={cardCls}>
-                    <h2 className={`text-[13px] font-black uppercase tracking-widest flex items-center gap-1.5 mb-3 ${muted}`}><PiggyBank className="w-3.5 h-3.5 text-emerald-500" /> Reserva de emergência</h2>
+                    <h2 className={`text-[13px] font-black uppercase tracking-widest flex items-center gap-1.5 mb-3 ${muted}`}><PiggyBank className="w-3.5 h-3.5 text-emerald-500" /> {t('dash.emergency')}</h2>
                     <p className="text-3xl font-black tabular-nums text-emerald-500"><AnimatedNumber value={reservaTotal} format={(v) => `R$ ${money(v)}`} /></p>
-                    <p className={`text-[12px] mt-0.5 ${muted}`}>{mesesCobertura >= 99 ? '—' : mesesCobertura.toFixed(1).replace('.', ',')} meses de cobertura</p>
+                    <p className={`text-[12px] mt-0.5 ${muted}`}>{t('dash.coverage', { months: mesesCobertura >= 99 ? '—' : mesesCobertura.toFixed(1).replace('.', ',') })}</p>
                     <div className={`mt-3 flex items-center gap-1.5 text-[12px] ${mesesCobertura >= metaMeses ? 'text-emerald-500 font-bold' : muted}`}>
-                        {mesesCobertura >= metaMeses ? <>Meta de {metaMeses} meses atingida 🎉</> : <>Meta: {metaMeses} meses de gastos</>}
+                        {mesesCobertura >= metaMeses ? t('dash.goalReached', { n: metaMeses }) : t('dash.goalMonths', { n: metaMeses })}
                     </div>
-                    <Action isDark={isDark} onClick={() => goTo('reservas')}>Ver detalhes</Action>
+                    <Action isDark={isDark} onClick={() => goTo('reservas')}>{t('common.seeDetails')}</Action>
                 </div>
 
                 {/* Patrimônio */}
                 <div className={cardCls}>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                        <h2 className={`text-[13px] font-black uppercase tracking-widest flex items-center gap-1.5 ${muted}`}><Landmark className="w-3.5 h-3.5 text-emerald-500" /> Patrimônio</h2>
+                        <h2 className={`text-[13px] font-black uppercase tracking-widest flex items-center gap-1.5 ${muted}`}><Landmark className="w-3.5 h-3.5 text-emerald-500" /> {t('dash.patrimony')}</h2>
                         {/* Filtro de moeda R$ / US$ */}
                         <div className={`flex items-center gap-0.5 p-0.5 rounded-lg ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
                             {['BRL', 'USD'].map(c => (
@@ -308,24 +311,24 @@ export default function Dashboard({ onNavigate }) {
                         </div>
                     </div>
                     <p className="text-3xl font-black tabular-nums text-emerald-500"><AnimatedNumber value={patrAtualDisp} format={(v) => `${curSym} ${money(v)}`} /></p>
-                    <p className={`text-[12px] mt-0.5 ${muted}`}>investido em ativos{patCur === 'USD' ? ` · câmbio R$ ${money(usdRate)}` : ''}</p>
+                    <p className={`text-[12px] mt-0.5 ${muted}`}>{t('dash.investedIn')}{patCur === 'USD' ? ` · R$ ${money(usdRate)}` : ''}</p>
                     <div className="grid grid-cols-2 gap-2 mt-3">
                         <div className={`rounded-xl px-3 py-2 ${isDark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>
-                            <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>Rentab.</p>
+                            <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>{t('dash.profitability')}</p>
                             <p className={`text-[15px] font-black tabular-nums ${patrRentab >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{patrRentab >= 0 ? '+' : ''}{patrRentab.toFixed(2)}%</p>
                         </div>
                         <div className={`rounded-xl px-3 py-2 ${isDark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>
-                            <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>Lucro</p>
+                            <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>{t('dash.profit')}</p>
                             <p className={`text-[15px] font-black tabular-nums ${patrLucroDisp >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{patrLucroDisp >= 0 ? '+' : ''}{curSym} {money(patrLucroDisp)}</p>
                         </div>
                     </div>
-                    <Action isDark={isDark} onClick={() => goTo('patrimonio')}>Ver patrimônio</Action>
+                    <Action isDark={isDark} onClick={() => goTo('patrimonio')}>{t('dash.seePatrimony')}</Action>
                 </div>
             </div>
 
             {/* Índice de saúde financeira */}
             <div className="mt-6">
-                <p className={`text-center text-[11px] font-black uppercase tracking-[0.3em] mb-3 ${muted}`}>Índice de saúde financeira</p>
+                <p className={`text-center text-[11px] font-black uppercase tracking-[0.3em] mb-3 ${muted}`}>{t('dash.healthIndex')}</p>
                 <div className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
                     <div className="flex items-center justify-between gap-4 p-5">
                         <div className="flex items-center gap-4 min-w-0">
@@ -334,14 +337,14 @@ export default function Dashboard({ onNavigate }) {
                                 {temDados ? (
                                     <>
                                         <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: scoreInfo.color }}>{scoreInfo.label}</p>
-                                        <p className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Sua saúde financeira</p>
-                                        <p className={`text-[12px] ${muted}`}>Baseado em sobra, reserva{cfg.considerarSuperfluo ? ' e gastos supérfluos' : ''}.</p>
+                                        <p className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('dash.yourHealth')}</p>
+                                        <p className={`text-[12px] ${muted}`}>{t('health.basedOn')}{cfg.considerarSuperfluo ? t('health.andSuper') : ''}.</p>
                                     </>
                                 ) : (
                                     <>
-                                        <p className="text-[11px] font-black uppercase tracking-widest text-emerald-500">Configure sua renda base</p>
-                                        <p className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Vamos começar? 👋</p>
-                                        <p className={`text-[12px] ${muted}`}>Lance seus recebimentos para calcular sua saúde financeira.</p>
+                                        <p className="text-[11px] font-black uppercase tracking-widest text-emerald-500">{t('health.setIncome')}</p>
+                                        <p className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('health.letsStart')} 👋</p>
+                                        <p className={`text-[12px] ${muted}`}>{t('health.letsStartDesc')}</p>
                                     </>
                                 )}
                             </div>
@@ -350,22 +353,22 @@ export default function Dashboard({ onNavigate }) {
                     </div>
 
                     <div className={`grid ${cfg.considerarSuperfluo ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} border-t ${isDark ? 'border-white/10' : 'border-slate-100'}`}>
-                        <Pilar isDark={isDark} border label="Dívidas" value={temDivida ? `R$ ${money(dividaMensal)}/mês` : 'Sem dívidas 🎉'} meta="Meta: zerar dívidas" pct={dividaPct} ok={!temDivida} />
-                        <Pilar isDark={isDark} border={cfg.considerarSuperfluo} label="Reserva de emergência" value={`R$ ${money(reservaTotal)}`} meta={`${mesesCobertura >= 99 ? '—' : mesesCobertura.toFixed(1).replace('.', ',')} meses · Meta: ${metaMeses}`} pct={reservaPct} ok={mesesCobertura >= metaMeses} />
-                        {cfg.considerarSuperfluo && <Pilar isDark={isDark} label="Gastos supérfluos" value={`${superfluoPct.toFixed(0)}% supérfluo`} meta="Meta: controlar supérfluos" pct={clamp(100 - superfluoPct, 0, 100)} ok={superfluoPct <= 20} />}
+                        <Pilar isDark={isDark} border label={t('health.debts')} value={temDivida ? `R$ ${money(dividaMensal)}${t('common.perMonth')}` : t('health.noDebts')} meta={t('health.debtGoal')} pct={dividaPct} ok={!temDivida} />
+                        <Pilar isDark={isDark} border={cfg.considerarSuperfluo} label={t('dash.emergency')} value={`R$ ${money(reservaTotal)}`} meta={t('health.reserveMonths', { months: mesesCobertura >= 99 ? '—' : mesesCobertura.toFixed(1).replace('.', ','), goal: metaMeses })} pct={reservaPct} ok={mesesCobertura >= metaMeses} />
+                        {cfg.considerarSuperfluo && <Pilar isDark={isDark} label={t('health.superSpend')} value={t('health.superPct', { pct: superfluoPct.toFixed(0) })} meta={t('health.superGoal')} pct={clamp(100 - superfluoPct, 0, 100)} ok={superfluoPct <= 20} />}
                     </div>
 
                     <div className={`flex items-center justify-between gap-3 px-5 py-3 border-t text-[12px] flex-wrap ${isDark ? 'border-white/10' : 'border-slate-100'} ${muted}`}>
-                        <span>Atualizado hoje às {agora} · Renda base: R$ {money(ganhos)}</span>
-                        <button onClick={() => goTo('analises')} className="flex items-center gap-0.5 font-bold text-emerald-500 hover:text-emerald-400 transition">Ver análise completa <ChevronRight className="w-3.5 h-3.5" /></button>
+                        <span>{t('health.updatedAt', { time: agora, value: money(ganhos) })}</span>
+                        <button onClick={() => goTo('analises')} className="flex items-center gap-0.5 font-bold text-emerald-500 hover:text-emerald-400 transition">{t('dash.fullAnalysis')} <ChevronRight className="w-3.5 h-3.5" /></button>
                     </div>
                 </div>
 
                 <div className={`flex items-center justify-center gap-x-5 gap-y-1 flex-wrap mt-3 text-[11px] font-bold ${muted}`}>
-                    <Leg color="#10b981" text="Excelente (80-100)" />
-                    <Leg color="#3b82f6" text="Bom (60-79)" />
-                    <Leg color="#f59e0b" text="Atenção (40-59)" />
-                    <Leg color="#f43f5e" text="Crítico (0-39)" />
+                    <Leg color="#10b981" text={t('health.legExcellent')} />
+                    <Leg color="#3b82f6" text={t('health.legGood')} />
+                    <Leg color="#f59e0b" text={t('health.legAttention')} />
+                    <Leg color="#f43f5e" text={t('health.legCritical')} />
                 </div>
             </div>
 
@@ -454,6 +457,7 @@ function GastosModal({ isDark, itens, total, incluiFatura, onClose }) {
 
 // Janela de status do WhatsApp (no próprio Dashboard): número vinculado + "Conectado".
 function WhatsAppStatusModal({ isDark, phones = [], onClose, onManage }) {
+    const { t } = useI18n();
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -468,18 +472,18 @@ function WhatsAppStatusModal({ isDark, phones = [], onClose, onManage }) {
                 </span>
 
                 <p className={`text-[11px] font-black uppercase tracking-[0.22em] ${muted}`}>WhatsApp</p>
-                <p className="text-3xl font-black tracking-tight text-emerald-500 mt-1 flex items-center justify-center gap-2"><CheckCircle2 className="w-7 h-7" /> Conectado</p>
+                <p className="text-3xl font-black tracking-tight text-emerald-500 mt-1 flex items-center justify-center gap-2"><CheckCircle2 className="w-7 h-7" /> {t('dash.waConnected')}</p>
 
                 <div className={`mt-5 rounded-2xl border px-4 py-3.5 ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-slate-200 bg-slate-50'}`}>
-                    <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>Número vinculado</p>
+                    <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>{t('dash.waLinkedNumber')}</p>
                     {phones.length === 0
                         ? <p className={`text-[15px] font-bold mt-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>—</p>
                         : phones.map(ph => <p key={ph} className={`text-[17px] font-black tabular-nums mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{fmtPhone(ph)}</p>)}
                 </div>
 
-                <p className={`text-[12.5px] mt-4 ${muted}`}>A Alívia está pronta para receber seus gastos por mensagem ou áudio.</p>
+                <p className={`text-[12.5px] mt-4 ${muted}`}>{t('dash.waReady')}</p>
                 <button onClick={onManage} className={`mt-4 inline-flex items-center gap-1.5 text-[12px] font-bold transition ${isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}>
-                    Gerenciar conexão <ExternalLink className="w-3.5 h-3.5" />
+                    {t('dash.waManage')} <ExternalLink className="w-3.5 h-3.5" />
                 </button>
             </div>
         </div>

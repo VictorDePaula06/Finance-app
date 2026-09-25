@@ -19,6 +19,7 @@ import Manual from './components/Manual';
 import PanicButton from './components/PanicButton';
 import { generateSundayBreath } from './utils/sundayBreath';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import MonthlyReviewModal from './components/MonthlyReviewModal';
 import { generateMonthlyReview } from './services/gemini';
 import { CATEGORIES, categoryHex } from './constants/categories';
@@ -1363,10 +1364,12 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <ThemeProvider>
-        <AppContent />
-        <CookieConsent />
-      </ThemeProvider>
+      <LanguageProvider>
+        <ThemeProvider>
+          <AppContent />
+          <CookieConsent />
+        </ThemeProvider>
+      </LanguageProvider>
     </AuthProvider>
   );
 }

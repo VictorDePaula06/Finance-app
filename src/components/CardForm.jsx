@@ -4,6 +4,7 @@ import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { toast } from './ui/Toaster';
 import AliviaFormHint from './AliviaFormHint';
 import BankLogo, { detectBank } from './ui/BankLogo';
+import { useI18n } from '../contexts/LanguageContext';
 import { CreditCard, X, Check, Loader2 } from 'lucide-react';
 
 // ── Cartão de crédito: formulário de novo/editar ────────────────────
@@ -25,6 +26,7 @@ export const COLORS = [
 export const gradOf = (c) => (c && c.includes('from-') ? c : 'from-slate-700 to-slate-900');
 
 export default function CardForm({ isDark, uid, editing, onClose, onSaved, hint }) {
+    const { t } = useI18n();
     const [name, setName] = useState(editing?.name || '');
     const [bank, setBank] = useState(editing?.bank || '');
     const [brand, setBrand] = useState(editing?.brand || 'Visa');
@@ -52,7 +54,7 @@ export default function CardForm({ isDark, uid, editing, onClose, onSaved, hint 
     const submit = async (e) => {
         e.preventDefault();
         setError('');
-        if (!name.trim()) { setError('Dê um nome ao cartão.'); return; }
+        if (!name.trim()) { setError(t('regc.errName')); return; }
         setSaving(true);
         const data = {
             name: normalizeName(name), bank: bank.trim() ? (detected?.label || normalizeName(bank)) : (detected?.label || ''),
@@ -66,9 +68,9 @@ export default function CardForm({ isDark, uid, editing, onClose, onSaved, hint 
         try {
             if (editing) { await updateDoc(doc(db, 'cards', editing.id), data); onSaved?.(editing.id); }
             else { const ref = await addDoc(collection(db, 'cards'), { ...data, userId: uid, createdAt: Date.now() }); onSaved?.(ref.id); }
-            toast.success(editing ? 'Cartão atualizado!' : 'Cartão adicionado!');
+            toast.success(editing ? t('regc.okUpdated') : t('regc.okAdded'));
             onClose();
-        } catch (err) { console.error(err); toast.error('Não foi possível salvar. Tente de novo.'); setError('Não foi possível salvar. Tente de novo.'); setSaving(false); }
+        } catch (err) { console.error(err); toast.error(t('recf.errSave')); setError(t('recf.errSave')); setSaving(false); }
     };
 
     return (
@@ -78,7 +80,7 @@ export default function CardForm({ isDark, uid, editing, onClose, onSaved, hint 
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2.5">
                         <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-emerald-500/12 text-emerald-500"><CreditCard className="w-5 h-5" strokeWidth={2.4} /></span>
-                        <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{editing ? 'Editar cartão' : 'Novo cartão'}</h2>
+                        <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{editing ? t('regc.editCard') : t('regc.newCard')}</h2>
                     </div>
                     <button onClick={onClose} className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}><X className="w-4 h-4" /></button>
                 </div>
@@ -94,37 +96,37 @@ export default function CardForm({ isDark, uid, editing, onClose, onSaved, hint 
                             <BankLogo bank={detected} className="w-11 h-11" />
                             <div className="min-w-0 flex-1">
                                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">{brand}</p>
-                                <p className="text-[15px] font-black tracking-tight truncate">{name.trim() || 'Meu cartão'}</p>
+                                <p className="text-[15px] font-black tracking-tight truncate">{name.trim() || t('regc.myCardPh')}</p>
                                 <p className="text-[11px] font-semibold text-white/70 truncate">{previewSub}</p>
                             </div>
                         </div>
                     </div>
 
-                    <Field label="Nome do cartão"><input value={name} onChange={e => setName(e.target.value)} placeholder="Ex.: Nubank Roxinho" className={inputCls} maxLength={30} autoFocus /></Field>
+                    <Field label={t('regc.cardName')}><input value={name} onChange={e => setName(e.target.value)} placeholder="Ex.: Nubank Roxinho" className={inputCls} maxLength={30} autoFocus /></Field>
                     <div className="grid grid-cols-2 gap-3">
-                        <Field label="Banco">
+                        <Field label={t('regc.bank')}>
                             <input value={bank} onChange={e => setBank(e.target.value)} placeholder="Ex.: Nubank, PicPay, Itaú" className={inputCls} maxLength={20} list="alivia-banks" />
                             <datalist id="alivia-banks">{['Nubank', 'PicPay', 'Itaú', 'Inter', 'Bradesco', 'Santander', 'Caixa', 'Banco do Brasil', 'C6 Bank', 'XP', 'Mercado Pago', 'Neon', 'Next', 'BTG Pactual', 'Sicoob', 'Sicredi', 'Banco Pan', 'Will Bank', 'Digio', 'PagBank'].map(b => <option key={b} value={b} />)}</datalist>
                         </Field>
-                        <Field label="Bandeira">
+                        <Field label={t('regc.brand')}>
                             <select value={brand} onChange={e => setBrand(e.target.value)} className={inputCls} style={{ colorScheme: isDark ? 'dark' : 'light' }}>
                                 {BRANDS.map(b => <option key={b} value={b} style={optStyle}>{b}</option>)}
                             </select>
                         </Field>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                        <Field label="Final (4 dígitos)"><input inputMode="numeric" value={last4} onChange={e => setLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" className={inputCls} /></Field>
-                        <Field label="Limite (R$)"><input inputMode="decimal" value={limit} onChange={e => setLimit(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
+                        <Field label={t('regc.last4Field')}><input inputMode="numeric" value={last4} onChange={e => setLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" className={inputCls} /></Field>
+                        <Field label={t('regc.limitField')}><input inputMode="decimal" value={limit} onChange={e => setLimit(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="0,00" className={inputCls} /></Field>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                        <Field label="Dia do fechamento"><input inputMode="numeric" value={closingDay} onChange={e => setClosingDay(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="1" className={inputCls} /></Field>
-                        <Field label="Dia do vencimento"><input inputMode="numeric" value={dueDay} onChange={e => setDueDay(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="10" className={inputCls} /></Field>
+                        <Field label={t('regc.closingDay')}><input inputMode="numeric" value={closingDay} onChange={e => setClosingDay(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="1" className={inputCls} /></Field>
+                        <Field label={t('regc.dueDayField')}><input inputMode="numeric" value={dueDay} onChange={e => setDueDay(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="10" className={inputCls} /></Field>
                     </div>
                     <div>
-                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">Cor do cartão {detected && !colorTouched && <span className="normal-case tracking-normal font-bold text-emerald-500">· cor do {detected.label}</span>}</span>
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5">{t('regc.cardColor')} {detected && !colorTouched && <span className="normal-case tracking-normal font-bold text-emerald-500">· {t('regc.brandColor', { bank: detected.label })}</span>}</span>
                         <div className="flex gap-2 flex-wrap">
                             {detected && (
-                                <button type="button" title={`Cor do ${detected.label}`} onClick={() => { setColorTouched(false); }}
+                                <button type="button" title={t('regc.brandColor', { bank: detected.label })} onClick={() => { setColorTouched(false); }}
                                     className={`w-9 h-9 rounded-xl bg-gradient-to-br ${detected.grad} transition ${color === detected.grad ? 'ring-2 ring-offset-2 ring-emerald-500 ' + (isDark ? 'ring-offset-slate-900' : 'ring-offset-white') : ''}`} />
                             )}
                             {COLORS.map(c => (
@@ -134,7 +136,7 @@ export default function CardForm({ isDark, uid, editing, onClose, onSaved, hint 
                         </div>
                     </div>
                     <button type="submit" disabled={saving} className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-70">
-                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {editing ? 'Salvar' : 'Cadastrar'}</>}
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" /> {editing ? t('common.save') : t('recf.register')}</>}
                     </button>
                 </form>
             </div>

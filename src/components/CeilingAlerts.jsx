@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../contexts/LanguageContext';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
 import { ceilingsFrom, ceilingAlerts } from '../utils/categoryCeilings';
 import { ArrowRight } from 'lucide-react';
@@ -12,6 +13,7 @@ import { ArrowRight } from 'lucide-react';
 const money = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function CeilingAlerts({ transactions = [], mk, isDark, fallback = null }) {
+    const { t, fmtMoney: money } = useI18n();
     const { userPrefs } = useAuth();
     const navigate = useNavigate();
     const ceilings = useMemo(() => ceilingsFrom(userPrefs), [userPrefs]);
@@ -23,20 +25,20 @@ export default function CeilingAlerts({ transactions = [], mk, isDark, fallback 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
 
     // Uma frase só, no tom da Alívia (os chips ao lado já dizem quais categorias).
-    const cat = (n) => `${n} categoria${n > 1 ? 's' : ''}`;
+    const cat = (n) => t('ceil.nCategories', { n });
     let frase;
     if (over.length && near.length) {
-        frase = <>Passou do teto em <b>{cat(over.length)}</b> e está perto em <b>{cat(near.length)}</b> — vale segurar até o fim do mês.</>;
+        frase = t('ceil.overAndNear', { over: cat(over.length), near: cat(near.length) });
     } else if (over.length) {
         const total = over.reduce((s, a) => s + (a.spent - a.ceiling), 0);
         frase = over.length === 1
-            ? <><b>{over[0].label}</b> passou do teto — R$ {money(total)} acima. Vale segurar até o fim do mês.</>
-            : <><b>{cat(over.length)}</b> passaram do teto — R$ {money(total)} acima no total. Vale segurar até o fim do mês.</>;
+            ? t('ceil.overOne', { label: over[0].label, value: money(total) })
+            : t('ceil.overMany', { cats: cat(over.length), value: money(total) });
     } else {
         const a0 = near[0];
         frase = near.length === 1
-            ? <><b>{a0.label}</b> está a {a0.pct}% do teto — ainda cabem R$ {money(a0.ceiling - a0.spent)} este mês.</>
-            : <><b>{cat(near.length)}</b> estão perto do teto — um olho nelas nas próximas compras. 😉</>;
+            ? t('ceil.nearOne', { label: a0.label, pct: a0.pct, value: `R$ ${money(a0.ceiling - a0.spent)}` })
+            : t('ceil.nearMany', { cats: cat(near.length) });
     }
 
     return (
@@ -49,9 +51,9 @@ export default function CeilingAlerts({ transactions = [], mk, isDark, fallback 
                     {a.label} {a.pct}%
                 </span>
             ))}
-            <button onClick={() => navigate('/app/analises?report=tetos')} title="Ver o relatório de teto por categoria em Análises"
+            <button onClick={() => navigate('/app/analises?report=tetos')} title={t('ceil.reportTitle')}
                 className={`inline-flex items-center gap-0.5 text-[11px] font-bold transition ${muted} ${isDark ? 'hover:text-slate-300' : 'hover:text-slate-600'}`}>
-                Ver relatório <ArrowRight className="w-3 h-3" />
+                {t('ceil.report')} <ArrowRight className="w-3 h-3" />
             </button>
         </span>
     );

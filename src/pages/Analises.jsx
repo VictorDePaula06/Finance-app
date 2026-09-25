@@ -4,6 +4,7 @@ import AnimatedNumber from '../components/ui/AnimatedNumber';
 import { ceilingsFrom, ceilingRows, NEAR_RATIO } from '../utils/categoryCeilings';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useI18n } from '../contexts/LanguageContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { CATEGORIES, categoryHex } from '../constants/categories';
@@ -37,7 +38,7 @@ const PAG_COLOR = { pix: '#10b981', debito: '#3b82f6', credito: '#8b5cf6', dinhe
 
 const ANALISES = [
     { id: 'categorias', label: 'Gastos por categoria', desc: 'Para onde seu dinheiro vai no mês', icon: PieIcon, color: '#10b981' },
-    { id: 'tetos', label: 'Teto por categoria', desc: 'Quanto de cada teto você já usou', icon: Target, color: '#f59e0b' },
+    { id: 'tetos', label: 'an.ceilings', desc: 'an.ceilingsDesc', i18n: true, icon: Target, color: '#f59e0b' },
     { id: 'evolucao', label: 'Evolução mensal', desc: 'Entradas × saídas nos últimos meses', icon: BarChart3, color: '#3b82f6' },
     { id: 'custo_fixo', label: 'Custo fixo mensal', desc: 'Recorrentes, assinaturas e parcelas', icon: Repeat, color: '#f59e0b' },
     { id: 'prioridade', label: 'Essencial × Supérfluo', desc: 'Quanto é necessidade vs desejo', icon: Scale, color: '#8b5cf6' },
@@ -82,6 +83,7 @@ const monthKeyLabel = (mk) => { const [y, m] = mk.split('-'); return `${MESES_AB
 export default function Analises() {
     const { currentUser, userPrefs } = useAuth();
     const { theme } = useTheme();
+    const { t } = useI18n();
     const navigate = useNavigate();
     const isDark = theme !== 'light';
     const uid = currentUser?.uid;
@@ -289,8 +291,8 @@ export default function Analises() {
                         <BarChart3 className="w-7 h-7" strokeWidth={2.2} />
                     </span>
                     <div>
-                        <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Análises</h1>
-                        <p className={`text-sm mt-0.5 ${muted}`}>Escolha uma análise para entender suas finanças.</p>
+                        <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('an.title')}</h1>
+                        <p className={`text-sm mt-0.5 ${muted}`}>{t('an.subtitle')}</p>
                     </div>
                 </div>
 
@@ -304,8 +306,8 @@ export default function Analises() {
                                     <span className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: `${a.color}1f`, color: a.color }}><Icon className="w-5 h-5" /></span>
                                     <ChevronRight className={`w-4 h-4 ${muted}`} />
                                 </div>
-                                <p className={`font-black mt-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>{a.label}</p>
-                                <p className={`text-[12px] mt-0.5 ${muted}`}>{a.desc}</p>
+                                <p className={`font-black mt-3 ${isDark ? 'text-white' : 'text-slate-800'}`}>{a.i18n ? t(a.label) : a.label}</p>
+                                <p className={`text-[12px] mt-0.5 ${muted}`}>{a.i18n ? t(a.desc) : a.desc}</p>
                             </button>
                         );
                     })}
@@ -327,10 +329,10 @@ export default function Analises() {
         <div className="max-w-4xl mx-auto w-full">
             {/* Barra de ações (não entra no PDF) */}
             <div className="flex items-center justify-between gap-3 mb-4">
-                <button onClick={() => setView(null)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-bold transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}><ArrowLeft className="w-4 h-4" /> Voltar</button>
+                <button onClick={() => setView(null)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-bold transition ${isDark ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}><ArrowLeft className="w-4 h-4" /> {t('common.back')}</button>
                 <button onClick={exportarPDF} disabled={exporting}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-red-500 hover:from-rose-400 hover:to-red-400 text-white text-[13px] font-bold transition active:scale-95 shadow-md shadow-rose-500/30 disabled:opacity-60">
-                    {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Exportar PDF
+                    {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} {t('an.exportPdf')}
                 </button>
             </div>
 
@@ -339,8 +341,8 @@ export default function Analises() {
             <div className="flex items-center gap-3 mb-5">
                 <span className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${meta.color}1f`, color: meta.color }}><Icon className="w-5 h-5" /></span>
                 <div>
-                    <h1 className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{meta.label}</h1>
-                    <p className={`text-[12px] ${muted}`}>{meta.desc}</p>
+                    <h1 className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{meta.i18n ? t(meta.label) : meta.label}</h1>
+                    <p className={`text-[12px] ${muted}`}>{meta.i18n ? t(meta.desc) : meta.desc}</p>
                 </div>
             </div>
 
@@ -478,6 +480,7 @@ const LEVEL_META = {
     over: { label: 'Passou do teto', bar: 'bg-rose-500', text: 'text-rose-500', chip: 'bg-rose-500/12 text-rose-500' },
 };
 function TetosView({ isDark, data, mk, onCadastros }) {
+    const { t, fmtMonth } = useI18n();
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const cell = isDark ? 'text-slate-300' : 'text-slate-700';
     const cardCls = `rounded-2xl border p-5 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`;
@@ -488,10 +491,10 @@ function TetosView({ isDark, data, mk, onCadastros }) {
         return (
             <div className={`${cardCls} text-center py-10`}>
                 <span className={`w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center ${isDark ? 'bg-white/5 text-slate-500' : 'bg-slate-100 text-slate-400'}`}><Target className="w-6 h-6" /></span>
-                <p className={`text-sm font-bold ${cell}`}>Nenhum teto definido ainda</p>
-                <p className={`text-xs mt-1 ${muted}`}>Defina quanto quer gastar por mês em cada categoria e acompanhe aqui.</p>
+                <p className={`text-sm font-bold ${cell}`}>{t('anp.noCeilings')}</p>
+                <p className={`text-xs mt-1 ${muted}`}>{t('anp.noCeilingsDesc')}</p>
                 <button onClick={onCadastros} className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold transition active:scale-95">
-                    <Settings className="w-4 h-4" /> Definir tetos em Cadastros
+                    <Settings className="w-4 h-4" /> {t('anp.setCeilingsIn')}
                 </button>
             </div>
         );
@@ -502,14 +505,14 @@ function TetosView({ isDark, data, mk, onCadastros }) {
             {/* Resumo */}
             <div className={`${cardCls} flex items-center justify-between gap-4 flex-wrap`}>
                 <div>
-                    <p className={`text-[11px] font-black uppercase tracking-widest ${muted}`}>Uso dos tetos — {monthKeyLabel(mk)}</p>
+                    <p className={`text-[11px] font-black uppercase tracking-widest ${muted}`}>{t('anp.ceilUsage', { month: fmtMonth(mk, { month: 'short', year: 'numeric' }) })}</p>
                     <p className={`text-3xl font-black tabular-nums mt-0.5 ${LEVEL_META[geral].text}`}><AnimatedNumber value={usoPct} format={(v) => `${Math.round(v)}%`} /></p>
-                    <p className={`text-[12px] mt-0.5 ${muted}`}>R$ {money(data.totalGasto)} gastos de R$ {money(data.totalTeto)} combinados</p>
+                    <p className={`text-[12px] mt-0.5 ${muted}`}>{t('anp.spentOf', { spent: money(data.totalGasto), total: money(data.totalTeto) })}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     {[['over', data.over], ['near', data.near], ['ok', data.ok]].map(([lv, n]) => (
                         <span key={lv} className={`inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1.5 rounded-full ${LEVEL_META[lv].chip}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${LEVEL_META[lv].bar}`} /> {n} {LEVEL_META[lv].label.toLowerCase()}
+                            <span className={`w-1.5 h-1.5 rounded-full ${LEVEL_META[lv].bar}`} /> {n} {lv === 'over' ? t('anp.overLimit') : lv === 'near' ? t('anp.nearLimit') : t('anp.withinLimit')}
                         </span>
                     ))}
                 </div>
@@ -518,7 +521,7 @@ function TetosView({ isDark, data, mk, onCadastros }) {
             {/* Categoria a categoria */}
             <div className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
                 <div className={`px-5 py-3.5 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
-                    <p className={`text-[11px] font-black uppercase tracking-widest ${muted}`}>Categorias com teto · do mais usado ao menos</p>
+                    <p className={`text-[11px] font-black uppercase tracking-widest ${muted}`}>{t('anp.catsWithCeiling')}</p>
                 </div>
                 <div className={`divide-y ${isDark ? 'divide-white/5' : 'divide-slate-100'}`}>
                     {data.comTeto.map(r => {
@@ -533,10 +536,10 @@ function TetosView({ isDark, data, mk, onCadastros }) {
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{r.label}</p>
-                                            <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${lv.chip}`}>{lv.label}</span>
+                                            <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${lv.chip}`}>{r.level === 'over' ? t('anp.overLimit') : r.level === 'near' ? t('anp.nearLimit') : t('anp.withinLimit')}</span>
                                         </div>
                                         <p className={`text-[12px] ${muted}`}>
-                                            R$ {money(r.spent)} de R$ {money(r.ceiling)} · {diff >= 0 ? <>ainda cabem <b className={cell}>R$ {money(diff)}</b></> : <>passou <b className="text-rose-500">R$ {money(-diff)}</b></>}
+                                            R$ {money(r.spent)} / R$ {money(r.ceiling)} · {diff >= 0 ? <>{t('anp.stillFits')} <b className={cell}>R$ {money(diff)}</b></> : <>{t('anp.wentOver')} <b className="text-rose-500">R$ {money(-diff)}</b></>}
                                         </p>
                                     </div>
                                     <p className={`text-lg font-black tabular-nums shrink-0 ${lv.text}`}>{r.pct}%</p>
@@ -553,7 +556,7 @@ function TetosView({ isDark, data, mk, onCadastros }) {
             {/* Gastos em categorias sem teto */}
             {data.semTeto.length > 0 && (
                 <div className={cardCls}>
-                    <p className={`text-[11px] font-black uppercase tracking-widest mb-3 ${muted}`}>Gastou este mês, mas sem teto definido</p>
+                    <p className={`text-[11px] font-black uppercase tracking-widest mb-3 ${muted}`}>{t('anp.spentNoCeiling')}</p>
                     <div className="flex flex-wrap gap-2">
                         {data.semTeto.map(r => (
                             <span key={r.id} className={`inline-flex items-center gap-1.5 text-[12px] font-bold px-2.5 py-1.5 rounded-xl border ${isDark ? 'border-white/10 text-slate-300' : 'border-slate-200 text-slate-600'}`}>
@@ -562,14 +565,14 @@ function TetosView({ isDark, data, mk, onCadastros }) {
                         ))}
                     </div>
                     <button onClick={onCadastros} className={`mt-3 inline-flex items-center gap-1.5 text-[12px] font-bold text-emerald-500 hover:text-emerald-400 transition`}>
-                        <Settings className="w-3.5 h-3.5" /> Definir teto para essas categorias
+                        <Settings className="w-3.5 h-3.5" /> {t('anp.setCeilingFor')}
                     </button>
                 </div>
             )}
 
             <p className={`text-[12px] flex items-center gap-2 ${muted}`}>
                 <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                A Alívia avisa no Dashboard e no WhatsApp a partir de {Math.round(NEAR_RATIO * 100)}% do teto e quando passa.
+                {t('anp.aliviaWarnsFrom', { pct: Math.round(NEAR_RATIO * 100) })}
             </p>
         </div>
     );
@@ -804,6 +807,7 @@ function FiltersModal({ isDark, reportId, filters, setFilters, cards, onClose, o
 
 // ── Janela "gerando relatório..." (breve) ───────────────────────────
 function GeneratingOverlay({ isDark, report }) {
+    const { t } = useI18n();
     const Icon = report?.icon || Loader2;
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -815,8 +819,8 @@ function GeneratingOverlay({ isDark, report }) {
                         <Icon className="w-7 h-7" strokeWidth={2.2} />
                     </span>
                 </span>
-                <p className={`text-[15px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Gerando relatório…</p>
-                <p className={`text-[12px] mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{report?.label || ''}</p>
+                <p className={`text-[15px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('an.generating')}</p>
+                <p className={`text-[12px] mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{report ? (report.i18n ? t(report.label) : report.label) : ''}</p>
                 <Loader2 className="w-5 h-5 animate-spin mt-4" style={{ color: report?.color || '#10b981' }} />
             </div>
         </div>
