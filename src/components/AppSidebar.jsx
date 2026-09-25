@@ -11,7 +11,7 @@ import UserAvatar from './UserAvatar';
 import { useI18n } from '../contexts/LanguageContext';
 
 // Versão do app (exibida discretamente na sidebar).
-export const APP_VERSION = '1.2';
+export const APP_VERSION = '1.3';
 // Notas da atualização (página pública, abre em nova aba ao clicar na versão).
 export const RELEASE_NOTES_URL = '/novidades';
 

@@ -5,7 +5,7 @@ import logo from '../assets/logo.png';
 import WhatsAppIcon from '../components/ui/WhatsAppIcon';
 import {
     Sparkles, Settings, ClipboardList, Target, Repeat, ArrowLeftRight, CreditCard,
-    LayoutDashboard, BookOpen, Sun, Moon, Rocket, CalendarClock, Tag,
+    LayoutDashboard, BookOpen, Sun, Moon, Rocket, CalendarClock, Tag, TrendingUp, Languages,
 } from 'lucide-react';
 
 // ── Notas de atualização (página pública: /novidades) ───────────────
@@ -14,6 +14,68 @@ import {
 // APP_VERSION em AppSidebar.jsx (e versionName/versionCode no mobile).
 
 const RELEASES = [
+    {
+        version: '1.3',
+        date: '25/09/2026',
+        title: 'Contas a receber, Contas a pagar e um Extrato só de consulta',
+        intro: 'O menu foi reorganizado em torno do que você faz no dia a dia: o que entra, o que sai e o histórico. Também melhoramos a importação de faturas no WhatsApp e corrigimos o aviso de fatura vencida.',
+        sections: [
+            {
+                icon: ArrowLeftRight, color: '#06b6d4', title: 'Nova ordem das abas',
+                items: [
+                    'Dashboard · Extrato · Contas a receber · Contas a pagar · Meu cartão · Reservas · Patrimônio · Análises/Relatórios · Manual.',
+                    'Seus links antigos continuam funcionando: Lançamentos abre o Extrato e Recorrentes abre Contas a pagar.',
+                ],
+            },
+            {
+                icon: ArrowLeftRight, color: '#06b6d4', title: 'Extrato (era Lançamentos)',
+                items: [
+                    'Agora é só consulta: mostra tudo que entrou e saiu da conta no mês, sem botão de lançar.',
+                    'Filtros, agrupamento por dia e a edição de um lançamento existente continuam iguais.',
+                ],
+            },
+            {
+                icon: TrendingUp, color: '#10b981', title: 'Contas a receber (nova)',
+                items: [
+                    'Suas entradas cadastradas viram cards, com o seletor A receber / Recebido e o botão Confirmar recebimento — o mesmo padrão de Contas a pagar.',
+                    'Dá para lançar uma entrada avulsa por ali (botão discreto); ela aparece em Recebido com o selo "Avulsa".',
+                    'O cadastro das entradas fixas (salário e companhia) continua em Configurações e Cadastros.',
+                ],
+            },
+            {
+                icon: Repeat, color: '#f59e0b', title: 'Contas a pagar (era Recorrentes)',
+                items: [
+                    'Só mudou o nome: os cards das contas cadastradas continuam exatamente como estavam.',
+                    'Saiu tudo de cartão desta tela (o indicador "Na fatura" e a lista de parcelamentos e assinaturas) — isso vive em Meu cartão.',
+                    'Ganhou um botão discreto "Lançar despesa"; o que você lança à mão entra na aba Pago com o selo "Avulso".',
+                ],
+            },
+            {
+                icon: CreditCard, color: '#a855f7', title: 'Fatura do cartão',
+                items: [
+                    'Corrigido: uma fatura já paga continuava aparecendo como "vencida há N dias", com o valor da fatura atual. Agora o aviso só aparece quando algo do ciclo que fechou está mesmo em aberto.',
+                    'Pagamento adiantado (feito antes do fechamento) passa a contar como pago.',
+                    'Faturas anteriores: pagamentos antigos sem cartão identificado voltam a aparecer quando existe um único cartão cadastrado.',
+                ],
+            },
+            {
+                icon: WhatsAppIcon, color: '#25D366', title: 'Alívia no WhatsApp', wa: true,
+                items: [
+                    'Ao enviar um arquivo, ela pergunta se é fatura de cartão ou extrato bancário — e já sugere o tipo que identificou.',
+                    'Em fatura, o crédito é tratado como estorno e abate o valor, em vez de virar "entrada" e inflar seus ganhos.',
+                    'A importação passou a respeitar a forma de pagamento configurada (inclusive o cartão padrão). Antes ia tudo como PIX.',
+                    'Na confirmação dá para corrigir na hora: responda pix, débito, dinheiro, boleto ou cartão.',
+                ],
+            },
+            {
+                icon: Languages, color: '#8b5cf6', title: 'Idioma',
+                items: [
+                    'O app agora fala Português, English e Español. Escolha em Configurações e Cadastros › Geral › Idioma — a troca vale na hora, em todas as telas.',
+                    'A escolha fica salva na sua conta e vale em qualquer aparelho. Números e datas acompanham o idioma; os valores seguem em real (R$).',
+                ],
+            },
+        ],
+    },
     {
         version: '1.2',
         date: '21/09/2026',
