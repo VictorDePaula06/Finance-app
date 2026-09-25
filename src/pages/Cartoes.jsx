@@ -6,6 +6,7 @@ import AliviaFormHint from '../components/AliviaFormHint';
 import ConfirmActionModal from '../components/ConfirmActionModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useI18n } from '../contexts/LanguageContext';
 import { db } from '../services/firebase';
 import {
     collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
@@ -39,6 +40,7 @@ const catMetaExp = (id) => CATEGORIES.expense.find(c => c.id === id) || { label:
 export default function Cartoes() {
     const { currentUser } = useAuth();
     const { theme } = useTheme();
+    const { t, fmtMoney: money } = useI18n();
     const isDark = theme !== 'light';
     const uid = currentUser?.uid;
 
@@ -110,12 +112,16 @@ export default function Cartoes() {
     const faturaVisible = showAllFatura ? faturaFiltered : faturaFiltered.slice(0, 5);
 
     // Faturas já pagas deste cartão (pra ver a fatura do mês anterior).
+    // Pagamentos antigos podem não ter `selectedCardId` — quando só existe um
+    // cartão, eles são desse cartão; com vários, só entram os identificados.
     const faturasPagas = useMemo(() => {
         if (!selected) return [];
+        const soUmCartao = cards.length === 1;
         return transactions
-            .filter(t => t.category === 'credit_card_bill' && t.selectedCardId === selected.id)
+            .filter(t => t.category === 'credit_card_bill'
+                && (t.selectedCardId === selected.id || (soUmCartao && !t.selectedCardId)))
             .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    }, [transactions, selected]);
+    }, [transactions, selected, cards.length]);
     const limite = Number(selected?.limit) || 0;
     const disponivel = limite ? Math.max(0, limite - faturaTotal) : 0;
     const usoPct = limite ? Math.min(100, (faturaTotal / limite) * 100) : 0;
@@ -131,11 +137,12 @@ export default function Cartoes() {
         return { due, days };
     }, [selected]);
 
-    // Fatura VENCIDA: a fatura que já fechou passou do vencimento e ainda não foi paga.
-    // Detecta pelo registro de pagamento (não pelo "bucket" de itens, que recorre),
-    // evitando falso-positivo com assinaturas/parcelas que reaparecem todo mês.
+    // Fatura VENCIDA: a fatura que já FECHOU passou do vencimento e continua em aberto.
+    // Só acusa vencimento se algo do ciclo fechado ainda estiver em aberto — compras
+    // feitas DEPOIS do fechamento (e parcelas/assinaturas que já avançaram no
+    // pagamento) pertencem à fatura nova e não podem virar "vencido".
     const overdueInfo = useMemo(() => {
-        if (!selected?.dueDay || faturaTotal <= 0) return null;
+        if (!selected?.dueDay) return null;
         const dueDay = selected.dueDay;
         const closeDay = closingOf(selected);
         const now = new Date();
@@ -147,17 +154,36 @@ export default function Cartoes() {
         let dueClosed = new Date(lastClose.getFullYear(), lastClose.getMonth(), dueDay);
         if (dueClosed <= lastClose) dueClosed = new Date(lastClose.getFullYear(), lastClose.getMonth() + 1, dueDay);
         if (today <= dueClosed) return null; // ainda dentro do prazo
-        // Já foi paga? (pagamento registrado depois que a fatura fechou)
-        const pago = faturasPagas.some(p => p.date && new Date(p.date) >= lastClose);
+
+        const mkOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const mkCiclo = mkOf(lastClose);      // mês em que a fatura fechou
+        const mkVenc = mkOf(dueClosed);       // mês do vencimento
+
+        // Já foi paga? Vale o pagamento do ciclo (pelo mês registrado) e também o
+        // pagamento adiantado, feito antes do fechamento mas dentro do mesmo mês.
+        const pago = faturasPagas.some(p => {
+            const mkPag = p.invoiceMonthPaid || (p.date ? String(p.date).slice(0, 7) : '');
+            if (mkPag && (mkPag === mkCiclo || mkPag === mkVenc)) return true;
+            return p.date && new Date(p.date) >= lastClose;
+        });
         if (pago) return null;
-        // Valor vencido estimado: itens que já estavam na fatura fechada (compras até o
-        // fechamento + assinaturas/parcelas do ciclo). Compras após o fechamento são da fatura aberta.
-        const overdueTotal = invoiceItems
-            .filter(it => !it.date || new Date(it.date) <= lastClose)
-            .reduce((a, it) => a + it.amount, 0);
+
+        // O que está REALMENTE vencido: compras do ciclo fechado ainda em aberto +
+        // assinaturas que não foram cobradas/pagas nesse ciclo. Parcelamentos avançam
+        // (currentInstallment) quando a fatura é paga, então não entram na conta —
+        // senão acusariam "vencido" todo mês mesmo com tudo pago.
+        const comprasVencidas = avulsas
+            .filter(t => t.date && new Date(t.date) <= lastClose)
+            .reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+        const assinaturasVencidas = subsOnCard
+            .filter(sb => !sb.lastPaidMonth || sb.lastPaidMonth < mkCiclo)
+            .reduce((a, sb) => a + (parseFloat(sb.value) || 0), 0);
+        const total = comprasVencidas + assinaturasVencidas;
+        if (total <= 0.005) return null; // nada do ciclo anterior em aberto → não há fatura vencida
+
         const days = Math.round((today - dueClosed) / 86400000);
-        return { due: dueClosed, days, total: overdueTotal > 0 ? overdueTotal : faturaTotal };
-    }, [selected, faturaTotal, faturasPagas, invoiceItems]);
+        return { due: dueClosed, days, total };
+    }, [selected, faturasPagas, avulsas, subsOnCard]);
 
     const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -180,14 +206,14 @@ export default function Cartoes() {
                         <CreditCard className="w-8 h-8" strokeWidth={2.2} />
                     </span>
                     <div>
-                        <h1 className={`text-3xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>Cartão de crédito</h1>
-                        <p className={`text-sm mt-0.5 ${muted}`}>Seus cartões, limites e a fatura atual.</p>
+                        <h1 className={`text-3xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('card.title')}</h1>
+                        <p className={`text-sm mt-0.5 ${muted}`}>{t('card.subtitle')}</p>
                     </div>
                 </div>
                 {/* Cadastro/edição/exclusão de cartões vive em Configurações e Cadastros */}
                 <button onClick={irParaCadastros}
                     className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                    <Settings className="w-4 h-4" /> Gerenciar cartões
+                    <Settings className="w-4 h-4" /> {t('card.manage')}
                 </button>
             </div>
 
@@ -221,7 +247,7 @@ export default function Cartoes() {
                                 <div className="flex items-center justify-between gap-4 flex-wrap">
                                     <div className="min-w-0">
                                         <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>
-                                            Fatura atual{dueInfo ? ` · ${MESES[dueInfo.due.getMonth()]}` : ''}
+                                            {t('card.currentInvoice')}{dueInfo ? ` · ${MESES[dueInfo.due.getMonth()]}` : ''}
                                         </p>
                                         <p className="text-[30px] leading-none font-black tabular-nums text-amber-500 mt-1">
                                             <span className="text-base align-top mr-1 text-amber-500/70">R$</span>{money(faturaTotal)}
@@ -239,13 +265,13 @@ export default function Cartoes() {
                                                 <span className="w-5 h-5 rounded-full bg-black/10 flex items-center justify-center">
                                                     <Wallet className="w-3 h-3" strokeWidth={2.6} />
                                                 </span>
-                                                <span className="font-black uppercase tracking-[0.12em] text-[11px]">Pagar fatura</span>
+                                                <span className="font-black uppercase tracking-[0.12em] text-[11px]">{t('card.payInvoice')}</span>
                                             </button>
                                         )}
                                         {selected && (
                                             <button onClick={() => setHistoricoOpen(true)}
                                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                                                <History className="w-3.5 h-3.5" /> Faturas anteriores
+                                                <History className="w-3.5 h-3.5" /> {t('card.pastInvoices')}
                                             </button>
                                         )}
                                     </div>
@@ -269,12 +295,12 @@ export default function Cartoes() {
 
                             {/* Métricas — compactas */}
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
-                                <StatCard isDark={isDark} label="Assinaturas" value={`R$ ${money(assinaturasTotal)}`} sub={`${subsOnCard.length} no mês`} tone="purple"
+                                <StatCard isDark={isDark} label={t('rec.subscriptions')} value={`R$ ${money(assinaturasTotal)}`} sub={`${subsOnCard.length}`} tone="purple"
                                     onDetails={subsOnCard.length ? () => setDetalhes('assinaturas') : null} />
-                                <StatCard isDark={isDark} label="Parcelamento" value={`R$ ${money(parcelamentoTotal)}`} sub={`${installmentsOnCard.length} ativo${installmentsOnCard.length === 1 ? '' : 's'}`} tone="blue"
+                                <StatCard isDark={isDark} label={t('rec.installments')} value={`R$ ${money(parcelamentoTotal)}`} sub={`${installmentsOnCard.length}`} tone="blue"
                                     onDetails={installmentsOnCard.length ? () => setDetalhes('parcelas') : null} />
-                                <StatCard isDark={isDark} label="Melhor dia" value={selected ? `Dia ${bestBuyDay(selected)}` : '—'} sub={selected ? `fecha dia ${closingOf(selected)}` : 'sem cartão'} tone="emerald" />
-                                <StatCard isDark={isDark} label="Uso do limite" value={selected && limite ? `${Math.round(usoPct)}%` : '—'} sub={selected ? (limite ? `livre R$ ${money(disponivel)}` : 'sem limite') : 'sem cartão'} tone="amber" />
+                                <StatCard isDark={isDark} label={t('card.bestDay')} value={selected ? `${t('reg.dueDayShort')} ${bestBuyDay(selected)}` : '—'} sub={selected ? t('card.closesOn', { day: closingOf(selected) }) : t('card.noCard')} tone="emerald" />
+                                <StatCard isDark={isDark} label={t('card.limitUsage')} value={selected && limite ? `${Math.round(usoPct)}%` : '—'} sub={selected ? (limite ? t('card.freeLimit', { value: money(disponivel) }) : t('card.noLimit')) : t('card.noCard')} tone="amber" />
                             </div>
                         </div>
                     </div>
@@ -289,19 +315,19 @@ export default function Cartoes() {
                             {invoiceItems.length > 0 && (
                                 <>
                                     <select value={filterTipo} onChange={e => { setFilterTipo(e.target.value); setShowAllFatura(false); }} className={filterSel} style={{ colorScheme: isDark ? 'dark' : 'light' }} aria-label="Filtrar por tipo">
-                                        <option value="all" style={optStyle}>Todos os tipos</option>
+                                        <option value="all" style={optStyle}>{t('cardp.allTypes')}</option>
                                         <option value="despesa" style={optStyle}>À vista</option>
                                         <option value="assinatura" style={optStyle}>Assinatura</option>
                                         <option value="parcelamento" style={optStyle}>Parcelado</option>
                                     </select>
                                     <select value={filterCat} onChange={e => { setFilterCat(e.target.value); setShowAllFatura(false); }} className={filterSel} style={{ colorScheme: isDark ? 'dark' : 'light' }} aria-label="Filtrar por categoria">
-                                        <option value="all" style={optStyle}>Todas as categorias</option>
+                                        <option value="all" style={optStyle}>{t('cardp.allCategories')}</option>
                                         {faturaCats.map(id => <option key={id} value={id} style={optStyle}>{catMetaExp(id).label}</option>)}
                                     </select>
                                 </>
                             )}
                             {selected && (
-                                <PillButton onClick={() => setDespChooser(true)} size="xs" color="rose">Lançar despesa</PillButton>
+                                <PillButton onClick={() => setDespChooser(true)} size="xs" color="rose">{t('card.newExpense')}</PillButton>
                             )}
                         </div>
                     </div>
@@ -309,7 +335,7 @@ export default function Cartoes() {
                     {invoiceItems.length === 0 ? (
                         <div className={`rounded-2xl border py-12 text-center ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
                             <ShoppingBag className={`w-7 h-7 mx-auto mb-2.5 ${muted}`} />
-                            <p className={`text-sm font-bold ${cell}`}>{selected ? 'Nenhum lançamento nesta fatura' : 'Nenhum cartão cadastrado'}</p>
+                            <p className={`text-sm font-bold ${cell}`}>{selected ? t('cardp.noneOnBill') : t('reg.noCards')}</p>
                             <p className={`text-xs mt-1 ${muted}`}>{selected ? 'Use “Nova compra” para lançar uma despesa, assinatura ou parcelamento.' : 'Cadastre um cartão para ver a fatura aqui.'}</p>
                         </div>
                     ) : (
@@ -353,7 +379,7 @@ export default function Cartoes() {
                                                     </td>
                                                     <td className={`px-4 py-3.5 text-[13px] font-semibold tabular-nums ${it.kind === 'parcelamento' ? cell : muted}`}>{it.kind === 'parcelamento' ? it.parcela : '–'}</td>
                                                     <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                                                        <div className={`text-[13px] font-black tabular-nums ${isDark ? 'text-white' : 'text-slate-800'}`}>R$ {money(it.amount)}</div>
+                                                        <div className={`text-[13px] font-black tabular-nums ${it.amount < 0 ? 'text-emerald-500' : (isDark ? 'text-white' : 'text-slate-800')}`}>{it.amount < 0 ? '− ' : ''}R$ {money(Math.abs(it.amount))}</div>
                                                         {totalParc > 0 && <div className={`text-[11px] ${muted}`}>de R$ {money(totalParc)}</div>}
                                                     </td>
                                                     <td className="px-2 py-3.5">
@@ -424,6 +450,7 @@ const TIPO_META = {
 
 // ── Cartão visual (dados-chave no próprio cartão) ───────────────────
 function CardVisual({ card, onAdd, isDark }) {
+    const { t } = useI18n();
     const grad = gradOf(card?.color);
     const last4 = card?.last4 || '0000';
     const bank = detectBank(card?.bank, card?.name);
@@ -434,8 +461,8 @@ function CardVisual({ card, onAdd, isDark }) {
             <button onClick={onAdd}
                 className={`relative w-full h-full rounded-3xl p-6 flex flex-col items-center justify-center text-center border-2 border-dashed transition group ${isDark ? 'border-white/15 bg-white/[0.02] hover:bg-white/[0.04] text-slate-400' : 'border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-400'}`}>
                 <span className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-3 group-hover:scale-105 transition"><CreditCard className="w-6 h-6" /></span>
-                <p className={`text-sm font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Nenhum cartão cadastrado</p>
-                <p className="text-[12px] mt-1">Cadastre em <span className="font-bold text-emerald-500">Configurações e Cadastros → Cadastros</span></p>
+                <p className={`text-sm font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{t('reg.noCards')}</p>
+                <p className="text-[12px] mt-1 font-bold text-emerald-500">{t('cardp.registerIn')}</p>
             </button>
         );
     }
@@ -467,7 +494,7 @@ function CardVisual({ card, onAdd, isDark }) {
             <div className="relative flex items-end justify-between gap-3 mt-3">
                 <p className="text-[15px] font-bold tracking-[0.18em] tabular-nums text-white/85">•••• {last4}</p>
                 <div className="text-right shrink-0">
-                    <p className="text-[9px] uppercase tracking-widest text-white/55">Vence dia</p>
+                    <p className="text-[9px] uppercase tracking-widest text-white/55">{t('card.dueDay')}</p>
                     <p className="text-[15px] font-black leading-tight">{card?.dueDay || '—'}</p>
                 </div>
             </div>
@@ -581,7 +608,7 @@ function FaturasAnterioresModal({ isDark, card, faturas, onClose }) {
                                                         </div>
                                                         <p className={`text-[11px] ${muted}`}>{[it.parcela ? `Parcela ${it.parcela}` : null, c.label].filter(Boolean).join(' · ')}</p>
                                                     </div>
-                                                    <span className="text-[13px] font-black tabular-nums text-rose-500 whitespace-nowrap">R$ {money(it.amount)}</span>
+                                                    <span className={`text-[13px] font-black tabular-nums whitespace-nowrap ${it.amount < 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{it.amount < 0 ? '− ' : ''}R$ {money(Math.abs(it.amount))}</span>
                                                 </div>
                                             );
                                         })}
@@ -972,7 +999,7 @@ function PagarFaturaModal({ isDark, uid, card, items, total, onClose }) {
                                     <p className={`font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{it.name || c.label}</p>
                                     <p className={`text-[11px] ${muted}`}>{it.kind === 'parcelamento' ? `Parcela ${it.parcela} · ` : it.kind === 'assinatura' ? 'Mensal · ' : ''}{c.label}</p>
                                 </div>
-                                <span className="font-black tabular-nums text-rose-500 whitespace-nowrap ml-3">R$ {money(it.amount)}</span>
+                                <span className={`font-black tabular-nums whitespace-nowrap ml-3 ${it.amount < 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{it.amount < 0 ? '− ' : ''}R$ {money(Math.abs(it.amount))}</span>
                             </div>
                         );
                     })}
