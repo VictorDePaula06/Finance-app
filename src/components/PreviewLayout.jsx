@@ -8,8 +8,9 @@ import AppSidebar, { NAV_ITEMS, APP_VERSION, RELEASE_NOTES_URL } from './AppSide
 import MobileNav from './MobileNav';
 import { useI18n } from '../contexts/LanguageContext';
 import InstallPrompt from './InstallPrompt';
-import Recorrentes from '../pages/Recorrentes';
-import Lancamentos from '../pages/Lancamentos';
+import ContasPagar from '../pages/Recorrentes';
+import ContasReceber from '../pages/ContasReceber';
+import Extrato from '../pages/Lancamentos';
 import Cartoes from '../pages/Cartoes';
 import Patrimonio from '../pages/Patrimonio';
 import Reservas from '../pages/Reservas';
@@ -26,6 +27,8 @@ import GerenciarUsuarios from '../pages/GerenciarUsuarios';
 // A conexão do WhatsApp mora em Configurações e Cadastros (aba "WhatsApp").
 // Telas que viraram abas de Configurações e Cadastros (WhatsApp, Assinatura).
 const CONFIG_TABS = ['whatsapp', 'assinatura'];
+// Abas renomeadas: os links antigos continuam funcionando.
+const ALIAS = { lancamentos: 'extrato', recorrentes: 'pagar' };
 export const tabPath = (id) => (id === 'dashboard' ? '/inicio' : CONFIG_TABS.includes(id) ? `/app/configuracoes?tab=${id}` : `/app/${id}`);
 
 export default function PreviewLayout({ tab = 'dashboard' }) {
@@ -60,6 +63,8 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
 
     // Links antigos /app/whatsapp e /app/assinatura → abas dentro de Configurações e Cadastros.
     if (CONFIG_TABS.includes(active)) return <Navigate to={tabPath(active)} replace />;
+    // /app/lancamentos → /app/extrato ; /app/recorrentes → /app/pagar
+    if (ALIAS[active]) return <Navigate to={tabPath(ALIAS[active])} replace />;
 
     return (
         <div className={`min-h-screen flex ${isDark ? 'bg-[#0e0f12]' : 'bg-slate-50'}`}>
@@ -93,7 +98,7 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
 
             {/* Área de conteúdo (respiro inferior no mobile p/ a bottom navigation) */}
             <main className="flex-1 p-4 sm:p-6 lg:p-10 pb-[calc(6rem_+_env(safe-area-inset-bottom))] lg:pb-10 overflow-y-auto">
-                {active === 'consultoria' ? <ConsultoriaAlivia onNavigate={go} /> : active === 'configuracoes' ? <Configuracoes /> : active === 'gerenciar-usuarios' ? <GerenciarUsuarios /> : active === 'dashboard' ? <Dashboard onNavigate={go} onSettings={() => go('configuracoes')} /> :active === 'recorrentes' ? <Recorrentes onNavigate={go} /> : active === 'lancamentos' ? <Lancamentos /> : active === 'cartoes' ? <Cartoes /> : active === 'patrimonio' ? <Patrimonio /> : active === 'reservas' ? <Reservas /> : active === 'analises' ? <Analises /> : active === 'manual' ? <Manual /> : (
+                {active === 'consultoria' ? <ConsultoriaAlivia onNavigate={go} /> : active === 'configuracoes' ? <Configuracoes /> : active === 'gerenciar-usuarios' ? <GerenciarUsuarios /> : active === 'dashboard' ? <Dashboard onNavigate={go} onSettings={() => go('configuracoes')} /> :active === 'pagar' ? <ContasPagar onNavigate={go} /> : active === 'receber' ? <ContasReceber /> : active === 'extrato' ? <Extrato /> : active === 'cartoes' ? <Cartoes /> : active === 'patrimonio' ? <Patrimonio /> : active === 'reservas' ? <Reservas /> : active === 'analises' ? <Analises /> : active === 'manual' ? <Manual /> : (
                 <div className="max-w-4xl">
                     <span className={`text-[11px] font-black uppercase tracking-widest ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Preview do novo layout</span>
                     <h1 className={`text-3xl font-black tracking-tight mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{label}</h1>

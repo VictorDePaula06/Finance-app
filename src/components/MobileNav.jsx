@@ -5,7 +5,7 @@ import { useWhatsAppStatus } from '../hooks/useWhatsAppStatus';
 import UserAvatar from './UserAvatar';
 import {
     Home, ArrowLeftRight, BarChart3, CreditCard, LayoutGrid, X,
-    Repeat, PiggyBank, Landmark, Receipt, BookOpen, Settings, User,
+    Repeat, PiggyBank, Landmark, Receipt, BookOpen, Settings, User, TrendingUp,
     LogOut, Sun, Moon, Users, ChevronRight, CheckCircle2,
 } from 'lucide-react';
 import WhatsAppIcon from './ui/WhatsAppIcon';
@@ -18,12 +18,12 @@ import { useI18n } from '../contexts/LanguageContext';
 // Áreas de uso diário na barra inferior (as demais vão pro "Mais").
 const BOTTOM = [
     { id: 'dashboard', label: 'nav.home', icon: Home },
-    { id: 'lancamentos', label: 'nav.transactions', icon: ArrowLeftRight },
-    { id: 'analises', label: 'nav.analysis', icon: BarChart3 },
+    { id: 'extrato', label: 'nav.statementShort', icon: ArrowLeftRight },
+    { id: 'pagar', label: 'nav.toPayShort', icon: Repeat },
     { id: 'cartoes', label: 'nav.card', icon: CreditCard },
 ];
 // Telas que vivem dentro do "Mais" (usadas p/ marcar a aba "Mais" como ativa).
-const IN_MORE = ['recorrentes', 'reservas', 'patrimonio', 'manual', 'configuracoes', 'gerenciar-usuarios'];
+const IN_MORE = ['receber', 'analises', 'reservas', 'patrimonio', 'manual', 'configuracoes', 'gerenciar-usuarios'];
 
 export default function MobileNav({ active, go, onOpenProfile, onLogout }) {
     const { theme, toggleTheme } = useTheme();
@@ -138,7 +138,8 @@ export default function MobileNav({ active, go, onOpenProfile, onLogout }) {
                             </button>
 
                             <GroupLabel>{t('nav.finances')}</GroupLabel>
-                            <Row icon={Repeat} label={t('nav.recurring')} onClick={() => nav('recorrentes')} />
+                            <Row icon={TrendingUp} label={t('nav.toReceive')} onClick={() => nav('receber')} />
+                            <Row icon={BarChart3} label={t('nav.reports')} onClick={() => nav('analises')} />
                             <Row icon={PiggyBank} label={t('nav.reserves')} onClick={() => nav('reservas')} />
                             <Row icon={Landmark} label={t('nav.patrimony')} onClick={() => nav('patrimonio')} />
 

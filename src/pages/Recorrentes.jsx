@@ -10,6 +10,7 @@ import {
     doc, runTransaction, serverTimestamp,
 } from 'firebase/firestore';
 import { CATEGORIES, categoryHex } from '../constants/categories';
+import { LancamentoForm } from './Lancamentos';
 import { buildWalletLedger } from '../utils/financialLogic';
 import {
     Plus, CheckCircle2, AlertTriangle, X, Loader2,
@@ -101,10 +102,10 @@ export default function Recorrentes() {
 
     const [expenses, setExpenses] = useState([]);
     const [transactions, setTransactions] = useState([]);
-    const [cardSubs, setCardSubs] = useState([]); // assinaturas/parcelamentos no cartão
     const [cards, setCards] = useState([]);
     const [tab, setTab] = useState('apagar');     // 'apagar' | 'pago'
     const [baixa, setBaixa] = useState(null);     // { kind, rec }
+    const [form, setForm] = useState(false);      // despesa avulsa (lançamento manual)
 
     useEffect(() => {
         if (!uid) return;
@@ -112,7 +113,6 @@ export default function Recorrentes() {
         const list = [
             onSnapshot(q('fixed_expenses'), (s) => setExpenses(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {}),
             onSnapshot(q('transactions'), (s) => setTransactions(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {}),
-            onSnapshot(q('subscriptions'), (s) => setCardSubs(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {}),
             onSnapshot(q('cards'), (s) => setCards(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => {}),
         ];
         return () => list.forEach(u => u());
@@ -134,34 +134,23 @@ export default function Recorrentes() {
         .sort((a, b) => (a.day || 0) - (b.day || 0)),
         [expenses, transactions, mk, cardIds]);
 
+    // Despesas avulsas do mês (lançadas à mão) — entram na aba "Pago".
+    const avulsasPagas = useMemo(() => transactions
+        .filter(t => t.type === 'expense' && (t.month || String(t.date || '').slice(0, 7)) === mk
+            && !t.isFixed && !t.isTransfer && t.paymentMethod !== 'credito'
+            && !['vault', 'credit_card_bill', 'investment'].includes(t.category))
+        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)),
+        [transactions, mk]);
+
     const aPagar = rows.filter(r => r.status !== 'pago');
     const pagas = rows.filter(r => r.status === 'pago');
     const atrasadas = aPagar.filter(r => r.status === 'atrasado').length;
 
-    // Recorrências do CARTÃO (vêm de subscriptions) — só leitura aqui.
-    const cardRows = useMemo(() => cardSubs
-        .filter(s => s.cardId && cardIds.has(s.cardId))
-        .map(s => {
-            const isInst = s.type === 'installment' || s.isInstallment;
-            return {
-                id: `card_${s.id}`, name: s.name || (isInst ? 'Parcelamento' : 'Assinatura'),
-                value: parseFloat(s.value) || 0, category: s.category || 'conta_fixa',
-                day: s.day || 1, cardName: cards.find(c => c.id === s.cardId)?.name || 'Cartão',
-                isInstallment: isInst,
-                parcela: isInst ? `${s.currentInstallment || 1}/${s.totalInstallments || 1}` : null,
-                current: s.currentInstallment || 1, total: s.totalInstallments || 1,
-            };
-        })
-        .sort((a, b) => (a.day || 0) - (b.day || 0)),
-        [cardSubs, cardIds, cards]);
-    const parcelamentos = cardRows.filter(r => r.isInstallment);
-    const assinaturas = cardRows.filter(r => !r.isInstallment);
-
     const totalAPagar = aPagar.reduce((a, r) => a + (parseFloat(r.value) || 0), 0);
-    const totalPago = pagas.reduce((a, r) => a + (parseFloat(r.paidTx?.amount ?? r.value) || 0), 0);
-    const totalCartao = cardRows.reduce((a, r) => a + r.value, 0);
+    const totalPago = pagas.reduce((a, r) => a + (parseFloat(r.paidTx?.amount ?? r.value) || 0), 0)
+        + avulsasPagas.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
     // Compromisso recorrente do mês inteiro: contas cadastradas (pagas ou não) + o que está no cartão.
-    const totalRecorrentes = totalAPagar + totalPago + totalCartao;
+    const totalRecorrentes = totalAPagar + totalPago;
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const mesLabel = fmtMonth(mk);
@@ -180,7 +169,7 @@ export default function Recorrentes() {
                         <Repeat className="w-7 h-7" strokeWidth={2.2} />
                     </span>
                     <div className="min-w-0">
-                        <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('rec.title')}</h1>
+                        <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('nav.toPay')}</h1>
                         <p className={`text-sm mt-0.5 ${muted}`}>{t('rec.subtitle', { month: '' })}<span className={`font-bold capitalize ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{mesLabel}</span></p>
                     </div>
                 </div>
@@ -189,7 +178,6 @@ export default function Recorrentes() {
                     {tab === 'apagar'
                         ? <Stat isDark={isDark} label={t('rec.billsToPay')} value={totalAPagar} tone="rose" />
                         : <Stat isDark={isDark} label={t('common.paid')} value={totalPago} tone="emerald" />}
-                    <Stat isDark={isDark} label={t('rec.onInvoice')} value={totalCartao} tone="blue" />
                     <Stat isDark={isDark} label={t('rec.totalRecurring')} value={totalRecorrentes} tone="slate" />
 
                 <div role="tablist" aria-label="Situação"
@@ -213,8 +201,15 @@ export default function Recorrentes() {
                 <div className="space-y-8 animate-in fade-in duration-200">
                     {/* Contas a pagar — cards */}
                     <section>
-                        <SectionTitle isDark={isDark} icon={TrendingDown} tone="rose" title={t('rec.billsToPay')} count={aPagar.length}
-                            hint={atrasadas > 0 ? t('rec.lateCount', { n: atrasadas }) : null} hintTone="rose" />
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <SectionTitle isDark={isDark} icon={TrendingDown} tone="rose" title={t('rec.billsToPay')} count={aPagar.length}
+                                hint={atrasadas > 0 ? t('rec.lateCount', { n: atrasadas }) : null} hintTone="rose" />
+                            {/* Lançamento manual — discreto, sem competir com os cards das contas */}
+                            <button onClick={() => setForm(true)}
+                                className={`ml-auto mb-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-400 hover:text-slate-200 hover:border-white/20' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+                                <Plus className="w-3.5 h-3.5" strokeWidth={2.6} /> {t('pay.manualExpense')}
+                            </button>
+                        </div>
                         {aPagar.length === 0 ? (
                             <Empty isDark={isDark} icon={rows.length === 0 ? CalendarDays : Sparkles}
                                 title={rows.length === 0 ? t('rec.noneRegistered') : t('rec.allPaid')}
@@ -227,39 +222,31 @@ export default function Recorrentes() {
                         )}
                     </section>
 
-                    {/* No cartão — parcelamentos e assinaturas (só leitura) */}
-                    <section>
-                        <SectionTitle isDark={isDark} icon={CreditCard} tone="blue" title={t('rec.onCard')} count={cardRows.length} />
-                        <div className={`mb-4 rounded-2xl border px-4 py-3 flex items-center gap-3 text-[12.5px] ${isDark ? 'border-blue-500/20 bg-blue-500/[0.06] text-slate-300' : 'border-blue-200 bg-blue-50 text-slate-600'}`}>
-                            <Lock className="w-4 h-4 shrink-0 text-blue-500" />
-                            <span>{t('rec.cardReadOnly')}</span>
-                        </div>
-
-                        <GroupTitle isDark={isDark} icon={Layers} title={t('rec.installments')} count={parcelamentos.length} />
-                        {parcelamentos.length === 0
-                            ? <p className={`text-[12.5px] mb-5 ${muted}`}>{t('rec.noInstallments')}</p>
-                            : <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">{parcelamentos.map(r => <CardBill key={r.id} r={r} isDark={isDark} />)}</div>}
-
-                        <GroupTitle isDark={isDark} icon={RefreshCw} title={t('rec.subscriptions')} count={assinaturas.length} tone="purple" />
-                        {assinaturas.length === 0
-                            ? <p className={`text-[12.5px] ${muted}`}>{t('rec.noSubscriptions')}</p>
-                            : <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">{assinaturas.map(r => <CardBill key={r.id} r={r} isDark={isDark} />)}</div>}
-                    </section>
                 </div>
             ) : (
                 <div className="animate-in fade-in duration-200">
-                    <SectionTitle isDark={isDark} icon={CheckCircle2} tone="emerald" title={t('rec.paidThisMonth')} count={pagas.length} />
-                    {pagas.length === 0 ? (
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <SectionTitle isDark={isDark} icon={CheckCircle2} tone="emerald" title={t('rec.paidThisMonth')} count={pagas.length + avulsasPagas.length} />
+                        <button onClick={() => setForm(true)}
+                            className={`ml-auto mb-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-400 hover:text-slate-200 hover:border-white/20' : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+                            <Plus className="w-3.5 h-3.5" strokeWidth={2.6} /> {t('pay.manualExpense')}
+                        </button>
+                    </div>
+                    {pagas.length + avulsasPagas.length === 0 ? (
                         <Empty isDark={isDark} icon={CheckCircle2} title={t('rec.nothingPaid')} text={t('rec.nothingPaidDesc')} />
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                             {pagas.map(r => <BillCard key={r.id} r={r} isDark={isDark} cardName={cardName} paid />)}
+                            {/* Despesas lançadas à mão entram aqui (já estão pagas). */}
+                            {avulsasPagas.map(tx => <BillCard key={tx.id} isDark={isDark} paid oneOff
+                                r={{ name: tx.description, value: tx.amount, category: tx.category, paidTx: tx, status: 'pago', kind: 'expense' }} />)}
                         </div>
                     )}
                 </div>
             )}
 
             {baixa && <BaixaDialog isDark={isDark} uid={uid} kind={baixa.kind} rec={baixa.rec} saldo={saldoConta} mk={mk} onClose={() => setBaixa(null)} />}
+            {form && <LancamentoForm isDark={isDark} uid={uid} kind="expense" editing={null} saldoConta={saldoConta} onClose={() => setForm(false)} />}
         </div>
     );
 }
@@ -314,7 +301,7 @@ function Empty({ isDark, icon: Icon, title, text }) {
 }
 
 // Card de uma conta cadastrada (a pagar / paga).
-function BillCard({ r, isDark, cardName, onBaixa, paid = false }) {
+function BillCard({ r, isDark, cardName, onBaixa, paid = false, oneOff = false }) {
     const { t, fmtMoney: money, fmtDate } = useI18n();
     const c = catMetaOf('expense', r.category);
     const hex = categoryHex(c);
@@ -347,8 +334,9 @@ function BillCard({ r, isDark, cardName, onBaixa, paid = false }) {
             </div>
 
             {/* Selos */}
-            {(r.cardPaid || r.isVariable || r.category === 'divida') && (
+            {(r.cardPaid || r.isVariable || r.category === 'divida' || oneOff) && (
                 <div className="flex items-center gap-1.5 flex-wrap">
+                    {oneOff && <Tag cls="bg-slate-500/15 text-slate-400">{t('txp.oneOff')}</Tag>}
                     {r.category === 'divida' && <Tag cls="bg-rose-500/15 text-rose-400"><AlertTriangle className="w-2.5 h-2.5" /> {t('st.debt')}</Tag>}
                     {r.cardPaid && <Tag cls="bg-blue-500/15 text-blue-400"><CreditCard className="w-2.5 h-2.5" /> {cardName?.(r.cardId)}</Tag>}
                     {r.isVariable && <Tag cls={isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}>{t('st.variableValue')}</Tag>}

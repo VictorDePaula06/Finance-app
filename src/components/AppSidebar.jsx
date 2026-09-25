@@ -3,7 +3,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
     LayoutDashboard, Repeat, ArrowLeftRight, CreditCard, Landmark,
-    BarChart3, BookOpen, Settings, LogOut, Sun, Moon, X, PiggyBank, Wrench,
+    BarChart3, BookOpen, Settings, LogOut, Sun, Moon, X, PiggyBank, Wrench, TrendingUp,
 } from 'lucide-react';
 
 import logo from '../assets/logo.png';
@@ -19,14 +19,15 @@ export const RELEASE_NOTES_URL = '/novidades';
 // `label` é a chave de tradução (ver src/locales); `fallback` cobre quem
 // importa NAV_ITEMS fora de um provider de idioma.
 export const NAV_ITEMS = [
-    { id: 'dashboard',   label: 'nav.dashboard',    fallback: 'Dashboard',   icon: LayoutDashboard },
-    { id: 'recorrentes', label: 'nav.recurring',    fallback: 'Recorrentes', icon: Repeat },
-    { id: 'lancamentos', label: 'nav.transactions', fallback: 'Lançamentos', icon: ArrowLeftRight },
-    { id: 'cartoes',     label: 'nav.card',         fallback: 'Meu cartão',  icon: CreditCard },
-    { id: 'reservas',    label: 'nav.reserves',     fallback: 'Reservas',    icon: PiggyBank },
-    { id: 'patrimonio',  label: 'nav.patrimony',    fallback: 'Patrimônio',  icon: Landmark },
-    { id: 'analises',    label: 'nav.analysis',     fallback: 'Análises',    icon: BarChart3 },
-    { id: 'manual',      label: 'nav.manual',       fallback: 'Manual',      icon: BookOpen },
+    { id: 'dashboard',  label: 'nav.dashboard', fallback: 'Dashboard',        icon: LayoutDashboard },
+    { id: 'extrato',    label: 'nav.statement', fallback: 'Extrato',          icon: ArrowLeftRight },
+    { id: 'receber',    label: 'nav.toReceive', fallback: 'Contas a receber', icon: TrendingUp },
+    { id: 'pagar',      label: 'nav.toPay',     fallback: 'Contas a pagar',   icon: Repeat },
+    { id: 'cartoes',    label: 'nav.card',      fallback: 'Meu cartão',       icon: CreditCard },
+    { id: 'reservas',   label: 'nav.reserves',  fallback: 'Reservas',         icon: PiggyBank },
+    { id: 'patrimonio', label: 'nav.patrimony', fallback: 'Patrimônio',       icon: Landmark },
+    { id: 'analises',   label: 'nav.reports',   fallback: 'Análises',         icon: BarChart3 },
+    { id: 'manual',     label: 'nav.manual',    fallback: 'Manual',           icon: BookOpen },
 ];
 
 const PLAN_LABEL = { lifetime: 'Vitalício', premium: 'Pro', standard: 'Pro', free: 'Gratuito' };
