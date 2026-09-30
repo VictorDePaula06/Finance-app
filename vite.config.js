@@ -57,30 +57,47 @@ export default defineConfig({
       injectManifest: {
         maximumFileSizeToCacheInBytes: 5000000 // 5MB
       },
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Alívia',
+        // 'name' aparece na tela de instalacao; 'short_name' e o rotulo curto
+        // que o sistema escreve embaixo do icone na tela inicial.
+        name: 'Alívia Finanças',
         short_name: 'Alívia',
         description: 'Domine suas finanças com a Alívia',
+        lang: 'pt-BR',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
+        // Dois conjuntos separados de proposito:
+        // - 'any': o icone e exibido inteiro (aba, lista de apps, splash);
+        // - 'maskable': o sistema recorta em circulo/squircle, entao o simbolo
+        //   e menor e fica dentro da safe zone central de 80%.
+        // Usar o mesmo arquivo para os dois (como era antes) fazia o Android
+        // cortar as bordas e preencher o fundo transparente com cinza.
         icons: [
           {
-            src: 'icon.png',
+            src: 'icon-192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
-            src: 'icon.png',
-            sizes: '512x512',
-            type: 'image/png'
-          },
-          {
-            src: 'icon.png',
+            src: 'icon-512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
+          },
+          {
+            src: 'icon-maskable-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
+          },
+          {
+            src: 'icon-maskable-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       },
