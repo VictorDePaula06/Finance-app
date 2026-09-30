@@ -8,6 +8,7 @@ import { CATEGORIES, categoryHex } from '../constants/categories';
 import { buildWalletLedger } from '../utils/financialLogic';
 import { BaixaDialog, statusOf, paidTxOf } from './Recorrentes';
 import { LancamentoForm } from './Lancamentos';
+import RegistryHint from '../components/ui/RegistryHint';
 import {
     TrendingUp, CheckCircle2, Check, CalendarDays, Plus, Sparkles, CircleDollarSign,
 } from 'lucide-react';
@@ -86,6 +87,7 @@ export default function ContasReceber() {
                     <div className="min-w-0">
                         <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('recv.title')}</h1>
                         <p className={`text-sm mt-0.5 ${muted}`}>{t('recv.subtitle', { month: '' })}<span className={`font-bold capitalize ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{mesLabel}</span></p>
+                        <RegistryHint isDark={isDark} label={t('registry.hintReceive')} />
                     </div>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap">

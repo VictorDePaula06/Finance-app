@@ -511,8 +511,12 @@ export default {
     'recv.allReceivedDesc': 'No income pending this month.',
     'recv.nothingReceived': 'Nothing received yet',
     'recv.nothingReceivedDesc': 'Income you confirm this month shows up here.',
-    'recv.manualEntry': 'Log income',
+    'recv.manualEntry': 'Log one-off income',
     'recv.receivesOn': 'Received on the {day}',
     'recv.oneOff': 'One-off',
-    'pay.manualExpense': 'Log expense',
+    'pay.manualExpense': 'Log one-off expense',
+    // Caminho do cadastro (Contas a pagar / Contas a receber → Cadastros).
+    'registry.path': 'Settings & Records › Records',
+    'registry.hintPay': 'Fixed bills are set up in',
+    'registry.hintReceive': 'Fixed income is set up in',
 };

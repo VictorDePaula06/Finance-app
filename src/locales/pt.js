@@ -512,8 +512,12 @@ export default {
     'recv.allReceivedDesc': 'Nenhuma entrada pendente neste mês.',
     'recv.nothingReceived': 'Nada recebido ainda',
     'recv.nothingReceivedDesc': 'As entradas que você confirmar neste mês aparecem aqui.',
-    'recv.manualEntry': 'Lançar entrada',
+    'recv.manualEntry': 'Lançar entrada avulsa',
     'recv.receivesOn': 'Recebe dia {day}',
     'recv.oneOff': 'Avulsa',
-    'pay.manualExpense': 'Lançar despesa',
+    'pay.manualExpense': 'Lançar despesa avulsa',
+    // Caminho do cadastro (Contas a pagar / Contas a receber → Cadastros).
+    'registry.path': 'Configurações e Cadastros › Cadastros',
+    'registry.hintPay': 'Contas fixas se cadastram em',
+    'registry.hintReceive': 'Entradas fixas se cadastram em',
 };

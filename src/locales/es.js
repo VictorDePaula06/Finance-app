@@ -511,8 +511,12 @@ export default {
     'recv.allReceivedDesc': 'Ningún ingreso pendiente este mes.',
     'recv.nothingReceived': 'Nada recibido aún',
     'recv.nothingReceivedDesc': 'Los ingresos que confirmes este mes aparecen aquí.',
-    'recv.manualEntry': 'Registrar ingreso',
+    'recv.manualEntry': 'Registrar ingreso puntual',
     'recv.receivesOn': 'Se recibe el {day}',
     'recv.oneOff': 'Puntual',
-    'pay.manualExpense': 'Registrar gasto',
+    'pay.manualExpense': 'Registrar gasto puntual',
+    // Caminho del registro (Cuentas a pagar / a cobrar → Registros).
+    'registry.path': 'Ajustes y Registros › Registros',
+    'registry.hintPay': 'Las cuentas fijas se registran en',
+    'registry.hintReceive': 'Los ingresos fijos se registran en',
 };

@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import { LancamentoForm } from './Lancamentos';
+import RegistryHint from '../components/ui/RegistryHint';
 import { buildWalletLedger } from '../utils/financialLogic';
 import {
     Plus, CheckCircle2, AlertTriangle, X, Loader2,
@@ -171,6 +172,7 @@ export default function Recorrentes() {
                     <div className="min-w-0">
                         <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('nav.toPay')}</h1>
                         <p className={`text-sm mt-0.5 ${muted}`}>{t('rec.subtitle', { month: '' })}<span className={`font-bold capitalize ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{mesLabel}</span></p>
+                        <RegistryHint isDark={isDark} label={t('registry.hintPay')} />
                     </div>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
