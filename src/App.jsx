@@ -1183,6 +1183,7 @@ import { isNativeApp } from './services/nativeAuth';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfUse from './components/TermsOfUse';
 import Novidades from './pages/Novidades';
+import Charts from './pages/Charts';
 import SubscriptionBlock from './components/SubscriptionBlock';
 import Contact from './components/Contact';
 import PatrimonioTab from './components/PatrimonioTab';
@@ -1317,6 +1318,8 @@ function AppRoutes() {
       />
       {/* Notas de atualização — pública; abre em nova aba ao clicar na versão. */}
       <Route path="/novidades" element={<Novidades />} />
+      {/* Sala de gráficos (tela cheia, sem sidebar). Usa a watchlist do usuário. */}
+      <Route path="/charts" element={!currentUser ? <Navigate to="/login" replace /> : <Charts />} />
       <Route
         path="/manual"
         element={<Manual onBack={() => navigate(currentUser ? '/inicio' : '/')} />}

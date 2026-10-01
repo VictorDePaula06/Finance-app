@@ -11,7 +11,7 @@ import { useLivePrices } from '../hooks/useLivePrices';
 import { getUsdRate, getCdiRate } from '../utils/marketRates';
 import {
     Plus, Minus, Pencil, Trash2, X, Loader2, Check, Search, Save, ChevronDown,
-    Landmark, PieChart as PieIcon, Activity, Bitcoin, TrendingUp, TrendingDown,
+    Landmark, PieChart as PieIcon, Activity, CandlestickChart, Bitcoin, TrendingUp, TrendingDown,
     ArrowUpRight, ArrowDownRight, DollarSign,
 } from 'lucide-react';
 
@@ -350,10 +350,19 @@ export default function Patrimonio() {
                     <h1 className={`text-2xl font-black tracking-tight mt-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Patrimônio</h1>
                     <p className={`text-[11px] uppercase tracking-widest font-black mt-3 ${muted}`}>Total investido</p>
                     <p className="text-3xl font-black tabular-nums text-emerald-500 mt-0.5"><AnimatedNumber value={total} format={fmt} /></p>
-                    <button onClick={() => setMonitorOpen(true)}
-                        className={`mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
-                        <Activity className="w-3.5 h-3.5 text-emerald-500" /> Monitor de ativos
-                    </button>
+                    <div className="mt-4 flex items-center gap-2 flex-wrap justify-center">
+                        <button onClick={() => setMonitorOpen(true)}
+                            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                            <Activity className="w-3.5 h-3.5 text-emerald-500" /> Monitor de ativos
+                        </button>
+                        {/* Sala de gráficos: tela cheia própria, então abre em outra aba
+                            do navegador e deixa o app como está. */}
+                        <a href="/charts" target="_blank" rel="noopener noreferrer"
+                            title="Abrir a sala de gráficos em outra aba"
+                            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-200 hover:bg-white/5' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                            <CandlestickChart className="w-3.5 h-3.5 text-emerald-500" /> Gráficos
+                        </a>
+                    </div>
                 </div>
 
                 <div className={`rounded-2xl border p-5 flex flex-col ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>

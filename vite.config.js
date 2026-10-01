@@ -38,6 +38,52 @@ const HARDENED_CSP = [
 ].join('; ');
 
 // https://vite.dev/config/
+// Executa as funções de api/ no servidor de desenvolvimento.
+// Na Vercel elas rodam sozinhas; no `vite dev` não existia nada servindo /api,
+// então cotações, histórico e busca só funcionavam em produção. Este plugin
+// carrega o handler correspondente e adapta req/res ao formato que ele espera.
+// Só GET e OPTIONS: os endpoints de POST (Stripe, webhook) exigem corpo e
+// segredos que não têm por que rodar em desenvolvimento.
+function devApiPlugin() {
+  return {
+    name: 'dev-api',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/')) return next()
+        if (req.method !== 'GET' && req.method !== 'OPTIONS') return next()
+
+        const url = new URL(req.url, 'http://localhost')
+        const name = url.pathname.slice('/api/'.length).replace(/\.js$/, '')
+        // Arquivos com "_" são utilitários, não rotas — mesma regra da Vercel.
+        if (!name || name.startsWith('_') || name.includes('/')) return next()
+
+        let mod
+        try {
+          mod = await server.ssrLoadModule(`/api/${name}.js`)
+        } catch {
+          return next()                       // rota inexistente: segue o fluxo
+        }
+        if (typeof mod.default !== 'function') return next()
+
+        req.query = Object.fromEntries(url.searchParams)
+        res.status = (code) => { res.statusCode = code; return res }
+        res.json = (body) => {
+          res.setHeader('Content-Type', 'application/json; charset=utf-8')
+          res.end(JSON.stringify(body))
+          return res
+        }
+        try {
+          await mod.default(req, res)
+        } catch (err) {
+          server.config.logger.error(`[dev-api] ${name}: ${err?.message || err}`)
+          if (!res.writableEnded) { res.statusCode = 500; res.end('{"error":"dev-api"}') }
+        }
+      })
+    },
+  }
+}
+
 export default defineConfig({
   preview: {
     headers: { 'Content-Security-Policy': HARDENED_CSP },
@@ -45,6 +91,7 @@ export default defineConfig({
   plugins: [
     react(),
     versionJsonPlugin(),
+    devApiPlugin(),
     VitePWA({
       strategies: 'injectManifest',
       srcDir: 'src',
