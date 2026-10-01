@@ -90,9 +90,14 @@ export default async function handler(req, res) {
     else if (group === 'indices') ysym = INDEX_ALIASES[sym] || (sym.startsWith('^') ? sym : `^${sym}`);
     else if ((group === 'acoes_br' || group === 'fiis') && !sym.includes('.')) ysym = `${sym}.SA`;
 
+    // Em intervalo intradiário, traz também pré e pós-mercado: é o que o
+    // gráfico precisa mostrar fora do pregão (vela diária já é consolidada).
+    const intraday = /m$|h$/.test(rcfg.interval);
+    const qs = `interval=${rcfg.interval}&range=${rcfg.range}`
+        + (intraday ? '&includePrePost=true' : '');
     const urls = [
-        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?interval=${rcfg.interval}&range=${rcfg.range}`,
-        `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?interval=${rcfg.interval}&range=${rcfg.range}`,
+        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?${qs}`,
+        `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?${qs}`,
     ];
 
     for (const url of urls) {

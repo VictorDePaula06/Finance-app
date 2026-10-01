@@ -10,6 +10,8 @@
 //   FAIXA (RANGES)        — quanto do tempo aparece na tela ao abrir.
 // Quem não escolhe intervalo fica no padrão da faixa (AUTO_INTERVAL).
 
+import { isMarketOpen } from './marketStream';
+
 export const GROUPS = {
     indices: { label: 'Índices', native: 'USD', kind: 'Índice' },
     acoes_int: { label: 'Ações Internacionais', native: 'USD', kind: 'Ação' },
@@ -242,6 +244,38 @@ export function sma(candles, period) {
         if (i >= period - 1) out[i] = acc / period;
     }
     return out;
+}
+
+// Média exponencial: dá mais peso ao recente, então acompanha a virada mais
+// rápido que a simples. Começa na média simples das `period` primeiras velas.
+export function ema(candles, period) {
+    const out = new Array(candles.length).fill(null);
+    if (candles.length < period || period < 1) return out;
+    const k = 2 / (period + 1);
+    let acc = 0;
+    for (let i = 0; i < period; i++) acc += candles[i].c;
+    let prev = acc / period;
+    out[period - 1] = prev;
+    for (let i = period; i < candles.length; i++) {
+        prev = candles[i].c * k + prev * (1 - k);
+        out[i] = prev;
+    }
+    return out;
+}
+
+// Série da média conforme o tipo escolhido.
+export const movingAverage = (candles, type, period) =>
+    (type === 'EMA' ? ema : sma)(candles, period);
+
+// Em que momento do dia o ativo está. Cripto não tem pregão; para o resto,
+// a presença de `preMarket` na cotação é o que diz se a sessão estendida
+// está rolando — é o dado do provedor, não um palpite de horário.
+export function sessionOf(group, quote) {
+    if (group === 'cripto') return 'open';
+    const ext = quote?.preMarket?.label;
+    if (ext === 'pre') return 'pre';
+    if (ext === 'pos') return 'post';
+    return isMarketOpen(group) ? 'open' : 'closed';
 }
 
 // Variação percentual entre o primeiro e o último fechamento.

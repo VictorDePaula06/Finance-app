@@ -10,12 +10,13 @@ import DrawToolbar from '../components/charts/DrawToolbar';
 import SymbolPanel from '../components/charts/SymbolPanel';
 import SymbolSearch from '../components/charts/SymbolSearch';
 import SymbolLogo from '../components/charts/SymbolLogo';
+import MaSettings from '../components/charts/MaSettings';
 import {
     GROUPS, RANGES, fetchCandles, fetchCryptoQuotes, performance, seasonality,
     readSignal, fmtPrice, fmtPct, pairLabel, exchangeOf,
-    viewSpanMs as rangeSpanMs, INTERVALS, INTERVAL_BY_ID, autoIntervalFor,
+    viewSpanMs as rangeSpanMs, INTERVALS, INTERVAL_BY_ID, autoIntervalFor, sessionOf,
 } from '../utils/marketSeries';
-import { openTradeStream, isMarketOpen } from '../utils/marketStream';
+import { openTradeStream } from '../utils/marketStream';
 import logo from '../assets/logo.png';
 import {
     Plus, X, ChevronDown, ArrowLeft, RefreshCw, Loader2, PanelRight, Sun, Moon, Search, Radio,
@@ -59,6 +60,19 @@ async function fetchQuotes(list) {
     return Object.keys(merged).length ? merged : null;
 }
 
+// Configuração da média móvel: preferência de quem olha, igual para todos os
+// ativos, guardada no navegador.
+const MA_KEY = 'alivia-charts-ma';
+const MA_DEFAULT = { type: 'SMA', period: 60, color: '#2962ff', visible: true };
+const loadMa = () => {
+    try {
+        const raw = JSON.parse(localStorage.getItem(MA_KEY) || 'null');
+        return raw ? { ...MA_DEFAULT, ...raw } : MA_DEFAULT;
+    } catch {
+        return MA_DEFAULT;
+    }
+};
+
 const drawKey = (ticker) => `alivia-charts-draw:${ticker}`;
 const loadDrawings = (ticker) => {
     try { return JSON.parse(localStorage.getItem(drawKey(ticker)) || '[]'); } catch { return []; }
@@ -80,6 +94,8 @@ export default function Charts() {
     const [interval, setInterval_] = useState('auto');
     const [ivOpen, setIvOpen] = useState(false);
     const [live, setLive] = useState({});        // ticker → último negócio
+    const [ma, setMa] = useState(loadMa);
+    const [maOpen, setMaOpen] = useState(false);
     // As séries guardam a chave do que carregaram: o que está na tela é sempre
     // derivado dela, então nunca aparece o gráfico de um ativo sob o nome de
     // outro enquanto a próxima busca não volta.
@@ -153,19 +169,20 @@ export default function Charts() {
 
     // ── Cotações do que não tem stream ──────────────────────────────
     // Ação, índice e commodity não têm fluxo público, então consultamos de
-    // novo: rápido com a praça aberta, devagar com ela fechada.
-    const anyOpen = useMemo(
-        () => items.some(i => i.group !== 'cripto' && isMarketOpen(i.group)),
-        [items]);
+    // novo. A cadência sai da SESSÃO informada pelo provedor — pré e pós
+    // mercado contam como ativos, senão o preço estendido ficaria parado.
+    const anyActive = useMemo(
+        () => items.some(i => i.group !== 'cripto' && sessionOf(i.group, quotes[i.ticker]) !== 'closed'),
+        [items, quotes]);
 
     useEffect(() => {
         if (!items.length) return;
         let alive = true;
         const run = () => fetchQuotes(items).then(q => { if (alive && q) setQuotes(q); });
         run();
-        const id = window.setInterval(run, anyOpen ? 10000 : 60000);
+        const id = window.setInterval(run, anyActive ? 5000 : 60000);
         return () => { alive = false; window.clearInterval(id); };
-    }, [items, anyOpen]);
+    }, [items, anyActive]);
 
     const refreshQuotes = useCallback(() => {
         fetchQuotes(items).then(q => { if (q) setQuotes(q); });
@@ -233,6 +250,11 @@ export default function Charts() {
     const drawings = useMemo(
         () => (selected ? (drawStore[selected.ticker] ?? loadDrawings(selected.ticker)) : []),
         [selected, drawStore]);
+
+    const saveMa = (next) => {
+        setMa(next);
+        try { localStorage.setItem(MA_KEY, JSON.stringify(next)); } catch { /* cota cheia */ }
+    };
 
     const saveDrawings = (next) => {
         if (!selected) return;
@@ -346,7 +368,7 @@ export default function Charts() {
                                     {/* Clicar no nome abre a pesquisa de símbolo. */}
                                     <button onClick={() => setSearchOpen(true)} title={t('charts.searchTitle')}
                                         className={`group inline-flex items-center gap-2 rounded-lg px-1.5 py-0.5 -ml-1 transition ${isDark ? 'hover:bg-white/[0.07]' : 'hover:bg-slate-100'}`}>
-                                        <SymbolLogo ticker={selected.ticker} group={selected.group} size={18} />
+                                        <SymbolLogo ticker={selected.ticker} group={selected.group} src={quotes[selected.ticker]?.logo} size={18} />
                                         <span className={`text-[13px] font-bold ${ink}`}>
                                             {pairLabel(selected.ticker, selected.group, quotes[selected.ticker]?.name)}
                                         </span>
@@ -381,6 +403,14 @@ export default function Charts() {
                                     </span>
                                     <span className={`text-[13px] ${muted}`}>·</span>
                                     <span className={`text-[13px] font-bold ${muted}`}>{exchangeOf(selected.group)}</span>
+                                    {selQuote?.preMarket && (
+                                        <span className={`text-[10px] font-black uppercase tracking-wider ${muted}`}>
+                                            {t(selQuote.preMarket.label === 'pre' ? 'charts.preMarket' : 'charts.postMarket')}
+                                            <span className={`ml-1 ${(selQuote.preMarket.changePercent ?? 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                {`${fmtPrice(selQuote.preMarket.price, locale)} ${fmtPct(selQuote.preMarket.changePercent, locale)}`}
+                                            </span>
+                                        </span>
+                                    )}
                                     {isLive && (
                                         <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-emerald-500"
                                             title={t('charts.liveDesc')}>
@@ -402,6 +432,14 @@ export default function Charts() {
                                             {k}<span className={`ml-1 font-bold ${legend.c >= legend.o ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtPrice(val, locale)}</span>
                                         </span>
                                     ))}
+                                    {ma.visible && (
+                                        <button onDoubleClick={() => setMaOpen(true)} onClick={() => setMaOpen(true)}
+                                            title={t('charts.maHint')}
+                                            className="font-bold rounded px-1 transition hover:opacity-80"
+                                            style={{ color: ma.color }}>
+                                            {`${ma.type} ${ma.period}`}
+                                        </button>
+                                    )}
                                     {legendPrev && (
                                         <span className={`font-bold ${legend.c >= legendPrev.c ? 'text-emerald-500' : 'text-rose-500'}`}>
                                             {`${legend.c >= legendPrev.c ? '+' : ''}${fmtPrice(legend.c - legendPrev.c, locale)} (${fmtPct(((legend.c - legendPrev.c) / (legendPrev.c || 1)) * 100, locale)})`}
@@ -434,6 +472,7 @@ export default function Charts() {
                     <div className="flex-1 min-h-0 relative">
                         <CandleChart
                             candles={liveCandles} isDark={isDark} locale={locale}
+                            ma={ma} onMaOpen={() => setMaOpen(true)}
                             tool={tool} drawings={drawings} onDrawingsChange={saveDrawings}
                             showDrawings={showDrawings} onHover={setHover}
                             intervalMs={ivCfg?.ms || 0}
@@ -540,7 +579,7 @@ export default function Charts() {
                                         ? (isDark ? 'bg-white/[0.06] border-l-emerald-500' : 'bg-emerald-50 border-l-emerald-500')
                                         : `border-l-transparent ${isDark ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-100'}`}`}>
                                     <span className="flex items-center gap-2 min-w-0">
-                                        <SymbolLogo ticker={item.ticker} group={item.group} size={16} />
+                                        <SymbolLogo ticker={item.ticker} group={item.group} src={quotes[item.ticker]?.logo} size={16} />
                                         <span className={`text-[12px] font-bold truncate ${ink}`}>{item.ticker}</span>
                                         <button onClick={(e) => { e.stopPropagation(); removeSymbol(item.id); }}
                                             title={t('charts.remove')}
@@ -568,6 +607,10 @@ export default function Charts() {
                     </div>
                 </aside>
             </div>
+
+            {maOpen && (
+                <MaSettings isDark={isDark} value={ma} onChange={saveMa} onClose={() => setMaOpen(false)} />
+            )}
 
             {searchOpen && (
                 <SymbolSearch isDark={isDark} current={selected}

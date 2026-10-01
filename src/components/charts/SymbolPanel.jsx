@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { useI18n } from '../../contexts/LanguageContext';
-import { GROUPS, exchangeOf, pairLabel, compact, fmtPrice, fmtPct } from '../../utils/marketSeries';
-import { isMarketOpen } from '../../utils/marketStream';
+import { GROUPS, exchangeOf, pairLabel, compact, fmtPrice, fmtPct, sessionOf } from '../../utils/marketSeries';
 import SymbolLogo from './SymbolLogo';
 import { ExternalLink, Sparkles } from 'lucide-react';
 
@@ -20,7 +19,14 @@ export default function SymbolPanel({ isDark, item, quote, candles, perf, season
     const line = isDark ? 'border-white/[0.07]' : 'border-slate-200';
 
     const meta = GROUPS[item?.group] || {};
-    const open = item ? isMarketOpen(item.group) : false;
+    // 'pre' | 'open' | 'post' | 'closed' — vem do provedor, não de palpite.
+    const session = item ? sessionOf(item.group, quote) : 'closed';
+    const open = session !== 'closed';
+    const ext = quote?.preMarket || null;        // preço fora do pregão
+    const SESSION_KEY = {
+        pre: 'charts.preMarket', open: 'charts.marketOpen',
+        post: 'charts.postMarket', closed: 'charts.marketClosed',
+    };
 
     const last = candles?.length ? candles[candles.length - 1] : null;
     const price = quote?.price ?? last?.c ?? null;
@@ -49,7 +55,7 @@ export default function SymbolPanel({ isDark, item, quote, candles, perf, season
             {/* Identificação */}
             <div className={`px-4 pt-4 pb-3 border-b ${line}`}>
                 <div className="flex items-center gap-2.5">
-                    <SymbolLogo ticker={item.ticker} group={item.group} size={24} />
+                    <SymbolLogo ticker={item.ticker} group={item.group} src={quote?.logo} size={24} />
                     <h2 className={`text-[15px] font-black tracking-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>
                         {item.ticker}
                     </h2>
@@ -75,8 +81,24 @@ export default function SymbolPanel({ isDark, item, quote, candles, perf, season
 
                 <p className={`text-[11.5px] mt-2 flex items-center gap-1.5 ${open ? 'text-emerald-500' : muted}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${open ? 'bg-emerald-500' : (isDark ? 'bg-slate-600' : 'bg-slate-300')}`} />
-                    {t(open ? 'charts.marketOpen' : 'charts.marketClosed')}
+                    {t(SESSION_KEY[session])}
                 </p>
+
+                {/* Pré ou pós-mercado: preço da sessão estendida, separado do
+                    fechamento regular — como no TradingView. */}
+                {ext && (
+                    <div className={`mt-2.5 pt-2.5 border-t flex items-baseline gap-2 flex-wrap ${line}`}>
+                        <span className={`text-[11px] font-black uppercase tracking-wider ${muted}`}>
+                            {t(ext.label === 'pre' ? 'charts.preMarket' : 'charts.postMarket')}
+                        </span>
+                        <span className={`text-[15px] font-black tabular-nums ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+                            {fmtPrice(ext.price, locale)}
+                        </span>
+                        <span className={`text-[12px] font-bold ${(ext.changePercent ?? 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                            {`${(ext.change ?? 0) >= 0 ? '+' : ''}${fmtPrice(ext.change, locale)} ${fmtPct(ext.changePercent, locale)}`}
+                        </span>
+                    </div>
+                )}
             </div>
 
             {/* Leitura da Alívia — onde o TradingView põe as notícias. */}

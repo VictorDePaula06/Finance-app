@@ -143,7 +143,7 @@ async function fetchYahoo(sym) {
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30');
+    res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate=20');
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     const { symbols = '', groups = '' } = req.query;

@@ -10,12 +10,15 @@ const ACCENT = {
     cripto: '#f59e0b', commodities: '#eab308', fiis: '#a855f7',
 };
 
-// Fontes por grupo, da mais específica para a mais genérica.
-function sourcesFor(ticker, group) {
+// Fontes por grupo, da mais específica para a mais genérica. `fromQuote` é a
+// imagem que o próprio /api/quotes devolve — quando existe, é a melhor.
+function sourcesFor(ticker, group, fromQuote) {
     const t = String(ticker || '').toUpperCase();
     if (!t) return [];
+    const head = fromQuote ? [fromQuote] : [];
     if (group === 'cripto') {
         return [
+            ...head,
             `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/128/color/${t.toLowerCase()}.png`,
             `https://assets.coincap.io/assets/icons/${t.toLowerCase()}@2x.png`,
         ];
@@ -24,6 +27,7 @@ function sourcesFor(ticker, group) {
         // A primeira cobre a maior parte da B3; a segunda pega FIIs e papéis
         // menores que faltam nela.
         return [
+            ...head,
             `https://financialmodelingprep.com/image-stock/${t}.SA.png`,
             `https://assets.parqet.com/logos/symbol/${t}.SA`,
             `https://assets.parqet.com/logos/symbol/${t}`,
@@ -31,18 +35,19 @@ function sourcesFor(ticker, group) {
     }
     if (group === 'acoes_int') {
         return [
+            ...head,
             `https://financialmodelingprep.com/image-stock/${t}.png`,
             `https://assets.parqet.com/logos/symbol/${t}`,
         ];
     }
-    return [];   // índices e commodities não têm logo que signifique algo
+    return head;   // índices e commodities não têm logo próprio
 }
 
-export default function SymbolLogo({ ticker, group, size = 16, className = '' }) {
-    const sources = sourcesFor(ticker, group);
+export default function SymbolLogo({ ticker, group, src: fromQuote, size = 16, className = '' }) {
+    const sources = sourcesFor(ticker, group, fromQuote);
     // Guarda de QUAL ativo é a falha: trocar de ativo volta sozinho para a
     // primeira fonte, sem precisar de efeito para "resetar".
-    const key = `${group}:${ticker}`;
+    const key = `${group}:${ticker}:${fromQuote || ''}`;
     const [failed, setFailed] = useState({ key: null, step: 0 });
     const step = failed.key === key ? failed.step : 0;
 

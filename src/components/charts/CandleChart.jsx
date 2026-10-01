@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { sma, fmtPrice } from '../../utils/marketSeries';
+import { movingAverage, fmtPrice } from '../../utils/marketSeries';
 
 // ── Gráfico de velas ────────────────────────────────────────────────
 // SVG próprio, sem dependência nova. Faz o que a tela do TradingView faz:
@@ -17,7 +17,9 @@ const PAD_TOP = 12;
 
 const UP = '#26a69a';
 const DOWN = '#ef5350';
-const MA = '#2962ff';
+
+// Distância em pixels para o duplo clique contar como "na linha da média".
+const MA_HIT = 7;
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -34,7 +36,8 @@ export default function CandleChart({
     candles = [],
     isDark = true,
     locale = 'pt-BR',
-    smaPeriod = 60,
+    ma = { type: 'SMA', period: 60, color: '#2962ff', visible: true },
+    onMaOpen,
     tool = 'cursor',
     drawings = [],
     onDrawingsChange,
@@ -103,7 +106,9 @@ export default function CandleChart({
     const plotW = size.w - PAD_RIGHT;
     const plotH = size.h - PAD_BOTTOM;
 
-    const maSeries = useMemo(() => sma(candles, smaPeriod), [candles, smaPeriod]);
+    const maSeries = useMemo(
+        () => (ma.visible ? movingAverage(candles, ma.type, ma.period) : []),
+        [candles, ma.visible, ma.type, ma.period]);
 
     // Escala de preço: mínimo/máximo do trecho visível, com folga.
     const scale = useMemo(() => {
@@ -113,7 +118,7 @@ export default function CandleChart({
             if (slice[i].l < lo) lo = slice[i].l;
             if (slice[i].h > hi) hi = slice[i].h;
         }
-        for (let i = v.start; i < v.end; i++) {
+        for (let i = v.start; i < v.end && maSeries.length; i++) {
             const m = maSeries[i];
             if (m != null) { if (m < lo) lo = m; if (m > hi) hi = m; }
         }
@@ -217,8 +222,21 @@ export default function CandleChart({
     };
 
     const endDrag = () => { drag.current = null; };
-    // Duplo clique reenquadra na janela do botão escolhido.
-    const resetView = () => setZoom(null);
+
+    // Duplo clique: em cima da linha da média abre a configuração dela;
+    // em qualquer outro ponto, reenquadra na janela do botão escolhido.
+    const onDouble = (e) => {
+        const p = localPos(e);
+        if (ma.visible && maSeries.length && n && scale) {
+            const i = clamp(Math.floor(p.x / step), 0, n - 1);
+            const m = maSeries[v.start + i];
+            if (m != null && Math.abs(yOf(m) - p.y) <= MA_HIT) {
+                onMaOpen?.();
+                return;
+            }
+        }
+        setZoom(null);
+    };
     const commit = (d) => onDrawingsChange?.([...drawings, d]);
 
     // ── Grades e eixos ──────────────────────────────────────────────
@@ -292,7 +310,7 @@ export default function CandleChart({
     return (
         <div ref={wrapRef} className={`relative w-full h-full select-none ${cursorClass}`}
             onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove}
-            onDoubleClick={resetView}
+            onDoubleClick={onDouble}
             onMouseUp={endDrag} onMouseLeave={() => { endDrag(); setCursor(null); }}>
 
             <svg width={size.w} height={size.h} className="block">
@@ -325,14 +343,14 @@ export default function CandleChart({
                 </g>
 
                 {/* Média móvel */}
-                {scale && (
+                {scale && ma.visible && maSeries.length > 0 && (
                     <path
                         d={slice.reduce((acc, _k, i) => {
                             const m = maSeries[v.start + i];
                             if (m == null) return acc;
                             return acc + (acc ? ' L ' : 'M ') + `${xOf(i)} ${yOf(m)}`;
                         }, '')}
-                        fill="none" stroke={MA} strokeWidth="1.6" strokeLinejoin="round"
+                        fill="none" stroke={ma.color} strokeWidth="1.6" strokeLinejoin="round"
                     />
                 )}
 
