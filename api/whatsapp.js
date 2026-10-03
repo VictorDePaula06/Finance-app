@@ -1231,17 +1231,31 @@ async function sendImportSummary(from, sessRef, uid, history, items, meta) {
   const totalExp = gastos.reduce((a, i) => a + i.amount, 0);
   const totalInc = creditos.reduce((a, i) => a + i.amount, 0);
   await sessRef.set({ uid, history, pending: { type: 'import', data: { items, meta } } }, { merge: true });
+  // Numa fatura, linha com parcela vira PARCELAMENTO, não compra à vista.
+  const { parcelas } = splitInstallments(items, isInvoice && !meta.noInstallments);
+  const instDe = new Map(parcelas.map(({ it, inst }) => [it, inst]));
+
   const preview = items.slice(0, 8).map(i => {
     const sinal = i.type === 'income' ? (isInvoice ? '↩︎' : '+') : '−';
-    return `• ${sinal} R$ ${money(i.amount)} — ${i.description}`;
+    const inst = instDe.get(i);
+    const selo = inst ? ` _(parcela ${inst.current}/${inst.total})_` : '';
+    return `• ${sinal} R$ ${money(i.amount)} — ${i.description}${selo}`;
   }).join('\n');
   const resto = items.length > 8 ? `\n… e mais ${items.length - 8} lançamento(s).` : '';
 
   let onde, extra = '';
   if (isInvoice) {
     onde = `💳 Vou lançar na *fatura do ${meta.cardName}* (não sai do seu saldo agora).`;
+    if (parcelas.length) {
+      const lista = parcelas.slice(0, 5)
+        .map(({ it, inst }) => `   ◦ ${normName(inst.name)} — ${inst.current}/${inst.total} de R$ ${money(it.amount)}`)
+        .join('\n');
+      const sobra = parcelas.length > 5 ? `\n   ◦ … e mais ${parcelas.length - 5}.` : '';
+      extra += `\n\n🔁 *${parcelas.length} parcelamento(s)* — vou cadastrar como parcelado, pra seguir aparecendo nas próximas faturas:\n${lista}${sobra}`
+        + `\n\n_Se alguma foi compra à vista, responda *à vista* que eu lanço tudo sem parcelar._`;
+    }
     if (creditos.length) {
-      extra = `\n\n↩︎ *${creditos.length} crédito(s)* de *R$ ${money(totalInc)}* — numa fatura isso é *estorno*, não entrada. Vou abater da fatura em vez de lançar como receita.`;
+      extra += `\n\n↩︎ *${creditos.length} crédito(s)* de *R$ ${money(totalInc)}* — numa fatura isso é *estorno*, não entrada. Vou abater da fatura em vez de lançar como receita.`;
     }
   } else {
     onde = `${PAY_EMOJI[meta.method] || '💸'} Vou lançar as saídas como *${PAY_LABELS_WA[meta.method] || meta.method}*.`;
@@ -1254,7 +1268,11 @@ async function sendImportSummary(from, sessRef, uid, history, items, meta) {
 // Resolve o cartão da fatura: padrão configurado → único cadastrado → pergunta.
 async function startInvoiceImport(db, from, sessRef, uid, history, items) {
   const snap = await db.collection('cards').where('userId', '==', uid).get();
-  const cards = snap.docs.map(d => ({ id: d.id, name: d.data().name || d.data().bank || 'Cartão' }));
+  const cards = snap.docs.map(d => ({
+    id: d.id,
+    name: d.data().name || d.data().bank || 'Cartão',
+    dueDay: parseInt(d.data().dueDay) || 1,
+  }));
   if (!cards.length) {
     await sessRef.set({ uid, history, pending: null }, { merge: true });
     await sendText(from, 'Você ainda não tem cartão cadastrado 💳\n\nCadastre em *Configurações e Cadastros → Cadastros* e me envie a fatura de novo.');
@@ -1263,7 +1281,7 @@ async function startInvoiceImport(db, from, sessRef, uid, history, items) {
   const waDef = await getWaDefaults(db, uid);
   const preferido = cards.find(c => c.id === waDef.cardId) || (cards.length === 1 ? cards[0] : null);
   if (preferido) {
-    await sendImportSummary(from, sessRef, uid, history, items, { kind: 'invoice', cardId: preferido.id, cardName: preferido.name });
+    await sendImportSummary(from, sessRef, uid, history, items, { kind: 'invoice', cardId: preferido.id, cardName: preferido.name, dueDay: preferido.dueDay });
     return;
   }
   await sessRef.set({ uid, history, pending: { type: 'import_card', data: { items, cards } } }, { merge: true });
@@ -1389,6 +1407,47 @@ async function doSetReserveGoal(db, uid, target) {
 
 // Padroniza a descrição: 1ª letra maiúscula, resto minúsculo (igual ao app).
 const normName = (s) => { const t = String(s || '').trim().replace(/\s+/g, ' '); return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : t; };
+
+// ── Parcela na descrição da fatura ──────────────────────────────────
+// Operadora escreve de várias formas: "MLP *KABUM-PARC10/10",
+// "MERCADOLIVRE*MPARC03/04", "PARCELA 3 DE 10", ou só "KABUM 04/04".
+//
+// Devolve { current, total, name } com o nome SEM o trecho da parcela. Esse
+// nome limpo é o que liga a mesma compra entre as faturas de meses
+// diferentes — sem ele, cada importação criaria um parcelamento novo.
+const INST_PATTERNS = [
+  // Com marcador: PARC / PARCELA, aceitando uma letra colada antes (MPARC).
+  /\b[A-Z]?PARC(?:ELA)?\.?\s*(\d{1,2})\s*(?:\/|-|\s+DE\s+)\s*(\d{1,2})\b/i,
+  // Sem marcador: "03/10" no fim da descrição.
+  /(?:^|[\s*\-(])(\d{1,2})\s*\/\s*(\d{1,2})\s*\)?\s*$/,
+];
+
+function parseInstallment(desc) {
+  const str = String(desc || '');
+  for (const re of INST_PATTERNS) {
+    const m = str.match(re);
+    if (!m) continue;
+    const current = parseInt(m[1], 10);
+    const total = parseInt(m[2], 10);
+    // Faixa plausível de parcelamento. Fora disso é mais provável ser data
+    // ou código da loja, e um falso positivo cobraria meses a mais.
+    if (!(total >= 2 && total <= 36 && current >= 1 && current <= total)) continue;
+    const name = str.replace(m[0], ' ').replace(/[\s*\-–—/|.]+$/, '').replace(/\s+/g, ' ').trim();
+    return { current, total, name: name || str.trim() };
+  }
+  return null;
+}
+
+// Separa o que é parcela do que é compra à vista, numa fatura.
+function splitInstallments(items, enabled) {
+  if (!enabled) return { parcelas: [], avista: items };
+  const parcelas = [], avista = [];
+  for (const it of items) {
+    const inst = it.type === 'expense' ? parseInstallment(it.description) : null;
+    if (inst) parcelas.push({ it, inst }); else avista.push(it);
+  }
+  return { parcelas, avista };
+}
 const mkNow = () => new Date().toISOString().slice(0, 7);
 
 // Entrada avulsa (recebi/ganhei) — grava direto no saldo em conta.
@@ -2366,7 +2425,7 @@ export default async function handler(req, res) {
         await sendPickList(from, 'Toque no *cartão* dessa fatura 👇 (ou "cancelar")', cards.map(c => ({ id: `impcard_${c.id}`, title: c.name })));
         return res.status(200).json({ ok: true });
       }
-      await sendImportSummary(from, sessRef, uid, history, items, { kind: 'invoice', cardId: card.id, cardName: card.name });
+      await sendImportSummary(from, sessRef, uid, history, items, { kind: 'invoice', cardId: card.id, cardName: card.name, dueDay: card.dueDay });
       return res.status(200).json({ ok: true });
     }
 
@@ -2374,6 +2433,11 @@ export default async function handler(req, res) {
     if (sess.pending?.type === 'import') {
       const items = sess.pending.data?.items || [];
       const meta = sess.pending.data?.meta || { kind: 'statement', method: 'pix' };
+      // "à vista": desliga a leitura de parcelas e refaz o resumo.
+      if (!yes(text) && !no(text) && /\b(a|à)\s*vista\b|avista|sem\s+parcel/i.test(text || '')) {
+        await sendImportSummary(from, sessRef, uid, history, items, { ...meta, noInstallments: true });
+        return res.status(200).json({ ok: true });
+      }
       // A pessoa pode corrigir a forma de pagamento antes de confirmar.
       const novaForma = parsePayMethod(text);
       if (!yes(text) && !no(text) && novaForma) {
@@ -2386,11 +2450,79 @@ export default async function handler(req, res) {
       }
       if (yes(text)) {
         const isInvoice = meta.kind === 'invoice';
-        let ok = 0, estornos = 0;
+        let ok = 0, estornos = 0, instNovos = 0, instAvancados = 0;
         try {
           const batch = db.batch();
           const nowMs = Date.now();
+
+          // Parcelamentos já cadastrados neste cartão: a fatura do mês
+          // seguinte traz a MESMA compra com a parcela adiantada, então
+          // atualizamos em vez de criar outra.
+          const usaParcelas = isInvoice && !meta.noInstallments;
+          const jaTem = new Map();          // chave → candidatos
+          if (usaParcelas) {
+            const sSnap = await db.collection('subscriptions').where('userId', '==', uid).get();
+            sSnap.docs
+              .map(d => ({ id: d.id, ...d.data() }))
+              .filter(x => x.cardId === meta.cardId && (x.type === 'installment' || x.isInstallment))
+              .forEach(x => {
+                const k = `${normName(x.name).toLowerCase()}|${x.totalInstallments}`;
+                if (!jaTem.has(k)) jaTem.set(k, []);
+                jaTem.get(k).push(x);
+              });
+          }
+
+          // Mesma loja e mesmo número de parcelas podem ser duas compras
+          // diferentes — o valor da parcela é o que separa. Tolera 2% porque
+          // a última parcela às vezes fecha com centavos de diferença.
+          const casaCom = (lista, valor) => {
+            let melhor = null, menor = Infinity;
+            for (const c of lista || []) {
+              const v = Math.abs(parseFloat(c.value) || 0);
+              const dif = Math.abs(v - valor) / (valor || 1);
+              if (dif <= 0.02 && dif < menor) { menor = dif; melhor = c; }
+            }
+            return melhor;
+          };
+
           for (const it of items) {
+            const inst = usaParcelas && it.type === 'expense' ? parseInstallment(it.description) : null;
+            if (inst) {
+              const nome = normName(inst.name);
+              const valor = Math.abs(it.amount);
+              const chave = `${nome.toLowerCase()}|${inst.total}`;
+              const atual = casaCom(jaTem.get(chave), valor);
+              if (atual) {
+                // Só avança: reimportar a mesma fatura não anda com a parcela.
+                if ((atual.currentInstallment || 1) < inst.current) {
+                  batch.update(db.collection('subscriptions').doc(atual.id), { currentInstallment: inst.current });
+                  atual.currentInstallment = inst.current;
+                  instAvancados++;
+                }
+              } else {
+                const sRef = db.collection('subscriptions').doc();
+                batch.set(sRef, {
+                  name: nome,
+                  value: valor,                        // a fatura traz o valor DA parcela
+                  day: meta.dueDay || 1,
+                  cardId: meta.cardId,
+                  category: it.category,
+                  priority: 'comfort',
+                  isInstallment: true,
+                  type: 'installment',
+                  totalInstallments: inst.total,
+                  currentInstallment: inst.current,
+                  installmentMode: 'per',
+                  userId: uid,
+                  createdAt: nowMs,
+                  source: 'whatsapp_import',
+                });
+                if (!jaTem.has(chave)) jaTem.set(chave, []);
+                jaTem.get(chave).push({ id: sRef.id, name: nome, value: valor, totalInstallments: inst.total, currentInstallment: inst.current });
+                instNovos++;
+              }
+              continue;
+            }
             const iso = it.date ? new Date(it.date + 'T12:00:00').toISOString() : new Date().toISOString();
             const ref = db.collection('transactions').doc();
             // Numa FATURA, crédito é estorno: entra como despesa NEGATIVA, abatendo a fatura
@@ -2417,7 +2549,9 @@ export default async function handler(req, res) {
           await sessRef.set({ uid, history, pending: null }, { merge: true });
           const onde = isInvoice ? `na *fatura do ${meta.cardName}*` : `como *${PAY_LABELS_WA[meta.method] || meta.method}*`;
           const notaEstorno = estornos ? `\n↩︎ ${estornos} estorno(s) abatido(s) da fatura.` : '';
-          await sendText(from, `Pronto! ✅ Lancei *${ok}* lançamento(s) ${onde}.${notaEstorno}\n\nJá estão no app.`);
+          const notaParc = instNovos ? `\n🔁 ${instNovos} parcelamento(s) cadastrado(s).` : '';
+          const notaAvanco = instAvancados ? `\n🔁 ${instAvancados} parcelamento(s) avançado(s) para a parcela desta fatura.` : '';
+          await sendText(from, `Pronto! ✅ Lancei *${ok}* lançamento(s) ${onde}.${notaParc}${notaAvanco}${notaEstorno}\n\nJá estão no app.`);
         } catch (e) { console.error('WA import commit:', e); await sendText(from, 'Deu um erro ao lançar em lote. Tenta enviar o arquivo de novo. 🙏'); }
         return res.status(200).json({ ok: true });
       }
