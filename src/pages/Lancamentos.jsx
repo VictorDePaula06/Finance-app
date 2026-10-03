@@ -272,14 +272,15 @@ export default function Lancamentos() {
                     name={confirmAction.item.description || catMetaOf(confirmAction.item.type === 'income' ? 'income' : 'expense', confirmAction.item.category).label}
                     onClose={() => setConfirmAction(null)}
                     onConfirm={async () => {
-                        const t = confirmAction.item;
+                        // `tx`, não `t`: `t` é a função de tradução do componente.
+                        const tx = confirmAction.item;
                         if (confirmAction.type === 'delete') {
-                            await deleteDoc(doc(db, 'transactions', t.id));
+                            await deleteDoc(doc(db, 'transactions', tx.id));
                             await new Promise(res => setTimeout(res, 300));
                             toast.success(t('txp.deleted'));
                         } else {
                             await new Promise(res => setTimeout(res, 400));
-                            setForm({ kind: t.type === 'income' ? 'income' : 'expense', editing: t });
+                            setForm({ kind: tx.type === 'income' ? 'income' : 'expense', editing: tx });
                         }
                     }} />
             )}
