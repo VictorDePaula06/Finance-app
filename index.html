@@ -8,6 +8,10 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=5" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=5">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <!-- Sem isto, o Chrome do Android trata a página como "não sabe tema" e
+       aplica o escurecimento automático dele por cima: o modo claro saía
+       escuro e o escuro saía escuro demais. -->
+  <meta name="color-scheme" content="light dark" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -39,6 +43,21 @@
   <meta property="twitter:description"
     content="Cuide do seu dinheiro pelo WhatsApp. Controle de gastos e patrimônio num só app, com a Alívia. Comece grátis, sem cartão." />
   <meta property="twitter:image" content="https://soualivia.com.br/icon.png?v=5" />
+  <script>
+    // Aplica o tema salvo ANTES da primeira pintura. Além de evitar o
+    // piscar de tema errado ao abrir, declara o color-scheme logo de cara,
+    // que é o que desarma o escurecimento automático do navegador.
+    (function () {
+      var t = 'light';
+      try { t = localStorage.getItem('alivia-theme') || 'light'; } catch (e) { /* modo privado */ }
+      var r = document.documentElement;
+      r.classList.add('theme-' + t);
+      if (t === 'dark') r.classList.add('dark');
+      r.style.colorScheme = t;
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', t === 'dark' ? '#020617' : '#ffffff');
+    })();
+  </script>
 </head>
 
 <body>
