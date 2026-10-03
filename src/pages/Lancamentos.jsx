@@ -247,8 +247,8 @@ export default function Lancamentos() {
                                             {(income || txi.amount < 0) ? '+' : '−'} R$ {money(Math.abs(txi.amount))}
                                         </span>
                                         <div className="flex items-center gap-0.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition">
-                                            <button onClick={() => setConfirmAction({ type: 'edit', item: t })} title="Editar" className={`p-1.5 rounded-lg text-slate-400 transition ${isDark ? 'hover:text-emerald-400 hover:bg-white/5' : 'hover:text-emerald-600 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
-                                            <button onClick={() => setConfirmAction({ type: 'delete', item: t })} title="Excluir" className={`p-1.5 rounded-lg text-slate-400 transition ${isDark ? 'hover:text-rose-500 hover:bg-white/5' : 'hover:text-rose-500 hover:bg-slate-100'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+                                            <button onClick={() => setConfirmAction({ type: 'edit', item: txi })} title="Editar" className={`p-1.5 rounded-lg text-slate-400 transition ${isDark ? 'hover:text-emerald-400 hover:bg-white/5' : 'hover:text-emerald-600 hover:bg-slate-100'}`}><Pencil className="w-3.5 h-3.5" /></button>
+                                            <button onClick={() => setConfirmAction({ type: 'delete', item: txi })} title="Excluir" className={`p-1.5 rounded-lg text-slate-400 transition ${isDark ? 'hover:text-rose-500 hover:bg-white/5' : 'hover:text-rose-500 hover:bg-slate-100'}`}><Trash2 className="w-3.5 h-3.5" /></button>
                                         </div>
                                     </div>
                                 );
