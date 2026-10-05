@@ -1,12 +1,14 @@
 @import "tailwindcss";
-
-/* O Tailwind 4 não lê o tailwind.config.js sem @config, então o
-   `darkMode: "class"` de lá nunca valeu: toda utilidade `dark:` saía
-   dentro de @media (prefers-color-scheme: dark) e seguia o tema do
-   CELULAR, não o botão do app. Esta linha prende o `dark:` à classe
-   .dark que o ThemeContext coloca no <html>. */
-@custom-variant dark (&:where(.dark, .dark *));
 @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap');
+
+/* Precisa vir DEPOIS de todos os @import: o CSS descarta qualquer @import
+   que apareça abaixo de outra regra — foi assim que a Quicksand sumiu.
+
+   O Tailwind 4 não lê o tailwind.config.js sem @config, então o
+   `darkMode: "class"` de lá nunca valeu: toda utilidade `dark:` saía dentro
+   de @media (prefers-color-scheme: dark) e seguia o tema do CELULAR, não o
+   botão do app. Esta linha prende o `dark:` à classe .dark do <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   font-family: 'Quicksand', system-ui, sans-serif;
