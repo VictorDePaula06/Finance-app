@@ -1,30 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useI18n } from '../../contexts/LanguageContext';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { UNITS, parseNum, itemTotal } from '../../utils/market';
 import { toast } from '../ui/Toaster';
-import { X, QrCode, KeyRound, Camera, PencilLine, Plus, Trash2, ChevronRight } from 'lucide-react';
+import QrScanner from './QrScanner';
+import { X, QrCode, KeyRound, Camera, PencilLine, Plus, Trash2, ChevronRight, Loader2, ArrowLeft } from 'lucide-react';
 
 // ── Lançar nova compra ──────────────────────────────────────────────
 // Dois passos: primeiro COMO lançar, depois o lançamento em si.
 //
-// QR Code, chave de acesso e foto com IA ainda não estão implementados —
-// aparecem marcados como "em breve" e não abrem nada. O caminho manual é o
-// que existe hoje, e é o que alimenta as abas Compras e Análise.
+// O QR Code lê o cupom pela câmera, consulta a SEFAZ e CAI NO MESMO
+// formulário manual, já preenchido — a pessoa confere e corrige antes de
+// salvar. Importar direto, sem conferência, esconderia erro de leitura.
+//
+// Chave de acesso e foto com IA ainda não estão implementadas.
 
 const METODOS = [
-    { id: 'qrcode', icon: QrCode, key: 'mkt.byQrCode', descKey: 'mkt.byQrCodeDesc', pronto: false },
+    { id: 'qrcode', icon: QrCode, key: 'mkt.byQrCode', descKey: 'mkt.byQrCodeDesc', pronto: true },
     { id: 'chave', icon: KeyRound, key: 'mkt.byKey', descKey: 'mkt.byKeyDesc', pronto: false },
     { id: 'foto', icon: Camera, key: 'mkt.byPhoto', descKey: 'mkt.byPhotoDesc', pronto: false },
     { id: 'manual', icon: PencilLine, key: 'mkt.byManual', descKey: 'mkt.byManualDesc', pronto: true },
 ];
+
+// Mensagem por causa, para a pessoa saber o que fazer — não um "erro".
+const MOTIVO = {
+    host_not_allowed: 'mkt.qrErrNotNfce',
+    invalid_key: 'mkt.qrErrNotNfce',
+    invalid_url: 'mkt.qrErrNotNfce',
+    missing_url: 'mkt.qrErrNotNfce',
+    no_items: 'mkt.qrErrNoItems',
+    sefaz_captcha: 'mkt.qrErrCaptcha',
+    sefaz_blocked: 'mkt.qrErrBlocked',
+    rate_limited: 'mkt.qrErrBusy',
+};
 
 const linhaVazia = () => ({ key: Math.random().toString(36).slice(2), name: '', qty: '1', unit: 'un', unitPrice: '' });
 
 export default function NovaCompraModal({ isDark, uid, onClose }) {
     const { t, fmtMoney: money } = useI18n();
     const [metodo, setMetodo] = useState(null);
+    const [consultando, setConsultando] = useState(false);
+    const [erroQr, setErroQr] = useState('');
+    const [daNota, setDaNota] = useState(null);     // o que a SEFAZ devolveu
+
+    const consultar = useCallback(async (url) => {
+        setErroQr(''); setConsultando(true);
+        try {
+            const r = await fetch(`/api/nfce?url=${encodeURIComponent(url)}`);
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok || !d.items?.length) {
+                setErroQr(t(MOTIVO[d.error] || 'mkt.qrErrSefaz'));
+                setConsultando(false);
+                return;
+            }
+            setDaNota(d);
+            setMetodo('manual');          // cai na conferência, já preenchido
+        } catch {
+            setErroQr(t('mkt.qrErrSefaz'));
+        }
+        setConsultando(false);
+    }, [t]);
 
     const ink = isDark ? 'text-white' : 'text-slate-800';
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
@@ -37,18 +73,39 @@ export default function NovaCompraModal({ isDark, uid, onClose }) {
 
             <div className={`relative w-full max-w-2xl rounded-2xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#131722] border-white/10' : 'bg-white border-slate-200'}`}>
                 <div className={`flex items-center justify-between px-5 py-3.5 border-b ${line}`}>
-                    <h2 className={`text-[15px] font-black tracking-tight ${ink}`}>
-                        {metodo === 'manual' ? t('mkt.newPurchase') : t('mkt.howToAdd')}
-                    </h2>
+                    <span className="flex items-center gap-2 min-w-0">
+                        {metodo && (
+                            <button onClick={() => { setMetodo(null); setDaNota(null); setErroQr(''); }}
+                                aria-label={t('common.cancel')}
+                                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/[0.07]' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}>
+                                <ArrowLeft className="w-4 h-4" strokeWidth={2.2} />
+                            </button>
+                        )}
+                        <h2 className={`text-[15px] font-black tracking-tight truncate ${ink}`}>
+                            {metodo === 'manual' ? (daNota ? t('mkt.qrReview') : t('mkt.newPurchase'))
+                                : metodo === 'qrcode' ? t('mkt.byQrCode') : t('mkt.howToAdd')}
+                        </h2>
+                    </span>
                     <button onClick={onClose} aria-label={t('common.close')}
                         className={`w-7 h-7 rounded-lg flex items-center justify-center transition ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/[0.07]' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}>
                         <X className="w-4 h-4" strokeWidth={2.4} />
                     </button>
                 </div>
 
-                {metodo === 'manual'
-                    ? <FormManual isDark={isDark} uid={uid} money={money} onVoltar={() => setMetodo(null)} onPronto={onClose} />
-                    : (
+                {metodo === 'manual' ? (
+                    <FormManual isDark={isDark} uid={uid} money={money} inicial={daNota}
+                        onVoltar={() => { setMetodo(null); setDaNota(null); }} onPronto={onClose} />
+                ) : metodo === 'qrcode' ? (
+                    consultando ? (
+                        <div className="px-5 py-14 text-center">
+                            <Loader2 className="w-6 h-6 animate-spin mx-auto text-emerald-500" />
+                            <p className={`text-[13px] font-bold mt-3 ${ink}`}>{t('mkt.qrChecking')}</p>
+                            <p className={`text-[12px] mt-1 ${muted}`}>{t('mkt.qrCheckingDesc')}</p>
+                        </div>
+                    ) : (
+                        <QrScanner isDark={isDark} onLido={consultar} erro={erroQr} />
+                    )
+                ) : (
                         <div className="p-4 grid sm:grid-cols-2 gap-2.5">
                             {METODOS.map(m => {
                                 const Icon = m.icon;
@@ -84,13 +141,21 @@ export default function NovaCompraModal({ isDark, uid, onClose }) {
 }
 
 // ── Lançamento manual ───────────────────────────────────────────────
-function FormManual({ isDark, uid, money, onVoltar, onPronto }) {
+function FormManual({ isDark, uid, money, inicial, onVoltar, onPronto }) {
     const { t } = useI18n();
-    const [store, setStore] = useState('');
-    const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+    const [store, setStore] = useState(inicial?.store || '');
+    const [date, setDate] = useState(() => inicial?.date || new Date().toISOString().slice(0, 10));
     // Inicializador preguiçoso: linhaVazia() sorteia uma chave, e sortear
     // durante a renderização é efeito colateral.
-    const [linhas, setLinhas] = useState(() => [linhaVazia()]);
+    const [linhas, setLinhas] = useState(() => (inicial?.items?.length
+        ? inicial.items.map(i => ({
+            ...linhaVazia(),
+            name: i.name || '',
+            qty: String(i.qty ?? 1).replace('.', ','),
+            unit: UNITS.includes(i.unit) ? i.unit : 'un',
+            unitPrice: String(i.unitPrice ?? '').replace('.', ','),
+        }))
+        : [linhaVazia()]));
     const [saving, setSaving] = useState(false);
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
@@ -111,7 +176,8 @@ function FormManual({ isDark, uid, money, onVoltar, onPronto }) {
                 store: store.trim() || null,
                 date,
                 month: date.slice(0, 7),
-                source: 'manual',
+                source: inicial ? 'qrcode' : 'manual',
+                ...(inicial?.key ? { nfceKey: inicial.key } : {}),
                 items: validas.map(l => ({
                     name: l.name.trim(),
                     qty: parseNum(l.qty),
