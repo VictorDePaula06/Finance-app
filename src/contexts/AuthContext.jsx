@@ -675,6 +675,7 @@ export function AuthProvider({ children }) {
                 'transactions', 'fixed_incomes', 'fixed_expenses', 'subscriptions',
                 'cards', 'savings_jars', 'goals', 'expense_goals', 'debts',
                 'investments', 'investment_txs', 'watchlist', 'insurances', 'tangible_assets',
+                'market_items', 'market_purchases',
             ];
             for (const colName of collectionsToClear) {
                 const snap = await getDocs(query(collection(db, colName), where('userId', '==', uid)));

@@ -6,6 +6,7 @@ import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import ConfirmActionModal from './ConfirmActionModal';
 import CategoryCeilings from './CategoryCeilings';
+import MarketSection from './MarketSection';
 import CardsRegistry from './CardsRegistry';
 import { toast } from './ui/Toaster';
 import {
@@ -185,6 +186,9 @@ export default function CadastrosTab({ isDark }) {
 
         {/* Teto de gasto por categoria */}
         <CategoryCeilings isDark={isDark} />
+
+        {/* Mercado — vem desmarcado; só abre as opções se a pessoa usar. */}
+        <MarketSection isDark={isDark} />
         </div>
     );
 }

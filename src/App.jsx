@@ -1184,6 +1184,7 @@ import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfUse from './components/TermsOfUse';
 import Novidades from './pages/Novidades';
 import Charts from './pages/Charts';
+import Mercado from './pages/Mercado';
 import SubscriptionBlock from './components/SubscriptionBlock';
 import Contact from './components/Contact';
 import PatrimonioTab from './components/PatrimonioTab';
@@ -1320,6 +1321,8 @@ function AppRoutes() {
       <Route path="/novidades" element={<Novidades />} />
       {/* Sala de gráficos (tela cheia, sem sidebar). Usa a watchlist do usuário. */}
       <Route path="/charts" element={!currentUser ? <Navigate to="/login" replace /> : <Charts />} />
+      {/* Mercado: tela própria, fora do layout do app. */}
+      <Route path="/mercado" element={!currentUser ? <Navigate to="/login" replace /> : <Mercado />} />
       <Route
         path="/manual"
         element={<Manual onBack={() => navigate(currentUser ? '/inicio' : '/')} />}

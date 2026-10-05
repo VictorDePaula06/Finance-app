@@ -91,7 +91,9 @@ service cloud.firestore {
         'transactions', 'goals', 'cards', 'subscriptions',
         'fixed_expenses', 'fixed_incomes',
         'savings_jars', 'investments', 'investment_txs', 'tangible_assets', 'debts',
-        'insurances', 'watchlist'
+        'insurances', 'watchlist',
+        // Mercado: lista de compras e compras lançadas (tela /mercado).
+        'market_items', 'market_purchases'
       ];
     }
 
