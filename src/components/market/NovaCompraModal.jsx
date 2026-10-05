@@ -5,7 +5,11 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { UNITS, parseNum, itemTotal } from '../../utils/market';
 import { toast } from '../ui/Toaster';
 import QrScanner from './QrScanner';
-import { X, QrCode, KeyRound, Camera, PencilLine, Plus, Trash2, ChevronRight, Loader2, ArrowLeft } from 'lucide-react';
+import PhotoCapture from './PhotoCapture';
+import {
+    X, QrCode, KeyRound, Camera, PencilLine, Plus, Trash2, ChevronRight, Loader2, ArrowLeft,
+    CheckCircle2, AlertTriangle,
+} from 'lucide-react';
 
 // ── Lançar nova compra ──────────────────────────────────────────────
 // Dois passos: primeiro COMO lançar, depois o lançamento em si.
@@ -14,12 +18,15 @@ import { X, QrCode, KeyRound, Camera, PencilLine, Plus, Trash2, ChevronRight, Lo
 // formulário manual, já preenchido — a pessoa confere e corrige antes de
 // salvar. Importar direto, sem conferência, esconderia erro de leitura.
 //
-// Chave de acesso e foto com IA ainda não estão implementadas.
+// A foto com IA assume cupom longo: várias fotos em sequência, juntadas
+// pela sobreposição, e a soma conferida contra o total impresso no papel.
+//
+// A chave de acesso ainda não está implementada.
 
 const METODOS = [
     { id: 'qrcode', icon: QrCode, key: 'mkt.byQrCode', descKey: 'mkt.byQrCodeDesc', pronto: true },
     { id: 'chave', icon: KeyRound, key: 'mkt.byKey', descKey: 'mkt.byKeyDesc', pronto: false },
-    { id: 'foto', icon: Camera, key: 'mkt.byPhoto', descKey: 'mkt.byPhotoDesc', pronto: false },
+    { id: 'foto', icon: Camera, key: 'mkt.byPhoto', descKey: 'mkt.byPhotoDesc', pronto: true },
     { id: 'manual', icon: PencilLine, key: 'mkt.byManual', descKey: 'mkt.byManualDesc', pronto: true },
 ];
 
@@ -83,7 +90,8 @@ export default function NovaCompraModal({ isDark, uid, onClose }) {
                         )}
                         <h2 className={`text-[15px] font-black tracking-tight truncate ${ink}`}>
                             {metodo === 'manual' ? (daNota ? t('mkt.qrReview') : t('mkt.newPurchase'))
-                                : metodo === 'qrcode' ? t('mkt.byQrCode') : t('mkt.howToAdd')}
+                                : metodo === 'qrcode' ? t('mkt.byQrCode')
+                                    : metodo === 'foto' ? t('mkt.byPhoto') : t('mkt.howToAdd')}
                         </h2>
                     </span>
                     <button onClick={onClose} aria-label={t('common.close')}
@@ -95,6 +103,8 @@ export default function NovaCompraModal({ isDark, uid, onClose }) {
                 {metodo === 'manual' ? (
                     <FormManual isDark={isDark} uid={uid} money={money} inicial={daNota}
                         onVoltar={() => { setMetodo(null); setDaNota(null); }} onPronto={onClose} />
+                ) : metodo === 'foto' ? (
+                    <PhotoCapture isDark={isDark} onLido={(d) => { setDaNota(d); setMetodo('manual'); }} />
                 ) : metodo === 'qrcode' ? (
                     consultando ? (
                         <div className="px-5 py-14 text-center">
@@ -140,6 +150,43 @@ export default function NovaCompraModal({ isDark, uid, onClose }) {
     );
 }
 
+// ── Conferência da leitura ──────────────────────────────────────────
+// O cupom traz o próprio total impresso. Comparar a soma dos itens com ele
+// é o que permite dizer "confere" em vez de torcer para ter lido certo —
+// e, quando não bate, dizer exatamente o que provavelmente aconteceu.
+function Conferencia({ isDark, dados, money }) {
+    const { t } = useI18n();
+    const c = dados.conferencia;
+    const bate = c.estado === 'bate';
+    const semTotal = c.estado === 'semTotal';
+
+    const tom = bate ? 'emerald' : semTotal ? 'slate' : 'amber';
+    const cls = {
+        emerald: isDark ? 'bg-emerald-500/[0.08] border-emerald-500/20' : 'bg-emerald-50 border-emerald-200',
+        amber: isDark ? 'bg-amber-500/[0.08] border-amber-500/25' : 'bg-amber-50 border-amber-200',
+        slate: isDark ? 'bg-white/[0.04] border-white/10' : 'bg-slate-50 border-slate-200',
+    }[tom];
+    const cor = { emerald: 'text-emerald-500', amber: 'text-amber-500', slate: isDark ? 'text-slate-400' : 'text-slate-500' }[tom];
+    const Icon = bate ? CheckCircle2 : AlertTriangle;
+
+    const chave = { bate: 'mkt.confOk', sobra: 'mkt.confOver', falta: 'mkt.confUnder', semTotal: 'mkt.confNoTotal' }[c.estado];
+
+    return (
+        <div className={`mx-5 mt-4 rounded-xl border px-3.5 py-3 ${cls}`}>
+            <p className={`text-[12.5px] font-bold flex items-start gap-2 ${cor}`}>
+                <Icon className="w-4 h-4 shrink-0 mt-px" strokeWidth={2.4} />
+                <span>{t(chave)}</span>
+            </p>
+            <p className={`text-[11.5px] mt-1.5 pl-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                {t('mkt.confSum')} <strong>R$ {money(c.soma)}</strong>
+                {c.total ? <> · {t('mkt.confPrinted')} <strong>R$ {money(c.total)}</strong></> : null}
+                {dados.fotos > 1 ? <> · {t('mkt.confPhotos', { n: dados.fotos })}</> : null}
+                {dados.sobrepostos > 0 ? <> · {t('mkt.confMerged', { n: dados.sobrepostos })}</> : null}
+            </p>
+        </div>
+    );
+}
+
 // ── Lançamento manual ───────────────────────────────────────────────
 function FormManual({ isDark, uid, money, inicial, onVoltar, onPronto }) {
     const { t } = useI18n();
@@ -176,7 +223,7 @@ function FormManual({ isDark, uid, money, inicial, onVoltar, onPronto }) {
                 store: store.trim() || null,
                 date,
                 month: date.slice(0, 7),
-                source: inicial ? 'qrcode' : 'manual',
+                source: inicial?.conferencia ? 'foto' : inicial ? 'qrcode' : 'manual',
                 ...(inicial?.key ? { nfceKey: inicial.key } : {}),
                 items: validas.map(l => ({
                     name: l.name.trim(),
@@ -200,6 +247,8 @@ function FormManual({ isDark, uid, money, inicial, onVoltar, onPronto }) {
 
     return (
         <>
+            {inicial?.conferencia && <Conferencia isDark={isDark} dados={inicial} money={money} />}
+
             <div className="px-5 pt-4 grid sm:grid-cols-2 gap-3">
                 <div>
                     <label htmlFor="mkt-loja" className={`block text-[11px] font-black uppercase tracking-wider mb-1 ${muted}`}>{t('mkt.store')}</label>
