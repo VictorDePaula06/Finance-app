@@ -11,7 +11,7 @@
   <!-- Sem isto, o Chrome do Android trata a página como "não sabe tema" e
        aplica o escurecimento automático dele por cima: o modo claro saía
        escuro e o escuro saía escuro demais. -->
-  <meta name="color-scheme" content="light dark" />
+  <meta name="color-scheme" content="only light" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -53,7 +53,7 @@
       var r = document.documentElement;
       r.classList.add('theme-' + t);
       if (t === 'dark') r.classList.add('dark');
-      r.style.colorScheme = t;
+      r.style.colorScheme = t === 'dark' ? 'only dark' : 'only light';
       var m = document.querySelector('meta[name="theme-color"]');
       if (m) m.setAttribute('content', t === 'dark' ? '#020617' : '#ffffff');
     })();

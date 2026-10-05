@@ -24,7 +24,7 @@ export function ThemeProvider({ children }) {
         // Diz ao navegador QUAL tema a página está usando. Sem isso o Chrome
         // do Android considera a página "sem tema" e aplica o escurecimento
         // automático dele por cima do nosso.
-        root.style.colorScheme = theme;
+        root.style.colorScheme = theme === 'dark' ? 'only dark' : 'only light';
 
         // Barra de status do app instalado acompanha o fundo do tema.
         const meta = document.querySelector('meta[name="theme-color"]');

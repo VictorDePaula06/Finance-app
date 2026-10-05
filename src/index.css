@@ -10,6 +10,14 @@
    botão do app. Esta linha prende o `dark:` à classe .dark do <html>. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* `only` proíbe o navegador de aplicar o escurecimento automático dele por
+   cima do nosso tema. Sem o `only`, dizer apenas "light" faz o Chrome do
+   Android entender "página só clara" — e ele inverte; dizer "dark" numa
+   página já escura faz ele escurecer de novo. Declarado por CLASSE porque
+   quem manda é o botão do app, não o tema do aparelho. */
+.theme-light { color-scheme: only light; }
+.theme-dark  { color-scheme: only dark; }
+
 :root {
   font-family: 'Quicksand', system-ui, sans-serif;
   
