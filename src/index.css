@@ -18,6 +18,35 @@
 .theme-light { color-scheme: only light; }
 .theme-dark  { color-scheme: only dark; }
 
+/* O Chrome do Android respeita o `only` acima. Já o Samsung Internet (e
+   outros navegadores com escurecimento próprio) decidem se "a página sabe
+   ser escura" procurando estilos dentro de uma media query de esquema
+   escuro — e, sem achar nenhum, escurecem por conta.
+
+   O bloco abaixo é esse estilo. Ele troca a paleta de verdade enquanto
+   nenhuma classe de tema estiver no <html> — com JavaScript desligado, ou
+   no instante antes do script de boot rodar. Assim que a pessoa tem um
+   tema, a classe entra e manda nele: a escolha nunca é sequestrada pelo
+   tema do aparelho. */
+@media (prefers-color-scheme: dark) {
+  /* Mesma paleta do .theme-dark, aplicada pelas VARIÁVEIS — é assim que o
+     resto da folha funciona (`html, body { background-color: var(--bg-primary) }`),
+     então não há disputa de especificidade. */
+  html:not(.theme-light):not(.theme-dark) {
+    --bg-primary: #020617;
+    --bg-secondary: #0f172a;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --card-bg: rgba(15, 23, 42, 0.8);
+    --card-border: rgba(255, 255, 255, 0.1);
+    --card-shadow: rgba(0, 0, 0, 0.3);
+    --input-bg: rgba(30, 41, 59, 0.5);
+    --input-border: rgba(255, 255, 255, 0.1);
+    --modal-bg: #0f172a;
+    color-scheme: only dark;
+  }
+}
+
 :root {
   font-family: 'Quicksand', system-ui, sans-serif;
   
