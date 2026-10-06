@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import { gradOf } from '../components/CardForm';
+import { proximoVencimento, mesDeVencimentoAtual } from '../utils/invoiceCycle';
 import BankLogo, { detectBank } from '../components/ui/BankLogo';
 import RedirectOverlay, { useRedirect } from '../components/ui/RedirectOverlay';
 import {
@@ -126,16 +127,13 @@ export default function Cartoes() {
     const disponivel = limite ? Math.max(0, limite - faturaTotal) : 0;
     const usoPct = limite ? Math.min(100, (faturaTotal / limite) * 100) : 0;
 
-    // Vencimento: próxima data com o dia de vencimento.
-    const dueInfo = useMemo(() => {
-        if (!selected?.dueDay) return null;
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        let due = new Date(now.getFullYear(), now.getMonth(), selected.dueDay);
-        if (due < today) due = new Date(now.getFullYear(), now.getMonth() + 1, selected.dueDay);
-        const days = Math.round((due - today) / 86400000);
-        return { due, days };
-    }, [selected]);
+    // Vencimento da fatura ATUAL — ou seja, o próximo que ainda está em
+    // aberto. Pagar antes do fechamento é comum: sem olhar os pagamentos, a
+    // tela seguiria mostrando como a vencer uma fatura já quitada, e o mês
+    // do cabeçalho ficaria parado no ciclo anterior.
+    const dueInfo = useMemo(
+        () => proximoVencimento(selected?.dueDay, new Date(), faturasPagas),
+        [selected, faturasPagas]);
 
     // Fatura VENCIDA: a fatura que já FECHOU passou do vencimento e continua em aberto.
     // Só acusa vencimento se algo do ciclo fechado ainda estiver em aberto — compras
@@ -162,6 +160,8 @@ export default function Cartoes() {
         // Já foi paga? Vale o pagamento do ciclo (pelo mês registrado) e também o
         // pagamento adiantado, feito antes do fechamento mas dentro do mesmo mês.
         const pago = faturasPagas.some(p => {
+            // Pagamento novo identifica a fatura pelo mês de VENCIMENTO.
+            if (p.invoiceDueMonth) return p.invoiceDueMonth === mkVenc;
             const mkPag = p.invoiceMonthPaid || (p.date ? String(p.date).slice(0, 7) : '');
             if (mkPag && (mkPag === mkCiclo || mkPag === mkVenc)) return true;
             return p.date && new Date(p.date) >= lastClose;
@@ -562,7 +562,9 @@ function DetalhesModal({ isDark, tipo, subs, installments, onClose, onEdit }) {
 // ── Modal: faturas anteriores (histórico de pagamentos com itens) ───
 const MESES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const faturaMesLabel = (t) => {
-    const mk = t.invoiceMonthPaid || (t.month) || (t.date ? String(t.date).slice(0, 7) : '');
+    // Nomeia a fatura pelo mês de VENCIMENTO quando o pagamento registrou;
+    // os antigos caem no mês do pagamento, que é o que existe neles.
+    const mk = t.invoiceDueMonth || t.invoiceMonthPaid || (t.month) || (t.date ? String(t.date).slice(0, 7) : '');
     const [y, m] = String(mk).split('-').map(Number);
     if (!y || !m) return 'Fatura';
     return `${MESES_ABREV[m - 1]}/${y}`;
@@ -955,6 +957,9 @@ function PagarFaturaModal({ isDark, uid, card, items, total, onClose }) {
             const now = new Date();
             const iso = now.toISOString();
             const mk = iso.slice(0, 7);
+            // Identifica a fatura quitada pelo mês do VENCIMENTO. Sem isso só
+            // sobra o mês do pagamento, que é ambíguo quando se paga adiantado.
+            const mkVenc = mesDeVencimentoAtual(card.dueDay, now);
             // Snapshot itemizado da fatura paga (pra consultar em "Faturas anteriores").
             const snapshot = items.map(it => ({
                 kind: it.kind, name: it.name || '', amount: it.amount || 0,
@@ -965,6 +970,7 @@ function PagarFaturaModal({ isDark, uid, card, items, total, onClose }) {
                 description: `Pagamento de fatura · ${card.name || 'cartão'}`, amount: total, type: 'expense',
                 category: 'credit_card_bill', date: iso, month: mk, userId: uid, createdAt: Date.now(),
                 paymentMethod: 'pix', selectedCardId: card.id, invoiceMonthPaid: mk, priority: 'essential',
+                ...(mkVenc ? { invoiceDueMonth: mkVenc } : {}),
                 invoiceSnapshot: snapshot, invoiceItemCount: snapshot.length,
             });
             for (const it of despesas) await updateDoc(doc(db, 'transactions', it.id), { invoiceStatus: 'paid', invoiceMonthPaid: mk });
