@@ -1,0 +1,19 @@
+{
+  "id": "/charts",
+  "name": "Alívia Gráficos",
+  "short_name": "Gráficos",
+  "description": "Acompanhe seus ativos: velas, médias e preço ao vivo.",
+  "lang": "pt-BR",
+  "start_url": "/charts",
+  "scope": "/charts",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0f16",
+  "theme_color": "#0b0f16",
+  "icons": [
+    { "src": "/charts-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/charts-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/charts-icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/charts-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

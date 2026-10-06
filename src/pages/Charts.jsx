@@ -18,6 +18,7 @@ import {
 } from '../utils/marketSeries';
 import { openTradeStream } from '../utils/marketStream';
 import logo from '../assets/logo.png';
+import { usePageApp } from '../utils/pageApp';
 import {
     Plus, X, ChevronDown, ArrowLeft, RefreshCw, Loader2, PanelRight, Sun, Moon, Search, Radio,
 } from 'lucide-react';
@@ -85,6 +86,14 @@ export default function Charts() {
     const navigate = useNavigate();
     const isDark = theme !== 'light';
     const uid = currentUser?.uid;
+
+    // Ícone de velas na aba e manifesto próprio: assim o navegador oferece
+    // instalar ESTA tela como um app separado, com atalho e janela próprios.
+    usePageApp({
+        icon: '/charts-favicon-64.png',
+        manifest: '/charts.webmanifest',
+        title: 'Gráficos · Alívia Finanças',
+    });
 
     const [items, setItems] = useState([]);
     const [pickedId, setPickedId] = useState(null);
