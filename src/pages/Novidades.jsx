@@ -6,6 +6,7 @@ import WhatsAppIcon from '../components/ui/WhatsAppIcon';
 import {
     Sparkles, Settings, ClipboardList, Target, Repeat, ArrowLeftRight, CreditCard,
     LayoutDashboard, BookOpen, Sun, Moon, Rocket, CalendarClock, Tag, TrendingUp, Languages,
+    ShoppingBasket, CandlestickChart, Camera, Smartphone, ListChecks,
 } from 'lucide-react';
 
 // ── Notas de atualização (página pública: /novidades) ───────────────
@@ -14,6 +15,73 @@ import {
 // APP_VERSION em AppSidebar.jsx (e versionName/versionCode no mobile).
 
 const RELEASES = [
+    {
+        version: '1.4',
+        date: '06/10/2026',
+        title: 'Mercado, sala de gráficos e o cartão contando o mês certo',
+        intro: 'Duas telas novas — uma para o mercado, com lista de compras e preço por produto, e outra para acompanhar ativos. Além disso, correções em coisas que atrapalhavam o dia a dia: excluir lançamento, o tema no celular e a fatura paga adiantado.',
+        sections: [
+            {
+                icon: ShoppingBasket, color: '#10b981', title: 'Mercado (novo)',
+                items: [
+                    'Ative em Configurações e Cadastros → Cadastros → Mercado. Vem desmarcado; marcando, você define um teto mensal e abre a tela em soualivia.com.br/mercado.',
+                    'Lista: monte em casa e vá marcando no corredor. O que falta fica em cima, o que entrou no carrinho desce, e o toque pega a linha inteira — dá para usar de pé, com uma mão só.',
+                    'Compras: cada compra abre mostrando quanto você pagou em CADA produto e a quantidade.',
+                    'Análise: gasto do mês contra o teto, ticket médio, onde o dinheiro mais vai e o preço de cada produto com a variação desde a última vez.',
+                ],
+            },
+            {
+                icon: Camera, color: '#8b5cf6', title: 'Lançar a compra do mercado',
+                items: [
+                    'Foto com IA: fotografe o cupom e a Alívia lê os produtos. Compra grande não cabe numa foto, então dá para mandar várias — fotografe de cima para baixo, sobrepondo um pouco, que o app junta os pedaços.',
+                    'A Alívia confere a leitura usando o total impresso no próprio cupom e avisa quando a soma não bate, dizendo se provavelmente repetiu um produto ou faltou fotografar um pedaço.',
+                    'Antes de salvar, tudo aparece num formulário para você corrigir o que quiser.',
+                    'QR Code da nota: a câmera lê o QR do cupom e consulta o portal da nota fiscal. A SEFAZ do RJ está barrando consulta automática no momento — quando isso acontece, a tela avisa e você segue pela foto.',
+                    'Digitar à mão também está disponível, produto a produto.',
+                ],
+            },
+            {
+                icon: CandlestickChart, color: '#3b82f6', title: 'Sala de gráficos (nova)',
+                items: [
+                    'Abre em soualivia.com.br/charts, pelo botão Gráficos em Patrimônio. Usa a mesma lista de ativos do Monitor de Ativos.',
+                    'Gráfico de velas com média móvel configurável (duplo clique na linha escolhe tipo, período e cor), zoom na roda, arraste para ver o passado e anotações que ficam salvas por ativo.',
+                    'Intervalo da vela de 1 minuto a 1 mês, independente da janela escolhida embaixo.',
+                    'Cripto atualiza em tempo real, negócio a negócio. Ação e índice mostram pré e pós-mercado e atualizam a cada 5 segundos com a praça ativa.',
+                    'Pesquisa de símbolo numa barra só: digite o nome e escolha, sem precisar dizer se é ação, cripto ou índice.',
+                ],
+            },
+            {
+                icon: CreditCard, color: '#f59e0b', title: 'Cartão: fatura paga adiantado',
+                items: [
+                    'Quem pagava a fatura antes de ela fechar continuava vendo "fatura atual" no mês já quitado — e, no dia do vencimento, ela virava vencida.',
+                    'Agora a tela mostra o próximo vencimento que ainda está em aberto: a fatura paga sai da frente e o mês do cabeçalho anda junto.',
+                ],
+            },
+            {
+                icon: ListChecks, color: '#ef4444', title: 'Correções do dia a dia',
+                items: [
+                    'Extrato: excluir e editar um lançamento voltaram a funcionar. Antes davam erro.',
+                    'Tema claro e escuro no celular: o navegador do Android estava escurecendo a tela por cima do nosso tema — o claro saía escuro e o escuro ficava ilegível. Corrigido.',
+                    'Contas a pagar e Contas a receber: os botões agora dizem "avulsa" com todas as letras, e uma linha discreta mostra onde ficam os cadastros fixos.',
+                ],
+            },
+            {
+                icon: Smartphone, color: '#06b6d4', title: 'App na tela inicial',
+                items: [
+                    'O ícone foi refeito: fundo próprio, sem o cinza que o Android colocava, e sem o nome dentro da imagem (o sistema já escreve embaixo).',
+                    'Se o seu atalho ainda estiver com o ícone antigo, remova e adicione de novo — o Android guarda a imagem de quando foi instalado.',
+                ],
+            },
+            {
+                icon: Repeat, color: '#a855f7', title: 'WhatsApp: parcelamento na fatura',
+                items: [
+                    'Ao importar a fatura do cartão, as compras parceladas passam a ser reconhecidas e cadastradas como parcelamento — antes entravam como compra à vista e sumiam do controle no mês seguinte.',
+                    'A Alívia mostra o que identificou antes de confirmar. Se alguma foi à vista, responda "à vista" que ela lança tudo sem parcelar.',
+                    'Importar a fatura do mês seguinte avança a parcela em vez de criar um parcelamento novo.',
+                ],
+            },
+        ],
+    },
     {
         version: '1.3',
         date: '25/09/2026',
