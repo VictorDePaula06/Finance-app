@@ -39,6 +39,7 @@ const MOTIVO = {
     no_items: 'mkt.qrErrNoItems',
     sefaz_captcha: 'mkt.qrErrCaptcha',
     sefaz_blocked: 'mkt.qrErrBlocked',
+    sefaz_ip: 'mkt.qrErrIp',
     rate_limited: 'mkt.qrErrBusy',
 };
 

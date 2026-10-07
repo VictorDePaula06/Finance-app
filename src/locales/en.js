@@ -638,6 +638,7 @@ export default {
     'mkt.qrErrNoItems': 'The tax authority replied without the products. Try the photo or type it in.',
     'mkt.qrErrCaptcha': 'The tax authority asked for verification. Try again shortly.',
     'mkt.qrErrBusy': 'Too many lookups in a row. Wait a moment.',
+    'mkt.qrErrIp': 'The tax authority blocks lookups made from a server — their rule, nothing to work around. Use the receipt photo, which reads the same products.',
     'mkt.qrErrBlocked': 'The tax authority is blocking automated lookups right now. Use the receipt photo or type it in.',
     'mkt.qrErrSefaz': 'Could not reach the tax authority. Try again.',
     'mkt.fotoTake': 'Photograph the receipt',

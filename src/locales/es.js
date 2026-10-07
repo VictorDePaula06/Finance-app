@@ -638,6 +638,7 @@ export default {
     'mkt.qrErrNoItems': 'La hacienda respondió sin los productos. Prueba la foto o escríbelo.',
     'mkt.qrErrCaptcha': 'La hacienda pidió verificación. Inténtalo en unos instantes.',
     'mkt.qrErrBusy': 'Demasiadas consultas seguidas. Espera un poco.',
+    'mkt.qrErrIp': 'La hacienda bloquea la consulta hecha desde un servidor — es regla suya, no hay cómo sortearla. Usa la foto del ticket, que lee los mismos productos.',
     'mkt.qrErrBlocked': 'La hacienda está bloqueando la consulta automática ahora. Usa la foto del ticket o escríbelo.',
     'mkt.qrErrSefaz': 'No pude contactar con la hacienda. Inténtalo de nuevo.',
     'mkt.fotoTake': 'Fotografiar el ticket',

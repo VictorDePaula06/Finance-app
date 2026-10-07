@@ -10,14 +10,17 @@ import { Camera, CameraOff, Loader2, Link2, Check } from 'lucide-react';
 // Onde o detector não existe (Safari do iPhone, por exemplo), a tela não
 // finge: mostra o campo para colar o link do QR, que dá no mesmo resultado.
 
+// A chave de acesso tem 44 dígitos. Cada portal estadual a escreve de um
+// jeito — no parâmetro `p` (padrão nacional), em `chNFe`, ou solta no meio
+// da URL. Em vez de exigir um formato, procuramos a chave onde ela estiver:
+// quem valida host e conteúdo é o servidor.
+const CHAVE_44 = /(?<![0-9])([0-9]{44})(?![0-9])/;
+
 const ehQrDeNota = (texto) => {
     try {
         const u = new URL(String(texto).trim());
         if (!/^https?:$/.test(u.protocol)) return null;
-        const p = u.searchParams.get('p') || '';
-        // A chave de acesso tem 44 dígitos e é sempre o primeiro campo.
-        const chave = (p.split('|')[0] || '').replace(/\D/g, '');
-        return chave.length === 44 ? u.toString() : null;
+        return CHAVE_44.test(decodeURIComponent(u.href)) ? u.toString() : null;
     } catch {
         return null;
     }
@@ -90,13 +93,17 @@ export default function QrScanner({ isDark, onLido, erro }) {
         return () => { parar = true; encerrar(); };
     }, [onLido]);
 
+    const [erroManual, setErroManual] = useState('');
+
+    // Botão desabilitado sem explicação é o pior resultado: a pessoa fica
+    // sem saber o que está errado. Aceita o clique e diz o motivo.
     const enviarManual = (e) => {
         e?.preventDefault();
         const url = ehQrDeNota(manual);
-        if (url) onLido(url);
+        if (!url) { setErroManual(t('mkt.qrErrNotNfce')); return; }
+        setErroManual('');
+        onLido(url);
     };
-
-    const manualValido = !!ehQrDeNota(manual);
 
     return (
         <div className="px-5 py-4">
@@ -154,11 +161,12 @@ export default function QrScanner({ isDark, onLido, erro }) {
                             placeholder="https://www4.fazenda.rj.gov.br/consultaNFCe/QRCode?p=…"
                             className={`w-full pl-9 pr-3 py-2.5 rounded-xl border text-[13px] outline-none transition focus:border-emerald-500 ${isDark ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-white border-slate-200 text-slate-800 placeholder:text-slate-400'}`} />
                     </div>
-                    <button type="submit" disabled={!manualValido} aria-label={t('mkt.qrPasteGo')}
+                    <button type="submit" disabled={!manual.trim()} aria-label={t('mkt.qrPasteGo')}
                         className="px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-35 text-white transition active:scale-95 shrink-0">
                         <Check className="w-4 h-4" strokeWidth={3} />
                     </button>
                 </div>
+                {erroManual && <p className="text-[12px] text-rose-500 font-semibold mt-2">{erroManual}</p>}
             </form>
         </div>
     );

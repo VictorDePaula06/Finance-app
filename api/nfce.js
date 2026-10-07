@@ -139,10 +139,10 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'host_not_allowed' });
     }
 
-    // O `p` começa sempre pela chave de acesso de 44 dígitos.
-    const p = alvo.searchParams.get('p') || '';
-    const chave = (p.split('|')[0] || '').replace(/\D/g, '');
-    if (chave.length !== 44) return res.status(400).json({ error: 'invalid_key' });
+    // A chave de 44 dígitos pode vir em `p` (padrão nacional), em `chNFe` ou
+    // solta na URL, conforme o portal do estado. Espelha o leitor do cliente.
+    const chave = (decodeURIComponent(alvo.href).match(/(?<![0-9])([0-9]{44})(?![0-9])/) || [])[1];
+    if (!chave) return res.status(400).json({ error: 'invalid_key' });
 
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'anon';
     const rl = await rateLimit(`nfce:${ip}`, { limit: 30, windowSec: 60 });
@@ -179,6 +179,10 @@ export default async function handler(req, res) {
             if (/txtTit|tabResult/i.test(corpo)) { html = corpo; break; }
             if (/Queremos saber se é humano|support ID|captcha/i.test(corpo)) { bloqueio = bloqueio || 'sefaz_captcha'; continue; }
             if (/manuten[çc][ãa]o|bloqueado e\/ou negado|Acesso bloqueado/i.test(corpo)) { bloqueio = bloqueio || 'sefaz_blocked'; continue; }
+            // A SEFAZ-RJ barra por REPUTAÇÃO DE IP e explica isso numa página
+            // própria. Vale distinguir: não é instabilidade nem captcha, é um
+            // bloqueio permanente para quem chega de datacenter.
+            if (/endere[çc]os IP|cat[áa]logos internacionais|sigilo fiscal/i.test(corpo)) { bloqueio = bloqueio || 'sefaz_ip'; continue; }
         }
 
         if (!html) return res.status(502).json({ error: bloqueio || 'sefaz_unreachable' });

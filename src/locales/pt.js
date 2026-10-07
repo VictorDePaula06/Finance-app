@@ -639,6 +639,7 @@ export default {
     'mkt.qrErrNoItems': 'A SEFAZ respondeu, mas sem os produtos. Tente a foto ou lance à mão.',
     'mkt.qrErrCaptcha': 'A SEFAZ pediu verificação. Tente de novo em instantes.',
     'mkt.qrErrBusy': 'Muitas consultas seguidas. Espere um pouco.',
+    'mkt.qrErrIp': 'A SEFAZ bloqueia a consulta feita por servidor — é regra deles, não dá para contornar. Use a foto do cupom, que lê os mesmos produtos.',
     'mkt.qrErrBlocked': 'A SEFAZ está bloqueando a consulta automática agora. Use a foto do cupom ou lance à mão.',
     'mkt.qrErrSefaz': 'Não consegui falar com a SEFAZ agora. Tente de novo.',
     'mkt.fotoTake': 'Fotografar o cupom',
