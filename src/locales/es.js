@@ -634,6 +634,8 @@ export default {
     'mkt.qrNoSupportDesc': 'Ábrelo en Chrome de Android, o pega el enlace del QR abajo.',
     'mkt.qrPasteLabel': 'O pega el enlace del código QR',
     'mkt.qrPasteGo': 'Consultar',
+    'mkt.qrErrNoKey': 'No encontré la clave de 44 dígitos en esa dirección. Pega el enlace COMPLETO del código QR, con todo lo que viene después del signo de interrogación.',
+    'mkt.qrErrNotUrl': 'Eso no es una dirección de internet. Pega el enlace que abre el código QR.',
     'mkt.qrErrNotNfce': 'Ese código QR no es de un ticket fiscal.',
     'mkt.qrErrNoItems': 'La hacienda respondió sin los productos. Prueba la foto o escríbelo.',
     'mkt.qrErrCaptcha': 'La hacienda pidió verificación. Inténtalo en unos instantes.',

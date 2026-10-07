@@ -635,6 +635,8 @@ export default {
     'mkt.qrNoSupportDesc': 'Abra pelo Chrome do Android, ou cole o link do QR abaixo.',
     'mkt.qrPasteLabel': 'Ou cole o link do QR Code',
     'mkt.qrPasteGo': 'Consultar',
+    'mkt.qrErrNoKey': 'Não achei a chave de 44 dígitos nesse endereço. Cole o link COMPLETO do QR Code, com tudo que vem depois do ponto de interrogação.',
+    'mkt.qrErrNotUrl': 'Isso não é um endereço de internet. Cole o link que o QR Code abre.',
     'mkt.qrErrNotNfce': 'Esse QR Code não é de uma nota fiscal.',
     'mkt.qrErrNoItems': 'A SEFAZ respondeu, mas sem os produtos. Tente a foto ou lance à mão.',
     'mkt.qrErrCaptcha': 'A SEFAZ pediu verificação. Tente de novo em instantes.',

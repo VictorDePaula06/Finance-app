@@ -17,8 +17,12 @@ import { Camera, CameraOff, Loader2, Link2, Check } from 'lucide-react';
 const CHAVE_44 = /(?<![0-9])([0-9]{44})(?![0-9])/;
 
 const ehQrDeNota = (texto) => {
+    // Copiar de um cupom ou de um PDF costuma trazer espaço e quebra de
+    // linha no meio da chave; sem limpar, os 44 dígitos nunca casam.
+    const limpo = String(texto || '').replace(/\s+/g, '');
+    if (!limpo) return null;
     try {
-        const u = new URL(String(texto).trim());
+        const u = new URL(limpo);
         if (!/^https?:$/.test(u.protocol)) return null;
         return CHAVE_44.test(decodeURIComponent(u.href)) ? u.toString() : null;
     } catch {
@@ -100,7 +104,15 @@ export default function QrScanner({ isDark, onLido, erro }) {
     const enviarManual = (e) => {
         e?.preventDefault();
         const url = ehQrDeNota(manual);
-        if (!url) { setErroManual(t('mkt.qrErrNotNfce')); return; }
+        if (!url) {
+            // Dois problemas diferentes merecem mensagens diferentes: "isso
+            // não é um endereço" e "é um endereço, mas sem a chave da nota".
+            const limpo = manual.replace(/\s+/g, '');
+            let ehUrl = false;
+            try { ehUrl = /^https?:$/.test(new URL(limpo).protocol); } catch { ehUrl = false; }
+            setErroManual(t(ehUrl ? 'mkt.qrErrNoKey' : 'mkt.qrErrNotUrl'));
+            return;
+        }
         setErroManual('');
         onLido(url);
     };

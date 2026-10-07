@@ -634,6 +634,8 @@ export default {
     'mkt.qrNoSupportDesc': 'Open it in Chrome on Android, or paste the QR link below.',
     'mkt.qrPasteLabel': 'Or paste the QR code link',
     'mkt.qrPasteGo': 'Look up',
+    'mkt.qrErrNoKey': 'I could not find the 44-digit key in that address. Paste the FULL QR code link, including everything after the question mark.',
+    'mkt.qrErrNotUrl': 'That is not a web address. Paste the link the QR code opens.',
     'mkt.qrErrNotNfce': 'That QR code is not from a tax receipt.',
     'mkt.qrErrNoItems': 'The tax authority replied without the products. Try the photo or type it in.',
     'mkt.qrErrCaptcha': 'The tax authority asked for verification. Try again shortly.',
