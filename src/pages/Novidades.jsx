@@ -16,6 +16,64 @@ import {
 
 const RELEASES = [
     {
+        version: '2.0',
+        date: '09/10/2026',
+        title: 'Barra de cima, Cadastros numa janela e o verde em tudo',
+        intro: 'A navegação mudou de forma. O saldo saiu do meio do dashboard e foi para uma barra fixa no topo, que acompanha você em qualquer aba. Cadastros deixou de ser uma aba escondida dentro das Configurações e virou uma janela que abre por cima da tela. E o app inteiro ganhou a identidade verde, no claro e no escuro.',
+        sections: [
+            {
+                icon: LayoutDashboard, color: '#10b981', title: 'Barra superior (nova)',
+                items: [
+                    'Marca, aba atual, saldo disponível, WhatsApp e Cadastros — sempre à vista, em qualquer tela.',
+                    'O saldo aparece como dado puro, sem caixa e sem cor: informa sem competir com o conteúdo.',
+                    'O olho ao lado do saldo apaga TODOS os valores da tela, não só o dele. É o botão de "tem alguém olhando por cima do meu ombro".',
+                    'O atalho do WhatsApp abre a janela de status com o número vinculado, em vez de levar para as configurações.',
+                ],
+            },
+            {
+                icon: ClipboardList, color: '#8b5cf6', title: 'Cadastros virou janela',
+                items: [
+                    'Abre pela engrenagem da barra, por cima da tela, sem perder onde você estava. No celular, pela engrenagem do cabeçalho.',
+                    'Quatro abas em lista: Recorrentes, Cartões, Tetos e Mercado.',
+                    'O tamanho da janela não muda ao trocar de aba, e clicar fora não fecha — formulário meio preenchido não se perde mais por um toque errado. Fechar é no X.',
+                    '"Configurações e Cadastros" passou a se chamar só Configurações: a aba Cadastros saiu de lá.',
+                ],
+            },
+            {
+                icon: TrendingUp, color: '#10b981', title: 'Contas a receber e a pagar',
+                items: [
+                    'Correção importante: duas entradas com o MESMO nome (dois "Salário", por exemplo) — confirmar a primeira marcava a segunda como recebida na hora, sem lançar nada e sem botão para lançar. O valor da segunda nunca entrava na conta. Agora cada uma tem a sua baixa.',
+                    'Acabaram as sub-abas A pagar/Pago e A receber/Recebido: é uma lista só, com as duas situações juntas, na ordem do dia.',
+                    'Dar baixa não tira a linha do lugar — ela troca o selo para Pago/Recebido e perde o botão.',
+                    'Saíram os cards; entraram linhas, que no celular cabem sem rolar para o lado.',
+                    'O atalho para o cadastro abre a janela de Cadastros, em vez de trocar de tela.',
+                ],
+            },
+            {
+                icon: LayoutDashboard, color: '#f59e0b', title: 'Dashboard',
+                items: [
+                    'Os três números do topo agora são Ganhos, Gastos e Custo mensal (contas fixas + assinaturas) — esse último nunca tinha aparecido em lugar nenhum.',
+                    'O cartão de saldo saiu: ele vive na barra superior, onde aparece em todas as abas.',
+                ],
+            },
+            {
+                icon: CreditCard, color: '#a855f7', title: 'Meu cartão',
+                items: [
+                    'O logo do banco subiu para a frente do cartão, ao lado do nome. Um Nubank agora parece um Nubank.',
+                ],
+            },
+            {
+                icon: Sun, color: '#22c55e', title: 'A cara nova',
+                items: [
+                    'Modo escuro em preto esverdeado, com uma aurora verde respirando ao fundo e uma poeira de pontinhos flutuando por cima.',
+                    'Modo claro é o espelho disso: branco esverdeado, a mesma aurora e a mesma poeira, em verde sobre claro.',
+                    'A aba ativa do menu tem uma barrinha verde acesa na borda.',
+                    'Fonte trocada para uma grotesca neutra, mais sóbria para números.',
+                ],
+            },
+        ],
+    },
+    {
         version: '1.4',
         date: '06/10/2026',
         title: 'Mercado, sala de gráficos e o cartão contando o mês certo',

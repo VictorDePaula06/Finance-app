@@ -4,7 +4,7 @@ import WhatsAppIcon from '../components/ui/WhatsAppIcon';
 import {
     BookOpen, LayoutDashboard, ArrowLeftRight, Repeat, CreditCard, PiggyBank,
     Landmark, BarChart3, Sparkles, Rocket, Lightbulb, ShieldCheck, Settings,
-    Target, ClipboardList, Lock, Compass, CalendarClock, Check, TrendingUp, Languages,
+    Target, ClipboardList, Lock, Compass, CalendarClock, Check, TrendingUp, Languages, Eye,
 } from 'lucide-react';
 
 // Guia de uso do sistema. Aba "Manual".
@@ -26,7 +26,7 @@ const PASSOS = [
 const SECOES = [
     {
         icon: LayoutDashboard, color: '#10b981', title: 'Dashboard',
-        desc: 'Sua visão geral: saldo disponível, ganhos, gastos, fatura do cartão, reserva e patrimônio. Se alguma categoria com teto passar de 80% (ou estourar), a Alívia avisa aqui, com quanto ainda cabe no mês.',
+        desc: 'Sua visão geral: ganhos, gastos, custo mensal, fatura do cartão, reserva e patrimônio. O saldo disponível fica na barra do topo, visível em qualquer aba. Se alguma categoria com teto passar de 80% (ou estourar), a Alívia avisa aqui, com quanto ainda cabe no mês.',
     },
     {
         icon: ArrowLeftRight, color: '#06b6d4', title: 'Extrato',
@@ -34,15 +34,15 @@ const SECOES = [
     },
     {
         icon: TrendingUp, color: '#10b981', title: 'Contas a receber',
-        desc: 'Suas entradas cadastradas, em cards, com o seletor A receber / Recebido. Quando o dinheiro cair, toque em Confirmar recebimento — vira um lançamento e soma no saldo. O botão "Lançar entrada" registra algo fora do cadastro (aparece em Recebido com o selo Avulsa). O cadastro das entradas fixas continua em Configurações e Cadastros.',
+        desc: 'Suas entradas cadastradas numa lista só, recebidas e pendentes juntas, na ordem do dia. Quando o dinheiro cair, toque em Receber — vira um lançamento e soma no saldo; a linha fica no mesmo lugar e passa a mostrar Recebido. O botão "Lançar entrada avulsa" registra algo fora do cadastro. O cadastro das entradas fixas fica em Cadastros (engrenagem da barra do topo).',
     },
     {
         icon: Repeat, color: '#f59e0b', title: 'Contas a pagar',
-        desc: 'As despesas cadastradas em Cadastros, em cards, com o seletor A pagar / Pago. Pagou? Toque em Dar baixa (ou Lançar na fatura, se a conta é paga no cartão). O botão "Lançar despesa" registra um gasto avulso, que entra direto em Pago com o selo Avulso. Parcelamentos e assinaturas do cartão não aparecem aqui — eles vivem em Meu cartão.',
+        desc: 'As despesas cadastradas numa lista só, pagas e pendentes juntas, na ordem do vencimento — atrasadas em âmbar. Pagou? Toque em Dar baixa (ou Na fatura, se a conta é paga no cartão). O botão "Lançar despesa avulsa" registra um gasto fora do cadastro. Parcelamentos e assinaturas do cartão não aparecem aqui — eles vivem em Meu cartão.',
     },
     {
         icon: CreditCard, color: '#a855f7', title: 'Meu cartão',
-        desc: 'Fatura atual, assinaturas, parcelamentos, melhor dia de compra e uso do limite. Aqui você lança compras e paga a fatura. O cadastro, a edição e a exclusão dos cartões ficam em Configurações e Cadastros › Cadastros (botão Gerenciar cartões).',
+        desc: 'Fatura atual, assinaturas, parcelamentos, melhor dia de compra e uso do limite. Aqui você lança compras e paga a fatura. O cadastro, a edição e a exclusão dos cartões ficam em Cadastros › Cartões. Ao digitar o banco, o cartão ganha o logo real da marca na frente.',
     },
     {
         icon: PiggyBank, color: '#ec4899', title: 'Reservas',
@@ -57,41 +57,50 @@ const SECOES = [
         desc: 'Relatórios das suas finanças: gastos por categoria, teto por categoria, evolução mês a mês, cartão e mais. Antes de gerar, você escolhe o período e se inclui a fatura em aberto. Dá para exportar em PDF.',
     },
     {
-        icon: Settings, color: '#64748b', title: 'Configurações e Cadastros',
-        desc: 'Fica no rodapé do menu, acima do seu nome. Reúne cinco abas: Geral (perfil, foto, senha, tema, idioma e conta), Cadastros (recorrentes, cartões e tetos), WhatsApp (conexão, forma de pagamento padrão e notificações), Assinatura (seu plano) e Dados e Privacidade (exportar dados, LGPD).',
+        icon: Settings, color: '#64748b', title: 'Configurações',
+        desc: 'Fica no rodapé do menu, acima do seu nome. Reúne quatro abas: Geral (perfil, foto, senha, tema, idioma e conta), WhatsApp (conexão, forma de pagamento padrão e notificações), Assinatura (seu plano) e Dados e Privacidade (exportar dados, LGPD).',
+    },
+    {
+        icon: ClipboardList, color: '#8b5cf6', title: 'Cadastros',
+        desc: 'Abre pela engrenagem da barra do topo, por cima da tela — você não perde de vista onde estava. Quatro abas, todas em lista: Recorrentes (entradas e despesas que se repetem), Cartões, Tetos (limite mensal por categoria) e Mercado. Clicar fora não fecha: fechar é no X, para não perder um formulário meio preenchido.',
+    },
+    {
+        icon: Eye, color: '#06b6d4', title: 'Barra do topo',
+        desc: 'Acompanha você em qualquer aba: a marca, o nome da aba atual, o saldo disponível, o atalho do WhatsApp e a engrenagem que abre Cadastros. O olho ao lado do saldo apaga TODOS os valores da tela de uma vez — útil quando tem gente olhando.',
     },
 ];
 
 // Onde cada coisa é feita — referência rápida.
 const ONDE = [
-    ['Cadastrar / editar / excluir entrada ou despesa recorrente', 'Configurações e Cadastros › Cadastros'],
-    ['Cadastrar / editar / excluir cartão de crédito', 'Configurações e Cadastros › Cadastros'],
-    ['Definir teto de gasto por categoria', 'Configurações e Cadastros › Cadastros'],
-    ['Dar baixa numa conta do mês', 'Contas a pagar › A pagar'],
+    ['Cadastrar / editar / excluir entrada ou despesa recorrente', 'Cadastros › Recorrentes'],
+    ['Cadastrar / editar / excluir cartão de crédito', 'Cadastros › Cartões'],
+    ['Definir teto de gasto por categoria', 'Cadastros › Tetos'],
+    ['Ativar e configurar o Mercado', 'Cadastros › Mercado'],
+    ['Abrir Cadastros', 'Engrenagem na barra do topo'],
+    ['Esconder todos os valores da tela', 'Olho na barra do topo'],
+    ['Ver o número de WhatsApp vinculado', 'Ícone do WhatsApp na barra do topo'],
+    ['Dar baixa numa conta do mês', 'Contas a pagar'],
     ['Confirmar recebimento do salário', 'Contas a receber'],
-    ['Lançar uma entrada avulsa', 'Contas a receber › Lançar entrada'],
-    ['Lançar uma despesa avulsa', 'Contas a pagar › Lançar despesa'],
+    ['Lançar uma entrada avulsa', 'Contas a receber › Lançar entrada avulsa'],
+    ['Lançar uma despesa avulsa', 'Contas a pagar › Lançar despesa avulsa'],
     ['Ver o histórico da conta', 'Extrato'],
     ['Lançar compra, assinatura ou parcelamento no cartão', 'Meu cartão'],
     ['Pagar a fatura', 'Meu cartão'],
-    ['Conectar o WhatsApp / escolher notificações', 'Configurações e Cadastros › WhatsApp'],
-    ['Ver ou mudar o plano', 'Configurações e Cadastros › Assinatura'],
-    ['Trocar tema, foto, senha ou idioma', 'Configurações e Cadastros › Geral'],
+    ['Conectar o WhatsApp / escolher notificações', 'Configurações › WhatsApp'],
+    ['Ver ou mudar o plano', 'Configurações › Assinatura'],
+    ['Trocar tema, foto, senha ou idioma', 'Configurações › Geral'],
 ];
 
 const NOVIDADES = [
-    'Menu na ordem do dia a dia: Dashboard, Extrato, Contas a receber, Contas a pagar, Meu cartão, Reservas, Patrimônio, Análises/Relatórios e Manual.',
-    'Extrato (era Lançamentos) virou só consulta; quem registra agora é Contas a receber e Contas a pagar, cada uma com seu botão de lançamento avulso.',
-    'Contas a receber é uma aba nova: suas entradas cadastradas em cards, com Confirmar recebimento.',
-    'Contas a pagar (era Recorrentes) não mostra mais nada de cartão — parcelamentos e assinaturas ficam em Meu cartão.',
-    'O app agora fala Português, English e Español (Configurações e Cadastros › Geral › Idioma).',
-    'Menu reorganizado: WhatsApp, Assinatura e Aparência viraram abas dentro de Configurações e Cadastros, que fica acima do seu nome no rodapé do menu.',
-    'Nova aba Cadastros: entradas e despesas recorrentes, cartões de crédito e teto por categoria — tudo em um só lugar, em lista, com adicionar, editar e excluir.',
-    'Teto por categoria: defina um limite mensal (ex.: até R$ 1.000 em Alimentação). A Alívia avisa no Dashboard e no WhatsApp a partir de 80% e quando passar.',
-    'Recorrentes redesenhada: só despesas, em cards, com abas A pagar e Pago. Parcelamentos e assinaturas do cartão aparecem separados, somente para consulta.',
-    'Lançamentos › Entrada: janela com suas entradas recorrentes em cards e o botão Confirmar recebimento; o lançamento avulso abre logo abaixo.',
-    'Meu cartão agora só usa os cartões — o cadastro passou para Cadastros. Ao digitar o banco (Nubank, PicPay, Itaú…), o cartão ganha o logo real e a cor da marca.',
-    'WhatsApp: ícone oficial no lugar do balão, e Conexão + Notificações na mesma tela, uma abaixo da outra.',
+    'Barra fixa no topo: marca, aba atual, saldo disponível, WhatsApp e Cadastros — em qualquer tela.',
+    'O olho ao lado do saldo apaga TODOS os valores da tela, não só o saldo.',
+    'Cadastros virou uma janela que abre pela engrenagem da barra, por cima do app: Recorrentes, Cartões, Tetos e Mercado, cada um numa aba.',
+    '"Configurações e Cadastros" agora é só Configurações — Cadastros saiu de dentro dela.',
+    'Contas a receber e Contas a pagar perderam as sub-abas: é uma lista só, com pagas e pendentes juntas. Dar baixa não tira a linha do lugar.',
+    'Correção: duas entradas com o mesmo nome — só a primeira somava na conta. Agora cada uma tem a sua baixa.',
+    'Dashboard: Ganhos, Gastos e Custo mensal. O saldo mudou para a barra do topo.',
+    'Meu cartão: o logo do banco agora aparece na frente do cartão.',
+    'Escuro em preto esverdeado e claro em branco esverdeado, com a mesma aurora verde ao fundo nos dois.',
 ];
 
 // Rótulo de seção (ícone + texto em caixa alta).

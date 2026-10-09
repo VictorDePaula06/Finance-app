@@ -324,6 +324,25 @@ html, body {
 .theme-dark .bg-white\/\[0\.02\] { background-color: rgba(9, 14, 12, 0.68); }
 .theme-dark .bg-white\/\[0\.03\] { background-color: rgba(11, 17, 14, 0.72); }
 
+/* ── Modo privado ─────────────────────────────────────────────────────
+   O olho da barra superior liga `valores-ocultos` no <html> e todo valor em
+   dinheiro da área de conteúdo some atrás de um borrão.
+
+   O gancho é `tabular-nums`: este projeto usa essa classe em todo número que
+   representa dinheiro, e só neles. Limitar ao <main> deixa de fora a marca,
+   a versão e o próprio saldo da barra — que troca o texto por "R$ ••••" em
+   vez de borrar, porque borrão em fonte pequena ainda deixa adivinhar.
+
+   O borrão é em `em`: acompanha o tamanho da fonte, então um valor grande
+   some tanto quanto um pequeno. `select-none` impede copiar o número
+   borrado, que seria uma tela privada que não esconde nada. */
+.valores-ocultos main .tabular-nums {
+  filter: blur(0.42em);
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 4px;

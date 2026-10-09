@@ -467,10 +467,7 @@ function CardVisual({ card, onAdd, isDark }) {
         );
     }
 
-    // O nome já cita o banco (ex.: "Picpay epic")? Então não repete a linha do banco.
     const bankLabel = bank?.label || card?.bank || '';
-    const nameHasBank = bankLabel && String(card?.name || '').toLowerCase().includes(bankLabel.toLowerCase().split(' ')[0]);
-    const showBankLine = bankLabel && !nameHasBank; // só quando o nome não cita o banco
 
     return (
         <div className={`relative w-full h-full rounded-3xl p-5 flex flex-col justify-between text-white bg-gradient-to-br ${grad} shadow-2xl overflow-hidden`}>
@@ -478,16 +475,21 @@ function CardVisual({ card, onAdd, isDark }) {
             <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_100%_0%,rgba(255,255,255,0.14),transparent_55%)]" />
             <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/20 to-transparent" />
 
-            {/* Topo: chip à esquerda · bandeira discreta à direita (o logo do banco fica só no seletor) */}
+            {/* Topo: logo do banco + nome do banco · bandeira à direita.
+                É a ordem do plástico de verdade — o logo é a primeira coisa
+                que a pessoa procura para saber de qual cartão se trata. */}
             <div className="relative flex items-start justify-between gap-3">
-                <span className="w-10 h-7 rounded-md bg-gradient-to-br from-amber-200/80 to-amber-400/70 ring-1 ring-black/10 shadow-inner" aria-hidden="true" />
-                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/60 mt-1">{card?.brand || 'Visa'}</span>
+                <div className="flex items-center gap-2.5 min-w-0">
+                    <BankLogo bank={bank} className="w-10 h-10" rounded="rounded-[0.65rem]" />
+                    {bankLabel && <span className="text-[13px] font-black tracking-tight truncate drop-shadow-sm">{bankLabel}</span>}
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/60 mt-1 shrink-0">{card?.brand || 'Visa'}</span>
             </div>
 
-            {/* Meio: nome do cartão em destaque (o banco só se não estiver no nome) */}
-            <div className="relative mt-3">
-                {showBankLine && <p className="text-[11px] font-semibold text-white/60">{bankLabel}</p>}
-                <p className="text-[21px] font-black tracking-tight leading-tight truncate">{card?.name || 'Meu cartão'}</p>
+            {/* Meio: chip + nome do cartão */}
+            <div className="relative mt-3 flex items-center gap-3">
+                <span className="w-10 h-7 rounded-md bg-gradient-to-br from-amber-200/80 to-amber-400/70 ring-1 ring-black/10 shadow-inner shrink-0" aria-hidden="true" />
+                <p className="text-[19px] font-black tracking-tight leading-tight truncate">{card?.name || 'Meu cartão'}</p>
             </div>
 
             {/* Base: número mascarado · vencimento */}

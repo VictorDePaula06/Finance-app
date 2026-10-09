@@ -106,7 +106,7 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
                     <span className="text-[17px] font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500">Alívia</span>
                     <span className={`text-[10px] font-bold uppercase tracking-[0.28em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Finanças</span>
                     <a href={RELEASE_NOTES_URL} target="_blank" rel="noopener noreferrer" title={t('nav.releaseNotesTitle')}
-                        className={`ml-auto text-[10px] font-black tabular-nums px-1.5 py-0.5 rounded-md transition ${isDark ? 'bg-white/5 text-slate-400 active:bg-emerald-500/15' : 'bg-slate-100 text-slate-500 active:bg-emerald-50'}`}>v{APP_VERSION}</a>
+                        className={`ml-auto text-[10px] font-black tabular-nums px-1.5 py-0.5 rounded-md transition ${isDark ? 'bg-white/5 text-slate-400 active:bg-emerald-500/15' : 'bg-slate-100 text-slate-500 active:bg-emerald-50'}`}>v{APP_VERSION} · {t('nav.releaseNotes')}</a>
                     <button type="button" onClick={() => setCadastros(true)}
                         title={t('settings.tabRegistry')} aria-label={t('settings.tabRegistry')}
                         className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition active:scale-95 ${isDark ? 'text-slate-400 active:bg-white/10' : 'text-slate-500 active:bg-slate-100'}`}>

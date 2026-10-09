@@ -10,6 +10,8 @@ export default {
     'common.edit': 'Editar',
     'common.add': 'Agregar',
     'common.clear': 'Limpiar',
+    'privacy.hide': 'Ocultar valores',
+    'privacy.show': 'Mostrar valores',
     'common.show': 'Mostrar',
     'common.hide': 'Ocultar',
     'common.close': 'Cerrar',
@@ -123,7 +125,7 @@ export default {
     'ceil.nearMany': '{cats} están cerca del tope — ojo con ellas en las próximas compras. 😉',
 
     // ── Ajustes ─────────────────────────────────────────────────────
-    'settings.title': 'Ajustes y Registros',
+    'settings.title': 'Configuración',
     'settings.subtitle': 'Tu cuenta, tus registros y las preferencias de Alívia.',
     'settings.tabGeneral': 'General',
     'settings.tabRegistry': 'Registros',
@@ -193,7 +195,7 @@ export default {
     'rec.nothingPaid': 'Nada pagado aún',
     'rec.nothingPaidDesc': 'Las cuentas que marques como pagadas este mes aparecen aquí.',
     'rec.noneRegistered': 'Ninguna cuenta registrada',
-    'rec.noneRegisteredDesc': 'Registra tus gastos fijos en Ajustes y Registros.',
+    'rec.noneRegisteredDesc': 'Registra tus gastos fijos en Registros (engranaje de la barra).',
     'rec.allPaid': 'Todo pagado por aquí 🎉',
     'rec.allPaidDesc': 'Ninguna cuenta pendiente este mes.',
     'rec.dueOn': 'Vence el {day} · en {days} {daysWord}',
@@ -224,7 +226,7 @@ export default {
     'tx.receivesOn': 'Se recibe el {day}',
     'tx.receivedOn': 'Recibido el {date}',
     'tx.noRecurringIncome': 'Ningún ingreso recurrente registrado',
-    'tx.noRecurringIncomeDesc': 'Registra tu sueldo y otros ingresos fijos en Ajustes y Registros. O carga un ingreso puntual abajo.',
+    'tx.noRecurringIncomeDesc': 'Registra tu sueldo y otros ingresos fijos en Registros (engranaje de la barra). O carga un ingreso puntual abajo.',
     'tx.oneOffIncome': 'Cargar ingreso puntual',
     'tx.newOneOffIncome': 'Nuevo ingreso puntual',
 
@@ -421,7 +423,7 @@ export default {
     'cardp.noneOnBill': 'Ningún movimiento en este resumen',
     'cardp.allTypes': 'Todos los tipos',
     'cardp.allCategories': 'Todas las categorías',
-    'cardp.registerIn': 'Regístrala en Ajustes y Registros → Registros',
+    'cardp.registerIn': 'Regístrala en Registros (engranaje de la barra) → Registros',
     'cardp.newExpenseTitle': 'Cargar un gasto a la tarjeta',
     'anp.ceilUsage': 'Uso de los topes — {month}',
     'anp.spentOf': 'R$ {spent} gastados de R$ {total} acordados',
@@ -519,7 +521,7 @@ export default {
     'recv.receipts': 'Ingresos',
     'recv.receivedThisMonth': 'Recibidos este mes',
     'recv.noneRegistered': 'Ningún ingreso registrado',
-    'recv.noneRegisteredDesc': 'Registra tu sueldo y otros ingresos fijos en Ajustes y Registros.',
+    'recv.noneRegisteredDesc': 'Registra tu sueldo y otros ingresos fijos en Registros (engranaje de la barra).',
     'recv.allReceived': 'Todo recibido 🎉',
     'recv.allReceivedDesc': 'Ningún ingreso pendiente este mes.',
     'recv.nothingReceived': 'Nada recibido aún',
@@ -529,7 +531,6 @@ export default {
     'recv.oneOff': 'Puntual',
     'pay.manualExpense': 'Registrar gasto puntual',
     // Caminho del registro (Cuentas a pagar / a cobrar → Registros).
-    'registry.path': 'Ajustes y Registros › Registros',
     'registry.hintPay': 'Las cuentas fijas se registran en',
     'registry.hintReceive': 'Los ingresos fijos se registran en',
 

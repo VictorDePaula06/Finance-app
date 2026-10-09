@@ -3,6 +3,7 @@ import { Settings, Eye, EyeOff } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useI18n } from '../contexts/LanguageContext';
 import { useSaldoConta } from '../hooks/useSaldoConta';
+import { usePrivacy } from '../contexts/PrivacyContext';
 import WhatsAppStatusButton from './WhatsAppStatusButton';
 import WhatsAppStatusModal from './WhatsAppStatusModal';
 import { useWhatsAppStatus } from '../hooks/useWhatsAppStatus';
@@ -17,31 +18,14 @@ import { APP_VERSION, RELEASE_NOTES_URL } from './AppSidebar';
 // cor fica reservada para o que exige ação. Quem quiser o saldo com
 // destaque tem o cartão do dashboard.
 
-const OCULTAR_KEY = 'aliviaTopBarOcultarSaldo';
-
 export default function AppTopBar({ titulo, onWhatsApp, onCadastros }) {
     const { theme } = useTheme();
     const { t, fmtMoney } = useI18n();
     const isDark = theme !== 'light';
     const { saldo, carregando } = useSaldoConta();
     const wa = useWhatsAppStatus();
+    const { oculto, alternar } = usePrivacy();
     const [waAberto, setWaAberto] = React.useState(false);
-
-    // O saldo fica à vista numa barra fixa; quem usa o app em público
-    // precisa poder apagá-lo, e a escolha tem que sobreviver ao recarregar.
-    const [oculto, setOculto] = React.useState(() => {
-        try {
-            // Já clicou no olho alguma vez? Vale a escolha dela.
-            const proprio = localStorage.getItem(OCULTAR_KEY);
-            if (proprio !== null) return proprio === '1';
-            // Ainda não: vale "Ocultar saldo por padrão", das configurações do dashboard.
-            return !!JSON.parse(localStorage.getItem('aliviaDashCfg') || '{}').ocultarSaldo;
-        } catch { return false; }
-    });
-    const alternar = () => setOculto(v => {
-        try { localStorage.setItem(OCULTAR_KEY, v ? '0' : '1'); } catch { /* modo privado */ }
-        return !v;
-    });
 
     const rotulo = isDark ? 'text-slate-500' : 'text-slate-400';
     const valor = isDark ? 'text-white' : 'text-slate-800';
@@ -57,7 +41,7 @@ export default function AppTopBar({ titulo, onWhatsApp, onCadastros }) {
                 <h1 className={`text-[14px] font-black tracking-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{titulo}</h1>
                 <a href={RELEASE_NOTES_URL} target="_blank" rel="noopener noreferrer" title={t('nav.releaseNotesTitle')}
                     className={`text-[10px] font-black tabular-nums px-1.5 py-0.5 rounded-md transition shrink-0 ${isDark ? 'bg-white/5 text-slate-400 hover:text-emerald-400' : 'bg-slate-100 text-slate-500 hover:text-emerald-600'}`}>
-                    v{APP_VERSION}
+                    v{APP_VERSION} <span className="hidden xl:inline font-bold opacity-80">· {t('nav.releaseNotes')}</span>
                 </a>
             </div>
 
@@ -71,8 +55,10 @@ export default function AppTopBar({ titulo, onWhatsApp, onCadastros }) {
                         {carregando ? '—' : oculto ? 'R$ ••••' : `R$ ${fmtMoney(saldo)}`}
                     </p>
                 </div>
-                <button type="button" onClick={alternar} className={icone}
-                    title={t(oculto ? 'common.show' : 'common.hide')} aria-label={t(oculto ? 'common.show' : 'common.hide')}>
+                {/* Um olho para a tela inteira: apaga este saldo e todo valor
+                    da área de conteúdo, não só o número daqui. */}
+                <button type="button" onClick={alternar} className={icone} aria-pressed={oculto}
+                    title={t(oculto ? 'privacy.show' : 'privacy.hide')} aria-label={t(oculto ? 'privacy.show' : 'privacy.hide')}>
                     {oculto ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
             </div>

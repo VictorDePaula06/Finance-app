@@ -11,6 +11,8 @@ export default {
     'common.edit': 'Editar',
     'common.add': 'Adicionar',
     'common.clear': 'Limpar',
+    'privacy.hide': 'Ocultar valores',
+    'privacy.show': 'Mostrar valores',
     'common.show': 'Mostrar',
     'common.hide': 'Ocultar',
     'common.close': 'Fechar',
@@ -124,7 +126,7 @@ export default {
     'ceil.nearMany': '{cats} estão perto do teto — um olho nelas nas próximas compras. 😉',
 
     // ── Configurações ───────────────────────────────────────────────
-    'settings.title': 'Configurações e Cadastros',
+    'settings.title': 'Configurações',
     'settings.subtitle': 'Sua conta, seus cadastros e as preferências do Alívia.',
     'settings.tabGeneral': 'Geral',
     'settings.tabRegistry': 'Cadastros',
@@ -194,7 +196,7 @@ export default {
     'rec.nothingPaid': 'Nada pago ainda',
     'rec.nothingPaidDesc': 'As contas que você der baixa neste mês aparecem aqui.',
     'rec.noneRegistered': 'Nenhuma conta cadastrada',
-    'rec.noneRegisteredDesc': 'Cadastre suas despesas fixas em Configurações e Cadastros.',
+    'rec.noneRegisteredDesc': 'Cadastre suas despesas fixas em Cadastros, pela engrenagem do topo.',
     'rec.allPaid': 'Tudo pago por aqui 🎉',
     'rec.allPaidDesc': 'Nenhuma conta pendente neste mês.',
     'rec.dueOn': 'Vence dia {day} · em {days} {daysWord}',
@@ -225,7 +227,7 @@ export default {
     'tx.receivesOn': 'Recebe dia {day}',
     'tx.receivedOn': 'Recebido em {date}',
     'tx.noRecurringIncome': 'Nenhuma entrada recorrente cadastrada',
-    'tx.noRecurringIncomeDesc': 'Cadastre seu salário e outras entradas fixas em Configurações e Cadastros. Ou lance uma entrada avulsa abaixo.',
+    'tx.noRecurringIncomeDesc': 'Cadastre seu salário e outras entradas fixas em Cadastros, pela engrenagem do topo. Ou lance uma entrada avulsa abaixo.',
     'tx.oneOffIncome': 'Lançar entrada avulsa',
     'tx.newOneOffIncome': 'Nova entrada avulsa',
 
@@ -422,7 +424,7 @@ export default {
     'cardp.noneOnBill': 'Nenhum lançamento nesta fatura',
     'cardp.allTypes': 'Todos os tipos',
     'cardp.allCategories': 'Todas as categorias',
-    'cardp.registerIn': 'Cadastre em Configurações e Cadastros → Cadastros',
+    'cardp.registerIn': 'Cadastre em Cadastros → Cartões',
     'cardp.newExpenseTitle': 'Lançar despesa no cartão',
     'anp.ceilUsage': 'Uso dos tetos — {month}',
     'anp.spentOf': 'R$ {spent} gastos de R$ {total} combinados',
@@ -520,7 +522,7 @@ export default {
     'recv.receipts': 'Recebimentos',
     'recv.receivedThisMonth': 'Recebidas este mês',
     'recv.noneRegistered': 'Nenhuma entrada cadastrada',
-    'recv.noneRegisteredDesc': 'Cadastre seu salário e outras entradas fixas em Configurações e Cadastros.',
+    'recv.noneRegisteredDesc': 'Cadastre seu salário e outras entradas fixas em Cadastros, pela engrenagem do topo.',
     'recv.allReceived': 'Tudo recebido 🎉',
     'recv.allReceivedDesc': 'Nenhuma entrada pendente neste mês.',
     'recv.nothingReceived': 'Nada recebido ainda',
@@ -530,7 +532,6 @@ export default {
     'recv.oneOff': 'Avulsa',
     'pay.manualExpense': 'Lançar despesa avulsa',
     // Caminho do cadastro (Contas a pagar / Contas a receber → Cadastros).
-    'registry.path': 'Configurações e Cadastros › Cadastros',
     'registry.hintPay': 'Contas fixas se cadastram em',
     'registry.hintReceive': 'Entradas fixas se cadastram em',
 

@@ -10,6 +10,8 @@ export default {
     'common.edit': 'Edit',
     'common.add': 'Add',
     'common.clear': 'Clear',
+    'privacy.hide': 'Hide amounts',
+    'privacy.show': 'Show amounts',
     'common.show': 'Show',
     'common.hide': 'Hide',
     'common.close': 'Close',
@@ -123,7 +125,7 @@ export default {
     'ceil.nearMany': '{cats} are close to the limit — keep an eye on them. 😉',
 
     // ── Settings ────────────────────────────────────────────────────
-    'settings.title': 'Settings & Records',
+    'settings.title': 'Settings',
     'settings.subtitle': 'Your account, your records and Alívia preferences.',
     'settings.tabGeneral': 'General',
     'settings.tabRegistry': 'Records',
@@ -193,7 +195,7 @@ export default {
     'rec.nothingPaid': 'Nothing paid yet',
     'rec.nothingPaidDesc': 'Bills you mark as paid this month show up here.',
     'rec.noneRegistered': 'No bills registered',
-    'rec.noneRegisteredDesc': 'Add your fixed expenses in Settings & Records.',
+    'rec.noneRegisteredDesc': 'Add your fixed expenses in Records (gear in the top bar).',
     'rec.allPaid': 'All paid here 🎉',
     'rec.allPaidDesc': 'No bills pending this month.',
     'rec.dueOn': 'Due on the {day} · in {days} {daysWord}',
@@ -224,7 +226,7 @@ export default {
     'tx.receivesOn': 'Received on the {day}',
     'tx.receivedOn': 'Received on {date}',
     'tx.noRecurringIncome': 'No recurring income registered',
-    'tx.noRecurringIncomeDesc': 'Add your salary and other fixed income in Settings & Records. Or log a one-off entry below.',
+    'tx.noRecurringIncomeDesc': 'Add your salary and other fixed income in Records (gear in the top bar). Or log a one-off entry below.',
     'tx.oneOffIncome': 'Log one-off income',
     'tx.newOneOffIncome': 'New one-off income',
 
@@ -421,7 +423,7 @@ export default {
     'cardp.noneOnBill': 'No transactions on this bill',
     'cardp.allTypes': 'All types',
     'cardp.allCategories': 'All categories',
-    'cardp.registerIn': 'Register in Settings & Records → Records',
+    'cardp.registerIn': 'Register in Records (gear in the top bar) → Records',
     'cardp.newExpenseTitle': 'Log a card expense',
     'anp.ceilUsage': 'Limit usage — {month}',
     'anp.spentOf': 'R$ {spent} spent out of R$ {total} set',
@@ -519,7 +521,7 @@ export default {
     'recv.receipts': 'Income',
     'recv.receivedThisMonth': 'Received this month',
     'recv.noneRegistered': 'No income registered',
-    'recv.noneRegisteredDesc': 'Register your salary and other fixed income in Settings & Records.',
+    'recv.noneRegisteredDesc': 'Register your salary and other fixed income in Records (gear in the top bar).',
     'recv.allReceived': 'All received 🎉',
     'recv.allReceivedDesc': 'No income pending this month.',
     'recv.nothingReceived': 'Nothing received yet',
@@ -529,7 +531,6 @@ export default {
     'recv.oneOff': 'One-off',
     'pay.manualExpense': 'Log one-off expense',
     // Caminho do cadastro (Contas a pagar / Contas a receber → Cadastros).
-    'registry.path': 'Settings & Records › Records',
     'registry.hintPay': 'Fixed bills are set up in',
     'registry.hintReceive': 'Fixed income is set up in',
 
