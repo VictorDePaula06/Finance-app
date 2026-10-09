@@ -30,18 +30,16 @@ export default function CadastrosModal({ onClose, abaInicial = 'recorrentes' }) 
     const isDark = theme !== 'light';
     const [aba, setAba] = useState(abaInicial);
 
-    // Esc fecha, e a página atrás para de rolar enquanto a janela está aberta —
-    // sem isso a roda do mouse arrasta o conteúdo por baixo do overlay.
+    // A página atrás para de rolar enquanto a janela está aberta — sem isso a
+    // roda do mouse arrasta o conteúdo por baixo do overlay.
+    //
+    // Esc NÃO fecha, de propósito: a janela guarda formulários meio
+    // preenchidos, e Esc é tecla fácil de esbarrar. Fechar é só no X.
     useEffect(() => {
-        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
         const antes = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
-        window.addEventListener('keydown', onKey);
-        return () => {
-            document.body.style.overflow = antes;
-            window.removeEventListener('keydown', onKey);
-        };
-    }, [onClose]);
+        return () => { document.body.style.overflow = antes; };
+    }, []);
 
     const atual = ABAS.find(x => x.id === aba) || ABAS[0];
     const Secao = atual.Secao;
@@ -53,9 +51,14 @@ export default function CadastrosModal({ onClose, abaInicial = 'recorrentes' }) 
     return createPortal(
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-6"
             role="dialog" aria-modal="true" aria-label={t('settings.tabRegistry')}>
-            <div className="absolute inset-0 bg-black/65 backdrop-blur-sm animate-in fade-in duration-150" onClick={onClose} />
+            {/* Só escurece. Não fecha no clique e, por estar por cima, também
+                impede que o clique chegue na tela de trás. */}
+            <div className="absolute inset-0 bg-black/65 backdrop-blur-sm animate-in fade-in duration-150" />
 
-            <div className={`relative w-full max-w-5xl max-h-[90vh] flex flex-col rounded-3xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-[#0b100e] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+            {/* Altura FIXA, não "até": as abas têm conteúdos de tamanhos bem
+                diferentes, e com altura elástica o X e os botões pulavam de
+                lugar a cada troca. Quem se ajusta é o corpo, rolando. */}
+            <div className={`relative w-full max-w-5xl h-[min(760px,90vh)] flex flex-col rounded-3xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-[#0b100e] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
 
                 {/* Cabeçalho */}
                 <div className={`flex items-center gap-3 px-5 sm:px-6 py-4 border-b shrink-0 ${isDark ? 'border-white/[0.07]' : 'border-slate-200 bg-white'}`}>
@@ -95,9 +98,7 @@ export default function CadastrosModal({ onClose, abaInicial = 'recorrentes' }) 
                 </div>
 
                 {/* Conteúdo — a seção escolhida, inteira, do jeito que ela já é */}
-                {/* Altura mínima para a janela não saltar de tamanho ao trocar de aba:
-                    Mercado ocupa um terço do que Recorrentes ocupa. */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-5 min-h-[min(420px,60vh)]">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5">
                     <Secao isDark={isDark} />
                 </div>
             </div>

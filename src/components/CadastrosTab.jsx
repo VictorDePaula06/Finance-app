@@ -247,7 +247,9 @@ function CadastroForm({ isDark, uid, editing, cards, onClose }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            {/* Só escurece: fechar é no X ou no Cancelar. Clique fora não apaga
+                o que já foi preenchido. */}
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
             <div className={`relative w-full max-w-md rounded-3xl border shadow-2xl p-6 max-h-[92vh] overflow-y-auto ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
                 <div className="flex items-center justify-between mb-4">
                     <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{editing ? t('reg.editRecord') : t('reg.newRecord')}</h2>
