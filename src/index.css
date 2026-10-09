@@ -65,17 +65,38 @@
   --ouro-suave: #FFF09A;
   --cinza-nuvem: #BACOBA;
 
-  /* Theme-specific variables (Clean White Style) */
-  --bg-primary: #ffffff; 
-  --bg-secondary: #f8fafc;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --card-bg: rgba(240, 253, 250, 0.85); 
-  --card-border: rgba(105, 200, 185, 0.2);
-  --card-shadow: rgba(0, 0, 0, 0.05);
-  --input-bg: rgba(248, 250, 252, 0.5);
-  --input-border: rgba(226, 232, 240, 0.8);
+  /* ── TEMA CLARO ───────────────────────────────────────────────────
+     Branco esverdeado, não branco puro: as caixas brancas precisam de algo
+     para se destacarem contra. É o espelho do escuro, onde a página é preta
+     esverdeada e a lateral é mais escura ainda. */
+  --bg-primary: #f7fbf9;
+  --bg-secondary: #eff6f2;
+  --text-primary: #10201a;
+  --text-secondary: #466054;
+  --card-bg: rgba(255, 255, 255, 0.88);
+  --card-border: rgba(16, 185, 129, 0.18);
+  --card-shadow: rgba(13, 60, 44, 0.07);
+  --input-bg: rgba(247, 251, 249, 0.7);
+  --input-border: rgba(214, 231, 223, 0.9);
   --modal-bg: #ffffff;
+}
+
+/* A escala slate do tema claro, retingida como a do escuro: mesma
+   luminância de cada tom, tonalidade de azul para verde. Com isso todo
+   `bg-slate-50`, `border-slate-200` e afins do app pega o verde sem que
+   nenhum componente precise mudar. */
+.theme-light {
+  --color-slate-50:  #f5faf7;
+  --color-slate-100: #e9f2ed;
+  --color-slate-200: #d8e7df;
+  --color-slate-300: #b9ccc0;
+  --color-slate-400: #8fa497;
+  --color-slate-500: #6b7f73;
+  --color-slate-600: #4f6157;
+  --color-slate-700: #3c4a42;
+  --color-slate-800: #26302a;
+  --color-slate-900: #161d19;
+  --color-slate-950: #0b100d;
 }
 
 /* ── TEMA ESCURO: preto esverdeado ───────────────────────────────────
@@ -135,25 +156,55 @@ html, body {
   width: 100%;
 }
 
+/* ── O fundo vivo do modo claro ───────────────────────────────────────
+   Os quatro halos de canto (azul, verde, amarelo e cinza) vinham de outra
+   identidade. Saíram pela mesma aurora e pela mesma poeira do tema escuro —
+   só que em verde sobre branco, e bem mais fracas: no claro, qualquer
+   excesso vira sujeira na tela. */
 .theme-light body {
+  isolation: isolate;
   background-image:
-    radial-gradient(at 0% 0%, rgba(105, 200, 185, 0.2) 0px, transparent 70%),
-    radial-gradient(at 100% 0%, rgba(92, 206, 234, 0.2) 0px, transparent 70%),
-    radial-gradient(at 100% 100%, rgba(255, 240, 140, 0.15) 0px, transparent 70%),
-    radial-gradient(at 0% 100%, rgba(186, 192, 186, 0.15) 0px, transparent 70%);
-  background-size: 150% 150%;
-  animation: gradient-flow 20s ease infinite alternate;
+    radial-gradient(85% 50% at 50% -10%, rgba(16, 185, 129, 0.11) 0%, transparent 70%);
+  background-repeat: no-repeat;
+}
+
+.theme-light body::before,
+.theme-light body::after {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.theme-light body::before {
+  inset: -12%;
+  background-image:
+    radial-gradient(38% 34% at 33% 56%, rgba(16, 185, 129, 0.24) 0%, rgba(13, 148, 136, 0.11) 48%, transparent 76%),
+    radial-gradient(46% 40% at 58% 36%, rgba(52, 211, 153, 0.18) 0%, transparent 72%),
+    radial-gradient(34% 46% at 76% 70%, rgba(13, 148, 136, 0.13) 0%, transparent 74%);
+  filter: blur(18px);
+  animation: alv-aurora 28s ease-in-out infinite alternate;
+}
+
+.theme-light body::after {
+  inset: 0;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='440' height='440' viewBox='0 0 440 440'%3E%3Cg fill='%23047857'%3E%3Ccircle cx='144.6' cy='70.6' r='1.75' opacity='0.18'/%3E%3Ccircle cx='235.4' cy='162.5' r='0.98' opacity='0.29'/%3E%3Ccircle cx='22.0' cy='191.6' r='0.99' opacity='0.18'/%3E%3Ccircle cx='187.7' cy='359.9' r='1.06' opacity='0.22'/%3E%3Ccircle cx='274.5' cy='411.6' r='1.65' opacity='0.26'/%3E%3Ccircle cx='423.8' cy='25.9' r='2.02' opacity='0.24'/%3E%3Ccircle cx='67.7' cy='56.4' r='1.3' opacity='0.37'/%3E%3Ccircle cx='83.4' cy='254.9' r='1.73' opacity='0.26'/%3E%3Ccircle cx='240.4' cy='32.9' r='0.98' opacity='0.21'/%3E%3Ccircle cx='297.2' cy='189.0' r='1.31' opacity='0.31'/%3E%3Ccircle cx='200.0' cy='134.3' r='1.93' opacity='0.34'/%3E%3Ccircle cx='110.5' cy='251.9' r='1.58' opacity='0.39'/%3E%3Ccircle cx='318.2' cy='129.2' r='2.17' opacity='0.19'/%3E%3Ccircle cx='185.0' cy='330.1' r='1.1' opacity='0.29'/%3E%3Ccircle cx='22.8' cy='292.0' r='1.89' opacity='0.31'/%3E%3Ccircle cx='380.7' cy='140.3' r='1.8' opacity='0.31'/%3E%3Ccircle cx='254.2' cy='201.3' r='1.99' opacity='0.41'/%3E%3Ccircle cx='208.9' cy='290.3' r='0.98' opacity='0.34'/%3E%3Ccircle cx='283.0' cy='431.0' r='1.97' opacity='0.23'/%3E%3Ccircle cx='171.1' cy='292.2' r='0.93' opacity='0.28'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 320 320'%3E%3Cg fill='%230f766e'%3E%3Ccircle cx='85.8' cy='217.1' r='2.89' opacity='0.16'/%3E%3Ccircle cx='63.2' cy='77.0' r='2.04' opacity='0.1'/%3E%3Ccircle cx='232.1' cy='46.1' r='2.65' opacity='0.1'/%3E%3Ccircle cx='96.8' cy='138.9' r='3.14' opacity='0.14'/%3E%3Ccircle cx='10.4' cy='91.0' r='2.03' opacity='0.17'/%3E%3Ccircle cx='255.4' cy='254.3' r='3.12' opacity='0.15'/%3E%3Ccircle cx='298.4' cy='250.5' r='2.21' opacity='0.16'/%3E%3Ccircle cx='155.9' cy='238.5' r='2.7' opacity='0.12'/%3E%3Ccircle cx='118.2' cy='138.4' r='2.3' opacity='0.09'/%3E%3Ccircle cx='258.5' cy='251.9' r='3.38' opacity='0.15'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 440px 440px, 320px 320px;
+  opacity: 0.5;
+  animation: alv-poeira 104s linear infinite;
 }
 
 /* ── TEMA CLARO: legibilidade dos textos ─────────────────────────────
    Os textos "apagados" (slate-400/500) têm contraste baixo demais no branco.
    Aqui reforçamos o contraste no tema claro inteiro, sem tocar no escuro.
    O prefixo .theme-light dá especificidade suficiente pra prevalecer. */
-.theme-light .text-slate-400 { color: #55637a; }   /* muito apagado → legível */
-.theme-light .text-slate-500 { color: #3f4b5c; }   /* secundário → mais forte */
-.theme-light .text-slate-600 { color: #334155; }   /* apoio → slate-700 */
+.theme-light .text-slate-400 { color: #546b5f; }   /* muito apagado → legível */
+.theme-light .text-slate-500 { color: #3e4f46; }   /* secundário → mais forte */
+.theme-light .text-slate-600 { color: #334a40; }   /* apoio → slate-700 */
 .theme-light .placeholder-slate-400::placeholder,
-.theme-light .placeholder-slate-500::placeholder { color: #64748b; opacity: 1; }
+.theme-light .placeholder-slate-500::placeholder { color: #65796e; opacity: 1; }
 
 /* Peso mínimo dos textinhos finos no tema claro (a Inter fica fina em 10–12px).
    Fica na camada `base`: os utilitários font-bold/black continuam prevalecendo,
@@ -250,10 +301,10 @@ html, body {
    (gradiente sutil + cantos 2rem). Aplique em painéis principais. */
 .pat-card {
   border-radius: 2rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #d8e7df;
   background-color: #ffffff;
   background-image: linear-gradient(to bottom right, #ecfdf5, #ffffff 45%, rgba(209, 250, 229, 0.6));
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px 0 rgba(13, 60, 44, 0.06);
   transition: background 0.4s ease, border 0.4s ease, box-shadow 0.4s ease;
 }
 .dark .pat-card {
@@ -281,7 +332,7 @@ html, body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(105, 200, 185, 0.2);
+  background: rgba(16, 185, 129, 0.22);
   border-radius: 10px;
 }
 
@@ -376,11 +427,11 @@ html { scroll-behavior: smooth; }
 }
 
 /* Scrollbar refinada (mantém o fino já existente + estado hover e Firefox). */
-* { scrollbar-width: thin; scrollbar-color: rgba(105, 200, 185, .3) transparent; }
-::-webkit-scrollbar-thumb:hover { background: rgba(105, 200, 185, .45); }
+* { scrollbar-width: thin; scrollbar-color: rgba(16, 185, 129, .32) transparent; }
+::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, .45); }
 
 /* Seleção de texto na cor da marca. */
-::selection { background: rgba(105, 200, 185, .28); }
+::selection { background: rgba(16, 185, 129, .22); }
 
 /* Utilitário de skeleton loading (disponível p/ uso futuro; não afeta nada hoje). */
 @keyframes alv-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }

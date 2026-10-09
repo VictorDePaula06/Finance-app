@@ -16,8 +16,8 @@ import { useWhatsAppStatus } from '../hooks/useWhatsAppStatus';
 import { useI18n } from '../contexts/LanguageContext';
 import RedirectOverlay, { DESTINO, useRedirect } from '../components/ui/RedirectOverlay';
 import {
-    LayoutDashboard, Settings, TrendingUp, TrendingDown, Wallet, Eye, EyeOff,
-    PieChart as PieIcon, PiggyBank, Landmark, HeartPulse, ChevronRight, X, Check, ListChecks, CreditCard, CheckCircle2, ExternalLink,
+    LayoutDashboard, Settings, TrendingUp, TrendingDown, Wallet,
+    Repeat, PieChart as PieIcon, PiggyBank, Landmark, HeartPulse, ChevronRight, X, Check, ListChecks, CreditCard, CheckCircle2, ExternalLink,
 } from 'lucide-react';
 
 // Telefone só dígitos → "+55 (21) 99999-9999".
@@ -65,7 +65,6 @@ export default function Dashboard({ onNavigate }) {
     const { redirect, goTo: goWith } = useRedirect();
     const DEST_KEY = { cartoes: 'nav.card', reservas: 'nav.reserves', patrimonio: 'nav.patrimony', analises: 'nav.analysis', whatsapp: 'settings.tabWhatsApp', configuracoes: 'nav.settings' };
     const goTo = (id) => goWith(DEST_KEY[id] ? t(DEST_KEY[id]) : (DESTINO[id] || id), () => onNavigate?.(id));
-    const [hideSaldo, setHideSaldo] = useState(cfg.ocultarSaldo);
     const [usdRate, setUsdRate] = useState(5.4);
     const [patCur, setPatCur] = useState(() => { try { return localStorage.getItem('aliviaDashPatCur') || 'BRL'; } catch { return 'BRL'; } });
     useEffect(() => { getUsdRate().then(r => { if (r) setUsdRate(r); }).catch(() => { }); }, []);
@@ -242,13 +241,13 @@ export default function Dashboard({ onNavigate }) {
                 </div>
             </div>
 
-            {/* KPIs — Saldo em destaque primeiro; no mobile ele ocupa a linha toda */}
+            {/* KPIs — Ganhos, Gastos e Custo mensal. O saldo saiu daqui: ele
+                agora mora na barra superior, onde aparece em todas as abas. */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-                <Kpi isDark={isDark} icon={Wallet} label={t('dash.balance')} value={hideSaldo ? 'R$ ••••' : <AnimatedNumber value={saldo} format={(v) => `R$ ${money(v)}`} />} sub={t('dash.balanceSub')} tone="blue" className="col-span-2 sm:col-span-1"
-                    action={<button onClick={() => setHideSaldo(h => !h)} className={muted}>{hideSaldo ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>} />
                 <Kpi isDark={isDark} icon={TrendingUp} label={t('dash.gains')} value={<AnimatedNumber value={ganhos} format={(v) => `R$ ${money(v)}`} />} sub={t('common.thisMonth')} tone="emerald" />
                 <Kpi isDark={isDark} icon={TrendingDown} label={t('dash.spent')} value={<AnimatedNumber value={gastos} format={(v) => `R$ ${money(v)}`} />} sub={cfg.incluirFatura ? t('dash.spentWithInvoice') : t('dash.spentAccountOnly')} tone="rose"
-                    action={<button onClick={() => setGastosOpen(true)} title="Ver lista de gastos" className={`p-1 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}><ListChecks className="w-4 h-4" /></button>} />
+                    action={<button onClick={() => setGastosOpen(true)} title={t('dash.seeExpenses')} className={`p-1 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}><ListChecks className="w-4 h-4" /></button>} />
+                <Kpi isDark={isDark} icon={Repeat} label={t('dash.fixedCost')} value={<AnimatedNumber value={custoFixo} format={(v) => `R$ ${money(v)}`} />} sub={t('dash.fixedCostSub')} tone="blue" className="col-span-2 sm:col-span-1" />
             </div>
 
             {redirect && <RedirectOverlay isDark={isDark} label={redirect} />}

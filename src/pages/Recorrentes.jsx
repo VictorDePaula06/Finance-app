@@ -13,10 +13,15 @@ import { CATEGORIES, categoryHex } from '../constants/categories';
 import { LancamentoForm } from './Lancamentos';
 import RegistryHint from '../components/ui/RegistryHint';
 import { buildWalletLedger } from '../utils/financialLogic';
+import { statusOf, paidTxOf, daysToDue } from '../utils/recorrentes';
 import {
     Plus, CheckCircle2, AlertTriangle, X, Loader2,
     Repeat, Check, TrendingUp, TrendingDown, CreditCard, CalendarDays,
 } from 'lucide-react';
+
+// Re-exportados: ContasReceber importa os dois daqui desde antes de eles
+// virarem um módulo próprio.
+export { statusOf, paidTxOf };
 
 const monthKeyNow = () => new Date().toISOString().slice(0, 7);
 const numBR = (v) => parseFloat(String(v ?? '').replace(/\./g, '').replace(',', '.')) || 0;
@@ -54,41 +59,6 @@ const KIND = {
 const catMetaOf = (kind, id) => KIND[kind].cats.find(c => c.id === id) || { label: 'Outro', color: 'text-slate-400', icon: null };
 
 // Situação de um recorrente no mês corrente.
-export function statusOf(rec, transactions, mk) {
-    const name = String(rec.name || '').trim().toLowerCase();
-    const paid = rec.lastPaidMonth === mk
-        || transactions.some(t => t.isFixed && (t.month || String(t.date || '').slice(0, 7)) === mk
-            && String(t.description || '').trim().toLowerCase() === name);
-    if (paid) return 'pago';
-    const now = new Date();
-    const [y, m] = String(mk).split('-').map(Number);
-    const day = Math.min(31, Math.max(1, rec.day || 1));
-    // Vencimento deste mês (fim do dia).
-    const due = new Date(y, (m || 1) - 1, day, 23, 59, 59);
-    // Só é "atrasado" se o vencimento já passou E o recorrente já existia
-    // até a data de vencimento. Um recorrente cadastrado DEPOIS do vencimento
-    // não nasce vencido — fica pendente para o próximo ciclo.
-    const existedByDue = rec.createdAt ? new Date(rec.createdAt) <= due : true;
-    if (now > due && existedByDue) return 'atrasado';
-    return 'pendente';
-}
-
-// Lançamento (baixa) deste mês que corresponde ao recorrente — pra mostrar valor/data pagos.
-export function paidTxOf(rec, transactions, mk) {
-    const name = String(rec.name || '').trim().toLowerCase();
-    return transactions.find(t => t.isFixed && (t.month || String(t.date || '').slice(0, 7)) === mk
-        && (t.recorrenteId === rec.id || String(t.description || '').trim().toLowerCase() === name)) || null;
-}
-
-// Dias até o vencimento neste mês (negativo = já passou).
-function daysToDue(day, mk) {
-    const [y, m] = String(mk).split('-').map(Number);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const due = new Date(y, (m || 1) - 1, Math.min(31, Math.max(1, day || 1)));
-    return Math.round((due - today) / 86400000);
-}
-
 // ── Página ──────────────────────────────────────────────────────────
 // Recorrentes = as DESPESAS cadastradas em Configurações e Cadastros. Aqui só
 // se confirma o mês (baixa). Nada é criado ou editado por aqui.

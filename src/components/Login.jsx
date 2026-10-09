@@ -126,7 +126,7 @@ export default function Login({ onBack, initialMode }) {
     const labelCls = `block text-[11px] font-black uppercase tracking-widest mb-1.5 ${muted}`;
 
     return (
-        <div className={`min-h-screen flex flex-col items-center justify-center p-5 sm:p-6 relative overflow-hidden font-sans transition-colors duration-300 ${isDark ? 'bg-transparent' : 'bg-slate-50'}`}>
+        <div className={`min-h-screen flex flex-col items-center justify-center p-5 sm:p-6 relative overflow-hidden font-sans transition-colors duration-300 bg-transparent`}>
             <div className="absolute top-[-12%] left-[-10%] w-[46%] h-[46%] bg-emerald-400/10 rounded-full blur-[120px] -z-10" />
             <div className="absolute bottom-[-12%] right-[-10%] w-[46%] h-[46%] bg-blue-500/10 rounded-full blur-[120px] -z-10" />
 

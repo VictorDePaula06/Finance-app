@@ -14,12 +14,11 @@ import { downloadUserData } from '../utils/dataExport';
 import { toast } from '../components/ui/Toaster';
 import Skeleton from '../components/ui/Skeleton';
 import { useWhatsAppStatus } from '../hooks/useWhatsAppStatus';
-import CadastrosTab from '../components/CadastrosTab';
 import WhatsAppIcon from '../components/ui/WhatsAppIcon';
 import Assinatura from './Assinatura';
 import aliviaFinal from '../assets/alivia/alivia-final.png';
 import {
-    Settings, User, Sparkles, Palette, ShieldCheck, ClipboardList, SlidersHorizontal, Crown,
+    Settings, User, Sparkles, Palette, ShieldCheck, SlidersHorizontal, Crown,
     KeyRound, ExternalLink, Check, Eye, EyeOff, Trash2, Loader2, Copy,
     Lock, Sun, Moon, Download, FileText, Mail, Link2, Unlink, AlertTriangle, Banknote, CreditCard, Languages,
     CheckCircle2, RefreshCw, Camera, Upload, Bell, Zap, CalendarClock, FileBarChart, Wallet, Pencil,
@@ -80,7 +79,6 @@ const fileToDataUrl = (file, max = 512) => new Promise((resolve, reject) => {
 // Abas na horizontal (segmented control; rolável no mobile).
 const TABS = [
     { id: 'geral', label: 'settings.tabGeneral', icon: SlidersHorizontal },
-    { id: 'cadastros', label: 'settings.tabRegistry', icon: ClipboardList },
     { id: 'whatsapp', label: 'settings.tabWhatsApp', icon: WhatsAppIcon },
     { id: 'assinatura', label: 'settings.tabSubscription', icon: Crown },
     { id: 'dados', label: 'settings.tabData', icon: ShieldCheck },
@@ -137,7 +135,6 @@ export default function Configuracoes() {
             {/* Conteúdo da aba */}
             <div role="tabpanel" aria-label={t(current.label)}>
                 {tab === 'geral' && <div className="space-y-4"><PerfilTab isDark={isDark} /><AparenciaTab isDark={isDark} toggleTheme={toggleTheme} /><IdiomaTab isDark={isDark} /><ContaTab isDark={isDark} /></div>}
-                {tab === 'cadastros' && <CadastrosTab isDark={isDark} />}
                 {tab === 'whatsapp' && <WhatsAppTab isDark={isDark} />}
                 {tab === 'assinatura' && <Assinatura embedded />}
                 {tab === 'dados' && <DadosTab isDark={isDark} />}

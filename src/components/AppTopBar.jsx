@@ -30,7 +30,13 @@ export default function AppTopBar({ titulo, onWhatsApp, onCadastros }) {
     // O saldo fica à vista numa barra fixa; quem usa o app em público
     // precisa poder apagá-lo, e a escolha tem que sobreviver ao recarregar.
     const [oculto, setOculto] = React.useState(() => {
-        try { return localStorage.getItem(OCULTAR_KEY) === '1'; } catch { return false; }
+        try {
+            // Já clicou no olho alguma vez? Vale a escolha dela.
+            const proprio = localStorage.getItem(OCULTAR_KEY);
+            if (proprio !== null) return proprio === '1';
+            // Ainda não: vale "Ocultar saldo por padrão", das configurações do dashboard.
+            return !!JSON.parse(localStorage.getItem('aliviaDashCfg') || '{}').ocultarSaldo;
+        } catch { return false; }
     });
     const alternar = () => setOculto(v => {
         try { localStorage.setItem(OCULTAR_KEY, v ? '0' : '1'); } catch { /* modo privado */ }

@@ -71,7 +71,7 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
     if (ALIAS[active]) return <Navigate to={tabPath(ALIAS[active])} replace />;
 
     return (
-        <div className={`min-h-screen flex ${isDark ? 'bg-transparent' : 'bg-slate-50'}`}>
+        <div className={`min-h-screen flex bg-transparent`}>
             <Toaster />
             {showOnboarding && <OnboardingAlivia onDone={() => setObDismissed(true)} />}
 
