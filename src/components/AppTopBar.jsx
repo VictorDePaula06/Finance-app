@@ -4,6 +4,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useI18n } from '../contexts/LanguageContext';
 import { useSaldoConta } from '../hooks/useSaldoConta';
 import WhatsAppStatusButton from './WhatsAppStatusButton';
+import WhatsAppStatusModal from './WhatsAppStatusModal';
+import { useWhatsAppStatus } from '../hooks/useWhatsAppStatus';
 import { APP_VERSION, RELEASE_NOTES_URL } from './AppSidebar';
 
 // ── Barra superior ──────────────────────────────────────────────────
@@ -22,6 +24,8 @@ export default function AppTopBar({ titulo, onWhatsApp, onCadastros }) {
     const { t, fmtMoney } = useI18n();
     const isDark = theme !== 'light';
     const { saldo, carregando } = useSaldoConta();
+    const wa = useWhatsAppStatus();
+    const [waAberto, setWaAberto] = React.useState(false);
 
     // O saldo fica à vista numa barra fixa; quem usa o app em público
     // precisa poder apagá-lo, e a escolha tem que sobreviver ao recarregar.
@@ -71,12 +75,20 @@ export default function AppTopBar({ titulo, onWhatsApp, onCadastros }) {
 
             {/* Atalhos */}
             <div className="flex items-center gap-1.5 shrink-0">
-                <WhatsAppStatusButton isDark={isDark} compact onOpen={onWhatsApp} ringColor={isDark ? 'ring-[#060a08]' : 'ring-white'} />
+                {/* Conectado: mostra o número numa janela. Sem número não há o
+                    que informar, então o clique vai direto para a configuração. */}
+                <WhatsAppStatusButton isDark={isDark} compact ringColor={isDark ? 'ring-[#060a08]' : 'ring-white'}
+                    onOpen={() => (wa.connected ? setWaAberto(true) : onWhatsApp())} />
                 <button type="button" onClick={onCadastros} className={icone}
                     title={t('settings.tabRegistry')} aria-label={t('settings.tabRegistry')}>
                     <Settings className="w-[18px] h-[18px]" />
                 </button>
             </div>
+            {waAberto && (
+                <WhatsAppStatusModal isDark={isDark} phones={wa.linked.map(l => l.phone)}
+                    onClose={() => setWaAberto(false)}
+                    onManage={() => { setWaAberto(false); onWhatsApp(); }} />
+            )}
         </header>
     );
 }
