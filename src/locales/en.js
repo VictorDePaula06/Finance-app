@@ -176,6 +176,8 @@ export default {
     'rec.onInvoice': 'On the bill',
     'rec.totalRecurring': 'Total recurring',
     'rec.lateCount': '{n} overdue|{n} overdue',
+    'recv.receiveNow': 'Receive',
+    'rec.toInvoice': 'To bill',
     'rec.payDown': 'Mark as paid',
     'rec.postToInvoice': 'Add to card bill',
     'rec.onCard': 'On the card',

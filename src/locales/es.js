@@ -176,6 +176,8 @@ export default {
     'rec.onInvoice': 'En el resumen',
     'rec.totalRecurring': 'Total recurrentes',
     'rec.lateCount': '{n} vencida|{n} vencidas',
+    'recv.receiveNow': 'Recibir',
+    'rec.toInvoice': 'A la tarjeta',
     'rec.payDown': 'Marcar pagada',
     'rec.postToInvoice': 'Cargar a la tarjeta',
     'rec.onCard': 'En la tarjeta',

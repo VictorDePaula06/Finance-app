@@ -177,6 +177,8 @@ export default {
     'rec.onInvoice': 'Na fatura',
     'rec.totalRecurring': 'Total recorrentes',
     'rec.lateCount': '{n} atrasada|{n} atrasadas',
+    'recv.receiveNow': 'Receber',
+    'rec.toInvoice': 'Na fatura',
     'rec.payDown': 'Dar baixa',
     'rec.postToInvoice': 'Lançar na fatura',
     'rec.onCard': 'No cartão',
