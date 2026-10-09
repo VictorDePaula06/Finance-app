@@ -17,7 +17,7 @@ import { APP_VERSION, RELEASE_NOTES_URL } from './AppSidebar';
 
 const OCULTAR_KEY = 'aliviaTopBarOcultarSaldo';
 
-export default function AppTopBar({ titulo, onSettings, onWhatsApp }) {
+export default function AppTopBar({ titulo, onWhatsApp, onCadastros }) {
     const { theme } = useTheme();
     const { t, fmtMoney } = useI18n();
     const isDark = theme !== 'light';
@@ -72,8 +72,8 @@ export default function AppTopBar({ titulo, onSettings, onWhatsApp }) {
             {/* Atalhos */}
             <div className="flex items-center gap-1.5 shrink-0">
                 <WhatsAppStatusButton isDark={isDark} compact onOpen={onWhatsApp} ringColor={isDark ? 'ring-[#060a08]' : 'ring-white'} />
-                <button type="button" onClick={onSettings} className={icone}
-                    title={t('nav.settings')} aria-label={t('nav.settings')}>
+                <button type="button" onClick={onCadastros} className={icone}
+                    title={t('settings.tabRegistry')} aria-label={t('settings.tabRegistry')}>
                     <Settings className="w-[18px] h-[18px]" />
                 </button>
             </div>

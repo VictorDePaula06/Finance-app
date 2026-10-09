@@ -6,7 +6,9 @@ import { Toaster } from './ui/Toaster';
 import OnboardingAlivia from './OnboardingAlivia';
 import AppSidebar, { NAV_ITEMS, APP_VERSION, RELEASE_NOTES_URL } from './AppSidebar';
 import MobileNav from './MobileNav';
+import { Settings } from 'lucide-react';
 import AppTopBar from './AppTopBar';
+import CadastrosModal from './CadastrosModal';
 import { useI18n } from '../contexts/LanguageContext';
 import InstallPrompt from './InstallPrompt';
 import ContasPagar from '../pages/Recorrentes';
@@ -42,6 +44,7 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
     const go = (id) => navigate(tabPath(id));
     const [drawer, setDrawer] = useState(false);
     const [obDismissed, setObDismissed] = useState(false);
+    const [cadastros, setCadastros] = useState(false);
 
     // Atalho de teste: abrir com ?onboarding=1 força a tela de boas-vindas
     // (sem precisar apagar a conta). Útil no localhost para validar o fluxo.
@@ -86,13 +89,16 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
             {/* Card flutuante "Instalar Aplicativo" (mobile web, enquanto não instalado) */}
             <InstallPrompt />
 
+            {/* Cadastros — a mesma janela para os dois gatilhos (barra e celular). */}
+            {cadastros && <CadastrosModal onClose={() => setCadastros(false)} />}
+
             {/* Sem fundo próprio no escuro: quem pinta é a aurora do <body>. */}
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Barra superior (desktop): marca, saldo e atalhos, em toda aba. */}
                 <AppTopBar
                     titulo={label}
-                    onSettings={() => go('configuracoes')}
                     onWhatsApp={() => navigate(`${tabPath('configuracoes')}?tab=whatsapp`)}
+                    onCadastros={() => setCadastros(true)}
                 />
                 {/* Topo mobile (some no desktop) — marca + versão; respeita a barra de status. */}
                 <header className={`lg:hidden sticky top-0 z-30 flex items-center gap-2 px-4 border-b ${isDark ? 'bg-[#030505]/90 border-white/[0.06]' : 'bg-white/90 border-slate-100'} backdrop-blur`}
@@ -101,6 +107,11 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
                     <span className={`text-[10px] font-bold uppercase tracking-[0.28em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Finanças</span>
                     <a href={RELEASE_NOTES_URL} target="_blank" rel="noopener noreferrer" title={t('nav.releaseNotesTitle')}
                         className={`ml-auto text-[10px] font-black tabular-nums px-1.5 py-0.5 rounded-md transition ${isDark ? 'bg-white/5 text-slate-400 active:bg-emerald-500/15' : 'bg-slate-100 text-slate-500 active:bg-emerald-50'}`}>v{APP_VERSION}</a>
+                    <button type="button" onClick={() => setCadastros(true)}
+                        title={t('settings.tabRegistry')} aria-label={t('settings.tabRegistry')}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition active:scale-95 ${isDark ? 'text-slate-400 active:bg-white/10' : 'text-slate-500 active:bg-slate-100'}`}>
+                        <Settings className="w-[18px] h-[18px]" />
+                    </button>
                 </header>
 
             {/* Área de conteúdo (respiro inferior no mobile p/ a bottom navigation) */}

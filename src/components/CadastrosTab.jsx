@@ -34,7 +34,23 @@ const KIND = {
 };
 const catMetaOf = (kind, id) => KIND[kind].cats.find(c => c.id === id) || { label: 'Outro', color: 'text-slate-400', icon: null };
 
+// ── Cadastros (empilhado) ───────────────────────────────────────────
+// É o que a aba "Cadastros" de Configurações mostra: as quatro seções uma
+// embaixo da outra. A janela CadastrosModal mostra as MESMAS quatro, só que
+// uma por aba.
 export default function CadastrosTab({ isDark }) {
+    return (
+        <div className="space-y-4">
+            <RecorrentesRegistry isDark={isDark} />
+            <CardsRegistry isDark={isDark} />
+            <CategoryCeilings isDark={isDark} />
+            <MarketSection isDark={isDark} />
+        </div>
+    );
+}
+
+// ── Entradas e despesas recorrentes ─────────────────────────────────
+export function RecorrentesRegistry({ isDark }) {
     const { t, fmtMoney: money } = useI18n();
     const { currentUser } = useAuth();
     const uid = currentUser?.uid;
@@ -73,7 +89,6 @@ export default function CadastrosTab({ isDark }) {
     const counts = { all: incomes.length + expenses.length, income: incomes.length, expense: expenses.length };
 
     return (
-        <div className="space-y-4">
         <div className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]'}`}>
             {/* Cabeçalho da lista */}
             <div className={`flex items-center justify-between gap-3 flex-wrap px-4 sm:px-5 py-4 border-b ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}`}>
@@ -179,16 +194,6 @@ export default function CadastrosTab({ isDark }) {
                     onClose={() => setDel(null)}
                     onConfirm={async () => { await deleteDoc(doc(db, KIND[del.kind].collection, del.id)); toast.success(t('reg.deleted')); }} />
             )}
-        </div>
-
-        {/* Cartões de crédito (cadastro único — Meu cartão só usa) */}
-        <CardsRegistry isDark={isDark} />
-
-        {/* Teto de gasto por categoria */}
-        <CategoryCeilings isDark={isDark} />
-
-        {/* Mercado — vem desmarcado; só abre as opções se a pessoa usar. */}
-        <MarketSection isDark={isDark} />
         </div>
     );
 }
