@@ -189,7 +189,7 @@ export default function Cartoes() {
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const cell = isDark ? 'text-slate-300' : 'text-slate-700';
-    const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
     const filterSel = `h-9 pl-3 pr-8 rounded-xl border text-[13px] font-bold outline-none cursor-pointer transition ${isDark ? 'bg-white/5 border-white/10 text-slate-200 hover:border-white/20' : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'}`;
 
     // Cadastro, edição e exclusão de cartões acontecem em Configurações e Cadastros → Cadastros.
@@ -701,7 +701,7 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
     const [error, setError] = useState('');
 
     const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
-    const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
 
     const nParc = Math.max(1, parseInt(installments) || 1);
     const rawVal = numBR(amount);
@@ -1017,7 +1017,7 @@ function PagarFaturaModal({ isDark, uid, card, items, total, onClose }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-3xl border shadow-2xl ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-3xl border shadow-2xl ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
                 <div className="flex items-center justify-between p-6 pb-4">
                     <div className="flex items-center gap-2.5">
                         <span className="w-9 h-9 rounded-xl bg-emerald-500/12 text-emerald-500 flex items-center justify-center"><CreditCard className="w-5 h-5" strokeWidth={2.4} /></span>
@@ -1241,7 +1241,7 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
     // estilos
     const tone = TIPO_TONE[tipoCompra];
     const cellInput = `w-full bg-transparent px-2.5 h-10 text-[13px] font-semibold outline-none rounded-lg border transition ${isDark ? `border-white/10 text-white placeholder-slate-600 ${tone.focusDark} focus:bg-white/[0.04]` : `border-slate-200 text-slate-800 placeholder-slate-400 ${tone.focusLight} focus:bg-white`}`;
-    const optStyle = { backgroundColor: isDark ? '#141518' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const optStyle = { backgroundColor: isDark ? '#0e1210' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
     const cardBg = isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white';
     const softBtn = isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50';
     const label = 'text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5';
@@ -1253,7 +1253,7 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
     ];
 
     return (
-        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: isDark ? '#0b0d0f' : '#f1f5f9' }}>
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: isDark ? '#080b0a' : '#f1f5f9' }}>
             <div className="flex-1 overflow-y-auto">
                 <div className="max-w-[1400px] mx-auto w-full px-4 sm:px-8 py-5">
                     {/* HEADER */}
@@ -1425,7 +1425,7 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
             </div>
 
             {/* RODAPÉ STICKY */}
-            <div className={`shrink-0 border-t ${isDark ? 'border-white/[0.08] bg-[#0b0d0f]/95' : 'border-slate-200 bg-white/95'} backdrop-blur`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+            <div className={`shrink-0 border-t ${isDark ? 'border-white/[0.08] bg-[#080b0a]/95' : 'border-slate-200 bg-white/95'} backdrop-blur`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
                 <div className="max-w-[1400px] mx-auto w-full px-4 sm:px-8 py-3.5 flex items-center justify-end gap-3 flex-wrap">
                     <div className="flex items-center gap-3 flex-wrap">
                         <span className="text-[13px] font-bold text-slate-500 hidden sm:block">Total: <span className="text-emerald-500 font-black tabular-nums">R$ {money(total)}</span></span>
@@ -1455,7 +1455,7 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
 // Modal de revisão antes de gravar os lançamentos do lote.
 function ReviewDialog({ isDark, tipoCompra, card, entries, saving, onClose, onConfirm }) {
     const total = entries.reduce((a, e) => a + e.total, 0);
-    const cardBg = isDark ? 'border-white/10 bg-[#141518]' : 'border-slate-200 bg-white';
+    const cardBg = isDark ? 'border-white/10 bg-[#0e1210]' : 'border-slate-200 bg-white';
     const rowBg = isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-slate-200 bg-white';
     const TIPO_LABEL = { avulsa: 'Compra avulsa', assinatura: 'Assinatura', parcelamento: 'Parcelamento' };
 
@@ -1551,7 +1551,7 @@ function SumDialog({ isDark, row, tipo, onClose, onSave }) {
         onSave({ description: desc, value: money(total), parts: filled.map(p => ({ value: money(fullOf(p)), note: p.note.trim(), parcelas: String(parcOf(p)) })) });
     };
 
-    const cardBg = isDark ? 'border-white/10 bg-[#141518]' : 'border-slate-200 bg-white';
+    const cardBg = isDark ? 'border-white/10 bg-[#0e1210]' : 'border-slate-200 bg-white';
     const inp = `w-full bg-transparent px-3 h-10 text-[13px] font-semibold outline-none rounded-lg border transition ${isDark ? 'border-white/10 text-white placeholder-slate-600 focus:border-emerald-500/60 focus:bg-white/[0.04]' : 'border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:bg-white'}`;
 
     return (
@@ -1659,7 +1659,7 @@ function Modal({ isDark, title, icon: Icon, iconCls = '', onClose, children, wid
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full ${wide ? 'max-w-3xl' : 'max-w-md'} max-h-[90vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full ${wide ? 'max-w-3xl' : 'max-w-md'} max-h-[90vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2.5">
                         {Icon && <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${iconCls}`}><Icon className="w-5 h-5" strokeWidth={2.4} /></span>}

@@ -215,7 +215,7 @@ function CadastroForm({ isDark, uid, editing, cards, onClose }) {
     const changeKind = (k) => { setKind(k); setCategory(KIND[k].defaultCat); setError(''); };
 
     const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
-    const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
     const selectStyle = { colorScheme: isDark ? 'dark' : 'light' };
 
     const submit = async (e) => {
@@ -243,7 +243,7 @@ function CadastroForm({ isDark, uid, editing, cards, onClose }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-md rounded-3xl border shadow-2xl p-6 max-h-[92vh] overflow-y-auto ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full max-w-md rounded-3xl border shadow-2xl p-6 max-h-[92vh] overflow-y-auto ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
                 <div className="flex items-center justify-between mb-4">
                     <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{editing ? t('reg.editRecord') : t('reg.newRecord')}</h2>
                     <button onClick={onClose} className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}><X className="w-4 h-4" /></button>

@@ -221,7 +221,7 @@ export default function OverviewChat({ transactions = [], manualConfig = {}, onA
       <div className={`flex items-center gap-3 px-4 py-3 border-b ${isDark ? 'border-white/[0.06] bg-gradient-to-r from-emerald-500/[0.08] to-transparent' : 'border-slate-100 bg-gradient-to-r from-emerald-50 to-transparent'}`}>
         <div className="relative shrink-0">
           <img src={aliviaFinal} alt="Alívia" className="w-10 h-10 rounded-full object-cover border-2 border-white/20 shadow" />
-          <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 ${isDark ? 'border-[#1e2330]' : 'border-white'}`} />
+          <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 ${isDark ? 'border-[#1a211d]' : 'border-white'}`} />
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">

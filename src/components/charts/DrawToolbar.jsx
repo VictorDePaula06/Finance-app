@@ -24,7 +24,7 @@ export default function DrawToolbar({ isDark, tool, onTool, showDrawings, onTogg
     const on = isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-500/15 text-emerald-600';
 
     return (
-        <div className={`flex flex-col items-center gap-1 py-2 px-1.5 border-r shrink-0 ${isDark ? 'border-white/[0.07] bg-[#0d1117]' : 'border-slate-200 bg-slate-50'}`}>
+        <div className={`flex flex-col items-center gap-1 py-2 px-1.5 border-r shrink-0 ${isDark ? 'border-white/[0.07] bg-[#0a0e0c]' : 'border-slate-200 bg-slate-50'}`}>
             {TOOLS.map(x => {
                 const Icon = x.icon;
                 const active = tool === x.id;

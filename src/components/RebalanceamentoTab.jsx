@@ -235,8 +235,8 @@ function ConfigModal({ isDark, initial, onClose, onSave }) {
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose}>
-      <div className={`w-full max-w-lg rounded-[2rem] border shadow-2xl animate-in zoom-in-95 duration-300 max-h-[92vh] overflow-y-auto custom-scrollbar ${isDark ? 'bg-[#161b27] border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
-        <div className={`flex items-center justify-between px-6 py-5 border-b sticky top-0 z-10 ${isDark ? 'bg-[#161b27] border-white/5' : 'bg-white border-slate-100'}`}>
+      <div className={`w-full max-w-lg rounded-[2rem] border shadow-2xl animate-in zoom-in-95 duration-300 max-h-[92vh] overflow-y-auto custom-scrollbar ${isDark ? 'bg-[#151a17] border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
+        <div className={`flex items-center justify-between px-6 py-5 border-b sticky top-0 z-10 ${isDark ? 'bg-[#151a17] border-white/5' : 'bg-white border-slate-100'}`}>
           <h3 className={`text-lg font-black flex items-center gap-2 ${txt}`}><Scale className="w-5 h-5 text-amber-500" /> Alocação-alvo</h3>
           <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-rose-400"><X className="w-5 h-5" /></button>
         </div>
@@ -255,7 +255,7 @@ function ConfigModal({ isDark, initial, onClose, onSave }) {
                     <p className={`text-[13px] font-bold ${txt}`}>{c.label}</p>
                     <p className="text-[10px] text-slate-500 truncate">{c.desc}</p>
                   </div>
-                  <div className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border ${isDark ? 'bg-[#0f131c] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border ${isDark ? 'bg-[#0c100e] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
                     <input
                       type="number" min={0} max={100} step={1}
                       value={draft[c.id]}
@@ -287,7 +287,7 @@ function ConfigModal({ isDark, initial, onClose, onSave }) {
           {!totalOk && <p className="text-[11px] text-amber-500 text-center">A soma ideal é 100%. (Posso salvar assim mesmo — a análise normaliza os percentuais.)</p>}
         </div>
 
-        <div className={`flex gap-3 px-6 py-5 border-t sticky bottom-0 ${isDark ? 'bg-[#161b27] border-white/5' : 'bg-white border-slate-100'}`}>
+        <div className={`flex gap-3 px-6 py-5 border-t sticky bottom-0 ${isDark ? 'bg-[#151a17] border-white/5' : 'bg-white border-slate-100'}`}>
           <button onClick={onClose} className={`flex-1 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest ${isDark ? 'bg-white/5 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>Cancelar</button>
           <button onClick={handleSave} className="flex-1 py-3 bg-emerald-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-emerald-500/25 hover:bg-emerald-600 flex items-center justify-center gap-2"><Save className="w-4 h-4" /> Salvar alocação</button>
         </div>

@@ -122,8 +122,8 @@ export default function Charts() {
     const extraCache = useRef({});
     const liveRef = useRef({});
 
-    const bg = isDark ? 'bg-[#0b0f16]' : 'bg-white';
-    const panelBg = isDark ? 'bg-[#0d1117]' : 'bg-slate-50';
+    const bg = isDark ? 'bg-[#050a08]' : 'bg-white';
+    const panelBg = isDark ? 'bg-[#0a0e0c]' : 'bg-slate-50';
     const line = isDark ? 'border-white/[0.07]' : 'border-slate-200';
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const ink = isDark ? 'text-white' : 'text-slate-800';
@@ -396,7 +396,7 @@ export default function Charts() {
                                         {ivOpen && (
                                             <>
                                                 <span className="fixed inset-0 z-10" onClick={() => setIvOpen(false)} />
-                                                <span className={`absolute z-20 top-full left-0 mt-1 w-28 rounded-xl border shadow-2xl overflow-hidden flex flex-col ${isDark ? 'bg-[#161b26] border-white/10' : 'bg-white border-slate-200'}`}>
+                                                <span className={`absolute z-20 top-full left-0 mt-1 w-28 rounded-xl border shadow-2xl overflow-hidden flex flex-col ${isDark ? 'bg-[#151a17] border-white/10' : 'bg-white border-slate-200'}`}>
                                                     {INTERVALS.map(iv => (
                                                         <button key={iv.id}
                                                             onClick={() => { setInterval_(iv.id); setIvOpen(false); }}

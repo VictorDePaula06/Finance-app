@@ -98,7 +98,7 @@ export default function OnboardingAlivia({ onDone }) {
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-0 sm:p-4">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-            <div className={`relative w-full max-w-2xl h-full sm:h-[94vh] sm:max-h-[840px] flex flex-col sm:rounded-3xl border shadow-2xl overflow-hidden ${isDark ? 'bg-[#0e0f12] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full max-w-2xl h-full sm:h-[94vh] sm:max-h-[840px] flex flex-col sm:rounded-3xl border shadow-2xl overflow-hidden ${isDark ? 'bg-[#0a0d0b] border-white/10' : 'bg-white border-slate-100'}`}>
                 {/* Cabeçalho */}
                 <div className={`flex items-center gap-3.5 px-6 py-5 border-b ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-100 bg-slate-50'}`}>
                     <img src={aliviaAvatar} alt="Alívia" className="w-14 h-14 rounded-full object-cover border-2 border-emerald-400" />

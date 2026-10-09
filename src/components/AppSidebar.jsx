@@ -58,7 +58,7 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
             mobile
                 ? 'w-[280px] max-w-[85vw] h-full'
                 : 'hidden lg:flex w-[260px] shrink-0 h-screen sticky top-0'} ${
-            isDark ? 'bg-[#0a0a0a] border-white/[0.06]' : 'bg-white border-slate-100'}`}>
+            isDark ? 'bg-[#030505] border-white/[0.06]' : 'bg-white border-slate-100'}`}>
             {/* Marca — ícone grande centralizado + "Alívia Finanças" embaixo */}
             <div className="relative flex flex-col items-center pt-1 pb-5 mb-1">
                 <button onClick={mobile ? onClose : toggleTheme} aria-label={mobile ? 'Fechar menu' : 'Alternar tema'}

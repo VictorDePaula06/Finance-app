@@ -155,7 +155,7 @@ export default function BensImoveisTab() {
   const card = 'pat-card';
   const txt = isDark ? 'text-white' : 'text-slate-800';
   const sub = isDark ? 'text-slate-400' : 'text-slate-500';
-  const inset = isDark ? 'bg-[#161b27] border-white/10' : 'bg-slate-50 border-slate-200';
+  const inset = isDark ? 'bg-[#151a17] border-white/10' : 'bg-slate-50 border-slate-200';
 
   const [limitMsg, setLimitMsg] = useState(null);
   const openNew = (kind) => {
@@ -234,7 +234,7 @@ export default function BensImoveisTab() {
 
       {deleteConfirm && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)}>
-          <div className={`w-full max-w-sm rounded-3xl border p-6 ${isDark ? 'bg-[#1e2330] border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
+          <div className={`w-full max-w-sm rounded-3xl border p-6 ${isDark ? 'bg-[#1a211d] border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
             <p className={`font-bold text-sm mb-1 ${txt}`}>Excluir {deleteConfirm.kind === 'imovel' ? 'imóvel' : 'veículo'}?</p>
             <p className={`text-xs mb-5 ${sub}`}>{deleteConfirm.name || deleteConfirm.address || 'Este bem'} será removido do seu patrimônio.</p>
             <div className="flex gap-3">
@@ -247,7 +247,7 @@ export default function BensImoveisTab() {
 
       {limitMsg && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setLimitMsg(null)}>
-          <div className={`w-full max-w-sm rounded-3xl border p-6 text-center ${isDark ? 'bg-[#1e2330] border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
+          <div className={`w-full max-w-sm rounded-3xl border p-6 text-center ${isDark ? 'bg-[#1a211d] border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
             <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-4"><Info className="w-7 h-7 text-amber-500" /></div>
             <p className={`font-bold text-sm mb-2 ${txt}`}>Limite do Plano Gratuito</p>
             <p className={`text-xs mb-5 ${sub}`}>{limitMsg}</p>
@@ -319,7 +319,7 @@ function AssetCard({ asset, isDark, card, txt, sub, onEdit, onDelete }) {
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={series}>
             <YAxis hide domain={['dataMin', 'dataMax']} />
-            <Tooltip formatter={(v) => [`R$ ${fmt(v)}`, 'Valor']} labelFormatter={() => ''} contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: 10, fontSize: 11 }} />
+            <Tooltip formatter={(v) => [`R$ ${fmt(v)}`, 'Valor']} labelFormatter={() => ''} contentStyle={{ backgroundColor: isDark ? '#0e1613' : '#fff', borderColor: isDark ? '#1c2a24' : '#e2e8f0', borderRadius: 10, fontSize: 11 }} />
             <Line type="monotone" dataKey="v" stroke={diff >= 0 ? '#10b981' : '#f43f5e'} strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
@@ -437,8 +437,8 @@ function AssetModal({ isDark, inset, txt, sub, editing, onClose, userId }) {
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className={`w-full max-w-md rounded-3xl border shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar ${isDark ? 'bg-[#1e2330] border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
-        <div className={`flex items-center justify-between px-6 py-4 border-b sticky top-0 z-10 ${isDark ? 'bg-[#1e2330] border-white/5' : 'bg-white border-slate-100'}`}>
+      <div className={`w-full max-w-md rounded-3xl border shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar ${isDark ? 'bg-[#1a211d] border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
+        <div className={`flex items-center justify-between px-6 py-4 border-b sticky top-0 z-10 ${isDark ? 'bg-[#1a211d] border-white/5' : 'bg-white border-slate-100'}`}>
           <h3 className={`text-base font-black flex items-center gap-2 ${txt}`}>
             {isVeiculo ? <Car className="w-5 h-5 text-blue-500" /> : <Home className="w-5 h-5 text-orange-500" />}
             {editing.id ? 'Editar' : 'Novo'} {isVeiculo ? 'Veículo' : 'Imóvel'}

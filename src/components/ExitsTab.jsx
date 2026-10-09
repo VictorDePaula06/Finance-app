@@ -901,7 +901,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
             {/* Month Selector — ABAIXO dos cards (só em Despesas) */}
             {subTab !== 'reservas' && (
             <div className="flex flex-col items-center gap-4 mb-2">
-                <div className={`flex items-center rounded-lg border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
+                <div className={`flex items-center rounded-lg border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#1a211d] border-slate-700/50'}`}>
                     <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
                         <ChevronLeft className="w-4 h-4" />
                     </button>
@@ -1146,7 +1146,7 @@ export default function ExitsTab({ transactions, savingsJars = [], cdiRate = 10.
                                                                     : <span className="text-[9px] font-black text-slate-500 uppercase mt-0.5">Fatura Aberta</span>
                                                             )}
                                                         </div>
-                                                        <div className={`absolute right-0 translate-x-16 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all flex gap-1 pl-2 ${theme === 'light' ? 'bg-white' : 'bg-[#1e2330]'}`}>
+                                                        <div className={`absolute right-0 translate-x-16 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all flex gap-1 pl-2 ${theme === 'light' ? 'bg-white' : 'bg-[#1a211d]'}`}>
                                                             <button onClick={() => handleEdit(t)} className={`p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Pencil className="w-3 h-3" /></button>
                                                             <button onClick={() => handleDelete(t)} className={`p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Trash2 className="w-3 h-3" /></button>
                                                         </div>

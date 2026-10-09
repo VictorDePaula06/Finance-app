@@ -105,7 +105,7 @@ export default function SegurosTab({ manualConfig = {} }) {
   const card = 'pat-card';
   const txt = isDark ? 'text-white' : 'text-slate-800';
   const sub = isDark ? 'text-slate-400' : 'text-slate-500';
-  const inset = isDark ? 'bg-[#161b27] border-white/10' : 'bg-slate-50 border-slate-200';
+  const inset = isDark ? 'bg-[#151a17] border-white/10' : 'bg-slate-50 border-slate-200';
   const LevelIcon = levelMeta.icon;
 
   const openNew = (cat) => { setEditing({ category: cat }); setShowModal(true); };
@@ -237,7 +237,7 @@ export default function SegurosTab({ manualConfig = {} }) {
 
       {deleteConfirm && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)}>
-          <div className={`w-full max-w-sm rounded-3xl border p-6 ${isDark ? 'bg-[#1e2330] border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
+          <div className={`w-full max-w-sm rounded-3xl border p-6 ${isDark ? 'bg-[#1a211d] border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
             <p className={`font-bold text-sm mb-1 ${txt}`}>Excluir apólice?</p>
             <p className={`text-xs mb-5 ${sub}`}>{deleteConfirm.insurer || 'Esta apólice'} será removida.</p>
             <div className="flex gap-3">
@@ -339,8 +339,8 @@ function PolicyModal({ isDark, inset, txt, sub, editing, assets, onClose, userId
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className={`w-full max-w-md rounded-3xl border shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar ${isDark ? 'bg-[#1e2330] border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
-        <div className={`flex items-center justify-between px-6 py-4 border-b sticky top-0 z-10 ${isDark ? 'bg-[#1e2330] border-white/5' : 'bg-white border-slate-100'}`}>
+      <div className={`w-full max-w-md rounded-3xl border shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar ${isDark ? 'bg-[#1a211d] border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
+        <div className={`flex items-center justify-between px-6 py-4 border-b sticky top-0 z-10 ${isDark ? 'bg-[#1a211d] border-white/5' : 'bg-white border-slate-100'}`}>
           <h3 className={`text-base font-black flex items-center gap-2 ${txt}`}>
             <Icon className="w-5 h-5" style={{ color: meta.color }} /> {editing.id ? 'Editar' : 'Nova'} apólice · {meta.label}
           </h3>

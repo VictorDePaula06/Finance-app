@@ -131,7 +131,7 @@ export default function AliviaMiniInsight({ transactions = [], theme }) {
                         alt="Alívia" 
                         className="w-10 h-10 object-cover rounded-full border-2 border-white/20 shadow-md" 
                     />
-                    <div className={`absolute -bottom-1 -right-1 p-0.5 rounded-full bg-[#131621] border border-white/10 ${textColors[insight.status]}`}>
+                    <div className={`absolute -bottom-1 -right-1 p-0.5 rounded-full bg-[#111614] border border-white/10 ${textColors[insight.status]}`}>
                         {icons[insight.status]}
                     </div>
                 </div>

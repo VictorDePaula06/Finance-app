@@ -358,7 +358,7 @@ function PhotoEditor({ isDark, src, initial, onCancel, onSave }) {
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onCancel} />
-            <div className={`relative w-full max-w-sm rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full max-w-sm rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
                 <h2 className={`text-lg font-black mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>Ajustar foto</h2>
                 <p className={`text-[12px] mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Arraste a imagem e use o zoom para escolher o que aparece.</p>
                 <div className="flex justify-center">

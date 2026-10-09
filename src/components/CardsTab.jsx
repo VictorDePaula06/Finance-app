@@ -1133,7 +1133,7 @@ const CardsTab = ({ transactions = [], setActiveTab, walletStats, mode = 'lancam
                     <select
                       value={selectedCard.id}
                       onChange={(e) => setSelectedCardId(e.target.value)}
-                      className={`w-full appearance-none pl-3 pr-9 py-2.5 rounded-xl border text-xs font-bold outline-none cursor-pointer ${isDark ? 'bg-[#161b27] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
+                      className={`w-full appearance-none pl-3 pr-9 py-2.5 rounded-xl border text-xs font-bold outline-none cursor-pointer ${isDark ? 'bg-[#151a17] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
                     >
                       {cards.map(c => (
                         <option key={c.id} value={c.id} className={isDark ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'}>{c.name} · •••• {c.last4 || '0000'}</option>

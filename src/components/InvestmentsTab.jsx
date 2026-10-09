@@ -1100,7 +1100,7 @@ export default function InvestmentsTab() {
                         <div className={`flex items-center gap-3 max-w-xs md:max-w-sm p-3 rounded-2xl border backdrop-blur-sm transition-all ${theme === 'light' ? 'bg-slate-50 border-slate-200 hover:bg-slate-100' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}>
                             <div className="relative shrink-0">
                                 <img src={aliviaFinal} alt="Alívia" className="w-8 h-8 object-cover rounded-full border border-indigo-500/30" />
-                                <div className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-[#131621] text-indigo-400"><Sparkles className="w-2.5 h-2.5" /></div>
+                                <div className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-[#111614] text-indigo-400"><Sparkles className="w-2.5 h-2.5" /></div>
                             </div>
                             <div className="flex flex-col">
                                 <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Análise da Alívia</span>
@@ -1263,7 +1263,7 @@ export default function InvestmentsTab() {
                     {/* Left: Search and List */}
                     <div className="flex-1 w-full space-y-4">
                         <div className="flex items-center gap-3">
-                            <div className={`flex-1 flex items-center px-4 py-3 rounded-xl border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#151822] border-white/5'}`}>
+                            <div className={`flex-1 flex items-center px-4 py-3 rounded-xl border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#131815] border-white/5'}`}>
                                 <Search className="w-4 h-4 text-slate-500 mr-2" />
                                 <input 
                                     type="text" 
@@ -1273,7 +1273,7 @@ export default function InvestmentsTab() {
                                     className="bg-transparent border-none outline-none w-full text-xs font-bold text-slate-800 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-600"
                                 />
                             </div>
-                            <button className={`px-4 py-3 rounded-xl border flex items-center gap-2 text-xs font-bold transition-all ${theme === 'light' ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50' : 'bg-[#151822] border-white/5 text-slate-400 hover:bg-white/5'}`}>
+                            <button className={`px-4 py-3 rounded-xl border flex items-center gap-2 text-xs font-bold transition-all ${theme === 'light' ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50' : 'bg-[#131815] border-white/5 text-slate-400 hover:bg-white/5'}`}>
                                 FILTROS <span className="ml-1 opacity-50">≡</span>
                             </button>
                         </div>
@@ -2106,7 +2106,7 @@ export default function InvestmentsTab() {
                                         );
                                     }
                                     return (
-                                        <div key={a.id} className={`flex items-center justify-between p-3 rounded-xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-[#151822] border-white/5'}`}>
+                                        <div key={a.id} className={`flex items-center justify-between p-3 rounded-xl border ${theme === 'light' ? 'bg-white border-slate-100' : 'bg-[#131815] border-white/5'}`}>
                                             <div className="min-w-0">
                                                 {a.realized ? (
                                                     <>

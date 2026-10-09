@@ -463,7 +463,7 @@ export default function PatrimonioRetornoChart({ jars, investments, cdiAnual: pr
                   stroke="url(#patRetornoGradient)"
                   strokeWidth={line.strokeWidth}
                   dot={false}
-                  activeDot={{ r: 5, strokeWidth: 3, stroke: '#00E5A0', fill: isDark ? '#0f172a' : '#ffffff' }}
+                  activeDot={{ r: 5, strokeWidth: 3, stroke: '#00E5A0', fill: isDark ? '#0e1613' : '#ffffff' }}
                   connectNulls
                   filter="url(#patRetornoGlow)"
                 />

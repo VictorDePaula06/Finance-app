@@ -15,7 +15,7 @@ import { useWhatsAppStatus } from '../hooks/useWhatsAppStatus';
  */
 export default function WhatsAppStatusButton({ isDark, onOpen, active = false, compact = false, ringColor }) {
     const { loading, connected } = useWhatsAppStatus();
-    const ring = ringColor || (isDark ? 'ring-[#0a0a0a]' : 'ring-white');
+    const ring = ringColor || (isDark ? 'ring-[#030505]' : 'ring-white');
 
     // ── Modo COMPACTO (chip) — p/ cabeçalhos, ao lado do nome ──
     if (compact) {

@@ -33,16 +33,16 @@
      resto da folha funciona (`html, body { background-color: var(--bg-primary) }`),
      então não há disputa de especificidade. */
   html:not(.theme-light):not(.theme-dark) {
-    --bg-primary: #020617;
-    --bg-secondary: #0f172a;
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --card-bg: rgba(15, 23, 42, 0.8);
-    --card-border: rgba(255, 255, 255, 0.1);
-    --card-shadow: rgba(0, 0, 0, 0.3);
-    --input-bg: rgba(30, 41, 59, 0.5);
-    --input-border: rgba(255, 255, 255, 0.1);
-    --modal-bg: #0f172a;
+    --bg-primary: #050a08;
+    --bg-secondary: #0b100e;
+    --text-primary: #f1f6f3;
+    --text-secondary: #8d9c95;
+    --card-bg: rgba(14, 22, 19, 0.82);
+    --card-border: rgba(255, 255, 255, 0.07);
+    --card-shadow: rgba(0, 0, 0, 0.45);
+    --input-bg: rgba(16, 18, 17, 0.6);
+    --input-border: rgba(255, 255, 255, 0.08);
+    --modal-bg: #0e1210;
     color-scheme: only dark;
   }
 }
@@ -70,17 +70,45 @@
   --modal-bg: #ffffff;
 }
 
+/* ── TEMA ESCURO: preto esverdeado ───────────────────────────────────
+   Paleta medida na referência: página #050a08, superfícies subindo em
+   passos mínimos (#0a0c0c caixa interna, #0e100f caixa, #101211 campo,
+   #151716 bolha) e o verde #3dc590 como único acento.
+
+   Logo abaixo a escala `slate` é redefinida DENTRO do tema escuro. O
+   Tailwind 4 escreve `.bg-slate-900 { background-color: var(--color-slate-900) }`,
+   então mudar a variável aqui retinge toda classe slate do app de uma vez,
+   sem encostar em um único componente. Cada tom guarda a mesma luminância
+   do slate original — só a tonalidade vai do azul para o verde — para o
+   contraste dos textos continuar exatamente onde estava. */
 .theme-dark {
-  --bg-primary: #020617; /* slate-950 */
-  --bg-secondary: #0f172a; /* slate-900 */
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --card-bg: rgba(15, 23, 42, 0.8);
-  --card-border: rgba(255, 255, 255, 0.1);
-  --card-shadow: rgba(0, 0, 0, 0.3);
-  --input-bg: rgba(30, 41, 59, 0.5);
-  --input-border: rgba(255, 255, 255, 0.1);
-  --modal-bg: #0f172a;
+  --bg-primary: #050a08;
+  --bg-secondary: #0b100e;
+  --text-primary: #f1f6f3;
+  --text-secondary: #8d9c95;
+  --card-bg: rgba(14, 22, 19, 0.82);
+  --card-border: rgba(255, 255, 255, 0.07);
+  --card-shadow: rgba(0, 0, 0, 0.45);
+  --input-bg: rgba(16, 18, 17, 0.6);
+  --input-border: rgba(255, 255, 255, 0.08);
+  --modal-bg: #0e1210;
+
+  /* Escala slate retingida — mesma luminância, azul → verde */
+  --color-slate-50:  #f3f7f5;
+  --color-slate-100: #e7efea;
+  --color-slate-200: #d2e0d9;
+  --color-slate-300: #b1c5bb;
+  --color-slate-400: #899a92;
+  --color-slate-500: #66766e;
+  --color-slate-600: #4a5a52;
+  --color-slate-700: #33423a;
+  --color-slate-800: #1c2a24;
+  --color-slate-900: #0e1613;
+  --color-slate-950: #050a08;
+
+  /* Acento: o verde da referência, um tom acima do emerald padrão */
+  --color-emerald-400: #52d6a3;
+  --color-emerald-500: #3dc590;
 }
 
 html, body {
@@ -127,11 +155,17 @@ html, body {
   .theme-light .text-slate-500 { font-weight: 500; }
 }
 
+/* Na referência o fundo não tem os dois halos de canto: tem UM brilho verde
+   nascendo no topo, uma reverberação fraca no pé da página e uma textura de
+   pontos quase invisível por cima. */
 .theme-dark body {
   background-image:
-    radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
-  background-size: 100% 100%;
+    radial-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    radial-gradient(90% 55% at 50% -8%, rgba(22, 190, 132, 0.16) 0%, rgba(10, 41, 30, 0.08) 42%, transparent 72%),
+    radial-gradient(70% 45% at 50% 105%, rgba(22, 190, 132, 0.06) 0%, transparent 70%);
+  background-size: 22px 22px, 100% 100%, 100% 100%;
+  background-position: 0 0, center top, center bottom;
+  background-repeat: repeat, no-repeat, no-repeat;
 }
 
 @keyframes gradient-flow {
@@ -171,8 +205,8 @@ html, body {
 }
 .dark .pat-card {
   border-color: rgba(255, 255, 255, 0.06);
-  background-color: #0f172a;
-  background-image: linear-gradient(to bottom right, #020617, #0f172a 50%, rgba(2, 44, 34, 0.30));
+  background-color: #0e1613;
+  background-image: linear-gradient(to bottom right, #050a08, #0e1613 50%, rgba(10, 41, 30, 0.45));
   box-shadow: none;
 }
 

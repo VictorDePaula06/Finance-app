@@ -28,7 +28,7 @@ export default function MaSettings({ isDark, value, onChange, onClose }) {
             role="dialog" aria-modal="true" aria-label={t('charts.maTitle')}>
             <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
 
-            <div className={`relative w-full max-w-sm rounded-2xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#131722] border-white/10' : 'bg-white border-slate-200'}`}>
+            <div className={`relative w-full max-w-sm rounded-2xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#111614] border-white/10' : 'bg-white border-slate-200'}`}>
                 <div className={`flex items-center justify-between px-5 py-3.5 border-b ${line}`}>
                     <h2 className={`text-[15px] font-black tracking-tight ${ink}`}>{t('charts.maTitle')}</h2>
                     <button onClick={onClose} aria-label={t('common.close')}
@@ -72,7 +72,7 @@ export default function MaSettings({ isDark, value, onChange, onClose }) {
                                 type="number" min="1" max="500" value={draft.period}
                                 onChange={(e) => setPeriod(+e.target.value)}
                                 aria-label={t('charts.maPeriod')}
-                                className={`w-20 px-2.5 py-1.5 rounded-lg border text-[12px] font-bold outline-none focus:border-emerald-500 ${isDark ? 'bg-[#0d1117] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`} />
+                                className={`w-20 px-2.5 py-1.5 rounded-lg border text-[12px] font-bold outline-none focus:border-emerald-500 ${isDark ? 'bg-[#0a0e0c] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`} />
                         </div>
                     </div>
 
@@ -83,7 +83,7 @@ export default function MaSettings({ isDark, value, onChange, onClose }) {
                             {COLORS.map(c => (
                                 <button key={c} onClick={() => setDraft(d => ({ ...d, color: c }))}
                                     aria-label={c}
-                                    className={`w-7 h-7 rounded-full transition ${draft.color === c ? 'ring-2 ring-offset-2 ring-emerald-500 ' + (isDark ? 'ring-offset-[#131722]' : 'ring-offset-white') : ''}`}
+                                    className={`w-7 h-7 rounded-full transition ${draft.color === c ? 'ring-2 ring-offset-2 ring-emerald-500 ' + (isDark ? 'ring-offset-[#111614]' : 'ring-offset-white') : ''}`}
                                     style={{ background: c }} />
                             ))}
                         </div>

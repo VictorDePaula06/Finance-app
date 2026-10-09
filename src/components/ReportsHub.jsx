@@ -584,7 +584,7 @@ export default function ReportsHub({ transactions = [], cards = [], subscription
                   </div>
                   <div className="relative shrink-0">
                     <select value={periodoCfg.bucket} onChange={e => setPeriodoCfg({ ...periodoCfg, bucket: e.target.value })}
-                      className={`appearance-none pl-3 pr-8 py-2 rounded-xl border text-xs font-bold outline-none cursor-pointer ${isDark ? 'bg-[#161b27] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
+                      className={`appearance-none pl-3 pr-8 py-2 rounded-xl border text-xs font-bold outline-none cursor-pointer ${isDark ? 'bg-[#151a17] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
                       <option value="dia" className={isDark ? 'bg-slate-800 text-white' : ''}>Por Dia</option>
                       <option value="semana" className={isDark ? 'bg-slate-800 text-white' : ''}>Por Semana</option>
                       <option value="mes" className={isDark ? 'bg-slate-800 text-white' : ''}>Por Mês</option>

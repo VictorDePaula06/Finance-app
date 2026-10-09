@@ -438,7 +438,7 @@ export default function OverviewTab({
     return (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* ROW 1: Hero do Saldo Total em Carteira */}
-            <div className={`rounded-3xl border overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1e2330] border-slate-700/50'}`}>
+            <div className={`rounded-3xl border overflow-hidden ${theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-[#1a211d] border-slate-700/50'}`}>
                 <div className="p-5">
                     <div className="flex items-start justify-between gap-4">
                         <div className="shrink-0 min-w-0">

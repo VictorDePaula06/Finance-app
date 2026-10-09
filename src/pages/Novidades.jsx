@@ -235,7 +235,7 @@ export default function Novidades() {
     const body = isDark ? 'text-slate-300' : 'text-slate-600';
 
     return (
-        <div className={`min-h-screen ${isDark ? 'bg-[#0e0f12] text-white' : 'bg-slate-50 text-slate-800'}`}
+        <div className={`min-h-screen ${isDark ? 'bg-[#0a0d0b] text-white' : 'bg-slate-50 text-slate-800'}`}
             style={isDark ? { backgroundImage: 'radial-gradient(1100px 520px at 10% -10%, rgba(16,185,129,0.16), transparent 60%)' } : undefined}>
             <div className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
                 {/* Topo */}

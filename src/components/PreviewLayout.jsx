@@ -67,7 +67,7 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
     if (ALIAS[active]) return <Navigate to={tabPath(ALIAS[active])} replace />;
 
     return (
-        <div className={`min-h-screen flex ${isDark ? 'bg-[#0e0f12]' : 'bg-slate-50'}`}>
+        <div className={`min-h-screen flex ${isDark ? 'bg-[#0a0d0b]' : 'bg-slate-50'}`}>
             <Toaster />
             {showOnboarding && <OnboardingAlivia onDone={() => setObDismissed(true)} />}
 
@@ -88,7 +88,7 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
             <div className="flex-1 flex flex-col min-w-0"
                 style={isDark ? { backgroundImage: 'radial-gradient(1300px 620px at 12% -6%, rgba(16,185,129,0.18), transparent 60%), radial-gradient(820px 480px at 88% -10%, rgba(20,184,166,0.10), transparent 62%)' } : undefined}>
                 {/* Topo mobile (some no desktop) — marca + versão; respeita a barra de status. */}
-                <header className={`lg:hidden sticky top-0 z-30 flex items-center gap-2 px-4 border-b ${isDark ? 'bg-[#0a0a0a]/90 border-white/[0.06]' : 'bg-white/90 border-slate-100'} backdrop-blur`}
+                <header className={`lg:hidden sticky top-0 z-30 flex items-center gap-2 px-4 border-b ${isDark ? 'bg-[#030505]/90 border-white/[0.06]' : 'bg-white/90 border-slate-100'} backdrop-blur`}
                     style={{ height: 'calc(3.25rem + env(safe-area-inset-top))', paddingTop: 'env(safe-area-inset-top)' }}>
                     <span className="text-[17px] font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500">Alívia</span>
                     <span className={`text-[10px] font-bold uppercase tracking-[0.28em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Finanças</span>

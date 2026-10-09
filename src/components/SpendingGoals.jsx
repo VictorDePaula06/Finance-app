@@ -137,7 +137,7 @@ export default function SpendingGoals({ transactions = [], manualConfig = {}, on
     const card = 'pat-card';
     const txt = isDark ? 'text-white' : 'text-slate-900';
     const sub = isDark ? 'text-slate-400' : 'text-slate-500';
-    const fieldBg = isDark ? 'bg-[#161b27] border-white/10' : 'bg-white border-slate-200';
+    const fieldBg = isDark ? 'bg-[#151a17] border-white/10' : 'bg-white border-slate-200';
 
     const KpiCard = ({ accent, label, value, hint }) => (
         <div className={`relative rounded-2xl border overflow-hidden ${card}`}>
@@ -246,7 +246,7 @@ export default function SpendingGoals({ transactions = [], manualConfig = {}, on
                             const noSpend = g.status === 'sem_gastos';
                             const Icon = g.icon;
                             return (
-                                <div key={g.id} className={`rounded-2xl border p-4 ${isDark ? 'bg-[#1e2330]' : 'bg-white shadow-sm'}`}
+                                <div key={g.id} className={`rounded-2xl border p-4 ${isDark ? 'bg-[#1a211d]' : 'bg-white shadow-sm'}`}
                                     style={{ borderColor: over ? `${sm.hex}66` : (isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9') }}>
                                     <div className="flex items-start justify-between gap-2 mb-3">
                                         <div className="flex items-center gap-2.5 min-w-0">
@@ -348,8 +348,8 @@ function BudgetModal({ isDark, categories, manualConfig, onUpdateConfig, spentBy
 
     return (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose}>
-            <div className={`w-full max-w-lg rounded-[2rem] border shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto custom-scrollbar ${isDark ? 'bg-[#161b27] border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
-                <div className={`flex items-center justify-between px-6 py-5 border-b sticky top-0 z-10 ${isDark ? 'bg-[#161b27] border-white/5' : 'bg-white border-slate-100'}`}>
+            <div className={`w-full max-w-lg rounded-[2rem] border shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto custom-scrollbar ${isDark ? 'bg-[#151a17] border-white/10' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
+                <div className={`flex items-center justify-between px-6 py-5 border-b sticky top-0 z-10 ${isDark ? 'bg-[#151a17] border-white/5' : 'bg-white border-slate-100'}`}>
                     <h3 className={`text-lg font-black flex items-center gap-2 ${txt}`}><Target className="w-5 h-5 text-emerald-500" /> Definir metas por categoria</h3>
                     <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-rose-400"><X className="w-5 h-5" /></button>
                 </div>
@@ -363,7 +363,7 @@ function BudgetModal({ isDark, categories, manualConfig, onUpdateConfig, spentBy
                                     <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${categoryHex(cat)}1f`, color: categoryHex(cat) }}><Icon className="w-4 h-4" /></span>
                                     <span className={`text-xs font-bold ${txt}`}>{cat.label}</span>
                                 </div>
-                                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${isDark ? 'bg-[#0f131c] border-white/10' : 'bg-white border-slate-200'}`}>
+                                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${isDark ? 'bg-[#0c100e] border-white/10' : 'bg-white border-slate-200'}`}>
                                     <span className="text-[11px] font-bold text-slate-500">R$</span>
                                     <input type="number" inputMode="decimal" min="0" placeholder="0,00"
                                         value={budgets[cat.id] ?? ''}
@@ -375,7 +375,7 @@ function BudgetModal({ isDark, categories, manualConfig, onUpdateConfig, spentBy
                         );
                     })}
                 </div>
-                <div className={`flex gap-3 px-6 py-5 border-t sticky bottom-0 ${isDark ? 'bg-[#161b27] border-white/5' : 'bg-white border-slate-100'}`}>
+                <div className={`flex gap-3 px-6 py-5 border-t sticky bottom-0 ${isDark ? 'bg-[#151a17] border-white/5' : 'bg-white border-slate-100'}`}>
                     <button onClick={onClose} className={`flex-1 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest ${isDark ? 'bg-white/5 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>Cancelar</button>
                     <button onClick={handleSave} className="flex-1 py-3 bg-emerald-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-emerald-500/25 hover:bg-emerald-600 flex items-center justify-center gap-2"><Save className="w-4 h-4" /> Salvar metas</button>
                 </div>

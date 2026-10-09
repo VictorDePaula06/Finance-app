@@ -55,7 +55,7 @@ export default function Mercado() {
         return () => subs.forEach(u => u());
     }, [uid]);
 
-    const bg = isDark ? 'bg-[#0b0f16]' : 'bg-white';
+    const bg = isDark ? 'bg-[#050a08]' : 'bg-white';
     const line = isDark ? 'border-white/[0.07]' : 'border-slate-200';
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const ink = isDark ? 'text-white' : 'text-slate-800';
@@ -65,7 +65,7 @@ export default function Mercado() {
     return (
         <div className={`min-h-[100dvh] w-full flex flex-col ${bg}`}>
             {/* Cabeçalho da marca */}
-            <header className={`sticky top-0 z-20 border-b ${line} ${isDark ? 'bg-[#0b0f16]/95' : 'bg-white/95'} backdrop-blur px-4 sm:px-6 py-2.5 sm:py-3 flex items-center gap-3`}>
+            <header className={`sticky top-0 z-20 border-b ${line} ${isDark ? 'bg-[#050a08]/95' : 'bg-white/95'} backdrop-blur px-4 sm:px-6 py-2.5 sm:py-3 flex items-center gap-3`}>
                 <a href="/app/configuracoes?tab=cadastros" title={t('mkt.backToApp')}
                     className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/[0.07]' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}>
                     <ArrowLeft className="w-4 h-4" strokeWidth={2.2} />
@@ -127,7 +127,7 @@ export default function Mercado() {
 
             {/* Abas no rodapé (celular): alvo largo e ao alcance do polegar. */}
             <nav role="tablist" aria-label={t('mkt.title')}
-                className={`sm:hidden fixed bottom-0 inset-x-0 z-20 border-t ${line} ${isDark ? 'bg-[#0b0f16]/95' : 'bg-white/95'} backdrop-blur flex`}
+                className={`sm:hidden fixed bottom-0 inset-x-0 z-20 border-t ${line} ${isDark ? 'bg-[#050a08]/95' : 'bg-white/95'} backdrop-blur flex`}
                 style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
                 {ABAS.map(x => {
                     const Icon = x.icon;

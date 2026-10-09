@@ -289,7 +289,7 @@ export default function GoalTracker() {
             </div>
 
             {/* Top Pill Dashboard */}
-            <div className={`flex flex-wrap items-center gap-6 md:gap-12 p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#151822] border-white/5 text-white'}`}>
+            <div className={`flex flex-wrap items-center gap-6 md:gap-12 p-5 rounded-2xl border ${theme === 'light' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-[#131815] border-white/5 text-white'}`}>
                 <div className="flex flex-col">
                     <span className="text-[11px] font-medium text-slate-400 mb-1 flex items-center gap-1">Total Planejado <Target className="w-3.5 h-3.5 text-slate-400" /></span>
                     <span className="text-xl font-black">

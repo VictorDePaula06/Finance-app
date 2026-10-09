@@ -78,7 +78,7 @@ export default function SymbolSearch({ isDark, onPick, onClose, current }) {
             role="dialog" aria-modal="true" aria-label={t('charts.searchTitle')}>
             <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
 
-            <div className={`relative w-full max-w-2xl rounded-2xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#131722] border-white/10' : 'bg-white border-slate-200'}`}>
+            <div className={`relative w-full max-w-2xl rounded-2xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#111614] border-white/10' : 'bg-white border-slate-200'}`}>
                 <div className={`flex items-center justify-between px-5 py-3.5 border-b ${isDark ? 'border-white/[0.07]' : 'border-slate-200'}`}>
                     <h2 className={`text-[15px] font-black tracking-tight ${ink}`}>{t('charts.searchTitle')}</h2>
                     <button onClick={onClose} aria-label={t('common.close') || 'Fechar'}
@@ -88,7 +88,7 @@ export default function SymbolSearch({ isDark, onPick, onClose, current }) {
                 </div>
 
                 <div className="px-5 pt-4 pb-3">
-                    <div className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 transition focus-within:border-emerald-500 ${isDark ? 'bg-[#0d1117] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                    <div className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 transition focus-within:border-emerald-500 ${isDark ? 'bg-[#0a0e0c] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
                         <Search className={`w-4 h-4 shrink-0 ${muted}`} strokeWidth={2.4} />
                         <input
                             autoFocus value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKeyDown}

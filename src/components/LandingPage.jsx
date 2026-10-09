@@ -896,7 +896,7 @@ function TikTokIcon({ className }) {
 
 // ── Phone Mockup (grande, inclinado 3D — estilo app showcase) ─────────────────
 function PhoneMockup({ isDark, width = 300, tilt = 'left', children }) {
-    const frame = isDark ? '#0b1120' : '#0f172a';
+    const frame = isDark ? '#090f0d' : '#0f172a';
     const rotateY = tilt === 'left' ? '14deg' : '-14deg';
     return (
         <div style={{ perspective: '1600px' }} className="mx-auto">
@@ -937,7 +937,7 @@ function PhoneMockup({ isDark, width = 300, tilt = 'left', children }) {
 
 // ── Browser Mockup (paisagem — para screenshots desktop) ──────────────────────
 function BrowserMockup({ isDark, children }) {
-    const frame = isDark ? '#0f172a' : '#1e293b';
+    const frame = isDark ? '#0e1613' : '#1e293b';
     return (
         <div className="relative w-full" style={{
             background: frame,

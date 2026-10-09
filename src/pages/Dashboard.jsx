@@ -418,7 +418,7 @@ function GastosModal({ isDark, itens, total, incluiFatura, onClose }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-lg max-h-[88vh] flex flex-col rounded-3xl border shadow-2xl ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full max-w-lg max-h-[88vh] flex flex-col rounded-3xl border shadow-2xl ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
                 <div className="flex items-center justify-between p-6 pb-4">
                     <div className="flex items-center gap-2.5">
                         <span className="w-9 h-9 rounded-xl bg-rose-500/12 text-rose-500 flex items-center justify-center shrink-0"><TrendingDown className="w-5 h-5" strokeWidth={2.4} /></span>
@@ -462,13 +462,13 @@ function WhatsAppStatusModal({ isDark, phones = [], onClose, onManage }) {
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-sm rounded-3xl border shadow-2xl p-7 text-center animate-in zoom-in-95 fade-in duration-200 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full max-w-sm rounded-3xl border shadow-2xl p-7 text-center animate-in zoom-in-95 fade-in duration-200 ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
                 <button onClick={onClose} aria-label="Fechar" className={`absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center ${isDark ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}><X className="w-4 h-4" /></button>
 
                 {/* Ícone do WhatsApp em destaque */}
                 <span className="relative w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center bg-[#25D366] text-white shadow-[0_0_40px_rgba(37,211,102,0.35)]">
                     <WhatsAppIcon className="w-10 h-10" />
-                    <span className={`absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center ring-4 ${isDark ? 'ring-[#141518]' : 'ring-white'}`}><Check className="w-4 h-4" strokeWidth={3} /></span>
+                    <span className={`absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center ring-4 ${isDark ? 'ring-[#0e1210]' : 'ring-white'}`}><Check className="w-4 h-4" strokeWidth={3} /></span>
                 </span>
 
                 <p className={`text-[11px] font-black uppercase tracking-[0.22em] ${muted}`}>WhatsApp</p>
@@ -588,7 +588,7 @@ function ConfigModal({ isDark, cfg, onChange, onClose, faturaTotal }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2.5">
                         <span className="w-9 h-9 rounded-xl bg-emerald-500/12 text-emerald-500 flex items-center justify-center"><Settings className="w-5 h-5" strokeWidth={2.4} /></span>

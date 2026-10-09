@@ -110,11 +110,11 @@ export default function MonthlyComparative({ transactions = [], manualConfig = {
                 <div className="w-full h-72">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }} barGap={4}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#1e293b' : '#f1f5f9'} />
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#1c2a24' : '#f1f5f9'} />
                             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: isDark ? '#94a3b8' : '#64748b' }} className="capitalize" />
                             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: isDark ? '#94a3b8' : '#64748b' }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
                             <Tooltip
-                                contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: '12px' }}
+                                contentStyle={{ backgroundColor: isDark ? '#0e1613' : '#fff', borderColor: isDark ? '#1c2a24' : '#e2e8f0', borderRadius: '12px' }}
                                 formatter={(v) => `R$ ${fmt(v)}`}
                                 labelStyle={{ color: isDark ? '#94a3b8' : '#64748b', marginBottom: 4, textTransform: 'capitalize' }}
                                 itemStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }}

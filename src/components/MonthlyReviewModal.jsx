@@ -192,7 +192,7 @@ function MonthlyReviewModalV2({ r, monthName, onClose, theme }) {
 
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-300">
-            <div className={`relative w-full max-w-xl max-h-[92vh] overflow-y-auto scrollbar-hide rounded-3xl border shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-6 duration-500 ${isDark ? 'bg-[#161b27] border-white/10' : 'bg-white border-slate-200'}`}>
+            <div className={`relative w-full max-w-xl max-h-[92vh] overflow-y-auto scrollbar-hide rounded-3xl border shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-6 duration-500 ${isDark ? 'bg-[#151a17] border-white/10' : 'bg-white border-slate-200'}`}>
                 {/* faixa de topo */}
                 <div className="relative h-20 bg-gradient-to-r from-blue-600/30 via-violet-600/20 to-emerald-500/30 overflow-hidden">
                     <div className="absolute inset-0 opacity-40 bg-gradient-to-br from-transparent to-black/30" />

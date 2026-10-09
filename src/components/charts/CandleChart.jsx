@@ -64,7 +64,7 @@ export default function CandleChart({
     const axisText = isDark ? '#787b86' : '#64748b';
     const border = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.1)';
     const crossColor = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(15,23,42,0.35)';
-    const tagBg = isDark ? '#2a2e39' : '#334155';
+    const tagBg = isDark ? '#252c28' : '#334155';
 
     useEffect(() => {
         const el = wrapRef.current;
@@ -474,7 +474,7 @@ export default function CandleChart({
                         if (e.key === 'Escape') setEditing(null);
                     }}
                     style={{ left: xOfTime(editing.t) ?? 0, top: (yOf(editing.price) || 0) - 10 }}
-                    className={`absolute z-10 px-2 py-0.5 text-xs font-semibold rounded border outline-none ${isDark ? 'bg-[#1e222d] border-white/20 text-white' : 'bg-white border-slate-300 text-slate-800'}`}
+                    className={`absolute z-10 px-2 py-0.5 text-xs font-semibold rounded border outline-none ${isDark ? 'bg-[#1a211d] border-white/20 text-white' : 'bg-white border-slate-300 text-slate-800'}`}
                 />
             )}
 

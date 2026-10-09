@@ -269,7 +269,7 @@ export default function GerenciarUsuarios() {
                     const Icon = g.icon;
                     return (
                         <button key={g.id} onClick={() => setTab(tab === g.id ? 'all' : g.id)}
-                            className={`rounded-2xl border p-4 text-left transition ${tab === g.id ? 'ring-2 ring-offset-2 ' + (isDark ? 'ring-offset-[#0e0f12]' : 'ring-offset-slate-50') : ''} ${card}`}
+                            className={`rounded-2xl border p-4 text-left transition ${tab === g.id ? 'ring-2 ring-offset-2 ' + (isDark ? 'ring-offset-[#0a0d0b]' : 'ring-offset-slate-50') : ''} ${card}`}
                             style={tab === g.id ? { borderColor: g.color, '--tw-ring-color': g.color } : undefined}>
                             <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${g.color}22`, color: g.color }}><Icon className="w-4 h-4" /></span>
                             <p className="text-2xl font-black tabular-nums mt-2" style={{ color: g.color }}>{counts[g.id] || 0}</p>
@@ -388,7 +388,7 @@ export default function GerenciarUsuarios() {
             {editing && (
                 <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !saving && setEditing(null)} />
-                    <div className={`relative w-full max-w-md rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+                    <div className={`relative w-full max-w-md rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
                         <div className="flex items-center justify-between mb-1">
                             <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Alterar plano</h2>
                             <button onClick={() => !saving && setEditing(null)} className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}><X className="w-4 h-4" /></button>

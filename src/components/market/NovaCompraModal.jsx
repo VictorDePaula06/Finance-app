@@ -79,7 +79,7 @@ export default function NovaCompraModal({ isDark, uid, onClose }) {
             role="dialog" aria-modal="true" aria-label={t('mkt.newPurchase')}>
             <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
 
-            <div className={`relative w-full max-w-2xl rounded-2xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#131722] border-white/10' : 'bg-white border-slate-200'}`}>
+            <div className={`relative w-full max-w-2xl rounded-2xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#111614] border-white/10' : 'bg-white border-slate-200'}`}>
                 <div className={`flex items-center justify-between px-5 py-3.5 border-b ${line}`}>
                     <span className="flex items-center gap-2 min-w-0">
                         {metodo && (

@@ -61,7 +61,7 @@ export default function InstallPrompt() {
 
     return (
         <div
-            className="lg:hidden fixed left-3 right-3 z-[80] rounded-2xl border border-white/10 bg-[#0e1621]/95 backdrop-blur-md shadow-2xl p-4 animate-in slide-in-from-bottom-6 fade-in duration-500"
+            className="lg:hidden fixed left-3 right-3 z-[80] rounded-2xl border border-white/10 bg-[#0c1411]/95 backdrop-blur-md shadow-2xl p-4 animate-in slide-in-from-bottom-6 fade-in duration-500"
             style={{ bottom: 'calc(5.25rem + env(safe-area-inset-bottom))' }}
             role="dialog" aria-label="Instalar aplicativo"
         >

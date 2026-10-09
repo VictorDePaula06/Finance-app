@@ -197,7 +197,7 @@ function AddSheet({ isDark, uid, onClose }) {
             role="dialog" aria-modal="true" aria-label={t('mkt.addItem')}>
             <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
 
-            <div className={`relative w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 ${isDark ? 'bg-[#131722] border-white/10' : 'bg-white border-slate-200'}`}
+            <div className={`relative w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl border shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 ${isDark ? 'bg-[#111614] border-white/10' : 'bg-white border-slate-200'}`}
                 style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
                 {/* Alça da folha (celular) */}
                 <div className="sm:hidden flex justify-center pt-2.5 pb-1">

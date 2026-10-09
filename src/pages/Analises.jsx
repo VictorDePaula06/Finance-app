@@ -133,7 +133,7 @@ export default function Analises() {
         try {
             const [{ default: html2canvas }, jspdfMod] = await Promise.all([import('html2canvas-pro'), import('jspdf')]);
             const JsPDF = jspdfMod.jsPDF || jspdfMod.default;
-            const canvas = await html2canvas(el, { backgroundColor: isDark ? '#0e0f12' : '#ffffff', scale: 2 });
+            const canvas = await html2canvas(el, { backgroundColor: isDark ? '#0a0d0b' : '#ffffff', scale: 2 });
             const img = canvas.toDataURL('image/png');
             const pdf = new JsPDF({ orientation: 'portrait', unit: 'px', format: 'a4' });
             const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight(), margin = 24;
@@ -694,7 +694,7 @@ function FiltersModal({ isDark, reportId, filters, setFilters, cards, onClose, o
     const toggleGroup = (key, sub) => setFilters(f => ({ ...f, [key]: { ...f[key], [sub]: !f[key][sub] } }));
 
     const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 focus:border-emerald-500'}`;
-    const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
 
     const Chip = ({ on, onClick, children }) => (
         <button type="button" onClick={onClick}
@@ -716,7 +716,7 @@ function FiltersModal({ isDark, reportId, filters, setFilters, cards, onClose, o
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
                 <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2.5">
                         <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${meta?.color || '#10b981'}1f`, color: meta?.color || '#10b981' }}><Icon className="w-5 h-5" strokeWidth={2.4} /></span>
@@ -812,7 +812,7 @@ function GeneratingOverlay({ isDark, report }) {
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <div className={`relative w-full max-w-xs rounded-3xl border shadow-2xl p-8 flex flex-col items-center text-center ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full max-w-xs rounded-3xl border shadow-2xl p-8 flex flex-col items-center text-center ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
                 <span className="relative w-16 h-16 flex items-center justify-center mb-4">
                     <span className="absolute inset-0 rounded-2xl animate-ping" style={{ background: `${report?.color || '#10b981'}22` }} />
                     <span className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: `${report?.color || '#10b981'}1f`, color: report?.color || '#10b981' }}>

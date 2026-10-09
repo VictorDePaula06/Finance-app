@@ -56,7 +56,7 @@ function HealthBadge({ ringColor, statusLabel, accentText, accentSoft }) {
             >
                 <HeartPulse className="w-8 h-8" style={{ color: ringColor }} strokeWidth={1.75} />
                 <span
-                    className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full flex items-center justify-center border-2 border-[#131621]"
+                    className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full flex items-center justify-center border-2 border-[#111614]"
                     style={{ background: ringColor }}
                 >
                     <DollarSign className="w-3.5 h-3.5 text-white" strokeWidth={3} />
@@ -78,7 +78,7 @@ export default function FinancialHealthIndex({ data, invoiceInfo = null }) {
     const acc = ACCENT[data.accent] || ACCENT.slate;
 
     const { surplus, reserve, superfluous } = data.pillars;
-    const cardBg = isDark ? 'bg-[#161b27] border-white/5' : 'bg-white border-slate-100 shadow-sm';
+    const cardBg = isDark ? 'bg-[#151a17] border-white/5' : 'bg-white border-slate-100 shadow-sm';
     const sub = isDark ? 'text-slate-400' : 'text-slate-500';
     const txt = isDark ? 'text-white' : 'text-slate-800';
 

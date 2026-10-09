@@ -10,7 +10,7 @@ export default function ConfirmActionModal({ isDark, type, name, noun = 'lançam
     const [busy, setBusy] = useState(false);
     const isDelete = type === 'delete';
     const Icon = isDelete ? Trash2 : Pencil;
-    const cardBg = isDark ? 'border-white/10 bg-[#141518]' : 'border-slate-200 bg-white';
+    const cardBg = isDark ? 'border-white/10 bg-[#0e1210]' : 'border-slate-200 bg-white';
 
     const confirm = async () => {
         setBusy(true);

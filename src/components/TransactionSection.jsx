@@ -673,7 +673,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
 
             {/* Input Form */}
             <form ref={formRef} key={editingId || 'new-form'} onSubmit={handleSubmit} className={`p-6 md:p-8 rounded-3xl border shadow-2xl grid grid-cols-1 md:grid-cols-12 gap-4 ${
-                theme === 'light' ? 'glass-card border-emerald-100/50' : 'bg-[#111827]/80 backdrop-blur-xl border-white/5'
+                theme === 'light' ? 'glass-card border-emerald-100/50' : 'bg-[#0f1513]/80 backdrop-blur-xl border-white/5'
             }`}>
                 <div className="md:col-span-12">
                     <h3 className={`text-lg font-bold mb-2 flex items-center gap-2 ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>

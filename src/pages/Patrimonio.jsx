@@ -948,7 +948,7 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
         return s.startsWith(q) || s.includes(q) || n.toUpperCase().includes(q);
     }).slice(0, 8);
     const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
-    const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
 
     const qty = numQty(quantity) || 0;
@@ -1061,7 +1061,7 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                                     onFocus={() => { setShowTList(true); setTSearch(''); }} onBlur={() => setTimeout(() => setShowTList(false), 150)}
                                     placeholder="Buscar (ex.: Renda+, Selic 2029, IPCA+)" className={inputCls} />
                                 {showTList && (
-                                    <div className={`absolute z-20 left-0 right-0 mt-1 rounded-xl border shadow-2xl overflow-hidden max-h-60 overflow-y-auto ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-200'}`}>
+                                    <div className={`absolute z-20 left-0 right-0 mt-1 rounded-xl border shadow-2xl overflow-hidden max-h-60 overflow-y-auto ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-200'}`}>
                                         {tList.length === 0 ? <p className={`px-3 py-2.5 text-[12px] ${muted}`}>Nenhum título encontrado.</p> : tList.map((b) => (
                                             <button key={b.nm} type="button" onMouseDown={(e) => { e.preventDefault(); setTesouroName(b.nm); setName(b.nm); setShowTList(false); }}
                                                 className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left transition ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
@@ -1125,7 +1125,7 @@ export function AtivoForm({ isDark, uid, editing, onClose, hint, allowAddAnother
                                 {resolving && <Loader2 className="w-4 h-4 animate-spin text-emerald-500 absolute right-3 top-1/2 -translate-y-1/2" />}
                                 {!resolving && !manual && resolvedName && <Check className="w-4 h-4 text-emerald-500 absolute right-3 top-1/2 -translate-y-1/2" />}
                                 {showSug && sugList.length > 0 && (
-                                    <div className={`absolute z-20 left-0 right-0 mt-1 rounded-xl border shadow-2xl overflow-hidden max-h-56 overflow-y-auto ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-200'}`}>
+                                    <div className={`absolute z-20 left-0 right-0 mt-1 rounded-xl border shadow-2xl overflow-hidden max-h-56 overflow-y-auto ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-200'}`}>
                                         {sugList.map(([s, n]) => (
                                             <button key={s} type="button" onMouseDown={(e) => { e.preventDefault(); setSymbol(s); setShowSug(false); }}
                                                 className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
@@ -1300,7 +1300,7 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, changes = {
     };
 
     const inputCls = `px-3 py-2.5 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
-    const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
 
     // Linha da tabela: Símbolo | Preço | Var | Var% | (remover).
     const Row = ({ r }) => {
@@ -1342,7 +1342,7 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, changes = {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
                 <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2.5">
                         <span className="w-9 h-9 rounded-xl bg-emerald-500/12 text-emerald-500 flex items-center justify-center shrink-0"><Activity className="w-5 h-5" strokeWidth={2.4} /></span>
@@ -1380,7 +1380,7 @@ function MonitorModal({ isDark, investments, watchlist = [], prices, changes = {
                                     onFocus={() => setShowSug(true)} onBlur={() => setTimeout(() => setShowSug(false), 150)}
                                     onKeyDown={e => e.key === 'Enter' && add()} placeholder="Ticker (ex.: BTC)" className={`${inputCls} w-full ${addSym.trim() ? 'pl-8' : ''}`} maxLength={10} />
                                 {showSug && sugList.length > 0 && (
-                                    <div className={`absolute z-20 left-0 right-0 mt-1 rounded-xl border shadow-2xl overflow-hidden max-h-48 overflow-y-auto ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-200'}`}>
+                                    <div className={`absolute z-20 left-0 right-0 mt-1 rounded-xl border shadow-2xl overflow-hidden max-h-48 overflow-y-auto ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-200'}`}>
                                         {sugList.map(([s, n]) => (
                                             <button key={s} type="button" onMouseDown={ev => { ev.preventDefault(); setAddSym(s); setShowSug(false); }}
                                                 className={`w-full flex items-center gap-2.5 px-3 py-2 text-left ${isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'}`}>
@@ -1444,7 +1444,7 @@ function Modal({ isDark, title, icon: Icon, iconCls = '', onClose, children }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2.5">
                         {Icon && <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${iconCls}`}><Icon className="w-5 h-5" strokeWidth={2.4} /></span>}

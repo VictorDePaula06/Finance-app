@@ -180,7 +180,7 @@ export default function FluxoPatrimonialTab() {
   const card = 'pat-card';
   const txt = isDark ? 'text-white' : 'text-slate-800';
   const sub = isDark ? 'text-slate-400' : 'text-slate-500';
-  const inset = isDark ? 'bg-[#161b27] border-white/10' : 'bg-slate-50 border-slate-200';
+  const inset = isDark ? 'bg-[#151a17] border-white/10' : 'bg-slate-50 border-slate-200';
 
   const hasData = patrimonioAtual > 0 || periodFlows.length > 0;
 
@@ -256,7 +256,7 @@ export default function FluxoPatrimonialTab() {
                   <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#ffffff0d' : '#0000000d'} vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} />
                   <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} width={48} />
-                  <Tooltip cursor={{ fill: isDark ? '#ffffff08' : '#0000000a' }} formatter={(v, n) => [`R$ ${fmt(v)}`, n]} contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: 12, fontSize: 12 }} labelStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }} />
+                  <Tooltip cursor={{ fill: isDark ? '#ffffff08' : '#0000000a' }} formatter={(v, n) => [`R$ ${fmt(v)}`, n]} contentStyle={{ backgroundColor: isDark ? '#0e1613' : '#fff', borderColor: isDark ? '#1c2a24' : '#e2e8f0', borderRadius: 12, fontSize: 12 }} labelStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }} />
                   <Bar name="Aportes" dataKey="Aportes" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={28} />
                   <Bar name="Resgates" dataKey="Resgates" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={28} />
                 </BarChart>

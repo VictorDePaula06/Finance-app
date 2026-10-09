@@ -291,8 +291,8 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
   const card = 'pat-card';
   const txt = isDark ? 'text-white' : 'text-slate-800';
   const sub = isDark ? 'text-slate-400' : 'text-slate-500';
-  const inset = isDark ? 'bg-[#161b27] border-white/10' : 'bg-slate-50 border-slate-200';
-  const fieldBg = isDark ? 'bg-[#161b27] border-white/10' : 'bg-white border-slate-200';
+  const inset = isDark ? 'bg-[#151a17] border-white/10' : 'bg-slate-50 border-slate-200';
+  const fieldBg = isDark ? 'bg-[#151a17] border-white/10' : 'bg-white border-slate-200';
 
   const Chip = ({ active, onClick, hex, icon: Icon, children }) => (
     <button onClick={onClick}
@@ -437,7 +437,7 @@ export default function PeriodAnalysis({ transactions = [], cards = [], subscrip
                       <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#ffffff0d' : '#0000000d'} vertical={false} />
                       <XAxis dataKey="label" tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={8} />
                       <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 9, fill: isDark ? '#64748b' : '#94a3b8' }} axisLine={false} tickLine={false} width={48} />
-                      <Tooltip cursor={{ fill: isDark ? '#ffffff0a' : '#0000000a' }} formatter={(v, n) => [`R$ ${fmt(v)}`, n === 'gastos' ? 'Saídas' : 'Entradas']} contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', borderColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: '12px', fontSize: 12 }} labelStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }} />
+                      <Tooltip cursor={{ fill: isDark ? '#ffffff0a' : '#0000000a' }} formatter={(v, n) => [`R$ ${fmt(v)}`, n === 'gastos' ? 'Saídas' : 'Entradas']} contentStyle={{ backgroundColor: isDark ? '#0e1613' : '#fff', borderColor: isDark ? '#1c2a24' : '#e2e8f0', borderRadius: '12px', fontSize: 12 }} labelStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }} />
                       <Bar dataKey="ganhos" name="ganhos" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} />
                       <Bar dataKey="gastos" name="gastos" fill="#f43f5e" radius={[3, 3, 0, 0]} maxBarSize={22} />
                     </BarChart>

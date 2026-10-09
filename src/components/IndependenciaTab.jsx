@@ -120,7 +120,7 @@ export default function IndependenciaTab() {
   const card = 'pat-card';
   const txt = isDark ? 'text-white' : 'text-slate-800';
   const sub = isDark ? 'text-slate-400' : 'text-slate-500';
-  const inset = isDark ? 'bg-[#161b27] border-white/10' : 'bg-slate-50 border-slate-200';
+  const inset = isDark ? 'bg-[#151a17] border-white/10' : 'bg-slate-50 border-slate-200';
 
   return (
     <div className="max-w-full px-5 md:px-8 space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
@@ -286,7 +286,7 @@ function FireTooltip({ active, payload, label, isDark }) {
   const g = payload.find(p => p.dataKey === 'guardado')?.value || 0;
   const r = payload.find(p => p.dataKey === 'rendeu')?.value || 0;
   return (
-    <div className={`px-3 py-2 rounded-xl border shadow-xl text-xs ${isDark ? 'bg-[#0f172a] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
+    <div className={`px-3 py-2 rounded-xl border shadow-xl text-xs ${isDark ? 'bg-[#0e1613] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
       <p className="font-black mb-1">{label}</p>
       <p className="text-emerald-400 font-bold">Guardado: R$ {fmt(g)}</p>
       <p className="text-blue-400 font-bold">Rendimento: R$ {fmt(r)}</p>
@@ -304,7 +304,7 @@ function Slider({ label, value, min, max, step, onChange, fmtVal, color, isDark,
       </div>
       <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))}
         className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
-        style={{ accentColor: color, background: isDark ? '#334155' : '#e2e8f0' }} />
+        style={{ accentColor: color, background: isDark ? '#33423a' : '#e2e8f0' }} />
     </div>
   );
 }

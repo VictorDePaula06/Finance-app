@@ -461,7 +461,7 @@ export default function ConsultoriaAlivia({ onNavigate }) {
 
     const cellText = isDark ? 'text-slate-200' : 'text-slate-700';
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
-    const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
 
     return (
         <div className="max-w-3xl mx-auto w-full h-[calc(100vh-6rem)] lg:h-[calc(100vh-5rem)] flex flex-col">

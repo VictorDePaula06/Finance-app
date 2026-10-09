@@ -186,7 +186,7 @@ export default function ExtratoTab({ transactions = [] }) {
                     <select
                         value={period}
                         onChange={e => setPeriod(e.target.value)}
-                        className={`appearance-none pl-3 pr-8 py-2 rounded-xl border text-xs font-bold outline-none cursor-pointer ${isDark ? 'bg-[#151822] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
+                        className={`appearance-none pl-3 pr-8 py-2 rounded-xl border text-xs font-bold outline-none cursor-pointer ${isDark ? 'bg-[#131815] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
                     >
                         <option value="current">Este mês</option>
                         {months.filter(m => m !== currentMonthKey).map(m => (
@@ -198,7 +198,7 @@ export default function ExtratoTab({ transactions = [] }) {
                 </div>
 
                 {/* Filtro entrada/saída */}
-                <div className={`inline-flex items-center gap-1 p-1 rounded-xl border ${isDark ? 'bg-[#151822] border-white/10' : 'bg-white border-slate-200'}`}>
+                <div className={`inline-flex items-center gap-1 p-1 rounded-xl border ${isDark ? 'bg-[#131815] border-white/10' : 'bg-white border-slate-200'}`}>
                     <FilterBtn id="all" label="Tudo" />
                     <FilterBtn id="income" label="Entradas" />
                     <FilterBtn id="expense" label="Saídas" />
@@ -211,7 +211,7 @@ export default function ExtratoTab({ transactions = [] }) {
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         placeholder="Buscar por descrição ou categoria…"
-                        className={`w-full pl-8 pr-3 py-2 rounded-xl border text-xs outline-none ${isDark ? 'bg-[#151822] border-white/10 text-white placeholder:text-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder:text-slate-400'}`}
+                        className={`w-full pl-8 pr-3 py-2 rounded-xl border text-xs outline-none ${isDark ? 'bg-[#131815] border-white/10 text-white placeholder:text-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder:text-slate-400'}`}
                     />
                 </div>
             </div>
@@ -229,7 +229,7 @@ export default function ExtratoTab({ transactions = [] }) {
                 ) : (
                     groups.map(g => (
                         <div key={g.key}>
-                            <div className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest sticky top-0 ${isDark ? 'bg-[#11141c] text-slate-500 border-b border-white/[0.04]' : 'bg-slate-50 text-slate-400 border-b border-slate-100'}`}>
+                            <div className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest sticky top-0 ${isDark ? 'bg-[#0e1210] text-slate-500 border-b border-white/[0.04]' : 'bg-slate-50 text-slate-400 border-b border-slate-100'}`}>
                                 {dayLabel(g.key)}
                             </div>
                             {g.items.map(({ t, affects, runningBalance }, i) => {

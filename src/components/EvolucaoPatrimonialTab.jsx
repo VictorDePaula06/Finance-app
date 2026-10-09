@@ -627,7 +627,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
                                     stroke="url(#portfolioGradient)"
                                     strokeWidth={line.strokeWidth}
                                     dot={false}
-                                    activeDot={{ r: 6, strokeWidth: 3, stroke: '#00E5A0', fill: isDark ? '#0f172a' : '#ffffff' }}
+                                    activeDot={{ r: 6, strokeWidth: 3, stroke: '#00E5A0', fill: isDark ? '#0e1613' : '#ffffff' }}
                                     connectNulls
                                     filter="url(#portfolioGlow)"
                                 />

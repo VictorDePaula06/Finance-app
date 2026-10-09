@@ -28,7 +28,7 @@ export function ThemeProvider({ children }) {
 
         // Barra de status do app instalado acompanha o fundo do tema.
         const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', theme === 'dark' ? '#020617' : '#ffffff');
+        if (meta) meta.setAttribute('content', theme === 'dark' ? '#050a08' : '#ffffff');
     }, [theme]);
 
     const toggleTheme = () => {

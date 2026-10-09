@@ -85,7 +85,7 @@ export default function MobileNav({ active, go, onOpenProfile, onLogout }) {
         <>
             {/* ── Bottom navigation (só mobile) ── */}
             <nav aria-label="Navegação principal"
-                className={`lg:hidden fixed bottom-0 inset-x-0 z-40 border-t backdrop-blur ${isDark ? 'bg-[#0a0a0a]/95 border-white/[0.06]' : 'bg-white/95 border-slate-200'}`}
+                className={`lg:hidden fixed bottom-0 inset-x-0 z-40 border-t backdrop-blur ${isDark ? 'bg-[#030505]/95 border-white/[0.06]' : 'bg-white/95 border-slate-200'}`}
                 style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
                 <div className="flex items-stretch h-16 max-w-xl mx-auto">
                     {BOTTOM.map(({ id, label, icon: Icon }) => {
@@ -101,7 +101,7 @@ export default function MobileNav({ active, go, onOpenProfile, onLogout }) {
                         <span className="relative">
                             <LayoutGrid className="w-[22px] h-[22px]" strokeWidth={moreActive ? 2.5 : 2} />
                             {!waLoading && !connected && (
-                                <span className={`absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ${isDark ? 'ring-[#0a0a0a]' : 'ring-white'}`} />
+                                <span className={`absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ${isDark ? 'ring-[#030505]' : 'ring-white'}`} />
                             )}
                         </span>
                         <span className="text-[9px] font-bold leading-none tracking-tight">{t('nav.more')}</span>
@@ -113,7 +113,7 @@ export default function MobileNav({ active, go, onOpenProfile, onLogout }) {
             {more && (
                 <div className="lg:hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Mais opções">
                     <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setMore(false)} />
-                    <div className={`absolute inset-x-0 bottom-0 rounded-t-3xl border-t max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300 ${isDark ? 'bg-[#0e0f12] border-white/10' : 'bg-white border-slate-200'}`}
+                    <div className={`absolute inset-x-0 bottom-0 rounded-t-3xl border-t max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300 ${isDark ? 'bg-[#0a0d0b] border-white/10' : 'bg-white border-slate-200'}`}
                         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
                         {/* Handle + fechar */}
                         <div className="flex items-center justify-between px-4 pt-3 pb-1 shrink-0">

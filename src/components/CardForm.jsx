@@ -49,7 +49,7 @@ export default function CardForm({ isDark, uid, editing, onClose, onSaved, hint 
     const previewSub = [nameHasBank ? null : bankLabel, last4 ? `•••• ${last4}` : null].filter(Boolean).join(' · ') || 'Banco';
 
     const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
-    const optStyle = { backgroundColor: isDark ? '#17181b' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
 
     const submit = async (e) => {
         e.preventDefault();
@@ -76,7 +76,7 @@ export default function CardForm({ isDark, uid, editing, onClose, onSaved, hint 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-md rounded-3xl border shadow-2xl p-6 max-h-[92vh] overflow-y-auto ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full max-w-md rounded-3xl border shadow-2xl p-6 max-h-[92vh] overflow-y-auto ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2.5">
                         <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-emerald-500/12 text-emerald-500"><CreditCard className="w-5 h-5" strokeWidth={2.4} /></span>

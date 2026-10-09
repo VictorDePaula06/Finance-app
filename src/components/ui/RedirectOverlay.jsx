@@ -15,7 +15,7 @@ export default function RedirectOverlay({ isDark, label }) {
     return (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 animate-in fade-in duration-150" role="status" aria-live="polite">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-            <div className={`relative w-full max-w-xs rounded-3xl border shadow-2xl px-6 py-7 text-center animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#141518] border-white/10' : 'bg-white border-slate-100'}`}>
+            <div className={`relative w-full max-w-xs rounded-3xl border shadow-2xl px-6 py-7 text-center animate-in zoom-in-95 duration-200 ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
                 <span className="relative w-16 h-16 rounded-2xl bg-emerald-500/12 text-emerald-500 flex items-center justify-center mx-auto mb-4 ring-1 ring-emerald-500/20">
                     <Settings className="w-8 h-8 animate-[spin_1.6s_linear_infinite]" strokeWidth={2.2} />
                 </span>

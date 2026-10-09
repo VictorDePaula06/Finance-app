@@ -415,7 +415,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
 
             {/* Month Selector — ABAIXO dos cards */}
             <div className="flex flex-col items-center gap-4 mb-2">
-                <div className={`flex items-center rounded-lg border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#1e2330] border-slate-700/50'}`}>
+                <div className={`flex items-center rounded-lg border ${theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#1a211d] border-slate-700/50'}`}>
                     <button onClick={handlePrevMonth} className="p-2 text-slate-400 hover:text-white transition-colors">
                         <ChevronLeft className="w-4 h-4" />
                     </button>
@@ -491,7 +491,7 @@ export default function IncomeTab({ transactions, savingsJars, walletStats, hide
                                                 + {formatCurrency(parseFloat(t.amount))}
                                             </span>
                                             {/* Actions: always visible on mobile, slide-in on hover for desktop */}
-                                            <div className={`sm:absolute sm:right-0 sm:translate-x-16 sm:opacity-0 sm:group-hover:translate-x-0 sm:group-hover:opacity-100 transition-all flex gap-1 sm:pl-2 ${theme === 'light' ? 'sm:bg-white' : 'sm:bg-[#1e2330]'}`}>
+                                            <div className={`sm:absolute sm:right-0 sm:translate-x-16 sm:opacity-0 sm:group-hover:translate-x-0 sm:group-hover:opacity-100 transition-all flex gap-1 sm:pl-2 ${theme === 'light' ? 'sm:bg-white' : 'sm:bg-[#1a211d]'}`}>
                                                 <button onClick={() => handleEditInitiate(t)} className={`p-2 text-slate-400 hover:text-emerald-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Pencil className="w-4 h-4 sm:w-3 sm:h-3" /></button>
                                                 <button onClick={() => handleDelete(t.id)} className={`p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-md ${theme === 'light' ? 'hover:bg-slate-50' : ''}`}><Trash2 className="w-4 h-4 sm:w-3 sm:h-3" /></button>
                                             </div>
