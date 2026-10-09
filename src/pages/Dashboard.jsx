@@ -235,8 +235,12 @@ export default function Dashboard({ onNavigate }) {
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                    {/* Status/atalho do WhatsApp — ao lado do nome (pendente vs conectado) */}
-                    <WhatsAppStatusButton isDark={isDark} compact onOpen={() => (wa.connected ? setWaOpen(true) : goTo('whatsapp'))} />
+                    {/* O atalho do WhatsApp subiu para a barra superior: aparece em
+                        todas as abas, não só aqui. No mobile, onde a barra não existe,
+                        ele continua neste cabeçalho. */}
+                    <span className="lg:hidden">
+                        <WhatsAppStatusButton isDark={isDark} compact onOpen={() => (wa.connected ? setWaOpen(true) : goTo('whatsapp'))} />
+                    </span>
                     <button onClick={() => setConfigOpen(true)} title={t('dash.configure')} className={`hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                         <Settings className="w-4 h-4" /> {t('dash.configure')}
                     </button>

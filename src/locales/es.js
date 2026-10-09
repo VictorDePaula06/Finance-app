@@ -10,6 +10,8 @@ export default {
     'common.edit': 'Editar',
     'common.add': 'Agregar',
     'common.clear': 'Limpiar',
+    'common.show': 'Mostrar',
+    'common.hide': 'Ocultar',
     'common.close': 'Cerrar',
     'common.back': 'Volver',
     'common.confirm': 'Confirmar',

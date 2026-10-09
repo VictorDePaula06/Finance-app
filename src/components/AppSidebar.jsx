@@ -6,7 +6,7 @@ import {
     BarChart3, BookOpen, Settings, LogOut, Sun, Moon, X, PiggyBank, Wrench, TrendingUp,
 } from 'lucide-react';
 
-import logo from '../assets/logo.png';
+import marca from '../assets/logo-mark.png';
 import UserAvatar from './UserAvatar';
 import { useI18n } from '../contexts/LanguageContext';
 
@@ -58,29 +58,21 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
             mobile
                 ? 'w-[280px] max-w-[85vw] h-full'
                 : 'hidden lg:flex w-[260px] shrink-0 h-screen sticky top-0'} ${
-            isDark ? 'bg-[#030505] border-white/[0.06]' : 'bg-white border-slate-100'}`}>
-            {/* Marca — ícone grande centralizado + "Alívia Finanças" embaixo */}
-            <div className="relative flex flex-col items-center pt-1 pb-5 mb-1">
+            isDark ? 'bg-[#030505] border-white/[0.06]' : 'bg-white border-slate-100'}`}
+            style={isDark ? { backgroundImage: 'linear-gradient(180deg, rgba(16,185,129,0.16) 0%, rgba(16,185,129,0.055) 30%, transparent 62%)' } : undefined}>
+            {/* Marca — linha única de 56px, na mesma altura da barra superior. */}
+            <div className="flex items-center gap-2.5 h-14 -mt-4 mb-1 shrink-0">
+                <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-emerald-500/10 ring-1 ring-emerald-500/25' : 'bg-emerald-50 ring-1 ring-emerald-100'}`}>
+                    <img src={marca} alt="Alívia" className="w-[22px] h-[22px] object-contain" />
+                </span>
+                <span className="text-[15px] font-black tracking-tight leading-none min-w-0 truncate">
+                    <span className={isDark ? 'text-white' : 'text-slate-800'}>Alívia</span>{' '}
+                    <span className="text-emerald-400">Finanças</span>
+                </span>
                 <button onClick={mobile ? onClose : toggleTheme} aria-label={mobile ? 'Fechar menu' : 'Alternar tema'}
-                    className={`absolute top-0 right-0 w-9 h-9 rounded-xl flex items-center justify-center transition ${isDark ? 'bg-white/5 text-amber-300 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                    className={`ml-auto w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition ${isDark ? 'bg-white/5 text-amber-300 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
                     {mobile ? <X className="w-4 h-4" /> : (isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />)}
                 </button>
-                {/* Só o símbolo (recorta o "Alívia" que vem embutido no PNG) */}
-                <div className="w-[132px] h-[76px] overflow-hidden flex justify-center mb-2">
-                    <img src={logo} alt="Alívia" className="w-[132px] h-[132px] object-cover object-top drop-shadow-[0_0_24px_rgba(16,185,129,0.25)]" />
-                </div>
-                <div className="flex flex-col items-center leading-none">
-                    <span className="text-[28px] font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500">
-                        Alívia
-                    </span>
-                    <span className={`text-[11px] font-bold uppercase tracking-[0.42em] mt-1.5 ml-[0.42em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                        Finanças
-                    </span>
-                    <a href={RELEASE_NOTES_URL} target="_blank" rel="noopener noreferrer" title={t('nav.releaseNotesTitle')}
-                        className={`text-[10px] font-bold tracking-wide mt-1.5 px-1.5 py-0.5 rounded-md transition ${isDark ? 'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}>
-                        v{APP_VERSION} · {t('nav.releaseNotes')}
-                    </a>
-                </div>
             </div>
 
             {/* Separador + rótulo da seção */}
@@ -93,13 +85,19 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
                     const on = active === id;
                     return (
                         <button key={id} onClick={() => withClose(onNavigate)(id)}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13.5px] font-semibold transition-all active:scale-[0.98] ${
+                            className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13.5px] transition-all active:scale-[0.98] ${
                                 on
-                                    ? (isDark ? 'bg-[#191c1b] text-white' : 'bg-slate-100 text-slate-900')
-                                    : (isDark ? 'text-slate-400 hover:bg-white/[0.045] hover:text-slate-200'
-                                              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800')
-                            }`}>
-                            <Icon className={`w-4 h-4 shrink-0 ${on ? 'text-emerald-400' : ''}`} strokeWidth={on ? 2.3 : 2} />
+                                    ? (isDark ? 'font-bold text-white' : 'font-bold bg-emerald-50 text-emerald-800')
+                                    : (isDark ? 'font-semibold text-slate-400 hover:bg-white/[0.045] hover:text-slate-200'
+                                              : 'font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-800')
+                            }`}
+                            style={on && isDark ? {
+                                backgroundImage: 'linear-gradient(90deg, rgba(36,219,146,0.17), rgba(36,219,146,0.07))',
+                                boxShadow: '0 0 22px -6px rgba(36,219,146,0.35)',
+                            } : undefined}>
+                            {/* A luz verde da aba: barrinha acesa colada na borda. */}
+                            {on && <span aria-hidden className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${isDark ? 'bg-emerald-400 shadow-[0_0_10px_rgba(36,219,146,0.9)]' : 'bg-emerald-500'}`} />}
+                            <Icon className={`w-4 h-4 shrink-0 ${on ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : ''}`} strokeWidth={on ? 2.3 : 2} />
                             <span className="truncate">{t(label)}</span>
                         </button>
                     );
@@ -113,11 +111,16 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
             <div className="mt-3 pt-3 space-y-1">
                 {/* Cadastros (recorrentes, tetos), WhatsApp e configurações da conta */}
                 <button onClick={withClose(onSettings)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl text-[12.5px] font-bold transition ${
+                    className={`relative w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[12.5px] font-bold transition ${
                         active === 'configuracoes'
-                            ? (isDark ? 'bg-[#191c1b] text-white' : 'bg-slate-100 text-slate-900')
-                            : (isDark ? 'text-slate-400 hover:bg-white/[0.045] hover:text-slate-200' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800')}`}>
-                    <Settings className={`w-4 h-4 shrink-0 ${active === 'configuracoes' ? 'text-emerald-400' : ''}`} /> <span className="truncate">{t('nav.settings')}</span>
+                            ? (isDark ? 'text-white' : 'bg-emerald-50 text-emerald-800')
+                            : (isDark ? 'text-slate-400 hover:bg-white/[0.045] hover:text-slate-200' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800')}`}
+                    style={active === 'configuracoes' && isDark ? {
+                        backgroundImage: 'linear-gradient(90deg, rgba(36,219,146,0.17), rgba(36,219,146,0.07))',
+                        boxShadow: '0 0 22px -6px rgba(36,219,146,0.35)',
+                    } : undefined}>
+                    {active === 'configuracoes' && <span aria-hidden className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${isDark ? 'bg-emerald-400 shadow-[0_0_10px_rgba(36,219,146,0.9)]' : 'bg-emerald-500'}`} />}
+                    <Settings className={`w-4 h-4 shrink-0 ${active === 'configuracoes' ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : ''}`} /> <span className="truncate">{t('nav.settings')}</span>
                 </button>
 
                 {/* Bloco do usuário (abaixo de Configurações e Cadastros) */}

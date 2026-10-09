@@ -6,6 +6,7 @@ import { Toaster } from './ui/Toaster';
 import OnboardingAlivia from './OnboardingAlivia';
 import AppSidebar, { NAV_ITEMS, APP_VERSION, RELEASE_NOTES_URL } from './AppSidebar';
 import MobileNav from './MobileNav';
+import AppTopBar from './AppTopBar';
 import { useI18n } from '../contexts/LanguageContext';
 import InstallPrompt from './InstallPrompt';
 import ContasPagar from '../pages/Recorrentes';
@@ -87,6 +88,12 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
 
             {/* Sem fundo próprio no escuro: quem pinta é a aurora do <body>. */}
             <div className="flex-1 flex flex-col min-w-0">
+                {/* Barra superior (desktop): marca, saldo e atalhos, em toda aba. */}
+                <AppTopBar
+                    titulo={label}
+                    onSettings={() => go('configuracoes')}
+                    onWhatsApp={() => navigate(`${tabPath('configuracoes')}?tab=whatsapp`)}
+                />
                 {/* Topo mobile (some no desktop) — marca + versão; respeita a barra de status. */}
                 <header className={`lg:hidden sticky top-0 z-30 flex items-center gap-2 px-4 border-b ${isDark ? 'bg-[#030505]/90 border-white/[0.06]' : 'bg-white/90 border-slate-100'} backdrop-blur`}
                     style={{ height: 'calc(3.25rem + env(safe-area-inset-top))', paddingTop: 'env(safe-area-inset-top)' }}>

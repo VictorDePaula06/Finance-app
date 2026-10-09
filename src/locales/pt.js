@@ -11,6 +11,8 @@ export default {
     'common.edit': 'Editar',
     'common.add': 'Adicionar',
     'common.clear': 'Limpar',
+    'common.show': 'Mostrar',
+    'common.hide': 'Ocultar',
     'common.close': 'Fechar',
     'common.back': 'Voltar',
     'common.confirm': 'Confirmar',
