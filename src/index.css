@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&family=Quicksand:wght@300..700&display=swap');
 
 /* Precisa vir DEPOIS de todos os @import: o CSS descarta qualquer @import
    que apareça abaixo de outra regra — foi assim que a Quicksand sumiu.
@@ -9,6 +9,14 @@
    de @media (prefers-color-scheme: dark) e seguia o tema do CELULAR, não o
    botão do app. Esta linha prende o `dark:` à classe .dark do <html>. */
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* Fonte do sistema: a grotesca neutra da referência, no lugar da Quicksand
+   arredondada. Vale tanto pela herança do :root quanto pelo utilitário
+   `font-sans` do Tailwind — que alguns componentes usam explicitamente e
+   que, sem isto aqui, continuaria caindo na pilha padrão. */
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
 
 /* `only` proíbe o navegador de aplicar o escurecimento automático dele por
    cima do nosso tema. Sem o `only`, dizer apenas "light" faz o Chrome do
@@ -48,7 +56,7 @@
 }
 
 :root {
-  font-family: 'Quicksand', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   
   /* Alívia Palette Constants */
   --verde-respira: #69C8B9;
@@ -147,7 +155,7 @@ html, body {
 .theme-light .placeholder-slate-400::placeholder,
 .theme-light .placeholder-slate-500::placeholder { color: #64748b; opacity: 1; }
 
-/* Peso mínimo dos textinhos finos no tema claro (Quicksand fica fino em 10–12px).
+/* Peso mínimo dos textinhos finos no tema claro (a Inter fica fina em 10–12px).
    Fica na camada `base`: os utilitários font-bold/black continuam prevalecendo,
    então só os textos SEM peso explícito (os subtítulos finos) ganham corpo. */
 @layer base {
@@ -155,17 +163,62 @@ html, body {
   .theme-light .text-slate-500 { font-weight: 500; }
 }
 
-/* Na referência o fundo não tem os dois halos de canto: tem UM brilho verde
-   nascendo no topo, uma reverberação fraca no pé da página e uma textura de
-   pontos quase invisível por cima. */
+/* ── O fundo vivo do modo escuro ──────────────────────────────────────
+   Na referência o fundo não é chapado: tem uma aurora verde respirando no
+   meio da tela e uma poeira de pontinhos claros flutuando por cima dela.
+
+   As duas camadas são pseudo-elementos do <body>: presas na viewport, sem
+   captar clique, sem uma linha de JSX. `isolation: isolate` não é enfeite —
+   sem ele o próprio fundo do <body> pintaria POR CIMA de um filho com
+   z-index negativo. Transformando o body em contexto de empilhamento a
+   ordem fica fundo → aurora → pontinhos → conteúdo. */
 .theme-dark body {
+  isolation: isolate;
   background-image:
-    radial-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    radial-gradient(90% 55% at 50% -8%, rgba(22, 190, 132, 0.16) 0%, rgba(10, 41, 30, 0.08) 42%, transparent 72%),
-    radial-gradient(70% 45% at 50% 105%, rgba(22, 190, 132, 0.06) 0%, transparent 70%);
-  background-size: 22px 22px, 100% 100%, 100% 100%;
-  background-position: 0 0, center top, center bottom;
-  background-repeat: repeat, no-repeat, no-repeat;
+    radial-gradient(85% 50% at 50% -10%, rgba(22, 190, 132, 0.10) 0%, transparent 70%);
+  background-repeat: no-repeat;
+}
+
+.theme-dark body::before,
+.theme-dark body::after {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* A aurora. O `inset` negativo deixa o desfoque sangrar para fora da tela,
+   senão a borda do próprio desfoque aparece como uma moldura. */
+.theme-dark body::before {
+  inset: -12%;
+  background-image:
+    radial-gradient(38% 34% at 33% 56%, rgba(22, 200, 140, 0.30) 0%, rgba(16, 150, 105, 0.13) 48%, transparent 76%),
+    radial-gradient(46% 40% at 58% 36%, rgba(16, 185, 129, 0.16) 0%, transparent 72%),
+    radial-gradient(34% 46% at 76% 70%, rgba(13, 148, 136, 0.13) 0%, transparent 74%);
+  filter: blur(18px);
+  animation: alv-aurora 28s ease-in-out infinite alternate;
+}
+
+/* A poeira. São dois ladrilhos no mesmo elemento, andando distâncias
+   diferentes no mesmo tempo — é essa diferença que dá a profundidade. */
+.theme-dark body::after {
+  inset: 0;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='440' height='440' viewBox='0 0 440 440'%3E%3Cg fill='%23a7f3d0'%3E%3Ccircle cx='144.6' cy='70.6' r='1.75' opacity='0.18'/%3E%3Ccircle cx='235.4' cy='162.5' r='0.98' opacity='0.29'/%3E%3Ccircle cx='22.0' cy='191.6' r='0.99' opacity='0.18'/%3E%3Ccircle cx='187.7' cy='359.9' r='1.06' opacity='0.22'/%3E%3Ccircle cx='274.5' cy='411.6' r='1.65' opacity='0.26'/%3E%3Ccircle cx='423.8' cy='25.9' r='2.02' opacity='0.24'/%3E%3Ccircle cx='67.7' cy='56.4' r='1.3' opacity='0.37'/%3E%3Ccircle cx='83.4' cy='254.9' r='1.73' opacity='0.26'/%3E%3Ccircle cx='240.4' cy='32.9' r='0.98' opacity='0.21'/%3E%3Ccircle cx='297.2' cy='189.0' r='1.31' opacity='0.31'/%3E%3Ccircle cx='200.0' cy='134.3' r='1.93' opacity='0.34'/%3E%3Ccircle cx='110.5' cy='251.9' r='1.58' opacity='0.39'/%3E%3Ccircle cx='318.2' cy='129.2' r='2.17' opacity='0.19'/%3E%3Ccircle cx='185.0' cy='330.1' r='1.1' opacity='0.29'/%3E%3Ccircle cx='22.8' cy='292.0' r='1.89' opacity='0.31'/%3E%3Ccircle cx='380.7' cy='140.3' r='1.8' opacity='0.31'/%3E%3Ccircle cx='254.2' cy='201.3' r='1.99' opacity='0.41'/%3E%3Ccircle cx='208.9' cy='290.3' r='0.98' opacity='0.34'/%3E%3Ccircle cx='283.0' cy='431.0' r='1.97' opacity='0.23'/%3E%3Ccircle cx='171.1' cy='292.2' r='0.93' opacity='0.28'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 320 320'%3E%3Cg fill='%236ee7b7'%3E%3Ccircle cx='85.8' cy='217.1' r='2.89' opacity='0.16'/%3E%3Ccircle cx='63.2' cy='77.0' r='2.04' opacity='0.1'/%3E%3Ccircle cx='232.1' cy='46.1' r='2.65' opacity='0.1'/%3E%3Ccircle cx='96.8' cy='138.9' r='3.14' opacity='0.14'/%3E%3Ccircle cx='10.4' cy='91.0' r='2.03' opacity='0.17'/%3E%3Ccircle cx='255.4' cy='254.3' r='3.12' opacity='0.15'/%3E%3Ccircle cx='298.4' cy='250.5' r='2.21' opacity='0.16'/%3E%3Ccircle cx='155.9' cy='238.5' r='2.7' opacity='0.12'/%3E%3Ccircle cx='118.2' cy='138.4' r='2.3' opacity='0.09'/%3E%3Ccircle cx='258.5' cy='251.9' r='3.38' opacity='0.15'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 440px 440px, 320px 320px;
+  animation: alv-poeira 104s linear infinite;
+}
+
+@keyframes alv-aurora {
+  0%   { transform: translate3d(0, 0, 0) scale(1);        opacity: 0.85; }
+  50%  { transform: translate3d(2.5%, -2%, 0) scale(1.07); opacity: 1; }
+  100% { transform: translate3d(-2%, 2.5%, 0) scale(1.02); opacity: 0.9; }
+}
+
+@keyframes alv-poeira {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 440px -880px, -320px -640px; }
 }
 
 @keyframes gradient-flow {
@@ -209,6 +262,16 @@ html, body {
   background-image: linear-gradient(to bottom right, #050a08, #0e1613 50%, rgba(10, 41, 30, 0.45));
   box-shadow: none;
 }
+
+/* ── Painéis sobre o fundo vivo ──────────────────────────────────────
+   `bg-white/[0.02]` e `bg-white/[0.03]` são o preenchimento das caixas do
+   app. Eram quase transparentes porque antes havia um fundo chapado atrás
+   delas. Com a aurora e os pontinhos ali, essas caixas viravam janelas: a
+   poeira aparecia por cima do texto. No escuro elas passam a ser uma
+   superfície de verdade, como as caixas da referência — ainda deixando um
+   fio do brilho passar. */
+.theme-dark .bg-white\/\[0\.02\] { background-color: rgba(9, 14, 12, 0.68); }
+.theme-dark .bg-white\/\[0\.03\] { background-color: rgba(11, 17, 14, 0.72); }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {

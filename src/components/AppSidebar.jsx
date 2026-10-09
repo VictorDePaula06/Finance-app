@@ -93,13 +93,13 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
                     const on = active === id;
                     return (
                         <button key={id} onClick={() => withClose(onNavigate)(id)}
-                            className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-[14px] font-bold transition-all active:scale-[0.98] ${
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13.5px] font-semibold transition-all active:scale-[0.98] ${
                                 on
-                                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 shadow-sm'
-                                    : (isDark ? 'text-slate-400 border border-transparent hover:bg-white/5 hover:text-slate-200'
-                                              : 'text-slate-500 border border-transparent hover:bg-slate-50 hover:text-slate-800')
+                                    ? (isDark ? 'bg-[#191c1b] text-white' : 'bg-slate-100 text-slate-900')
+                                    : (isDark ? 'text-slate-400 hover:bg-white/[0.045] hover:text-slate-200'
+                                              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800')
                             }`}>
-                            <Icon className="w-[18px] h-[18px] shrink-0" strokeWidth={on ? 2.4 : 2} />
+                            <Icon className={`w-4 h-4 shrink-0 ${on ? 'text-emerald-400' : ''}`} strokeWidth={on ? 2.3 : 2} />
                             <span className="truncate">{t(label)}</span>
                         </button>
                     );
@@ -115,9 +115,9 @@ export default function AppSidebar({ active, onNavigate, onSettings, onLogout, m
                 <button onClick={withClose(onSettings)}
                     className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl text-[12.5px] font-bold transition ${
                         active === 'configuracoes'
-                            ? 'bg-emerald-500/10 text-emerald-500'
-                            : (isDark ? 'text-slate-400 hover:bg-white/5 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800')}`}>
-                    <Settings className="w-[18px] h-[18px] shrink-0" /> <span className="truncate">{t('nav.settings')}</span>
+                            ? (isDark ? 'bg-[#191c1b] text-white' : 'bg-slate-100 text-slate-900')
+                            : (isDark ? 'text-slate-400 hover:bg-white/[0.045] hover:text-slate-200' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800')}`}>
+                    <Settings className={`w-4 h-4 shrink-0 ${active === 'configuracoes' ? 'text-emerald-400' : ''}`} /> <span className="truncate">{t('nav.settings')}</span>
                 </button>
 
                 {/* Bloco do usuário (abaixo de Configurações e Cadastros) */}

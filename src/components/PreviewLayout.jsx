@@ -67,7 +67,7 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
     if (ALIAS[active]) return <Navigate to={tabPath(ALIAS[active])} replace />;
 
     return (
-        <div className={`min-h-screen flex ${isDark ? 'bg-[#0a0d0b]' : 'bg-slate-50'}`}>
+        <div className={`min-h-screen flex ${isDark ? 'bg-transparent' : 'bg-slate-50'}`}>
             <Toaster />
             {showOnboarding && <OnboardingAlivia onDone={() => setObDismissed(true)} />}
 
@@ -85,8 +85,8 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
             {/* Card flutuante "Instalar Aplicativo" (mobile web, enquanto não instalado) */}
             <InstallPrompt />
 
-            <div className="flex-1 flex flex-col min-w-0"
-                style={isDark ? { backgroundImage: 'radial-gradient(1300px 620px at 12% -6%, rgba(16,185,129,0.18), transparent 60%), radial-gradient(820px 480px at 88% -10%, rgba(20,184,166,0.10), transparent 62%)' } : undefined}>
+            {/* Sem fundo próprio no escuro: quem pinta é a aurora do <body>. */}
+            <div className="flex-1 flex flex-col min-w-0">
                 {/* Topo mobile (some no desktop) — marca + versão; respeita a barra de status. */}
                 <header className={`lg:hidden sticky top-0 z-30 flex items-center gap-2 px-4 border-b ${isDark ? 'bg-[#030505]/90 border-white/[0.06]' : 'bg-white/90 border-slate-100'} backdrop-blur`}
                     style={{ height: 'calc(3.25rem + env(safe-area-inset-top))', paddingTop: 'env(safe-area-inset-top)' }}>
