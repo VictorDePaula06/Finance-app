@@ -1,5 +1,6 @@
 /**
- * Vercel Serverless Function: /api/nfce
+ * Leitura da NFC-e pelo QR Code. Não é uma função por si: entra em
+ * /api/market-import, que despacha GET para cá.
  *
  * Lê uma NFC-e a partir da URL do QR Code impresso no cupom e devolve os
  * produtos já estruturados, item a item.
@@ -118,7 +119,7 @@ function parseCabecalho(html) {
     };
 }
 
-export default async function handler(req, res) {
+export async function lerPorQrCode(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Cache-Control', 'no-store');      // cupom é dado da pessoa

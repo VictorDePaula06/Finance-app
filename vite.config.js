@@ -51,7 +51,7 @@ function devApiPlugin() {
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         if (!req.url?.startsWith('/api/')) return next()
-        if (req.method !== 'GET' && req.method !== 'OPTIONS') return next()
+        if (!['GET', 'POST', 'OPTIONS'].includes(req.method)) return next()
 
         const url = new URL(req.url, 'http://localhost')
         const name = url.pathname.slice('/api/'.length).replace(/\.js$/, '')
@@ -67,6 +67,16 @@ function devApiPlugin() {
         if (typeof mod.default !== 'function') return next()
 
         req.query = Object.fromEntries(url.searchParams)
+
+        // Corpo do POST: a Vercel entrega `req.body` já parseado, o Vite não.
+        // Sem isto, toda rota de POST (foto do cupom, por exemplo) só dava
+        // para testar em produção.
+        if (req.method === 'POST') {
+          const pedacos = []
+          for await (const p of req) pedacos.push(p)
+          const bruto = Buffer.concat(pedacos).toString('utf8')
+          try { req.body = bruto ? JSON.parse(bruto) : {} } catch { req.body = bruto }
+        }
         res.status = (code) => { res.statusCode = code; return res }
         res.json = (body) => {
           res.setHeader('Content-Type', 'application/json; charset=utf-8')

@@ -1,5 +1,6 @@
 /**
- * Vercel Serverless Function: /api/market-photo
+ * Leitura do cupom por foto. Não é uma função por si: entra em
+ * /api/market-import, que despacha POST para cá.
  *
  * Lê UMA foto de cupom de mercado e devolve os produtos estruturados.
  *
@@ -103,7 +104,7 @@ function normalizar(bruto) {
     };
 }
 
-export default async function handler(req, res) {
+export async function lerPorFoto(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Cache-Control', 'no-store');      // cupom é dado da pessoa

@@ -92,7 +92,7 @@ export default function PhotoCapture({ isDark, onLido }) {
         for (let i = 0; i < fotos.length; i++) {
             setLendo(i + 1);
             try {
-                const r = await fetch('/api/market-photo', {
+                const r = await fetch('/api/market-import', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                     body: JSON.stringify({ image: fotos[i].base64, mime: 'image/jpeg' }),

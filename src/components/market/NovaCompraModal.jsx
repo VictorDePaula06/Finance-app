@@ -55,7 +55,7 @@ export default function NovaCompraModal({ isDark, uid, onClose }) {
     const consultar = useCallback(async (url) => {
         setErroQr(''); setConsultando(true);
         try {
-            const r = await fetch(`/api/nfce?url=${encodeURIComponent(url)}`);
+            const r = await fetch(`/api/market-import?url=${encodeURIComponent(url)}`);
             const d = await r.json().catch(() => ({}));
             if (!r.ok || !d.items?.length) {
                 setErroQr(t(MOTIVO[d.error] || 'mkt.qrErrSefaz'));
