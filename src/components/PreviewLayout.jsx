@@ -6,9 +6,10 @@ import { Toaster } from './ui/Toaster';
 import OnboardingAlivia from './OnboardingAlivia';
 import AppSidebar, { NAV_ITEMS, APP_VERSION, RELEASE_NOTES_URL } from './AppSidebar';
 import MobileNav from './MobileNav';
-import { Settings } from 'lucide-react';
+import { ClipboardList } from 'lucide-react';
 import AppTopBar from './AppTopBar';
 import CadastrosModal from './CadastrosModal';
+import { useCadastroPendente } from '../hooks/useCadastroPendente';
 import { useI18n } from '../contexts/LanguageContext';
 import InstallPrompt from './InstallPrompt';
 import ContasPagar from '../pages/Recorrentes';
@@ -45,6 +46,7 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
     const [drawer, setDrawer] = useState(false);
     const [obDismissed, setObDismissed] = useState(false);
     const [cadastros, setCadastros] = useState(false);
+    const { pendente: cadastroPendente } = useCadastroPendente();
 
     // Atalho de teste: abrir com ?onboarding=1 força a tela de boas-vindas
     // (sem precisar apagar a conta). Útil no localhost para validar o fluxo.
@@ -107,10 +109,15 @@ export default function PreviewLayout({ tab = 'dashboard' }) {
                     <span className={`text-[10px] font-bold uppercase tracking-[0.28em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Finanças</span>
                     <a href={RELEASE_NOTES_URL} target="_blank" rel="noopener noreferrer" title={t('nav.releaseNotesTitle')}
                         className={`ml-auto text-[10px] font-black tabular-nums px-1.5 py-0.5 rounded-md transition ${isDark ? 'bg-white/5 text-slate-400 active:bg-emerald-500/15' : 'bg-slate-100 text-slate-500 active:bg-emerald-50'}`}>v{APP_VERSION} · {t('nav.releaseNotes')}</a>
+                    {/* Mesmo botão da barra do desktop, encurtado: no celular não
+                        cabe a palavra, mas o alerta continua. */}
                     <button type="button" onClick={() => setCadastros(true)}
                         title={t('settings.tabRegistry')} aria-label={t('settings.tabRegistry')}
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition active:scale-95 ${isDark ? 'text-slate-400 active:bg-white/10' : 'text-slate-500 active:bg-slate-100'}`}>
-                        <Settings className="w-[18px] h-[18px]" />
+                        className={`relative w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition active:scale-95 ${cadastroPendente
+                            ? 'bg-amber-500/15 text-amber-500'
+                            : (isDark ? 'text-slate-400 active:bg-white/10' : 'text-slate-500 active:bg-slate-100')}`}>
+                        <ClipboardList className="w-[18px] h-[18px]" />
+                        {cadastroPendente && <span className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ${isDark ? 'ring-[#030505]' : 'ring-white'}`} aria-hidden />}
                     </button>
                 </header>
 

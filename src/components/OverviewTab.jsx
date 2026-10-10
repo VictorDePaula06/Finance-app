@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { AreaChart, Area, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Eye, EyeOff, CreditCard, ChevronRight, TrendingUp, TrendingDown, ShieldCheck, ArrowUpRight, ArrowDownRight, Wallet, X, PiggyBank } from 'lucide-react';
+import { Eye, EyeOff, CreditCard, ChevronRight, TrendingUp, TrendingDown, ShieldCheck, ArrowUpRight, ArrowDownRight, Wallet, X, PiggyBank, AlertTriangle } from 'lucide-react';
 import FinancialHealthIndex from './FinancialHealthIndex';
 import GoalsOverviewCard from './GoalsOverviewCard';
 import { CATEGORIES } from '../constants/categories';

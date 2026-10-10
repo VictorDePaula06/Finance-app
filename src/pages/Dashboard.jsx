@@ -15,6 +15,9 @@ import WhatsAppIcon from '../components/ui/WhatsAppIcon';
 import { useWhatsAppStatus } from '../hooks/useWhatsAppStatus';
 import { useI18n } from '../contexts/LanguageContext';
 import RedirectOverlay, { DESTINO, useRedirect } from '../components/ui/RedirectOverlay';
+import WhatsAppStatusModal from '../components/WhatsAppStatusModal';
+import CadastrosModal from '../components/CadastrosModal';
+import { useDashCfg } from '../contexts/DashCfgContext';
 import {
     LayoutDashboard, Settings, TrendingUp, TrendingDown, Wallet,
     Repeat, PieChart as PieIcon, PiggyBank, Landmark, HeartPulse, ChevronRight, X, Check, ListChecks, CreditCard, CheckCircle2, ExternalLink,
@@ -39,9 +42,6 @@ const invCost = (a, rate = 1) => {
 };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-const CFG_KEY = 'aliviaDashCfg';
-const DEFAULT_CFG = { incluirFatura: false, ocultarSaldo: false, somarReservas: true, somarInvest: true, metaReservaMeses: 6, considerarSuperfluo: true };
-
 export default function Dashboard({ onNavigate }) {
     const { currentUser } = useAuth();
     const { theme } = useTheme();
@@ -56,7 +56,8 @@ export default function Dashboard({ onNavigate }) {
     const [jars, setJars] = useState([]);
     const [invs, setInvs] = useState([]);
     const [fixExp, setFixExp] = useState([]);
-    const [cfg, setCfg] = useState(() => { try { return { ...DEFAULT_CFG, ...JSON.parse(localStorage.getItem(CFG_KEY) || '{}') }; } catch { return DEFAULT_CFG; } });
+    // A configuração vive no contexto: quem edita é a janela de Cadastros.
+    const { cfg } = useDashCfg();
     const [configOpen, setConfigOpen] = useState(false);
     const [gastosOpen, setGastosOpen] = useState(false); // lista de gastos do mês
     const [waOpen, setWaOpen] = useState(false);        // janela de status do WhatsApp
@@ -69,8 +70,6 @@ export default function Dashboard({ onNavigate }) {
     const [patCur, setPatCur] = useState(() => { try { return localStorage.getItem('aliviaDashPatCur') || 'BRL'; } catch { return 'BRL'; } });
     useEffect(() => { getUsdRate().then(r => { if (r) setUsdRate(r); }).catch(() => { }); }, []);
     const togglePatCur = () => { const n = patCur === 'BRL' ? 'USD' : 'BRL'; setPatCur(n); try { localStorage.setItem('aliviaDashPatCur', n); } catch { } };
-
-    const saveCfg = (next) => { setCfg(next); try { localStorage.setItem(CFG_KEY, JSON.stringify(next)); } catch { } };
 
     useEffect(() => {
         if (!uid) return;
@@ -146,7 +145,6 @@ export default function Dashboard({ onNavigate }) {
     const sobra = ganhos - gastos;
     const superfluo = expenseTx.filter(t => t.priority === 'superfluous').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
     const superfluoPct = gastos > 0 ? superfluo / gastos * 100 : 0;
-
 
     const reservaTotal = jars.reduce((a, j) => a + (parseFloat(j.balance) || 0), 0);
     // Custo fixo mensal (igual Análises): contas fixas + assinaturas + parcelas.
@@ -370,7 +368,9 @@ export default function Dashboard({ onNavigate }) {
                 </div>
             </div>
 
-            {configOpen && <ConfigModal isDark={isDark} cfg={cfg} onChange={saveCfg} onClose={() => setConfigOpen(false)} faturaTotal={faturaTotal} />}
+            {/* "Configurar" abre a MESMA janela de Cadastros, já na aba Dashboard —
+                não existe mais uma segunda tela de configuração escondida aqui. */}
+            {configOpen && <CadastrosModal abaInicial="dashboard" onClose={() => setConfigOpen(false)} />}
             {gastosOpen && <GastosModal isDark={isDark} itens={expenseTx} total={gastos} incluiFatura={cfg.incluirFatura} onClose={() => setGastosOpen(false)} />}
         </div>
     );
@@ -452,7 +452,6 @@ function GastosModal({ isDark, itens, total, incluiFatura, onClose }) {
         </div>
     );
 }
-
 
 function Kpi({ isDark, icon: Icon, label, value, sub, tone, action, className = '' }) {
     const map = {
@@ -546,81 +545,4 @@ function Leg({ color, text }) {
 }
 
 // ── Modal de configurações do Dashboard ─────────────────────────────
-function ConfigModal({ isDark, cfg, onChange, onClose, faturaTotal }) {
-    const set = (patch) => onChange({ ...cfg, ...patch });
-    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative w-full max-w-md max-h-[88vh] overflow-y-auto rounded-3xl border shadow-2xl p-6 ${isDark ? 'bg-[#0e1210] border-white/10' : 'bg-white border-slate-100'}`}>
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2.5">
-                        <span className="w-9 h-9 rounded-xl bg-emerald-500/12 text-emerald-500 flex items-center justify-center"><Settings className="w-5 h-5" strokeWidth={2.4} /></span>
-                        <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>Configurações</h2>
-                    </div>
-                    <button onClick={onClose} className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isDark ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'}`}><X className="w-4 h-4" /></button>
-                </div>
 
-                <Section isDark={isDark} title="Apuração do mês">
-                    <Flag isDark={isDark} on={cfg.incluirFatura} onToggle={v => set({ incluirFatura: v })}
-                        label="Incluir a fatura do cartão nos gastos"
-                        hint={cfg.incluirFatura
-                            ? `Ligado: os gastos do mês somam a fatura do cartão (R$ ${money(faturaTotal)}).`
-                            : `Desligado: os gastos mostram só a conta, sem o cartão (a fatura de R$ ${money(faturaTotal)} fica de fora).`} />
-                    <Flag isDark={isDark} on={cfg.ocultarSaldo} onToggle={v => set({ ocultarSaldo: v })}
-                        label="Ocultar saldo por padrão" hint="O saldo começa escondido (👁 pra revelar)." />
-                </Section>
-
-                <Section isDark={isDark} title="Patrimônio líquido">
-                    <Flag isDark={isDark} on={cfg.somarReservas} onToggle={v => set({ somarReservas: v })} label="Somar reservas" hint="Inclui o guardado nas reservas." />
-                    <Flag isDark={isDark} on={cfg.somarInvest} onToggle={v => set({ somarInvest: v })} label="Somar investimentos" hint="Inclui o patrimônio investido." />
-                </Section>
-
-                <Section isDark={isDark} title="Índice de saúde financeira">
-                    <div className="flex items-center justify-between py-2.5">
-                        <div className="min-w-0 pr-3">
-                            <p className={`text-[13px] font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Meta de reserva</p>
-                            <p className={`text-[11px] ${muted}`}>Meses de cobertura considerados ideais.</p>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                            <input inputMode="numeric" value={cfg.metaReservaMeses}
-                                onChange={e => set({ metaReservaMeses: Math.max(1, parseInt(e.target.value.replace(/\D/g, '')) || 1) })}
-                                className={`w-14 text-center px-2 py-1.5 rounded-lg border text-sm font-black outline-none ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-800'}`} />
-                            <span className={`text-[12px] font-bold ${muted}`}>meses</span>
-                        </div>
-                    </div>
-                    <Flag isDark={isDark} on={cfg.considerarSuperfluo} onToggle={v => set({ considerarSuperfluo: v })}
-                        label="Penalizar gastos supérfluos" hint="Considera os gastos supérfluos no índice." />
-                </Section>
-
-                <button onClick={onClose} className="w-full mt-2 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition">
-                    <Check className="w-4 h-4" /> Concluído
-                </button>
-            </div>
-        </div>
-    );
-}
-
-function Section({ isDark, title, children }) {
-    return (
-        <div className={`py-1 border-t first:border-t-0 ${isDark ? 'border-white/10' : 'border-slate-100'}`}>
-            <p className={`text-[11px] font-black uppercase tracking-widest mt-3 mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{title}</p>
-            {children}
-        </div>
-    );
-}
-
-function Flag({ isDark, on, onToggle, label, hint }) {
-    const muted = isDark ? 'text-slate-500' : 'text-slate-400';
-    return (
-        <button type="button" onClick={() => onToggle(!on)} className="w-full flex items-center justify-between gap-3 py-2.5 text-left">
-            <div className="min-w-0">
-                <p className={`text-[13px] font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{label}</p>
-                {hint && <p className={`text-[11px] ${muted}`}>{hint}</p>}
-            </div>
-            <span className={`w-10 h-6 rounded-full shrink-0 relative transition ${on ? 'bg-emerald-500' : (isDark ? 'bg-white/10' : 'bg-slate-200')}`}>
-                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${on ? 'left-[18px]' : 'left-0.5'}`} />
-            </span>
-        </button>
-    );
-}

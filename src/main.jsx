@@ -5,14 +5,17 @@ import './index.css'
 import App from './App.jsx'
 import { PwaUpdateProvider } from './contexts/PwaUpdateContext.jsx'
 import { PrivacyProvider } from './contexts/PrivacyContext.jsx'
+import { DashCfgProvider } from './contexts/DashCfgContext.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <PwaUpdateProvider>
       <PrivacyProvider>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
+        <DashCfgProvider>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </DashCfgProvider>
       </PrivacyProvider>
     </PwaUpdateProvider>
   </StrictMode>,

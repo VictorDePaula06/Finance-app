@@ -1,9 +1,10 @@
 import React from 'react';
-import { Settings, Eye, EyeOff } from 'lucide-react';
+import { ClipboardList, Eye, EyeOff } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useI18n } from '../contexts/LanguageContext';
 import { useSaldoConta } from '../hooks/useSaldoConta';
 import { usePrivacy } from '../contexts/PrivacyContext';
+import { useCadastroPendente } from '../hooks/useCadastroPendente';
 import WhatsAppStatusButton from './WhatsAppStatusButton';
 import WhatsAppStatusModal from './WhatsAppStatusModal';
 import { useWhatsAppStatus } from '../hooks/useWhatsAppStatus';
@@ -25,6 +26,7 @@ export default function AppTopBar({ titulo, onWhatsApp, onCadastros }) {
     const { saldo, carregando } = useSaldoConta();
     const wa = useWhatsAppStatus();
     const { oculto, alternar } = usePrivacy();
+    const { pendente } = useCadastroPendente();
     const [waAberto, setWaAberto] = React.useState(false);
 
     const rotulo = isDark ? 'text-slate-500' : 'text-slate-400';
@@ -71,9 +73,22 @@ export default function AppTopBar({ titulo, onWhatsApp, onCadastros }) {
                     que informar, então o clique vai direto para a configuração. */}
                 <WhatsAppStatusButton isDark={isDark} compact ringColor={isDark ? 'ring-[#060a08]' : 'ring-white'}
                     onOpen={() => (wa.connected ? setWaAberto(true) : onWhatsApp())} />
-                <button type="button" onClick={onCadastros} className={icone}
-                    title={t('settings.tabRegistry')} aria-label={t('settings.tabRegistry')}>
-                    <Settings className="w-[18px] h-[18px]" />
+                {/* Com a palavra escrita: um ícone sozinho aqui era lido como
+                    "ajustes do sistema", e ninguém procurava o cadastro do
+                    salário atrás dele. */}
+                <button type="button" onClick={onCadastros}
+                    title={pendente ? t('reg.emptyAlert') : t('settings.tabRegistry')}
+                    className={`relative inline-flex items-center gap-2 px-3 py-2 rounded-xl text-[13px] font-bold border transition active:scale-95 ${pendente
+                        ? 'border-amber-500/40 bg-amber-500/10 text-amber-500 hover:bg-amber-500/[0.16]'
+                        : (isDark ? 'border-white/10 text-slate-300 hover:bg-white/[0.07] hover:text-white' : 'border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800')}`}>
+                    <ClipboardList className="w-[17px] h-[17px] shrink-0" />
+                    <span>{t('settings.tabRegistry')}</span>
+                    {pendente && (
+                        <span className="absolute -top-1 -right-1 flex w-2.5 h-2.5" aria-hidden>
+                            <span className="absolute inline-flex w-full h-full rounded-full bg-amber-400 opacity-70 animate-ping" />
+                            <span className={`relative inline-flex w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ${isDark ? 'ring-[#060a08]' : 'ring-white'}`} />
+                        </span>
+                    )}
                 </button>
             </div>
             {waAberto && (

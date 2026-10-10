@@ -6,7 +6,8 @@ import { RecorrentesRegistry } from './CadastrosTab';
 import CardsRegistry from './CardsRegistry';
 import CategoryCeilings from './CategoryCeilings';
 import MarketSection from './MarketSection';
-import { Repeat, CreditCard, Target, ShoppingCart, ClipboardList, X } from 'lucide-react';
+import DashboardConfigTab from './DashboardConfigTab';
+import { Repeat, CreditCard, Target, ShoppingCart, ClipboardList, LayoutDashboard, X } from 'lucide-react';
 
 // ── Cadastros, numa janela ──────────────────────────────────────────
 // Mesmas quatro seções da aba "Cadastros" de Configurações — as MESMAS
@@ -22,6 +23,7 @@ const ABAS = [
     { id: 'cartoes',     label: 'reg.tabCards',     icon: CreditCard,   Secao: CardsRegistry },
     { id: 'tetos',       label: 'reg.tabCeilings',  icon: Target,       Secao: CategoryCeilings },
     { id: 'mercado',     label: 'mkt.title',        icon: ShoppingCart, Secao: MarketSection },
+    { id: 'dashboard',   label: 'dashcfg.tab',      icon: LayoutDashboard, Secao: DashboardConfigTab },
 ];
 
 export default function CadastrosModal({ onClose, abaInicial = 'recorrentes' }) {
@@ -78,7 +80,7 @@ export default function CadastrosModal({ onClose, abaInicial = 'recorrentes' }) 
                 </div>
 
                 {/* Abas */}
-                <div className={`flex items-center gap-1 px-3 sm:px-4 py-2 border-b shrink-0 overflow-x-auto no-scrollbar ${isDark ? 'border-white/[0.07]' : 'border-slate-200 bg-white'}`}>
+                <div className={`flex flex-wrap sm:flex-nowrap items-center gap-1 px-3 sm:px-4 py-2 border-b shrink-0 sm:overflow-x-auto no-scrollbar ${isDark ? 'border-white/[0.07]' : 'border-slate-200 bg-white'}`}>
                     {ABAS.map(({ id, label, icon: Icon }) => {
                         const on = aba === id;
                         return (
