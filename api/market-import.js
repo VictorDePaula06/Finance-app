@@ -21,12 +21,24 @@
  * função. Aqui só mora o despachante.
  */
 
-import { lerPorQrCode } from './_nfce.js';
-import { lerPorFoto } from './_marketPhoto.js';
-
+// Carregados sob demanda, não no topo. Dois motivos:
+//
+// 1. Cada caminho puxa coisas diferentes — o da foto arrasta o firebase-admin
+//    inteiro, que a leitura do QR Code não usa para nada. Importando em cima,
+//    um GET pagava o custo (e o risco) de carregar tudo.
+// 2. Se um dos dois não carregar no servidor, só o caminho dele quebra. Com
+//    import estático, qualquer tropeço num deles derrubava a função toda,
+//    inclusive o preflight — foi exatamente o que aconteceu no primeiro
+//    deploy desta fusão: OPTIONS respondia 500 sem nem chegar ao despachante.
 export default async function handler(req, res) {
-    if (req.method === 'GET') return lerPorQrCode(req, res);
-    if (req.method === 'POST') return lerPorFoto(req, res);
+    if (req.method === 'GET') {
+        const { lerPorQrCode } = await import('./_nfce.js');
+        return lerPorQrCode(req, res);
+    }
+    if (req.method === 'POST') {
+        const { lerPorFoto } = await import('./_marketPhoto.js');
+        return lerPorFoto(req, res);
+    }
 
     // OPTIONS cai aqui no preflight do POST; os dois módulos já respondem a
     // ele, mas sem saber qual deles é o alvo, respondemos por ambos.
