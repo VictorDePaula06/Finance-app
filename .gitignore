@@ -32,3 +32,7 @@ dist-ssr
 # Chave de serviço do Firebase (SECRETA) — nunca commitar
 serviceAccount.json
 serviceAccountKey.json
+
+# APKs gerados localmente — artefato de build, não entra no repo.
+*.apk
+*.aab
