@@ -50,13 +50,24 @@ for (const arquivo of arquivos) {
     const linhas = codigo.split('\n');
 
     linhas.forEach((linha, i) => {
+        // Linha de comentário não é import: o exemplo dentro de um bloco
+        // JSDoc estava sendo cobrado como se fosse código de verdade.
+        const limpa = linha.trim();
+        if (limpa.startsWith('*') || limpa.startsWith('//') || limpa.startsWith('/*')) return;
+
         // import ... from './x'  ·  import './x'  ·  import('./x')
         const m = linha.match(/(?:from|import)\s*\(?\s*['"](\.[^'"]+)['"]/);
         if (!m) return;
         const pedido = m[1];
         const base = resolve(dirname(arquivo), pedido);
 
-        const achado = EXTS.map(e => base + e).find(p => existsSync(p));
+        // Pasta não é o alvo final: quem o bundler carrega é o index dela.
+        // Sem isto, `../locales` resolvia para o diretório e era acusado de
+        // não estar versionado — o git lista arquivos, não pastas.
+        const candidatos = EXTS.map(e => base + e)
+            .filter(p => existsSync(p))
+            .filter(p => !statSync(p).isDirectory());
+        const achado = candidatos[0];
         if (!achado) {
             console.log(`NAO RESOLVE  ${relative(RAIZ, arquivo)}:${i + 1}  '${pedido}'`);
             problemas++;

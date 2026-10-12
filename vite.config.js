@@ -23,7 +23,7 @@ function versionJsonPlugin() {
 // de produção localmente antes de aplicar em produção.
 const HARDENED_CSP = [
   "default-src 'self'",
-  "script-src 'self' https://js.stripe.com https://*.firebaseapp.com https://apis.google.com https://*.googleapis.com https://*.gstatic.com",
+  "script-src 'self' 'sha256-rcCionHEzyF1JXrAYrTDizUbF0p6RXEnXhVoK+JDaoE=' https://js.stripe.com https://*.firebaseapp.com https://apis.google.com https://*.googleapis.com https://*.gstatic.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",

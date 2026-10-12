@@ -41,3 +41,40 @@ site) — e você verá **seus dados reais**.
 - **Próximos:** ligar o chat/áudio da Alívia (Gemini), ações de criar/editar
   lançamentos no próprio app, e empacotar com Capacitor para gerar o `.aab` do
   Android (Google Play).
+
+## Gerar o APK
+
+O `android/` é gerado pelo Capacitor e **não entra no git** — por isso tudo que
+ele precisa de especial mora em `scripts/configura-android.mjs`, que o
+`android:sync` chama sozinho.
+
+```bash
+npm run android:sync                 # build do site + copia pro Android + configura
+cd android && ./gradlew assembleRelease
+```
+
+O APK sai em `android/app/build/outputs/apk/release/app-release.apk`.
+
+Antes de gerar, suba `versionCode` e `versionName` em `android/app/build.gradle`.
+
+> **Atenção:** o `webDir` do `capacitor.config.json` aponta para `../dist`, ou
+> seja, o APK empacota **o site**, não a UI de `mobile/src`. Se o site não for
+> rebuildado, o app sai com uma cópia velha.
+
+### Se o app abrir e fechar na hora
+
+Quase sempre é dependência nativa faltando. Pegue o motivo:
+
+```bash
+adb logcat -c && adb shell am start -n br.com.soualivia.app/.MainActivity && adb logcat -d -b crash
+```
+
+Foi assim que apareceu o `NoClassDefFoundError: ...GoogleSignIn` — o
+`play-services-auth` compilava mas não ia para o APK. A correção está no
+`configura-android.mjs`; se o `android/` for regerado sem rodar esse script, o
+crash volta.
+
+### Assinatura
+
+`android/keystore.properties` aponta para o `.jks` e guarda as senhas. Fica
+fora do git de propósito — sem ele, o `assembleRelease` sai sem assinatura.
