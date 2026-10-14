@@ -36,3 +36,6 @@ serviceAccountKey.json
 # APKs gerados localmente — artefato de build, não entra no repo.
 *.apk
 *.aab
+
+# Cupom de teste gerado para conferir a leitura por PDF — não é do projeto.
+cupom-teste-*.pdf

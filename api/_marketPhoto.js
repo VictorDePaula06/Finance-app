@@ -9,7 +9,7 @@
  * dão progresso ("lendo 2 de 4") e deixam a junção dos pedaços no cliente,
  * onde ela é testável (src/utils/receiptMerge.js).
  *
- * POST { image: "<base64 sem prefixo>", mime: "image/jpeg" }
+ * POST { image: "<base64 sem prefixo>", mime: "image/jpeg" | "application/pdf" }
  * Resposta: { store, date, total, items: [{ name, qty, unit, unitPrice, total }] }
  *
  * Exige ID token do Firebase: a chamada gasta cota do Gemini, e endpoint de
@@ -23,8 +23,29 @@ import { rateLimit } from './_rateLimit.js';
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash'];
 const geminiUrl = (m) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
 
-const MAX_BYTES = 6 * 1024 * 1024;        // ~6 MB por foto já comprimida
-const MIMES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+// A foto chega comprimida do cliente (1600px, qualidade 0.82) e pesa poucos
+// KB. O PDF vai como está, e aí o teto é outro: a Vercel corta corpo de
+// requisição em ~4,5 MB e base64 infla 33%, então 3 MB de PDF é o que cabe
+// com folga. Acima disso a requisição morreria sem mensagem útil.
+const MAX_BYTES = 6 * 1024 * 1024;
+const MAX_BYTES_PDF = 3 * 1024 * 1024;
+const MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+const ehPdf = (mime) => mime === 'application/pdf';
+
+/**
+ * O que pode subir: tipo aceito e tamanho que cabe na requisição.
+ *
+ * Exportada para ter teste: dentro do handler ela só rodaria depois da
+ * chave do Gemini e do Firebase, que não existem fora de produção.
+ */
+export function validarEntrada(image, mime) {
+    if (!image || typeof image !== 'string') return 'missing_image';
+    if (!MIMES.has(String(mime))) return 'bad_mime';
+    const teto = ehPdf(mime) ? MAX_BYTES_PDF : MAX_BYTES;
+    // base64 carrega 4 caracteres por 3 bytes: 0.75 desfaz a inflação.
+    if (image.length * 0.75 > teto) return ehPdf(mime) ? 'pdf_too_large' : 'image_too_large';
+    return null;
+}
 
 const PROMPT = `Você recebe a FOTO de um pedaço de um cupom fiscal de supermercado brasileiro.
 
@@ -47,6 +68,37 @@ Regras:
 - Se só houver o total da linha, calcule o unitário dividindo pela quantidade.
 - "total" (fora de items) é o TOTAL impresso do cupom. Se não aparecer nesta foto, use 0.
 - "store" e "date" só se estiverem visíveis nesta foto; senão null.
+- NÃO invente produto, preço ou quantidade. Se uma linha estiver ilegível, omita.
+- Ignore descontos, tributos, troco e formas de pagamento: só produtos.`;
+
+// O PDF é o cupom inteiro. A diferença não é cosmética: pedir "o que estiver
+// legível nesta foto" a um documento completo faz o modelo parar cedo e
+// devolver meia compra. Aqui ele é instruído ao contrário — ir até o fim, e
+// conferir o próprio trabalho contra o total impresso.
+const PROMPT_PDF = `Você recebe o PDF COMPLETO de um cupom fiscal de supermercado brasileiro (pode ter mais de uma página).
+
+Leia o documento INTEIRO e extraia TODOS os produtos, do primeiro ao último. Responda APENAS com JSON, sem texto fora dele, neste formato:
+
+{
+  "store": "nome do mercado ou null",
+  "date": "AAAA-MM-DD ou null",
+  "total": 0,
+  "items": [
+    { "name": "produto", "qty": 1, "unit": "un", "unitPrice": 0, "total": 0 }
+  ]
+}
+
+Regras:
+- NÃO resuma, NÃO agrupe e NÃO pule linhas. Um cupom de 60 itens devolve 60 itens.
+- Se as páginas continuarem a lista, siga até o fim do documento.
+- Se o MESMO produto aparecer em linhas separadas, mantenha as linhas separadas.
+- Mantenha os produtos NA MESMA ORDEM em que aparecem no documento.
+- "qty" e os valores são NÚMEROS com ponto decimal (1.235, não "1,235").
+- "unit" é a unidade impressa em minúsculas: un, kg, g, l, ml, pct, cx, dz.
+- "unitPrice" é o preço de UMA unidade; "total" é o da linha.
+- Se só houver o total da linha, calcule o unitário dividindo pela quantidade.
+- "total" (fora de items) é o TOTAL impresso do cupom.
+- Antes de responder, CONFIRA: a soma dos "total" das linhas deve bater com o total impresso. Se não bater, releia o documento procurando a linha que faltou.
 - NÃO invente produto, preço ou quantidade. Se uma linha estiver ilegível, omita.
 - Ignore descontos, tributos, troco e formas de pagamento: só produtos.`;
 
@@ -131,15 +183,18 @@ export async function lerPorFoto(req, res) {
     if (!rl.ok) return res.status(429).json({ error: 'rate_limited' });
 
     const { image, mime } = req.body || {};
-    if (!image || typeof image !== 'string') return res.status(400).json({ error: 'missing_image' });
-    if (!MIMES.has(String(mime))) return res.status(400).json({ error: 'bad_mime' });
-    // base64 ocupa ~4/3 do original.
-    if (image.length * 0.75 > MAX_BYTES) return res.status(413).json({ error: 'image_too_large' });
+    const problema = validarEntrada(image, mime);
+    if (problema) {
+        // Tamanho é 413; tipo e ausência são 400. Códigos diferentes porque a
+        // pessoa resolve cada um de um jeito.
+        const status = problema.endsWith('_too_large') ? 413 : 400;
+        return res.status(status).json({ error: problema });
+    }
 
     const body = {
         contents: [{
             parts: [
-                { text: PROMPT },
+                { text: ehPdf(mime) ? PROMPT_PDF : PROMPT },
                 { inline_data: { mime_type: mime, data: image } },
             ],
         }],
