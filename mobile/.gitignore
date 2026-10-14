@@ -6,7 +6,10 @@ dist
 .env.local
 .env*.local
 
-# Projeto nativo Android (gerado localmente com `npm run android:add`)
-android
-ios
+# Projeto nativo gerado localmente (`npm run android:add`).
+# A barra no início ancora na raiz do mobile/ — sem ela a regra casava com
+# QUALQUER pasta chamada android, inclusive resources/android/, que guarda
+# os ícones do launcher e precisa ser versionada.
+/android
+/ios
 .gradle

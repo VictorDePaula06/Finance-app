@@ -74,6 +74,25 @@ Foi assim que apareceu o `NoClassDefFoundError: ...GoogleSignIn` — o
 `configura-android.mjs`; se o `android/` for regerado sem rodar esse script, o
 crash volta.
 
+### Ícone do launcher
+
+O template do Capacitor vem com o boneco branco padrão. Os ícones da Alívia
+ficam em `resources/android/` (versionados) e o `configura-android.mjs` copia
+por cima a cada sync.
+
+Para regerá-los a partir de `public/icon-512.png`, use o script em
+`scripts/` do projeto principal — ou ajuste e rode novamente: são três
+famílias por densidade (quadrado, redondo e a camada da frente do ícone
+adaptativo, que entra a 58% porque o Android recorta a forma que quiser e só
+garante o miolo).
+
+### Câmera
+
+A leitura do QR Code da nota precisa de `android.permission.CAMERA` no
+manifesto. O Capacitor NÃO adiciona: ele tem o código que pede a permissão em
+tempo de execução, mas o Android nega na hora para permissão não declarada —
+e o diálogo nunca aparece. Quem declara é o `configura-android.mjs`.
+
 ### Assinatura
 
 `android/keystore.properties` aponta para o `.jks` e guarda as senhas. Fica
