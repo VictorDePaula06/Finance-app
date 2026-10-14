@@ -53,13 +53,16 @@ const MOTIVO = {
 // não o dia. Chutar o dia seria inventar: o campo abre no mês certo e a pessoa
 // ajusta. Quando a nota é do mês corrente, nem isso é preciso — o formulário
 // já abre em hoje, que é o palpite melhor.
-const doChaveParaFormulario = (info) => {
+const doChaveParaFormulario = (info, motivo) => {
     const mesAtual = new Date().toISOString().slice(0, 7);
     return {
         key: info.chave,
         origem: 'chave',
         store: null,
         items: [],
+        // O porquê vai junto: o formulário abre vazio de propósito e precisa
+        // dizer isso na cara, não num toast que some antes de ser lido.
+        aviso: motivo || 'mkt.keyWhyEmpty',
         ...(info.mesEmissao === mesAtual ? {} : { date: `${info.mesEmissao}-01` }),
     };
 };
@@ -72,6 +75,9 @@ export default function NovaCompraModal({ isDark, uid, onClose }) {
     const [consultando, setConsultando] = useState(false);
     const [erroQr, setErroQr] = useState('');
     const [daNota, setDaNota] = useState(null);     // o que a SEFAZ devolveu
+    // A chave digitada sobrevive a uma ida à foto: a compra continua amarrada
+    // à nota mesmo quando os itens vierem do cupom fotografado.
+    const [chaveGuardada, setChaveGuardada] = useState(null);
 
     const consultar = useCallback(async (url) => {
         setErroQr(''); setConsultando(true);
@@ -109,15 +115,18 @@ export default function NovaCompraModal({ isDark, uid, onClose }) {
                 setConsultando(false);
                 return;
             }
-            setDaNota(doChaveParaFormulario(info));
+            // `sefaz_captcha` é o caso comum e tem explicação própria: o portal
+            // exige validação de robô, que só um navegador de verdade passa.
+            setChaveGuardada(info.chave);
+            setDaNota(doChaveParaFormulario(info, d.error === 'sefaz_captcha' ? 'mkt.keyWhyCaptcha' : 'mkt.keyWhyEmpty'));
             setMetodo('manual');
-            toast.info(t('mkt.keyFellBack'));
         } catch {
+            setChaveGuardada(info.chave);
             setDaNota(doChaveParaFormulario(info));
             setMetodo('manual');
         }
         setConsultando(false);
-    }, [t]);
+    }, []);
 
     const ink = isDark ? 'text-white' : 'text-slate-800';
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
@@ -153,9 +162,13 @@ export default function NovaCompraModal({ isDark, uid, onClose }) {
 
                 {metodo === 'manual' ? (
                     <FormManual isDark={isDark} uid={uid} money={money} inicial={daNota}
-                        onVoltar={() => { setMetodo(null); setDaNota(null); }} onPronto={onClose} />
+                        onFoto={() => setMetodo('foto')}
+                        onVoltar={() => { setMetodo(null); setDaNota(null); setChaveGuardada(null); }} onPronto={onClose} />
                 ) : metodo === 'foto' ? (
-                    <PhotoCapture isDark={isDark} onLido={(d) => { setDaNota(d); setMetodo('manual'); }} />
+                    <PhotoCapture isDark={isDark} onLido={(d) => {
+                        setDaNota(chaveGuardada ? { ...d, key: d.key || chaveGuardada, origem: 'chave+foto' } : d);
+                        setMetodo('manual');
+                    }} />
                 ) : metodo === 'chave' ? (
                     consultando ? (
                         <div className="px-5 py-14 text-center">
@@ -249,7 +262,7 @@ function Conferencia({ isDark, dados, money }) {
 }
 
 // ── Lançamento manual ───────────────────────────────────────────────
-function FormManual({ isDark, uid, money, inicial, onVoltar, onPronto }) {
+function FormManual({ isDark, uid, money, inicial, onFoto, onVoltar, onPronto }) {
     const { t } = useI18n();
     const [store, setStore] = useState(inicial?.store || '');
     const [date, setDate] = useState(() => inicial?.date || new Date().toISOString().slice(0, 10));
@@ -269,6 +282,23 @@ function FormManual({ isDark, uid, money, inicial, onVoltar, onPronto }) {
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const line = isDark ? 'border-white/[0.07]' : 'border-slate-200';
     const inputCls = `px-2.5 py-2 rounded-lg border text-[13px] outline-none transition focus:border-emerald-500 ${isDark ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-white border-slate-200 text-slate-800 placeholder:text-slate-400'}`;
+
+    // Explicação de por que o formulário abriu vazio, com a saída ao lado.
+    // Fica no corpo da tela, não num toast: quem chega aqui precisa LER.
+    const banner = inicial?.aviso && !inicial?.items?.length ? (
+        <div className={`mx-4 mt-4 rounded-xl border px-3.5 py-3 ${isDark ? 'border-amber-500/25 bg-amber-500/[0.07]' : 'border-amber-200 bg-amber-50'}`}>
+            <p className="flex items-start gap-2 text-[12.5px] leading-relaxed text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
+                <span>{t(inicial.aviso)}</span>
+            </p>
+            {onFoto && (
+                <button type="button" onClick={onFoto}
+                    className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[12.5px] font-bold transition active:scale-[0.99]">
+                    <Camera className="w-3.5 h-3.5" /> {t('mkt.keyTryPhoto')}
+                </button>
+            )}
+        </div>
+    ) : null;
 
     const mudar = (key, campo, valor) => setLinhas(ls => ls.map(l => (l.key === key ? { ...l, [campo]: valor } : l)));
     const total = linhas.reduce((a, l) => a + itemTotal(l), 0);
@@ -308,6 +338,7 @@ function FormManual({ isDark, uid, money, inicial, onVoltar, onPronto }) {
 
     return (
         <>
+            {banner}
             {inicial?.conferencia && <Conferencia isDark={isDark} dados={inicial} money={money} />}
 
             <div className="px-5 pt-4 grid sm:grid-cols-2 gap-3">
