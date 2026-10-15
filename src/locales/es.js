@@ -732,6 +732,17 @@ export default {
     'mkt.renamed': 'Nombre actualizado',
     'mkt.unmerge': 'Separar {n} producto unido|Separar {n} productos unidos',
     'mkt.unmerged': 'Separados de nuevo',
+
+    // Armar la lista del mes a partir de una compra registrada.
+    'mkt.newList': 'Nueva lista',
+    'mkt.fromPurchase': 'Importar de una compra',
+    'mkt.fromPurchaseHint': 'La compra que registraste ya es la lista — es lo que entró en casa. Elige una y los productos vienen listos.',
+    'mkt.noPurchasesYet': 'Todavía no registraste ninguna compra con productos.',
+    'mkt.noStore': 'Sin tienda',
+    'mkt.monthlyTag': 'del mes',
+    'mkt.clearBefore': 'Borrar el ítem que ya está en la lista|Borrar los {n} ítems que ya están en la lista',
+    'mkt.clearBeforeHint': 'Sin marcar, los productos se suman a lo que ya existe y nada se pierde.',
+    'mkt.newListManualHint': 'Escribir los ítems uno a uno.',
     'common.search': 'Buscar',
     'mkt.fotoErrServer': 'El servidor rechazó la lectura. No es tu ticket — inténtalo de nuevo en unos minutos.',
     'mkt.confOk': 'Cuadra: la suma de los productos coincide con el total del ticket.',

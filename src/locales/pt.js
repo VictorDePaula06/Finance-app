@@ -733,6 +733,17 @@ export default {
     'mkt.renamed': 'Nome atualizado',
     'mkt.unmerge': 'Separar {n} produto juntado|Separar {n} produtos juntados',
     'mkt.unmerged': 'Separados de novo',
+
+    // Montar a lista do mês a partir de uma compra lançada.
+    'mkt.newList': 'Nova lista',
+    'mkt.fromPurchase': 'Importar de uma compra',
+    'mkt.fromPurchaseHint': 'A compra que você lançou já é a lista — é o que entrou em casa. Escolha uma e os produtos vêm prontos.',
+    'mkt.noPurchasesYet': 'Você ainda não lançou nenhuma compra com produtos.',
+    'mkt.noStore': 'Sem mercado',
+    'mkt.monthlyTag': 'do mês',
+    'mkt.clearBefore': 'Apagar o item que já está na lista|Apagar os {n} itens que já estão na lista',
+    'mkt.clearBeforeHint': 'Desmarcado, os produtos somam ao que já existe e nada é perdido.',
+    'mkt.newListManualHint': 'Escrever os itens um a um.',
     'common.search': 'Buscar',
     'mkt.fotoErrServer': 'O servidor recusou a leitura. Não é o seu cupom — tente de novo em alguns minutos.',
     'mkt.confOk': 'Confere: a soma dos produtos bate com o total do cupom.',

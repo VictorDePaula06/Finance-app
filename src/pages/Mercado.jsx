@@ -101,38 +101,44 @@ export default function Mercado() {
                 </button>
             </header>
 
-            {/* Abas */}
-            {/* Desktop: abas no topo. No celular elas vão para baixo, perto do polegar. */}
-            <nav className={`hidden sm:flex border-b ${line} px-2 sm:px-6 items-center gap-1 overflow-x-auto`} role="tablist">
-                {ABAS.map(x => {
-                    const Icon = x.icon;
-                    const on = aba === x.id;
-                    return (
-                        <button key={x.id} role="tab" aria-selected={on} onClick={() => setAba(x.id)}
-                            className={`relative inline-flex items-center gap-2 px-3.5 py-3 text-[13.5px] font-bold whitespace-nowrap transition ${on
-                                ? 'text-emerald-500'
-                                : `${muted} ${isDark ? 'hover:text-slate-300' : 'hover:text-slate-600'}`}`}>
-                            <Icon className="w-4 h-4" strokeWidth={2.2} />
-                            {t(x.key)}
-                            {x.id === 'lista' && faltando > 0 && (
-                                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500 text-white">{faltando}</span>
-                            )}
-                            {on && <span className="absolute left-2 right-2 bottom-0 h-0.5 rounded-t bg-emerald-500" />}
-                        </button>
-                    );
-                })}
-            </nav>
+            {/* Corpo: coluna de abas à esquerda, conteúdo à direita.
+                No celular a coluna sairia roubando largura de uma tela que já
+                é estreita, e esta tela é usada EM PÉ no corredor, com uma mão
+                — lá as abas continuam embaixo, ao alcance do polegar. */}
+            <div className="flex-1 flex min-h-0">
+                <nav className={`hidden sm:flex flex-col shrink-0 w-[190px] border-r ${line} py-4 px-2.5 gap-1`}
+                    role="tablist" aria-label={t('mkt.title')}>
+                    {ABAS.map(x => {
+                        const Icon = x.icon;
+                        const on = aba === x.id;
+                        return (
+                            <button key={x.id} role="tab" aria-selected={on} onClick={() => setAba(x.id)}
+                                className={`relative flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13.5px] font-bold text-left transition ${on
+                                    ? (isDark ? 'bg-emerald-500/[0.12] text-emerald-400' : 'bg-emerald-50 text-emerald-600')
+                                    : `${muted} ${isDark ? 'hover:text-slate-300 hover:bg-white/[0.04]' : 'hover:text-slate-600 hover:bg-slate-100'}`}`}>
+                                {/* A luz verde na aba ativa, como no resto do app. */}
+                                {on && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-emerald-500" />}
+                                <Icon className="w-[18px] h-[18px] shrink-0" strokeWidth={on ? 2.5 : 2.2} />
+                                <span className="truncate">{t(x.key)}</span>
+                                {x.id === 'lista' && faltando > 0 && (
+                                    <span className="ml-auto text-[10px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500 text-white shrink-0">{faltando}</span>
+                                )}
+                            </button>
+                        );
+                    })}
+                </nav>
 
-            <main className="flex-1 px-4 sm:px-6 py-4 sm:py-7 pb-[calc(env(safe-area-inset-bottom,0px)+84px)] sm:pb-7">
-                {aba === 'lista' && (
-                    <ListaTab isDark={isDark} uid={uid} items={items}
-                        purchases={purchases} apelidos={apelidos} mk={monthKeyNow()} />
-                )}
-                {aba === 'compras' && <ComprasTab isDark={isDark} purchases={purchases} onNova={() => setNova(true)} />}
-                {aba === 'analise' && (
-                    <AnaliseTab isDark={isDark} purchases={purchases} mk={monthKeyNow()} ceiling={prefs.ceiling} />
-                )}
-            </main>
+                <main className="flex-1 min-w-0 px-4 sm:px-6 py-4 sm:py-7 pb-[calc(env(safe-area-inset-bottom,0px)+84px)] sm:pb-7">
+                    {aba === 'lista' && (
+                        <ListaTab isDark={isDark} uid={uid} items={items}
+                            purchases={purchases} apelidos={apelidos} mk={monthKeyNow()} />
+                    )}
+                    {aba === 'compras' && <ComprasTab isDark={isDark} purchases={purchases} onNova={() => setNova(true)} />}
+                    {aba === 'analise' && (
+                        <AnaliseTab isDark={isDark} purchases={purchases} mk={monthKeyNow()} ceiling={prefs.ceiling} />
+                    )}
+                </main>
+            </div>
 
             <footer className={`hidden sm:block border-t ${line} px-4 sm:px-6 py-2.5`}>
                 <p className={`text-[11px] ${muted}`}>

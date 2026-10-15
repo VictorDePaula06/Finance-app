@@ -732,6 +732,17 @@ export default {
     'mkt.renamed': 'Name updated',
     'mkt.unmerge': 'Split {n} merged product|Split {n} merged products',
     'mkt.unmerged': 'Split again',
+
+    // Build the month's list from a logged purchase.
+    'mkt.newList': 'New list',
+    'mkt.fromPurchase': 'Import from a purchase',
+    'mkt.fromPurchaseHint': 'The purchase you logged already is the list — it is what came home. Pick one and the products come ready.',
+    'mkt.noPurchasesYet': 'You have not logged any purchase with products yet.',
+    'mkt.noStore': 'No store',
+    'mkt.monthlyTag': 'monthly',
+    'mkt.clearBefore': 'Delete the item already on the list|Delete the {n} items already on the list',
+    'mkt.clearBeforeHint': 'Unchecked, the products add to what is already there and nothing is lost.',
+    'mkt.newListManualHint': 'Type the items one by one.',
     'common.search': 'Search',
     'mkt.fotoErrServer': 'The server refused the read. It is not your receipt — try again in a few minutes.',
     'mkt.confOk': 'Checks out: the products add up to the receipt total.',

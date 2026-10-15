@@ -4,7 +4,8 @@ import { db } from '../../services/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 import { UNITS } from '../../utils/market';
 import ConsumoMes from './ConsumoMes';
-import { Plus, Check, Trash2, ShoppingCart, X, Eraser } from 'lucide-react';
+import NovaListaSheet from './NovaListaSheet';
+import { Plus, Check, Trash2, ShoppingCart, X, Eraser, ListPlus } from 'lucide-react';
 
 // ── Aba Lista ───────────────────────────────────────────────────────
 // O uso real é EM PÉ, no corredor, com uma mão e o carrinho na outra. Então:
@@ -19,6 +20,7 @@ import { Plus, Check, Trash2, ShoppingCart, X, Eraser } from 'lucide-react';
 export default function ListaTab({ isDark, uid, items, purchases, apelidos, mk }) {
     const { t } = useI18n();
     const [addOpen, setAddOpen] = useState(false);
+    const [novaOpen, setNovaOpen] = useState(false);
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const ink = isDark ? 'text-white' : 'text-slate-800';
@@ -57,11 +59,21 @@ export default function ListaTab({ isDark, uid, items, purchases, apelidos, mk }
                                 : t('mkt.listSubtitle')}
                         </p>
                     </div>
-                    {/* No desktop o botão fica aqui; no celular vira o flutuante. */}
-                    <button onClick={() => setAddOpen(true)}
-                        className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-black transition active:scale-95 shrink-0">
-                        <Plus className="w-4 h-4" strokeWidth={3} /> {t('mkt.addItem')}
-                    </button>
+                    {/* "Nova lista" é o caminho de montar a lista do mês de uma vez
+                        — importando uma compra já lançada em vez de digitar tudo.
+                        O "+" de item solto continua existindo ao lado, porque no
+                        corredor o que se faz é acrescentar uma coisa, não montar
+                        uma lista. */}
+                    <div className="hidden sm:flex items-center gap-2 shrink-0">
+                        <button onClick={() => setAddOpen(true)} title={t('mkt.addItem')}
+                            className={`w-10 h-10 rounded-xl border flex items-center justify-center transition active:scale-95 ${line} ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/[0.06]' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}>
+                            <Plus className="w-[18px] h-[18px]" strokeWidth={3} />
+                        </button>
+                        <button onClick={() => setNovaOpen(true)}
+                            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-black transition active:scale-95">
+                            <ListPlus className="w-4 h-4" strokeWidth={2.6} /> {t('mkt.newList')}
+                        </button>
+                    </div>
                 </div>
 
                 {items.length > 0 && (
@@ -111,7 +123,14 @@ export default function ListaTab({ isDark, uid, items, purchases, apelidos, mk }
                 e quem consulta rola a tela. */}
             <ConsumoMes isDark={isDark} uid={uid} purchases={purchases} apelidos={apelidos} mk={mk} />
 
-            {/* Botão flutuante (celular) — fica acima da barra de abas de baixo. */}
+            {/* Flutuantes (celular) — acima da barra de abas de baixo. O grande
+                é o de sempre: acrescentar um item, que é o gesto do corredor.
+                O menor, acima, abre a montagem da lista inteira. */}
+            <button onClick={() => setNovaOpen(true)} aria-label={t('mkt.newList')}
+                className={`sm:hidden fixed right-4 z-30 w-11 h-11 rounded-full border shadow-lg flex items-center justify-center active:scale-95 transition ${isDark ? 'bg-[#0b110e] border-white/15 text-emerald-400' : 'bg-white border-slate-200 text-emerald-600'}`}
+                style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 136px)' }}>
+                <ListPlus className="w-5 h-5" strokeWidth={2.4} />
+            </button>
             <button onClick={() => setAddOpen(true)} aria-label={t('mkt.addItem')}
                 className="sm:hidden fixed right-4 z-30 w-14 h-14 rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center active:scale-95 transition"
                 style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 74px)' }}>
@@ -119,6 +138,10 @@ export default function ListaTab({ isDark, uid, items, purchases, apelidos, mk }
             </button>
 
             {addOpen && <AddSheet isDark={isDark} uid={uid} onClose={() => setAddOpen(false)} />}
+            {novaOpen && (
+                <NovaListaSheet isDark={isDark} uid={uid} items={items} purchases={purchases}
+                    apelidos={apelidos} onManual={() => setAddOpen(true)} onClose={() => setNovaOpen(false)} />
+            )}
         </div>
     );
 }

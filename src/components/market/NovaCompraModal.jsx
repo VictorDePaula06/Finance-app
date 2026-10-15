@@ -1,133 +1,43 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useI18n } from '../../contexts/LanguageContext';
 import { db } from '../../services/firebase';
 import { collection, addDoc, doc, getDocs, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { UNITS, parseNum, itemTotal } from '../../utils/market';
 import { planejaLista } from '../../utils/listaDaCompra';
 import { toast } from '../ui/Toaster';
-import QrScanner from './QrScanner';
 import PhotoCapture from './PhotoCapture';
-import ChaveInput from './ChaveInput';
 import {
-    X, QrCode, KeyRound, Camera, PencilLine, Plus, Trash2, ChevronRight, Loader2, ArrowLeft,
+    X, Camera, PencilLine, Plus, Trash2, ChevronRight, ArrowLeft,
     CheckCircle2, AlertTriangle, ListChecks,
 } from 'lucide-react';
 
 // ── Lançar nova compra ──────────────────────────────────────────────
 // Dois passos: primeiro COMO lançar, depois o lançamento em si.
 //
-// O QR Code lê o cupom pela câmera, consulta a SEFAZ e CAI NO MESMO
-// formulário manual, já preenchido — a pessoa confere e corrige antes de
-// salvar. Importar direto, sem conferência, esconderia erro de leitura.
+// Dois caminhos, e só dois. A foto com IA assume cupom longo: várias fotos
+// em sequência (ou o PDF inteiro), juntadas pela sobreposição, e a soma
+// conferida contra o total impresso no papel. O manual é o que sempre
+// funciona, e é onde a foto termina — a pessoa confere e corrige antes de
+// salvar, porque importar direto esconderia erro de leitura.
 //
-// A foto com IA assume cupom longo: várias fotos em sequência, juntadas
-// pela sobreposição, e a soma conferida contra o total impresso no papel.
-//
-// A chave de acesso digitada segue o mesmo caminho do QR: ela identifica
-// a nota, a consulta tenta buscar os itens, e o resultado cai na mesma
-// conferência. A diferença é o que acontece quando o portal não responde
-// — ver `consultarPorChave`.
+// O que saiu daqui: QR Code e chave de acesso. Os dois dependiam de
+// consultar o portal da SEFAZ a partir do servidor, e isso foi MEDIDO como
+// impossível: o portal responde com um desafio de robô em JavaScript
+// (F5/BIG-IP) em toda URL, inclusive na raiz. Navegador passa; servidor
+// nenhum passa. Manter as opções na tela era prometer o que não acontece.
 
 const METODOS = [
-    { id: 'qrcode', icon: QrCode, key: 'mkt.byQrCode', descKey: 'mkt.byQrCodeDesc', pronto: true },
-    { id: 'chave', icon: KeyRound, key: 'mkt.byKey', descKey: 'mkt.byKeyDesc', pronto: true },
     { id: 'foto', icon: Camera, key: 'mkt.byPhoto', descKey: 'mkt.byPhotoDesc', pronto: true },
     { id: 'manual', icon: PencilLine, key: 'mkt.byManual', descKey: 'mkt.byManualDesc', pronto: true },
 ];
-
-// Mensagem por causa, para a pessoa saber o que fazer — não um "erro".
-const MOTIVO = {
-    host_not_allowed: 'mkt.qrErrNotNfce',
-    invalid_key: 'mkt.qrErrNotNfce',
-    invalid_url: 'mkt.qrErrNotNfce',
-    missing_url: 'mkt.qrErrNotNfce',
-    no_items: 'mkt.qrErrNoItems',
-    sefaz_captcha: 'mkt.qrErrCaptcha',
-    sefaz_blocked: 'mkt.qrErrBlocked',
-    sefaz_ip: 'mkt.qrErrIp',
-    rate_limited: 'mkt.qrErrBusy',
-};
-
-// O que a chave sabe, no formato que o formulário entende.
-//
-// A data fica no primeiro dia do mês da nota porque a chave guarda ano e mês,
-// não o dia. Chutar o dia seria inventar: o campo abre no mês certo e a pessoa
-// ajusta. Quando a nota é do mês corrente, nem isso é preciso — o formulário
-// já abre em hoje, que é o palpite melhor.
-const doChaveParaFormulario = (info, motivo) => {
-    const mesAtual = new Date().toISOString().slice(0, 7);
-    return {
-        key: info.chave,
-        origem: 'chave',
-        store: null,
-        items: [],
-        // O porquê vai junto: o formulário abre vazio de propósito e precisa
-        // dizer isso na cara, não num toast que some antes de ser lido.
-        aviso: motivo || 'mkt.keyWhyEmpty',
-        ...(info.mesEmissao === mesAtual ? {} : { date: `${info.mesEmissao}-01` }),
-    };
-};
 
 const linhaVazia = () => ({ key: Math.random().toString(36).slice(2), name: '', qty: '1', unit: 'un', unitPrice: '' });
 
 export default function NovaCompraModal({ isDark, uid, onClose }) {
     const { t, fmtMoney: money } = useI18n();
     const [metodo, setMetodo] = useState(null);
-    const [consultando, setConsultando] = useState(false);
-    const [erroQr, setErroQr] = useState('');
-    const [daNota, setDaNota] = useState(null);     // o que a SEFAZ devolveu
-    // A chave digitada sobrevive a uma ida à foto: a compra continua amarrada
-    // à nota mesmo quando os itens vierem do cupom fotografado.
-    const [chaveGuardada, setChaveGuardada] = useState(null);
+    const [daNota, setDaNota] = useState(null);     // o que a foto leu
 
-    const consultar = useCallback(async (url) => {
-        setErroQr(''); setConsultando(true);
-        try {
-            const r = await fetch(`/api/market-import?url=${encodeURIComponent(url)}`);
-            const d = await r.json().catch(() => ({}));
-            if (!r.ok || !d.items?.length) {
-                setErroQr(t(MOTIVO[d.error] || 'mkt.qrErrSefaz'));
-                setConsultando(false);
-                return;
-            }
-            setDaNota(d);
-            setMetodo('manual');          // cai na conferência, já preenchido
-        } catch {
-            setErroQr(t('mkt.qrErrSefaz'));
-        }
-        setConsultando(false);
-    }, [t]);
-
-    // Consulta por chave digitada. O QR impresso leva, além da chave, um hash
-    // assinado com um segredo do lojista — digitando só os 44 dígitos esse
-    // hash não existe, e vários portais recusam por isso.
-    //
-    // Então aqui a falha NÃO é beco sem saída: a chave já identificou a nota
-    // (mês, número, emitente), e isso vai para o formulário junto. A pessoa
-    // digita só os produtos, e a compra fica amarrada à nota fiscal certa.
-    const consultarPorChave = useCallback(async (url, info) => {
-        setErroQr(''); setConsultando(true);
-        try {
-            const r = await fetch(`/api/market-import?url=${encodeURIComponent(url)}`);
-            const d = await r.json().catch(() => ({}));
-            if (r.ok && d.items?.length) {
-                setDaNota({ ...d, key: d.key || info.chave, origem: 'chave' });
-                setMetodo('manual');
-                setConsultando(false);
-                return;
-            }
-            // `sefaz_captcha` é o caso comum e tem explicação própria: o portal
-            // exige validação de robô, que só um navegador de verdade passa.
-            setChaveGuardada(info.chave);
-            setDaNota(doChaveParaFormulario(info, d.error === 'sefaz_captcha' ? 'mkt.keyWhyCaptcha' : 'mkt.keyWhyEmpty'));
-            setMetodo('manual');
-        } catch {
-            setChaveGuardada(info.chave);
-            setDaNota(doChaveParaFormulario(info));
-            setMetodo('manual');
-        }
-        setConsultando(false);
-    }, []);
 
     const ink = isDark ? 'text-white' : 'text-slate-800';
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
@@ -142,7 +52,7 @@ export default function NovaCompraModal({ isDark, uid, onClose }) {
                 <div className={`flex items-center justify-between px-5 py-3.5 border-b ${line}`}>
                     <span className="flex items-center gap-2 min-w-0">
                         {metodo && (
-                            <button onClick={() => { setMetodo(null); setDaNota(null); setErroQr(''); }}
+                            <button onClick={() => { setMetodo(null); setDaNota(null); }}
                                 aria-label={t('common.cancel')}
                                 className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition ${isDark ? 'text-slate-400 hover:text-white hover:bg-white/[0.07]' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}>
                                 <ArrowLeft className="w-4 h-4" strokeWidth={2.2} />
@@ -150,9 +60,7 @@ export default function NovaCompraModal({ isDark, uid, onClose }) {
                         )}
                         <h2 className={`text-[15px] font-black tracking-tight truncate ${ink}`}>
                             {metodo === 'manual' ? (daNota ? t('mkt.qrReview') : t('mkt.newPurchase'))
-                                : metodo === 'chave' ? t('mkt.byKey')
-                                    : metodo === 'qrcode' ? t('mkt.byQrCode')
-                                    : metodo === 'foto' ? t('mkt.byPhoto') : t('mkt.howToAdd')}
+                                : metodo === 'foto' ? t('mkt.byPhoto') : t('mkt.howToAdd')}
                         </h2>
                     </span>
                     <button onClick={onClose} aria-label={t('common.close')}
@@ -164,32 +72,9 @@ export default function NovaCompraModal({ isDark, uid, onClose }) {
                 {metodo === 'manual' ? (
                     <FormManual isDark={isDark} uid={uid} money={money} inicial={daNota}
                         onFoto={() => setMetodo('foto')}
-                        onVoltar={() => { setMetodo(null); setDaNota(null); setChaveGuardada(null); }} onPronto={onClose} />
+                        onVoltar={() => { setMetodo(null); setDaNota(null); }} onPronto={onClose} />
                 ) : metodo === 'foto' ? (
-                    <PhotoCapture isDark={isDark} onLido={(d) => {
-                        setDaNota(chaveGuardada ? { ...d, key: d.key || chaveGuardada, origem: 'chave+foto' } : d);
-                        setMetodo('manual');
-                    }} />
-                ) : metodo === 'chave' ? (
-                    consultando ? (
-                        <div className="px-5 py-14 text-center">
-                            <Loader2 className="w-6 h-6 animate-spin mx-auto text-emerald-500" />
-                            <p className={`text-[13px] font-bold mt-3 ${ink}`}>{t('mkt.qrChecking')}</p>
-                            <p className={`text-[12px] mt-1 ${muted}`}>{t('mkt.qrCheckingDesc')}</p>
-                        </div>
-                    ) : (
-                        <ChaveInput isDark={isDark} onConsultar={consultarPorChave} erro={erroQr} />
-                    )
-                ) : metodo === 'qrcode' ? (
-                    consultando ? (
-                        <div className="px-5 py-14 text-center">
-                            <Loader2 className="w-6 h-6 animate-spin mx-auto text-emerald-500" />
-                            <p className={`text-[13px] font-bold mt-3 ${ink}`}>{t('mkt.qrChecking')}</p>
-                            <p className={`text-[12px] mt-1 ${muted}`}>{t('mkt.qrCheckingDesc')}</p>
-                        </div>
-                    ) : (
-                        <QrScanner isDark={isDark} onLido={consultar} erro={erroQr} />
-                    )
+                    <PhotoCapture isDark={isDark} onLido={(d) => { setDaNota(d); setMetodo('manual'); }} />
                 ) : (
                         <div className="p-4 grid sm:grid-cols-2 gap-2.5">
                             {METODOS.map(m => {
@@ -370,7 +255,7 @@ function FormManual({ isDark, uid, money, inicial, onFoto, onVoltar, onPronto })
                 store: store.trim() || null,
                 date,
                 month: date.slice(0, 7),
-                source: inicial?.origem || (inicial?.conferencia ? 'foto' : inicial ? 'qrcode' : 'manual'),
+                source: inicial ? 'foto' : 'manual',
                 // Fica no documento: a aba Compras marca qual foi a do mês, e
                 // sem isso a informação só existiria na cabeça de quem lançou.
                 ...(doMes ? { monthly: true } : {}),
