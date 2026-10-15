@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
+import { verificarIdToken } from './_verifyToken.js';
 import { rateLimit } from './_rateLimit.js';
 
 /**
@@ -38,13 +38,12 @@ export default async function handler(req, res) {
             return res.status(500).json({ success: false, error: 'STRIPE_SECRET_KEY invalida: deve comecar com sk_ (chave secreta) ou rk_ (chave restrita). Confira se nao colou a chave publicavel (pk_) ou o valor mascarado.' });
         }
 
-        if (!getApps().length) {
-            initializeApp({ credential: cert(JSON.parse(saKey)) });
-        }
+        const conta = JSON.parse(saKey);
+        const projectId = conta.project_id;          // usado para validar o token
+        if (!getApps().length) initializeApp({ credential: cert(conta) });
         // Retries e timeout explicitos para erros de rede transitorios.
         const stripe = new Stripe(stripeSecret, { maxNetworkRetries: 2, timeout: 20000 });
         const db = getFirestore();
-        const auth = getAuth();
 
         // 1. Autenticação — valida o ID token do Firebase.
         const authHeader = req.headers.authorization || '';
@@ -53,11 +52,11 @@ export default async function handler(req, res) {
 
         let decoded;
         try {
-            decoded = await auth.verifyIdToken(idToken);
+            decoded = await verificarIdToken(idToken, projectId);
         } catch {
             return res.status(401).json({ success: false, error: 'Sessão inválida. Faça login novamente.' });
         }
-        const uid = decoded.uid;
+        const uid = decoded.sub;                     // `sub` do JWT é o uid
 
         // Rate limit por usuário (inerte sem Upstash configurado).
         const rl = await rateLimit(`upgrade:${uid}`, { limit: 8, windowSec: 60 });

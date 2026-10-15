@@ -1,8 +1,8 @@
 import Stripe from 'stripe';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { rateLimit } from './_rateLimit.js';
+import { verificarIdToken } from './_verifyToken.js';
 
 /**
  * Cria o checkout do plano ANUAL como PAGAMENTO ÚNICO (mode: 'payment'), com
@@ -15,26 +15,13 @@ import { rateLimit } from './_rateLimit.js';
  *
  * IMPORTANTE: NÃO usamos firebase-admin/auth (verifyIdToken) porque ele puxa
  * jwks-rsa → jose via require(), que quebra fora do Node 22.12+ (ERR_REQUIRE_ESM).
- * Verificamos o ID token direto com jose (import ESM), usando as chaves públicas
- * do Firebase — sem depender da versão do Node.
+ * A verificação mora em _verifyToken.js, usada por todos os endpoints — este
+ * arquivo foi onde o problema apareceu primeiro, e a cópia local dele acabou
+ * ficando isolada enquanto três outros endpoints repetiam o erro.
  *
  * Env vars (Vercel): STRIPE_SECRET_KEY, FIREBASE_SERVICE_ACCOUNT_KEY,
  *   (opcional) VITE_STRIPE_PRICE_ID_ANNUAL_ONETIME.
  */
-
-// JWKS público do Firebase (formato JWK) — usado p/ validar o ID token.
-const FIREBASE_JWKS = createRemoteJWKSet(
-    new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com')
-);
-
-async function verifyFirebaseToken(idToken, projectId) {
-    const { payload } = await jwtVerify(idToken, FIREBASE_JWKS, {
-        issuer: `https://securetoken.google.com/${projectId}`,
-        audience: projectId,
-    });
-    if (!payload.sub) throw new Error('Token sem sub');
-    return payload; // uid = payload.sub, email = payload.email
-}
 
 export default async function handler(req, res) {
     res.setHeader('Content-Type', 'application/json');
@@ -63,7 +50,7 @@ export default async function handler(req, res) {
         const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
         if (!idToken) return res.status(401).json({ success: false, error: 'Não autenticado.' });
         let decoded;
-        try { decoded = await verifyFirebaseToken(idToken, projectId); }
+        try { decoded = await verificarIdToken(idToken, projectId); }
         catch (e) { console.error('token verify falhou:', e?.message); return res.status(401).json({ success: false, error: 'Sessão inválida. Faça login novamente.' }); }
         const uid = decoded.sub;
         const email = decoded.email;

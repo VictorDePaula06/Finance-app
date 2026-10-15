@@ -17,10 +17,10 @@
  */
 
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { rateLimit } from './_rateLimit.js';
 import { getGeminiKey } from './_geminiKey.js';
+import { verificarIdToken } from './_verifyToken.js';
 
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash'];
 const geminiUrl = (m) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
@@ -104,12 +104,17 @@ Regras:
 - NÃO invente produto, preço ou quantidade. Se uma linha estiver ilegível, omita.
 - Ignore descontos, tributos, troco e formas de pagamento: só produtos.`;
 
+// Guarda o project_id junto: a verificação do token precisa dele para
+// conferir emissor e audiência, e ele só existe dentro do service account.
+let projectId = null;
+
 function initAdmin() {
-    if (getApps().length) return true;
     const sa = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
     if (!sa) return false;
     try {
-        initializeApp({ credential: cert(JSON.parse(sa)) });
+        const conta = JSON.parse(sa);
+        projectId = conta.project_id;
+        if (!getApps().length) initializeApp({ credential: cert(conta) });
         return true;
     } catch {
         return false;
@@ -172,7 +177,7 @@ export async function lerPorFoto(req, res) {
 
     let uid;
     try {
-        uid = (await getAuth().verifyIdToken(idToken)).uid;
+        uid = (await verificarIdToken(idToken, projectId)).sub;
     } catch {
         return res.status(401).json({ error: 'invalid_token' });
     }

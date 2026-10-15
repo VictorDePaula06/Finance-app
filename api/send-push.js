@@ -1,7 +1,7 @@
 import webpush from 'web-push';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
+import { verificarIdToken } from './_verifyToken.js';
 
 // Lista de admins inline (auto-contida) — mantém este endpoint deployável tanto
 // no projeto principal quanto num projeto Vercel separado, sem depender de ../src.
@@ -37,15 +37,13 @@ export default async function handler(req, res) {
         }
 
         // 2. Inicialização Firebase Admin
-        if (!getApps().length) {
-            try {
-                const serviceAccount = JSON.parse(saKey);
-                initializeApp({
-                    credential: cert(serviceAccount)
-                });
-            } catch (e) {
-                return res.status(500).json({ success: false, error: 'Erro ao processar JSON da FIREBASE_SERVICE_ACCOUNT_KEY: ' + e.message });
-            }
+        let projectId;
+        try {
+            const serviceAccount = JSON.parse(saKey);
+            projectId = serviceAccount.project_id;   // usado para validar o token
+            if (!getApps().length) initializeApp({ credential: cert(serviceAccount) });
+        } catch (e) {
+            return res.status(500).json({ success: false, error: 'Erro ao processar JSON da FIREBASE_SERVICE_ACCOUNT_KEY: ' + e.message });
         }
 
         const db = getFirestore();
@@ -59,7 +57,7 @@ export default async function handler(req, res) {
         }
         let decoded;
         try {
-            decoded = await getAuth().verifyIdToken(idToken);
+            decoded = await verificarIdToken(idToken, projectId);
         } catch {
             return res.status(401).json({ success: false, error: 'Sessão inválida. Faça login novamente.' });
         }
