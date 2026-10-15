@@ -18,7 +18,9 @@
 
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 import { rateLimit } from './_rateLimit.js';
+import { getGeminiKey } from './_geminiKey.js';
 
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash'];
 const geminiUrl = (m) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
@@ -163,9 +165,6 @@ export async function lerPorFoto(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' });
 
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) return res.status(500).json({ error: 'no_gemini_key' });
-
     if (!initAdmin()) return res.status(500).json({ error: 'no_admin_credentials' });
     const header = req.headers.authorization || '';
     const idToken = header.startsWith('Bearer ') ? header.slice(7) : null;
@@ -181,6 +180,13 @@ export async function lerPorFoto(req, res) {
     // Leitura de imagem é cara; segura o volume por usuário.
     const rl = await rateLimit(`mktphoto:${uid}`, { limit: 40, windowSec: 300 });
     if (!rl.ok) return res.status(429).json({ error: 'rate_limited' });
+
+    // MESMA chave do WhatsApp, de propósito: para a pessoa existe uma IA só,
+    // a da Alívia. Fontes separadas já tinham divergido — o painel configurava
+    // uma e o leitor de cupom lia outra. Só busco depois de autenticar: não há
+    // por que ir ao Firestore por conta de um anônimo.
+    const key = await getGeminiKey(getFirestore());
+    if (!key) return res.status(500).json({ error: 'no_gemini_key' });
 
     const { image, mime } = req.body || {};
     const problema = validarEntrada(image, mime);

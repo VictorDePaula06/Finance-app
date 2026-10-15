@@ -27,6 +27,7 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { jsPDF } from 'jspdf';
 import crypto from 'crypto';
+import { getGeminiKey } from './_geminiKey.js';
 
 // Precisamos do corpo CRU (bytes) para validar a assinatura da Meta (HMAC).
 export const config = { api: { bodyParser: false } };
@@ -919,20 +920,11 @@ PRINCÍPIOS (SEGURANÇA E PRECISÃO) — valem sempre:
 const MSG_NO_KEY = '🛠️ A Alívia está em manutenção rápida e volta já já. Tente de novo em alguns minutos. 🙏';
 
 // Lê a chave GLOBAL do Gemini (a mesma pra todos os usuários, com faturamento do app).
-// Fonte: admin_configs/whatsapp.geminiKey (configurável no painel do dev) e, como
-// fallback, a variável de ambiente GEMINI_API_KEY do servidor. Cacheada por processo.
-let _globalKeyCache = { key: null, at: 0 };
+// A lógica mora em _geminiKey.js porque o leitor de cupom usa a MESMA chave —
+// eram duas cópias, e divergiram: o painel configurava uma fonte e o cupom lia
+// outra. Uma fonte só agora.
 async function getGlobalGeminiKey(db) {
-  const now = Date.now();
-  if (_globalKeyCache.key && (now - _globalKeyCache.at) < 60000) return _globalKeyCache.key;
-  const pick = (v) => (typeof v === 'string' && v.trim()) ? v.trim() : null;
-  let k = null;
-  try {
-    const snap = await db.collection('admin_configs').doc('whatsapp').get();
-    k = pick(snap.data()?.geminiKey);
-  } catch (e) { console.error('WA getGlobalGeminiKey (firestore):', e); }
-  if (!k) k = pick(process.env.GEMINI_API_KEY);
-  if (k) _globalKeyCache = { key: k, at: now };
+  const k = await getGeminiKey(db);
   console.log(`WA geminiKey global found=${!!k}`);
   return k;
 }

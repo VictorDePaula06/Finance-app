@@ -30,7 +30,31 @@
 //    import estático, qualquer tropeço num deles derrubava a função toda,
 //    inclusive o preflight — foi exatamente o que aconteceu no primeiro
 //    deploy desta fusão: OPTIONS respondia 500 sem nem chegar ao despachante.
+// Ler um PDF de cupom no Gemini leva bem mais que os 10s que a Vercel dá por
+// padrão: são várias páginas e dezenas de itens. Sem isto a função era morta
+// no meio da leitura, e o que chegava na tela era um 500 sem explicação
+// nenhuma — nem nosso JSON, porque o processo nem chegava a responder.
+// 60s é o teto do plano Hobby.
+export const config = { maxDuration: 60 };
+
 export default async function handler(req, res) {
+    try {
+        return await despachar(req, res);
+    } catch (e) {
+        // Exceção aqui virava FUNCTION_INVOCATION_FAILED: 500 com corpo que não
+        // é JSON, e a tela não tinha o que mostrar além de "http_500". Um erro
+        // que não se identifica custa um ciclo inteiro de ida e volta para
+        // descobrir o óbvio. Então ele se identifica.
+        console.error('[market-import]', e);
+        if (res.writableEnded) return;
+        return res.status(500).json({
+            error: 'crash',
+            detail: String(e?.message || e).slice(0, 200),
+        });
+    }
+}
+
+async function despachar(req, res) {
     if (req.method === 'GET') {
         const { lerPorQrCode } = await import('./_nfce.js');
         return lerPorQrCode(req, res);

@@ -89,7 +89,17 @@ export default function PhotoCapture({ isDark, onLido }) {
         setErro(''); setDetalhe('');
         try {
             const novas = [];
-            for (const f of arquivos) novas.push({ id: `${Date.now()}-${novas.length}`, ...(await preparar(f)) });
+            const jaTem = new Set(fotos.map(f => f.assinatura).filter(Boolean));
+            for (const f of arquivos) {
+                // Mesmo nome e mesmo tamanho é o mesmo arquivo escolhido de
+                // novo. Deixar passar custa uma leitura inteira na IA e mostra
+                // duas miniaturas idênticas, impossíveis de diferenciar.
+                const assinatura = `${f.name}:${f.size}`;
+                if (jaTem.has(assinatura)) continue;
+                jaTem.add(assinatura);
+                novas.push({ id: `${Date.now()}-${novas.length}`, assinatura, ...(await preparar(f)) });
+            }
+            if (!novas.length) return;
             setFotos(l => [...l, ...novas]);
         } catch (err) {
             setErro(t(err?.message === 'pdf_grande' ? 'mkt.fotoErrPdfBig' : 'mkt.fotoErrRead'));
@@ -144,7 +154,7 @@ export default function PhotoCapture({ isDark, onLido }) {
                     if (MOTIVO[d.error] && fotos.length === 1) {
                         setErro(t(MOTIVO[d.error])); setDetalhe(d.error); setLendo(0); return;
                     }
-                    if (!recusa) recusa = d.error || `http_${r.status}`;
+                    if (!recusa) recusa = [d.error || `http_${r.status}`, d.detail].filter(Boolean).join(': ');
                     continue;
                 }
                 lotes.push(d);
