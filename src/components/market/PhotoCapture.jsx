@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useI18n } from '../../contexts/LanguageContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { auth } from '../../services/firebase';
 import { juntarLotes, conferir, totalDosLotes, cabecalhoDosLotes } from '../../utils/receiptMerge';
 import { Camera, ImagePlus, FileText, X, Loader2, ScanLine } from 'lucide-react';
 
@@ -66,7 +66,6 @@ const MOTIVO = {
 
 export default function PhotoCapture({ isDark, onLido }) {
     const { t } = useI18n();
-    const { currentUser } = useAuth();
     const [fotos, setFotos] = useState([]);          // { id, base64, url }
     const [lendo, setLendo] = useState(0);           // 0 = parado; senão, nº da foto
     const [erro, setErro] = useState('');
@@ -107,12 +106,17 @@ export default function PhotoCapture({ isDark, onLido }) {
         if (!fotos.length || lendo) return;
         setErro(''); setDetalhe('');
 
-        // Sem usuário é o único caso em que "entre de novo" é verdade.
-        if (!currentUser) { setErro(t('mkt.fotoErrAuth')); return; }
+        // `auth.currentUser`, NÃO o `currentUser` do AuthContext: o contexto
+        // guarda o usuário espalhado num objeto literal para pendurar os dados
+        // da assinatura, e o spread copia os campos mas perde o prototype —
+        // `getIdToken` some junto. O resto do app já usa `auth.currentUser`
+        // por isso; aqui eu tinha errado, e o sintoma era "sessão expirou".
+        const user = auth.currentUser;
+        if (!user) { setErro(t('mkt.fotoErrAuth')); return; }
 
         let token;
         try {
-            token = await currentUser.getIdToken();
+            token = await user.getIdToken();
         } catch (e) {
             // A causa muda a saída: token revogado pede login, queda de rede
             // pede só tentar de novo. Dizer sempre "sessão expirou" manda a
