@@ -70,6 +70,9 @@ export default function PhotoCapture({ isDark, onLido }) {
     const [fotos, setFotos] = useState([]);          // { id, base64, url }
     const [lendo, setLendo] = useState(0);           // 0 = parado; senão, nº da foto
     const [erro, setErro] = useState('');
+    // Código cru do servidor. Não traduzo: serve para quem vai consertar,
+    // e sem ele um erro de servidor se disfarça de cupom ilegível.
+    const [detalhe, setDetalhe] = useState('');
     const inputRef = useRef(null);
     const cameraRef = useRef(null);
 
@@ -84,7 +87,7 @@ export default function PhotoCapture({ isDark, onLido }) {
         const arquivos = [...(e.target.files || [])];
         e.target.value = '';                          // permite repetir o mesmo arquivo
         if (!arquivos.length) return;
-        setErro('');
+        setErro(''); setDetalhe('');
         try {
             const novas = [];
             for (const f of arquivos) novas.push({ id: `${Date.now()}-${novas.length}`, ...(await preparar(f)) });
@@ -102,16 +105,27 @@ export default function PhotoCapture({ isDark, onLido }) {
 
     const ler = async () => {
         if (!fotos.length || lendo) return;
-        setErro('');
+        setErro(''); setDetalhe('');
+
+        // Sem usuário é o único caso em que "entre de novo" é verdade.
+        if (!currentUser) { setErro(t('mkt.fotoErrAuth')); return; }
+
         let token;
         try {
             token = await currentUser.getIdToken();
-        } catch {
-            setErro(t('mkt.fotoErrAuth'));
+        } catch (e) {
+            // A causa muda a saída: token revogado pede login, queda de rede
+            // pede só tentar de novo. Dizer sempre "sessão expirou" manda a
+            // pessoa fazer login a toa e esconde o erro de quem conserta.
+            console.error('[cupom] token:', e);
+            const rede = e?.code === 'auth/network-request-failed';
+            setErro(t(rede ? 'mkt.fotoErrNet' : 'mkt.fotoErrAuth'));
+            setDetalhe(e?.code || e?.message || '');
             return;
         }
 
         const lotes = [];
+        let recusa = '';                                 // código da 1ª falha do servidor
         for (let i = 0; i < fotos.length; i++) {
             setLendo(i + 1);
             try {
@@ -123,7 +137,10 @@ export default function PhotoCapture({ isDark, onLido }) {
                 const d = await r.json().catch(() => ({}));
                 if (!r.ok) {
                     // Uma foto ilegível no meio não deve jogar fora as outras.
-                    if (MOTIVO[d.error] && fotos.length === 1) { setErro(t(MOTIVO[d.error])); setLendo(0); return; }
+                    if (MOTIVO[d.error] && fotos.length === 1) {
+                        setErro(t(MOTIVO[d.error])); setDetalhe(d.error); setLendo(0); return;
+                    }
+                    if (!recusa) recusa = d.error || `http_${r.status}`;
                     continue;
                 }
                 lotes.push(d);
@@ -135,7 +152,14 @@ export default function PhotoCapture({ isDark, onLido }) {
         }
         setLendo(0);
 
-        if (!lotes.length) { setErro(t('mkt.fotoErrUnreadable')); return; }
+        // Nada voltou: se o servidor recusou, o problema é lá, não no cupom.
+        // Mandar "aproxime mais e evite sombra" nesse caso é mentira útil
+        // para ninguém — a pessoa refotografa dez vezes sem chance de dar certo.
+        if (!lotes.length) {
+            setErro(t(recusa ? 'mkt.fotoErrServer' : 'mkt.fotoErrUnreadable'));
+            setDetalhe(recusa);
+            return;
+        }
 
         const { items, sobrepostos } = juntarLotes(lotes);
         const cab = cabecalhoDosLotes(lotes);
@@ -222,7 +246,12 @@ export default function PhotoCapture({ isDark, onLido }) {
                 </>
             )}
 
-            {erro && <p className="text-[12.5px] text-rose-500 font-semibold text-center mt-3">{erro}</p>}
+            {erro && (
+                <div className="mt-3 text-center">
+                    <p className="text-[12.5px] text-rose-500 font-semibold">{erro}</p>
+                    {detalhe && <p className={`text-[10.5px] font-mono mt-1 ${muted}`}>{detalhe}</p>}
+                </div>
+            )}
         </div>
     );
 }

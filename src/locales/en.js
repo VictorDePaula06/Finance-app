@@ -711,6 +711,7 @@ export default {
     'mkt.fotoErrBig': 'That photo came out too large. Try again.',
     'mkt.fotoErrUnreadable': 'Could not read the products. Get closer and avoid shadows.',
     'mkt.fotoErrNet': 'The connection failed during the read.',
+    'mkt.fotoErrServer': 'The server refused the read. It is not your receipt — try again in a few minutes.',
     'mkt.confOk': 'Checks out: the products add up to the receipt total.',
     'mkt.confOver': 'The sum exceeded the receipt total — a product probably came in twice. Check the list.',
     'mkt.confUnder': 'The sum fell short of the receipt total — a piece was probably not photographed.',

@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { writeFileSync, readFileSync } from 'fs'
@@ -49,6 +49,16 @@ function devApiPlugin() {
     name: 'dev-api',
     apply: 'serve',
     configureServer(server) {
+      // Segredos de servidor no process.env do Node. O Vite só entrega ao app
+      // o que tem prefixo VITE_ — e faz certo, o resto não pode ir para o
+      // navegador. Mas as funções de api/ rodam aqui dentro e leem
+      // process.env, então sem isto a chave do Gemini escrita no .env.local
+      // simplesmente não existia para elas, e todo teste de leitura de cupom
+      // voltava "no_gemini_key". Isto não entra em bundle nenhum.
+      for (const [k, v] of Object.entries(loadEnv(server.config.mode, process.cwd(), ''))) {
+        if (!k.startsWith('VITE_') && process.env[k] === undefined) process.env[k] = v
+      }
+
       server.middlewares.use(async (req, res, next) => {
         if (!req.url?.startsWith('/api/')) return next()
         if (!['GET', 'POST', 'OPTIONS'].includes(req.method)) return next()

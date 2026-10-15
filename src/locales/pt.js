@@ -712,6 +712,7 @@ export default {
     'mkt.fotoErrBig': 'Essa foto ficou grande demais. Tente de novo.',
     'mkt.fotoErrUnreadable': 'Não consegui ler os produtos. Aproxime mais e evite sombra.',
     'mkt.fotoErrNet': 'Falhou a conexão durante a leitura.',
+    'mkt.fotoErrServer': 'O servidor recusou a leitura. Não é o seu cupom — tente de novo em alguns minutos.',
     'mkt.confOk': 'Confere: a soma dos produtos bate com o total do cupom.',
     'mkt.confOver': 'A soma passou do total do cupom — provavelmente um produto entrou duas vezes. Confira a lista.',
     'mkt.confUnder': 'A soma deu menos que o total do cupom — provavelmente faltou fotografar um pedaço.',

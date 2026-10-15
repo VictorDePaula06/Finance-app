@@ -711,6 +711,7 @@ export default {
     'mkt.fotoErrBig': 'Esa foto salió demasiado grande. Inténtalo otra vez.',
     'mkt.fotoErrUnreadable': 'No pude leer los productos. Acércate más y evita la sombra.',
     'mkt.fotoErrNet': 'Falló la conexión durante la lectura.',
+    'mkt.fotoErrServer': 'El servidor rechazó la lectura. No es tu ticket — inténtalo de nuevo en unos minutos.',
     'mkt.confOk': 'Cuadra: la suma de los productos coincide con el total del ticket.',
     'mkt.confOver': 'La suma superó el total del ticket — probablemente un producto entró dos veces. Revisa la lista.',
     'mkt.confUnder': 'La suma quedó por debajo del total del ticket — probablemente faltó fotografiar una parte.',
