@@ -735,6 +735,18 @@ export default {
 
     // Build the month's list from a logged purchase.
     'mkt.newList': 'New list',
+    'mkt.defaultListName': 'My list',
+    'mkt.listName': 'List name',
+    'mkt.listNamePlaceholder': 'Monthly shop, Market run, Barbecue…',
+    'mkt.listsWord': 'list|lists',
+    'mkt.missingWord': 'missing|missing',
+    'mkt.noLists': 'No lists yet',
+    'mkt.noListsDesc': 'Create one from scratch or pull it from a purchase you already logged.',
+    'mkt.checkOff': 'Check off',
+    'mkt.startEmpty': 'Start empty',
+    'mkt.renameList': 'Rename the list',
+    'mkt.listDeleted': 'List deleted',
+    'mkt.uncheckAll': 'Uncheck all',
     'mkt.fromPurchase': 'Import from a purchase',
     'mkt.fromPurchaseHint': 'The purchase you logged already is the list — it is what came home. Pick one and the products come ready.',
     'mkt.noPurchasesYet': 'You have not logged any purchase with products yet.',

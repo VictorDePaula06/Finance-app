@@ -94,7 +94,7 @@ service cloud.firestore {
         'insurances', 'watchlist',
         // Mercado: lista de compras, compras lançadas (tela /mercado) e o
         // mapa de "este produto é o mesmo que aquele", feito à mão.
-        'market_items', 'market_purchases', 'market_aliases'
+        'market_items', 'market_purchases', 'market_aliases', 'market_lists'
       ];
     }
 

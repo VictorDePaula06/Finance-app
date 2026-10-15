@@ -1,14 +1,15 @@
 import React, { useMemo } from 'react';
 import { useI18n } from '../../contexts/LanguageContext';
 import { analyze } from '../../utils/market';
-import { Vazio } from './ListaTab';
+import { Vazio } from './Vazio';
+import ConsumoMes from './ConsumoMes';
 import { TrendingUp, TrendingDown, Minus, Receipt, Target } from 'lucide-react';
 
 // ── Aba Análise ─────────────────────────────────────────────────────
 // Duas perguntas que a lista e o cupom não respondem sozinhos: para onde
 // vai o dinheiro do mercado, e o que está ficando mais caro.
 
-export default function AnaliseTab({ isDark, purchases, mk, ceiling }) {
+export default function AnaliseTab({ isDark, uid, purchases, mk, ceiling, apelidos }) {
     const { t, fmtMoney: money, fmtDate } = useI18n();
     const a = useMemo(() => analyze(purchases, mk, ceiling), [purchases, mk, ceiling]);
 
@@ -124,6 +125,11 @@ export default function AnaliseTab({ isDark, purchases, mk, ceiling }) {
                     </div>
                 </section>
             )}
+
+            {/* Quanto se comprou de cada coisa no mês, com o último preço
+                pago. Estava na aba Lista, onde atrapalhava quem está de pé
+                no corredor — a pergunta "quanto gastei" é desta aba. */}
+            <ConsumoMes isDark={isDark} uid={uid} purchases={purchases} apelidos={apelidos} mk={mk} />
         </div>
     );
 }

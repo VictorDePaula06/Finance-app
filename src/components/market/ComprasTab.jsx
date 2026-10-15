@@ -5,7 +5,7 @@ import { deleteDoc, doc } from 'firebase/firestore';
 import { purchaseTotal, itemTotal } from '../../utils/market';
 import ConfirmActionModal from '../ConfirmActionModal';
 import { toast } from '../ui/Toaster';
-import { Vazio } from './ListaTab';
+import { Vazio } from './Vazio';
 import { Plus, ChevronDown, Trash2, Store, CalendarDays } from 'lucide-react';
 
 // ── Aba Compras ─────────────────────────────────────────────────────

@@ -36,6 +36,7 @@ export default function Mercado() {
 
     const [aba, setAba] = useState('lista');
     const [items, setItems] = useState([]);
+    const [listas, setListas] = useState([]);
     const [purchases, setPurchases] = useState([]);
     const [nova, setNova] = useState(false);
     // Junções feitas à mão ("filezinho da Sadia é o mesmo da Perdigão").
@@ -51,6 +52,9 @@ export default function Mercado() {
             onSnapshot(q('market_items'), (s) => setItems(
                 s.docs.map(d => ({ id: d.id, ...d.data() }))
                     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))), () => { }),
+            onSnapshot(q('market_lists'), (s) => setListas(
+                s.docs.map(d => ({ id: d.id, ...d.data() }))
+                    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))), () => { }),
             onSnapshot(q('market_purchases'), (s) => setPurchases(
                 s.docs.map(d => ({ id: d.id, ...d.data() }))
                     .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))), () => { }),
@@ -130,12 +134,13 @@ export default function Mercado() {
 
                 <main className="flex-1 min-w-0 px-4 sm:px-6 py-4 sm:py-7 pb-[calc(env(safe-area-inset-bottom,0px)+84px)] sm:pb-7">
                     {aba === 'lista' && (
-                        <ListaTab isDark={isDark} uid={uid} items={items}
-                            purchases={purchases} apelidos={apelidos} mk={monthKeyNow()} />
+                        <ListaTab isDark={isDark} uid={uid} items={items} listas={listas}
+                            purchases={purchases} apelidos={apelidos} />
                     )}
                     {aba === 'compras' && <ComprasTab isDark={isDark} purchases={purchases} onNova={() => setNova(true)} />}
                     {aba === 'analise' && (
-                        <AnaliseTab isDark={isDark} purchases={purchases} mk={monthKeyNow()} ceiling={prefs.ceiling} />
+                        <AnaliseTab isDark={isDark} uid={uid} purchases={purchases} mk={monthKeyNow()}
+                            ceiling={prefs.ceiling} apelidos={apelidos} />
                     )}
                 </main>
             </div>

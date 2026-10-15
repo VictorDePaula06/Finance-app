@@ -202,7 +202,7 @@ async function semearLista(uid, validas, t) {
 }
 
 function FormManual({ isDark, uid, money, inicial, onFoto, onVoltar, onPronto }) {
-    const { t } = useI18n();
+    const { t, fmtMonth } = useI18n();
     const [store, setStore] = useState(inicial?.store || '');
     const [date, setDate] = useState(() => inicial?.date || new Date().toISOString().slice(0, 10));
     // Inicializador preguiçoso: linhaVazia() sorteia uma chave, e sortear
@@ -219,6 +219,13 @@ function FormManual({ isDark, uid, money, inicial, onFoto, onVoltar, onPronto })
     const [saving, setSaving] = useState(false);
     // "Foi a compra do mês": a compra lida vira a lista, sem redigitar nada.
     const [doMes, setDoMes] = useState(false);
+
+    // Nome da lista que a compra vai virar: o mês dela, escrito por extenso.
+    // É assim que alguém procura a lista depois — não por "lista 2".
+    const nomeDoMes = (iso) => {
+        const mk = String(iso || '').slice(0, 7);
+        try { return fmtMonth(mk); } catch { return mk; }
+    };
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const line = isDark ? 'border-white/[0.07]' : 'border-slate-200';

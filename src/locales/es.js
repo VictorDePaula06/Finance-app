@@ -735,6 +735,18 @@ export default {
 
     // Armar la lista del mes a partir de una compra registrada.
     'mkt.newList': 'Nueva lista',
+    'mkt.defaultListName': 'Mi lista',
+    'mkt.listName': 'Nombre de la lista',
+    'mkt.listNamePlaceholder': 'Compra del mes, Feria, Asado…',
+    'mkt.listsWord': 'lista|listas',
+    'mkt.missingWord': 'faltando|faltando',
+    'mkt.noLists': 'Todavía no hay listas',
+    'mkt.noListsDesc': 'Crea una desde cero o tráela de una compra que ya registraste.',
+    'mkt.checkOff': 'Marcar lista',
+    'mkt.startEmpty': 'Empezar vacía',
+    'mkt.renameList': 'Renombrar la lista',
+    'mkt.listDeleted': 'Lista borrada',
+    'mkt.uncheckAll': 'Desmarcar todo',
     'mkt.fromPurchase': 'Importar de una compra',
     'mkt.fromPurchaseHint': 'La compra que registraste ya es la lista — es lo que entró en casa. Elige una y los productos vienen listos.',
     'mkt.noPurchasesYet': 'Todavía no registraste ninguna compra con productos.',
