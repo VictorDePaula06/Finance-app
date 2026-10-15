@@ -38,6 +38,9 @@ export default function Mercado() {
     const [items, setItems] = useState([]);
     const [purchases, setPurchases] = useState([]);
     const [nova, setNova] = useState(false);
+    // Junções feitas à mão ("filezinho da Sadia é o mesmo da Perdigão").
+    // Um documento por pessoa: é mapa, não lista, e muda junto.
+    const [apelidos, setApelidos] = useState({ mapa: {}, rotulos: {} });
 
     const prefs = useMemo(() => marketPrefs(userPrefs), [userPrefs]);
 
@@ -51,6 +54,15 @@ export default function Mercado() {
             onSnapshot(q('market_purchases'), (s) => setPurchases(
                 s.docs.map(d => ({ id: d.id, ...d.data() }))
                     .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))), () => { }),
+            // Consulta, não leitura direta do documento: as regras negam ler um
+            // documento que ainda NÃO existe (resource == null), e quem nunca
+            // juntou nada não tem documento. Com `where`, o conjunto vazio
+            // volta sem erro — e o listener continua vivo para quando a
+            // primeira junção criar o documento.
+            onSnapshot(query(collection(db, 'market_aliases'), where('userId', '==', uid)), (s) => {
+                const d = s.docs[0]?.data();
+                setApelidos({ mapa: d?.mapa || {}, rotulos: d?.rotulos || {} });
+            }, () => { }),
         ];
         return () => subs.forEach(u => u());
     }, [uid]);
@@ -112,7 +124,10 @@ export default function Mercado() {
             </nav>
 
             <main className="flex-1 px-4 sm:px-6 py-4 sm:py-7 pb-[calc(env(safe-area-inset-bottom,0px)+84px)] sm:pb-7">
-                {aba === 'lista' && <ListaTab isDark={isDark} uid={uid} items={items} />}
+                {aba === 'lista' && (
+                    <ListaTab isDark={isDark} uid={uid} items={items}
+                        purchases={purchases} apelidos={apelidos} mk={monthKeyNow()} />
+                )}
                 {aba === 'compras' && <ComprasTab isDark={isDark} purchases={purchases} onNova={() => setNova(true)} />}
                 {aba === 'analise' && (
                     <AnaliseTab isDark={isDark} purchases={purchases} mk={monthKeyNow()} ceiling={prefs.ceiling} />

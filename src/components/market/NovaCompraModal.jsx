@@ -1,15 +1,16 @@
 import React, { useState, useCallback } from 'react';
 import { useI18n } from '../../contexts/LanguageContext';
 import { db } from '../../services/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, getDocs, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { UNITS, parseNum, itemTotal } from '../../utils/market';
+import { planejaLista } from '../../utils/listaDaCompra';
 import { toast } from '../ui/Toaster';
 import QrScanner from './QrScanner';
 import PhotoCapture from './PhotoCapture';
 import ChaveInput from './ChaveInput';
 import {
     X, QrCode, KeyRound, Camera, PencilLine, Plus, Trash2, ChevronRight, Loader2, ArrowLeft,
-    CheckCircle2, AlertTriangle,
+    CheckCircle2, AlertTriangle, ListChecks,
 } from 'lucide-react';
 
 // ── Lançar nova compra ──────────────────────────────────────────────
@@ -262,6 +263,59 @@ function Conferencia({ isDark, dados, money }) {
 }
 
 // ── Lançamento manual ───────────────────────────────────────────────
+/**
+ * Leva os produtos da compra para a lista do mês.
+ *
+ * Lê a lista e os apelidos na hora de gravar, em vez de recebê-los por
+ * prop: o que importa é o estado NESTE instante, e a decisão de somar ou
+ * criar depende dele. Uma leitura a mais custa pouco perto de duplicar a
+ * lista inteira de alguém.
+ *
+ * Falhar aqui não desfaz a compra. A compra é o registro do dinheiro e já
+ * está salva; a lista é conveniência. Então o erro avisa e para por aí.
+ */
+async function semearLista(uid, validas, t) {
+    try {
+        // Consulta nos dois casos: ler direto um documento que ainda não
+        // existe é NEGADO pelas regras, e quem nunca juntou produtos não tem
+        // documento de apelidos. Isso faria a semeadura falhar logo na
+        // primeira vez — justo quando ela é mais útil.
+        const [listaSnap, apelidosSnap] = await Promise.all([
+            getDocs(query(collection(db, 'market_items'), where('userId', '==', uid))),
+            getDocs(query(collection(db, 'market_aliases'), where('userId', '==', uid))),
+        ]);
+        const lista = listaSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const mapa = apelidosSnap.docs[0]?.data()?.mapa || {};
+
+        const { criar, somar } = planejaLista(
+            validas.map(l => ({ name: l.name.trim(), qty: parseNum(l.qty), unit: l.unit })),
+            lista, mapa);
+
+        if (!criar.length && !somar.length) return;
+
+        const b = writeBatch(db);
+        const agora = Date.now();
+        criar.forEach((item, i) => {
+            b.set(doc(collection(db, 'market_items')), {
+                userId: uid, name: item.name, qty: item.qty, unit: item.unit,
+                // Entra DESMARCADO: a lista serve para a próxima ida ao
+                // mercado. Marcada, ela já nasceria sem utilidade.
+                done: false,
+                createdAt: agora + i,
+                // De onde veio, para a lista saber explicar a si mesma.
+                fromPurchase: true,
+            });
+        });
+        somar.forEach(({ id, qty }) => b.update(doc(db, 'market_items', id), { qty }));
+        await b.commit();
+
+        toast.success(t('mkt.listSeeded', { n: criar.length + somar.length }));
+    } catch (e) {
+        console.error('[mercado] semear lista:', e);
+        toast.error(t('mkt.listSeedFail'));
+    }
+}
+
 function FormManual({ isDark, uid, money, inicial, onFoto, onVoltar, onPronto }) {
     const { t } = useI18n();
     const [store, setStore] = useState(inicial?.store || '');
@@ -278,6 +332,8 @@ function FormManual({ isDark, uid, money, inicial, onFoto, onVoltar, onPronto })
         }))
         : [linhaVazia()]));
     const [saving, setSaving] = useState(false);
+    // "Foi a compra do mês": a compra lida vira a lista, sem redigitar nada.
+    const [doMes, setDoMes] = useState(false);
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const line = isDark ? 'border-white/[0.07]' : 'border-slate-200';
@@ -315,6 +371,9 @@ function FormManual({ isDark, uid, money, inicial, onFoto, onVoltar, onPronto })
                 date,
                 month: date.slice(0, 7),
                 source: inicial?.origem || (inicial?.conferencia ? 'foto' : inicial ? 'qrcode' : 'manual'),
+                // Fica no documento: a aba Compras marca qual foi a do mês, e
+                // sem isso a informação só existiria na cabeça de quem lançou.
+                ...(doMes ? { monthly: true } : {}),
                 ...(inicial?.key ? { nfceKey: inicial.key } : {}),
                 items: validas.map(l => ({
                     name: l.name.trim(),
@@ -327,6 +386,7 @@ function FormManual({ isDark, uid, money, inicial, onFoto, onVoltar, onPronto })
                 // e isto é registro de dinheiro.
                 createdAt: serverTimestamp(),
             });
+            if (doMes) await semearLista(uid, validas, t);
             toast.success(t('mkt.saved'));
             onPronto();
         } catch (e) {
@@ -389,6 +449,28 @@ function FormManual({ isDark, uid, money, inicial, onFoto, onVoltar, onPronto })
                     <Plus className="w-3.5 h-3.5" strokeWidth={3} /> {t('mkt.addProduct')}
                 </button>
             </div>
+
+            {/* A pergunta que economiza o pior trabalho da tela: digitar a
+                lista inteira de novo. Fica acima do total, onde o olho já
+                está indo antes de salvar. */}
+            <label className={`mx-5 mt-3 flex items-start gap-3 px-3.5 py-3 rounded-xl border cursor-pointer transition ${doMes
+                ? (isDark ? 'border-emerald-500/40 bg-emerald-500/[0.08]' : 'border-emerald-300 bg-emerald-50')
+                : (isDark ? 'border-white/10 hover:border-white/20' : 'border-slate-200 hover:border-slate-300')}`}>
+                <input type="checkbox" checked={doMes} onChange={(e) => setDoMes(e.target.checked)}
+                    className="sr-only" />
+                <span className={`mt-px w-[18px] h-[18px] rounded-md border-2 flex items-center justify-center shrink-0 transition ${doMes
+                    ? 'bg-emerald-500 border-emerald-500'
+                    : (isDark ? 'border-white/25' : 'border-slate-300')}`}>
+                    {doMes && <CheckCircle2 className="w-3 h-3 text-white" strokeWidth={3.5} />}
+                </span>
+                <span className="min-w-0">
+                    <span className={`flex items-center gap-1.5 text-[13px] font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                        <ListChecks className="w-4 h-4 text-emerald-500 shrink-0" />
+                        {t('mkt.isMonthly')}
+                    </span>
+                    <span className={`block text-[11.5px] mt-0.5 leading-snug ${muted}`}>{t('mkt.isMonthlyHint')}</span>
+                </span>
+            </label>
 
             <div className={`px-5 py-3.5 mt-3 border-t ${line} flex items-center gap-3 flex-wrap`}>
                 <span className={`text-[11px] font-black uppercase tracking-wider ${muted}`}>{t('mkt.purchaseTotal')}</span>

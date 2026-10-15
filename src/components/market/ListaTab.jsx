@@ -3,6 +3,7 @@ import { useI18n } from '../../contexts/LanguageContext';
 import { db } from '../../services/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 import { UNITS } from '../../utils/market';
+import ConsumoMes from './ConsumoMes';
 import { Plus, Check, Trash2, ShoppingCart, X, Eraser } from 'lucide-react';
 
 // ── Aba Lista ───────────────────────────────────────────────────────
@@ -15,7 +16,7 @@ import { Plus, Check, Trash2, ShoppingCart, X, Eraser } from 'lucide-react';
 //  · o formulário de adicionar sai da frente: vira uma folha que sobe pelo
 //    botão flutuante, porque no mercado se MARCA, não se cadastra.
 
-export default function ListaTab({ isDark, uid, items }) {
+export default function ListaTab({ isDark, uid, items, purchases, apelidos, mk }) {
     const { t } = useI18n();
     const [addOpen, setAddOpen] = useState(false);
 
@@ -104,6 +105,11 @@ export default function ListaTab({ isDark, uid, items }) {
                     </ul>
                 </section>
             )}
+
+            {/* O que já entrou em casa neste mês. Fica DEPOIS da lista porque a
+                lista é o que se usa de pé no corredor; o consumo é consulta,
+                e quem consulta rola a tela. */}
+            <ConsumoMes isDark={isDark} uid={uid} purchases={purchases} apelidos={apelidos} mk={mk} />
 
             {/* Botão flutuante (celular) — fica acima da barra de abas de baixo. */}
             <button onClick={() => setAddOpen(true)} aria-label={t('mkt.addItem')}
