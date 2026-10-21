@@ -139,8 +139,8 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
         return (
             <div className="glass-card p-8 text-center relative overflow-hidden group">
                 {/* Background Decoration */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-[#69C8B9]/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#5CCEEA]/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none"></div>
+                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-400/5 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none"></div>
 
                 <div className="relative z-10 flex flex-col items-center">
                     <div className="relative mb-8 animate-in zoom-in duration-700">
@@ -161,18 +161,18 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl mb-8 text-left">
-                        <div className="bg-white/60 p-4 rounded-2xl border border-slate-100 hover:border-[#69C8B9]/30 transition-all shadow-sm hover:shadow-md">
-                            <Calculator className="w-5 h-5 text-[#69C8B9] mb-2" />
+                        <div className="bg-white/60 p-4 rounded-2xl border border-slate-100 hover:border-emerald-500/30 transition-all shadow-sm hover:shadow-md">
+                            <Calculator className="w-5 h-5 text-emerald-500 mb-2" />
                             <h4 className="font-bold text-slate-700 text-sm">Simulação Útil</h4>
                             <p className="text-[10px] text-slate-500 mt-1 leading-tight">Saiba se uma compra cabe na sua vida financeira sem estresse.</p>
                         </div>
-                        <div className="bg-white/60 p-4 rounded-2xl border border-slate-100 hover:border-[#69C8B9]/30 transition-all shadow-sm hover:shadow-md">
+                        <div className="bg-white/60 p-4 rounded-2xl border border-slate-100 hover:border-emerald-500/30 transition-all shadow-sm hover:shadow-md">
                             <AlertTriangle className="w-5 h-5 text-amber-500 mb-2" />
                             <h4 className="font-bold text-slate-700 text-sm">Avisos Reais</h4>
                             <p className="text-[10px] text-slate-500 mt-1 leading-tight">Receba orientações antes de comprometer seu equilíbrio.</p>
                         </div>
-                        <div className="bg-white/60 p-4 rounded-2xl border border-slate-100 hover:border-[#69C8B9]/30 transition-all shadow-sm hover:shadow-md">
-                            <CheckCircle className="w-5 h-5 text-[#5CCEEA] mb-2" />
+                        <div className="bg-white/60 p-4 rounded-2xl border border-slate-100 hover:border-emerald-500/30 transition-all shadow-sm hover:shadow-md">
+                            <CheckCircle className="w-5 h-5 text-emerald-400 mb-2" />
                             <h4 className="font-bold text-slate-700 text-sm">Paz Mental</h4>
                             <p className="text-[10px] text-slate-500 mt-1 leading-tight">Sugestões e acolhimento baseados nos seus objetivos.</p>
                         </div>
@@ -180,7 +180,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
 
                     <button
                         onClick={() => onGoToSettings()}
-                        className="bg-[#69C8B9] hover:bg-[#5CCEEA] text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-[#69C8B9]/20 hover:scale-105 transition-all flex items-center gap-2"
+                        className="bg-emerald-500 hover:bg-emerald-400 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-emerald-500/20 hover:scale-105 transition-all flex items-center gap-2"
                     >
                         <Settings className="w-5 h-5" />
                         Começar Agora
@@ -200,7 +200,7 @@ export default function FinancialAdvisor({ transactions, manualConfig, onConfigC
                         <h3 className={`text-lg font-black flex items-center gap-2 tracking-tight ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>
                             Sua Alívia
                             {health.isManual && (
-                                <span className="bg-[#69C8B9]/10 text-[#69C8B9] text-[9px] px-2 py-0.5 rounded-full border border-[#69C8B9]/20 font-bold tracking-wider">
+                                <span className="bg-emerald-500/10 text-emerald-500 text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/20 font-bold tracking-wider">
                                     ATIVA
                                 </span>
                             )}

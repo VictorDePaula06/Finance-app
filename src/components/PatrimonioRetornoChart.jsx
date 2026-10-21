@@ -334,7 +334,7 @@ export default function PatrimonioRetornoChart({ jars, investments, cdiAnual: pr
                 onClick={() => setPeriod(p.id)}
                 className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
                   period === p.id
-                    ? 'bg-[#5CCEEA] text-slate-950 shadow-md'
+                    ? 'bg-emerald-400 text-slate-950 shadow-md'
                     : isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'
                 }`}
               >
@@ -369,7 +369,7 @@ export default function PatrimonioRetornoChart({ jars, investments, cdiAnual: pr
       <div className={`p-5 md:p-6 rounded-[2rem] border ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <BarChart3 className="w-5 h-5 text-[#5CCEEA]" />
+            <BarChart3 className="w-5 h-5 text-emerald-400" />
             <h3 className={`font-black text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>
               Retorno Acumulado (%)
             </h3>
@@ -393,7 +393,7 @@ export default function PatrimonioRetornoChart({ jars, investments, cdiAnual: pr
         {isLoading ? (
           <div className="h-64 flex items-center justify-center">
             <div className="flex flex-col items-center gap-4">
-              <div className="w-8 h-8 rounded-full border-2 border-[#5CCEEA] border-t-transparent animate-spin" />
+              <div className="w-8 h-8 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
               <p className="text-xs font-bold text-slate-500">Buscando dados de mercado...</p>
             </div>
           </div>

@@ -52,8 +52,8 @@ import aliviaWppHero from '../assets/alivia/alivia-whatsapp-hero.png';
 import gastosMobile from '../assets/screenshots/dashboard-mobile.jpeg';
 import patrimonioMobile from '../assets/screenshots/patrimonio-mobile-app.jpeg';
 
-const TEAL = '#69C8B9';
-const CYAN = '#5CCEEA';
+const TEAL = 'var(--alv-harmonia)';
+const CYAN = 'var(--alv-acqua)';
 
 // Tela de conversa no WhatsApp (visual autêntico — hoje só se fala com a Alívia por lá).
 function AliviaChatMock({ isDark, avatar, user, reply = [], time = '09:41' }) {
@@ -153,7 +153,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
             user: "Alívia! Consegui investir R$ 500 hoje! 🚀",
             reply: ["Incrível! Esse aporte acelerou sua meta de Independência em 2 meses.", "Seu patrimônio cresceu 2.5% hoje. Parabéns!"],
             tag: "Patrimônio ↑",
-            tagColor: "bg-[#69C8B9]"
+            tagColor: "bg-emerald-500"
         },
         expense: {
             title: "Decisão Inteligente",
@@ -161,7 +161,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
             user: "Posso comprar esse tênis de R$ 350? 👟",
             reply: ["Olhando seu saldo disponível para lazer: Sim!", "A compra está liberada sem comprometer suas metas."],
             tag: "Compra Segura",
-            tagColor: "bg-[#5CCEEA]"
+            tagColor: "bg-emerald-400"
         }
     };
 
@@ -201,8 +201,8 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                 onClick={toggleTheme}
                                 className={`p-2.5 rounded-full transition-all border ${
                                     isDark
-                                        ? 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-[#69C8B9]'
-                                        : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-[#69C8B9] shadow-sm'
+                                        ? 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-emerald-500'
+                                        : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-emerald-500 shadow-sm'
                                 }`}
                                 title={isDark ? 'Modo claro' : 'Modo escuro'}
                                 aria-label="Alternar tema"
@@ -216,7 +216,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                     { href: '#faq', label: 'FAQ' },
                                 ].map(link => (
                                     <a key={link.href} href={link.href}
-                                        className={`text-xs font-bold px-3 py-2 rounded-lg transition-colors ${isDark ? 'text-slate-300 hover:text-[#69C8B9] hover:bg-white/5' : 'text-slate-600 hover:text-[#69C8B9] hover:bg-slate-50'}`}>
+                                        className={`text-xs font-bold px-3 py-2 rounded-lg transition-colors ${isDark ? 'text-slate-300 hover:text-emerald-500 hover:bg-white/5' : 'text-slate-600 hover:text-emerald-500 hover:bg-slate-50'}`}>
                                         {link.label}
                                     </a>
                                 ))}
@@ -227,13 +227,13 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                 <div className="w-[92px] h-[56px] overflow-hidden flex justify-center">
                                     <img src={logo} alt="Alívia" className="w-[92px] h-[92px] object-cover object-top drop-shadow-sm" />
                                 </div>
-                                <span className="text-[20px] font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-[#69C8B9] via-emerald-500 to-[#5CCEEA]">Alívia</span>
+                                <span className="text-[20px] font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400">Alívia</span>
                                 <span className={`text-[9px] font-bold uppercase tracking-[0.4em] mt-0.5 ml-[0.4em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Finanças</span>
                             </div>
                         </div>
                         <div className="flex items-center justify-end gap-3">
-                            <button onClick={onLogin} className={`hidden md:block text-xs font-bold px-4 py-2 rounded-xl transition-colors ${isDark ? 'text-slate-300 hover:text-[#69C8B9]' : 'text-slate-600 hover:text-[#69C8B9]'}`}>Entrar</button>
-                            <button onClick={goSignup} className="px-5 py-2 md:px-6 md:py-2.5 rounded-xl bg-[#69C8B9] hover:bg-[#5bb1a3] text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95">Começar Grátis</button>
+                            <button onClick={onLogin} className={`hidden md:block text-xs font-bold px-4 py-2 rounded-xl transition-colors ${isDark ? 'text-slate-300 hover:text-emerald-500' : 'text-slate-600 hover:text-emerald-500'}`}>Entrar</button>
+                            <button onClick={goSignup} className="px-5 py-2 md:px-6 md:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95">Começar Grátis</button>
                         </div>
                     </div>
                 </nav>,
@@ -251,9 +251,9 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                 <section className="relative pt-36 pb-8 lg:pt-48 lg:pb-0 overflow-hidden">
                     {/* background glow blobs */}
                     <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl pointer-events-none opacity-20"
-                         style={{ background: 'radial-gradient(circle, #69C8B9 0%, transparent 70%)' }} />
+                         style={{ background: 'radial-gradient(circle, var(--alv-harmonia) 0%, transparent 70%)' }} />
                     <div className="absolute top-1/3 right-1/4 w-80 h-80 rounded-full blur-3xl pointer-events-none opacity-15"
-                         style={{ background: 'radial-gradient(circle, #5CCEEA 0%, transparent 70%)' }} />
+                         style={{ background: 'radial-gradient(circle, var(--alv-acqua) 0%, transparent 70%)' }} />
 
                     <div className="max-w-7xl mx-auto px-6">
                         <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -265,12 +265,12 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                 </div>
                                 <h1 className={`text-4xl md:text-6xl xl:text-7xl font-black tracking-tight leading-[1.05] ${t.textH}`}>
                                     Sua vida financeira,<br />resolvida{' '}
-                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#25D366] to-[#69C8B9]">
+                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#25D366] to-emerald-500">
                                         no WhatsApp.
                                     </span>
                                 </h1>
                                 <p className={`text-base md:text-xl leading-relaxed font-medium max-w-xl ${t.textBody}`}>
-                                    Registre gastos por <span className="text-[#25D366] font-bold">áudio, foto ou texto</span>, dê baixa nas contas e receba <span className="text-[#5CCEEA] font-bold">relatórios completos</span> — tudo numa conversa com a Alívia, a IA que cuida do seu dinheiro. <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Sem apps pesados, sem planilhas.</span>
+                                    Registre gastos por <span className="text-[#25D366] font-bold">áudio, foto ou texto</span>, dê baixa nas contas e receba <span className="text-emerald-400 font-bold">relatórios completos</span> — tudo numa conversa com a Alívia, a IA que cuida do seu dinheiro. <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Sem apps pesados, sem planilhas.</span>
                                 </p>
                                 <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
                                     <button onClick={goSignup} className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-gradient-to-r from-[#25D366] to-[#1faa52] hover:brightness-110 text-white font-black text-base md:text-lg shadow-xl shadow-[#25D366]/40 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2.5 group">
@@ -290,7 +290,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                 <div className="relative w-full">
                                     {/* glow atrás do mockup */}
                                     <div className="absolute inset-0 rounded-full blur-3xl opacity-25 pointer-events-none"
-                                         style={{ background: 'radial-gradient(circle, #69C8B9 0%, transparent 70%)', transform: 'scale(0.95)' }} />
+                                         style={{ background: 'radial-gradient(circle, var(--alv-harmonia) 0%, transparent 70%)', transform: 'scale(0.95)' }} />
                                     <img src={aliviaWppHero} alt="Fale com a Alívia pelo WhatsApp — sua consultora financeira"
                                         className="alivia-float relative z-10 w-full max-w-[460px] lg:max-w-[520px] drop-shadow-2xl mx-auto rounded-[2.5rem]" />
                                 </div>
@@ -304,10 +304,10 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                     <div className="max-w-5xl mx-auto">
                         <div className={`grid grid-cols-2 md:grid-cols-4 gap-4 p-6 md:p-8 rounded-[2rem] border ${isDark ? 'bg-white/[0.03] border-white/8' : 'bg-white/80 border-slate-100 shadow-lg'}`}>
                             {[
-                                { value: '100%', label: 'Privacidade', sub: 'Zero dados bancários', icon: ShieldCheck, color: '#69C8B9' },
-                                { value: 'Tudo em 1', label: 'Plataforma', sub: 'Gastos · Patrimônio · IA', icon: Layers, color: '#5CCEEA' },
-                                { value: '24/7', label: 'IA Alívia', sub: 'Sempre disponível', icon: Brain, color: '#69C8B9' },
-                                { value: 'R$0', label: 'Para começar', sub: 'Plano gratuito real', icon: Gift, color: '#5CCEEA' },
+                                { value: '100%', label: 'Privacidade', sub: 'Zero dados bancários', icon: ShieldCheck, color: 'var(--alv-harmonia)' },
+                                { value: 'Tudo em 1', label: 'Plataforma', sub: 'Gastos · Patrimônio · IA', icon: Layers, color: 'var(--alv-acqua)' },
+                                { value: '24/7', label: 'IA Alívia', sub: 'Sempre disponível', icon: Brain, color: 'var(--alv-harmonia)' },
+                                { value: 'R$0', label: 'Para começar', sub: 'Plano gratuito real', icon: Gift, color: 'var(--alv-acqua)' },
                             ].map((s, i) => (
                                 <div key={i} className="flex flex-col items-center text-center gap-1 py-2">
                                     <s.icon className="w-6 h-6 mb-1" style={{ color: s.color }} />
@@ -330,8 +330,8 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                         <div className="grid md:grid-cols-3 gap-4">
                             {[
                                 { step: '01', icon: MessageSquare, color: '#25D366', title: 'Manda no WhatsApp', desc: 'Um áudio, uma foto do recibo ou só o texto: "gastei 45 no mercado". Do jeito que for mais fácil pra você.' },
-                                { step: '02', icon: Sparkles, color: '#69C8B9', title: 'A Alívia registra na hora', desc: 'A IA entende, categoriza e lança tudo automaticamente — e já te diz quanto você gastou na categoria no mês.' },
-                                { step: '03', icon: BarChart3, color: '#5CCEEA', title: 'Peça seu raio-X', desc: 'Peça o relatório da semana ou do mês e receba um resumo completo dos seus gastos em segundos, na conversa.' },
+                                { step: '02', icon: Sparkles, color: 'var(--alv-harmonia)', title: 'A Alívia registra na hora', desc: 'A IA entende, categoriza e lança tudo automaticamente — e já te diz quanto você gastou na categoria no mês.' },
+                                { step: '03', icon: BarChart3, color: 'var(--alv-acqua)', title: 'Peça seu raio-X', desc: 'Peça o relatório da semana ou do mês e receba um resumo completo dos seus gastos em segundos, na conversa.' },
                             ].map((item, i) => (
                                 <div key={i} className={`relative p-8 rounded-[2rem] border flex flex-col gap-4 group transition-all hover:-translate-y-1 ${isDark ? 'bg-white/[0.04] border-white/10 backdrop-blur-sm hover:border-[#25D366]/30 hover:shadow-[0_10px_40px_-10px_rgba(37,211,102,0.25)]' : 'bg-white/70 border-slate-100 backdrop-blur-sm shadow-sm hover:shadow-xl hover:border-[#25D366]/30'}`}>
                                     {i < 2 && (
@@ -362,14 +362,14 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                         </div>
                         <div className="grid md:grid-cols-3 gap-6">
                             <MethodStep isDark={isDark} number="01" title="Respira" icon={HeartHandshake} desc="Saia do caos emocional. A IA acolhe sua situação atual e remove a culpa." color="bg-rose-400" />
-                            <MethodStep isDark={isDark} number="02" title="Organiza" icon={RefreshCw} desc="Controle cirúrgico de gastos e cartões. Cada centavo ganha um propósito." color="bg-[#5CCEEA]" />
-                            <MethodStep isDark={isDark} number="03" title="Evolui" icon={TrendingUp} desc="Construção de patrimônio ativa. Veja suas reservas crescerem." color="bg-[#69C8B9]" />
+                            <MethodStep isDark={isDark} number="02" title="Organiza" icon={RefreshCw} desc="Controle cirúrgico de gastos e cartões. Cada centavo ganha um propósito." color="bg-emerald-400" />
+                            <MethodStep isDark={isDark} number="03" title="Evolui" icon={TrendingUp} desc="Construção de patrimônio ativa. Veja suas reservas crescerem." color="bg-emerald-500" />
                         </div>
                     </div>
                 </section>
 
                 {/* ── SENSOR DE URGÊNCIA ── */}
-                <section className={`py-24 relative overflow-hidden ${isDark ? 'bg-white/[0.02]' : 'bg-gradient-to-br from-rose-50/40 via-white to-[#69C8B9]/5'}`}>
+                <section className={`py-24 relative overflow-hidden ${isDark ? 'bg-white/[0.02]' : 'bg-gradient-to-br from-rose-50/40 via-white to-emerald-500/5'}`}>
                     {/* decorative blob */}
                     <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full blur-3xl pointer-events-none"
                          style={{ background: isDark ? 'radial-gradient(circle, rgba(239,68,68,0.06) 0%, transparent 70%)' : 'radial-gradient(circle, rgba(239,68,68,0.08) 0%, transparent 70%)' }} />
@@ -399,10 +399,10 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                         </div>
                                         Você atingiu 85% do seu teto de gastos com lazer este mês.
                                     </div>
-                                    <div className={`absolute -bottom-20 left-1 md:bottom-16 md:-left-10 z-20 max-w-[135px] md:max-w-[160px] p-3 md:p-4 rounded-2xl shadow-xl border text-[11px] md:text-xs font-bold leading-relaxed ${isDark ? 'bg-slate-900 border-[#69C8B9]/30 text-slate-200' : 'bg-white border-[#69C8B9]/20 text-slate-700'}`}>
+                                    <div className={`absolute -bottom-20 left-1 md:bottom-16 md:-left-10 z-20 max-w-[135px] md:max-w-[160px] p-3 md:p-4 rounded-2xl shadow-xl border text-[11px] md:text-xs font-bold leading-relaxed ${isDark ? 'bg-slate-900 border-emerald-500/30 text-slate-200' : 'bg-white border-emerald-500/20 text-slate-700'}`}>
                                         <div className="flex items-center gap-2 mb-2">
-                                            <CheckCircle2 className="w-4 h-4 text-[#69C8B9] shrink-0" />
-                                            <span className="font-black text-[#69C8B9] text-[10px] uppercase tracking-widest">Protegida</span>
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                            <span className="font-black text-emerald-500 text-[10px] uppercase tracking-widest">Protegida</span>
                                         </div>
                                         Reserva de emergência: 6 meses cobertos.
                                     </div>
@@ -416,7 +416,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                 </div>
                                 <h2 className={`text-3xl md:text-5xl font-black leading-[1.1] ${t.textH}`}>
                                     Por que ter um<br />
-                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-[#69C8B9]">
+                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-emerald-500">
                                         Guardião Financeiro?
                                     </span>
                                 </h2>
@@ -439,14 +439,14 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                         desc="Gasto inesperado chegou? A Alívia analisa sua reserva de emergência e te diz exatamente se você pode cobrir — e como ajustar o plano." />
                                     <SensorFeature isDark={isDark}
                                         icon={PiggyBank}
-                                        iconColor="text-[#69C8B9]"
-                                        bgColor={isDark ? 'bg-[#69C8B9]/10' : 'bg-[#69C8B9]/10'}
+                                        iconColor="text-emerald-500"
+                                        bgColor={isDark ? 'bg-emerald-500/10' : 'bg-emerald-500/10'}
                                         title="Reserva sempre monitorada"
                                         desc="Sua reserva de emergência é acompanhada continuamente. A IA calcula quantos meses você está coberto e o que falta para atingir 6 meses ideais." />
                                     <SensorFeature isDark={isDark}
                                         icon={Clock}
-                                        iconColor="text-[#5CCEEA]"
-                                        bgColor={isDark ? 'bg-[#5CCEEA]/10' : 'bg-[#5CCEEA]/10'}
+                                        iconColor="text-emerald-400"
+                                        bgColor={isDark ? 'bg-emerald-400/10' : 'bg-emerald-400/10'}
                                         title="24/7 — nunca descansa"
                                         desc="Enquanto você vive sua vida, a Alívia fica de olho. É como ter uma CFO pessoal trabalhando em silêncio, o tempo todo." />
                                 </div>
@@ -455,7 +455,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                     <p className={`text-sm font-bold leading-relaxed italic ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                                         "Não existe controle financeiro real sem um sistema de proteção ativo. O Sensor de Urgência existe para que o dinheiro nunca te surpreenda negativamente."
                                     </p>
-                                    <p className="text-[#69C8B9] text-[10px] font-black uppercase tracking-widest mt-2">— Alívia IA</p>
+                                    <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest mt-2">— Alívia IA</p>
                                 </div>
                             </div>
                         </div>
@@ -469,7 +469,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                             <Eyebrow className="mb-2">Uma plataforma completa</Eyebrow>
                             <h2 className={`text-3xl md:text-5xl font-black leading-[1.1] ${t.textH}`}>
                                 Gastos, cartões, reservas e patrimônio.<br />
-                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#25D366] to-[#69C8B9]">Tudo junto, tudo pelo WhatsApp.</span>
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#25D366] to-emerald-500">Tudo junto, tudo pelo WhatsApp.</span>
                             </h2>
                             <p className={`text-base md:text-lg font-medium mt-4 ${t.textBody}`}>
                                 Não são apps separados nem planilhas soltas: é uma plataforma só, que você comanda por mensagem com a Alívia.
@@ -477,26 +477,26 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                         </div>
                         <div className="grid lg:grid-cols-2 gap-16 items-center">
                             <div className="space-y-8">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#5CCEEA]/10 text-[#5CCEEA] text-[10px] font-black uppercase tracking-widest">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-emerald-400/10 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
                                     Controle de gastos
                                 </div>
                                 <h2 className={`text-3xl md:text-5xl font-black leading-[1.1] ${t.textH}`}>
-                                    Cada centavo com <br /><span className="text-[#5CCEEA]">destino certo.</span>
+                                    Cada centavo com <br /><span className="text-emerald-400">destino certo.</span>
                                 </h2>
                                 <p className={`text-base md:text-lg leading-relaxed font-medium ${t.textBody}`}>
                                     Pare de adivinhar onde o dinheiro foi. A Alívia organiza, categoriza e alerta — antes do problema acontecer.
                                 </p>
                                 <div className="space-y-4">
-                                    <FeatureRow isDark={isDark} icon={CreditCard} title="Gestão de Cartões" desc="Acompanhe a fatura de todos os seus cartões em um só lugar, com parcelamentos e assinaturas organizados." color="text-[#5CCEEA]" />
-                                    <FeatureRow isDark={isDark} icon={Layers} title="Essenciais vs. Supérfluos" desc="A Alívia separa o que é essencial do que é desejo e mostra se você passou do ideal de 30% em gastos supérfluos." color="text-[#5CCEEA]" />
-                                    <FeatureRow isDark={isDark} icon={Bell} title="Metas de Gasto por Categoria" desc="Defina um teto para cada categoria e receba o aviso quando estiver se aproximando ou ultrapassando o limite." color="text-[#5CCEEA]" />
+                                    <FeatureRow isDark={isDark} icon={CreditCard} title="Gestão de Cartões" desc="Acompanhe a fatura de todos os seus cartões em um só lugar, com parcelamentos e assinaturas organizados." color="text-emerald-400" />
+                                    <FeatureRow isDark={isDark} icon={Layers} title="Essenciais vs. Supérfluos" desc="A Alívia separa o que é essencial do que é desejo e mostra se você passou do ideal de 30% em gastos supérfluos." color="text-emerald-400" />
+                                    <FeatureRow isDark={isDark} icon={Bell} title="Metas de Gasto por Categoria" desc="Defina um teto para cada categoria e receba o aviso quando estiver se aproximando ou ultrapassando o limite." color="text-emerald-400" />
                                     <FeatureRow isDark={isDark} icon={MessageSquare} title="Alívia no WhatsApp" desc="Lance despesas, dê baixa em contas e peça análises por mensagem ou áudio. No Gratuito são 10 conversas/mês; no PRO, sem limite." color="text-[#25D366]" />
-                                    <FeatureRow isDark={isDark} icon={FileText} title="Relatórios em PDF" desc="Exportação com o design Alívia — perfeito para a revisão mensal ou consulta com seu contador." color="text-[#5CCEEA]" />
+                                    <FeatureRow isDark={isDark} icon={FileText} title="Relatórios em PDF" desc="Exportação com o design Alívia — perfeito para a revisão mensal ou consulta com seu contador." color="text-emerald-400" />
                                 </div>
                             </div>
                             <div className="relative flex justify-center">
                                 <div className="absolute inset-0 blur-3xl opacity-25 pointer-events-none rounded-full"
-                                     style={{ background: 'radial-gradient(circle, #5CCEEA 0%, transparent 70%)' }} />
+                                     style={{ background: 'radial-gradient(circle, var(--alv-acqua) 0%, transparent 70%)' }} />
                                 <PhoneMockup isDark={isDark} width={320} tilt="right">
                                     <img src={gastosMobile} alt="Controle de Gastos" />
                                 </PhoneMockup>
@@ -511,26 +511,26 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                         <div className="grid lg:grid-cols-2 gap-16 items-center">
                             <div className="order-2 lg:order-1 relative flex justify-center">
                                 <div className="absolute inset-0 blur-3xl opacity-25 pointer-events-none rounded-full"
-                                     style={{ background: 'radial-gradient(circle, #69C8B9 0%, transparent 70%)' }} />
+                                     style={{ background: 'radial-gradient(circle, var(--alv-harmonia) 0%, transparent 70%)' }} />
                                 <PhoneMockup isDark={isDark} width={320} tilt="left">
                                     <img src={patrimonioMobile} alt="Patrimônio" />
                                 </PhoneMockup>
                             </div>
                             <div className="order-1 lg:order-2 space-y-8">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#69C8B9]/10 text-[#69C8B9] text-[10px] font-black uppercase tracking-widest">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-widest">
                                     Patrimônio & investimentos
                                 </div>
                                 <h2 className={`text-3xl md:text-5xl font-black leading-[1.1] ${t.textH}`}>
-                                    Seu patrimônio <br /><span className="text-[#69C8B9]">crescendo visível.</span>
+                                    Seu patrimônio <br /><span className="text-emerald-500">crescendo visível.</span>
                                 </h2>
                                 <p className={`text-base md:text-lg leading-relaxed font-medium ${t.textBody}`}>
                                     Não basta guardar dinheiro. Você precisa ver ele trabalhar para você. A Alívia transforma seus números em evolução real — na mesma plataforma dos seus gastos.
                                 </p>
                                 <div className="space-y-4">
-                                    <FeatureRow isDark={isDark} icon={ShieldCheck} title="Reserva de Emergência" desc="Cálculo automático de quanto guardar para estar protegido por 3, 6 ou 12 meses. Disponível já no Gratuito." color="text-[#69C8B9]" />
-                                    <FeatureRow isDark={isDark} icon={Activity} title="Saúde Patrimonial" desc="Um score que resume reservas, investimentos, bens e proteção — e te diz exatamente o próximo passo." color="text-[#69C8B9]" />
-                                    <FeatureRow isDark={isDark} icon={ChartNoAxesCombined} title="Evolução e Benchmarks" desc="No PRO: acompanhe a curva do seu patrimônio mês a mês comparada com CDI, IBOVESPA e S&P 500." color="text-[#69C8B9]" />
-                                    <FeatureRow isDark={isDark} icon={Target} title="Independência e Metas" desc="No PRO: descubra seu número da independência financeira, simule cenários e acompanhe metas com projeção no tempo." color="text-[#69C8B9]" />
+                                    <FeatureRow isDark={isDark} icon={ShieldCheck} title="Reserva de Emergência" desc="Cálculo automático de quanto guardar para estar protegido por 3, 6 ou 12 meses. Disponível já no Gratuito." color="text-emerald-500" />
+                                    <FeatureRow isDark={isDark} icon={Activity} title="Saúde Patrimonial" desc="Um score que resume reservas, investimentos, bens e proteção — e te diz exatamente o próximo passo." color="text-emerald-500" />
+                                    <FeatureRow isDark={isDark} icon={ChartNoAxesCombined} title="Evolução e Benchmarks" desc="No PRO: acompanhe a curva do seu patrimônio mês a mês comparada com CDI, IBOVESPA e S&P 500." color="text-emerald-500" />
+                                    <FeatureRow isDark={isDark} icon={Target} title="Independência e Metas" desc="No PRO: descubra seu número da independência financeira, simule cenários e acompanhe metas com projeção no tempo." color="text-emerald-500" />
                                 </div>
                             </div>
                         </div>
@@ -546,9 +546,9 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                             </div>
                             <h2 className={`text-3xl md:text-5xl font-black ${t.textH}`}>
                                 A diferença entre{' '}
-                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA]">sobreviver</span>
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-emerald-400">sobreviver</span>
                                 {' '}e{' '}
-                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#5CCEEA] to-[#69C8B9]">prosperar.</span>
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-500">prosperar.</span>
                             </h2>
                             <p className={`text-base md:text-lg font-medium max-w-2xl mx-auto ${t.textBody}`}>
                                 O Gratuito te tira do caos. O PRO libera tudo sem freios — <span className="text-[#25D366] font-bold">WhatsApp ilimitado</span>, controle de gastos completo e o seu patrimônio crescendo.
@@ -566,7 +566,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                     { icon: Layers, text: 'Lançamentos, cartões e contas fixas ilimitados no app' },
                                 ]}
                             />
-                            <WhyPremiumCard isDark={isDark} accentColor="#69C8B9" icon={ChartNoAxesCombined} tag="PRO · patrimônio" title="Patrimônio que cresce visível"
+                            <WhyPremiumCard isDark={isDark} accentColor="var(--alv-harmonia)" icon={ChartNoAxesCombined} tag="PRO · patrimônio" title="Patrimônio que cresce visível"
                                 subtitle="Além do WhatsApp, o patrimônio completo pra fazer seu dinheiro trabalhar."
                                 items={[
                                     { icon: Activity, text: 'Fluxo patrimonial e seu número da independência financeira' },
@@ -578,10 +578,10 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                             />
                         </div>
 
-                        <div className={`mt-12 text-center p-8 rounded-[2rem] border ${isDark ? 'bg-gradient-to-r from-[#69C8B9]/10 via-transparent to-[#5CCEEA]/10 border-white/10' : 'bg-gradient-to-r from-[#69C8B9]/10 via-white to-[#5CCEEA]/10 border-slate-100'}`}>
+                        <div className={`mt-12 text-center p-8 rounded-[2rem] border ${isDark ? 'bg-gradient-to-r from-emerald-500/10 via-transparent to-emerald-400/10 border-white/10' : 'bg-gradient-to-r from-emerald-500/10 via-white to-emerald-400/10 border-slate-100'}`}>
                             <p className={`text-xl md:text-2xl font-black leading-relaxed ${t.textH}`}>
                                 "O PRO não é um gasto.<br />
-                                <span className="text-[#69C8B9]">É o investimento que organiza todos os outros."</span>
+                                <span className="text-emerald-500">É o investimento que organiza todos os outros."</span>
                             </p>
                         </div>
                     </div>
@@ -596,17 +596,17 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                 <h2 className={`text-4xl md:text-6xl font-black leading-[1.1] ${t.textH}`}>Resolva tudo <br />numa mensagem.</h2>
                                 <p className={`text-lg md:text-xl font-medium ${t.textBody}`}>Fale com a Alívia como você fala com um amigo — <span className="text-[#25D366] font-black">direto no seu WhatsApp.</span> Ela registra gastos, dá baixa nas contas, lê o extrato e te manda o relatório na hora.</p>
                                 <div className={`flex flex-col gap-2 p-4 rounded-2xl border text-sm font-medium ${isDark ? 'bg-white/[0.03] border-white/10 text-slate-300' : 'bg-white/70 border-slate-100 text-slate-600'}`}>
-                                    <div className="flex items-start gap-2.5"><Gift className="w-4 h-4 text-[#69C8B9] shrink-0 mt-0.5" /><span><span className="font-black">Gratuito:</span> 10 conversas por mês com a Alívia no WhatsApp.</span></div>
+                                    <div className="flex items-start gap-2.5"><Gift className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /><span><span className="font-black">Gratuito:</span> 10 conversas por mês com a Alívia no WhatsApp.</span></div>
                                     <div className="flex items-start gap-2.5"><Sparkles className="w-4 h-4 text-[#25D366] shrink-0 mt-0.5" /><span><span className="font-black">PRO:</span> conversas <span className="italic">ilimitadas</span> — registre, dê baixa, importe extratos (PDF/CSV) e peça relatórios sem parar.</span></div>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {Object.entries(scenarios).map(([id, s]) => (
                                         <button key={id} onClick={() => setActiveScenario(id)} className={`p-6 rounded-[2rem] border text-left transition-all duration-500 ${
                                             activeScenario === id
-                                                ? (isDark ? 'bg-slate-900 border-[#69C8B9] text-white shadow-xl' : 'bg-white border-[#69C8B9] text-slate-800 shadow-xl')
-                                                : (isDark ? 'bg-white/[0.02] border-white/5 text-slate-500 hover:border-[#69C8B9]/30' : 'bg-white/40 border-slate-50 text-slate-400 hover:border-[#69C8B9]/30')
+                                                ? (isDark ? 'bg-slate-900 border-emerald-500 text-white shadow-xl' : 'bg-white border-emerald-500 text-slate-800 shadow-xl')
+                                                : (isDark ? 'bg-white/[0.02] border-white/5 text-slate-500 hover:border-emerald-500/30' : 'bg-white/40 border-slate-50 text-slate-400 hover:border-emerald-500/30')
                                         }`}>
-                                            <s.icon className={`w-6 h-6 mb-3 ${activeScenario === id ? 'text-[#69C8B9]' : (isDark ? 'text-slate-600' : 'text-slate-200')}`} />
+                                            <s.icon className={`w-6 h-6 mb-3 ${activeScenario === id ? 'text-emerald-500' : (isDark ? 'text-slate-600' : 'text-slate-200')}`} />
                                             <div className="font-black text-sm tracking-tight">{s.title}</div>
                                         </button>
                                     ))}
@@ -635,11 +635,11 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div className={`aspect-square rounded-[2.5rem] flex flex-col items-center justify-center text-[#69C8B9] p-6 text-center gap-2 shadow-lg border ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-50'}`}>
+                                <div className={`aspect-square rounded-[2.5rem] flex flex-col items-center justify-center text-emerald-500 p-6 text-center gap-2 shadow-lg border ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-50'}`}>
                                     <Shield className="w-10 h-10" />
                                     <div className="font-black text-xs uppercase tracking-widest">Seguro</div>
                                 </div>
-                                <div className={`aspect-square rounded-[2.5rem] flex flex-col items-center justify-center text-[#5CCEEA] p-6 text-center gap-2 shadow-lg border mt-8 ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-50'}`}>
+                                <div className={`aspect-square rounded-[2.5rem] flex flex-col items-center justify-center text-emerald-400 p-6 text-center gap-2 shadow-lg border mt-8 ${isDark ? 'bg-slate-900 border-white/5' : 'bg-white border-slate-50'}`}>
                                     <LockIcon className="w-10 h-10" />
                                     <div className="font-black text-xs uppercase tracking-widest">Privado</div>
                                 </div>
@@ -655,12 +655,12 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                             <h2 className={`text-3xl md:text-5xl font-black ${t.textH}`}>Planos de Tranquilidade.</h2>
                             <p className={`text-base font-medium ${t.textBody}`}>Comece grátis, sem cartão de crédito. Faça upgrade quando quiser.</p>
                             <div className="flex items-center justify-center gap-6 pt-4">
-                                <span className={`text-sm font-black ${billing === 'monthly' ? 'text-[#69C8B9]' : 'text-slate-400'}`}>Mensal</span>
+                                <span className={`text-sm font-black ${billing === 'monthly' ? 'text-emerald-500' : 'text-slate-400'}`}>Mensal</span>
                                 <button onClick={() => setBilling(billing === 'monthly' ? 'annual' : 'monthly')} className={`w-16 h-8 rounded-full relative p-1 transition-all border ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-100 border-slate-200'}`}>
-                                    <div className={`w-6 h-6 bg-[#69C8B9] rounded-full transition-all transform ${billing === 'annual' ? 'translate-x-8' : 'translate-x-0'}`}></div>
+                                    <div className={`w-6 h-6 bg-emerald-500 rounded-full transition-all transform ${billing === 'annual' ? 'translate-x-8' : 'translate-x-0'}`}></div>
                                 </button>
-                                <span className={`text-sm font-black ${billing === 'annual' ? 'text-[#69C8B9]' : 'text-slate-400'}`}>
-                                    Anual <span className="bg-[#69C8B9] text-white text-[8px] px-3 py-1 rounded-full ml-2">-33%</span>
+                                <span className={`text-sm font-black ${billing === 'annual' ? 'text-emerald-500' : 'text-slate-400'}`}>
+                                    Anual <span className="bg-emerald-500 text-white text-[8px] px-3 py-1 rounded-full ml-2">-33%</span>
                                 </span>
                             </div>
                         </div>
@@ -700,7 +700,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                                 note={billing === 'annual' ? 'Cobrado anualmente (R$ 119,88/ano)' : 'Cobrança mensal · cancele quando quiser'}
                                 onClick={goSignup}
                                 ctaLabel="Assinar o PRO"
-                                ctaStyle="bg-gradient-to-r from-[#25D366] to-[#69C8B9] text-white shadow-xl shadow-[#25D366]/20 hover:scale-[1.02]"
+                                ctaStyle="bg-gradient-to-r from-[#25D366] to-emerald-500 text-white shadow-xl shadow-[#25D366]/20 hover:scale-[1.02]"
                                 includedTitle="Tudo do Gratuito, sem limites:"
                                 included={[
                                     'Alívia no WhatsApp ilimitada (o carro-chefe)',
@@ -714,9 +714,9 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                         </div>
 
                         <div className={`mt-10 flex flex-wrap justify-center gap-8 text-sm font-medium ${t.textBody}`}>
-                            <span className="flex items-center gap-2"><Gift className="w-4 h-4 text-[#69C8B9]" /> Plano gratuito para sempre</span>
-                            <span className="flex items-center gap-2"><LockKeyhole className="w-4 h-4 text-[#69C8B9]" /> Cancele quando quiser</span>
-                            <span className="flex items-center gap-2"><Fingerprint className="w-4 h-4 text-[#69C8B9]" /> Sem dados bancários</span>
+                            <span className="flex items-center gap-2"><Gift className="w-4 h-4 text-emerald-500" /> Plano gratuito para sempre</span>
+                            <span className="flex items-center gap-2"><LockKeyhole className="w-4 h-4 text-emerald-500" /> Cancele quando quiser</span>
+                            <span className="flex items-center gap-2"><Fingerprint className="w-4 h-4 text-emerald-500" /> Sem dados bancários</span>
                         </div>
                     </div>
                 </section>
@@ -725,7 +725,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                 <section id="faq" className={`py-24 scroll-mt-28 ${isDark ? 'bg-white/[0.02]' : 'bg-slate-50/40'}`}>
                     <div className="max-w-3xl mx-auto px-6">
                         <div className="text-center space-y-3 mb-12">
-                            <Eyebrow color="#69C8B9">Perguntas frequentes</Eyebrow>
+                            <Eyebrow color="var(--alv-harmonia)">Perguntas frequentes</Eyebrow>
                             <h2 className={`text-3xl md:text-5xl font-black ${t.textH}`}>Ainda com alguma dúvida?</h2>
                             <p className={`text-base font-medium ${t.textBody}`}>As respostas que a maioria das pessoas procura antes de começar.</p>
                         </div>
@@ -744,7 +744,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                         </div>
                         <p className={`text-center text-sm font-medium mt-10 ${t.textBody}`}>
                             Não achou o que procurava?{' '}
-                            <button onClick={onViewContact} className="font-black text-[#69C8B9] hover:underline underline-offset-4">Fale com a gente</button>.
+                            <button onClick={onViewContact} className="font-black text-emerald-500 hover:underline underline-offset-4">Fale com a gente</button>.
                         </p>
                     </div>
                 </section>
@@ -753,19 +753,19 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                 <section className="py-24 relative overflow-hidden mx-6 mb-16">
                     <div className={`rounded-[3rem] relative overflow-hidden shadow-2xl ${isDark ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900'}`}>
                         {/* glow */}
-                        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, #69C8B9 0%, transparent 60%), radial-gradient(circle at 70% 50%, #5CCEEA 0%, transparent 60%)' }} />
+                        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, var(--alv-harmonia) 0%, transparent 60%), radial-gradient(circle at 70% 50%, var(--alv-acqua) 0%, transparent 60%)' }} />
 
                         <div className="relative z-10 grid lg:grid-cols-2 items-center gap-0">
                             {/* Left text */}
                             <div className="p-12 md:p-16 space-y-8 text-center lg:text-left">
-                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#69C8B9]/20 border border-[#69C8B9]/30 text-[#69C8B9] text-[10px] font-black uppercase tracking-widest">
+                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-500 text-[10px] font-black uppercase tracking-widest">
                                     <Sparkles className="w-3 h-3" /> Comece hoje, grátis
                                 </div>
                                 <h2 className="text-3xl md:text-5xl font-black tracking-tight text-white leading-[1.1]">
                                     O futuro está<br />te esperando.
                                 </h2>
                                 <p className="text-white/70 text-lg font-medium">Comece hoje com o Plano Gratuito. Sem cartão, sem risco. Faça upgrade quando quiser — os preços já estão esperando por você.</p>
-                                <button onClick={goSignup} className="px-10 py-5 rounded-2xl bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA] text-white font-black text-xl shadow-xl shadow-[#69C8B9]/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-3 mx-auto lg:mx-0 group">
+                                <button onClick={goSignup} className="px-10 py-5 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-400 text-white font-black text-xl shadow-xl shadow-emerald-500/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-3 mx-auto lg:mx-0 group">
                                     Começar Grátis <ArrowRight className="w-6 h-6 transition-transform group-hover:translate-x-1" />
                                 </button>
                             </div>
@@ -798,9 +798,9 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                         </div>
 
                         <div className="flex flex-wrap justify-center gap-8 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                            <button onClick={onViewTerms} className="hover:text-[#69C8B9]">Termos</button>
-                            <button onClick={onViewPrivacy} className="hover:text-[#69C8B9]">Privacidade</button>
-                            <button onClick={onViewContact} className="hover:text-[#69C8B9]">Contato</button>
+                            <button onClick={onViewTerms} className="hover:text-emerald-500">Termos</button>
+                            <button onClick={onViewPrivacy} className="hover:text-emerald-500">Privacidade</button>
+                            <button onClick={onViewContact} className="hover:text-emerald-500">Contato</button>
                         </div>
                         <div className="text-slate-400 text-[10px] font-bold opacity-70 italic">
                             &copy; {new Date().getFullYear()} Alívia • Peace of Mind Finance
@@ -815,7 +815,7 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 // ── Eyebrow (rótulo uppercase reutilizável — padrão do design system) ─────────
-function Eyebrow({ children, color = '#69C8B9', icon: Icon, className = '' }) {
+function Eyebrow({ children, color = 'var(--alv-harmonia)', icon: Icon, className = '' }) {
     return (
         <div
             className={`inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${className}`}
@@ -833,7 +833,7 @@ function FaqItem({ question, answer, isOpen, onToggle, id, isDark }) {
         <div
             className={`rounded-2xl border overflow-hidden transition-all ${
                 isOpen
-                    ? (isDark ? 'bg-white/[0.04] border-[#69C8B9]/40' : 'bg-white border-[#69C8B9]/40 shadow-sm')
+                    ? (isDark ? 'bg-white/[0.04] border-emerald-500/40' : 'bg-white border-emerald-500/40 shadow-sm')
                     : (isDark ? 'bg-white/[0.02] border-white/8 hover:border-white/15' : 'bg-white/70 border-slate-100 hover:border-slate-200')
             }`}
         >
@@ -848,7 +848,7 @@ function FaqItem({ question, answer, isOpen, onToggle, id, isDark }) {
                 >
                     <span className={`font-black text-sm md:text-base ${isDark ? 'text-white' : 'text-slate-800'}`}>{question}</span>
                     <ArrowRight
-                        className={`w-4 h-4 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-90 text-[#69C8B9]' : (isDark ? 'text-slate-500' : 'text-slate-400')}`}
+                        className={`w-4 h-4 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-90 text-emerald-500' : (isDark ? 'text-slate-500' : 'text-slate-400')}`}
                         aria-hidden="true"
                     />
                 </button>
@@ -877,8 +877,8 @@ function SocialLink({ isDark, href, label, children }) {
             title={label}
             className={`w-11 h-11 rounded-full flex items-center justify-center border transition-all hover:scale-110 hover:text-white ${
                 isDark
-                    ? 'bg-white/[0.04] border-white/10 text-slate-400 hover:bg-[#69C8B9] hover:border-[#69C8B9]'
-                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-[#69C8B9] hover:border-[#69C8B9]'
+                    ? 'bg-white/[0.04] border-white/10 text-slate-400 hover:bg-emerald-500 hover:border-emerald-500'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-emerald-500 hover:border-emerald-500'
             }`}
         >
             {children}
@@ -966,7 +966,7 @@ function MethodStep({ number, title, desc, icon: Icon, color, isDark }) {
             <div className={`w-12 h-12 ${color} rounded-xl flex items-center justify-center text-white shadow-md mb-4 group-hover:rotate-6 transition-transform`}>
                 <Icon className="w-6 h-6" />
             </div>
-            <div className="text-[10px] font-black uppercase tracking-widest text-[#69C8B9]">Passo {number}</div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Passo {number}</div>
             <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{title}</h3>
             <p className={`text-sm font-medium leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{desc}</p>
         </div>
@@ -990,8 +990,8 @@ function SensorFeature({ icon: Icon, iconColor, bgColor, title, desc, isDark }) 
 function SecurityFeature({ icon: Icon, title, desc, isDark }) {
     return (
         <div className="flex gap-4">
-            <div className="w-10 h-10 rounded-xl bg-[#69C8B9]/10 flex items-center justify-center shrink-0">
-                <Icon className="w-5 h-5 text-[#69C8B9]" />
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+                <Icon className="w-5 h-5 text-emerald-500" />
             </div>
             <div className="space-y-1">
                 <h4 className={`font-black text-base ${isDark ? 'text-white' : 'text-slate-800'}`}>{title}</h4>
@@ -1044,13 +1044,13 @@ function PlanCard({ isDark, featured, name, subtitle, price, priceSuffix, note, 
     return (
         <div className={`relative rounded-[2.5rem] p-8 flex flex-col overflow-hidden ${
             featured
-                ? `border-2 border-[#69C8B9]/40 shadow-2xl shadow-[#69C8B9]/10 ${isDark ? 'bg-slate-900' : 'bg-white'}`
+                ? `border-2 border-emerald-500/40 shadow-2xl shadow-emerald-500/10 ${isDark ? 'bg-slate-900' : 'bg-white'}`
                 : `border ${isDark ? 'bg-slate-900/60 border-white/10' : 'bg-white border-slate-100 shadow-md'}`
         }`}>
             {featured && (
                 <>
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA]" />
-                    <div className="absolute top-6 right-6 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#69C8B9] to-[#5CCEEA] text-white text-[9px] font-black uppercase tracking-widest shadow-md"
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-emerald-400" />
+                    <div className="absolute top-6 right-6 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 text-white text-[9px] font-black uppercase tracking-widest shadow-md"
                         style={{ animation: 'pulse-ring 2.5s ease-in-out infinite' }}>
                         <Flame className="w-3 h-3" /> Mais Popular
                     </div>
@@ -1064,14 +1064,14 @@ function PlanCard({ isDark, featured, name, subtitle, price, priceSuffix, note, 
                     <span className={`text-5xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{price}</span>
                     {priceSuffix && <span className="text-slate-400 text-sm font-medium mb-1">{priceSuffix}</span>}
                 </div>
-                <p className="text-[11px] text-[#69C8B9] font-bold">{note}</p>
+                <p className="text-[11px] text-emerald-500 font-bold">{note}</p>
             </div>
 
             <div className="space-y-3 flex-1 mb-8">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">{includedTitle || 'O que está incluso:'}</p>
                 {included.map((f, i) => (
                     <div key={i} className="flex items-start gap-3">
-                        <CheckCircle2 className="w-4 h-4 text-[#69C8B9] shrink-0 mt-0.5" />
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                         <span className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{f}</span>
                     </div>
                 ))}

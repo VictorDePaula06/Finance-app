@@ -507,7 +507,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
                                 onClick={() => setPeriod(p.id)}
                                 className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                                     period === p.id
-                                        ? 'bg-[#5CCEEA] text-slate-950 shadow-md'
+                                        ? 'bg-emerald-400 text-slate-950 shadow-md'
                                         : isDark ? 'text-slate-400 hover:bg-white/5' : 'text-slate-500 hover:bg-slate-100'
                                 }`}
                             >
@@ -542,7 +542,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
             <div className={`p-6 md:p-8 rounded-[2.5rem] border pat-card ${fill ? 'flex-1 flex flex-col min-h-0' : ''}`}>
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
-                        <BarChart3 className="w-5 h-5 text-[#5CCEEA]" />
+                        <BarChart3 className="w-5 h-5 text-emerald-400" />
                         <h3 className={`font-black text-base ${isDark ? 'text-white' : 'text-slate-800'}`}>
                             Retorno Acumulado (%)
                         </h3>
@@ -556,7 +556,7 @@ export default function EvolucaoPatrimonialTab({ hideHeader = false, compact = f
                 {isLoading ? (
                     <div className={`${fill ? 'flex-1 min-h-[200px]' : 'h-72'} flex items-center justify-center`}>
                         <div className="flex flex-col items-center gap-4">
-                            <div className="w-10 h-10 rounded-full border-2 border-[#5CCEEA] border-t-transparent animate-spin" />
+                            <div className="w-10 h-10 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
                             <p className="text-sm font-bold text-slate-500">Buscando dados de mercado...</p>
                         </div>
                     </div>

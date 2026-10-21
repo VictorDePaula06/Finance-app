@@ -1025,7 +1025,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                             key={cat.id}
                             onClick={() => setFilterCategory(cat.id)}
                             className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap border flex items-center gap-2 ${filterCategory === cat.id
-                                ? (theme === 'light' ? 'bg-[#69C8B9] text-white border-[#69C8B9] shadow-md' : 'bg-[#69C8B9] text-white border-[#69C8B9] shadow-lg shadow-[#69C8B9]/25')
+                                ? (theme === 'light' ? 'bg-emerald-500 text-white border-emerald-500 shadow-md' : 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/25')
                                 : (theme === 'light' ? 'bg-white/30 text-slate-500 border-slate-200 hover:bg-slate-50 shadow-sm' : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10 hover:text-slate-300 shadow-sm')
                                 }`}
                         >

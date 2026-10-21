@@ -654,7 +654,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                             className={`w-full font-medium py-3 rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg ${isSavingKey
                                 ? 'bg-emerald-600 text-white'
                                 : theme === 'light'
-                                    ? 'bg-[#69C8B9] hover:bg-[#5CCEEA] text-white'
+                                    ? 'bg-emerald-500 hover:bg-emerald-400 text-white'
                                     : 'bg-blue-600 hover:bg-blue-500 text-white'
                                 }`}
                         >
