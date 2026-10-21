@@ -196,7 +196,7 @@ export default function Login({ onBack, initialMode }) {
                                                 <div className="flex-1 flex gap-1">
                                                     {[0, 1, 2, 3].map(i => (
                                                         <span key={i} className="h-1.5 flex-1 rounded-full transition-colors duration-300"
-                                                            style={{ background: i < score ? STRENGTH[score].color : (isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0') }} />
+                                                            style={{ background: i < score ? STRENGTH[score].color : (isDark ? 'rgba(255,255,255,0.1)' : '#cbe3de') }} />
                                                     ))}
                                                 </div>
                                                 <span className="text-[11px] font-black" style={{ color: STRENGTH[score].color }}>{STRENGTH[score].label}</span>

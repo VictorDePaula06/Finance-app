@@ -319,7 +319,7 @@ function AssetCard({ asset, isDark, card, txt, sub, onEdit, onDelete }) {
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={series}>
             <YAxis hide domain={['dataMin', 'dataMax']} />
-            <Tooltip formatter={(v) => [`R$ ${fmt(v)}`, 'Valor']} labelFormatter={() => ''} contentStyle={{ backgroundColor: isDark ? '#0e1613' : '#fff', borderColor: isDark ? '#1c2a24' : '#e2e8f0', borderRadius: 10, fontSize: 11 }} />
+            <Tooltip formatter={(v) => [`R$ ${fmt(v)}`, 'Valor']} labelFormatter={() => ''} contentStyle={{ backgroundColor: isDark ? '#0e1613' : '#fff', borderColor: isDark ? '#1c2a24' : '#cbe3de', borderRadius: 10, fontSize: 11 }} />
             <Line type="monotone" dataKey="v" stroke={diff >= 0 ? '#10b981' : '#f43f5e'} strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>

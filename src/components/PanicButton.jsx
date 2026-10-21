@@ -39,7 +39,7 @@ export default function PanicButton({ onPanicClick }) {
                                     setIsOpen(false);
                                     onPanicClick("Preciso de ajuda com um gasto inesperado.");
                                 }}
-                                className="w-full bg-verde-respira text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                                className="w-full bg-emerald-500 text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                             >
                                 <MessageCircle className="w-5 h-5" />
                                 Falar com a Alívia

@@ -265,7 +265,7 @@ export default function OverviewChat({ transactions = [], manualConfig = {}, onA
               {pending.queue[0].options.map(o => (
                 <button key={o.value} onClick={() => pickSelection(o.value)}
                   className={`px-3.5 py-1.5 rounded-full text-[12px] font-bold border transition active:scale-95 ${isDark ? 'bg-white/[0.06] hover:bg-white/[0.12]' : 'bg-white hover:bg-slate-50'}`}
-                  style={o.color ? { borderColor: `${o.color}66`, color: o.color } : { borderColor: isDark ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }}>
+                  style={o.color ? { borderColor: `${o.color}66`, color: o.color } : { borderColor: isDark ? 'rgba(255,255,255,0.12)' : '#cbe3de' }}>
                   {o.label}
                 </button>
               ))}

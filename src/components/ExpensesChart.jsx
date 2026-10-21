@@ -157,7 +157,7 @@ export default function ExpensesChart({ transactions, targetMonth, mode = 'gasto
 
     if (data.length === 0) {
         return (
-            <div className="bg-verde-respira/5 p-6 rounded-2xl border border-verde-respira/20 border-dashed flex flex-col items-center justify-center min-h-[400px]">
+            <div className="bg-emerald-500/5 p-6 rounded-2xl border border-emerald-500/20 border-dashed flex flex-col items-center justify-center min-h-[400px]">
                 <span className="text-slate-400 text-sm">Nenhuma despesa para exibir</span>
             </div>
         );
@@ -190,7 +190,7 @@ export default function ExpensesChart({ transactions, targetMonth, mode = 'gasto
                         </Pie>
                         <Tooltip
                             key="chart-tooltip"
-                            contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderColor: '#e2e8f0', borderRadius: '12px', color: '#1e293b', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                            contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderColor: '#cbe3de', borderRadius: '12px', color: '#1e293b', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                             itemStyle={{ color: '#1e293b', fontWeight: 'bold' }}
                             formatter={(value) => `R$ ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
                         />

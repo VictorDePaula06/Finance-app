@@ -354,7 +354,7 @@ export function LancamentoForm({ isDark, uid, kind, editing, saldoConta = 0, onC
     }, [uid, income]);
 
     const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
-    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#cbe3de' : '#1e293b' };
 
     const total = parts.reduce((a, v) => a + (Number(v) || 0), 0) + numBR(amount);
 

@@ -125,7 +125,7 @@
 /* ── TEMA ESCURO: preto esverdeado ───────────────────────────────────
    Paleta medida na referência: página #050a08, superfícies subindo em
    passos mínimos (#0a0c0c caixa interna, #0e100f caixa, #101211 campo,
-   #151716 bolha) e o verde #3dc590 como único acento.
+   #151716 bolha). O acento vem do manual da marca, logo abaixo.
 
    Logo abaixo a escala `slate` é redefinida DENTRO do tema escuro. O
    Tailwind 4 escreve `.bg-slate-900 { background-color: var(--color-slate-900) }`,
@@ -472,7 +472,7 @@ html { scroll-behavior: smooth; }
 }
 :where(input, select, textarea):focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(105, 200, 185, .25);
+  box-shadow: 0 0 0 3px rgba(84, 151, 139, .25);
 }
 
 /* Cards um pouco mais "vivos" ao passar o mouse — só sombra/borda,
@@ -483,7 +483,7 @@ html { scroll-behavior: smooth; }
 }
 :where(.glass-card):hover {
   box-shadow: 0 22px 55px -20px var(--card-shadow);
-  border-color: rgba(105, 200, 185, .35);
+  border-color: rgba(84, 151, 139, .35);
 }
 :where(.pat-card) { transition: box-shadow .28s ease, border-color .28s ease, background .4s ease; }
 :where(.pat-card):hover { box-shadow: 0 10px 30px -14px rgba(0, 0, 0, .12); }
@@ -506,7 +506,7 @@ html { scroll-behavior: smooth; }
 @keyframes alv-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 .alv-skeleton {
   background: linear-gradient(90deg,
-    var(--input-bg) 25%, rgba(105, 200, 185, .14) 37%, var(--input-bg) 63%);
+    var(--input-bg) 25%, rgba(84, 151, 139, .14) 37%, var(--input-bg) 63%);
   background-size: 200% 100%;
   animation: alv-shimmer 1.4s ease-in-out infinite;
   border-radius: .75rem;

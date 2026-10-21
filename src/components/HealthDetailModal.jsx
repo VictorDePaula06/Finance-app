@@ -76,7 +76,7 @@ export default function HealthDetailModal({ open, onClose, scoreData, title = 'S
           <div className="flex items-center gap-5">
             <div className="relative w-[120px] h-[120px] shrink-0">
               <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
-                <circle cx="60" cy="60" r="52" fill="none" strokeWidth="10" stroke={isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'} />
+                <circle cx="60" cy="60" r="52" fill="none" strokeWidth="10" stroke={isLight ? '#cbe3de' : 'rgba(255,255,255,0.08)'} />
                 <circle cx="60" cy="60" r="52" fill="none" strokeWidth="10" strokeLinecap="round" stroke={ring} strokeDasharray={C} strokeDashoffset={C * (1 - score / 100)} style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">

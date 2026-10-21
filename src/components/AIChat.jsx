@@ -644,7 +644,7 @@ export default function AIChat({ transactions, manualConfig, onAddTransaction, o
                             placeholder="Cole sua API Key aqui..."
                             className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 transition-all ${
                                 theme === 'light' 
-                                ? 'bg-white/40 border-slate-200 text-slate-800 focus:ring-verde-respira/30 focus:border-verde-respira' 
+                                ? 'bg-white/40 border-slate-200 text-slate-800 focus:ring-emerald-500/30 focus:border-emerald-500' 
                                 : 'bg-slate-950 border-slate-700 text-white focus:ring-blue-500/30 focus:border-blue-500'
                             }`}
                         />

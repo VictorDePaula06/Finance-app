@@ -189,7 +189,7 @@ export default function Cartoes() {
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const cell = isDark ? 'text-slate-300' : 'text-slate-700';
-    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#cbe3de' : '#1e293b' };
     const filterSel = `h-9 pl-3 pr-8 rounded-xl border text-[13px] font-bold outline-none cursor-pointer transition ${isDark ? 'bg-white/5 border-white/10 text-slate-200 hover:border-white/20' : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'}`;
 
     // Cadastro, edição e exclusão de cartões acontecem em Configurações e Cadastros → Cadastros.
@@ -703,7 +703,7 @@ export function BuyForm({ isDark, uid, card, editing, onClose, initialTipo, lock
     const [error, setError] = useState('');
 
     const inputCls = `w-full px-3.5 py-3 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:border-emerald-500'}`;
-    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#cbe3de' : '#1e293b' };
 
     const nParc = Math.max(1, parseInt(installments) || 1);
     const rawVal = numBR(amount);
@@ -1243,7 +1243,7 @@ function BatchBuyForm({ isDark, uid, cards = [], card, onClose }) {
     // estilos
     const tone = TIPO_TONE[tipoCompra];
     const cellInput = `w-full bg-transparent px-2.5 h-10 text-[13px] font-semibold outline-none rounded-lg border transition ${isDark ? `border-white/10 text-white placeholder-slate-600 ${tone.focusDark} focus:bg-white/[0.04]` : `border-slate-200 text-slate-800 placeholder-slate-400 ${tone.focusLight} focus:bg-white`}`;
-    const optStyle = { backgroundColor: isDark ? '#0e1210' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const optStyle = { backgroundColor: isDark ? '#0e1210' : '#ffffff', color: isDark ? '#cbe3de' : '#1e293b' };
     const cardBg = isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white';
     const softBtn = isDark ? 'border-white/10 text-slate-300 hover:bg-white/5' : 'border-slate-200 text-slate-600 hover:bg-slate-50';
     const label = 'text-[11px] font-black uppercase tracking-widest text-slate-500 block mb-1.5';

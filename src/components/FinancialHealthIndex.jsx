@@ -32,7 +32,7 @@ function ScoreGauge({ score, ringColor, isDark }) {
     return (
         <div className="relative w-20 h-20 shrink-0">
             <svg viewBox="0 0 110 110" className="w-full h-full -rotate-90">
-                <circle cx="55" cy="55" r={r} fill="none" strokeWidth="8" stroke={isDark ? 'rgba(255,255,255,0.07)' : '#e2e8f0'} />
+                <circle cx="55" cy="55" r={r} fill="none" strokeWidth="8" stroke={isDark ? 'rgba(255,255,255,0.07)' : '#cbe3de'} />
                 <circle
                     cx="55" cy="55" r={r} fill="none" strokeWidth="8" strokeLinecap="round"
                     stroke={ringColor} strokeDasharray={c} strokeDashoffset={offset}

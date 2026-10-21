@@ -677,7 +677,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
             }`}>
                 <div className="md:col-span-12">
                     <h3 className={`text-lg font-bold mb-2 flex items-center gap-2 ${theme === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
-                        {editingId ? <Pencil className="w-5 h-5 text-blue-500" /> : <LayoutDashboard className="w-5 h-5 text-verde-respira" />}
+                        {editingId ? <Pencil className="w-5 h-5 text-blue-500" /> : <LayoutDashboard className="w-5 h-5 text-emerald-500" />}
                         {editingId ? 'Editar Transação' : 'Nova Transação'}
                     </h3>
                 </div>
@@ -738,7 +738,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                                 onClick={() => setCategory(cat)}
                                 className={`p-1.5 rounded-lg flex flex-col items-center justify-center gap-1 transition-all ${
                                     category.id === cat.id 
-                                    ? (theme === 'light' ? 'bg-verde-respira/20 ring-1 ring-verde-respira/50' : 'bg-slate-700 ring-1 ring-slate-500') 
+                                    ? (theme === 'light' ? 'bg-emerald-500/20 ring-1 ring-emerald-500/50' : 'bg-slate-700 ring-1 ring-slate-500') 
                                     : (theme === 'light' ? 'hover:bg-slate-100' : 'hover:bg-slate-800')
                                 }`}
                                 title={cat.label}
@@ -965,7 +965,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                     <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border w-full md:w-auto shadow-sm ${
                         theme === 'light' ? 'bg-white/20 border-slate-200' : 'bg-white/5 border-white/5'
                     }`}>
-                        <Calendar className={`w-4 h-4 ${theme === 'light' ? 'text-verde-respira' : 'text-verde-respira/70'}`} />
+                        <Calendar className={`w-4 h-4 ${theme === 'light' ? 'text-emerald-500' : 'text-emerald-500/70'}`} />
                         <input
                             type="month"
                             value={selectedMonth}
@@ -996,7 +996,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                     <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border w-full md:w-72 shadow-sm focus-within:ring-2 transition-all ${
                         theme === 'light' 
                         ? 'bg-white/20 border-slate-200 focus-within:ring-blue-500/10 focus-within:border-blue-400' 
-                        : 'bg-white/5 border-white/5 focus-within:border-azul-ceu'
+                        : 'bg-white/5 border-white/5 focus-within:border-emerald-400'
                     }`}>
                         <Search className="w-4 h-4 text-slate-400" />
                         <input
@@ -1055,7 +1055,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                 {
                     filteredTransactions.length === 0 ? (
                         <div className={`text-center py-10 rounded-2xl border border-dashed ${
-                            theme === 'light' ? 'bg-verde-respira/5 border-verde-respira/30 text-slate-500' : 'bg-verde-respira/5 border-verde-respira/20 text-slate-400'
+                            theme === 'light' ? 'bg-emerald-500/5 border-emerald-500/30 text-slate-500' : 'bg-emerald-500/5 border-emerald-500/20 text-slate-400'
                         }`}>
                             Nenhuma transação neste mês.
                         </div>
@@ -1063,7 +1063,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                         filteredTransactions.map((t) => (
                             <div key={t.id} className={`group backdrop-blur-md p-4 rounded-2xl border transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm ${
                                 theme === 'light' 
-                                ? 'bg-white/20 border-white/50 hover:border-verde-respira/30 hover:bg-white/30' 
+                                ? 'bg-white/20 border-white/50 hover:border-emerald-500/30 hover:bg-white/30' 
                                 : 'bg-white/5 border-white/5 hover:border-white/10'
                             }`}>
                                 <div className="flex items-center gap-4 w-full md:w-auto">
@@ -1144,7 +1144,7 @@ export default function TransactionSection({ manualConfig, updateManualConfig, t
                         <div
                             key="modal-card"
                             className={`border rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden ${
-                                theme === 'light' ? 'bg-white border-verde-respira/20' : 'bg-slate-900 border-slate-700/50'
+                                theme === 'light' ? 'bg-white border-emerald-500/20' : 'bg-slate-900 border-slate-700/50'
                             }`}
                             onClick={(e) => e.stopPropagation()}
                         >

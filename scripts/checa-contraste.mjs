@@ -18,7 +18,7 @@
 // para elementos de interface (bordas, ícones, limites de botão).
 //
 // Rodar: node scripts/checa-contraste.mjs
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync, statSync } from 'fs';
 
 const css = readFileSync('src/index.css', 'utf8');
 
@@ -132,6 +132,51 @@ console.log('-- CORES DO MANUAL, intactas --');
         const ok = achado === esperado;
         if (!ok) falhas++;
         console.log(`${ok ? 'ok   ' : 'FALHA'}  --${nome.padEnd(42)} ${achado}${ok ? '' : ' — o manual diz ' + esperado}`);
+    }
+}
+
+// ── A identidade antiga não pode voltar ─────────────────────────────
+// Ela saiu em quatro escondidos diferentes, e o último foi o pior: o
+// #69C8B9 estava escrito como `rgba(105, 200, 185, .25)`, em DECIMAL.
+// Toda busca por hexadecimal passou por cima dele, e ele chegou até
+// dentro do APK. Por isso este teste procura as duas formas.
+console.log('');
+console.log('-- identidade antiga, nas duas formas --');
+{
+    const ANTIGAS = [
+        ['verde-respira', '69c8b9', [105, 200, 185]],
+        ['azul-ceu', '5cceea', [92, 206, 234]],
+        ['crema-paz', 'fff08c', [255, 240, 140]],
+        ['ouro-suave', 'fff09a', [255, 240, 154]],
+        ['acento antigo', '3dc590', [61, 197, 144]],
+        ['azul-ardosia', '0f172a', [15, 23, 42]],
+    ];
+    const fontes = [];
+    (function varre(dir) {
+        for (const nome of readdirSync(dir)) {
+            const p = dir + '/' + nome;
+            if (statSync(p).isDirectory()) varre(p);
+            else if (/\.(css|jsx?|html)$/.test(nome)) fontes.push(p);
+        }
+    })('src');
+    fontes.push('index.html', 'tailwind.config.js');
+
+    for (const [nome, hexa, [r, g, b]] of ANTIGAS) {
+        const achados = [];
+        for (const arq of fontes) {
+            const txt = readFileSync(arq, 'utf8');
+            if (txt.toLowerCase().includes('#' + hexa)) achados.push(arq + ' (hex)');
+            // A forma decimal: foi ela que escapou da primeira limpeza.
+            // Montada sem escapes para não depender de como a string é
+            // lida — o backslash já se perdeu uma vez no caminho.
+            const esp = String.raw`\s*`;
+            const dec = new RegExp(
+                String.raw`rgba?\(` + esp + r + esp + ',' + esp + g + esp + ',' + esp + b + esp + '[,)]');
+            if (dec.test(txt)) achados.push(arq + ' (rgb)');
+        }
+        const ok = achados.length === 0;
+        if (!ok) falhas++;
+        console.log(`${ok ? 'ok   ' : 'FALHA'}  ${nome.padEnd(20)} #${hexa}${ok ? ' — fora' : '  ainda em: ' + achados.join(', ')}`);
     }
 }
 

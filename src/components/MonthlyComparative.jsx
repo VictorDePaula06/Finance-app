@@ -114,10 +114,10 @@ export default function MonthlyComparative({ transactions = [], manualConfig = {
                             <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: isDark ? '#94a3b8' : '#64748b' }} className="capitalize" />
                             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: isDark ? '#94a3b8' : '#64748b' }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
                             <Tooltip
-                                contentStyle={{ backgroundColor: isDark ? '#0e1613' : '#fff', borderColor: isDark ? '#1c2a24' : '#e2e8f0', borderRadius: '12px' }}
+                                contentStyle={{ backgroundColor: isDark ? '#0e1613' : '#fff', borderColor: isDark ? '#1c2a24' : '#cbe3de', borderRadius: '12px' }}
                                 formatter={(v) => `R$ ${fmt(v)}`}
                                 labelStyle={{ color: isDark ? '#94a3b8' : '#64748b', marginBottom: 4, textTransform: 'capitalize' }}
-                                itemStyle={{ color: isDark ? '#e2e8f0' : '#0f172a' }}
+                                itemStyle={{ color: isDark ? '#cbe3de' : '#1b4139' }}
                                 cursor={{ fill: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }}
                             />
                             <Legend wrapperStyle={{ fontSize: 11 }} />

@@ -60,10 +60,10 @@ export default function CandleChart({
     const [editing, setEditing] = useState(null);     // texto sendo digitado
     const drag = useRef(null);
 
-    const grid = isDark ? 'rgba(255,255,255,0.055)' : 'rgba(15,23,42,0.07)';
+    const grid = isDark ? 'rgba(255,255,255,0.055)' : 'rgba(27,65,57,0.07)';
     const axisText = isDark ? '#787b86' : '#64748b';
-    const border = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.1)';
-    const crossColor = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(15,23,42,0.35)';
+    const border = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(27,65,57,0.1)';
+    const crossColor = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(27,65,57,0.35)';
     const tagBg = isDark ? '#252c28' : '#334155';
 
     useEffect(() => {
@@ -366,7 +366,7 @@ export default function CandleChart({
                     const y1 = yOf(d.price), y2 = yOf(d.price2);
                     if (d.type === 'text') {
                         return (
-                            <text key={d.id} x={x1} y={y1} fill={isDark ? '#e2e8f0' : '#1e293b'}
+                            <text key={d.id} x={x1} y={y1} fill={isDark ? '#cbe3de' : '#1e293b'}
                                 fontSize="12" fontWeight="600" style={{ pointerEvents: 'none' }}>{d.text}</text>
                         );
                     }

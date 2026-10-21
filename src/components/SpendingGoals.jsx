@@ -288,7 +288,7 @@ export default function SpendingGoals({ transactions = [], manualConfig = {}, on
                             <div className="flex items-center gap-4 mb-4">
                                 <div className="relative w-[88px] h-[88px] shrink-0">
                                     <svg viewBox="0 0 36 36" className="w-[88px] h-[88px] -rotate-90">
-                                        <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3.5" stroke={isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0'} />
+                                        <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3.5" stroke={isDark ? 'rgba(255,255,255,0.08)' : '#cbe3de'} />
                                         <circle cx="18" cy="18" r="15.5" fill="none" strokeWidth="3.5" strokeLinecap="round" stroke={ringHex} strokeDasharray={2 * Math.PI * 15.5} strokeDashoffset={2 * Math.PI * 15.5 * (1 - Math.min(1, usedPct / 100))} style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
                                     </svg>
                                     <span className="absolute inset-0 flex items-center justify-center text-sm font-black" style={{ color: ringHex }}>{usedPct}%</span>

@@ -304,7 +304,7 @@ function Slider({ label, value, min, max, step, onChange, fmtVal, color, isDark,
       </div>
       <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))}
         className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
-        style={{ accentColor: color, background: isDark ? '#33423a' : '#e2e8f0' }} />
+        style={{ accentColor: color, background: isDark ? '#33423a' : '#cbe3de' }} />
     </div>
   );
 }

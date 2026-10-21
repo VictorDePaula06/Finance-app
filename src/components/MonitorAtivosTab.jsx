@@ -326,7 +326,7 @@ function AssetChartModal({ asset, currency, usdRate, isDark, onClose }) {
                 <Tooltip
                   contentStyle={{
                     background: isDark ? '#0e1613' : '#ffffff',
-                    border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0'}`,
+                    border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : '#cbe3de'}`,
                     borderRadius: 12, fontSize: 12,
                   }}
                   labelFormatter={fmtTipTime}

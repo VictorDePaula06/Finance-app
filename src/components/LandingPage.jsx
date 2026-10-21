@@ -169,8 +169,8 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
         <React.Fragment>
             <style>{`
                 @keyframes pulse-ring {
-                    0%, 100% { box-shadow: 0 0 0 0 rgba(105,200,185,0.4); }
-                    50% { box-shadow: 0 0 0 10px rgba(105,200,185,0); }
+                    0%, 100% { box-shadow: 0 0 0 0 rgba(84,151,139,0.4); }
+                    50% { box-shadow: 0 0 0 10px rgba(84,151,139,0); }
                 }
                 @keyframes float {
                     0%, 100% { transform: translateY(0px); }
@@ -181,8 +181,8 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                     50% { opacity: 1; }
                 }
                 .alivia-float { animation: float 4s ease-in-out infinite; }
-                .glow-teal { box-shadow: 0 0 40px rgba(105,200,185,0.3), 0 0 80px rgba(105,200,185,0.1); }
-                .glow-cyan { box-shadow: 0 0 40px rgba(92,206,234,0.3), 0 0 80px rgba(92,206,234,0.1); }
+                .glow-teal { box-shadow: 0 0 40px rgba(84,151,139,0.3), 0 0 80px rgba(84,151,139,0.1); }
+                .glow-cyan { box-shadow: 0 0 40px rgba(156,218,216,0.3), 0 0 80px rgba(156,218,216,0.1); }
             `}</style>
 
             {/* Navbar — via Portal pro document.body: garante fixo no viewport mesmo
@@ -243,8 +243,8 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
             {/* Main wrapper */}
             <div className={`min-h-screen overflow-x-hidden ${t.pageBg}`} style={{
                 backgroundImage: isDark
-                    ? `radial-gradient(at 0% 0%, rgba(105,200,185,0.10) 0px, transparent 55%), radial-gradient(at 100% 0%, rgba(92,206,234,0.08) 0px, transparent 55%)`
-                    : `radial-gradient(at 0% 0%, rgba(105,200,185,0.12) 0px, transparent 60%), radial-gradient(at 100% 0%, rgba(92,206,234,0.12) 0px, transparent 60%)`,
+                    ? `radial-gradient(at 0% 0%, rgba(84,151,139,0.10) 0px, transparent 55%), radial-gradient(at 100% 0%, rgba(156,218,216,0.08) 0px, transparent 55%)`
+                    : `radial-gradient(at 0% 0%, rgba(84,151,139,0.12) 0px, transparent 60%), radial-gradient(at 100% 0%, rgba(156,218,216,0.12) 0px, transparent 60%)`,
             }}>
 
                 {/* ── HERO ── */}
@@ -896,7 +896,7 @@ function TikTokIcon({ className }) {
 
 // ── Phone Mockup (grande, inclinado 3D — estilo app showcase) ─────────────────
 function PhoneMockup({ isDark, width = 300, tilt = 'left', children }) {
-    const frame = isDark ? '#090f0d' : '#0f172a';
+    const frame = isDark ? '#090f0d' : '#1b4139';
     const rotateY = tilt === 'left' ? '14deg' : '-14deg';
     return (
         <div style={{ perspective: '1600px' }} className="mx-auto">

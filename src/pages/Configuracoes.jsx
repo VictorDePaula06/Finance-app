@@ -145,7 +145,7 @@ export default function Configuracoes() {
 
 // ── Bloco padrão ────────────────────────────────────────────────────
 function Card({ isDark, children, className = '' }) {
-    return <div className={`rounded-2xl border p-5 sm:p-6 transition-shadow duration-300 ${isDark ? 'border-white/10 bg-white/[0.02] hover:border-white/[0.14]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_10px_34px_-16px_rgba(15,23,42,0.18)]'} ${className}`}>{children}</div>;
+    return <div className={`rounded-2xl border p-5 sm:p-6 transition-shadow duration-300 ${isDark ? 'border-white/10 bg-white/[0.02] hover:border-white/[0.14]' : 'border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_10px_34px_-16px_rgba(27,65,57,0.18)]'} ${className}`}>{children}</div>;
 }
 function SectionTitle({ isDark, icon: Icon, children, right }) {
     return (

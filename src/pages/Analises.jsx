@@ -694,7 +694,7 @@ function FiltersModal({ isDark, reportId, filters, setFilters, cards, onClose, o
     const toggleGroup = (key, sub) => setFilters(f => ({ ...f, [key]: { ...f[key], [sub]: !f[key][sub] } }));
 
     const inputCls = `w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold outline-none transition ${isDark ? 'bg-white/5 border-white/10 text-white focus:border-emerald-500' : 'bg-white border-slate-200 text-slate-800 focus:border-emerald-500'}`;
-    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#e2e8f0' : '#1e293b' };
+    const optStyle = { backgroundColor: isDark ? '#101412' : '#ffffff', color: isDark ? '#cbe3de' : '#1e293b' };
 
     const Chip = ({ on, onClick, children }) => (
         <button type="button" onClick={onClick}
