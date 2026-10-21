@@ -120,7 +120,14 @@ if (existsSync(ORIGEM_ICONES)) {
     }
     if (copiados) { console.log(`+ ${copiados} arquivo(s) de ícone`); mudou = true; }
 
-    // A cor por trás do ícone adaptativo: a mesma amostrada do icon-512.
+    // A cor por trás do ícone adaptativo.
+    //
+    // Ela NÃO acompanha o fundo da página. O logotipo da Alívia é um
+    // degradê claro de verde para azul, e sobre a Leveza do manual ele cai
+    // para 1,7:1 — some. Medido: contra #0E2420 fica entre 6,6 e 8,6.
+    //
+    // É o degrau mais escuro da escala da marca (hue 169°), não um preto
+    // qualquer: o ícone continua da Alívia, e o logo continua visível.
     const COR = 'android/app/src/main/res/values/ic_launcher_background.xml';
     const arqCor = `${ORIGEM_ICONES}/cor-de-fundo.txt`;
     if (existsSync(COR) && existsSync(arqCor)) {

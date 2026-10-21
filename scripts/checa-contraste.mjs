@@ -18,7 +18,7 @@
 // para elementos de interface (bordas, ícones, limites de botão).
 //
 // Rodar: node scripts/checa-contraste.mjs
-import { readFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 
 const css = readFileSync('src/index.css', 'utf8');
 
@@ -132,6 +132,34 @@ console.log('-- CORES DO MANUAL, intactas --');
         const ok = achado === esperado;
         if (!ok) falhas++;
         console.log(`${ok ? 'ok   ' : 'FALHA'}  --${nome.padEnd(42)} ${achado}${ok ? '' : ' — o manual diz ' + esperado}`);
+    }
+}
+
+// ── O logotipo tem que aparecer no ícone do app ─────────────────────
+// Erro cometido: ao aplicar o manual eu troquei o fundo do ícone
+// adaptativo por Leveza, porque Leveza é "o fundo da marca". Mas o
+// logotipo da Alívia é um degradê CLARO de verde para azul — sobre
+// Leveza ele cai para 1,7:1 e some. O ícone do app ficou um quadrado
+// quase vazio, e eu só percebi porque me perguntaram.
+//
+// As cores abaixo foram amostradas de ic_launcher_foreground.png (as
+// seis dominantes, ignorando transparente e branco). Se o logotipo
+// mudar, elas precisam ser amostradas de novo.
+console.log('');
+console.log('-- o logo aparece no ícone do app --');
+{
+    const LOGO = ['#50c0d0', '#60d0a0', '#40b0e0', '#50c0c0', '#60d0b0', '#60c0b0'];
+    const arq = 'mobile/resources/android/cor-de-fundo.txt';
+    if (!existsSync(arq)) {
+        falhas++;
+        console.log('FALHA  não achei ' + arq);
+    } else {
+        const fundo = readFileSync(arq, 'utf8').trim().toLowerCase();
+        const pior = Math.min(...LOGO.map(c => contraste(c, fundo)));
+        const ok = pior >= 4.5;
+        if (!ok) falhas++;
+        console.log(`${ok ? 'ok   ' : 'FALHA'}  logo sobre ${fundo.padEnd(34)} ${pior.toFixed(2)}:1  (mín 4.5)`);
+        if (!ok) console.log('       o ícone do app ficaria quase vazio — use um fundo escuro da marca');
     }
 }
 
