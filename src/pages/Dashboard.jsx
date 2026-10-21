@@ -599,11 +599,17 @@ function EvolucaoChart({ dados, isDark, money, t }) {
 }
 
 function Kpi({ isDark, icon: Icon, label, value, sub, tone, action, className = '' }) {
-    const map = {
+    const TONS = {
         emerald: { text: 'text-emerald-500', bg: 'bg-emerald-500/12 text-emerald-500', line: 'from-emerald-500' },
         rose: { text: 'text-rose-500', bg: 'bg-rose-500/12 text-rose-500', line: 'from-rose-500' },
         blue: { text: 'text-blue-400', bg: 'bg-blue-500/12 text-blue-400', line: 'from-blue-500' },
-    }[tone];
+        amber: { text: 'text-amber-500', bg: 'bg-amber-500/12 text-amber-500', line: 'from-amber-500' },
+        violet: { text: 'text-violet-400', bg: 'bg-violet-500/12 text-violet-400', line: 'from-violet-500' },
+    };
+    // Tom desconhecido cai no neutro em vez de derrubar a tela inteira. Foi
+    // o que aconteceu: dois KPIs novos pediram `amber` e `violet`, que não
+    // existiam no mapa, e `map.bg` num undefined apagou o dashboard todo.
+    const map = TONS[tone] || { text: 'text-slate-400', bg: 'bg-slate-500/12 text-slate-400', line: 'from-slate-500' };
     return (
         <div className={`rounded-2xl border p-4 sm:p-5 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'} ${className}`}>
             <div className="flex items-center justify-between gap-1">
