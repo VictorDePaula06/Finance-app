@@ -39,3 +39,6 @@ serviceAccountKey.json
 
 # Cupom de teste gerado para conferir a leitura por PDF — não é do projeto.
 cupom-teste-*.pdf
+
+# O APK gerado: artefato de build, não vai para o git (8 MB por versão).
+/mobile/apk/
