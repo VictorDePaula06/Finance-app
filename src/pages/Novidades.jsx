@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { APP_VERSION } from '../components/AppSidebar';
-import logo from '../assets/logo.png';
+import marca from '../assets/logo-solto.png';
 import WhatsAppIcon from '../components/ui/WhatsAppIcon';
 import {
     Sparkles, Settings, ClipboardList, Target, Repeat, ArrowLeftRight, CreditCard,
@@ -298,7 +298,7 @@ export default function Novidades() {
             <div className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
                 {/* Topo */}
                 <div className="flex items-center gap-3 mb-8">
-                    <img src={logo} alt="Alívia" className="w-12 h-12 object-cover object-top rounded-xl" />
+                    <img src={marca} alt="Alívia" className="w-12 h-12 object-contain" />
                     <div className="min-w-0">
                         <p className="text-[20px] font-black tracking-tight leading-none text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500">Alívia</p>
                         <p className={`text-[10px] font-bold uppercase tracking-[0.3em] mt-1 ${muted}`}>Notas de atualização</p>

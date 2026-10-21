@@ -45,7 +45,7 @@ import {
     ArrowLeft, CheckCheck, Mic, MoreVertical, Video, Smile, Paperclip, Camera, Phone,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
-import logo from '../assets/logo.png';
+import marca from '../assets/logo-solto.png';
 import logoComNome from '../assets/logo-lockup.png';
 import aliviaFinal    from '../assets/alivia/alivia-final.png';
 
@@ -225,8 +225,8 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                         </div>
                         <div className="flex justify-center">
                             <div className="flex flex-col items-center leading-none">
-                                <div className="w-[92px] h-[56px] overflow-hidden flex justify-center">
-                                    <img src={logo} alt="Alívia" className="w-[92px] h-[92px] object-cover object-top drop-shadow-sm" />
+                                <div className="flex justify-center">
+                                    <img src={marca} alt="Alívia" className="w-[84px] h-[84px] object-contain drop-shadow-sm" />
                                 </div>
                                 <span className="text-[20px] font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400">Alívia</span>
                                 <span className={`text-[9px] font-bold uppercase tracking-[0.4em] mt-0.5 ml-[0.4em] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Finanças</span>

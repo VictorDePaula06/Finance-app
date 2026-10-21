@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { createCheckoutSession, createAnnualCheckout } from '../services/stripe';
 import { db } from '../services/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import logo from '../assets/logo.png';
+import marca from '../assets/logo-solto.png';
 
 const MASTER_EMAIL = 'financealivia@gmail.com';
 
@@ -204,8 +204,8 @@ export default function SubscriptionBlock({ onAdminAccess }) {
                             if (currentUser?.email === MASTER_EMAIL && onAdminAccess) onAdminAccess();
                         }}
                     >
-                        <div className="w-[110px] h-[64px] overflow-hidden flex justify-center">
-                            <img src={logo} alt="Alívia" className="w-[110px] h-[110px] object-cover object-top drop-shadow-[0_0_24px_rgba(16,185,129,0.25)]" />
+                        <div className="flex justify-center">
+                            <img src={marca} alt="Alívia" className="w-[110px] h-[110px] object-contain drop-shadow-[0_0_24px_rgba(16,185,129,0.25)]" />
                         </div>
                         <span className="text-[24px] font-black tracking-tight leading-none text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500">Alívia</span>
                         <span className="text-[10px] font-bold uppercase tracking-[0.42em] mt-1 ml-[0.42em] text-slate-400">Finanças</span>

@@ -7,7 +7,7 @@ import {
     Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, User,
     ShieldCheck, Heart, Sun, Moon, Loader2, CheckCircle2, Check,
 } from 'lucide-react';
-import logo from '../assets/logo.png';
+import marca from '../assets/logo-solto.png';
 
 // Traduz os códigos de erro do Firebase Auth para mensagens amigáveis.
 function friendlyError(code) {
@@ -140,9 +140,10 @@ export default function Login({ onBack, initialMode }) {
             <div className="w-full max-w-md relative z-10">
                 {/* Marca — "Alívia Finanças" (igual pós-login) */}
                 <div className="flex flex-col items-center mb-7">
-                    <div className="w-[120px] h-[70px] overflow-hidden flex justify-center mb-1.5">
-                        <img src={logo} alt="Alívia" className="w-[120px] h-[120px] object-cover object-top drop-shadow-[0_0_24px_rgba(16,185,129,0.25)]" />
-                    </div>
+                    {/* Sem janela de recorte: ela existia para cortar o texto
+                        que o logo antigo trazia embutido, e com o logo novo,
+                        que é quadrado, cortava a marca pela metade. */}
+                    <img src={marca} alt="Alívia" className="w-[104px] h-[104px] object-contain mb-1 drop-shadow-[0_0_24px_rgba(16,185,129,0.25)]" />
                     <span className="text-[26px] font-black tracking-tight leading-none text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500">Alívia</span>
                     <span className={`text-[10px] font-bold uppercase tracking-[0.42em] mt-1.5 ml-[0.42em] ${muted}`}>Finanças</span>
                 </div>

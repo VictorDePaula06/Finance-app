@@ -131,6 +131,25 @@ def main():
     # A arte inteira, com o nome. Para os lugares que mostram o logo
     # SOZINHO, sem "Alívia" escrito ao lado — rodapé e verificação de
     # e-mail. Sem isto, o nome da marca sumiria desses dois.
+    # A marca SEM fundo, para as telas que mostram o logo sobre a própria
+    # página — login, landing, bloqueio de assinatura.
+    #
+    # O alfa aqui é mais duro que o do ícone (corte em 22, faixa 68, gama
+    # 1.6) e a razão é o fundo claro: com o corte suave, o brilho da arte
+    # carrega o preto junto e vira um RETÂNGULO cinza sobre a Leveza. Com
+    # este, o retângulo some. O preço é um pouco do brilho no tema escuro,
+    # e vale a pena — o retângulo aparecia, o brilho a menos não.
+    print('Marca sem fundo:')
+    x0, y0, x1, y1 = MARCA
+    c = np.asarray(arte.crop((x0 - 8, y0 - 8, x1 + 9, y1 + 9)).convert('RGB')).astype(float)
+    al = np.clip((c.max(axis=2) - 22) / 68.0, 0, 1) ** 1.6
+    solta = Image.fromarray(np.dstack([c, al * 255]).astype(np.uint8), 'RGBA')
+    w, h = solta.size
+    n = int(max(w, h) * 1.08)
+    quadro = Image.new('RGBA', (n, n), (0, 0, 0, 0))
+    quadro.alpha_composite(solta, ((n - w) // 2, (n - h) // 2))
+    salvar(quadro.resize((512, 512), Image.LANCZOS), 'src/assets/logo-solto.png')
+
     print('Logo com o nome:')
     salvar(arredondar(arte.resize((768, 768), Image.LANCZOS), 0.10), 'src/assets/logo-lockup.png')
 
