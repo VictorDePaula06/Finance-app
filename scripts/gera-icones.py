@@ -174,6 +174,32 @@ def main():
         redonda.paste(quadrado.resize((leg, leg), Image.LANCZOS).convert('RGBA'), (0, 0), msk)
         salvar(redonda, 'mobile/resources/android/mipmap-%s' % pasta, 'ic_launcher_round.png')
 
+    # ── Tela de abertura do Android ─────────────────────────────────
+    # Estava com o logo do CAPACITOR — um "X" azul em fundo branco. Toda
+    # vez que o app abria, era isso que aparecia antes da primeira tela.
+    # Passou despercebido porque ninguém olha o splash: ele dura menos de
+    # um segundo, e quem instala o próprio app já sabe o que vai abrir.
+    print('Telas de abertura do Android:')
+    cor = cor_de_fundo(tile)        # a mesma cor que vai atrás do ícone
+    SPLASH = {
+        'drawable': (480, 320),
+        'drawable-land-mdpi': (480, 320), 'drawable-land-hdpi': (800, 480),
+        'drawable-land-xhdpi': (1280, 720), 'drawable-land-xxhdpi': (1600, 960),
+        'drawable-land-xxxhdpi': (1920, 1280),
+        'drawable-port-mdpi': (320, 480), 'drawable-port-hdpi': (480, 800),
+        'drawable-port-xhdpi': (720, 1280), 'drawable-port-xxhdpi': (960, 1600),
+        'drawable-port-xxxhdpi': (1280, 1920),
+    }
+    nome_rgba = arredondar(arte.resize((1024, 1024), Image.LANCZOS), 0.10)
+    for pasta, (w, h) in SPLASH.items():
+        # Fundo: a mesma cor do canto do ladrilho, para a abertura e o
+        # ícone serem a mesma coisa.
+        fundo = Image.new('RGBA', (w, h), tuple(int(cor[i:i+2], 16) for i in (1, 3, 5)) + (255,))
+        lado = int(min(w, h) * 0.42)
+        peca = nome_rgba.resize((lado, lado), Image.LANCZOS)
+        fundo.alpha_composite(peca, ((w - lado) // 2, (h - lado) // 2))
+        salvar(fundo.convert('RGB'), 'mobile/resources/android', pasta, 'splash.png')
+
     cor = cor_de_fundo(tile)
     with open(caminho('mobile', 'resources', 'android', 'cor-de-fundo.txt'), 'w') as f:
         f.write(cor + '\n')

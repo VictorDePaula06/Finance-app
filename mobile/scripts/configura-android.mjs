@@ -105,9 +105,18 @@ if (existsSync(MANIFEST)) {
 const ORIGEM_ICONES = 'resources/android';
 if (existsSync(ORIGEM_ICONES)) {
     let copiados = 0;
-    for (const dpi of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
-        const de = `${ORIGEM_ICONES}/mipmap-${dpi}`;
-        const para = `android/app/src/main/res/mipmap-${dpi}`;
+    // mipmap-* sao os icones do launcher; drawable-* sao as telas de
+    // abertura. As duas listas vem de resources/android, geradas por
+    // scripts/gera-icones.py a partir da arte oficial.
+    const PASTAS = [
+        ...['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi'].map(d => `mipmap-${d}`),
+        'drawable',
+        ...['land', 'port'].flatMap(o =>
+            ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi'].map(d => `drawable-${o}-${d}`)),
+    ];
+    for (const pasta of PASTAS) {
+        const de = `${ORIGEM_ICONES}/${pasta}`;
+        const para = `android/app/src/main/res/${pasta}`;
         if (!existsSync(de) || !existsSync(para)) continue;
         for (const nome of readdirSync(de)) {
             const origem = readFileSync(`${de}/${nome}`);
