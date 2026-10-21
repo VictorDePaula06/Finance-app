@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { CATEGORIES, categoryHex } from '../constants/categories';
 import { buildWalletLedger } from '../utils/financialLogic';
 import { getUsdRate } from '../utils/marketRates';
@@ -45,7 +46,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export default function Dashboard({ onNavigate }) {
     const { currentUser } = useAuth();
     const { theme } = useTheme();
-    const { t, fmtMoney: money } = useI18n();
+    const { t, fmtMoney: money, fmtMonth, fmtDate } = useI18n();
     const isDark = theme !== 'light';
     const uid = currentUser?.uid;
     const mk = monthKeyNow();
@@ -58,6 +59,10 @@ export default function Dashboard({ onNavigate }) {
     const [fixExp, setFixExp] = useState([]);
     // A configuração vive no contexto: quem edita é a janela de Cadastros.
     const { cfg } = useDashCfg();
+    // Período dos indicadores. Vale para Ganhos, Gastos e a composição —
+    // NÃO para fatura, patrimônio e custo mensal, que são retratos de agora
+    // e de um mês, não acumulados.
+    const [periodo, setPeriodo] = useState('mes');   // 'mes' | '3m' | '6m'
     const [configOpen, setConfigOpen] = useState(false);
     const [gastosOpen, setGastosOpen] = useState(false); // lista de gastos do mês
     const [waOpen, setWaOpen] = useState(false);        // janela de status do WhatsApp
@@ -86,10 +91,31 @@ export default function Dashboard({ onNavigate }) {
     }, [uid]);
 
     const saldo = useMemo(() => buildWalletLedger(tx, mk).finalBalance, [tx, mk]);
+
+    // O que escrever embaixo do número: dizer "neste mês" com o filtro em
+    // 6 meses seria mentira, e é o tipo de rótulo que ninguém relê.
+    const rotuloPeriodo = periodo === '6m' ? t('dash.per6m') : periodo === '3m' ? t('dash.per3m') : t('common.thisMonth');
+
+    // Os meses que o período cobre, do mais antigo ao atual.
+    const mesesPeriodo = useMemo(() => {
+        const n = periodo === '6m' ? 6 : periodo === '3m' ? 3 : 1;
+        const hoje = new Date();
+        return Array.from({ length: n }, (_, i) => {
+            const d = new Date(hoje.getFullYear(), hoje.getMonth() - (n - 1 - i), 1);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        });
+    }, [periodo]);
+
+    // `monthTx` continua sendo o MÊS corrente: quem depende de "agora" (saldo,
+    // fatura) não pode seguir o filtro. `periodoTx` é o recorte do filtro.
     const monthTx = useMemo(() => tx.filter(t => txMonthKey(t) === mk && t.paymentMethod !== 'credito'), [tx, mk]);
+    const periodoTx = useMemo(() => {
+        const set = new Set(mesesPeriodo);
+        return tx.filter(t => set.has(txMonthKey(t)) && t.paymentMethod !== 'credito');
+    }, [tx, mesesPeriodo]);
     // Transferências de reserva (cofre) e ajustes não são ganho/gasto reais.
     const isTransferOrAdj = (t) => t.isTransfer || ['vault', 'vault_redemption', 'initial_balance', 'carryover'].includes(t.category);
-    const ganhos = monthTx.filter(t => t.type === 'income' && !isTransferOrAdj(t)).reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+    const ganhos = periodoTx.filter(t => t.type === 'income' && !isTransferOrAdj(t)).reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
 
     // Fatura em aberto POR CARTÃO (avulsas no crédito + assinaturas/parcelas) e o total de todos.
     const faturaPorCartao = useMemo(() => cards.map(c => {
@@ -121,17 +147,18 @@ export default function Dashboard({ onNavigate }) {
         // Sem incluir a fatura: mostra só os gastos DA CONTA (fora do cartão) — nem as
         // compras no crédito, nem o pagamento da fatura entram. Assim a diferença entre
         // ligado/desligado é exatamente a fatura do cartão.
-        if (!cfg.incluirFatura) return monthTx.filter(t => t.type === 'expense' && !isTransferOrAdj(t) && !isBill(t));
+        if (!cfg.incluirFatura) return periodoTx.filter(t => t.type === 'expense' && !isTransferOrAdj(t) && !isBill(t));
 
         // Incluindo a fatura: conta as compras do cartão diretamente e
         // IGNORA o pagamento da fatura (credit_card_bill), senão o mesmo gasto entraria
         // duas vezes (a compra + a quitação). Assim, pagar a fatura não altera o total.
-        const acct = monthTx.filter(t => t.type === 'expense' && !isTransferOrAdj(t) && !isBill(t));
+        const acct = periodoTx.filter(t => t.type === 'expense' && !isTransferOrAdj(t) && !isBill(t));
         // Compras no crédito contam no MÊS EM QUE FORAM FEITAS, pagas ou não. Pagar a
         // fatura só quita o saldo — não move nem apaga o gasto do mês original (e como
         // o pagamento credit_card_bill é ignorado acima, também não conta em dobro).
+        const mesesSet = new Set(mesesPeriodo);
         const credito = tx.filter(t => t.type === 'expense' && t.paymentMethod === 'credito'
-            && txMonthKey(t) === mk);
+            && mesesSet.has(txMonthKey(t)));
         // …+ assinaturas e parcelamentos do cartão (coleção subscriptions), que
         // também compõem a fatura mas não são "transactions".
         const cardSubs = subs.filter(s => s.cardId).map(s => ({
@@ -139,12 +166,60 @@ export default function Dashboard({ onNavigate }) {
             category: s.category || 'other', priority: s.priority || 'comfort',
             paymentMethod: 'credito', type: 'expense', date: null,
         }));
-        return [...acct, ...credito, ...cardSubs];
-    }, [monthTx, tx, subs, cfg.incluirFatura, mk]);
+        // Assinatura é cobrança MENSAL: num período de 3 ou 6 meses ela pesa
+        // uma vez por mês. Contar uma só faria o gasto encolher conforme o
+        // período cresce, que é o oposto do que a pessoa espera ver.
+        const porMes = mesesPeriodo.flatMap(m => cardSubs.map(c => ({ ...c, id: `${c.id}_${m}`, month: m })));
+        return [...acct, ...credito, ...porMes];
+    }, [periodoTx, tx, subs, cfg.incluirFatura, mesesPeriodo]);
     const gastos = expenseTx.reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
     const sobra = ganhos - gastos;
     const superfluo = expenseTx.filter(t => t.priority === 'superfluous').reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
     const superfluoPct = gastos > 0 ? superfluo / gastos * 100 : 0;
+
+    // ── Evolução da renda vs. despesas ──────────────────────────────
+    // Sempre seis meses, independente do filtro. O filtro recorta OS
+    // NÚMEROS; este gráfico é sobre a linha do tempo, e com um mês só ele
+    // vira uma barra sozinha, que não mostra evolução nenhuma.
+    const evolucao = useMemo(() => {
+        const hoje = new Date();
+        return Array.from({ length: 6 }, (_, i) => {
+            const d = new Date(hoje.getFullYear(), hoje.getMonth() - (5 - i), 1);
+            const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            const doMes = tx.filter(t => txMonthKey(t) === m);
+            const renda = doMes.filter(t => t.type === 'income' && !isTransferOrAdj(t))
+                .reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+            const despesa = doMes.filter(t => t.type === 'expense' && !isTransferOrAdj(t) && !isBill(t))
+                .reduce((a, t) => a + (parseFloat(t.amount) || 0), 0);
+            return { mk: m, mes: fmtMonth(m, { month: 'short' }), renda, despesa };
+        });
+    }, [tx, fmtMonth]);
+
+    // ── Composição dos gastos, por categoria ────────────────────────
+    // Sai de `expenseTx`, o mesmo conjunto do KPI de Gastos: os dois têm de
+    // somar igual, senão a rosquinha contradiz o número ao lado dela.
+    const composicao = useMemo(() => {
+        const porCat = new Map();
+        for (const t of expenseTx) {
+            const id = t.category || 'other';
+            porCat.set(id, (porCat.get(id) || 0) + (parseFloat(t.amount) || 0));
+        }
+        return [...porCat.entries()]
+            .map(([id, value]) => {
+                const meta = catMeta(id);
+                return { id, value, label: meta.label, color: categoryHex(meta) };
+            })
+            .filter(c => c.value > 0)
+            .sort((a, b) => b.value - a.value);
+    }, [expenseTx]);
+
+    // ── Atividade recente ───────────────────────────────────────────
+    // As últimas lançadas, do período escolhido. Sem data não dá para
+    // ordenar no tempo, então essas ficam por último.
+    const recentes = useMemo(() => [...periodoTx]
+        .filter(t => !isTransferOrAdj(t))
+        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+        .slice(0, 6), [periodoTx]);
 
     const reservaTotal = jars.reduce((a, j) => a + (parseFloat(j.balance) || 0), 0);
     // Custo fixo mensal (igual Análises): contas fixas + assinaturas + parcelas.
@@ -227,6 +302,19 @@ export default function Dashboard({ onNavigate }) {
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                    {/* Período dos indicadores. Um controle só, no cabeçalho: dois
+                        filtros competindo (um aqui, outro dentro do gráfico) fazem a
+                        pessoa perguntar qual manda em quê. */}
+                    <div className={`hidden sm:flex items-center gap-0.5 p-0.5 rounded-xl border ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'}`}>
+                        {[['mes', t('dash.perMonth')], ['3m', t('dash.per3m')], ['6m', t('dash.per6m')]].map(([id, rot]) => (
+                            <button key={id} onClick={() => setPeriodo(id)}
+                                className={`px-3 py-1.5 rounded-lg text-[12px] font-bold whitespace-nowrap transition ${periodo === id
+                                    ? 'bg-emerald-500 text-white'
+                                    : `${muted} ${isDark ? 'hover:text-white' : 'hover:text-slate-700'}`}`}>
+                                {rot}
+                            </button>
+                        ))}
+                    </div>
                     {/* O atalho do WhatsApp subiu para a barra superior: aparece em
                         todas as abas, não só aqui. No mobile, onde a barra não existe,
                         ele continua neste cabeçalho. */}
@@ -239,133 +327,153 @@ export default function Dashboard({ onNavigate }) {
                 </div>
             </div>
 
-            {/* KPIs — Ganhos, Gastos e Custo mensal. O saldo saiu daqui: ele
-                agora mora na barra superior, onde aparece em todas as abas. */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-                <Kpi isDark={isDark} icon={TrendingUp} label={t('dash.gains')} value={<AnimatedNumber value={ganhos} format={(v) => `R$ ${money(v)}`} />} sub={t('common.thisMonth')} tone="emerald" />
+            {/* KPIs. Cinco numa fileira: os três do período (ganhos, gastos,
+                custo) e os dois retratos de agora (fatura e patrimônio), que
+                antes ocupavam cards grandes numa segunda fileira.
+
+                A reserva saiu daqui: ela já aparece nos pilares da saúde
+                financeira logo abaixo, e tinha card próprio só por herança. */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+                <Kpi isDark={isDark} icon={TrendingUp} label={t('dash.gains')} value={<AnimatedNumber value={ganhos} format={(v) => `R$ ${money(v)}`} />} sub={rotuloPeriodo} tone="emerald" />
                 <Kpi isDark={isDark} icon={TrendingDown} label={t('dash.spent')} value={<AnimatedNumber value={gastos} format={(v) => `R$ ${money(v)}`} />} sub={cfg.incluirFatura ? t('dash.spentWithInvoice') : t('dash.spentAccountOnly')} tone="rose"
                     action={<button onClick={() => setGastosOpen(true)} title={t('dash.seeExpenses')} className={`p-1 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}><ListChecks className="w-4 h-4" /></button>} />
-                <Kpi isDark={isDark} icon={Repeat} label={t('dash.fixedCost')} value={<AnimatedNumber value={custoFixo} format={(v) => `R$ ${money(v)}`} />} sub={t('dash.fixedCostSub')} tone="blue" className="col-span-2 sm:col-span-1" />
+                <Kpi isDark={isDark} icon={Repeat} label={t('dash.fixedCost')} value={<AnimatedNumber value={custoFixo} format={(v) => `R$ ${money(v)}`} />} sub={t('dash.fixedCostSub')} tone="blue" />
+
+                {/* Fatura: o detalhe por cartão virou um clique. A lista inteira
+                    dentro de um card do dashboard competia com o número, que é o
+                    que se quer ver de relance. */}
+                <Kpi isDark={isDark} icon={CreditCard} label={t('dash.invoice')} tone="amber"
+                    value={<AnimatedNumber value={faturaTotal} format={(v) => `R$ ${money(v)}`} />}
+                    sub={faturaDue
+                        ? `${t('dash.invoiceDue', { day: faturaDue.day, days: faturaDue.days, daysWord: faturaDue.days === 1 ? t('common.day') : t('common.days') })}${cards.length > 1 ? ` \u00b7 ${cards.length} ${t('dash.cardsWord')}` : ''}`
+                        : t('dash.noInvoice')}
+                    action={<button onClick={() => goTo('cartoes')} title={t('dash.seeCards')} className={`p-1 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}><ChevronRight className="w-4 h-4" /></button>} />
+
+                <Kpi isDark={isDark} icon={Landmark} label={t('dash.patrimony')} tone="violet"
+                    value={<AnimatedNumber value={patCur === 'USD' ? patrimonioLiquido / (usdRate || 5.4) : patrimonioLiquido} format={(v) => `${patCur === 'USD' ? 'US$' : 'R$'} ${money(v)}`} />}
+                    sub={t('dash.patrimonySub')}
+                    action={
+                        <div className={`flex items-center gap-0.5 p-0.5 rounded-lg ${isDark ? 'bg-white/[0.06]' : 'bg-slate-100'}`}>
+                            {['BRL', 'USD'].map(c => (
+                                <button key={c} onClick={() => { setPatCur(c); try { localStorage.setItem('aliviaDashPatCur', c); } catch { /* modo privado */ } }}
+                                    className={`px-1.5 py-0.5 rounded text-[9.5px] font-black transition ${patCur === c ? 'bg-emerald-500 text-white' : muted}`}>
+                                    {c === 'BRL' ? 'R$' : 'US$'}
+                                </button>
+                            ))}
+                        </div>} />
             </div>
 
             {redirect && <RedirectOverlay isDark={isDark} label={redirect} />}
             {waOpen && <WhatsAppStatusModal isDark={isDark} phones={wa.linked.map(l => l.phone)} onClose={() => setWaOpen(false)} onManage={() => { setWaOpen(false); goTo('whatsapp'); }} />}
 
-            {/* Fatura do cartão · Reserva · Patrimônio */}
-            <div className="grid lg:grid-cols-3 gap-4 mt-4">
-                {/* Fatura do cartão — valor exato + dia do vencimento */}
-                <div className={cardCls}>
-                    <h2 className={`text-[13px] font-black uppercase tracking-widest flex items-center gap-1.5 mb-3 ${muted}`}><CreditCard className="w-3.5 h-3.5 text-amber-500" /> {t('dash.cardInvoice')}</h2>
-                    <p className="text-3xl font-black tabular-nums text-amber-500"><AnimatedNumber value={faturaTotal} format={(v) => `R$ ${money(v)}`} /></p>
-                    <p className={`text-[12px] mt-0.5 ${muted}`}>
-                        {faturaDue
-                            ? <>{t('dash.invoiceDue', { day: faturaDue.day, days: faturaDue.days, daysWord: faturaDue.days === 1 ? t('common.day') : t('common.days') })}{cards.length > 1 ? ` · ${t('dash.cardsCount', { n: cards.length })}` : ''}</>
-                            : (faturaTotal > 0 ? t('dash.invoiceOpen') : t('dash.noCards'))}
-                    </p>
-                    {/* Mais de um cartão: fatura de cada um, bem compacto (mini-cartão com o logo do banco) */}
-                    {cards.length > 1 && (
-                        <div className="mt-3 space-y-1.5">
-                            {faturaPorCartao.map(({ card, total }) => {
-                                const bank = detectBank(card.bank, card.name);
-                                return (
-                                    <div key={card.id} className="flex items-center gap-2">
-                                        {/* Só o ícone do banco, sem fundo de cartão */}
-                                        <BankLogo bank={bank} className="w-6 h-6" rounded="rounded-md" />
-                                        <span className={`text-[12px] font-semibold truncate flex-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{card.name || bank?.label || 'Cartão'}</span>
-                                        <span className={`text-[12px] font-black tabular-nums ${total > 0 ? 'text-amber-500' : muted}`}>R$ {money(total)}</span>
-                                    </div>
-                                );
-                            })}
+            {/* Evolução · Composição — duas colunas da MESMA altura. É o
+                `items-stretch` do grid com `h-full` nos cards que faz isso;
+                sem ele uma coluna fica mais curta e a tela parece torta. */}
+            <div className="grid lg:grid-cols-2 gap-4 mt-4 items-stretch">
+                <div className={`${cardCls} h-full`}>
+                    <div className="flex items-baseline justify-between gap-3 mb-4">
+                        <h2 className={`text-[13px] font-black uppercase tracking-widest ${muted}`}>{t('dash.evolution')}</h2>
+                        <span className={`text-[11px] font-bold ${muted}`}>{t('dash.last6')}</span>
+                    </div>
+                    <EvolucaoChart dados={evolucao} isDark={isDark} money={money} t={t} />
+                </div>
+
+                <div className={`${cardCls} h-full`}>
+                    <h2 className={`text-[13px] font-black uppercase tracking-widest mb-4 ${muted}`}>{t('dash.composition')}</h2>
+                    {composicao.length === 0 ? (
+                        <p className={`text-[13px] py-10 text-center ${muted}`}>{t('dash.noExpenses')}</p>
+                    ) : (
+                        <div className="flex items-center gap-5 flex-1">
+                            <Donut data={composicao} total={gastos} isDark={isDark} label={`R$ ${money(gastos)}`} />
+                            <ul className="min-w-0 flex-1 space-y-1.5">
+                                {composicao.slice(0, 6).map(c => (
+                                    <li key={c.id} className="flex items-center gap-2 text-[12.5px]">
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.color }} />
+                                        <span className={`truncate ${cell}`}>{c.label}</span>
+                                        <span className={`ml-auto font-bold tabular-nums shrink-0 ${muted}`}>
+                                            {gastos > 0 ? Math.round(c.value / gastos * 100) : 0}%
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
                     )}
-                    <Action isDark={isDark} onClick={() => goTo('cartoes')}>{t('dash.seeInvoice')}</Action>
-                </div>
-
-                {/* Reserva de emergência (sem barra) */}
-                <div className={cardCls}>
-                    <h2 className={`text-[13px] font-black uppercase tracking-widest flex items-center gap-1.5 mb-3 ${muted}`}><PiggyBank className="w-3.5 h-3.5 text-emerald-500" /> {t('dash.emergency')}</h2>
-                    <p className="text-3xl font-black tabular-nums text-emerald-500"><AnimatedNumber value={reservaTotal} format={(v) => `R$ ${money(v)}`} /></p>
-                    <p className={`text-[12px] mt-0.5 ${muted}`}>{t('dash.coverage', { months: mesesCobertura >= 99 ? '—' : mesesCobertura.toFixed(1).replace('.', ',') })}</p>
-                    <div className={`mt-3 flex items-center gap-1.5 text-[12px] ${mesesCobertura >= metaMeses ? 'text-emerald-500 font-bold' : muted}`}>
-                        {mesesCobertura >= metaMeses ? t('dash.goalReached', { n: metaMeses }) : t('dash.goalMonths', { n: metaMeses })}
-                    </div>
-                    <Action isDark={isDark} onClick={() => goTo('reservas')}>{t('common.seeDetails')}</Action>
-                </div>
-
-                {/* Patrimônio */}
-                <div className={cardCls}>
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                        <h2 className={`text-[13px] font-black uppercase tracking-widest flex items-center gap-1.5 ${muted}`}><Landmark className="w-3.5 h-3.5 text-emerald-500" /> {t('dash.patrimony')}</h2>
-                        {/* Filtro de moeda R$ / US$ */}
-                        <div className={`flex items-center gap-0.5 p-0.5 rounded-lg ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
-                            {['BRL', 'USD'].map(c => (
-                                <button key={c} onClick={() => patCur !== c && togglePatCur()}
-                                    className={`px-2 py-0.5 rounded-md text-[11px] font-black transition ${patCur === c ? 'bg-emerald-500 text-white' : (isDark ? 'text-slate-400' : 'text-slate-500')}`}>
-                                    {c === 'BRL' ? 'R$' : 'US$'}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    <p className="text-3xl font-black tabular-nums text-emerald-500"><AnimatedNumber value={patrAtualDisp} format={(v) => `${curSym} ${money(v)}`} /></p>
-                    <p className={`text-[12px] mt-0.5 ${muted}`}>{t('dash.investedIn')}{patCur === 'USD' ? ` · R$ ${money(usdRate)}` : ''}</p>
-                    <div className="grid grid-cols-2 gap-2 mt-3">
-                        <div className={`rounded-xl px-3 py-2 ${isDark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>
-                            <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>{t('dash.profitability')}</p>
-                            <p className={`text-[15px] font-black tabular-nums ${patrRentab >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{patrRentab >= 0 ? '+' : ''}{patrRentab.toFixed(2)}%</p>
-                        </div>
-                        <div className={`rounded-xl px-3 py-2 ${isDark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>
-                            <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>{t('dash.profit')}</p>
-                            <p className={`text-[15px] font-black tabular-nums ${patrLucroDisp >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{patrLucroDisp >= 0 ? '+' : ''}{curSym} {money(patrLucroDisp)}</p>
-                        </div>
-                    </div>
-                    <Action isDark={isDark} onClick={() => goTo('patrimonio')}>{t('dash.seePatrimony')}</Action>
                 </div>
             </div>
 
-            {/* Índice de saúde financeira */}
-            <div className="mt-6">
-                <p className={`text-center text-[11px] font-black uppercase tracking-[0.3em] mb-3 ${muted}`}>{t('dash.healthIndex')}</p>
-                <div className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`}>
+            {/* Atividade recente · Saúde financeira — mesma regra de altura. */}
+            <div className="grid lg:grid-cols-2 gap-4 mt-4 items-stretch">
+                <div className={`${cardCls} h-full`}>
+                    <h2 className={`text-[13px] font-black uppercase tracking-widest mb-3 ${muted}`}>{t('dash.recent')}</h2>
+                    {recentes.length === 0 ? (
+                        <p className={`text-[13px] py-10 text-center ${muted}`}>{t('dash.noRecent')}</p>
+                    ) : (
+                        <ul className="flex-1 flex flex-col">
+                            {recentes.map((r, i) => {
+                                const meta = catMeta(r.category);
+                                const entrada = r.type === 'income';
+                                return (
+                                    <li key={r.id} className={`flex items-center gap-3 py-2.5 ${i ? `border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}` : ''}`}>
+                                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: categoryHex(meta) }} />
+                                        <span className="min-w-0 flex-1">
+                                            <span className={`block text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{r.description || meta.label}</span>
+                                            <span className={`block text-[11px] ${muted}`}>{meta.label}{r.date ? ` \u00b7 ${fmtDate(r.date)}` : ''}</span>
+                                        </span>
+                                        <span className={`text-[13px] font-black tabular-nums shrink-0 ${entrada ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                            {entrada ? '+' : '\u2212'} R$ {money(Math.abs(parseFloat(r.amount) || 0))}
+                                        </span>
+                                    </li>
+                                );
+                            })}
+                            <li className="mt-auto pt-3">
+                                <button onClick={() => goTo('extrato')} className="flex items-center gap-0.5 text-[12px] font-bold text-emerald-500 hover:text-emerald-400 transition">
+                                    {t('dash.seeStatement')} <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                            </li>
+                        </ul>
+                    )}
+                </div>
+
+                <div className={`${cardCls} h-full !p-0 overflow-hidden`}>
                     <div className="flex items-center justify-between gap-4 p-5">
-                        <div className="flex items-center gap-4 min-w-0">
-                            <span className="w-14 h-14 rounded-2xl bg-emerald-500/12 text-emerald-500 flex items-center justify-center shrink-0"><HeartPulse className="w-7 h-7" /></span>
-                            <div className="min-w-0">
-                                {temDados ? (
-                                    <>
-                                        <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: scoreInfo.color }}>{scoreInfo.label}</p>
-                                        <p className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('dash.yourHealth')}</p>
-                                        <p className={`text-[12px] ${muted}`}>{t('health.basedOn')}{cfg.considerarSuperfluo ? t('health.andSuper') : ''}.</p>
-                                    </>
-                                ) : (
-                                    <>
-                                        <p className="text-[11px] font-black uppercase tracking-widest text-emerald-500">{t('health.setIncome')}</p>
-                                        <p className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('health.letsStart')} 👋</p>
-                                        <p className={`text-[12px] ${muted}`}>{t('health.letsStartDesc')}</p>
-                                    </>
-                                )}
-                            </div>
+                        <div className="min-w-0">
+                            {temDados ? (
+                                <>
+                                    <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: scoreInfo.color }}>{scoreInfo.label}</p>
+                                    <p className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('dash.yourHealth')}</p>
+                                    <p className={`text-[12px] ${muted}`}>{t('health.basedOn')}{cfg.considerarSuperfluo ? t('health.andSuperfluous') : ''}</p>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-[11px] font-black uppercase tracking-widest text-emerald-500">{t('health.setIncome')}</p>
+                                    <p className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('health.letsStart')}</p>
+                                    <p className={`text-[12px] ${muted}`}>{t('health.letsStartDesc')}</p>
+                                </>
+                            )}
                         </div>
                         <ScoreRing score={score} color={scoreInfo.color} isDark={isDark} />
                     </div>
 
-                    <div className={`grid ${cfg.considerarSuperfluo ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} border-t ${isDark ? 'border-white/10' : 'border-slate-100'}`}>
-                        <Pilar isDark={isDark} border label={t('health.debts')} value={temDivida ? `R$ ${money(dividaMensal)}${t('common.perMonth')}` : t('health.noDebts')} meta={t('health.debtGoal')} pct={dividaPct} ok={!temDivida} />
-                        <Pilar isDark={isDark} border={cfg.considerarSuperfluo} label={t('dash.emergency')} value={`R$ ${money(reservaTotal)}`} meta={t('health.reserveMonths', { months: mesesCobertura >= 99 ? '—' : mesesCobertura.toFixed(1).replace('.', ','), goal: metaMeses })} pct={reservaPct} ok={mesesCobertura >= metaMeses} />
-                        {cfg.considerarSuperfluo && <Pilar isDark={isDark} label={t('health.superSpend')} value={t('health.superPct', { pct: superfluoPct.toFixed(0) })} meta={t('health.superGoal')} pct={clamp(100 - superfluoPct, 0, 100)} ok={superfluoPct <= 20} />}
+                    <div className={`grid ${cfg.considerarSuperfluo ? 'grid-cols-3' : 'grid-cols-2'} border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                        <Pilar isDark={isDark} border label={t('health.debts')} value={temDivida ? `R$ ${money(dividaMensal)}${t('common.perMonthShort')}` : t('health.noDebts')} meta={t('health.metaDebts')} pct={dividaPct} ok={!temDivida} />
+                        <Pilar isDark={isDark} border={cfg.considerarSuperfluo} label={t('dash.emergency')} value={`R$ ${money(reservaTotal)}`} meta={t('health.metaMonths', { n: mesesCobertura.toFixed(1), meta: metaMeses })} pct={reservaPct} ok={mesesCobertura >= metaMeses} />
+                        {cfg.considerarSuperfluo && <Pilar isDark={isDark} label={t('health.superSpend')} value={t('health.superPct', { pct: superfluoPct.toFixed(0) })} meta={t('health.metaSuper')} pct={clamp(100 - superfluoPct * 2, 0, 100)} ok={superfluoPct <= 20} />}
                     </div>
 
-                    <div className={`flex items-center justify-between gap-3 px-5 py-3 border-t text-[12px] flex-wrap ${isDark ? 'border-white/10' : 'border-slate-100'} ${muted}`}>
-                        <span>{t('health.updatedAt', { time: agora, value: money(ganhos) })}</span>
-                        <button onClick={() => goTo('analises')} className="flex items-center gap-0.5 font-bold text-emerald-500 hover:text-emerald-400 transition">{t('dash.fullAnalysis')} <ChevronRight className="w-3.5 h-3.5" /></button>
+                    <div className={`mt-auto flex items-center justify-between gap-3 px-5 py-3 border-t text-[12px] flex-wrap ${isDark ? 'border-white/10 text-slate-500' : 'border-slate-200 text-slate-400'}`}>
+                        <span className="truncate">{t('health.updatedAt', { time: agora, value: money(ganhos) })}</span>
+                        <button onClick={() => goTo('analises')} className="flex items-center gap-0.5 font-bold text-emerald-500 hover:text-emerald-400 transition shrink-0">
+                            {t('health.seeFull')} <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
                     </div>
                 </div>
+            </div>
 
-                <div className={`flex items-center justify-center gap-x-5 gap-y-1 flex-wrap mt-3 text-[11px] font-bold ${muted}`}>
-                    <Leg color="#10b981" text={t('health.legExcellent')} />
-                    <Leg color="#3b82f6" text={t('health.legGood')} />
-                    <Leg color="#f59e0b" text={t('health.legAttention')} />
-                    <Leg color="#f43f5e" text={t('health.legCritical')} />
-                </div>
+            <div className={`flex items-center justify-center gap-x-5 gap-y-1 flex-wrap mt-3 text-[11px] font-bold ${muted}`}>
+                <Leg color="#10b981" text={t('health.legExcellent')} />
+                <Leg color="#3b82f6" text={t('health.legGood')} />
+                <Leg color="#f59e0b" text={t('health.legAttention')} />
+                <Leg color="#f43f5e" text={t('health.legCritical')} />
             </div>
 
             {/* "Configurar" abre a MESMA janela de Cadastros, já na aba Dashboard —
@@ -449,6 +557,43 @@ function GastosModal({ isDark, itens, total, incluiFatura, onClose }) {
                     </p>
                 </div>
             </div>
+        </div>
+    );
+}
+
+// ── Evolução da renda vs. despesas ──────────────────────────────────
+// Barras lado a lado, seis meses. Sem eixo Y e sem grade pesada: o que
+// importa aqui é a COMPARAÇÃO entre as duas barras de cada mês e a forma
+// da série, não ler o valor exato — para isso existe o tooltip.
+function EvolucaoChart({ dados, isDark, money, t }) {
+    const vazio = dados.every(d => d.renda === 0 && d.despesa === 0);
+    if (vazio) {
+        return (
+            <div className="flex-1 flex items-center justify-center py-10">
+                <p className={`text-[13px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t('dash.noEvolution')}</p>
+            </div>
+        );
+    }
+    return (
+        <div className="flex-1 min-h-[220px]">
+            <ResponsiveContainer width="100%" height="100%" minHeight={220}>
+                <BarChart data={dados} margin={{ top: 4, right: 4, left: -18, bottom: 0 }} barGap={4}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#1c2a24' : '#f1f5f9'} />
+                    <XAxis dataKey="mes" axisLine={false} tickLine={false}
+                        tick={{ fontSize: 11, fill: isDark ? '#7f9c95' : '#64748b' }} />
+                    <YAxis axisLine={false} tickLine={false} width={54}
+                        tick={{ fontSize: 10, fill: isDark ? '#7f9c95' : '#64748b' }}
+                        tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : v)} />
+                    <Tooltip
+                        contentStyle={{ backgroundColor: isDark ? '#0e1613' : '#fff', borderColor: isDark ? '#1c2a24' : '#cfeae6', borderRadius: 12, fontSize: 12 }}
+                        labelStyle={{ color: isDark ? '#7f9c95' : '#64748b', marginBottom: 4, textTransform: 'capitalize' }}
+                        itemStyle={{ color: isDark ? '#cbe3de' : '#1b4139' }}
+                        cursor={{ fill: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }}
+                        formatter={(v, n) => [`R$ ${money(v)}`, n === 'renda' ? t('dash.income') : t('dash.expenses')]} />
+                    <Bar dataKey="renda" name="renda" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={26} />
+                    <Bar dataKey="despesa" name="despesa" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={26} />
+                </BarChart>
+            </ResponsiveContainer>
         </div>
     );
 }
