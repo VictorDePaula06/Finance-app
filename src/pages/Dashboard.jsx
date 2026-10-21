@@ -219,7 +219,7 @@ export default function Dashboard({ onNavigate }) {
     const recentes = useMemo(() => [...periodoTx]
         .filter(t => !isTransferOrAdj(t))
         .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
-        .slice(0, 6), [periodoTx]);
+        .slice(0, 4), [periodoTx]);
 
     const reservaTotal = jars.reduce((a, j) => a + (parseFloat(j.balance) || 0), 0);
     // Custo fixo mensal (igual Análises): contas fixas + assinaturas + parcelas.
@@ -280,14 +280,14 @@ export default function Dashboard({ onNavigate }) {
     const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     const cell = isDark ? 'text-slate-300' : 'text-slate-700';
-    const cardCls = `rounded-2xl border p-5 flex flex-col ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`;
+    const cardCls = `rounded-2xl border p-4 flex flex-col ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'}`;
 
     return (
         <div className="max-w-6xl mx-auto w-full">
             {/* Cabeçalho */}
-            <div className="flex items-center justify-between gap-3 mb-5">
+            <div className="flex items-center justify-between gap-3 mb-3">
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                    <UserAvatar className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]"
+                    <UserAvatar className="w-12 h-12 rounded-2xl shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]"
                         fallback={
                             <span className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-emerald-500/25 to-teal-600/15 ring-1 ring-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_0_28px_rgba(16,185,129,0.18)]">
                                 <LayoutDashboard className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={2.2} />
@@ -333,7 +333,7 @@ export default function Dashboard({ onNavigate }) {
 
                 A reserva saiu daqui: ela já aparece nos pilares da saúde
                 financeira logo abaixo, e tinha card próprio só por herança. */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 <Kpi isDark={isDark} icon={TrendingUp} label={t('dash.gains')} value={<AnimatedNumber value={ganhos} format={(v) => `R$ ${money(v)}`} />} sub={rotuloPeriodo} tone="emerald" />
                 <Kpi isDark={isDark} icon={TrendingDown} label={t('dash.spent')} value={<AnimatedNumber value={gastos} format={(v) => `R$ ${money(v)}`} />} sub={cfg.incluirFatura ? t('dash.spentWithInvoice') : t('dash.spentAccountOnly')} tone="rose"
                     action={<button onClick={() => setGastosOpen(true)} title={t('dash.seeExpenses')} className={`p-1 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}><ListChecks className="w-4 h-4" /></button>} />
@@ -369,7 +369,7 @@ export default function Dashboard({ onNavigate }) {
             {/* Evolução · Composição — duas colunas da MESMA altura. É o
                 `items-stretch` do grid com `h-full` nos cards que faz isso;
                 sem ele uma coluna fica mais curta e a tela parece torta. */}
-            <div className="grid lg:grid-cols-2 gap-4 mt-4 items-stretch">
+            <div className="grid lg:grid-cols-2 gap-3 mt-3 items-stretch">
                 <div className={`${cardCls} h-full`}>
                     <div className="flex items-baseline justify-between gap-3 mb-4">
                         <h2 className={`text-[13px] font-black uppercase tracking-widest ${muted}`}>{t('dash.evolution')}</h2>
@@ -402,7 +402,7 @@ export default function Dashboard({ onNavigate }) {
             </div>
 
             {/* Atividade recente · Saúde financeira — mesma regra de altura. */}
-            <div className="grid lg:grid-cols-2 gap-4 mt-4 items-stretch">
+            <div className="grid lg:grid-cols-2 gap-3 mt-3 items-stretch">
                 <div className={`${cardCls} h-full`}>
                     <h2 className={`text-[13px] font-black uppercase tracking-widest mb-3 ${muted}`}>{t('dash.recent')}</h2>
                     {recentes.length === 0 ? (
@@ -435,7 +435,7 @@ export default function Dashboard({ onNavigate }) {
                 </div>
 
                 <div className={`${cardCls} h-full !p-0 overflow-hidden`}>
-                    <div className="flex items-center justify-between gap-4 p-5">
+                    <div className="flex items-center justify-between gap-4 p-4">
                         <div className="min-w-0">
                             {temDados ? (
                                 <>
@@ -460,7 +460,7 @@ export default function Dashboard({ onNavigate }) {
                         {cfg.considerarSuperfluo && <Pilar isDark={isDark} label={t('health.superSpend')} value={t('health.superPct', { pct: superfluoPct.toFixed(0) })} meta={t('health.metaSuper')} pct={clamp(100 - superfluoPct * 2, 0, 100)} ok={superfluoPct <= 20} />}
                     </div>
 
-                    <div className={`mt-auto flex items-center justify-between gap-3 px-5 py-3 border-t text-[12px] flex-wrap ${isDark ? 'border-white/10 text-slate-500' : 'border-slate-200 text-slate-400'}`}>
+                    <div className={`mt-auto flex items-center justify-between gap-3 px-4 py-2.5 border-t text-[12px] flex-wrap ${isDark ? 'border-white/10 text-slate-500' : 'border-slate-200 text-slate-400'}`}>
                         <span className="truncate">{t('health.updatedAt', { time: agora, value: money(ganhos) })}</span>
                         <button onClick={() => goTo('analises')} className="flex items-center gap-0.5 font-bold text-emerald-500 hover:text-emerald-400 transition shrink-0">
                             {t('health.seeFull')} <ChevronRight className="w-3.5 h-3.5" />
@@ -469,12 +469,6 @@ export default function Dashboard({ onNavigate }) {
                 </div>
             </div>
 
-            <div className={`flex items-center justify-center gap-x-5 gap-y-1 flex-wrap mt-3 text-[11px] font-bold ${muted}`}>
-                <Leg color="#10b981" text={t('health.legExcellent')} />
-                <Leg color="#3b82f6" text={t('health.legGood')} />
-                <Leg color="#f59e0b" text={t('health.legAttention')} />
-                <Leg color="#f43f5e" text={t('health.legCritical')} />
-            </div>
 
             {/* "Configurar" abre a MESMA janela de Cadastros, já na aba Dashboard —
                 não existe mais uma segunda tela de configuração escondida aqui. */}
@@ -575,8 +569,8 @@ function EvolucaoChart({ dados, isDark, money, t }) {
         );
     }
     return (
-        <div className="flex-1 min-h-[220px]">
-            <ResponsiveContainer width="100%" height="100%" minHeight={220}>
+        <div className="flex-1 min-h-[160px]">
+            <ResponsiveContainer width="100%" height="100%" minHeight={160}>
                 <BarChart data={dados} margin={{ top: 4, right: 4, left: -18, bottom: 0 }} barGap={4}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#1c2a24' : '#f1f5f9'} />
                     <XAxis dataKey="mes" axisLine={false} tickLine={false}
@@ -611,7 +605,7 @@ function Kpi({ isDark, icon: Icon, label, value, sub, tone, action, className = 
     // existiam no mapa, e `map.bg` num undefined apagou o dashboard todo.
     const map = TONS[tone] || { text: 'text-slate-400', bg: 'bg-slate-500/12 text-slate-400', line: 'from-slate-500' };
     return (
-        <div className={`rounded-2xl border p-4 sm:p-5 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'} ${className}`}>
+        <div className={`rounded-2xl border p-4 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-white'} ${className}`}>
             <div className="flex items-center justify-between gap-1">
                 <span className="flex items-center gap-2 min-w-0">
                     <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${map.bg}`}><Icon className="w-4 h-4" /></span>
@@ -619,9 +613,9 @@ function Kpi({ isDark, icon: Icon, label, value, sub, tone, action, className = 
                 </span>
                 {action}
             </div>
-            <p className={`text-2xl sm:text-3xl font-black tabular-nums mt-2 ${map.text}`}>{value}</p>
-            <p className={`text-[11px] mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{sub}</p>
-            <div className={`h-0.5 rounded-full mt-3 bg-gradient-to-r ${map.line} to-transparent`} />
+            <p className={`text-[19px] xl:text-[22px] font-black tabular-nums whitespace-nowrap mt-1.5 ${map.text}`}>{value}</p>
+            <p className={`text-[11px] mt-0.5 leading-snug ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{sub}</p>
+            <div className={`h-0.5 rounded-full mt-2.5 bg-gradient-to-r ${map.line} to-transparent`} />
         </div>
     );
 }
@@ -689,10 +683,6 @@ function Donut({ data, total, isDark, label }) {
             </div>
         </div>
     );
-}
-
-function Leg({ color, text }) {
-    return <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: color }} /> {text}</span>;
 }
 
 // ── Modal de configurações do Dashboard ─────────────────────────────
