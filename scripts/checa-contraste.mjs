@@ -138,27 +138,43 @@ console.log('-- CORES DO MANUAL, intactas --');
 // ── O logotipo tem que aparecer no ícone do app ─────────────────────
 // Erro cometido: ao aplicar o manual eu troquei o fundo do ícone
 // adaptativo por Leveza, porque Leveza é "o fundo da marca". Mas o
-// logotipo da Alívia é um degradê CLARO de verde para azul — sobre
-// Leveza ele cai para 1,7:1 e some. O ícone do app ficou um quadrado
-// quase vazio, e eu só percebi porque me perguntaram.
+// logotipo da Alívia é claro — sobre Leveza ele cai para 1,7:1 e some.
+// O ícone do app ficou um disco quase vazio, e eu só percebi porque me
+// perguntaram.
 //
-// As cores abaixo foram amostradas de ic_launcher_foreground.png (as
-// seis dominantes, ignorando transparente e branco). Se o logotipo
-// mudar, elas precisam ser amostradas de novo.
+// A amostra vem de brand/logo-amostra.json, escrito por
+// scripts/gera-icones.py. Assim ela acompanha o logo: trocar a arte
+// regenera a amostra, e este teste continua medindo a arte de verdade em
+// vez de cores que alguém digitou uma vez.
+//
+// O critério é o percentil 75 de brilho, não a cor mais frequente: a
+// arte tem sombreado 3D, e as cores mais comuns nela são verdes escuros.
+// Quem desenha a forma do logo são os brilhos — medir a cor mais
+// frequente reprovaria um ícone que lê perfeitamente bem.
 console.log('');
 console.log('-- o logo aparece no ícone do app --');
 {
-    const LOGO = ['#50c0d0', '#60d0a0', '#40b0e0', '#50c0c0', '#60d0b0', '#60c0b0'];
-    const arq = 'mobile/resources/android/cor-de-fundo.txt';
-    if (!existsSync(arq)) {
+    const amostra = 'brand/logo-amostra.json';
+    const corArq = 'mobile/resources/android/cor-de-fundo.txt';
+    if (!existsSync(amostra) || !existsSync(corArq)) {
         falhas++;
-        console.log('FALHA  não achei ' + arq);
+        console.log('FALHA  rode `python scripts/gera-icones.py` — falta ' +
+            (existsSync(amostra) ? corArq : amostra));
     } else {
-        const fundo = readFileSync(arq, 'utf8').trim().toLowerCase();
-        const pior = Math.min(...LOGO.map(c => contraste(c, fundo)));
-        const ok = pior >= 4.5;
+        const a = JSON.parse(readFileSync(amostra, 'utf8'));
+        const fundo = readFileSync(corArq, 'utf8').trim().toLowerCase();
+
+        // A amostra guarda o fundo com que foi medida. Se alguém mudar a
+        // cor à mão sem regenerar, os dois discordam e é melhor saber.
+        if (a.fundo.toLowerCase() !== fundo) {
+            falhas++;
+            console.log(`FALHA  a amostra foi medida sobre ${a.fundo}, mas o ícone usa ${fundo}`);
+            console.log('       rode `python scripts/gera-icones.py` de novo');
+        }
+        const c = contraste(a.p75, fundo);
+        const ok = c >= 4.5;
         if (!ok) falhas++;
-        console.log(`${ok ? 'ok   ' : 'FALHA'}  logo sobre ${fundo.padEnd(34)} ${pior.toFixed(2)}:1  (mín 4.5)`);
+        console.log(`${ok ? 'ok   ' : 'FALHA'}  brilho do logo sobre ${fundo.padEnd(27)} ${c.toFixed(2)}:1  (mín 4.5)`);
         if (!ok) console.log('       o ícone do app ficaria quase vazio — use um fundo escuro da marca');
     }
 }

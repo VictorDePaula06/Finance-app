@@ -46,6 +46,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import logo from '../assets/logo.png';
+import logoComNome from '../assets/logo-lockup.png';
 import aliviaFinal    from '../assets/alivia/alivia-final.png';
 
 import aliviaWppHero from '../assets/alivia/alivia-whatsapp-hero.png';
@@ -788,7 +789,9 @@ export default function LandingPage({ onLogin, onSignup, onViewPrivacy, onViewTe
                 {/* ── FOOTER ── */}
                 <footer className={`py-20 border-t ${isDark ? 'bg-slate-950 border-white/5' : 'bg-white border-slate-50'}`}>
                     <div className="max-w-7xl mx-auto px-6 text-center space-y-12">
-                        <img src={logo} alt="Alívia" className="w-28 mx-auto" />
+                        {/* Versão com o nome: aqui o logo aparece sozinho, e a
+                            marca pura deixaria a tela sem dizer de quem é. */}
+                        <img src={logoComNome} alt="Alívia Finanças" className="w-36 mx-auto" />
                         {/* Redes sociais */}
                         <div className="flex justify-center gap-4">
                             <SocialLink isDark={isDark} href="https://facebook.com" label="Facebook"><Facebook className="w-5 h-5" /></SocialLink>

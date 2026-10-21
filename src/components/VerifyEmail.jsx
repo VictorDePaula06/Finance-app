@@ -4,7 +4,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { sendEmailVerification } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { MailCheck, RefreshCw, LogOut, Sun, Moon, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
-import logo from '../assets/logo.png';
+import logoComNome from '../assets/logo-lockup.png';
 
 // Tela que segura o acesso até o e-mail ser verificado (fluxo por LINK do Firebase).
 export default function VerifyEmail({ email }) {
@@ -59,7 +59,8 @@ export default function VerifyEmail({ email }) {
 
             <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in duration-500">
                 <div className="flex flex-col items-center mb-6">
-                    <img src={logo} alt="Alívia" className="w-32 h-auto object-contain mb-4 drop-shadow-sm" />
+                    {/* Com o nome: o logo aparece sozinho nesta tela. */}
+                    <img src={logoComNome} alt="Alívia Finanças" className="w-32 h-auto object-contain mb-4 drop-shadow-sm" />
                     <div className="w-16 h-16 rounded-3xl bg-emerald-500/12 flex items-center justify-center mb-4">
                         <MailCheck className="w-8 h-8 text-emerald-500" />
                     </div>
