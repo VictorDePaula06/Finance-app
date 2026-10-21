@@ -58,45 +58,68 @@
 :root {
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   
-  /* Alívia Palette Constants */
-  --verde-respira: #69C8B9;
-  --azul-ceu: #5CCEEA;
-  --crema-paz: #FFF08C;
-  --ouro-suave: #FFF09A;
-  --cinza-nuvem: #BACOBA;
+  /* ── Paleta da marca ──────────────────────────────────────────────
+     Do Manual de Identidade Visual da Alívia. Os nomes e os papéis são os
+     do manual — não são enfeite: cada cor foi medida e só serve para o que
+     está escrito aqui (contraste conferido em scripts/checa-contraste.mjs).
+
+     Paleta 01 — Harmonia Verde. Hue 169°, o mesmo em toda a escala. */
+  --alv-leveza:   #E6F7F5;   /* fundos de página e respiro visual         */
+  --alv-paz:      #B2DFDB;   /* cartões de apoio e caixas de dica         */
+  --alv-harmonia: #54978B;   /* gráficos, ícones e elementos interativos  */
+  --alv-alivio:   #2A6257;   /* títulos, botões de ação e textos fortes   */
+  --alv-reflexo:  #9ECCC6;   /* bordas suaves, divisores, detalhes        */
+
+  /* Paleta 02 — Além do Verde. Entram como acento pontual, nunca como
+     base: o verde é que carrega a marca. */
+  --alv-celeste:   #D9F0F6;
+  --alv-acqua:     #9CDAD8;
+  --alv-terracota: #D9A88D;
+  --alv-profundo:  #3B5966;
+  --alv-areia:     #E8DCC8;
 
   /* ── TEMA CLARO ───────────────────────────────────────────────────
-     Branco esverdeado, não branco puro: as caixas brancas precisam de algo
-     para se destacarem contra. É o espelho do escuro, onde a página é preta
-     esverdeada e a lateral é mais escura ainda. */
-  --bg-primary: #f7fbf9;
-  --bg-secondary: #eff6f2;
-  --text-primary: #10201a;
-  --text-secondary: #466054;
-  --card-bg: rgba(255, 255, 255, 0.88);
-  --card-border: rgba(16, 185, 129, 0.18);
-  --card-shadow: rgba(13, 60, 44, 0.07);
-  --input-bg: rgba(247, 251, 249, 0.7);
-  --input-border: rgba(214, 231, 223, 0.9);
+     Aqui o manual vale ao pé da letra: Leveza é o fundo da página, as
+     caixas brancas se destacam contra ela, Reflexo faz as bordas e Alívio
+     escreve. Medido: Alívio sobre Leveza dá 6,36:1, e o secundário foi
+     escurecido até 4,84:1 — o #54978B puro dava 3,07 e não serve para
+     texto, só para ícone. */
+  --bg-primary: #e6f7f5;      /* Leveza   */
+  --bg-secondary: #d8f0ec;    /* Leveza um passo abaixo, para a lateral */
+  --text-primary: #2a6257;    /* Alívio   */
+  --text-secondary: #397569;  /* Harmonia escurecido até passar em texto */
+  --card-bg: rgba(255, 255, 255, 0.92);
+  --card-border: rgba(158, 204, 198, 0.8);   /* Reflexo */
+  --card-shadow: rgba(42, 98, 87, 0.08);
+  --input-bg: rgba(255, 255, 255, 0.78);
+  --input-border: rgba(158, 204, 198, 0.95); /* Reflexo */
   --modal-bg: #ffffff;
 }
 
-/* A escala slate do tema claro, retingida como a do escuro: mesma
-   luminância de cada tom, tonalidade de azul para verde. Com isso todo
-   `bg-slate-50`, `border-slate-200` e afins do app pega o verde sem que
-   nenhum componente precise mudar. */
+/* A escala slate do tema claro É a paleta do manual, esticada.
+   O Tailwind 4 escreve `.bg-slate-200 { background-color: var(--color-slate-200) }`,
+   então redefinir a variável aqui aplica a identidade em TODO o app de uma
+   vez, sem encostar em um único componente. Os cinco tons do manual são os
+   degraus âncora; o resto é interpolação no mesmo hue 169°. */
 .theme-light {
-  --color-slate-50:  #f5faf7;
-  --color-slate-100: #e9f2ed;
-  --color-slate-200: #d8e7df;
-  --color-slate-300: #b9ccc0;
-  --color-slate-400: #8fa497;
-  --color-slate-500: #6b7f73;
-  --color-slate-600: #4f6157;
-  --color-slate-700: #3c4a42;
-  --color-slate-800: #26302a;
-  --color-slate-900: #161d19;
-  --color-slate-950: #0b100d;
+  --color-slate-50:  #f1faf8;
+  --color-slate-100: #e6f7f5;   /* Leveza   */
+  --color-slate-200: #cfeae6;
+  --color-slate-300: #b2dfdb;   /* Paz      */
+  --color-slate-400: #9eccc6;   /* Reflexo  */
+  --color-slate-500: #74a79d;
+  --color-slate-600: #54978b;   /* Harmonia */
+  --color-slate-700: #3f7569;
+  --color-slate-800: #2a6257;   /* Alívio   */
+  --color-slate-900: #1b4139;
+  --color-slate-950: #0e2420;
+
+  /* Acento. No claro ele precisa ser ESCURO, porque `text-emerald-500`
+     aparece 584 vezes no app e tem de ser legível sobre Leveza — e porque
+     o manual manda o botão de ação ser Alívio. Branco sobre Alívio: 7,04:1. */
+  --color-emerald-400: #54978b;   /* Harmonia — ícones e gráficos */
+  --color-emerald-500: #2a6257;   /* Alívio — ação principal      */
+  --color-emerald-600: #1f4c44;   /* Alívio no hover              */
 }
 
 /* ── TEMA ESCURO: preto esverdeado ───────────────────────────────────
@@ -122,22 +145,45 @@
   --input-border: rgba(255, 255, 255, 0.08);
   --modal-bg: #0e1210;
 
-  /* Escala slate retingida — mesma luminância, azul → verde */
-  --color-slate-50:  #f3f7f5;
-  --color-slate-100: #e7efea;
-  --color-slate-200: #d2e0d9;
-  --color-slate-300: #b1c5bb;
-  --color-slate-400: #899a92;
-  --color-slate-500: #66766e;
-  --color-slate-600: #4a5a52;
-  --color-slate-700: #33423a;
-  --color-slate-800: #1c2a24;
-  --color-slate-900: #0e1613;
+  /* Escala slate no hue 169° da marca — mesma luminância de antes, para
+     o contraste dos textos não se mexer, mas agora no verde do manual. */
+  --color-slate-50:  #f1faf8;
+  --color-slate-100: #e2f2ef;
+  --color-slate-200: #cbe3de;
+  --color-slate-300: #a8c8c1;
+  --color-slate-400: #7f9c95;
+  --color-slate-500: #5d7872;
+  --color-slate-600: #445c55;
+  --color-slate-700: #2f443d;
+  --color-slate-800: #1a2b26;
+  --color-slate-900: #0d1714;
   --color-slate-950: #050a08;
 
-  /* Acento: o verde da referência, um tom acima do emerald padrão */
-  --color-emerald-400: #52d6a3;
-  --color-emerald-500: #3dc590;
+  /* Acento no escuro. O manual não dá um verde para fundo preto — Alívio
+     sobre #050a08 dá 2,83:1 e some. Então estes saem da MESMA família
+     (Harmonia → Reflexo, hue 169°), levantados até ficarem legíveis:
+     7,5:1 como texto e 7,2:1 para o rótulo escuro em cima deles. */
+  --color-emerald-400: #7db4ab;
+  --color-emerald-500: #6eaaa0;
+  --color-emerald-600: #61a196;
+}
+
+/* ── O rótulo dos botões de ação, no escuro ──────────────────────────
+   Isto conserta um defeito que já existia, e que a troca de paleta só
+   tornou impossível de ignorar: o app escreve `bg-emerald-500 text-white`
+   em 144 botões, e branco sobre um verde claro dá 2,2:1 — ilegível, bem
+   abaixo dos 4,5:1 que o texto exige. Não era da marca nova; era assim
+   com o verde antigo também.
+
+   No claro não há problema, porque lá o acento é Alívio (escuro) e o
+   branco rende 7,04:1. No escuro o acento TEM de ser claro, senão
+   `text-emerald-500` (584 usos) some na página preta. Então quem muda é
+   o rótulo: verde claro com letra quase preta, 7,2:1.
+
+   A regra tem especificidade 0-2-0 e vence o `.text-white` do Tailwind,
+   que é 0-1-0. Assim os 144 botões ficam legíveis sem tocar em nenhum. */
+.theme-dark :is(.bg-emerald-500, .bg-emerald-600, .bg-emerald-400).text-white {
+  color: #06120f;
 }
 
 html, body {
@@ -200,11 +246,15 @@ html, body {
    Os textos "apagados" (slate-400/500) têm contraste baixo demais no branco.
    Aqui reforçamos o contraste no tema claro inteiro, sem tocar no escuro.
    O prefixo .theme-light dá especificidade suficiente pra prevalecer. */
-.theme-light .text-slate-400 { color: #546b5f; }   /* muito apagado → legível */
-.theme-light .text-slate-500 { color: #3e4f46; }   /* secundário → mais forte */
-.theme-light .text-slate-600 { color: #334a40; }   /* apoio → slate-700 */
+/* A escala da marca é clara demais nos degraus baixos para virar texto:
+   Reflexo sobre Leveza dá 1,59:1. Como texto esmaecido é texto, estes três
+   degraus são forçados para valores do mesmo hue 169° que passam de 4,5:1.
+   Medido sobre Leveza: 4,84 / 6,36 / 7,58. */
+.theme-light .text-slate-400 { color: #397569; }   /* apagado → ainda legível */
+.theme-light .text-slate-500 { color: #2a6257; }   /* secundário → Alívio     */
+.theme-light .text-slate-600 { color: #22564d; }   /* apoio → um tom abaixo   */
 .theme-light .placeholder-slate-400::placeholder,
-.theme-light .placeholder-slate-500::placeholder { color: #65796e; opacity: 1; }
+.theme-light .placeholder-slate-500::placeholder { color: #397569; opacity: 1; }
 
 /* Peso mínimo dos textinhos finos no tema claro (a Inter fica fina em 10–12px).
    Fica na camada `base`: os utilitários font-bold/black continuam prevalecendo,
@@ -417,7 +467,7 @@ html { scroll-behavior: smooth; }
 
 /* Foco acessível e bonito (só no teclado — não aparece no clique de mouse). */
 :where(a, button, [role="button"], summary, [tabindex]):focus-visible {
-  outline: 2px solid var(--verde-respira);
+  outline: 2px solid var(--alv-harmonia);
   outline-offset: 2px;
 }
 :where(input, select, textarea):focus-visible {

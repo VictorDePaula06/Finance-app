@@ -23,7 +23,7 @@ function versionJsonPlugin() {
 // de produção localmente antes de aplicar em produção.
 const HARDENED_CSP = [
   "default-src 'self'",
-  "script-src 'self' 'sha256-rcCionHEzyF1JXrAYrTDizUbF0p6RXEnXhVoK+JDaoE=' https://js.stripe.com https://*.firebaseapp.com https://apis.google.com https://*.googleapis.com https://*.gstatic.com",
+  "script-src 'self' 'sha256-gVjosU87LgYHqIrt8udwwVwDuB0EBhRo8MKjU6uXflk=' https://js.stripe.com https://*.firebaseapp.com https://apis.google.com https://*.googleapis.com https://*.gstatic.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",
@@ -132,8 +132,11 @@ export default defineConfig({
         short_name: 'Alívia',
         description: 'Domine suas finanças com a Alívia',
         lang: 'pt-BR',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
+        // Leveza: a tela de abertura do PWA e do app Android tem de ser o
+        // mesmo fundo que a pessoa vai ver quando ele abrir. Estava em
+        // #0f172a, um azul-ardósia que não é da Alívia.
+        theme_color: '#e6f7f5',
+        background_color: '#e6f7f5',
         display: 'standalone',
         // Dois conjuntos separados de proposito:
         // - 'any': o icone e exibido inteiro (aba, lista de apps, splash);
