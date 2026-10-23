@@ -28,6 +28,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { jsPDF } from 'jspdf';
 import crypto from 'crypto';
 import { getGeminiKey } from './_geminiKey.js';
+import { classificarImportacao, parseInstallment, totalIgnorado } from './_importDedup.js';
 
 // Precisamos do corpo CRU (bytes) para validar a assinatura da Meta (HMAC).
 export const config = { api: { bodyParser: false } };
@@ -499,8 +500,8 @@ async function buildDebtsAnswer(db, uid) {
   cardSnap.docs.forEach(cd => {
     const c = cd.data();
     const closingDay = c.closingDay || ((c.dueDay - 7 > 0) ? c.dueDay - 7 : 25);
-    const cur = invoiceMonthOf(new Date().toISOString(), closingDay);
-    const over = txUnpaid.filter(t => t.selectedCardId === cd.id && invoiceMonthOf(t.date || new Date().toISOString(), closingDay) < cur);
+    const cur = invoiceMonthOf(dataLancamento(), closingDay);
+    const over = txUnpaid.filter(t => t.selectedCardId === cd.id && invoiceMonthOf(t.date || dataLancamento(), closingDay) < cur);
     const tot = over.reduce((a, t) => a + num(t.amount), 0);
     if (tot > 0.005) { overdueTotal += tot; overdueCards.push({ name: c.name || c.bank || 'Cartão', total: tot }); }
   });
@@ -896,70 +897,70 @@ Nunca misture os dois na mesma resposta.
 Categorias de despesa (category) ∈ [${EXPENSE_CATS.join(', ')}]; prioridade (priority) ∈ [${PRIORITIES.join(', ')}]. Use sempre esses identificadores, nunca nomes livres.
 
 ## AÇÕES DISPONÍVEIS
-1) Gasto avulso — ex.: "gastei 50 no mercado", "uber 23", "paguei 40 no pix":
-   {"action":"add_expense","description":"<texto>","amount":<número>,"category":"<id>","priority":"<id>","method":"<pix|debito|dinheiro|boleto se a pessoa DISSE como pagou; senão vazio>"}
-   ⚠️ Se a pessoa NÃO disser como pagou, deixe "method" vazio — o app aplica a forma de pagamento padrão que ela configurou (pode ser cartão).
-   ⚠️ "category": só preencha quando for CLARO pela descrição (padaria/mercado → food; uber/gasolina → transport; farmácia → health; netflix → subscriptions…).
-   Se NÃO der pra saber a categoria com segurança, use "other" — o app pergunta pra pessoa.
-2) Gasto no CARTÃO de crédito (só quando a pessoa CITA cartão/crédito) — ex.: "passei 200 no cartão", "comprei 80 no crédito do Nubank":
-   {"action":"add_card_expense","description":"<texto>","amount":<número>,"category":"<id>","priority":"<id>","cardName":"<nome do cartão se citado, senão vazio>"}
-3) Entrada avulsa (recebi/ganhei/entrou) — ex.: "recebi 300 de freela", "caiu 100":
-   {"action":"add_income","description":"<texto>","amount":<número>}
-   ⚠️ SALÁRIO normalmente é RECORRENTE (todo mês). Se a pessoa disse o DIA (ex.: "salário 4000 dia 5"),
-   use add_fixed_income (ação 7). Se mencionou salário SEM o dia, use add_income com description="Salário"
-   mesmo — o app vai perguntar se ela quer cadastrar como recorrente. Se o salário JÁ é recorrente e ela
-   diz "recebi meu salário", use baixa_recorrente (ação 8), não add_income.
-4) Guardar na RESERVA — ex.: "guarda 50 na reserva", "poupar 100":
-   {"action":"add_to_reserve","amount":<número>}
-5) META da reserva — ex.: "meta de 20000", "quero juntar 20 mil":
-   {"action":"set_reserve_goal","target":<número>}
-6) Nova DESPESA recorrente (conta fixa todo mês) — ex.: "cadastra aluguel 1500 dia 10", "internet 100 todo dia 5":
-   {"action":"add_fixed_expense","name":"<nome>","value":<número>,"day":<1-31>,"category":"<id>"}
-7) Nova ENTRADA recorrente (salário todo mês) — ex.: "meu salário é 4000 dia 5":
-   {"action":"add_fixed_income","name":"<nome>","value":<número>,"day":<1-31>}
-8) Dar BAIXA numa recorrente (pagar despesa fixa OU confirmar recebimento do mês) —
-   ex.: "paguei a Netflix", "dei baixa no aluguel", "recebi meu salário" (se já é recorrente):
-   {"action":"baixa_recorrente","kind":"<expense|income>","name":"<nome da conta/entrada>"}
-9) EXCLUIR/estornar um lançamento — ex.: "exclui esse pix", "apaga o último gasto",
-   "remove a compra do mercado", "cancela aquele lançamento":
-   {"action":"delete_transaction","description":"<nome do lançamento, ou vazio p/ o último>"}
-10) RELATÓRIO/resumo com valores (em TEXTO) — ex.: "me gera um relatório dos gastos por categoria",
-   "quanto gastei esse mês", "resumo do mês", "gastos por prioridade", "relatório do mês passado":
-   {"action":"report","type":"<category|priority|overview|installments>","period":"<this_month|last_month>"}
-   Use type=category p/ "por categoria", type=priority p/ "essencial/conforto/supérfluo",
-   type=overview p/ resumo geral (entradas/saídas/saldo), type=installments p/ QUALQUER pergunta
-   sobre PARCELAMENTO/PARCELAS do cartão (quanto por mês e o total ainda a pagar).
-   period=last_month só se pedir mês passado.
-11) RELATÓRIO em GRÁFICO / BARRAS / PDF / visual — ex.: "quero em pdf", "manda em gráfico",
-   "relatório de barras", "gera um gráfico dos meus gastos":
-   {"action":"report_pdf"}
-   (O app vai listar os relatórios da aba Análises pra pessoa escolher e mandar o PDF.)
-12) LISTAR recorrentes cadastradas — ex.: "liste minhas despesas recorrentes", "quais minhas
-   contas fixas", "minhas entradas recorrentes", "o que eu tenho de recorrente":
-   {"action":"list_recurring","kind":"<expense|income>"}
-   (kind=expense p/ despesas/contas fixas; kind=income p/ entradas/salário recorrente.)
-13) DÍVIDAS — ex.: "eu tenho dívidas?", "quanto eu devo?", "estou endividado?", "tenho fatura vencida?":
-   {"action":"debts_check"}
-   ⚠️ SEMPRE use esta ação para QUALQUER pergunta sobre dívida. NUNCA deduza dívida de saldo
-   negativo, de parcelamento ou de fatura em aberto — isso NÃO é dívida. Só é dívida o que está
-   cadastrado como dívida ou uma fatura de cartão VENCIDA.
-14) DETALHAR/LISTAR os lançamentos um a um — ex.: "descreve cada uma", "quais foram esses gastos",
-   "detalha os gastos de alimentação", "me lista os lançamentos de transporte", "mostra cada gasto":
-   {"action":"list_transactions","category":"<categoria citada, ou vazio p/ todos>","period":"<this_month|last_month>","type":"<expense|income>"}
-   Use quando a pessoa quer VER cada lançamento (não o total). Preencha "category" com a categoria
-   do contexto — ex.: se acabou de perguntar dos gastos de "alimentação" e disse "descreve cada uma",
-   use category "alimentação". type=income só se forem entradas.
-15) SALDO / CARTEIRA / próximo vencimento — ex.: "quanto tenho na carteira?", "qual meu saldo?",
-   "quanto tenho disponível?", "quando vence minha fatura?", "qual meu próximo compromisso?":
-   {"action":"wallet_check"}
-16) RESERVA DE EMERGÊNCIA IDEAL — ex.: "quanto deveria ter de reserva?", "qual o valor ideal da
-   minha reserva?", "quanto guardar de emergência?", "minha reserva está boa?":
-   {"action":"reserve_advice"}
-   ⚠️ SEMPRE use esta ação. NUNCA diga que "não tem um valor ideal" — o app calcula o custo mensal
-   e aplica a regra de 6 a 12 meses, devolvendo o valor certinho.
-17) INVESTIMENTO / ATIVO no PATRIMÔNIO — ex.: "cadastra um investimento", "comprei 10 ações da PETR4 a 38",
-   "adiciona 0,5 bitcoin a 300 mil", "apliquei 5000 num CDB", "quero registrar um FII":
-   {"action":"add_asset","assetType":"<acoes|fiis|etfs|crypto|renda_fixa|imoveis ou vazio>","name":"<nome/ativo>","symbol":"<ticker se houver>","quantity":<número ou 0>,"price":<preço unitário ou 0>,"totalApplied":<valor aplicado p/ renda fixa ou 0>}
+1) Gasto avulso — ex.: "gastei 50 no mercado", "uber 23", "paguei 40 no pix":
+   {"action":"add_expense","description":"<texto>","amount":<número>,"category":"<id>","priority":"<id>","method":"<pix|debito|dinheiro|boleto se a pessoa DISSE como pagou; senão vazio>"}
+   ⚠️ Se a pessoa NÃO disser como pagou, deixe "method" vazio — o app aplica a forma de pagamento padrão que ela configurou (pode ser cartão).
+   ⚠️ "category": só preencha quando for CLARO pela descrição (padaria/mercado → food; uber/gasolina → transport; farmácia → health; netflix → subscriptions…).
+   Se NÃO der pra saber a categoria com segurança, use "other" — o app pergunta pra pessoa.
+2) Gasto no CARTÃO de crédito (só quando a pessoa CITA cartão/crédito) — ex.: "passei 200 no cartão", "comprei 80 no crédito do Nubank":
+   {"action":"add_card_expense","description":"<texto>","amount":<número>,"category":"<id>","priority":"<id>","cardName":"<nome do cartão se citado, senão vazio>"}
+3) Entrada avulsa (recebi/ganhei/entrou) — ex.: "recebi 300 de freela", "caiu 100":
+   {"action":"add_income","description":"<texto>","amount":<número>}
+   ⚠️ SALÁRIO normalmente é RECORRENTE (todo mês). Se a pessoa disse o DIA (ex.: "salário 4000 dia 5"),
+   use add_fixed_income (ação 7). Se mencionou salário SEM o dia, use add_income com description="Salário"
+   mesmo — o app vai perguntar se ela quer cadastrar como recorrente. Se o salário JÁ é recorrente e ela
+   diz "recebi meu salário", use baixa_recorrente (ação 8), não add_income.
+4) Guardar na RESERVA — ex.: "guarda 50 na reserva", "poupar 100":
+   {"action":"add_to_reserve","amount":<número>}
+5) META da reserva — ex.: "meta de 20000", "quero juntar 20 mil":
+   {"action":"set_reserve_goal","target":<número>}
+6) Nova DESPESA recorrente (conta fixa todo mês) — ex.: "cadastra aluguel 1500 dia 10", "internet 100 todo dia 5":
+   {"action":"add_fixed_expense","name":"<nome>","value":<número>,"day":<1-31>,"category":"<id>"}
+7) Nova ENTRADA recorrente (salário todo mês) — ex.: "meu salário é 4000 dia 5":
+   {"action":"add_fixed_income","name":"<nome>","value":<número>,"day":<1-31>}
+8) Dar BAIXA numa recorrente (pagar despesa fixa OU confirmar recebimento do mês) —
+   ex.: "paguei a Netflix", "dei baixa no aluguel", "recebi meu salário" (se já é recorrente):
+   {"action":"baixa_recorrente","kind":"<expense|income>","name":"<nome da conta/entrada>"}
+9) EXCLUIR/estornar um lançamento — ex.: "exclui esse pix", "apaga o último gasto",
+   "remove a compra do mercado", "cancela aquele lançamento":
+   {"action":"delete_transaction","description":"<nome do lançamento, ou vazio p/ o último>"}
+10) RELATÓRIO/resumo com valores (em TEXTO) — ex.: "me gera um relatório dos gastos por categoria",
+   "quanto gastei esse mês", "resumo do mês", "gastos por prioridade", "relatório do mês passado":
+   {"action":"report","type":"<category|priority|overview|installments>","period":"<this_month|last_month>"}
+   Use type=category p/ "por categoria", type=priority p/ "essencial/conforto/supérfluo",
+   type=overview p/ resumo geral (entradas/saídas/saldo), type=installments p/ QUALQUER pergunta
+   sobre PARCELAMENTO/PARCELAS do cartão (quanto por mês e o total ainda a pagar).
+   period=last_month só se pedir mês passado.
+11) RELATÓRIO em GRÁFICO / BARRAS / PDF / visual — ex.: "quero em pdf", "manda em gráfico",
+   "relatório de barras", "gera um gráfico dos meus gastos":
+   {"action":"report_pdf"}
+   (O app vai listar os relatórios da aba Análises pra pessoa escolher e mandar o PDF.)
+12) LISTAR recorrentes cadastradas — ex.: "liste minhas despesas recorrentes", "quais minhas
+   contas fixas", "minhas entradas recorrentes", "o que eu tenho de recorrente":
+   {"action":"list_recurring","kind":"<expense|income>"}
+   (kind=expense p/ despesas/contas fixas; kind=income p/ entradas/salário recorrente.)
+13) DÍVIDAS — ex.: "eu tenho dívidas?", "quanto eu devo?", "estou endividado?", "tenho fatura vencida?":
+   {"action":"debts_check"}
+   ⚠️ SEMPRE use esta ação para QUALQUER pergunta sobre dívida. NUNCA deduza dívida de saldo
+   negativo, de parcelamento ou de fatura em aberto — isso NÃO é dívida. Só é dívida o que está
+   cadastrado como dívida ou uma fatura de cartão VENCIDA.
+14) DETALHAR/LISTAR os lançamentos um a um — ex.: "descreve cada uma", "quais foram esses gastos",
+   "detalha os gastos de alimentação", "me lista os lançamentos de transporte", "mostra cada gasto":
+   {"action":"list_transactions","category":"<categoria citada, ou vazio p/ todos>","period":"<this_month|last_month>","type":"<expense|income>"}
+   Use quando a pessoa quer VER cada lançamento (não o total). Preencha "category" com a categoria
+   do contexto — ex.: se acabou de perguntar dos gastos de "alimentação" e disse "descreve cada uma",
+   use category "alimentação". type=income só se forem entradas.
+15) SALDO / CARTEIRA / próximo vencimento — ex.: "quanto tenho na carteira?", "qual meu saldo?",
+   "quanto tenho disponível?", "quando vence minha fatura?", "qual meu próximo compromisso?":
+   {"action":"wallet_check"}
+16) RESERVA DE EMERGÊNCIA IDEAL — ex.: "quanto deveria ter de reserva?", "qual o valor ideal da
+   minha reserva?", "quanto guardar de emergência?", "minha reserva está boa?":
+   {"action":"reserve_advice"}
+   ⚠️ SEMPRE use esta ação. NUNCA diga que "não tem um valor ideal" — o app calcula o custo mensal
+   e aplica a regra de 6 a 12 meses, devolvendo o valor certinho.
+17) INVESTIMENTO / ATIVO no PATRIMÔNIO — ex.: "cadastra um investimento", "comprei 10 ações da PETR4 a 38",
+   "adiciona 0,5 bitcoin a 300 mil", "apliquei 5000 num CDB", "quero registrar um FII":
+   {"action":"add_asset","assetType":"<acoes|fiis|etfs|crypto|renda_fixa|imoveis ou vazio>","name":"<nome/ativo>","symbol":"<ticker se houver>","quantity":<número ou 0>,"price":<preço unitário ou 0>,"totalApplied":<valor aplicado p/ renda fixa ou 0>}
    Preencha só o que a pessoa disse; deixe 0/vazio o resto — o app pergunta o que faltar (tipo, quantidade, preço…).
 
 # 8. CONFIRMAÇÃO DO RESULTADO
@@ -1335,7 +1336,7 @@ async function handleDocumentImport(db, from, uid, sessRef, docInfo, key) {
 
 // Resumo final da importação + pedido de confirmação (SIM/NÃO).
 // `meta`: { kind: 'invoice'|'statement', cardId, cardName, method }
-async function sendImportSummary(from, sessRef, uid, history, items, meta) {
+async function sendImportSummary(db, from, sessRef, uid, history, items, meta) {
   const isInvoice = meta.kind === 'invoice';
   // Numa fatura, o que veio como "income" é ESTORNO (crédito) — abate a fatura.
   const gastos = items.filter(i => i.type === 'expense');
@@ -1346,6 +1347,39 @@ async function sendImportSummary(from, sessRef, uid, history, items, meta) {
   // Numa fatura, linha com parcela vira PARCELAMENTO, não compra à vista.
   const { parcelas } = splitInstallments(items, isInvoice && !meta.noInstallments);
   const instDe = new Map(parcelas.map(({ it, inst }) => [it, inst]));
+
+  // A MESMA conferência que a gravação fará — rodada aqui para a pessoa
+  // decidir sabendo. Confirmar no escuro e descobrir depois não é
+  // confirmação, é surpresa.
+  //
+  // Falha ao ler o que existe não trava o resumo: ela só tira o aviso. A
+  // gravação confere de novo e aí sim recusa, porque é lá que o estrago
+  // aconteceria.
+  let aviso = '';
+  try {
+    const existente = await carregarJaExistente(db, uid, isInvoice ? meta.cardId : null);
+    if (existente) {
+      const plano = classificarImportacao({
+        items,
+        usaParcelas: isInvoice && !meta.noInstallments,
+        assinaturas: existente.assinaturas,
+        parcelas: existente.parcelas,
+        lancados: existente.lancados,
+      });
+      const linhas = [];
+      if (plano.assinaturaRepetida.length) {
+        const nomes = plano.assinaturaRepetida.slice(0, 3).map(({ it }) => normName(it.description)).join(', ');
+        linhas.push(`🔁 *${plano.assinaturaRepetida.length} assinatura(s)* que você já tem cadastrada(s) (${nomes}) — não vou lançar de novo, senão o mês conta em dobro.`);
+      }
+      if (plano.duplicados.length) {
+        linhas.push(`⏭️ *${plano.duplicados.length} lançamento(s)* que você já tem — vou ignorar pra não duplicar.`);
+      }
+      if (plano.parcelaAvanca.length) {
+        linhas.push(`🔁 *${plano.parcelaAvanca.length} parcelamento(s)* já cadastrado(s) — vou só avançar a parcela, sem cadastrar outro.`);
+      }
+      if (linhas.length) aviso = `\n\n${linhas.join('\n')}`;
+    }
+  } catch (e) { console.error('WA resumo dedup:', e?.message || e); }
 
   const preview = items.slice(0, 8).map(i => {
     const sinal = i.type === 'income' ? (isInvoice ? '↩︎' : '+') : '−';
@@ -1374,7 +1408,7 @@ async function sendImportSummary(from, sessRef, uid, history, items, meta) {
     extra = `\n\n_Pagou de outra forma? Responda *pix*, *débito*, *dinheiro*, *boleto* ou *cartão* que eu ajusto._`;
     if (creditos.length) extra = `\n\n💚 *${creditos.length} entrada(s)* de *R$ ${money(totalInc)}* vão entrar como recebimento.` + extra;
   }
-  await sendText(from, `*${items.length} lançamento(s)* prontos:\n\n${preview}${resto}\n\n💸 Saídas: *R$ ${money(totalExp)}*\n${onde}${extra}\n\nPosso lançar? Responda *SIM* pra confirmar ou *NÃO* pra cancelar.`);
+  await sendText(from, `*${items.length} lançamento(s)* prontos:\n\n${preview}${resto}\n\n💸 Saídas: *R$ ${money(totalExp)}*\n${onde}${extra}${aviso}\n\nPosso lançar? Responda *SIM* pra confirmar ou *NÃO* pra cancelar.`);
 }
 
 // Resolve o cartão da fatura: padrão configurado → único cadastrado → pergunta.
@@ -1393,7 +1427,7 @@ async function startInvoiceImport(db, from, sessRef, uid, history, items) {
   const waDef = await getWaDefaults(db, uid);
   const preferido = cards.find(c => c.id === waDef.cardId) || (cards.length === 1 ? cards[0] : null);
   if (preferido) {
-    await sendImportSummary(from, sessRef, uid, history, items, { kind: 'invoice', cardId: preferido.id, cardName: preferido.name, dueDay: preferido.dueDay });
+    await sendImportSummary(db, from, sessRef, uid, history, items, { kind: 'invoice', cardId: preferido.id, cardName: preferido.name, dueDay: preferido.dueDay });
     return;
   }
   await sessRef.set({ uid, history, pending: { type: 'import_card', data: { items, cards } } }, { merge: true });
@@ -1501,7 +1535,7 @@ async function doAddToReserve(db, uid, amount) {
     invested: (parseFloat(data.invested ?? data.balance) || 0) + amount,
     lastYieldAt: now,
   }, { merge: true });
-  const iso = new Date().toISOString();
+  const iso = dataLancamento();
   await db.collection('transactions').add({
     description: `Aporte reserva: ${name}`, amount, type: 'expense', category: 'vault',
     date: iso, month: iso.slice(0, 7), userId: uid, createdAt: now,
@@ -1520,34 +1554,48 @@ async function doSetReserveGoal(db, uid, target) {
 // Padroniza a descrição: 1ª letra maiúscula, resto minúsculo (igual ao app).
 const normName = (s) => { const t = String(s || '').trim().replace(/\s+/g, ' '); return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : t; };
 
-// ── Parcela na descrição da fatura ──────────────────────────────────
-// Operadora escreve de várias formas: "MLP *KABUM-PARC10/10",
-// "MERCADOLIVRE*MPARC03/04", "PARCELA 3 DE 10", ou só "KABUM 04/04".
-//
-// Devolve { current, total, name } com o nome SEM o trecho da parcela. Esse
-// nome limpo é o que liga a mesma compra entre as faturas de meses
-// diferentes — sem ele, cada importação criaria um parcelamento novo.
-const INST_PATTERNS = [
-  // Com marcador: PARC / PARCELA, aceitando uma letra colada antes (MPARC).
-  /\b[A-Z]?PARC(?:ELA)?\.?\s*(\d{1,2})\s*(?:\/|-|\s+DE\s+)\s*(\d{1,2})\b/i,
-  // Sem marcador: "03/10" no fim da descrição.
-  /(?:^|[\s*\-(])(\d{1,2})\s*\/\s*(\d{1,2})\s*\)?\s*$/,
-];
+/**
+ * O que já está cadastrado neste cartão, para a importação não repetir.
+ *
+ * Três coisas: parcelamentos em aberto, assinaturas e os lançamentos já
+ * gravados. Sem isso, a fatura do mês seguinte recadastra a mesma parcela,
+ * relança a mesma Netflix e duplica tudo se o arquivo for reenviado.
+ *
+ * Os lançamentos são limitados aos dos últimos 90 dias: é o que uma fatura
+ * pode repetir. Carregar o histórico inteiro para comparar seria caro e não
+ * acrescentaria nada — compra de um ano atrás não volta numa fatura.
+ */
+async function carregarJaExistente(db, uid, cardId) {
+  const vazio = { parcelas: [], assinaturas: [], lancados: [] };
+  try {
+    const [sSnap, tSnap] = await Promise.all([
+      db.collection('subscriptions').where('userId', '==', uid).get(),
+      db.collection('transactions').where('userId', '==', uid).get(),
+    ]);
+    const subs = sSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(x => !cardId || x.cardId === cardId);
 
-function parseInstallment(desc) {
-  const str = String(desc || '');
-  for (const re of INST_PATTERNS) {
-    const m = str.match(re);
-    if (!m) continue;
-    const current = parseInt(m[1], 10);
-    const total = parseInt(m[2], 10);
-    // Faixa plausível de parcelamento. Fora disso é mais provável ser data
-    // ou código da loja, e um falso positivo cobraria meses a mais.
-    if (!(total >= 2 && total <= 36 && current >= 1 && current <= total)) continue;
-    const name = str.replace(m[0], ' ').replace(/[\s*\-–—/|.]+$/, '').replace(/\s+/g, ' ').trim();
-    return { current, total, name: name || str.trim() };
+    const corte = Date.now() - 90 * 86400000;
+    const lancados = tSnap.docs.map(d => d.data())
+      .filter(t => {
+        if (cardId && t.selectedCardId && t.selectedCardId !== cardId) return false;
+        const q = Date.parse(t.date || '') || Number(t.createdAt) || 0;
+        return q >= corte;
+      })
+      .map(t => ({ description: t.description, amount: t.amount, date: t.date }));
+
+    return {
+      parcelas: subs.filter(x => x.type === 'installment' || x.isInstallment),
+      assinaturas: subs.filter(x => !(x.type === 'installment' || x.isInstallment)),
+      lancados,
+    };
+  } catch (e) {
+    // Sem conseguir ler o que existe, NÃO dá para garantir que não duplica.
+    // Devolver vazio faria a importação seguir às cegas e lançar tudo de
+    // novo — exatamente o erro que isto existe para impedir.
+    console.error('WA carregarJaExistente:', e?.message || e);
+    return null;
   }
-  return null;
 }
 
 // Separa o que é parcela do que é compra à vista, numa fatura.
@@ -1566,7 +1614,7 @@ const mkNow = () => mesLocal();
 async function doAddIncome(db, uid, { description, amount }) {
   const v = Math.abs(parseFloat(amount) || 0);
   if (v <= 0) return { ok: false };
-  const iso = new Date().toISOString();
+  const iso = dataLancamento();
   await db.collection('transactions').add({
     description: normName(description || 'Entrada'), amount: v, type: 'income',
     category: 'other', date: iso, month: iso.slice(0, 7),
@@ -1679,8 +1727,8 @@ const normAssetType = (t) => {
 async function createAsset(db, uid, data) {
   const type = data.type;
   const isRF = type === 'renda_fixa';
-  const nowIso = new Date().toISOString();
-  const dateStr = nowIso.split('T')[0];
+  const nowIso = dataLancamento();
+  const dateStr = diaLocal();
   const aporteId = `ap_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   let doc, total;
   if (isRF) {
@@ -2523,7 +2571,7 @@ export default async function handler(req, res) {
         const waDef = await getWaDefaults(db, uid);
         // Extrato de conta: se o padrão é cartão, cai no PIX (extrato é movimento da conta).
         const method = waDef.method === 'credito' ? 'pix' : waDef.method;
-        await sendImportSummary(from, sessRef, uid, history, items, { kind: 'statement', method });
+        await sendImportSummary(db, from, sessRef, uid, history, items, { kind: 'statement', method });
         return res.status(200).json({ ok: true });
       }
       await sendChoice(from, 'Esse arquivo é uma *fatura de cartão* ou um *extrato bancário*? 👇',
@@ -2549,7 +2597,7 @@ export default async function handler(req, res) {
         await sendPickList(from, 'Toque no *cartão* dessa fatura 👇 (ou "cancelar")', cards.map(c => ({ id: `impcard_${c.id}`, title: c.name })));
         return res.status(200).json({ ok: true });
       }
-      await sendImportSummary(from, sessRef, uid, history, items, { kind: 'invoice', cardId: card.id, cardName: card.name, dueDay: card.dueDay });
+      await sendImportSummary(db, from, sessRef, uid, history, items, { kind: 'invoice', cardId: card.id, cardName: card.name, dueDay: card.dueDay });
       return res.status(200).json({ ok: true });
     }
 
@@ -2559,7 +2607,7 @@ export default async function handler(req, res) {
       const meta = sess.pending.data?.meta || { kind: 'statement', method: 'pix' };
       // "à vista": desliga a leitura de parcelas e refaz o resumo.
       if (!yes(text) && !no(text) && /\b(a|à)\s*vista\b|avista|sem\s+parcel/i.test(text || '')) {
-        await sendImportSummary(from, sessRef, uid, history, items, { ...meta, noInstallments: true });
+        await sendImportSummary(db, from, sessRef, uid, history, items, { ...meta, noInstallments: true });
         return res.status(200).json({ ok: true });
       }
       // A pessoa pode corrigir a forma de pagamento antes de confirmar.
@@ -2568,7 +2616,7 @@ export default async function handler(req, res) {
         if (novaForma === 'credito') {
           await startInvoiceImport(db, from, sessRef, uid, history, items);
         } else {
-          await sendImportSummary(from, sessRef, uid, history, items, { kind: 'statement', method: novaForma });
+          await sendImportSummary(db, from, sessRef, uid, history, items, { kind: 'statement', method: novaForma });
         }
         return res.status(200).json({ ok: true });
       }
@@ -2579,75 +2627,60 @@ export default async function handler(req, res) {
           const batch = db.batch();
           const nowMs = Date.now();
 
-          // Parcelamentos já cadastrados neste cartão: a fatura do mês
-          // seguinte traz a MESMA compra com a parcela adiantada, então
-          // atualizamos em vez de criar outra.
+          // O que já existe neste cartão: parcelamentos, assinaturas e os
+          // lançamentos dos últimos 90 dias. Sem isso a fatura do mês
+          // seguinte recadastra a mesma parcela, relança a mesma Netflix e
+          // duplica tudo se o arquivo for reenviado.
           const usaParcelas = isInvoice && !meta.noInstallments;
-          const jaTem = new Map();          // chave → candidatos
-          if (usaParcelas) {
-            const sSnap = await db.collection('subscriptions').where('userId', '==', uid).get();
-            sSnap.docs
-              .map(d => ({ id: d.id, ...d.data() }))
-              .filter(x => x.cardId === meta.cardId && (x.type === 'installment' || x.isInstallment))
-              .forEach(x => {
-                const k = `${normName(x.name).toLowerCase()}|${x.totalInstallments}`;
-                if (!jaTem.has(k)) jaTem.set(k, []);
-                jaTem.get(k).push(x);
-              });
+          const existente = await carregarJaExistente(db, uid, isInvoice ? meta.cardId : null);
+          if (!existente) {
+            // Sem conseguir ler o que existe, lançar seria lançar às cegas.
+            await sendText(from, 'Não consegui conferir o que você já tem cadastrado agora, e sem isso eu poderia lançar tudo em duplicidade. 🙏\n\nTente enviar o arquivo de novo em instantes.');
+            return res.status(200).json({ ok: true });
           }
 
-          // Mesma loja e mesmo número de parcelas podem ser duas compras
-          // diferentes — o valor da parcela é o que separa. Tolera 2% porque
-          // a última parcela às vezes fecha com centavos de diferença.
-          const casaCom = (lista, valor) => {
-            let melhor = null, menor = Infinity;
-            for (const c of lista || []) {
-              const v = Math.abs(parseFloat(c.value) || 0);
-              const dif = Math.abs(v - valor) / (valor || 1);
-              if (dif <= 0.02 && dif < menor) { menor = dif; melhor = c; }
-            }
-            return melhor;
-          };
+          const plano = classificarImportacao({
+            items, usaParcelas,
+            assinaturas: existente.assinaturas,
+            parcelas: existente.parcelas,
+            lancados: existente.lancados,
+          });
+          const ignorados = totalIgnorado(plano);
 
-          for (const it of items) {
-            const inst = usaParcelas && it.type === 'expense' ? parseInstallment(it.description) : null;
-            if (inst) {
-              const nome = normName(inst.name);
-              const valor = Math.abs(it.amount);
-              const chave = `${nome.toLowerCase()}|${inst.total}`;
-              const atual = casaCom(jaTem.get(chave), valor);
-              if (atual) {
-                // Só avança: reimportar a mesma fatura não anda com a parcela.
-                if ((atual.currentInstallment || 1) < inst.current) {
-                  batch.update(db.collection('subscriptions').doc(atual.id), { currentInstallment: inst.current });
-                  atual.currentInstallment = inst.current;
-                  instAvancados++;
-                }
-              } else {
-                const sRef = db.collection('subscriptions').doc();
-                batch.set(sRef, {
-                  name: nome,
-                  value: valor,                        // a fatura traz o valor DA parcela
-                  day: meta.dueDay || 1,
-                  cardId: meta.cardId,
-                  category: it.category,
-                  priority: 'comfort',
-                  isInstallment: true,
-                  type: 'installment',
-                  totalInstallments: inst.total,
-                  currentInstallment: inst.current,
-                  installmentMode: 'per',
-                  userId: uid,
-                  createdAt: nowMs,
-                  source: 'whatsapp_import',
-                });
-                if (!jaTem.has(chave)) jaTem.set(chave, []);
-                jaTem.get(chave).push({ id: sRef.id, name: nome, value: valor, totalInstallments: inst.total, currentInstallment: inst.current });
-                instNovos++;
-              }
-              continue;
-            }
-            const iso = it.date ? new Date(it.date + 'T12:00:00').toISOString() : new Date().toISOString();
+          // Parcelamento novo: vira um cadastro em subscriptions, para
+          // seguir aparecendo nas próximas faturas sem ser relançado.
+          for (const { it, inst } of plano.parcelaNova) {
+            const sRef = db.collection('subscriptions').doc();
+            batch.set(sRef, {
+              name: normName(inst.name),
+              value: Math.abs(it.amount),            // a fatura traz o valor DA parcela
+              day: meta.dueDay || 1,
+              cardId: meta.cardId,
+              category: it.category,
+              priority: 'comfort',
+              isInstallment: true,
+              type: 'installment',
+              totalInstallments: inst.total,
+              currentInstallment: inst.current,
+              installmentMode: 'per',
+              userId: uid,
+              createdAt: nowMs,
+              source: 'whatsapp_import',
+            });
+            instNovos++;
+          }
+
+          // Parcelamento que já existe: só avança a altura. Reimportar a
+          // MESMA fatura não anda com a parcela — isso faria a dívida
+          // encolher sem ninguém ter pago.
+          for (const { inst, atual } of plano.parcelaAvanca) {
+            if (!atual.id) continue;               // criado agora nesta rodada
+            batch.update(db.collection('subscriptions').doc(atual.id), { currentInstallment: inst.current });
+            instAvancados++;
+          }
+
+          for (const it of plano.novos) {
+            const iso = it.date ? new Date(it.date + 'T12:00:00').toISOString() : dataLancamento();
             const ref = db.collection('transactions').doc();
             // Numa FATURA, crédito é estorno: entra como despesa NEGATIVA, abatendo a fatura
             // (não vira receita, que inflaria os "ganhos" do mês).
@@ -2675,7 +2708,15 @@ export default async function handler(req, res) {
           const notaEstorno = estornos ? `\n↩︎ ${estornos} estorno(s) abatido(s) da fatura.` : '';
           const notaParc = instNovos ? `\n🔁 ${instNovos} parcelamento(s) cadastrado(s).` : '';
           const notaAvanco = instAvancados ? `\n🔁 ${instAvancados} parcelamento(s) avançado(s) para a parcela desta fatura.` : '';
-          await sendText(from, `Pronto! ✅ Lancei *${ok}* lançamento(s) ${onde}.${notaParc}${notaAvanco}${notaEstorno}\n\nJá estão no app.`);
+          // Dizer o que NÃO entrou importa tanto quanto dizer o que entrou:
+          // sem isso a pessoa vê 8 linhas na fatura, 5 no app, e conclui que
+          // o app perdeu lançamentos.
+          const assinRep = plano.assinaturaRepetida.length;
+          const repetidos = plano.duplicados.length;
+          let notaPulados = '';
+          if (assinRep) notaPulados += `\n🔁 ${assinRep} assinatura(s) já cadastrada(s) — não lancei de novo pra não contar em dobro.`;
+          if (repetidos) notaPulados += `\n⏭️ ${repetidos} lançamento(s) que você já tinha — ignorei pra não duplicar.`;
+          await sendText(from, `Pronto! ✅ Lancei *${ok}* lançamento(s) ${onde}.${notaParc}${notaAvanco}${notaEstorno}${notaPulados}\n\nJá estão no app.`);
         } catch (e) { console.error('WA import commit:', e); await sendText(from, 'Deu um erro ao lançar em lote. Tenta enviar o arquivo de novo. 🙏'); }
         return res.status(200).json({ ok: true });
       }
