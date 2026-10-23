@@ -294,7 +294,7 @@ export default function Dashboard({ onNavigate }) {
                             </span>
                         } />
                     <div className="min-w-0">
-                        <h1 className={`text-xl sm:text-2xl font-black tracking-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('dash.hello', { name: nome })} 👋</h1>
+                        <h1 className={`text-[19px] sm:text-2xl font-black tracking-tight leading-tight line-clamp-2 sm:truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('dash.hello', { name: nome })} 👋</h1>
                         {/* Subtítulo: análise rápida da Alívia sobre tetos (quando houver) ou a frase padrão */}
                         <div className={`text-[13px] sm:text-sm mt-0.5 ${muted}`}>
                             <CeilingAlerts transactions={tx} mk={mk} isDark={isDark} fallback={t('dash.subtitle')} />
@@ -302,19 +302,15 @@ export default function Dashboard({ onNavigate }) {
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                    {/* Período dos indicadores. Um controle só, no cabeçalho: dois
-                        filtros competindo (um aqui, outro dentro do gráfico) fazem a
-                        pessoa perguntar qual manda em quê. */}
-                    <div className={`hidden sm:flex items-center gap-0.5 p-0.5 rounded-xl border ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'}`}>
-                        {[['mes', t('dash.perMonth')], ['3m', t('dash.per3m')], ['6m', t('dash.per6m')]].map(([id, rot]) => (
-                            <button key={id} onClick={() => setPeriodo(id)}
-                                className={`px-3 py-1.5 rounded-lg text-[12px] font-bold whitespace-nowrap transition ${periodo === id
-                                    ? 'bg-emerald-500 text-white'
-                                    : `${muted} ${isDark ? 'hover:text-white' : 'hover:text-slate-700'}`}`}>
-                                {rot}
-                            </button>
-                        ))}
-                    </div>
+                    {/* Período dos indicadores. Um controle só: dois filtros
+                        competindo (um aqui, outro dentro do gráfico) fazem a pessoa
+                        perguntar qual manda em quê.
+
+                        No desktop fica no cabeçalho; no celular desce para uma
+                        fileira própria logo abaixo — espremido aqui ele não cabe,
+                        e escondê-lo tirava do celular um controle que o desktop
+                        tem, o que é um recurso pela metade. */}
+                    <div className="hidden sm:block"><FiltroPeriodo periodo={periodo} setPeriodo={setPeriodo} isDark={isDark} muted={muted} t={t} /></div>
                     {/* O atalho do WhatsApp subiu para a barra superior: aparece em
                         todas as abas, não só aqui. No mobile, onde a barra não existe,
                         ele continua neste cabeçalho. */}
@@ -325,6 +321,12 @@ export default function Dashboard({ onNavigate }) {
                         <Settings className="w-4 h-4" /> {t('dash.configure')}
                     </button>
                 </div>
+            </div>
+
+            {/* No celular o filtro ganha a largura inteira, logo abaixo do
+                cabeçalho — é onde cabe sem apertar nada. */}
+            <div className="sm:hidden mb-3">
+                <FiltroPeriodo periodo={periodo} setPeriodo={setPeriodo} isDark={isDark} muted={muted} t={t} largura />
             </div>
 
             {/* KPIs. Cinco numa fileira: os três do período (ganhos, gastos,
@@ -349,7 +351,7 @@ export default function Dashboard({ onNavigate }) {
                         : t('dash.noInvoice')}
                     action={<button onClick={() => goTo('cartoes')} title={t('dash.seeCards')} className={`p-1 rounded-lg transition ${muted} ${isDark ? 'hover:bg-white/5 hover:text-slate-300' : 'hover:bg-slate-100 hover:text-slate-600'}`}><ChevronRight className="w-4 h-4" /></button>} />
 
-                <Kpi isDark={isDark} icon={Landmark} label={t('dash.patrimony')} tone="violet"
+                <Kpi isDark={isDark} icon={Landmark} label={t('dash.patrimony')} tone="violet" className="col-span-2 sm:col-span-1"
                     value={<AnimatedNumber value={patCur === 'USD' ? patrimonioLiquido / (usdRate || 5.4) : patrimonioLiquido} format={(v) => `${patCur === 'USD' ? 'US$' : 'R$'} ${money(v)}`} />}
                     sub={t('dash.patrimonySub')}
                     action={
@@ -413,7 +415,7 @@ export default function Dashboard({ onNavigate }) {
                                 const meta = catMeta(r.category);
                                 const entrada = r.type === 'income';
                                 return (
-                                    <li key={r.id} className={`flex items-center gap-3 py-2.5 ${i ? `border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}` : ''}`}>
+                                    <li key={r.id} className={`flex items-center gap-3 py-2 sm:py-[7px] ${i ? `border-t ${isDark ? 'border-white/[0.06]' : 'border-slate-100'}` : ''}`}>
                                         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: categoryHex(meta) }} />
                                         <span className="min-w-0 flex-1">
                                             <span className={`block text-[13px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{r.description || meta.label}</span>
@@ -425,7 +427,7 @@ export default function Dashboard({ onNavigate }) {
                                     </li>
                                 );
                             })}
-                            <li className="mt-auto pt-3">
+                            <li className="mt-auto pt-2.5">
                                 <button onClick={() => goTo('extrato')} className="flex items-center gap-0.5 text-[12px] font-bold text-emerald-500 hover:text-emerald-400 transition">
                                     {t('dash.seeStatement')} <ChevronRight className="w-3.5 h-3.5" />
                                 </button>
@@ -454,14 +456,14 @@ export default function Dashboard({ onNavigate }) {
                         <ScoreRing score={score} color={scoreInfo.color} isDark={isDark} />
                     </div>
 
-                    <div className={`grid ${cfg.considerarSuperfluo ? 'grid-cols-3' : 'grid-cols-2'} border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                    <div className={`grid grid-cols-1 ${cfg.considerarSuperfluo ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                         <Pilar isDark={isDark} border label={t('health.debts')} value={temDivida ? `R$ ${money(dividaMensal)}${t('common.perMonthShort')}` : t('health.noDebts')} meta={t('health.metaDebts')} pct={dividaPct} ok={!temDivida} />
                         <Pilar isDark={isDark} border={cfg.considerarSuperfluo} label={t('dash.emergency')} value={`R$ ${money(reservaTotal)}`} meta={t('health.metaMonths', { n: mesesCobertura.toFixed(1), meta: metaMeses })} pct={reservaPct} ok={mesesCobertura >= metaMeses} />
                         {cfg.considerarSuperfluo && <Pilar isDark={isDark} label={t('health.superSpend')} value={t('health.superPct', { pct: superfluoPct.toFixed(0) })} meta={t('health.metaSuper')} pct={clamp(100 - superfluoPct * 2, 0, 100)} ok={superfluoPct <= 20} />}
                     </div>
 
                     <div className={`mt-auto flex items-center justify-between gap-3 px-4 py-2.5 border-t text-[12px] flex-wrap ${isDark ? 'border-white/10 text-slate-500' : 'border-slate-200 text-slate-400'}`}>
-                        <span className="truncate">{t('health.updatedAt', { time: agora, value: money(ganhos) })}</span>
+                        <span className="min-w-0 sm:truncate">{t('health.updatedAt', { time: agora, value: money(ganhos) })}</span>
                         <button onClick={() => goTo('analises')} className="flex items-center gap-0.5 font-bold text-emerald-500 hover:text-emerald-400 transition shrink-0">
                             {t('health.seeFull')} <ChevronRight className="w-3.5 h-3.5" />
                         </button>
@@ -592,6 +594,25 @@ function EvolucaoChart({ dados, isDark, money, t }) {
     );
 }
 
+// Filtro de período. Mesmo componente nos dois lugares: no cabeçalho do
+// desktop e numa fileira própria no celular, onde `largura` faz os três
+// botões dividirem a tela em vez de ficarem espremidos num canto.
+function FiltroPeriodo({ periodo, setPeriodo, isDark, muted, t, largura = false }) {
+    const opcoes = [['mes', t('dash.perMonth')], ['3m', t('dash.per3m')], ['6m', t('dash.per6m')]];
+    return (
+        <div className={`${largura ? 'flex w-full' : 'flex'} items-center gap-0.5 p-0.5 rounded-xl border ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'}`}>
+            {opcoes.map(([id, rot]) => (
+                <button key={id} onClick={() => setPeriodo(id)}
+                    className={`${largura ? 'flex-1' : ''} px-3 py-1.5 rounded-lg text-[12px] font-bold whitespace-nowrap transition ${periodo === id
+                        ? 'bg-emerald-500 text-white'
+                        : `${muted} ${isDark ? 'hover:text-white' : 'hover:text-slate-700'}`}`}>
+                    {rot}
+                </button>
+            ))}
+        </div>
+    );
+}
+
 function Kpi({ isDark, icon: Icon, label, value, sub, tone, action, className = '' }) {
     const TONS = {
         emerald: { text: 'text-emerald-500', bg: 'bg-emerald-500/12 text-emerald-500', line: 'from-emerald-500' },
@@ -609,7 +630,9 @@ function Kpi({ isDark, icon: Icon, label, value, sub, tone, action, className = 
             <div className="flex items-center justify-between gap-1">
                 <span className="flex items-center gap-2 min-w-0">
                     <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${map.bg}`}><Icon className="w-4 h-4" /></span>
-                    <span className={`text-[12px] font-bold truncate ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{label}</span>
+                    {/* Duas linhas em vez de "Fatura do …". Como os cards da
+                        fileira esticam juntos, a altura continua igual. */}
+                    <span className={`text-[12px] font-bold leading-tight line-clamp-2 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{label}</span>
                 </span>
                 {action}
             </div>
@@ -631,14 +654,14 @@ function Action({ isDark, onClick, children }) {
 function Pilar({ isDark, label, value, meta, pct, ok, border }) {
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
     return (
-        <div className={`p-4 ${border ? (isDark ? 'sm:border-r border-white/10' : 'sm:border-r border-slate-100') : ''}`}>
+        <div className={`p-4 sm:p-3 ${border ? `border-b sm:border-b-0 sm:border-r ${isDark ? 'border-white/10' : 'border-slate-100'}` : ''}`}>
             <div className="flex items-center justify-between">
                 <p className={`text-[10px] font-black uppercase tracking-widest ${muted}`}>{label}</p>
                 <span className={`w-2 h-2 rounded-full ${ok ? 'bg-emerald-500' : 'bg-rose-500'}`} />
             </div>
             <p className={`text-lg font-black tabular-nums mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{value}</p>
             <p className={`text-[11px] ${muted}`}>{meta}</p>
-            <div className={`mt-2 h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
+            <div className={`mt-2 sm:mt-1.5 h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-slate-100'}`}>
                 <div className={`h-full rounded-full ${ok ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ width: `${pct}%` }} />
             </div>
         </div>
