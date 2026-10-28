@@ -770,6 +770,8 @@ export default {
     'mkt.noLists': 'No lists yet',
     'mkt.noListsDesc': 'Create one from scratch or pull it from a purchase you already logged.',
     'mkt.checkOff': 'Check off',
+    'mkt.searchPlaceholder': 'Search an item in the list...',
+    'mkt.noMatch': 'No item with that name',
     'mkt.itemsWord': 'item|items',
     'mkt.missingTitle': 'To get',
     'mkt.nothingMissing': 'Nothing missing 🎉',

@@ -6,7 +6,7 @@ import { UNITS } from '../../utils/market';
 import { toast } from '../ui/Toaster';
 import {
     Plus, Check, Trash2, ShoppingCart, X, Eraser, ArrowLeft, Pencil,
-    PartyPopper, ListChecks, RotateCcw, CornerUpLeft,
+    PartyPopper, ListChecks, RotateCcw, CornerUpLeft, Search,
 } from 'lucide-react';
 
 // ── Uma lista aberta ────────────────────────────────────────────────
@@ -24,9 +24,18 @@ import {
 // Uma coluna porque aqui o que importa é a lista inteira, não o que já
 // foi pego.
 
+// Comparar o que foi digitado com o nome do item sem tropecar em acento
+// nem maiuscula: quem procura no corredor digita "feijao", nao "Feijao".
+const semAcento = (v) => String(v || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
 export default function ListaDetalhe({ isDark, uid, lista, items, modo, onVoltar, onEditar, onBater }) {
     const { t } = useI18n();
     const [renomeando, setRenomeando] = useState(false);
+    // A busca mora aqui, e nao dentro de cada modo, para sobreviver a troca
+    // de conferir para editar: quem achou o item e quer corrigi-lo nao
+    // deveria ter de digitar o nome de novo do outro lado.
+    const [busca, setBusca] = useState('');
     const editando = modo === 'editar';
 
     const muted = isDark ? 'text-slate-500' : 'text-slate-400';
@@ -34,8 +43,22 @@ export default function ListaDetalhe({ isDark, uid, lista, items, modo, onVoltar
     const line = isDark ? 'border-white/[0.07]' : 'border-slate-200';
     const card = `rounded-2xl border ${line} ${isDark ? 'bg-white/[0.02]' : 'bg-white'}`;
 
+    // As listas CHEIAS: progresso, "lista batida" e as acoes em lote
+    // continuam falando da lista toda, nao do que a busca deixou na tela.
     const faltando = useMemo(() => items.filter(i => !i.done), [items]);
     const noCarrinho = useMemo(() => items.filter(i => i.done), [items]);
+
+    // E as listas VISIVEIS. Cada palavra digitada tem de aparecer no nome,
+    // em qualquer ordem: "arroz int" acha "Arroz integral".
+    const termos = useMemo(
+        () => semAcento(busca).split(/\s+/).filter(Boolean), [busca]);
+    const filtrando = termos.length > 0;
+    const visiveis = useMemo(() => (!termos.length ? items : items.filter(i => {
+        const n = semAcento(i.name);
+        return termos.every(x => n.includes(x));
+    })), [items, termos]);
+    const visFaltando = useMemo(() => visiveis.filter(i => !i.done), [visiveis]);
+    const visCarrinho = useMemo(() => visiveis.filter(i => i.done), [visiveis]);
     const pct = items.length ? (noCarrinho.length / items.length) * 100 : 0;
     const completa = items.length > 0 && faltando.length === 0;
 
@@ -112,19 +135,59 @@ export default function ListaDetalhe({ isDark, uid, lista, items, modo, onVoltar
                         <div className="h-full rounded-full bg-emerald-500 transition-all duration-300" style={{ width: `${pct}%` }} />
                     </div>
                 )}
+
+                {/* Procurar vale nos dois modos, e por motivos diferentes: de pe
+                    no corredor, achar o item sem rolar 40 linhas; sentado,
+                    chegar na linha que se quer corrigir. */}
+                {items.length > 0 && (
+                    <CampoBusca isDark={isDark} muted={muted} t={t}
+                        busca={busca} setBusca={setBusca}
+                        achados={visiveis.length} total={items.length} />
+                )}
             </header>
 
             {editando
-                ? <ModoEditar isDark={isDark} uid={uid} lista={lista} items={items} t={t}
+                ? <ModoEditar isDark={isDark} uid={uid} lista={lista} items={visiveis} t={t}
                     card={card} line={line} muted={muted} ink={ink}
+                    temCarrinho={noCarrinho.length > 0} filtrando={filtrando}
                     onRemover={remover} onAlternar={alternar}
                     onDesmarcar={desmarcarTudo} onLimpar={limparMarcados} />
                 : <ModoConferir isDark={isDark} uid={uid} lista={lista} t={t}
                     card={card} line={line} muted={muted} ink={ink}
-                    faltando={faltando} noCarrinho={noCarrinho} completa={completa}
+                    faltando={visFaltando} noCarrinho={visCarrinho} completa={completa}
+                    totalFaltando={faltando.length} totalCarrinho={noCarrinho.length}
+                    filtrando={filtrando}
                     onAlternar={alternar} onDesmarcar={desmarcarTudo} />}
 
             {renomeando && <RenomearSheet isDark={isDark} lista={lista} onClose={() => setRenomeando(false)} />}
+        </div>
+    );
+}
+
+// ── O campo de busca ─────────────────────────────────────────────
+// Com filtro ativo ele mostra "3/27" dentro do proprio campo: sem isso uma
+// tela com tres linhas fica indistinguivel de uma lista de tres itens.
+function CampoBusca({ isDark, muted, t, busca, setBusca, achados, total }) {
+    const ativo = busca.trim().length > 0;
+    return (
+        <div className="relative mt-3">
+            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${muted}`} strokeWidth={2.4} />
+            <input value={busca} onChange={(e) => setBusca(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Escape') setBusca(''); }}
+                placeholder={t('mkt.searchPlaceholder')} aria-label={t('mkt.searchPlaceholder')}
+                enterKeyHint="search" autoComplete="off"
+                className={`w-full pl-9 ${ativo ? 'pr-[88px]' : 'pr-3'} py-2.5 rounded-xl border text-[13.5px] outline-none transition focus:border-emerald-500 ${isDark ? 'bg-white/5 border-white/10 text-white placeholder:text-slate-600' : 'bg-white border-slate-200 text-slate-800 placeholder:text-slate-400'}`} />
+            {ativo && (
+                <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                    <span className={`text-[11.5px] font-black tabular-nums ${achados ? muted : 'text-rose-500'}`}>
+                        {achados}/{total}
+                    </span>
+                    <button type="button" onClick={() => setBusca('')} aria-label={t('common.clear')}
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center transition ${muted} ${isDark ? 'hover:text-white hover:bg-white/[0.07]' : 'hover:text-slate-800 hover:bg-slate-100'}`}>
+                        <X className="w-4 h-4" strokeWidth={2.6} />
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
@@ -135,7 +198,7 @@ export default function ListaDetalhe({ isDark, uid, lista, items, modo, onVoltar
 // tinha pego, a pessoa rolava a tela no meio do corredor, com o celular
 // numa mão só. Lado a lado, um toque move o item de uma coluna para a
 // outra e a conferência acontece sem rolagem.
-function ModoConferir({ isDark, uid, lista, t, card, line, muted, ink, faltando, noCarrinho, completa, onAlternar, onDesmarcar }) {
+function ModoConferir({ isDark, uid, lista, t, card, line, muted, ink, faltando, noCarrinho, completa, totalFaltando, totalCarrinho, filtrando, onAlternar, onDesmarcar }) {
     const [addOpen, setAddOpen] = useState(false);
 
     return (
@@ -161,11 +224,13 @@ function ModoConferir({ isDark, uid, lista, t, card, line, muted, ink, faltando,
             <div className="grid grid-cols-2 gap-2.5 sm:gap-3 items-start">
                 <Coluna isDark={isDark} card={card} line={line} muted={muted} ink={ink}
                     titulo={t('mkt.missingTitle')} cor="text-emerald-500" icone={ListChecks}
-                    itens={faltando} vazio={t('mkt.nothingMissing')}
+                    itens={faltando} total={totalFaltando} filtrando={filtrando}
+                    vazio={filtrando ? t('mkt.noMatch') : t('mkt.nothingMissing')}
                     onToque={onAlternar} ladoDireito={false} t={t} />
                 <Coluna isDark={isDark} card={card} line={line} muted={muted} ink={ink}
                     titulo={t('mkt.inCart')} cor={muted} icone={ShoppingCart}
-                    itens={noCarrinho} vazio={t('mkt.cartEmpty')}
+                    itens={noCarrinho} total={totalCarrinho} filtrando={filtrando}
+                    vazio={filtrando ? t('mkt.noMatch') : t('mkt.cartEmpty')}
                     onToque={onAlternar} ladoDireito t={t} />
             </div>
 
@@ -183,14 +248,14 @@ function ModoConferir({ isDark, uid, lista, t, card, line, muted, ink, faltando,
 
 // Uma das duas colunas. A da direita mostra a seta de "devolver" em vez do
 // quadrado de marcar: o gesto é o inverso, e o ícone tem de dizer isso.
-function Coluna({ isDark, card, line, muted, ink, titulo, cor, icone: Icone, itens, vazio, onToque, ladoDireito, t }) {
+function Coluna({ isDark, card, line, muted, ink, titulo, cor, icone: Icone, itens, total, filtrando, vazio, onToque, ladoDireito, t }) {
     return (
         <section className={`${card} overflow-hidden`}>
             <header className={`flex items-center gap-1.5 px-3 py-2.5 border-b ${line}`}>
                 <Icone className={`w-3.5 h-3.5 shrink-0 ${cor}`} strokeWidth={2.4} />
                 <h2 className={`text-[11px] font-black uppercase tracking-wider truncate ${ink}`}>{titulo}</h2>
                 <span className={`ml-auto text-[11px] font-black px-1.5 py-0.5 rounded-full shrink-0 ${isDark ? 'bg-white/[0.08] text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
-                    {itens.length}
+                    {filtrando && itens.length !== total ? `${itens.length}/${total}` : itens.length}
                 </span>
             </header>
 
@@ -228,14 +293,15 @@ function Coluna({ isDark, card, line, muted, ink, titulo, cor, icone: Icone, ite
 // nome, quantidade nem unidade de nada. Agora dá, direto na linha: o campo
 // grava ao sair dele, que é o mesmo comportamento do resto do app (marcar
 // um item também grava na hora, sem botão de salvar).
-function ModoEditar({ isDark, uid, lista, items, t, card, line, muted, ink, onRemover, onAlternar, onDesmarcar, onLimpar }) {
-    const noCarrinho = items.filter(i => i.done).length;
+function ModoEditar({ isDark, uid, lista, items, t, card, line, muted, ink, temCarrinho, filtrando, onRemover, onAlternar, onDesmarcar, onLimpar }) {
 
     return (
         <>
             <section className={`${card} overflow-hidden`}>
                 {items.length === 0 ? (
-                    <p className={`text-[13px] px-4 py-10 text-center ${muted}`}>{t('mkt.emptyListDesc')}</p>
+                    <p className={`text-[13px] px-4 py-10 text-center ${muted}`}>
+                        {filtrando ? t('mkt.noMatch') : t('mkt.emptyListDesc')}
+                    </p>
                 ) : (
                     <ul>
                         {items.map((i, idx) => (
@@ -247,11 +313,15 @@ function ModoEditar({ isDark, uid, lista, items, t, card, line, muted, ink, onRe
                 {/* A linha de acrescentar vive DENTRO da lista, no fim, e
                     continua aberta depois de salvar: montar lista é uma
                     sequência, não um item só. */}
-                <NovaLinha isDark={isDark} uid={uid} listId={lista.id} line={line}
-                    muted={muted} ink={ink} temItens={items.length > 0} t={t} />
+                {/* Com filtro ativo a linha de acrescentar sai: o item recem
+                    salvo sumiria na hora, escondido pela propria busca. */}
+                {!filtrando && (
+                    <NovaLinha isDark={isDark} uid={uid} listId={lista.id} line={line}
+                        muted={muted} ink={ink} temItens={items.length > 0} t={t} />
+                )}
             </section>
 
-            {noCarrinho > 0 && (
+            {temCarrinho && (
                 <div className="flex items-center gap-2 mt-3 flex-wrap">
                     <button onClick={onDesmarcar}
                         className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-[12.5px] font-bold transition active:scale-95 ${line} ${muted} ${isDark ? 'hover:text-white' : 'hover:text-slate-800'}`}>
